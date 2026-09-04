@@ -2,6 +2,12 @@
 
 #![forbid(unsafe_code)]
 
+mod config;
+mod error;
+
+pub use config::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
+pub use error::EngineConfigError;
+
 /// Returns the role of the model layer consumed by simulation.
 #[must_use]
 pub const fn model_foundation() -> &'static str {
