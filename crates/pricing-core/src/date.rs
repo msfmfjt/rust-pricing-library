@@ -171,7 +171,7 @@ fn parse_digits(bytes: &[u8]) -> u32 {
 
 #[must_use]
 pub const fn is_leap_year(year: u16) -> bool {
-    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
 }
 
 #[must_use]
