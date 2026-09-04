@@ -215,32 +215,31 @@ fn normal_cdf(value: f64) -> f64 {
     let tail = if magnitude > 37.0 {
         0.0
     } else if magnitude < 7.071_067_811_865_475 {
-        let numerator = ((((((0.035_262_496_599_891_1 * magnitude
-            + 0.700_383_064_443_688)
-            * magnitude
-            + 6.373_962_203_531_65)
-            * magnitude
-            + 33.912_866_078_383)
-            * magnitude
-            + 112.079_291_497_871)
-            * magnitude
-            + 221.213_596_169_931)
-            * magnitude
-            + 220.206_867_912_376;
-        let denominator = (((((((0.088_388_347_648_318_4 * magnitude
-            + 1.755_667_163_182_64)
-            * magnitude
-            + 16.064_177_579_207)
-            * magnitude
-            + 86.780_732_202_946_1)
-            * magnitude
-            + 296.564_248_779_674)
-            * magnitude
-            + 637.333_633_378_831)
-            * magnitude
-            + 793.826_512_519_948)
-            * magnitude
-            + 440.413_735_824_752;
+        let numerator = horner(
+            magnitude,
+            &[
+                0.035_262_496_599_891_1,
+                0.700_383_064_443_688,
+                6.373_962_203_531_65,
+                33.912_866_078_383,
+                112.079_291_497_871,
+                221.213_596_169_931,
+                220.206_867_912_376,
+            ],
+        );
+        let denominator = horner(
+            magnitude,
+            &[
+                0.088_388_347_648_318_4,
+                1.755_667_163_182_64,
+                16.064_177_579_207,
+                86.780_732_202_946_1,
+                296.564_248_779_674,
+                637.333_633_378_831,
+                793.826_512_519_948,
+                440.413_735_824_752,
+            ],
+        );
         (-0.5 * magnitude * magnitude).exp() * numerator / denominator
     } else {
         let continued_fraction = magnitude
@@ -252,6 +251,14 @@ fn normal_cdf(value: f64) -> f64 {
         (-0.5 * magnitude * magnitude).exp() / (continued_fraction * SQRT_2 * PI.sqrt())
     };
     if value > 0.0 { 1.0 - tail } else { tail }
+}
+
+fn horner(value: f64, coefficients: &[f64]) -> f64 {
+    coefficients
+        .iter()
+        .copied()
+        .reduce(|accumulator, coefficient| accumulator * value + coefficient)
+        .expect("CDF coefficient tables are non-empty")
 }
 
 #[cfg(test)]
