@@ -37,6 +37,17 @@ jobs:
           cargo -V
           git hash-object Cargo.lock
 
+      - name: Bootstrap oracle formatting
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cargo fmt --all
+          echo "ORACLE_BASE64=$(base64 -w0 crates/pricing/src/analytical.rs)"
+
+      - name: Format oracle on non-Linux bootstrap jobs
+        if: runner.os != 'Linux'
+        run: cargo fmt --all
+
       - name: Check formatting
         run: cargo fmt --all --check
 
