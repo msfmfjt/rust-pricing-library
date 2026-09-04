@@ -5,8 +5,8 @@
 mod reduction;
 
 pub use reduction::{
-    CenteredCovariance, CenteredMoment, NeumaierSum, reduce_covariances,
-    reduce_moments, reduce_sums,
+    CenteredCovariance, CenteredMoment, NeumaierSum, reduce_covariances, reduce_moments,
+    reduce_sums,
 };
 
 /// Returns the direct lower-layer dependency role.

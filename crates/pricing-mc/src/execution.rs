@@ -68,7 +68,10 @@ impl fmt::Display for ExecutorBuildError {
             Self::ThreadCountUnsupported { value } => {
                 write!(formatter, "worker-thread count {value} does not fit usize")
             }
-            Self::PoolBuild => write!(formatter, "failed to build the calculation-owned thread pool"),
+            Self::PoolBuild => write!(
+                formatter,
+                "failed to build the calculation-owned thread pool"
+            ),
         }
     }
 }
@@ -85,7 +88,10 @@ impl fmt::Display for ExecutionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::TooManyReductionBlocks { count } => {
-                write!(formatter, "reduction-block count {count} does not fit usize")
+                write!(
+                    formatter,
+                    "reduction-block count {count} does not fit usize"
+                )
             }
         }
     }
