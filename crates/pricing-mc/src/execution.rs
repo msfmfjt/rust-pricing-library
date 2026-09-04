@@ -207,10 +207,10 @@ mod tests {
             }
         };
         let single = executor(1, 7)
-            .map_reduce(10_003, &evaluate)
+            .map_reduce(10_003, evaluate)
             .expect("execution");
         let parallel = executor(4, 7)
-            .map_reduce(10_003, &evaluate)
+            .map_reduce(10_003, evaluate)
             .expect("execution");
         assert_eq!(single.sum().to_bits(), parallel.sum().to_bits());
         assert_eq!(
