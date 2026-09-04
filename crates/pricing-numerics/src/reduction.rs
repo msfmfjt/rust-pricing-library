@@ -235,11 +235,11 @@ pub fn reduce_covariances(partials: Vec<CenteredCovariance>) -> CenteredCovarian
 fn fixed_tree_reduce<T: Copy>(mut level: Vec<T>, merge: fn(T, T) -> T) -> Option<T> {
     while level.len() > 1 {
         let mut next = Vec::with_capacity(level.len().div_ceil(2));
-        let mut pairs = level.chunks_exact(2);
-        for pair in &mut pairs {
+        let (pairs, remainder) = level.as_chunks::<2>();
+        for pair in pairs {
             next.push(merge(pair[0], pair[1]));
         }
-        if let Some(last) = pairs.remainder().first() {
+        if let Some(last) = remainder.first() {
             next.push(*last);
         }
         level = next;
