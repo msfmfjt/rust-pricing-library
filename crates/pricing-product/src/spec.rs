@@ -112,14 +112,16 @@ mod tests {
         .expect("valid contract");
         assert_eq!(valid.strike().get(), 100.0);
         assert_eq!(valid.side(), OptionSide::Call);
-        assert!(EuropeanVanillaSpec::new(
-            UnderlyingId::new(1),
-            CurrencyId::new(2),
-            expiry,
-            0.0,
-            1.0,
-            OptionSide::Put,
-        )
-        .is_err());
+        assert!(
+            EuropeanVanillaSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                expiry,
+                0.0,
+                1.0,
+                OptionSide::Put,
+            )
+            .is_err()
+        );
     }
 }

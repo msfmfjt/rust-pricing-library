@@ -61,7 +61,11 @@ impl PseudoMcConfig {
 
     #[must_use]
     pub const fn evaluated_paths(self) -> u128 {
-        let multiplier = if self.variance_reduction.antithetic() { 2 } else { 1 };
+        let multiplier = if self.variance_reduction.antithetic() {
+            2
+        } else {
+            1
+        };
         self.independent_sampling_units.get() as u128 * multiplier
     }
 
@@ -161,8 +165,8 @@ mod tests {
 
     #[test]
     fn pseudo_path_count_means_independent_units() {
-        let config = PseudoMcConfig::new(7, 100, VarianceReduction::new(true, false))
-            .expect("valid config");
+        let config =
+            PseudoMcConfig::new(7, 100, VarianceReduction::new(true, false)).expect("valid config");
         assert_eq!(config.independent_sampling_units().get(), 100);
         assert_eq!(config.evaluated_paths(), 200);
         assert!(PseudoMcConfig::new(7, 0, VarianceReduction::new(false, false)).is_err());
@@ -170,12 +174,9 @@ mod tests {
 
     #[test]
     fn rqmc_requires_power_of_two_and_defaults_to_sixteen_scrambles() {
-        let config = RqmcConfig::with_default_scrambles(
-            1 << 12,
-            99,
-            VarianceReduction::new(true, true),
-        )
-        .expect("valid config");
+        let config =
+            RqmcConfig::with_default_scrambles(1 << 12, 99, VarianceReduction::new(true, true))
+                .expect("valid config");
         assert_eq!(config.scramble_count().get(), 16);
         assert!(RqmcConfig::new(1000, 16, 99, VarianceReduction::new(false, true)).is_err());
         assert!(RqmcConfig::new(1024, 0, 99, VarianceReduction::new(false, true)).is_err());

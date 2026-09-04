@@ -103,19 +103,21 @@ mod tests {
 
     fn curve(id: u32, discount: f64) -> Arc<LogLinearDiscountCurve> {
         Arc::new(
-            LogLinearDiscountCurve::new(
-                CurveId::new(id),
-                vec![0.0, 1.0],
-                vec![1.0, discount],
-            )
-            .expect("valid curve"),
+            LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, discount])
+                .expect("valid curve"),
         )
     }
 
     fn components(
         product_currency: CurrencyId,
         market_currency: CurrencyId,
-    ) -> (ProductSpec, MarketContext, ModelSpec, EngineConfig, RiskRequest) {
+    ) -> (
+        ProductSpec,
+        MarketContext,
+        ModelSpec,
+        EngineConfig,
+        RiskRequest,
+    ) {
         let underlying = UnderlyingId::new(1);
         let product = ProductSpec::EuropeanVanilla(
             EuropeanVanillaSpec::new(
@@ -137,8 +139,7 @@ mod tests {
         let market = MarketContext::Equity(EquityMarket::new(market_currency, forward));
         let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model"));
         let engine = EngineConfig::PseudoMonteCarlo(
-            PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false))
-                .expect("engine"),
+            PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false)).expect("engine"),
         );
         let risk = RiskRequest::price_only(SmileDynamics::StickyLogMoneyness);
         (product, market, model, engine, risk)

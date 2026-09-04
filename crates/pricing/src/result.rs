@@ -264,7 +264,9 @@ mod tests {
             .expect("valid estimate");
         assert_eq!(estimate.value().get(), 10.0);
         assert_eq!(estimate.effective_sampling_units().get(), 100);
-        assert!(Estimate::new(10.0, 0.5, 11.0, 12.0, EstimatorKind::PseudoMonteCarlo, 100).is_err());
+        assert!(
+            Estimate::new(10.0, 0.5, 11.0, 12.0, EstimatorKind::PseudoMonteCarlo, 100).is_err()
+        );
         assert!(Estimate::new(10.0, 0.5, 9.0, 11.0, EstimatorKind::PseudoMonteCarlo, 0).is_err());
     }
 

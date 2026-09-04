@@ -19,11 +19,17 @@ pub enum SpotBump {
 
 impl SpotBump {
     pub fn absolute(value: f64) -> Result<Self, RiskConfigError> {
-        Ok(Self::Absolute(PositiveF64::new(value, "gamma_absolute_bump")?))
+        Ok(Self::Absolute(PositiveF64::new(
+            value,
+            "gamma_absolute_bump",
+        )?))
     }
 
     pub fn relative(value: f64) -> Result<Self, RiskConfigError> {
-        Ok(Self::Relative(PositiveF64::new(value, "gamma_relative_bump")?))
+        Ok(Self::Relative(PositiveF64::new(
+            value,
+            "gamma_relative_bump",
+        )?))
     }
 }
 
@@ -83,8 +89,10 @@ impl VegaKtConfig {
                 return Err(RiskConfigError::UnsortedVegaKtStrikes { left_index });
             }
         }
-        let relative_density_threshold =
-            PositiveF64::new(relative_density_threshold, "vega_kt_relative_density_threshold")?;
+        let relative_density_threshold = PositiveF64::new(
+            relative_density_threshold,
+            "vega_kt_relative_density_threshold",
+        )?;
         if relative_density_threshold.get() > 1.0 {
             return Err(RiskConfigError::InvalidDensityThreshold {
                 bits: relative_density_threshold.get().to_bits(),
@@ -225,16 +233,18 @@ mod tests {
         .expect("valid request");
         assert_eq!(request.checkpoint_interval().map(NonZeroU32::get), Some(16));
         assert_eq!(request.aad_tile_capacity().map(NonZeroU32::get), Some(256));
-        assert!(RiskRequest::new(
-            true,
-            Some(gamma),
-            true,
-            None,
-            SmileDynamics::StickyLogMoneyness,
-            Some(0),
-            None,
-        )
-        .is_err());
+        assert!(
+            RiskRequest::new(
+                true,
+                Some(gamma),
+                true,
+                None,
+                SmileDynamics::StickyLogMoneyness,
+                Some(0),
+                None,
+            )
+            .is_err()
+        );
     }
 
     #[test]
