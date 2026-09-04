@@ -326,6 +326,19 @@ pub struct CompiledPayoff {
     tape_fingerprint: GraphFingerprint,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TerminalAdjoint {
+    pub underlying: UnderlyingId,
+    pub observation_date: Date,
+    pub value: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PayoffEvaluation {
+    pub value: f64,
+    pub terminal_adjoints: Box<[TerminalAdjoint]>,
+}
+
 impl CompiledPayoff {
     #[must_use]
     pub fn opcodes(&self) -> &[CompiledOpcode] {
@@ -378,6 +391,145 @@ impl CompiledPayoff {
             .map(|slot| checked_index(*slot, slots.len()).map(|index| slots[index]))
             .collect()
     }
+
+    pub fn evaluate_single_with_terminal_adjoint<F>(
+        &self,
+        mut observation: F,
+    ) -> Result<PayoffEvaluation, GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        if self.output_slots.len() != 1 {
+            return Err(GraphError::ReverseRequiresSingleOutput {
+                count: self.output_slots.len(),
+            });
+        }
+        let mut values = vec![0.0; self.opcodes.len()];
+        for opcode in &self.opcodes {
+            let (output, value) = execute_opcode(*opcode, &values, &mut observation)?;
+            let output = checked_index(output, values.len())?;
+            if !value.is_finite() {
+                return Err(GraphError::NonFiniteRuntimeValue {
+                    opcode: opcode.name(),
+                    bits: value.to_bits(),
+                });
+            }
+            values[output] = value;
+        }
+        let output = checked_index(self.output_slots[0], values.len())?;
+        let value = values[output];
+        let mut adjoints = vec![0.0; self.opcodes.len()];
+        adjoints[output] = 1.0;
+        let mut terminal_adjoints = Vec::new();
+        for opcode in self.opcodes.iter().rev().copied() {
+            reverse_opcode(
+                opcode,
+                &values,
+                &mut adjoints,
+                &mut terminal_adjoints,
+            )?;
+        }
+        Ok(PayoffEvaluation {
+            value,
+            terminal_adjoints: terminal_adjoints.into_boxed_slice(),
+        })
+    }
+}
+
+fn reverse_opcode(
+    opcode: CompiledOpcode,
+    values: &[f64],
+    adjoints: &mut [f64],
+    terminal_adjoints: &mut Vec<TerminalAdjoint>,
+) -> Result<(), GraphError> {
+    let output = checked_index(opcode.output(), adjoints.len())?;
+    let output_adjoint = adjoints[output];
+    match opcode {
+        CompiledOpcode::Literal { .. } => {}
+        CompiledOpcode::TerminalSpot {
+            underlying,
+            observation_date,
+            ..
+        } => terminal_adjoints.push(TerminalAdjoint {
+            underlying,
+            observation_date,
+            value: output_adjoint,
+        }),
+        CompiledOpcode::Add { left, right, .. } => {
+            add_adjoint(adjoints, left, output_adjoint, opcode.name())?;
+            add_adjoint(adjoints, right, output_adjoint, opcode.name())?;
+        }
+        CompiledOpcode::Subtract { left, right, .. } => {
+            add_adjoint(adjoints, left, output_adjoint, opcode.name())?;
+            add_adjoint(adjoints, right, -output_adjoint, opcode.name())?;
+        }
+        CompiledOpcode::Multiply { left, right, .. } => {
+            let left_value = values[checked_index(left, values.len())?];
+            let right_value = values[checked_index(right, values.len())?];
+            add_adjoint(adjoints, left, output_adjoint * right_value, opcode.name())?;
+            add_adjoint(adjoints, right, output_adjoint * left_value, opcode.name())?;
+        }
+        CompiledOpcode::Divide {
+            numerator,
+            denominator,
+            ..
+        } => {
+            let numerator_value = values[checked_index(numerator, values.len())?];
+            let denominator_value = values[checked_index(denominator, values.len())?];
+            add_adjoint(
+                adjoints,
+                numerator,
+                output_adjoint / denominator_value,
+                opcode.name(),
+            )?;
+            add_adjoint(
+                adjoints,
+                denominator,
+                -output_adjoint * numerator_value / (denominator_value * denominator_value),
+                opcode.name(),
+            )?;
+        }
+        CompiledOpcode::Minimum { left, right, .. } => {
+            let left_value = values[checked_index(left, values.len())?];
+            let right_value = values[checked_index(right, values.len())?];
+            if left_value <= right_value {
+                add_adjoint(adjoints, left, output_adjoint, opcode.name())?;
+            } else {
+                add_adjoint(adjoints, right, output_adjoint, opcode.name())?;
+            }
+        }
+        CompiledOpcode::Maximum { left, right, .. } => {
+            let left_value = values[checked_index(left, values.len())?];
+            let right_value = values[checked_index(right, values.len())?];
+            if left_value >= right_value {
+                add_adjoint(adjoints, left, output_adjoint, opcode.name())?;
+            } else {
+                add_adjoint(adjoints, right, output_adjoint, opcode.name())?;
+            }
+        }
+        CompiledOpcode::Negate { input, .. } => {
+            add_adjoint(adjoints, input, -output_adjoint, opcode.name())?;
+        }
+    }
+    Ok(())
+}
+
+fn add_adjoint(
+    adjoints: &mut [f64],
+    slot: u32,
+    contribution: f64,
+    opcode: &'static str,
+) -> Result<(), GraphError> {
+    let index = checked_index(slot, adjoints.len())?;
+    let updated = adjoints[index] + contribution;
+    if !updated.is_finite() {
+        return Err(GraphError::NonFiniteRuntimeAdjoint {
+            opcode,
+            bits: updated.to_bits(),
+        });
+    }
+    adjoints[index] = updated;
+    Ok(())
 }
 
 impl CompiledOpcode {
@@ -392,6 +544,20 @@ impl CompiledOpcode {
             Self::Minimum { .. } => "minimum",
             Self::Maximum { .. } => "maximum",
             Self::Negate { .. } => "negate",
+        }
+    }
+
+    const fn output(self) -> u32 {
+        match self {
+            Self::Literal { output, .. }
+            | Self::TerminalSpot { output, .. }
+            | Self::Add { output, .. }
+            | Self::Subtract { output, .. }
+            | Self::Multiply { output, .. }
+            | Self::Divide { output, .. }
+            | Self::Minimum { output, .. }
+            | Self::Maximum { output, .. }
+            | Self::Negate { output, .. } => output,
         }
     }
 }
@@ -956,6 +1122,13 @@ pub enum GraphError {
         opcode: &'static str,
         bits: u64,
     },
+    ReverseRequiresSingleOutput {
+        count: usize,
+    },
+    NonFiniteRuntimeAdjoint {
+        opcode: &'static str,
+        bits: u64,
+    },
 }
 
 impl fmt::Display for GraphError {
@@ -1024,6 +1197,14 @@ impl fmt::Display for GraphError {
                     "runtime {opcode} produced non-finite value 0x{bits:016x}"
                 )
             }
+            Self::ReverseRequiresSingleOutput { count } => write!(
+                formatter,
+                "payoff reverse requires exactly one output; received {count}"
+            ),
+            Self::NonFiniteRuntimeAdjoint { opcode, bits } => write!(
+                formatter,
+                "runtime {opcode} produced non-finite adjoint 0x{bits:016x}"
+            ),
         }
     }
 }
@@ -1064,6 +1245,35 @@ mod tests {
             assert_eq!(
                 compiled.evaluate(|_, _| Some(terminal)).expect("execute"),
                 vec![expected]
+            );
+        }
+    }
+
+    #[test]
+    fn european_reverse_returns_exact_terminal_adjoint() {
+        for (side, terminal, expected_value, expected_adjoint) in [
+            (OptionSide::Call, 120.0, 40.0, 2.0),
+            (OptionSide::Call, 80.0, 0.0, 0.0),
+            (OptionSide::Put, 80.0, 40.0, -2.0),
+            (OptionSide::Put, 120.0, 0.0, 0.0),
+            (OptionSide::Call, 100.0, 0.0, 2.0),
+            (OptionSide::Put, 100.0, 0.0, -2.0),
+        ] {
+            let compiled = option(side)
+                .source_graph()
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            let result = compiled
+                .evaluate_single_with_terminal_adjoint(|_, _| Some(terminal))
+                .expect("reverse");
+            assert_eq!(result.value, expected_value);
+            assert_eq!(result.terminal_adjoints.len(), 1);
+            assert_eq!(result.terminal_adjoints[0].value, expected_adjoint);
+            assert_eq!(result.terminal_adjoints[0].underlying, UnderlyingId::new(4));
+            assert_eq!(
+                result.terminal_adjoints[0].observation_date,
+                "2027-09-04".parse().expect("date")
             );
         }
     }
