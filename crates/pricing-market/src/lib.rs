@@ -2,10 +2,12 @@
 
 #![forbid(unsafe_code)]
 
+mod context;
 mod curve;
 mod error;
 mod forward;
 
+pub use context::{EquityMarket, MarketContext};
 pub use curve::{
     CurveEvaluation, CurveExtrapolationStats, CurveRegion, DiscountCurve, LogLinearDiscountCurve,
 };

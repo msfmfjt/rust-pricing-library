@@ -13,7 +13,7 @@ pub struct ForwardEvaluation {
 
 /// Standard equity forward from Spot and continuous carry curves:
 /// `F(t) = S(0) D_q(t) / D_r(t)`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EquityForward {
     underlying: UnderlyingId,
     spot: PositiveF64,
