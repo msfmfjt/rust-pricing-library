@@ -9,16 +9,27 @@ const LANES_PER_ALIGNMENT: usize = 8;
 #[non_exhaustive]
 pub enum AadConfigError {
     ZeroReductionBlockSize,
-    TileCapacityExceedsReductionBlock { tile_capacity: u32, block_size: u64 },
+    TileCapacityExceedsReductionBlock {
+        tile_capacity: u32,
+        block_size: u64,
+    },
     WorkspaceSizeOverflow,
-    SlotOutOfRange { slot: usize, slot_count: usize },
-    LaneOutOfRange { lane: usize, logical_capacity: usize },
+    SlotOutOfRange {
+        slot: usize,
+        slot_count: usize,
+    },
+    LaneOutOfRange {
+        lane: usize,
+        logical_capacity: usize,
+    },
 }
 
 impl fmt::Display for AadConfigError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ZeroReductionBlockSize => write!(formatter, "reduction-block size must be positive"),
+            Self::ZeroReductionBlockSize => {
+                write!(formatter, "reduction-block size must be positive")
+            }
             Self::TileCapacityExceedsReductionBlock {
                 tile_capacity,
                 block_size,
@@ -28,7 +39,10 @@ impl fmt::Display for AadConfigError {
             ),
             Self::WorkspaceSizeOverflow => write!(formatter, "AAD workspace size overflowed"),
             Self::SlotOutOfRange { slot, slot_count } => {
-                write!(formatter, "AAD slot {slot} is outside slot count {slot_count}")
+                write!(
+                    formatter,
+                    "AAD slot {slot} is outside slot count {slot_count}"
+                )
             }
             Self::LaneOutOfRange {
                 lane,
@@ -341,10 +355,17 @@ mod tests {
         assert_eq!(buffer.logical_capacity(), 10);
         assert_eq!(buffer.padded_capacity(), 16);
         buffer.set(9, -0.0).expect("live lane");
-        assert_eq!(buffer.get(9).expect("live lane").to_bits(), (-0.0_f64).to_bits());
+        assert_eq!(
+            buffer.get(9).expect("live lane").to_bits(),
+            (-0.0_f64).to_bits()
+        );
         assert!(buffer.set(10, 1.0).is_err());
         buffer.reset_positive_zero();
-        assert!(buffer.padded_lane_bits().all(|bits| bits == 0.0_f64.to_bits()));
+        assert!(
+            buffer
+                .padded_lane_bits()
+                .all(|bits| bits == 0.0_f64.to_bits())
+        );
     }
 
     #[test]
@@ -353,11 +374,25 @@ mod tests {
         assert_eq!(workspace.slot_count(), 3);
         assert_eq!(workspace.padded_stride(), 16);
         for slot in 0..3 {
-            assert_eq!(workspace.primal(slot).expect("slot").alignment_remainder(), 0);
-            assert_eq!(workspace.adjoint(slot).expect("slot").alignment_remainder(), 0);
+            assert_eq!(
+                workspace.primal(slot).expect("slot").alignment_remainder(),
+                0
+            );
+            assert_eq!(
+                workspace.adjoint(slot).expect("slot").alignment_remainder(),
+                0
+            );
         }
-        workspace.primal_mut(1).expect("slot").set(2, 4.0).expect("lane");
-        workspace.adjoint_mut(1).expect("slot").set(2, 7.0).expect("lane");
+        workspace
+            .primal_mut(1)
+            .expect("slot")
+            .set(2, 4.0)
+            .expect("lane");
+        workspace
+            .adjoint_mut(1)
+            .expect("slot")
+            .set(2, 7.0)
+            .expect("lane");
         assert_eq!(workspace.primal(1).expect("slot").get(2), Ok(4.0));
         assert_eq!(workspace.adjoint(1).expect("slot").get(2), Ok(7.0));
         workspace.reset_positive_zero();

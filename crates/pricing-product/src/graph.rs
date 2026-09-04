@@ -422,12 +422,7 @@ impl CompiledPayoff {
         adjoints[output] = 1.0;
         let mut terminal_adjoints = Vec::new();
         for opcode in self.opcodes.iter().rev().copied() {
-            reverse_opcode(
-                opcode,
-                &values,
-                &mut adjoints,
-                &mut terminal_adjoints,
-            )?;
+            reverse_opcode(opcode, &values, &mut adjoints, &mut terminal_adjoints)?;
         }
         Ok(PayoffEvaluation {
             value,
