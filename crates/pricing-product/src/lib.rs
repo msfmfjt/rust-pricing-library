@@ -2,8 +2,13 @@
 
 #![forbid(unsafe_code)]
 
+mod graph;
 mod spec;
 
+pub use graph::{
+    CompiledOpcode, CompiledPayoff, GraphError, GraphFingerprint, GraphLimitPolicy, SourceGraph,
+    SourceGraphBuilder, SourceNode, SourceOpcode,
+};
 pub use spec::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 
 /// Returns the domain foundation role.
