@@ -1,0 +1,23 @@
+[package]
+name = "pricing-mc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+default = []
+aad = ["dep:pricing-aad"]
+
+[dependencies]
+pricing-core.workspace = true
+pricing-numerics.workspace = true
+pricing-market.workspace = true
+pricing-product.workspace = true
+pricing-models.workspace = true
+pricing-aad = { workspace = true, optional = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "pricing-models"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+pricing-core.workspace = true
+pricing-market.workspace = true
+pricing-numerics.workspace = true
+
+[lints]
+workspace = true

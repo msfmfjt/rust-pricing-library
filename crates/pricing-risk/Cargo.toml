@@ -1,0 +1,20 @@
+[package]
+name = "pricing-risk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+pricing-core.workspace = true
+pricing-numerics.workspace = true
+pricing-aad.workspace = true
+pricing-market.workspace = true
+pricing-product.workspace = true
+pricing-models.workspace = true
+pricing-mc = { workspace = true, features = ["aad"] }
+
+[lints]
+workspace = true
