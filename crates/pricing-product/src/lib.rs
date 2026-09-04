@@ -6,8 +6,8 @@ mod graph;
 mod spec;
 
 pub use graph::{
-    CompiledOpcode, CompiledPayoff, GraphError, GraphFingerprint, GraphLimitPolicy, SourceGraph,
-    SourceGraphBuilder, SourceNode, SourceOpcode,
+    CompiledOpcode, CompiledPayoff, GraphError, GraphFingerprint, GraphLimitPolicy,
+    PayoffEvaluation, SourceGraph, SourceGraphBuilder, SourceNode, SourceOpcode, TerminalAdjoint,
 };
 pub use spec::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 
