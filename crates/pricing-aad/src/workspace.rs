@@ -212,7 +212,6 @@ impl AlignedF64Buffer {
         }
     }
 
-    #[must_use]
     pub fn padded_lane_bits(&self) -> impl Iterator<Item = u64> + '_ {
         let logical_capacity = self.logical_capacity;
         self.blocks
