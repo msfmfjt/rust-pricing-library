@@ -50,7 +50,10 @@ impl fmt::Display for CoreError {
                 month,
                 day,
                 reason,
-            } => write!(formatter, "invalid date {year:04}-{month:02}-{day:02}: {reason}"),
+            } => write!(
+                formatter,
+                "invalid date {year:04}-{month:02}-{day:02}: {reason}"
+            ),
             Self::InvalidIsoDate { value } => {
                 write!(formatter, "invalid ISO date {value:?}; expected YYYY-MM-DD")
             }
@@ -58,7 +61,10 @@ impl fmt::Display for CoreError {
                 write!(formatter, "cannot move {direction} from date {date}")
             }
             Self::NonFiniteNumber { field, bits } => {
-                write!(formatter, "{field} must be finite; received bits 0x{bits:016x}")
+                write!(
+                    formatter,
+                    "{field} must be finite; received bits 0x{bits:016x}"
+                )
             }
             Self::NumberNotPositive { field, bits } => write!(
                 formatter,
@@ -70,7 +76,10 @@ impl fmt::Display for CoreError {
             ),
             Self::IdExhausted { kind } => write!(formatter, "{kind} capacity is exhausted"),
             Self::InvalidSchemaVersion { value } => {
-                write!(formatter, "schema version must be non-zero; received {value}")
+                write!(
+                    formatter,
+                    "schema version must be non-zero; received {value}"
+                )
             }
             Self::InvalidJsonPointer { value } => {
                 write!(formatter, "invalid RFC 6901 JSON Pointer {value:?}")
@@ -154,11 +163,7 @@ impl ValidationIssue {
     }
 
     #[must_use]
-    pub fn with_migration_versions(
-        mut self,
-        source: SchemaVersion,
-        target: SchemaVersion,
-    ) -> Self {
+    pub fn with_migration_versions(mut self, source: SchemaVersion, target: SchemaVersion) -> Self {
         self.migration_source_version = Some(source);
         self.migration_target_version = Some(target);
         self
@@ -218,10 +223,7 @@ impl ValidationErrors {
     where
         I: IntoIterator<Item = ValidationIssue>,
     {
-        let issues: Vec<_> = issues
-            .into_iter()
-            .take(Self::DEFAULT_MAX_ISSUES)
-            .collect();
+        let issues: Vec<_> = issues.into_iter().take(Self::DEFAULT_MAX_ISSUES).collect();
         (!issues.is_empty()).then(|| Self {
             issues: issues.into_boxed_slice(),
         })

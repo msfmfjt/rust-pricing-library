@@ -119,9 +119,8 @@ impl Date {
 
     fn ordinal(self) -> i32 {
         let previous_year = i32::from(self.year) - 1;
-        let days_before_year = 365 * previous_year + previous_year / 4
-            - previous_year / 100
-            + previous_year / 400;
+        let days_before_year =
+            365 * previous_year + previous_year / 4 - previous_year / 100 + previous_year / 400;
         let cumulative = [0_i32, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
         let leap_day = i32::from(self.month > 2 && is_leap_year(self.year));
         days_before_year + cumulative[usize::from(self.month - 1)] + leap_day + i32::from(self.day)
@@ -130,7 +129,11 @@ impl Date {
 
 impl fmt::Display for Date {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{:04}-{:02}-{:02}", self.year, self.month, self.day)
+        write!(
+            formatter,
+            "{:04}-{:02}-{:02}",
+            self.year, self.month, self.day
+        )
     }
 }
 
@@ -261,7 +264,13 @@ mod tests {
     fn day_counts_use_actual_calendar_days() {
         let start = date("2024-01-01");
         let end = date("2025-01-01");
-        assert_eq!(DayCountConvention::Act365F.year_fraction(start, end), 366.0 / 365.0);
-        assert_eq!(DayCountConvention::Act360.year_fraction(start, end), 366.0 / 360.0);
+        assert_eq!(
+            DayCountConvention::Act365F.year_fraction(start, end),
+            366.0 / 365.0
+        );
+        assert_eq!(
+            DayCountConvention::Act360.year_fraction(start, end),
+            366.0 / 360.0
+        );
     }
 }

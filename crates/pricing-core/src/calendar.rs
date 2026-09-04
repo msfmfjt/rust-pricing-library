@@ -51,11 +51,7 @@ impl Calendar {
         !date.weekday().is_weekend() && !self.is_holiday(date)
     }
 
-    pub fn adjust(
-        &self,
-        date: Date,
-        convention: BusinessDayAdjustment,
-    ) -> Result<Date, CoreError> {
+    pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {
         match convention {
             BusinessDayAdjustment::Unadjusted => Ok(date),
             BusinessDayAdjustment::Following => self.following(date),
@@ -102,11 +98,7 @@ mod tests {
 
     #[test]
     fn custom_holidays_are_sorted_and_deduplicated() {
-        let calendar = Calendar::new([
-            date("2026-12-28"),
-            date("2026-12-25"),
-            date("2026-12-25"),
-        ]);
+        let calendar = Calendar::new([date("2026-12-28"), date("2026-12-25"), date("2026-12-25")]);
         assert_eq!(
             calendar.holidays(),
             &[date("2026-12-25"), date("2026-12-28")]
