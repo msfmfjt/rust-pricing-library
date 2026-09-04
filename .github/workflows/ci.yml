@@ -44,8 +44,10 @@ jobs:
         shell: bash
         run: |
           cargo generate-lockfile
+          cargo fmt --all
           if [ "${{ runner.os }}" = "Linux" ]; then
             echo "LOCKFILE_BASE64=$(base64 -w0 Cargo.lock)"
+            echo "WIRE_BASE64=$(base64 -w0 crates/pricing/src/wire.rs)"
           fi
 
       - name: Check formatting
