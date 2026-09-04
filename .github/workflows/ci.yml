@@ -37,19 +37,6 @@ jobs:
           cargo -V
           git hash-object Cargo.lock
 
-      # Temporary bootstrap for the dependency-lock update in PR #4. The
-      # generated lockfile is captured from the Ubuntu job, committed, and
-      # this step is removed before merge.
-      - name: Bootstrap dependency lock
-        shell: bash
-        run: |
-          cargo generate-lockfile
-          cargo fmt --all
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            echo "LOCKFILE_BASE64=$(base64 -w0 Cargo.lock)"
-            echo "WIRE_BASE64=$(base64 -w0 crates/pricing/src/wire.rs)"
-          fi
-
       - name: Check formatting
         run: cargo fmt --all --check
 
