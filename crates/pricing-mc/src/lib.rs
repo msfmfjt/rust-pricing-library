@@ -4,10 +4,12 @@
 
 mod config;
 mod error;
+mod execution;
 mod random;
 
 pub use config::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 pub use error::EngineConfigError;
+pub use execution::{DeterministicExecutor, ExecutionError, ExecutionPolicy, ExecutorBuildError};
 pub use random::{
     NormalQuantileError, Philox4x32, RandomCoordinate, RandomDomain, antithetic_normal,
     inverse_standard_normal, open_unit_interval,

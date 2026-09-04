@@ -18,6 +18,7 @@ pricing-market.workspace = true
 pricing-product.workspace = true
 pricing-models.workspace = true
 pricing-aad = { workspace = true, optional = true }
+rayon.workspace = true
 
 [lints]
 workspace = true
