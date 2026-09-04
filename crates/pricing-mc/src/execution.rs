@@ -240,6 +240,75 @@ impl DeterministicExecutor {
             moments: reduce_moments(moments),
         })
     }
+
+    /// Reduces several pathwise quantities together while preserving the same
+    /// fixed block and sampling-unit order for every component.
+    pub fn try_map_reduce_statistics_array_tiled<const N: usize, F, E>(
+        &self,
+        sampling_units: u64,
+        tile_capacity: NonZeroU32,
+        evaluate: F,
+    ) -> Result<[DeterministicStatistics; N], TryExecutionError<E>>
+    where
+        F: Fn(u64) -> Result<[f64; N], E> + Sync + Send,
+        E: Send,
+    {
+        #[derive(Clone, Copy)]
+        struct BlockStatistics<const N: usize> {
+            statistics: [DeterministicStatistics; N],
+        }
+
+        let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
+            .map_err(TryExecutionError::Execution)?;
+        let tile_capacity = u64::from(tile_capacity.get());
+        let block_results = self.pool.install(|| {
+            blocks
+                .into_par_iter()
+                .map(|block| {
+                    let mut statistics = [DeterministicStatistics::default(); N];
+                    let mut tile_begin = block.start;
+                    while tile_begin < block.end {
+                        let tile_end = tile_begin.saturating_add(tile_capacity).min(block.end);
+                        for sampling_unit in tile_begin..tile_end {
+                            let values = evaluate(sampling_unit).map_err(|source| {
+                                TryExecutionError::Evaluation {
+                                    sampling_unit,
+                                    source,
+                                }
+                            })?;
+                            for (statistic, value) in statistics.iter_mut().zip(values) {
+                                statistic.sum.add(value);
+                                statistic.moments.add(value);
+                            }
+                        }
+                        tile_begin = tile_end;
+                    }
+                    Ok(BlockStatistics { statistics })
+                })
+                .collect::<Vec<_>>()
+        });
+        let mut per_component_sums: [Vec<NeumaierSum>; N] =
+            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
+        let mut per_component_moments: [Vec<CenteredMoment>; N] =
+            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
+        for result in block_results {
+            let block = result?;
+            for ((sums, moments), statistic) in per_component_sums
+                .iter_mut()
+                .zip(per_component_moments.iter_mut())
+                .zip(block.statistics)
+            {
+                sums.push(statistic.sum);
+                moments.push(statistic.moments);
+            }
+        }
+        Ok(std::array::from_fn(|component| DeterministicStatistics {
+            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+            moments: reduce_moments(std::mem::take(
+                &mut per_component_moments[component],
+            )),
+        }))
+    }
 }
 
 fn fixed_blocks(sampling_units: u64, block_size: u64) -> Result<Vec<Range<u64>>, ExecutionError> {
@@ -338,5 +407,37 @@ mod tests {
         assert_eq!(statistics.moments().count(), 4);
         assert_eq!(statistics.moments().mean(), 1.5);
         assert_eq!(statistics.moments().sample_variance(), Some(5.0 / 3.0));
+    }
+
+    #[test]
+    fn tiled_array_reduction_is_bitwise_stable_across_workers_and_tiles() {
+        let evaluate = |index: u64| Ok::<_, std::convert::Infallible>([
+            index as f64,
+            if index.is_multiple_of(2) { 1.0 } else { -1.0 },
+        ]);
+        let single = executor(1, 7)
+            .try_map_reduce_statistics_array_tiled(
+                10_003,
+                NonZeroU32::new(3).expect("positive"),
+                evaluate,
+            )
+            .expect("single");
+        let parallel = executor(4, 7)
+            .try_map_reduce_statistics_array_tiled(
+                10_003,
+                NonZeroU32::new(5).expect("positive"),
+                evaluate,
+            )
+            .expect("parallel");
+        for component in 0..2 {
+            assert_eq!(
+                single[component].sum().total().to_bits(),
+                parallel[component].sum().total().to_bits()
+            );
+            assert_eq!(
+                single[component].moments().mean().to_bits(),
+                parallel[component].moments().mean().to_bits()
+            );
+        }
     }
 }
