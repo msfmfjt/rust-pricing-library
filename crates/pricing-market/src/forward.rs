@@ -87,12 +87,8 @@ mod tests {
 
     fn flat_curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {
         Arc::new(
-            LogLinearDiscountCurve::new(
-                CurveId::new(id),
-                vec![0.0, 1.0],
-                vec![1.0, (-rate).exp()],
-            )
-            .expect("valid flat curve"),
+            LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, (-rate).exp()])
+                .expect("valid flat curve"),
         )
     }
 

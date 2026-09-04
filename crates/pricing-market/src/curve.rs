@@ -146,8 +146,7 @@ impl LogLinearDiscountCurve {
 
     fn segment_value(&self, left: usize, right: usize, time: f64) -> f64 {
         let weight = (time - self.times[left]) / (self.times[right] - self.times[left]);
-        self.log_discounts[left]
-            + weight * (self.log_discounts[right] - self.log_discounts[left])
+        self.log_discounts[left] + weight * (self.log_discounts[right] - self.log_discounts[left])
     }
 }
 
@@ -166,20 +165,21 @@ impl DiscountCurve for LogLinearDiscountCurve {
             });
         }
         let time = if time == 0.0 { 0.0 } else { time };
-        let (log_discount, region) = match self.times.binary_search_by(|value| value.total_cmp(&time)) {
-            Ok(index) => (self.log_discounts[index], CurveRegion::Pillar),
-            Err(right) if right < self.times.len() => (
-                self.segment_value(right - 1, right, time),
-                CurveRegion::Interpolated,
-            ),
-            Err(_) => {
-                let right = self.times.len() - 1;
-                (
+        let (log_discount, region) =
+            match self.times.binary_search_by(|value| value.total_cmp(&time)) {
+                Ok(index) => (self.log_discounts[index], CurveRegion::Pillar),
+                Err(right) if right < self.times.len() => (
                     self.segment_value(right - 1, right, time),
-                    CurveRegion::RightExtrapolated,
-                )
-            }
-        };
+                    CurveRegion::Interpolated,
+                ),
+                Err(_) => {
+                    let right = self.times.len() - 1;
+                    (
+                        self.segment_value(right - 1, right, time),
+                        CurveRegion::RightExtrapolated,
+                    )
+                }
+            };
         let discount = log_discount.exp();
         if !log_discount.is_finite() || !discount.is_finite() || discount <= 0.0 {
             return Err(MarketError::NonFiniteCurveValue {
@@ -275,7 +275,10 @@ mod tests {
         let value = curve.evaluate(0.5).expect("inside curve");
         assert_eq!(value.region, CurveRegion::Interpolated);
         assert!((value.discount - 0.95_f64.sqrt()).abs() < 1.0e-15);
-        assert_eq!(curve.evaluate(1.0).expect("pillar").region, CurveRegion::Pillar);
+        assert_eq!(
+            curve.evaluate(1.0).expect("pillar").region,
+            CurveRegion::Pillar
+        );
     }
 
     #[test]
@@ -301,7 +304,9 @@ mod tests {
         let mut stats = CurveExtrapolationStats::new(curve.id());
         for time in [0.5, 4.0, 3.0] {
             let value = curve.evaluate(time).expect("curve value");
-            stats.record(time, value.region).expect("diagnostic capacity");
+            stats
+                .record(time, value.region)
+                .expect("diagnostic capacity");
         }
         assert_eq!(stats.count(), 2);
         assert_eq!(stats.minimum_time(), Some(3.0));

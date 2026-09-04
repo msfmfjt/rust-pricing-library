@@ -7,8 +7,7 @@ mod error;
 mod forward;
 
 pub use curve::{
-    CurveEvaluation, CurveExtrapolationStats, CurveRegion, DiscountCurve,
-    LogLinearDiscountCurve,
+    CurveEvaluation, CurveExtrapolationStats, CurveRegion, DiscountCurve, LogLinearDiscountCurve,
 };
 pub use error::MarketError;
 pub use forward::{EquityForward, ForwardEvaluation};

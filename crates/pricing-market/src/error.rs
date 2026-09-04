@@ -76,7 +76,10 @@ impl fmt::Display for MarketError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidPillarCount { curve, count } => {
-                write!(formatter, "curve {curve} requires at least two pillars; received {count}")
+                write!(
+                    formatter,
+                    "curve {curve} requires at least two pillars; received {count}"
+                )
             }
             Self::PillarLengthMismatch {
                 curve,
@@ -126,10 +129,16 @@ impl fmt::Display for MarketError {
                 "curve {curve} discount factor at time zero must be one; received 0x{discount_bits:016x}"
             ),
             Self::InvalidQueryTime { curve, bits } => {
-                write!(formatter, "curve {curve} query time is non-finite: 0x{bits:016x}")
+                write!(
+                    formatter,
+                    "curve {curve} query time is non-finite: 0x{bits:016x}"
+                )
             }
             Self::NegativeQueryTime { curve, bits } => {
-                write!(formatter, "curve {curve} query time is negative: 0x{bits:016x}")
+                write!(
+                    formatter,
+                    "curve {curve} query time is negative: 0x{bits:016x}"
+                )
             }
             Self::NonFiniteCurveValue {
                 curve,
