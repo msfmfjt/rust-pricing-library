@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod error;
+mod monte_carlo;
 mod request;
 mod result;
 mod wire;
@@ -10,7 +11,10 @@ mod wire;
 #[doc(hidden)]
 pub mod analytical;
 
-pub use error::{RequestValidationError, ResultBuildError};
+pub use error::{MonteCarloError, RequestValidationError, ResultBuildError};
+pub use monte_carlo::{
+    MonteCarloDiagnostics, MonteCarloPrice, SimulationPlan, price_pseudo_monte_carlo,
+};
 pub use pricing_core as core;
 pub use pricing_market as market;
 pub use pricing_mc as mc;

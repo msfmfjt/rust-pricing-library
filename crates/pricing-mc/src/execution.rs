@@ -3,7 +3,7 @@ use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Range;
 
-use pricing_numerics::{NeumaierSum, reduce_sums};
+use pricing_numerics::{CenteredMoment, NeumaierSum, reduce_moments, reduce_sums};
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
@@ -99,6 +99,54 @@ impl fmt::Display for ExecutionError {
 
 impl Error for ExecutionError {}
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct DeterministicStatistics {
+    sum: NeumaierSum,
+    moments: CenteredMoment,
+}
+
+impl DeterministicStatistics {
+    #[must_use]
+    pub const fn sum(self) -> NeumaierSum {
+        self.sum
+    }
+
+    #[must_use]
+    pub const fn moments(self) -> CenteredMoment {
+        self.moments
+    }
+}
+
+#[derive(Debug)]
+pub enum TryExecutionError<E> {
+    Execution(ExecutionError),
+    Evaluation { sampling_unit: u64, source: E },
+}
+
+impl<E: fmt::Display> fmt::Display for TryExecutionError<E> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Execution(error) => error.fmt(formatter),
+            Self::Evaluation {
+                sampling_unit,
+                source,
+            } => write!(
+                formatter,
+                "sampling unit {sampling_unit} failed during evaluation: {source}"
+            ),
+        }
+    }
+}
+
+impl<E: Error + 'static> Error for TryExecutionError<E> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Execution(error) => Some(error),
+            Self::Evaluation { source, .. } => Some(source),
+        }
+    }
+}
+
 /// Executes fixed logical blocks on a calculation-owned Rayon pool.
 pub struct DeterministicExecutor {
     policy: ExecutionPolicy,
@@ -141,6 +189,56 @@ impl DeterministicExecutor {
                 .collect::<Vec<_>>()
         });
         Ok(reduce_sums(partials))
+    }
+
+    pub fn try_map_reduce_statistics<F, E>(
+        &self,
+        sampling_units: u64,
+        evaluate: F,
+    ) -> Result<DeterministicStatistics, TryExecutionError<E>>
+    where
+        F: Fn(u64) -> Result<f64, E> + Sync + Send,
+        E: Send,
+    {
+        #[derive(Clone, Copy)]
+        struct BlockStatistics {
+            sum: NeumaierSum,
+            moments: CenteredMoment,
+        }
+
+        let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
+            .map_err(TryExecutionError::Execution)?;
+        let block_results = self.pool.install(|| {
+            blocks
+                .into_par_iter()
+                .map(|block| {
+                    let mut sum = NeumaierSum::new();
+                    let mut moments = CenteredMoment::new();
+                    for sampling_unit in block {
+                        let value = evaluate(sampling_unit).map_err(|source| {
+                            TryExecutionError::Evaluation {
+                                sampling_unit,
+                                source,
+                            }
+                        })?;
+                        sum.add(value);
+                        moments.add(value);
+                    }
+                    Ok(BlockStatistics { sum, moments })
+                })
+                .collect::<Vec<_>>()
+        });
+        let mut sums = Vec::with_capacity(block_results.len());
+        let mut moments = Vec::with_capacity(block_results.len());
+        for result in block_results {
+            let block = result?;
+            sums.push(block.sum);
+            moments.push(block.moments);
+        }
+        Ok(DeterministicStatistics {
+            sum: reduce_sums(sums),
+            moments: reduce_moments(moments),
+        })
     }
 }
 
@@ -229,5 +327,16 @@ mod tests {
         assert_eq!(result.sum().to_bits(), 0.0_f64.to_bits());
         assert_eq!(result.correction().to_bits(), 0.0_f64.to_bits());
         assert_eq!(result.total().to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
+    fn fallible_statistics_keep_sampling_unit_order_and_centered_moments() {
+        let statistics = executor(4, 2)
+            .try_map_reduce_statistics(4, |index| Ok::<_, std::convert::Infallible>(index as f64))
+            .expect("execution");
+        assert_eq!(statistics.sum().total(), 6.0);
+        assert_eq!(statistics.moments().count(), 4);
+        assert_eq!(statistics.moments().mean(), 1.5);
+        assert_eq!(statistics.moments().sample_variance(), Some(5.0 / 3.0));
     }
 }

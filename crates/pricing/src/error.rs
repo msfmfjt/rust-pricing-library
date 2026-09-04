@@ -2,6 +2,11 @@ use std::error::Error;
 use std::fmt;
 
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
+use pricing_market::MarketError;
+use pricing_mc::{ExecutionError, ExecutorBuildError, TryExecutionError};
+use pricing_product::GraphError;
+
+use crate::WireError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -89,6 +94,106 @@ impl Error for ResultBuildError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Core(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum MonteCarloError {
+    UnsupportedEngine,
+    RiskRequestNotPriceOnly,
+    InsufficientSamplingUnits { count: u64 },
+    NonFiniteTotalVariance { bits: u64 },
+    Market(MarketError),
+    Graph(GraphError),
+    ExecutorBuild(ExecutorBuildError),
+    Execution(ExecutionError),
+    ResultBuild(ResultBuildError),
+    Wire(WireError),
+}
+
+impl From<MarketError> for MonteCarloError {
+    fn from(error: MarketError) -> Self {
+        Self::Market(error)
+    }
+}
+
+impl From<GraphError> for MonteCarloError {
+    fn from(error: GraphError) -> Self {
+        Self::Graph(error)
+    }
+}
+
+impl From<ExecutorBuildError> for MonteCarloError {
+    fn from(error: ExecutorBuildError) -> Self {
+        Self::ExecutorBuild(error)
+    }
+}
+
+impl From<ResultBuildError> for MonteCarloError {
+    fn from(error: ResultBuildError) -> Self {
+        Self::ResultBuild(error)
+    }
+}
+
+impl From<WireError> for MonteCarloError {
+    fn from(error: WireError) -> Self {
+        Self::Wire(error)
+    }
+}
+
+impl From<TryExecutionError<GraphError>> for MonteCarloError {
+    fn from(error: TryExecutionError<GraphError>) -> Self {
+        match error {
+            TryExecutionError::Execution(error) => Self::Execution(error),
+            TryExecutionError::Evaluation { source, .. } => Self::Graph(source),
+        }
+    }
+}
+
+impl fmt::Display for MonteCarloError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedEngine => {
+                write!(formatter, "the G4 price path supports pseudo-MC only")
+            }
+            Self::RiskRequestNotPriceOnly => {
+                write!(
+                    formatter,
+                    "the G4 price path accepts a price-only risk request"
+                )
+            }
+            Self::InsufficientSamplingUnits { count } => write!(
+                formatter,
+                "at least two independent sampling units are required for stochastic error estimation; received {count}"
+            ),
+            Self::NonFiniteTotalVariance { bits } => {
+                write!(
+                    formatter,
+                    "Black-Scholes total variance is non-finite: 0x{bits:016x}"
+                )
+            }
+            Self::Market(error) => error.fmt(formatter),
+            Self::Graph(error) => error.fmt(formatter),
+            Self::ExecutorBuild(error) => error.fmt(formatter),
+            Self::Execution(error) => error.fmt(formatter),
+            Self::ResultBuild(error) => error.fmt(formatter),
+            Self::Wire(error) => error.fmt(formatter),
+        }
+    }
+}
+
+impl Error for MonteCarloError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Market(error) => Some(error),
+            Self::Graph(error) => Some(error),
+            Self::ExecutorBuild(error) => Some(error),
+            Self::Execution(error) => Some(error),
+            Self::ResultBuild(error) => Some(error),
+            Self::Wire(error) => Some(error),
             _ => None,
         }
     }
