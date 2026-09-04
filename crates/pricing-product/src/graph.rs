@@ -209,7 +209,7 @@ impl SourceGraphBuilder {
     #[must_use]
     pub fn from_graph(graph: &SourceGraph) -> Self {
         let greatest = graph.nodes.iter().map(|node| node.id.get()).max();
-        let next_id = greatest.map_or(Some(0), u32::checked_add);
+        let next_id = greatest.map_or(Some(0), |value| value.checked_add(1));
         Self {
             nodes: graph.nodes.to_vec(),
             next_id,
@@ -225,11 +225,10 @@ impl SourceGraphBuilder {
     }
 
     pub fn literal(&mut self, value: f64) -> Result<NodeId, GraphError> {
-        let value = FiniteF64::new(value, "payoff_literal").map_err(|_| {
-            GraphError::NonFiniteLiteral {
+        let value =
+            FiniteF64::new(value, "payoff_literal").map_err(|_| GraphError::NonFiniteLiteral {
                 bits: value.to_bits(),
-            }
-        })?;
+            })?;
         self.push(SourceOpcode::Literal(value))
     }
 
@@ -448,16 +447,14 @@ where
             left,
             right,
             output,
-        } => binary(left, right).map(|(left, right)| {
-            (output, if left <= right { left } else { right })
-        }),
+        } => binary(left, right)
+            .map(|(left, right)| (output, if left <= right { left } else { right })),
         CompiledOpcode::Maximum {
             left,
             right,
             output,
-        } => binary(left, right).map(|(left, right)| {
-            (output, if left >= right { left } else { right })
-        }),
+        } => binary(left, right)
+            .map(|(left, right)| (output, if left >= right { left } else { right })),
         CompiledOpcode::Negate { input, output } => {
             Ok((output, -slots[checked_index(input, slots.len())?]))
         }
@@ -495,10 +492,7 @@ fn compile(graph: &SourceGraph, limits: GraphLimitPolicy) -> Result<CompiledPayo
         indegree.insert(id, count);
         for operand in operands.into_iter().take(count) {
             if !nodes.contains_key(&operand) {
-                return Err(GraphError::UnknownOperand {
-                    node: id,
-                    operand,
-                });
+                return Err(GraphError::UnknownOperand { node: id, operand });
             }
             outgoing.entry(operand).or_default().push(id);
         }
@@ -585,10 +579,7 @@ fn compile(graph: &SourceGraph, limits: GraphLimitPolicy) -> Result<CompiledPayo
     })
 }
 
-fn reachable_nodes(
-    nodes: &BTreeMap<NodeId, SourceOpcode>,
-    outputs: &[NodeId],
-) -> BTreeSet<NodeId> {
+fn reachable_nodes(nodes: &BTreeMap<NodeId, SourceOpcode>, outputs: &[NodeId]) -> BTreeSet<NodeId> {
     let mut reachable = BTreeSet::new();
     let mut pending = outputs.to_vec();
     while let Some(id) = pending.pop() {
@@ -977,7 +968,10 @@ impl fmt::Display for GraphError {
             Self::NoOutputs => write!(formatter, "Source graph requires at least one output"),
             Self::DuplicateNodeId { node } => write!(formatter, "duplicate Source NodeId {node}"),
             Self::UnknownOperand { node, operand } => {
-                write!(formatter, "Source node {node} references unknown operand {operand}")
+                write!(
+                    formatter,
+                    "Source node {node} references unknown operand {operand}"
+                )
             }
             Self::UnknownOutput { node } => write!(formatter, "unknown graph output {node}"),
             Self::Cycle { node } => write!(formatter, "Source graph cycle includes node {node}"),
@@ -999,14 +993,23 @@ impl fmt::Display for GraphError {
                 "graph soft limit {field} exceeded: {observed} > {limit}"
             ),
             Self::HardCapacity { field, observed } => {
-                write!(formatter, "graph hard capacity {field} exceeded by {observed}")
+                write!(
+                    formatter,
+                    "graph hard capacity {field} exceeded by {observed}"
+                )
             }
             Self::SizeOverflow => write!(formatter, "graph workspace-size estimate overflowed"),
             Self::InternalOrdering { operand } => {
-                write!(formatter, "operand {operand} was not assigned before its consumer")
+                write!(
+                    formatter,
+                    "operand {operand} was not assigned before its consumer"
+                )
             }
             Self::InvalidSlot { index, length } => {
-                write!(formatter, "compiled slot {index} is outside length {length}")
+                write!(
+                    formatter,
+                    "compiled slot {index} is outside length {length}"
+                )
             }
             Self::MissingObservation {
                 underlying,
@@ -1016,7 +1019,10 @@ impl fmt::Display for GraphError {
                 "missing observation for underlying {underlying} on {observation_date}"
             ),
             Self::NonFiniteRuntimeValue { opcode, bits } => {
-                write!(formatter, "runtime {opcode} produced non-finite value 0x{bits:016x}")
+                write!(
+                    formatter,
+                    "runtime {opcode} produced non-finite value 0x{bits:016x}"
+                )
             }
         }
     }
@@ -1113,7 +1119,9 @@ mod tests {
             ),
         ];
         let manual = SourceGraph::new(nodes, vec![NodeId::new(6)]);
-        let standard = standard.compile(GraphLimitPolicy::DEFAULT).expect("standard");
+        let standard = standard
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("standard");
         let manual = manual.compile(GraphLimitPolicy::DEFAULT).expect("manual");
         assert_eq!(standard.source_fingerprint(), manual.source_fingerprint());
         assert_eq!(standard.tape_fingerprint(), manual.tape_fingerprint());
