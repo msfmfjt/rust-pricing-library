@@ -1142,6 +1142,10 @@ mod tests {
     fn request_round_trip_and_noncanonical_input_have_same_fingerprint() {
         let request = request();
         let compact = request_to_json(&request).expect("json");
+        assert_eq!(
+            compact,
+            include_str!("../../../fixtures/v1/pricing_request.golden.json")
+        );
         assert!(compact.ends_with('\n'));
         let parsed = parse_request_json(compact.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert_eq!(
@@ -1191,5 +1195,61 @@ mod tests {
                 "https://json-schema.org/draft/2020-12/schema"
             );
         }
+    }
+
+    #[test]
+    fn result_compact_json_matches_golden_and_round_trips() {
+        let value = Estimate::new(
+            10.0,
+            0.5,
+            9.0,
+            11.0,
+            EstimatorKind::PseudoMonteCarlo,
+            1024,
+        )
+        .expect("estimate");
+        let result = PricingResult {
+            value,
+            risks: RiskReport::default(),
+            diagnostics: Diagnostics::new(vec![PricingWarning::new(
+                "curve_extrapolation",
+                "discount curve extrapolated",
+            )]),
+            replay: ReplayMetadata::new(
+                SchemaVersion::CURRENT,
+                [0; 32],
+                "0.1.0",
+                "acceptance-test",
+            ),
+        };
+        let json = result_to_json(&result).expect("json");
+        assert_eq!(
+            json,
+            include_str!("../../../fixtures/v1/pricing_result.golden.json")
+        );
+        assert_eq!(
+            parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("round trip"),
+            result
+        );
+    }
+
+    #[test]
+    fn result_writer_preserves_negative_zero() {
+        let estimate = Estimate::new(
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            EstimatorKind::Analytical,
+            1,
+        )
+        .expect("estimate");
+        let result = PricingResult {
+            value: estimate,
+            risks: RiskReport::default(),
+            diagnostics: Diagnostics::default(),
+            replay: ReplayMetadata::new(SchemaVersion::CURRENT, [1; 32], "0.1.0", "test"),
+        };
+        assert!(result_to_json(&result).expect("json").contains("\"value\":-0.0"));
     }
 }
