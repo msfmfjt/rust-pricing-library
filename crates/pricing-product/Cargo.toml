@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 pricing-core.workspace = true
+blake3.workspace = true
 
 [lints]
 workspace = true

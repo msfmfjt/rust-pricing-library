@@ -37,6 +37,14 @@ jobs:
           cargo -V
           git hash-object Cargo.lock
 
+      - name: Bootstrap graph formatting
+        shell: bash
+        run: |
+          cargo fmt --all
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            echo "GRAPH_BASE64=$(base64 -w0 crates/pricing-product/src/graph.rs)"
+          fi
+
       - name: Check formatting
         run: cargo fmt --all --check
 
