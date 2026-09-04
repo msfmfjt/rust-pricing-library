@@ -3,9 +3,7 @@ use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Range;
 
-use pricing_numerics::{
-    CenteredMoment, NeumaierSum, reduce_moments, reduce_sums,
-};
+use pricing_numerics::{CenteredMoment, NeumaierSum, reduce_moments, reduce_sums};
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 

@@ -161,12 +161,11 @@ impl SimulationPlan {
         let sampling_variance = if self.total_variance == 0.0 {
             0.0
         } else {
-            statistics
-                .moments()
-                .sample_variance()
-                .ok_or(MonteCarloError::InsufficientSamplingUnits {
+            statistics.moments().sample_variance().ok_or(
+                MonteCarloError::InsufficientSamplingUnits {
                     count: independent_units,
-                })?
+                },
+            )?
         };
         let estimator_variance = sampling_variance / independent_units as f64;
         let standard_error = estimator_variance.sqrt();
@@ -216,9 +215,11 @@ impl SimulationPlan {
         let outputs = self.payoff.evaluate(|underlying, date| {
             (underlying == self.underlying && date == self.expiry).then_some(terminal)
         })?;
-        Ok(self.discount * outputs.first().copied().ok_or(
-            pricing_product::GraphError::NoOutputs,
-        )?)
+        Ok(self.discount
+            * outputs
+                .first()
+                .copied()
+                .ok_or(pricing_product::GraphError::NoOutputs)?)
     }
 }
 
@@ -287,12 +288,8 @@ mod tests {
 
     fn curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {
         Arc::new(
-            LogLinearDiscountCurve::new(
-                CurveId::new(id),
-                vec![0.0, 1.0],
-                vec![1.0, (-rate).exp()],
-            )
-            .expect("curve"),
+            LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, (-rate).exp()])
+                .expect("curve"),
         )
     }
 
@@ -375,12 +372,7 @@ mod tests {
             parallel.pricing_result.value.value().to_bits()
         );
         assert_eq!(
-            single
-                .pricing_result
-                .value
-                .standard_error()
-                .get()
-                .to_bits(),
+            single.pricing_result.value.standard_error().get().to_bits(),
             parallel
                 .pricing_result
                 .value
@@ -388,7 +380,10 @@ mod tests {
                 .get()
                 .to_bits()
         );
-        assert_eq!(single.estimator_variance.to_bits(), parallel.estimator_variance.to_bits());
+        assert_eq!(
+            single.estimator_variance.to_bits(),
+            parallel.estimator_variance.to_bits()
+        );
     }
 
     #[test]
@@ -414,8 +409,6 @@ mod tests {
             policy(3),
         )
         .expect("high strike");
-        assert!(
-            low.pricing_result.value.value().get() >= high.pricing_result.value.value().get()
-        );
+        assert!(low.pricing_result.value.value().get() >= high.pricing_result.value.value().get());
     }
 }

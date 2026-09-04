@@ -156,16 +156,24 @@ impl From<TryExecutionError<GraphError>> for MonteCarloError {
 impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedEngine => write!(formatter, "the G4 price path supports pseudo-MC only"),
+            Self::UnsupportedEngine => {
+                write!(formatter, "the G4 price path supports pseudo-MC only")
+            }
             Self::RiskRequestNotPriceOnly => {
-                write!(formatter, "the G4 price path accepts a price-only risk request")
+                write!(
+                    formatter,
+                    "the G4 price path accepts a price-only risk request"
+                )
             }
             Self::InsufficientSamplingUnits { count } => write!(
                 formatter,
                 "at least two independent sampling units are required for stochastic error estimation; received {count}"
             ),
             Self::NonFiniteTotalVariance { bits } => {
-                write!(formatter, "Black-Scholes total variance is non-finite: 0x{bits:016x}")
+                write!(
+                    formatter,
+                    "Black-Scholes total variance is non-finite: 0x{bits:016x}"
+                )
             }
             Self::Market(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),
