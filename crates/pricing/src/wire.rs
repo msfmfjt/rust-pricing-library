@@ -1199,15 +1199,8 @@ mod tests {
 
     #[test]
     fn result_compact_json_matches_golden_and_round_trips() {
-        let value = Estimate::new(
-            10.0,
-            0.5,
-            9.0,
-            11.0,
-            EstimatorKind::PseudoMonteCarlo,
-            1024,
-        )
-        .expect("estimate");
+        let value = Estimate::new(10.0, 0.5, 9.0, 11.0, EstimatorKind::PseudoMonteCarlo, 1024)
+            .expect("estimate");
         let result = PricingResult {
             value,
             risks: RiskReport::default(),
@@ -1235,21 +1228,18 @@ mod tests {
 
     #[test]
     fn result_writer_preserves_negative_zero() {
-        let estimate = Estimate::new(
-            -0.0,
-            0.0,
-            -0.0,
-            0.0,
-            EstimatorKind::Analytical,
-            1,
-        )
-        .expect("estimate");
+        let estimate =
+            Estimate::new(-0.0, 0.0, -0.0, 0.0, EstimatorKind::Analytical, 1).expect("estimate");
         let result = PricingResult {
             value: estimate,
             risks: RiskReport::default(),
             diagnostics: Diagnostics::default(),
             replay: ReplayMetadata::new(SchemaVersion::CURRENT, [1; 32], "0.1.0", "test"),
         };
-        assert!(result_to_json(&result).expect("json").contains("\"value\":-0.0"));
+        assert!(
+            result_to_json(&result)
+                .expect("json")
+                .contains("\"value\":-0.0")
+        );
     }
 }
