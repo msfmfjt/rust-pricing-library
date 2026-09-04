@@ -298,11 +298,8 @@ mod tests {
         assert_eq!(generator.key(), [0x89ab_cdef, 0x0123_4567]);
 
         for dimension in 0..4 {
-            let coordinate = RandomCoordinate::new(
-                0x1122_3344_5566_7788,
-                dimension,
-                RandomDomain::LsmTrain,
-            );
+            let coordinate =
+                RandomCoordinate::new(0x1122_3344_5566_7788, dimension, RandomDomain::LsmTrain);
             assert_eq!(coordinate.counter(), [0x5566_7788, 0x1122_3344, 0, 1]);
             assert_eq!(coordinate.lane(), dimension as usize);
         }
