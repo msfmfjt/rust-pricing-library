@@ -30,6 +30,9 @@ pricing-models = { path = "crates/pricing-models" }
 pricing-mc = { path = "crates/pricing-mc" }
 pricing-risk = { path = "crates/pricing-risk" }
 pricing = { path = "crates/pricing" }
+blake3 = "1.8.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

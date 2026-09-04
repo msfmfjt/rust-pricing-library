@@ -5,6 +5,7 @@
 mod error;
 mod request;
 mod result;
+mod wire;
 
 pub use error::{RequestValidationError, ResultBuildError};
 pub use pricing_core as core;
@@ -17,6 +18,11 @@ pub use request::PricingRequest;
 pub use result::{
     ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, PricingResult, PricingWarning,
     ReplayMetadata, RiskEstimate, RiskReport, RiskUnit,
+};
+pub use wire::{
+    Fingerprint, JsonLimits, MigrationRegistry, WireError, current_request_schema,
+    current_result_schema, fingerprint_request, parse_request_json, parse_result_json,
+    request_to_json, request_to_pretty_json, result_to_json, result_to_pretty_json,
 };
 
 /// Returns the public facade version.

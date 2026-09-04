@@ -39,6 +39,7 @@ pub struct CurveEvaluation {
 pub struct LogLinearDiscountCurve {
     id: CurveId,
     times: Box<[f64]>,
+    discount_factors: Box<[f64]>,
     log_discounts: Box<[f64]>,
 }
 
@@ -118,13 +119,15 @@ impl LogLinearDiscountCurve {
 
         times[0] = 0.0;
         let log_discounts = discount_factors
-            .into_iter()
+            .iter()
+            .copied()
             .map(f64::ln)
             .collect::<Vec<_>>()
             .into_boxed_slice();
         Ok(Self {
             id,
             times: times.into_boxed_slice(),
+            discount_factors: discount_factors.into_boxed_slice(),
             log_discounts,
         })
     }
@@ -142,6 +145,12 @@ impl LogLinearDiscountCurve {
     #[must_use]
     pub fn log_discounts(&self) -> &[f64] {
         &self.log_discounts
+    }
+
+    /// Returns the exact finite values supplied at construction time.
+    #[must_use]
+    pub fn discount_factors(&self) -> &[f64] {
+        &self.discount_factors
     }
 
     fn segment_value(&self, left: usize, right: usize, time: f64) -> f64 {
