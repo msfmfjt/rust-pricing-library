@@ -37,6 +37,14 @@ jobs:
           cargo -V
           git hash-object Cargo.lock
 
+      - name: Refresh lockfile for dependency review
+        shell: bash
+        run: |
+          cargo generate-lockfile
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            echo "LOCK_BASE64=$(base64 -w0 Cargo.lock)"
+          fi
+
       - name: Check formatting
         run: cargo fmt --all --check
 
