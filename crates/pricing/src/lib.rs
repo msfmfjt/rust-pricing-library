@@ -7,6 +7,9 @@ mod request;
 mod result;
 mod wire;
 
+#[doc(hidden)]
+pub mod analytical;
+
 pub use error::{RequestValidationError, ResultBuildError};
 pub use pricing_core as core;
 pub use pricing_market as market;
