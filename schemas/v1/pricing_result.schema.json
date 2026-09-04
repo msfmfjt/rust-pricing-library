@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:schema:v1:pricing_result",
+  "title": "PricingResult schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document_kind", "schema_version", "value", "risks", "diagnostics", "replay"],
+  "properties": {
+    "document_kind": {"const": "pricing_result"},
+    "schema_version": {"const": 1},
+    "value": {"$ref": "#/$defs/estimate"},
+    "risks": {"type": "object"},
+    "diagnostics": {"type": "object"},
+    "replay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "request_fingerprint", "library_version", "platform"],
+      "properties": {
+        "schema_version": {"type": "integer", "minimum": 1},
+        "request_fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
+        "library_version": {"type": "string"}, "platform": {"type": "string"}
+      }
+    }
+  },
+  "$defs": {
+    "estimate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value", "standard_error", "confidence_lower", "confidence_upper", "estimator", "effective_sampling_units"],
+      "properties": {
+        "value": {"type": "number"}, "standard_error": {"type": "number", "minimum": 0},
+        "confidence_lower": {"type": "number"}, "confidence_upper": {"type": "number"},
+        "estimator": {"type": "object"}, "effective_sampling_units": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

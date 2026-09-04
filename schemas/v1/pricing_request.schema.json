@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:schema:v1:pricing_request",
+  "title": "PricingRequest schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document_kind", "schema_version", "valuation_date", "product", "market", "model", "engine", "risk"],
+  "properties": {
+    "document_kind": {"const": "pricing_request"},
+    "schema_version": {"const": 1},
+    "valuation_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "product": {"$ref": "#/$defs/product"},
+    "market": {"$ref": "#/$defs/market"},
+    "model": {"$ref": "#/$defs/model"},
+    "engine": {"$ref": "#/$defs/engine"},
+    "risk": {"$ref": "#/$defs/risk"}
+  },
+  "$defs": {
+    "side": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "call"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "put"}}}
+      ]
+    },
+    "product": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "notional", "side"],
+      "properties": {
+        "type": {"const": "european_vanilla"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string"},
+        "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"}
+      }
+    },
+    "curve": {
+      "type": "object", "additionalProperties": false, "required": ["curve_id", "times", "discount_factors"],
+      "properties": {
+        "curve_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "times": {"type": "array", "minItems": 2, "items": {"type": "number", "minimum": 0}},
+        "discount_factors": {"type": "array", "minItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}}
+      }
+    },
+    "market": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "currency_id", "underlying_id", "spot", "discount_curve", "dividend_curve"],
+      "properties": {
+        "type": {"const": "equity"}, "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535},
+        "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "spot": {"type": "number", "exclusiveMinimum": 0},
+        "discount_curve": {"$ref": "#/$defs/curve"}, "dividend_curve": {"$ref": "#/$defs/curve"}
+      }
+    },
+    "model": {
+      "type": "object", "additionalProperties": false, "required": ["type", "volatility"],
+      "properties": {"type": {"const": "black_scholes"}, "volatility": {"type": "number", "minimum": 0}}
+    },
+    "variance_reduction": {
+      "type": "object", "additionalProperties": false, "required": ["antithetic", "brownian_bridge"],
+      "properties": {"antithetic": {"type": "boolean"}, "brownian_bridge": {"type": "boolean"}}
+    },
+    "engine": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "master_seed", "independent_sampling_units", "variance_reduction"], "properties": {"type": {"const": "pseudo_monte_carlo"}, "master_seed": {"type": "integer", "minimum": 0}, "independent_sampling_units": {"type": "integer", "minimum": 1}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "points_per_scramble", "scramble_count", "master_scramble_seed", "variance_reduction"], "properties": {"type": {"const": "randomized_quasi_monte_carlo"}, "points_per_scramble": {"type": "integer", "minimum": 1}, "scramble_count": {"type": "integer", "minimum": 1}, "master_scramble_seed": {"type": "integer", "minimum": 0}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}}
+      ]
+    },
+    "risk": {
+      "type": "object", "additionalProperties": false, "required": ["delta", "vega", "smile_dynamics"],
+      "properties": {
+        "delta": {"type": "boolean"}, "vega": {"type": "boolean"},
+        "gamma": {"type": "object"}, "vega_kt": {"type": "object"},
+        "smile_dynamics": {"type": "object"}, "checkpoint_interval": {"type": "integer", "minimum": 1}, "aad_tile_capacity": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

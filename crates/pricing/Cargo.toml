@@ -14,6 +14,9 @@ pricing-product.workspace = true
 pricing-models.workspace = true
 pricing-mc.workspace = true
 pricing-risk.workspace = true
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

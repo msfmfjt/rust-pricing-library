@@ -158,22 +158,22 @@ pub struct RiskReport {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PricingWarning {
-    code: &'static str,
+    code: String,
     message: String,
 }
 
 impl PricingWarning {
     #[must_use]
-    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            code,
+            code: code.into(),
             message: message.into(),
         }
     }
 
     #[must_use]
-    pub const fn code(&self) -> &'static str {
-        self.code
+    pub fn code(&self) -> &str {
+        &self.code
     }
 
     #[must_use]
