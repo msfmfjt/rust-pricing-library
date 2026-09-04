@@ -40,7 +40,10 @@ impl fmt::Display for AnalyticalError {
         match self {
             Self::Market(error) => error.fmt(formatter),
             Self::UnsupportedProductOrModel => {
-                write!(formatter, "analytical oracle supports European Black-Scholes only")
+                write!(
+                    formatter,
+                    "analytical oracle supports European Black-Scholes only"
+                )
             }
             Self::InvalidInput { field, bits } => {
                 write!(formatter, "invalid analytical input {field}: 0x{bits:016x}")
@@ -67,8 +70,8 @@ pub fn black_scholes_oracle(
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
     let ProductSpec::EuropeanVanilla(product) = request.product();
     let ModelSpec::BlackScholes(model) = request.model();
-    let time = DayCountConvention::Act365F
-        .year_fraction(request.valuation_date(), product.expiry());
+    let time =
+        DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry());
     let forward = request.market().equity().forward();
     let discount = forward.discount_curve().discount(time)?;
     let dividend_discount = forward.dividend_curve().discount(time)?;
@@ -130,10 +133,7 @@ pub fn evaluate(
     validate_result(result)
 }
 
-fn deterministic_limit(
-    inputs: BlackScholesOracleInputs,
-    forward: f64,
-) -> BlackScholesOracleResult {
+fn deterministic_limit(inputs: BlackScholesOracleInputs, forward: f64) -> BlackScholesOracleResult {
     let signed_intrinsic = match inputs.side {
         OptionSide::Call => forward - inputs.strike,
         OptionSide::Put => inputs.strike - forward,
@@ -155,14 +155,10 @@ fn deterministic_limit(
     }
 }
 
-fn regular_formula(
-    inputs: BlackScholesOracleInputs,
-    forward: f64,
-) -> BlackScholesOracleResult {
+fn regular_formula(inputs: BlackScholesOracleInputs, forward: f64) -> BlackScholesOracleResult {
     let root_time = inputs.time.sqrt();
     let standard_deviation = inputs.volatility * root_time;
-    let d1 = (forward / inputs.strike).ln() / standard_deviation
-        + 0.5 * standard_deviation;
+    let d1 = (forward / inputs.strike).ln() / standard_deviation + 0.5 * standard_deviation;
     let d2 = d1 - standard_deviation;
     let density = normal_density(d1);
     let (undiscounted_price, delta_probability) = match inputs.side {
@@ -243,11 +239,7 @@ fn normal_cdf(value: f64) -> f64 {
         (-0.5 * magnitude * magnitude).exp() * numerator / denominator
     } else {
         let continued_fraction = magnitude
-            + 1.0
-                / (magnitude
-                    + 2.0
-                        / (magnitude
-                            + 3.0 / (magnitude + 4.0 / (magnitude + 0.65))));
+            + 1.0 / (magnitude + 2.0 / (magnitude + 3.0 / (magnitude + 4.0 / (magnitude + 0.65))));
         (-0.5 * magnitude * magnitude).exp() / (continued_fraction * SQRT_2 * PI.sqrt())
     };
     if value > 0.0 { 1.0 - tail } else { tail }
@@ -304,7 +296,7 @@ mod tests {
     fn put_call_parity_holds_over_regular_grid() {
         for spot in [40.0, 80.0, 100.0, 120.0, 250.0] {
             for volatility in [0.01, 0.2, 1.0] {
-                for time in [1.0 / 365.0, 0.25, 2.0, 10.0] {
+                for time in [1.0_f64 / 365.0, 0.25, 2.0, 10.0] {
                     let discount = (-0.03 * time).exp();
                     let dividend_discount = (-0.01 * time).exp();
                     let base = BlackScholesOracleInputs {
