@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 pricing-core.workspace = true
+pricing-aad.workspace = true
 pricing-market.workspace = true
 pricing-product.workspace = true
 pricing-models.workspace = true
