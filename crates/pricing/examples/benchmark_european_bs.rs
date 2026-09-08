@@ -21,9 +21,7 @@ fn main() {
         .nth(1)
         .expect("usage: benchmark_european_bs <output.json>");
     let policy = ExecutionPolicy::new(2, Some(256)).expect("execution policy");
-    let price_request = request(RiskRequest::price_only(
-        SmileDynamics::StickyLogMoneyness,
-    ));
+    let price_request = request(RiskRequest::price_only(SmileDynamics::StickyLogMoneyness));
     let risk_request = request(
         RiskRequest::new(
             true,
@@ -47,23 +45,15 @@ fn main() {
     let compile_price = measure(COMPILE_SAMPLES, None, || {
         black_box(PricingPlan::compile(&price_request, policy).expect("compile price"));
     });
-    let evaluate_price = measure(
-        EVALUATION_SAMPLES,
-        Some(SAMPLING_UNITS * 2),
-        || {
-            black_box(price_plan.evaluate().expect("evaluate price"));
-        },
-    );
+    let evaluate_price = measure(EVALUATION_SAMPLES, Some(SAMPLING_UNITS * 2), || {
+        black_box(price_plan.evaluate().expect("evaluate price"));
+    });
     let compile_risk = measure(COMPILE_SAMPLES, None, || {
         black_box(PricingPlan::compile(&risk_request, policy).expect("compile risk"));
     });
-    let evaluate_risk = measure(
-        EVALUATION_SAMPLES,
-        Some(SAMPLING_UNITS * 2),
-        || {
-            black_box(risk_plan.evaluate().expect("evaluate risk"));
-        },
-    );
+    let evaluate_risk = measure(EVALUATION_SAMPLES, Some(SAMPLING_UNITS * 2), || {
+        black_box(risk_plan.evaluate().expect("evaluate risk"));
+    });
 
     let report = json!({
         "schema_version": 1,
