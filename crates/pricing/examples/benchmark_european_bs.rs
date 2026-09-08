@@ -51,25 +51,15 @@ fn main() {
         request(price_only(), SPOT, VOLATILITY),
         request(price_only(), SPOT - VALIDATION_SPOT_BUMP, VOLATILITY),
         request(price_only(), SPOT + VALIDATION_SPOT_BUMP, VOLATILITY),
-        request(
-            price_only(),
-            SPOT,
-            VOLATILITY - VALIDATION_VOLATILITY_BUMP,
-        ),
-        request(
-            price_only(),
-            SPOT,
-            VOLATILITY + VALIDATION_VOLATILITY_BUMP,
-        ),
+        request(price_only(), SPOT, VOLATILITY - VALIDATION_VOLATILITY_BUMP),
+        request(price_only(), SPOT, VOLATILITY + VALIDATION_VOLATILITY_BUMP),
     ];
 
     let price_plan = PricingPlan::compile(&price_request, policy).expect("price plan");
     let risk_plan = PricingPlan::compile(&risk_request, policy).expect("risk plan");
     let bump_plans: Vec<_> = bump_requests
         .iter()
-        .map(|request| {
-            PricingPlan::compile(request, policy).expect("compile bump-validation plan")
-        })
+        .map(|request| PricingPlan::compile(request, policy).expect("compile bump-validation plan"))
         .collect();
     black_box(price_plan.evaluate().expect("price warm-up"));
     black_box(risk_plan.evaluate().expect("risk warm-up"));
