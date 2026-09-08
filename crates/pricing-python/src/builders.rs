@@ -12,6 +12,7 @@ use pyo3::types::PyString;
 
 use crate::{PyValidationIssue, validation_exception};
 
+/// Immutable log-linear discount-factor curve with flat-forward extrapolation.
 #[pyclass(frozen, name = "DiscountCurve", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyDiscountCurve {
@@ -46,6 +47,7 @@ impl PyDiscountCurve {
     }
 }
 
+/// Immutable product specification built through named factory methods.
 #[pyclass(frozen, name = "Product", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyProduct {
@@ -54,6 +56,7 @@ pub struct PyProduct {
 
 #[pymethods]
 impl PyProduct {
+    /// Build a European vanilla call or put.
     #[staticmethod]
     fn european_vanilla(
         py: Python<'_>,
@@ -85,6 +88,7 @@ impl PyProduct {
     }
 }
 
+/// Immutable market context built through named factory methods.
 #[pyclass(frozen, name = "Market", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyMarket {
@@ -93,6 +97,7 @@ pub struct PyMarket {
 
 #[pymethods]
 impl PyMarket {
+    /// Build a single-currency equity market with deterministic carry curves.
     #[staticmethod]
     fn equity(
         py: Python<'_>,
@@ -120,6 +125,7 @@ impl PyMarket {
     }
 }
 
+/// Immutable pricing-model specification.
 #[pyclass(frozen, name = "Model", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyModel {
@@ -128,6 +134,7 @@ pub struct PyModel {
 
 #[pymethods]
 impl PyModel {
+    /// Build a constant-volatility Black--Scholes model.
     #[staticmethod]
     fn black_scholes(py: Python<'_>, volatility: f64) -> PyResult<Self> {
         BlackScholesSpec::new(volatility)
@@ -142,6 +149,7 @@ impl PyModel {
     }
 }
 
+/// Immutable Monte Carlo engine configuration.
 #[pyclass(frozen, name = "Engine", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyEngine {
@@ -150,6 +158,7 @@ pub struct PyEngine {
 
 #[pymethods]
 impl PyEngine {
+    /// Build a counter-based Philox pseudo-Monte Carlo engine.
     #[staticmethod]
     #[pyo3(signature = (master_seed, independent_sampling_units, *, antithetic=false, brownian_bridge=false))]
     fn pseudo_monte_carlo(
@@ -170,6 +179,7 @@ impl PyEngine {
         .map_err(|error| domain_error(py, "invalid_pseudo_mc", "/engine", error))
     }
 
+    /// Build a randomized Sobol QMC engine with independent scrambles.
     #[staticmethod]
     #[pyo3(signature = (points_per_scramble, master_scramble_seed, *, scramble_count=RqmcConfig::DEFAULT_SCRAMBLE_COUNT, antithetic=false, brownian_bridge=true))]
     fn randomized_quasi_monte_carlo(
@@ -201,6 +211,7 @@ impl PyEngine {
     }
 }
 
+/// Requested Greeks and deterministic AAD/bump execution controls.
 #[pyclass(frozen, name = "RiskRequest", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyRiskRequest {

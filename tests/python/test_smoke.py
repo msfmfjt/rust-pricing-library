@@ -34,6 +34,14 @@ class PricingFacadeSmokeTest(unittest.TestCase):
 
         payload = json.loads(result.to_json())
         self.assertEqual(payload["document_kind"], "pricing_result")
+        self.assertEqual(result.diagnostics.estimator, "pseudo_monte_carlo")
+        self.assertEqual(result.diagnostics.worker_threads, 2)
+        self.assertEqual(
+            [warning.code for warning in result.diagnostics.warnings],
+            [warning.code for warning in result.warnings],
+        )
+        with self.assertRaises(AttributeError):
+            result.diagnostics.master_seed = 99
 
     def test_native_builders_match_json_request_and_result(self):
         discount = rust_pricing.DiscountCurve(
@@ -64,13 +72,20 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(native.fingerprint, from_json.fingerprint)
         self.assertEqual(native.to_json(), from_json.to_json())
 
-        native_result = rust_pricing.PricingPlan.compile(
+        native_plan = rust_pricing.PricingPlan.compile(
             native, worker_threads=2, reduction_block_size=256
-        ).evaluate()
-        json_result = rust_pricing.PricingPlan.compile(
+        )
+        json_plan = rust_pricing.PricingPlan.compile(
             from_json, worker_threads=2, reduction_block_size=256
-        ).evaluate()
+        )
+        self.assertEqual(native_plan.plan_fingerprint, json_plan.plan_fingerprint)
+        native_result = native_plan.evaluate()
+        json_result = json_plan.evaluate()
         self.assertEqual(native_result.to_json(), json_result.to_json())
+
+    def test_runtime_docstrings_are_available(self):
+        self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
+        self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
 
     def test_native_builder_error_is_structured(self):
         curve = rust_pricing.DiscountCurve(1, [0.0, 1.0], [1.0, 0.95])
