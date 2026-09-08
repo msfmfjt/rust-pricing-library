@@ -6,7 +6,9 @@ mod error;
 mod request;
 
 pub use error::RiskConfigError;
-pub use request::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
+pub use request::{
+    GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig, gamma_bump_ladder,
+};
 
 /// Confirms that the risk layer is connected to AAD-enabled simulation.
 #[must_use]

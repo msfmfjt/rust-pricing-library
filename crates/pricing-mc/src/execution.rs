@@ -7,6 +7,9 @@ use pricing_numerics::{CenteredMoment, NeumaierSum, reduce_moments, reduce_sums}
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
+#[cfg(feature = "aad")]
+use pricing_aad::{AadConfigError, SoaWorkspace};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ExecutionPolicy {
     worker_threads: NonZeroU32,
@@ -307,6 +310,92 @@ impl DeterministicExecutor {
             moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
         }))
     }
+
+    /// Executes AAD paths in fixed tiles backed by one reusable aligned SoA
+    /// workspace per Rayon worker.
+    #[cfg(feature = "aad")]
+    pub fn try_map_reduce_statistics_array_with_aad_workspace<const N: usize, F, E>(
+        &self,
+        sampling_units: u64,
+        tile_capacity: NonZeroU32,
+        slot_count: usize,
+        evaluate: F,
+    ) -> Result<[DeterministicStatistics; N], TryExecutionError<E>>
+    where
+        F: Fn(u64, usize, &mut SoaWorkspace) -> Result<[f64; N], E> + Sync + Send,
+        E: From<AadConfigError> + Send,
+    {
+        #[derive(Clone, Copy)]
+        struct BlockStatistics<const N: usize> {
+            statistics: [DeterministicStatistics; N],
+        }
+
+        let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
+            .map_err(TryExecutionError::Execution)?;
+        let logical_capacity =
+            usize::try_from(tile_capacity.get()).map_err(|_| TryExecutionError::Evaluation {
+                sampling_unit: 0,
+                source: E::from(AadConfigError::WorkspaceSizeOverflow),
+            })?;
+        let block_results =
+            self.pool.install(|| {
+                blocks
+                    .into_par_iter()
+                    .map_init(
+                        || SoaWorkspace::new(slot_count, logical_capacity),
+                        |workspace, block| {
+                            let workspace = workspace.as_mut().map_err(|error| {
+                                TryExecutionError::Evaluation {
+                                    sampling_unit: block.start,
+                                    source: E::from(*error),
+                                }
+                            })?;
+                            let mut statistics = [DeterministicStatistics::default(); N];
+                            let mut tile_begin = block.start;
+                            while tile_begin < block.end {
+                                workspace.reset_positive_zero();
+                                let tile_end = tile_begin
+                                    .saturating_add(u64::from(tile_capacity.get()))
+                                    .min(block.end);
+                                for (lane, sampling_unit) in (tile_begin..tile_end).enumerate() {
+                                    let values = evaluate(sampling_unit, lane, workspace).map_err(
+                                        |source| TryExecutionError::Evaluation {
+                                            sampling_unit,
+                                            source,
+                                        },
+                                    )?;
+                                    for (statistic, value) in statistics.iter_mut().zip(values) {
+                                        statistic.sum.add(value);
+                                        statistic.moments.add(value);
+                                    }
+                                }
+                                tile_begin = tile_end;
+                            }
+                            Ok(BlockStatistics { statistics })
+                        },
+                    )
+                    .collect::<Vec<_>>()
+            });
+        let mut per_component_sums: [Vec<NeumaierSum>; N] =
+            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
+        let mut per_component_moments: [Vec<CenteredMoment>; N] =
+            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
+        for result in block_results {
+            let block = result?;
+            for ((sums, moments), statistic) in per_component_sums
+                .iter_mut()
+                .zip(per_component_moments.iter_mut())
+                .zip(block.statistics)
+            {
+                sums.push(statistic.sum);
+                moments.push(statistic.moments);
+            }
+        }
+        Ok(std::array::from_fn(|component| DeterministicStatistics {
+            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
+        }))
+    }
 }
 
 fn fixed_blocks(sampling_units: u64, block_size: u64) -> Result<Vec<Range<u64>>, ExecutionError> {
@@ -439,5 +528,47 @@ mod tests {
                 parallel[component].moments().mean().to_bits()
             );
         }
+    }
+
+    #[cfg(feature = "aad")]
+    #[test]
+    fn aad_workspace_is_aligned_zeroed_and_reused_by_logical_lane() {
+        let statistics = executor(3, 7)
+            .try_map_reduce_statistics_array_with_aad_workspace(
+                19,
+                NonZeroU32::new(3).expect("positive"),
+                2,
+                |sampling_unit, lane, workspace| {
+                    if lane == 0 {
+                        for slot in 0..workspace.slot_count() {
+                            assert_eq!(workspace.primal(slot)?.alignment_remainder(), 0);
+                            assert_eq!(workspace.adjoint(slot)?.alignment_remainder(), 0);
+                            assert_eq!(
+                                workspace.primal(slot)?.get(0)?.to_bits(),
+                                0.0_f64.to_bits()
+                            );
+                            assert_eq!(
+                                workspace.adjoint(slot)?.get(0)?.to_bits(),
+                                0.0_f64.to_bits()
+                            );
+                            assert!(
+                                workspace
+                                    .primal(slot)?
+                                    .padded_lane_bits()
+                                    .all(|bits| bits == 0.0_f64.to_bits())
+                            );
+                        }
+                    }
+                    workspace.primal_mut(0)?.set(lane, sampling_unit as f64)?;
+                    workspace.adjoint_mut(0)?.set(lane, 2.0)?;
+                    Ok::<_, AadConfigError>([
+                        workspace.primal(0)?.get(lane)?,
+                        workspace.adjoint(0)?.get(lane)?,
+                    ])
+                },
+            )
+            .expect("execution");
+        assert_eq!(statistics[0].sum().total(), (0_u64..19).sum::<u64>() as f64);
+        assert_eq!(statistics[1].sum().total(), 38.0);
     }
 }

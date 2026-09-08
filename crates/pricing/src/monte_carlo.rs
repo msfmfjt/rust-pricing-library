@@ -1,4 +1,4 @@
-use pricing_aad::{AadTilePolicy, CheckpointPolicy};
+use pricing_aad::{AadTilePolicy, CheckpointPolicy, SoaWorkspace};
 use pricing_core::{Date, DayCountConvention, SchemaVersion, UnderlyingId};
 use pricing_market::{CurveRegion, DiscountCurve};
 use pricing_mc::{
@@ -7,7 +7,7 @@ use pricing_mc::{
 };
 use pricing_models::ModelSpec;
 use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy, ProductSpec};
-use pricing_risk::{GammaConfig, SpotBump};
+use pricing_risk::{GammaConfig, SmileDynamics, SpotBump};
 
 use crate::{
     Diagnostics, Estimate, EstimatorKind, MonteCarloError, PricingRequest, PricingResult,
@@ -20,7 +20,16 @@ const PRICE: usize = 0;
 const DELTA: usize = 1;
 const VEGA: usize = 2;
 const GAMMA: usize = 3;
-const PATHWISE_COMPONENTS: usize = 4;
+const BUMP_DELTA: usize = 4;
+const DELTA_DIFFERENCE: usize = 5;
+const BUMP_VEGA: usize = 6;
+const VEGA_DIFFERENCE: usize = 7;
+const BUMP_GAMMA: usize = 8;
+const GAMMA_DIFFERENCE: usize = 9;
+const PATHWISE_COMPONENTS: usize = 10;
+const AAD_WORKSPACE_SLOTS: usize = 5;
+const DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP: f64 = 1.0e-4;
+const DEFAULT_VALIDATION_VOLATILITY_BUMP: f64 = 1.0e-4;
 
 /// Immutable one-expiry plan for the European Black-Scholes pseudo-MC slice.
 #[derive(Clone, Debug)]
@@ -43,6 +52,9 @@ pub struct SimulationPlan {
     request_delta: bool,
     request_gamma: Option<GammaConfig>,
     request_vega: bool,
+    smile_dynamics: SmileDynamics,
+    validation_spot_bump: f64,
+    validation_volatility_bump: f64,
     request_fingerprint: [u8; 32],
     discount_region: CurveRegion,
     dividend_region: CurveRegion,
@@ -95,6 +107,17 @@ impl SimulationPlan {
                 });
             }
         }
+        let validation_spot_bump = request
+            .risk()
+            .gamma()
+            .map_or(spot * DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP, |gamma| {
+                resolve_spot_bump(gamma, spot)
+            });
+        let validation_volatility_bump = if volatility == 0.0 {
+            0.0
+        } else {
+            DEFAULT_VALIDATION_VOLATILITY_BUMP.min(volatility * 0.5)
+        };
         Ok(Self {
             valuation_date: request.valuation_date(),
             expiry: product.expiry(),
@@ -114,6 +137,9 @@ impl SimulationPlan {
             request_delta: request.risk().delta(),
             request_gamma: request.risk().gamma(),
             request_vega: request.risk().vega(),
+            smile_dynamics: request.risk().smile_dynamics(),
+            validation_spot_bump,
+            validation_volatility_bump,
             request_fingerprint,
             discount_region: forward_evaluation.discount_region,
             dividend_region: forward_evaluation.dividend_region,
@@ -165,19 +191,20 @@ impl SimulationPlan {
         let generator = Philox4x32::from_seed(self.engine.master_seed());
         let antithetic = self.engine.variance_reduction().antithetic();
         let statistics = if self.risk_enabled() {
-            executor.try_map_reduce_statistics_array_tiled(
+            executor.try_map_reduce_statistics_array_with_aad_workspace(
                 self.engine.independent_sampling_units().get(),
                 self.aad_tile_policy.resolved_capacity(),
-                |sampling_unit| {
+                AAD_WORKSPACE_SLOTS,
+                |sampling_unit, lane, workspace| {
                     let normal = self.normal(&generator, sampling_unit);
-                    let primary = self.pathwise_values(normal)?;
+                    let primary = self.pathwise_values(normal, lane, workspace)?;
                     if antithetic {
-                        let mate = self.pathwise_values(-normal)?;
-                        Ok(std::array::from_fn(|component| {
-                            (primary[component] + mate[component]) * 0.5
-                        }))
+                        let mate = self.pathwise_values(-normal, lane, workspace)?;
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                            |component| (primary[component] + mate[component]) * 0.5,
+                        ))
                     } else {
-                        Ok(primary)
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
                     }
                 },
             )?
@@ -189,9 +216,9 @@ impl SimulationPlan {
                     let primary = self.discounted_payoff(normal)?;
                     if antithetic {
                         let mate = self.discounted_payoff(-normal)?;
-                        Ok((primary + mate) * 0.5)
+                        Ok::<f64, pricing_product::GraphError>((primary + mate) * 0.5)
                     } else {
-                        Ok(primary)
+                        Ok::<f64, pricing_product::GraphError>(primary)
                     }
                 },
             )?;
@@ -215,6 +242,7 @@ impl SimulationPlan {
         let estimate = estimate_from_statistics(statistics[PRICE], independent_units, 1.0)?;
         debug_assert_eq!(estimate.value().get().to_bits(), price.to_bits());
         let risks = self.build_risk_report(&statistics, independent_units)?;
+        let risk_diagnostics = self.build_risk_diagnostics(&statistics, independent_units)?;
         let warnings = extrapolation_warnings(self.discount_region, self.dividend_region);
         let pricing_result = PricingResult {
             value: estimate,
@@ -231,6 +259,7 @@ impl SimulationPlan {
             pricing_result,
             sampling_variance,
             estimator_variance,
+            risk_diagnostics,
             independent_sampling_units: independent_units,
             evaluated_paths: self.engine.evaluated_paths(),
             diagnostics: MonteCarloDiagnostics {
@@ -282,25 +311,68 @@ impl SimulationPlan {
     fn pathwise_values(
         &self,
         normal: f64,
-    ) -> Result<[f64; PATHWISE_COMPONENTS], pricing_product::GraphError> {
-        let (price, delta, vega) = self.pathwise_aad(normal, self.spot)?;
+        lane: usize,
+        workspace: &mut SoaWorkspace,
+    ) -> Result<[f64; PATHWISE_COMPONENTS], MonteCarloError> {
+        let base = self.pathwise_aad(normal, self.spot, self.volatility)?;
         let gamma = if let Some(gamma) = self.request_gamma {
             let bump = resolve_spot_bump(gamma, self.spot);
-            let delta_down = self.pathwise_aad(normal, self.spot - bump)?.1;
-            let delta_up = self.pathwise_aad(normal, self.spot + bump)?.1;
+            let delta_down = self
+                .pathwise_aad(normal, self.spot - bump, self.volatility)?
+                .delta;
+            let delta_up = self
+                .pathwise_aad(normal, self.spot + bump, self.volatility)?
+                .delta;
             (delta_up - delta_down) / (2.0 * bump)
         } else {
             0.0
         };
-        Ok([price, delta, vega, gamma])
+        let spot_bump = self.validation_spot_bump;
+        let down_spot = self.pathwise_aad(normal, self.spot - spot_bump, self.volatility)?;
+        let up_spot = self.pathwise_aad(normal, self.spot + spot_bump, self.volatility)?;
+        let bump_delta = (up_spot.price - down_spot.price) / (2.0 * spot_bump);
+        let bump_gamma = (up_spot.price - 2.0 * base.price + down_spot.price) / spot_bump.powi(2);
+        let bump_vega = if self.validation_volatility_bump == 0.0 {
+            0.0
+        } else {
+            let bump = self.validation_volatility_bump;
+            let down = self
+                .pathwise_aad(normal, self.spot, self.volatility - bump)?
+                .price;
+            let up = self
+                .pathwise_aad(normal, self.spot, self.volatility + bump)?
+                .price;
+            (up - down) / (2.0 * bump)
+        };
+        workspace.primal_mut(0)?.set(lane, base.terminal)?;
+        workspace.adjoint_mut(0)?.set(lane, base.terminal_adjoint)?;
+        workspace.primal_mut(1)?.set(lane, base.price)?;
+        workspace.primal_mut(2)?.set(lane, base.delta)?;
+        workspace.primal_mut(3)?.set(lane, base.vega)?;
+        workspace.primal_mut(4)?.set(lane, gamma)?;
+        Ok([
+            workspace.primal(1)?.get(lane)?,
+            workspace.primal(2)?.get(lane)?,
+            workspace.primal(3)?.get(lane)?,
+            workspace.primal(4)?.get(lane)?,
+            bump_delta,
+            bump_delta - base.delta,
+            bump_vega,
+            bump_vega - base.vega,
+            bump_gamma,
+            bump_gamma - gamma,
+        ])
     }
 
     fn pathwise_aad(
         &self,
         normal: f64,
         spot: f64,
-    ) -> Result<(f64, f64, f64), pricing_product::GraphError> {
-        let log_return = -0.5 * self.total_variance + self.standard_deviation * normal;
+        volatility: f64,
+    ) -> Result<PathwiseAad, pricing_product::GraphError> {
+        let total_variance = volatility * volatility * self.time;
+        let standard_deviation = total_variance.sqrt();
+        let log_return = -0.5 * total_variance + standard_deviation * normal;
         let bumped_forward = self.forward * (spot / self.spot);
         let terminal = bumped_forward * log_return.exp();
         let payoff = self
@@ -317,9 +389,15 @@ impl SimulationPlan {
             .fold(0.0, |total, adjoint| total + adjoint.value);
         let price = self.discount * payoff.value;
         let delta = self.discount * terminal_adjoint * terminal / spot;
-        let terminal_vega = terminal * (-self.volatility * self.time + self.time.sqrt() * normal);
+        let terminal_vega = terminal * (-volatility * self.time + self.time.sqrt() * normal);
         let vega = self.discount * terminal_adjoint * terminal_vega;
-        Ok((price, delta, vega))
+        Ok(PathwiseAad {
+            price,
+            delta,
+            vega,
+            terminal,
+            terminal_adjoint,
+        })
     }
 
     fn build_risk_report(
@@ -365,6 +443,73 @@ impl SimulationPlan {
             .transpose()?;
         Ok(RiskReport { delta, gamma, vega })
     }
+
+    fn build_risk_diagnostics(
+        &self,
+        statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
+        independent_units: u64,
+    ) -> Result<RiskDiagnostics, MonteCarloError> {
+        let delta_validation = self
+            .request_delta
+            .then(|| {
+                risk_validation(
+                    statistics[BUMP_DELTA],
+                    statistics[DELTA_DIFFERENCE],
+                    independent_units,
+                )
+            })
+            .transpose()?;
+        let gamma_validation = self
+            .request_gamma
+            .map(|_| {
+                risk_validation(
+                    statistics[BUMP_GAMMA],
+                    statistics[GAMMA_DIFFERENCE],
+                    independent_units,
+                )
+            })
+            .transpose()?;
+        let vega_validation = self
+            .request_vega
+            .then(|| {
+                risk_validation(
+                    statistics[BUMP_VEGA],
+                    statistics[VEGA_DIFFERENCE],
+                    independent_units,
+                )
+            })
+            .transpose()?;
+        Ok(RiskDiagnostics {
+            methods: RiskMethodMetadata {
+                delta: self.request_delta.then_some(RiskMethod::AadReverse),
+                gamma: self
+                    .request_gamma
+                    .map(|_| RiskMethod::CentralBumpOfAadDelta),
+                vega: self.request_vega.then_some(RiskMethod::AadReverse),
+                smile_dynamics: self.smile_dynamics,
+                gamma_spot_bump: self
+                    .request_gamma
+                    .map(|gamma| resolve_spot_bump(gamma, self.spot)),
+                validation_spot_bump: self.risk_enabled().then_some(self.validation_spot_bump),
+                validation_volatility_bump: self
+                    .request_vega
+                    .then_some(self.validation_volatility_bump),
+                bump_policy_version: BumpValidationPolicy::VERSION,
+            },
+            delta_validation,
+            gamma_validation,
+            vega_validation,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PathwiseAad {
+    price: f64,
+    delta: f64,
+    vega: f64,
+    terminal: f64,
+    terminal_adjoint: f64,
 }
 
 fn resolve_spot_bump(gamma: GammaConfig, spot: f64) -> f64 {
@@ -409,6 +554,59 @@ fn risk_estimate(
     ))
 }
 
+fn risk_validation(
+    bump: DeterministicStatistics,
+    bump_minus_primary: DeterministicStatistics,
+    independent_units: u64,
+) -> Result<RiskValidation, ResultBuildError> {
+    Ok(RiskValidation {
+        bump_and_revalue: estimate_from_statistics(bump, independent_units, 1.0)?,
+        bump_minus_primary: estimate_from_statistics(bump_minus_primary, independent_units, 1.0)?,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RiskMethod {
+    AadReverse,
+    CentralBumpOfAadDelta,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RiskMethodMetadata {
+    pub delta: Option<RiskMethod>,
+    pub gamma: Option<RiskMethod>,
+    pub vega: Option<RiskMethod>,
+    pub smile_dynamics: SmileDynamics,
+    pub gamma_spot_bump: Option<f64>,
+    pub validation_spot_bump: Option<f64>,
+    pub validation_volatility_bump: Option<f64>,
+    pub bump_policy_version: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RiskValidation {
+    pub bump_and_revalue: Estimate,
+    /// Common-random-number pathwise difference: bump estimator minus the
+    /// primary AAD or bumped-AAD estimator.
+    pub bump_minus_primary: Estimate,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RiskDiagnostics {
+    pub methods: RiskMethodMetadata,
+    pub delta_validation: Option<RiskValidation>,
+    pub gamma_validation: Option<RiskValidation>,
+    pub vega_validation: Option<RiskValidation>,
+}
+
+pub struct BumpValidationPolicy;
+
+impl BumpValidationPolicy {
+    pub const VERSION: u32 = 1;
+    pub const DEFAULT_RELATIVE_SPOT_BUMP: f64 = DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP;
+    pub const DEFAULT_ABSOLUTE_VOLATILITY_BUMP: f64 = DEFAULT_VALIDATION_VOLATILITY_BUMP;
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MonteCarloDiagnostics {
     pub master_seed: u64,
@@ -430,6 +628,7 @@ pub struct MonteCarloPrice {
     pub pricing_result: PricingResult,
     pub sampling_variance: f64,
     pub estimator_variance: f64,
+    pub risk_diagnostics: RiskDiagnostics,
     pub independent_sampling_units: u64,
     pub evaluated_paths: u128,
     pub diagnostics: MonteCarloDiagnostics,
@@ -666,6 +865,31 @@ mod tests {
         );
         assert_eq!(result.diagnostics.aad_tile_capacity, 64);
         assert_eq!(result.diagnostics.checkpoint_interval, 13);
+        let diagnostics = &result.risk_diagnostics;
+        assert_eq!(diagnostics.methods.delta, Some(RiskMethod::AadReverse));
+        assert_eq!(
+            diagnostics.methods.gamma,
+            Some(RiskMethod::CentralBumpOfAadDelta)
+        );
+        assert_eq!(diagnostics.methods.vega, Some(RiskMethod::AadReverse));
+        assert_eq!(diagnostics.methods.gamma_spot_bump, Some(1.0));
+        assert_eq!(diagnostics.methods.validation_spot_bump, Some(1.0));
+        assert_eq!(diagnostics.methods.bump_policy_version, 1);
+        for validation in [
+            diagnostics.delta_validation.expect("delta validation"),
+            diagnostics.gamma_validation.expect("gamma validation"),
+            diagnostics.vega_validation.expect("vega validation"),
+        ] {
+            assert!(validation.bump_and_revalue.value().get().is_finite());
+            assert!(validation.bump_minus_primary.value().get().is_finite());
+            assert!(
+                validation
+                    .bump_minus_primary
+                    .standard_error()
+                    .get()
+                    .is_finite()
+            );
+        }
     }
 
     #[test]
@@ -690,6 +914,18 @@ mod tests {
             price.pricing_result.value.standard_error().get().to_bits(),
             risk.pricing_result.value.standard_error().get().to_bits()
         );
+    }
+
+    #[test]
+    fn price_only_result_has_no_risk_methods_or_validations() {
+        let request = request(OptionSide::Call, 100.0, 0.2, 1024, true);
+        let result = price_pseudo_monte_carlo(&request, policy(2)).expect("price");
+        assert_eq!(result.risk_diagnostics.methods.delta, None);
+        assert_eq!(result.risk_diagnostics.methods.gamma, None);
+        assert_eq!(result.risk_diagnostics.methods.vega, None);
+        assert_eq!(result.risk_diagnostics.delta_validation, None);
+        assert_eq!(result.risk_diagnostics.gamma_validation, None);
+        assert_eq!(result.risk_diagnostics.vega_validation, None);
     }
 
     #[test]
