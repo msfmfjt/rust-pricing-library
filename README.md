@@ -12,7 +12,7 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 
 ## Status
 
-The project is in Gate G5 of the initial implementation roadmap: European Black–Scholes AAD Greeks and common-random-number bump diagnostics.
+The project has completed Gate G6 of the initial implementation roadmap: European Black–Scholes supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan.
 
 ## Workspace
 
