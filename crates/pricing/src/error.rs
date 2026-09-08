@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
+use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
 use pricing_mc::{ExecutionError, ExecutorBuildError, TryExecutionError};
@@ -103,7 +104,7 @@ impl Error for ResultBuildError {
 #[non_exhaustive]
 pub enum MonteCarloError {
     UnsupportedEngine,
-    RiskRequestNotPriceOnly,
+    InvalidGammaBump { spot_bits: u64, bump_bits: u64 },
     InsufficientSamplingUnits { count: u64 },
     NonFiniteTotalVariance { bits: u64 },
     Market(MarketError),
@@ -112,6 +113,7 @@ pub enum MonteCarloError {
     Execution(ExecutionError),
     ResultBuild(ResultBuildError),
     Wire(WireError),
+    AadConfig(AadConfigError),
 }
 
 impl From<MarketError> for MonteCarloError {
@@ -144,6 +146,12 @@ impl From<WireError> for MonteCarloError {
     }
 }
 
+impl From<AadConfigError> for MonteCarloError {
+    fn from(error: AadConfigError) -> Self {
+        Self::AadConfig(error)
+    }
+}
+
 impl From<TryExecutionError<GraphError>> for MonteCarloError {
     fn from(error: TryExecutionError<GraphError>) -> Self {
         match error {
@@ -157,14 +165,18 @@ impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedEngine => {
-                write!(formatter, "the G4 price path supports pseudo-MC only")
-            }
-            Self::RiskRequestNotPriceOnly => {
                 write!(
                     formatter,
-                    "the G4 price path accepts a price-only risk request"
+                    "the European BS simulation path supports pseudo-MC only"
                 )
             }
+            Self::InvalidGammaBump {
+                spot_bits,
+                bump_bits,
+            } => write!(
+                formatter,
+                "gamma bump must leave a positive down-bumped spot; spot=0x{spot_bits:016x}, bump=0x{bump_bits:016x}"
+            ),
             Self::InsufficientSamplingUnits { count } => write!(
                 formatter,
                 "at least two independent sampling units are required for stochastic error estimation; received {count}"
@@ -181,6 +193,7 @@ impl fmt::Display for MonteCarloError {
             Self::Execution(error) => error.fmt(formatter),
             Self::ResultBuild(error) => error.fmt(formatter),
             Self::Wire(error) => error.fmt(formatter),
+            Self::AadConfig(error) => error.fmt(formatter),
         }
     }
 }
@@ -194,6 +207,7 @@ impl Error for MonteCarloError {
             Self::Execution(error) => Some(error),
             Self::ResultBuild(error) => Some(error),
             Self::Wire(error) => Some(error),
+            Self::AadConfig(error) => Some(error),
             _ => None,
         }
     }
