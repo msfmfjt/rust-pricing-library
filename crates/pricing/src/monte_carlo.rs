@@ -1,5 +1,5 @@
-use pricing_core::{Date, DayCountConvention, SchemaVersion, UnderlyingId};
 use pricing_aad::{AadTilePolicy, CheckpointPolicy};
+use pricing_core::{Date, DayCountConvention, SchemaVersion, UnderlyingId};
 use pricing_market::{CurveRegion, DiscountCurve};
 use pricing_mc::{
     DeterministicExecutor, DeterministicStatistics, EngineConfig, ExecutionPolicy, Philox4x32,
@@ -687,17 +687,8 @@ mod tests {
             risk.pricing_result.value.value().to_bits()
         );
         assert_eq!(
-            price
-                .pricing_result
-                .value
-                .standard_error()
-                .get()
-                .to_bits(),
-            risk.pricing_result
-                .value
-                .standard_error()
-                .get()
-                .to_bits()
+            price.pricing_result.value.standard_error().get().to_bits(),
+            risk.pricing_result.value.standard_error().get().to_bits()
         );
     }
 
@@ -781,24 +772,12 @@ mod tests {
             / (2.0 * spot_bump);
         let volatility_bump = 0.0001;
         let down_vol = price_pseudo_monte_carlo(
-            &request(
-                OptionSide::Call,
-                100.0,
-                0.2 - volatility_bump,
-                units,
-                true,
-            ),
+            &request(OptionSide::Call, 100.0, 0.2 - volatility_bump, units, true),
             policy(4),
         )
         .expect("down volatility");
         let up_vol = price_pseudo_monte_carlo(
-            &request(
-                OptionSide::Call,
-                100.0,
-                0.2 + volatility_bump,
-                units,
-                true,
-            ),
+            &request(OptionSide::Call, 100.0, 0.2 + volatility_bump, units, true),
             policy(4),
         )
         .expect("up volatility");
@@ -806,9 +785,7 @@ mod tests {
             - down_vol.pricing_result.value.value().get())
             / (2.0 * volatility_bump);
         let risks = &aad.pricing_result.risks;
-        assert!(
-            (risks.delta.expect("delta").raw().value().get() - bump_delta).abs() < 5.0e-4
-        );
+        assert!((risks.delta.expect("delta").raw().value().get() - bump_delta).abs() < 5.0e-4);
         assert!((risks.vega.expect("vega").raw().value().get() - bump_vega).abs() < 5.0e-3);
     }
 
@@ -826,15 +803,8 @@ mod tests {
             None,
         )
         .expect("risk");
-        let request = request_with_spot_and_risk(
-            OptionSide::Call,
-            100.0,
-            0.2,
-            1024,
-            true,
-            100.0,
-            risk,
-        );
+        let request =
+            request_with_spot_and_risk(OptionSide::Call, 100.0, 0.2, 1024, true, 100.0, risk);
         assert!(matches!(
             SimulationPlan::compile(&request, policy(2)),
             Err(MonteCarloError::InvalidGammaBump { .. })

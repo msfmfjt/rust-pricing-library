@@ -304,9 +304,7 @@ impl DeterministicExecutor {
         }
         Ok(std::array::from_fn(|component| DeterministicStatistics {
             sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(
-                &mut per_component_moments[component],
-            )),
+            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
         }))
     }
 }
@@ -411,10 +409,12 @@ mod tests {
 
     #[test]
     fn tiled_array_reduction_is_bitwise_stable_across_workers_and_tiles() {
-        let evaluate = |index: u64| Ok::<_, std::convert::Infallible>([
-            index as f64,
-            if index.is_multiple_of(2) { 1.0 } else { -1.0 },
-        ]);
+        let evaluate = |index: u64| {
+            Ok::<_, std::convert::Infallible>([
+                index as f64,
+                if index.is_multiple_of(2) { 1.0 } else { -1.0 },
+            ])
+        };
         let single = executor(1, 7)
             .try_map_reduce_statistics_array_tiled(
                 10_003,

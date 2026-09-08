@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::fmt;
 
-use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_aad::AadConfigError;
+use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
 use pricing_mc::{ExecutionError, ExecutorBuildError, TryExecutionError};
 use pricing_product::GraphError;
@@ -104,10 +104,7 @@ impl Error for ResultBuildError {
 #[non_exhaustive]
 pub enum MonteCarloError {
     UnsupportedEngine,
-    InvalidGammaBump {
-        spot_bits: u64,
-        bump_bits: u64,
-    },
+    InvalidGammaBump { spot_bits: u64, bump_bits: u64 },
     InsufficientSamplingUnits { count: u64 },
     NonFiniteTotalVariance { bits: u64 },
     Market(MarketError),
@@ -168,7 +165,10 @@ impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedEngine => {
-                write!(formatter, "the European BS simulation path supports pseudo-MC only")
+                write!(
+                    formatter,
+                    "the European BS simulation path supports pseudo-MC only"
+                )
             }
             Self::InvalidGammaBump {
                 spot_bits,
