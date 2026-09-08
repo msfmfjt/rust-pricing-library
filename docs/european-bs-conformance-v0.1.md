@@ -27,7 +27,7 @@ are frozen subject to the requirements change process.
 | Packaging | CPython 3.12 clean-environment wheel tests | `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` pass |
 | Performance | CI-retained Rust and installed-wheel Python reports with host/compiler metadata | Baseline recorded; no latency SLA asserted |
 
-CI run 95 exercised formatting, Clippy, unit/integration tests, the explicit
+CI run 96 exercised formatting, Clippy, unit/integration tests, the explicit
 multi-seed statistical suite, dependency-direction checks, both native wheels,
 benchmarks, and replay generation. The replay fixture intentionally stores
 platform-specific low-bit differences in CRN difference diagnostics.
