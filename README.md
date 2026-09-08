@@ -11,6 +11,7 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 - [European Black–Scholes implementation roadmap](docs/european-bs-roadmap-v0.1.md)
 - [European Black–Scholes conformance report](docs/european-bs-conformance-v0.1.md)
 - [European Black–Scholes diagnostics catalogue](docs/european-bs-diagnostics-v0.1.md)
+- [Local Volatility and VegaKT implementation roadmap](docs/local-vol-vegakt-roadmap-v0.1.md)
 
 ## Status
 
