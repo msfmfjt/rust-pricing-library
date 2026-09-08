@@ -65,13 +65,7 @@ fn analytical_oracle_matches_frozen_acceptance_grid() {
             case.expected_gamma,
             5.0e-15,
         );
-        assert_close(
-            case.name,
-            "vega",
-            result.vega,
-            case.expected_vega,
-            5.0e-13,
-        );
+        assert_close(case.name, "vega", result.vega, case.expected_vega, 5.0e-13);
     }
 }
 
