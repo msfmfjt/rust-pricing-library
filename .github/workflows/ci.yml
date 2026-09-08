@@ -44,7 +44,9 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
       - name: Run tests
-        run: cargo test --locked --workspace --all-features
+        run: |
+          cargo test --locked --workspace --all-features --exclude pricing-python
+          cargo test --locked -p pricing-python
 
       - name: Check dependency direction
         shell: bash
