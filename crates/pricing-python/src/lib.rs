@@ -2,6 +2,8 @@
 
 #![forbid(unsafe_code)]
 
+mod builders;
+
 use std::collections::BTreeMap;
 
 use pricing::mc::ExecutionPolicy;
@@ -12,6 +14,10 @@ use pricing::{
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
+
+use builders::{
+    PyDiscountCurve, PyEngine, PyMarket, PyModel, PyProduct, PyRiskRequest, build_request,
+};
 
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
@@ -53,6 +59,15 @@ impl PyValidationIssue {
             phase: "domain".into(),
             code: "plan_compile_error".into(),
             message: error.to_string(),
+        }
+    }
+
+    fn domain(pointer: impl Into<String>, code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            pointer: pointer.into(),
+            phase: "domain".into(),
+            code: code.into(),
+            message: message.into(),
         }
     }
 }
@@ -104,6 +119,28 @@ pub struct PyPricingRequest {
 
 #[pymethods]
 impl PyPricingRequest {
+    #[new]
+    fn new(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &PyProduct,
+        market: &PyMarket,
+        model: &PyModel,
+        engine: &PyEngine,
+        risk: &PyRiskRequest,
+    ) -> PyResult<Self> {
+        build_request(
+            py,
+            valuation_date,
+            product,
+            market,
+            model,
+            engine,
+            risk,
+        )
+        .map(|inner| Self { inner })
+    }
+
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         parse_request_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
@@ -278,7 +315,7 @@ fn risk_value(risk: Option<RiskEstimate>, market_scaled: bool) -> Option<f64> {
     })
 }
 
-fn validation_exception(py: Python<'_>, issue: PyValidationIssue) -> PyErr {
+pub(crate) fn validation_exception(py: Python<'_>, issue: PyValidationIssue) -> PyErr {
     let message = issue.message.clone();
     let error = ValidationError::new_err(message);
     if let Ok(issue) = Py::new(py, issue) {
@@ -308,6 +345,12 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("ValidationError", module.py().get_type::<ValidationError>())?;
     module.add("PricingError", module.py().get_type::<PricingError>())?;
     module.add_class::<PyValidationIssue>()?;
+    module.add_class::<PyDiscountCurve>()?;
+    module.add_class::<PyProduct>()?;
+    module.add_class::<PyMarket>()?;
+    module.add_class::<PyModel>()?;
+    module.add_class::<PyEngine>()?;
+    module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
     module.add_class::<PyPricingResult>()?;
