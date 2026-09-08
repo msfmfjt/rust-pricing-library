@@ -37,6 +37,9 @@ jobs:
           cargo -V
           git hash-object Cargo.lock
 
+      - name: Check Local Volatility equation fixture
+        run: python scripts/check_local_vol_reference_fixture.py
+
       - name: Check formatting
         run: cargo fmt --all --check
 

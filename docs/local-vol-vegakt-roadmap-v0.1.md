@@ -1,6 +1,6 @@
 # Local Volatility and VegaKT Vertical Slice — Implementation Roadmap v0.1
 
-Status: Proposed
+Status: In progress — Gate L0 accepted
 Date: 2026-09-08
 Requirements baseline: `requirements-v1.0.md` (Frozen)
 Architecture baseline: `architecture-v0.1.md`
@@ -86,9 +86,16 @@ flowchart TD
 Each Gate must leave existing Black–Scholes fixtures unchanged. A new numerical
 policy is compiled and fingerprinted before it is used by a path kernel.
 
+| Gate | Status | Evidence |
+| --- | --- | --- |
+| L0 Numerical contracts | Accepted | `local-vol-vegakt-numerical-contracts-v0.1.md` and `fixtures/local-vol/reference-cases-v0.1.json` |
+| L1-L8 | Pending | Gate-specific implementation and conformance evidence |
+
 ## 4. Gate plan
 
 ### L0 — Numerical contracts and paper fixtures
+
+Status: Accepted under policy `local_vol_vegakt_v1`.
 
 Deliverables:
 

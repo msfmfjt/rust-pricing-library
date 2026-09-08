@@ -1,0 +1,194 @@
+{
+  "fixture_version": 1,
+  "policy_version": "local_vol_vegakt_v1",
+  "tolerances": {
+    "decimal_abs": "1e-45",
+    "transition_abs": "5e-15"
+  },
+  "standard_ssvi": [
+    {
+      "id": "power_regular",
+      "source": "Gatheral-Jacquier SSVI equations and analytic differentiation",
+      "inputs": {
+        "theta": "0.04",
+        "rho": "-0.3",
+        "eta": "0.5",
+        "gamma": "0.5",
+        "k": "-0.1",
+        "theta_t": "0.03",
+        "forward": "100"
+      },
+      "expected": {
+        "phi": "2.451451689227300399052030821645568264213351416394036734",
+        "phi_theta": "-31.82172865823899556461770778097612650661561934742259223",
+        "w": "0.04344524932282915413220686882016184088325808523934707569",
+        "w_k": "-0.03903516936747009353092376212641453436787316714736934725",
+        "w_kk": "0.08246283510594317752006907819253269698407019640293023593",
+        "w_t": "0.03106381741579250137992206280154466081446388770886755815",
+        "density_factor": "0.9445371022794965819304753025707738209980195662274813546",
+        "call_density": "0.01861923332755881456727825535138033131016365337675686875"
+      }
+    },
+    {
+      "id": "heston_like_regular",
+      "source": "Gatheral-Jacquier Heston-like phi and analytic differentiation",
+      "inputs": {
+        "theta": "0.04",
+        "rho": "-0.3",
+        "lambda": "2",
+        "k": "-0.1",
+        "theta_t": "0.03",
+        "forward": "100"
+      },
+      "expected": {
+        "phi": "0.4869291229118410798062264956857515693098536165760155294",
+        "phi_theta": "-0.3203143914157361499237777756590816041123880619528075266",
+        "w": "0.04060556927070634822646805020946574724246077369857160181",
+        "w_k": "-0.006264956649768769557564878583349668629085165770935848035",
+        "w_kk": "0.004118549189108737523090480438468564623850433037704998375",
+        "w_t": "0.03044181320839779358802640167340140905098368245894273397",
+        "density_factor": "0.9864458701846590938735574293941416137844121475922817106",
+        "call_density": "0.01995966013718459117765298506016227278361612442714187076"
+      }
+    },
+    {
+      "id": "heston_like_small_theta",
+      "source": "local_vol_vegakt_v1 fixed small-z Horner branch",
+      "inputs": {
+        "theta": "1e-8",
+        "rho": "-0.3",
+        "lambda": "2",
+        "k": "0",
+        "theta_t": "0.03",
+        "forward": "100"
+      },
+      "expected": {
+        "phi": "0.499999996666666683333333266666666888888888253968255555555556",
+        "phi_theta": "-0.333333330000000019999999911111111428571427619047619047619048",
+        "w": "1e-8",
+        "w_k": "-1.49999999000000004999999980000000066666666476190476666666667e-9",
+        "w_kk": "1.13749998483333345972222141333333763055553581481489522222194e-9",
+        "w_t": "0.03",
+        "density_factor": "1.00000000051249999302604172548611073104166870277776835234792",
+        "call_density": "39.8942280107212743417783904183738742049103789222484875028771"
+      }
+    }
+  ],
+  "essvi_interpolation": {
+    "id": "midpoint_regular",
+    "source": "Corbetta-Cohort-Laachir-Martini Section 5.1",
+    "inputs": {
+      "t0": "1",
+      "theta0": "0.04",
+      "psi0": "0.2",
+      "rho_psi0": "-0.08",
+      "t1": "2",
+      "theta1": "0.09",
+      "psi1": "0.25",
+      "rho_psi1": "-0.05",
+      "t": "1.5",
+      "k": "-0.1"
+    },
+    "expected": {
+      "theta": "0.065",
+      "psi": "0.225",
+      "rho_psi": "-0.065",
+      "rho": "-0.2888888888888888888888888888888888888888888888888888889",
+      "rho_t": "0.1975308641975308641975308641975308641975308641975308642",
+      "w": "0.07308714638265757984787022265937017337995010527567018843",
+      "w_k": "-0.09468672890005510384884011530130472723896643851114761265",
+      "w_kk": "0.2353972277001171401573328762644693787272940205171073457",
+      "w_t": "0.04688488836430066758461093972433989339241887337821620858"
+    }
+  },
+  "constant_vol_dupire": {
+    "source": "Dupire identity in forward log-moneyness",
+    "inputs": {
+      "sigma": "0.2",
+      "t": "1.25",
+      "k": "0.3"
+    },
+    "expected": {
+      "w": "0.05",
+      "w_t": "0.04",
+      "w_k": "0",
+      "w_kk": "0",
+      "density_factor": "1",
+      "local_variance": "0.04"
+    }
+  },
+  "equation_11": {
+    "source": "SSRN 4107770 equation (11)",
+    "inputs": {
+      "strike": "80",
+      "call_density": "0.0125",
+      "local_volatility": "0.25",
+      "delta_t": "0.01",
+      "local_vega_strike_density": "0.04"
+    },
+    "expected": {
+      "next_local_gamma": "0.2"
+    }
+  },
+  "hat_projection": {
+    "source": "local_vol_vegakt_v1 normalized non-uniform hat policy",
+    "inputs": {
+      "nodes": ["-0.3", "0", "0.2"],
+      "x": "0.1",
+      "path_adjoint": "2"
+    },
+    "expected": {
+      "weights": ["0", "0.5", "0.5"],
+      "lumped_masses": ["0.15", "0.25", "0.1"],
+      "density_nodes": ["0", "4", "10"],
+      "conserved_adjoint": "2"
+    }
+  },
+  "gamma_transition": {
+    "source": "SSRN 4107770 equations (3)-(5), normalized gamma-kernel cell integration",
+    "inputs": {
+      "spot": 1.0,
+      "variance": 0.04,
+      "cell_boundaries": [0.0, 0.8, 1.2, "infinity"]
+    },
+    "expected": {
+      "normalized_cell_probability": [
+        0.07842907870100295,
+        0.6511722778906156,
+        0.2703986434083815
+      ],
+      "normalized_cell_first_moment": [
+        0.057498358962079325,
+        0.6571315356459729,
+        0.3686571730669064
+      ],
+      "normalized_total_probability": 1.0,
+      "normalized_total_first_moment": 1.0832870676749586,
+      "gamma_kernel_mass": 1.0408107741923882,
+      "gamma_kernel_first_moment": 1.1274968515793757
+    }
+  },
+  "affine_dividend": {
+    "source": "SSRN 1885032 equations (25)-(28)",
+    "inputs": {
+      "spot0": "100",
+      "a_before": "0",
+      "b_before": "1",
+      "fixed_cash": "5",
+      "proportional": "0.1",
+      "f": "100",
+      "matching_strike": "90",
+      "pre_event_states": ["80", "120"],
+      "state_probabilities": ["0.5", "0.5"]
+    },
+    "expected": {
+      "alpha": "0.05",
+      "a_after": "-0.05",
+      "b_after": "0.9",
+      "post_event_spot": "85",
+      "mapped_pre_event_strike": "105.5555555555555555555555555555555555555555555555555556",
+      "post_event_call": "6.5",
+      "scaled_pre_event_call": "6.5"
+    }
+  }
+}
