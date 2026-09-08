@@ -200,11 +200,11 @@ impl SimulationPlan {
                     let primary = self.pathwise_values(normal, lane, workspace)?;
                     if antithetic {
                         let mate = self.pathwise_values(-normal, lane, workspace)?;
-                        Ok(std::array::from_fn(|component| {
-                            (primary[component] + mate[component]) * 0.5
-                        }))
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                            |component| (primary[component] + mate[component]) * 0.5,
+                        ))
                     } else {
-                        Ok(primary)
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
                     }
                 },
             )?
@@ -216,9 +216,9 @@ impl SimulationPlan {
                     let primary = self.discounted_payoff(normal)?;
                     if antithetic {
                         let mate = self.discounted_payoff(-normal)?;
-                        Ok((primary + mate) * 0.5)
+                        Ok::<f64, pricing_product::GraphError>((primary + mate) * 0.5)
                     } else {
-                        Ok(primary)
+                        Ok::<f64, pricing_product::GraphError>(primary)
                     }
                 },
             )?;
