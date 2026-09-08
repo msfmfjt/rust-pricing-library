@@ -211,6 +211,7 @@ pub struct PyRiskRequest {
 impl PyRiskRequest {
     #[new]
     #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
         delta: bool,
