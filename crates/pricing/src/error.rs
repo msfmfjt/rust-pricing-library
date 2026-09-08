@@ -181,7 +181,10 @@ impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedEngine => {
-                write!(formatter, "the selected pricing entry point does not support this engine")
+                write!(
+                    formatter,
+                    "the selected pricing entry point does not support this engine"
+                )
             }
             Self::InvalidGammaBump {
                 spot_bits,

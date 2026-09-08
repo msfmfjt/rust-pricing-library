@@ -83,9 +83,7 @@ impl SimulationPlan {
         }
         if total_variance > 0.0 {
             let independent_units = match engine {
-                EngineConfig::PseudoMonteCarlo(config) => {
-                    config.independent_sampling_units().get()
-                }
+                EngineConfig::PseudoMonteCarlo(config) => config.independent_sampling_units().get(),
                 EngineConfig::RandomizedQuasiMonteCarlo(config) => {
                     u64::from(config.scramble_count().get())
                 }
@@ -327,11 +325,9 @@ impl SimulationPlan {
                         let primary = self.pathwise_values(normal, lane, workspace)?;
                         if antithetic {
                             let mate = self.pathwise_values(-normal, lane, workspace)?;
-                            Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(
-                                std::array::from_fn(|component| {
-                                    (primary[component] + mate[component]) * 0.5
-                                }),
-                            )
+                            Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                                |component| (primary[component] + mate[component]) * 0.5,
+                            ))
                         } else {
                             Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
                         }
@@ -1313,7 +1309,10 @@ mod tests {
         let oracle = black_scholes_oracle(&request).expect("oracle").price;
         let result = price_monte_carlo(&request, policy(4)).expect("RQMC");
         let estimate = result.pricing_result.value;
-        assert_eq!(estimate.estimator(), EstimatorKind::RandomizedQuasiMonteCarlo);
+        assert_eq!(
+            estimate.estimator(),
+            EstimatorKind::RandomizedQuasiMonteCarlo
+        );
         assert_eq!(estimate.effective_sampling_units().get(), 16);
         assert_eq!(result.independent_sampling_units, 16);
         assert_eq!(result.evaluated_paths, 4096 * 16 * 2);
@@ -1332,14 +1331,23 @@ mod tests {
         let single = price_monte_carlo(&request, policy(1)).expect("single");
         let parallel = price_monte_carlo(&request, policy(4)).expect("parallel");
         assert_eq!(single.pricing_result, parallel.pricing_result);
-        assert_eq!(single.estimator_variance.to_bits(), parallel.estimator_variance.to_bits());
-        assert_eq!(single.diagnostics.scramble_checksum, parallel.diagnostics.scramble_checksum);
+        assert_eq!(
+            single.estimator_variance.to_bits(),
+            parallel.estimator_variance.to_bits()
+        );
+        assert_eq!(
+            single.diagnostics.scramble_checksum,
+            parallel.diagnostics.scramble_checksum
+        );
         for estimate in [
             single.pricing_result.risks.delta.expect("delta").raw(),
             single.pricing_result.risks.gamma.expect("gamma").raw(),
             single.pricing_result.risks.vega.expect("vega").raw(),
         ] {
-            assert_eq!(estimate.estimator(), EstimatorKind::RandomizedQuasiMonteCarlo);
+            assert_eq!(
+                estimate.estimator(),
+                EstimatorKind::RandomizedQuasiMonteCarlo
+            );
             assert_eq!(estimate.effective_sampling_units().get(), 8);
         }
     }
@@ -1354,8 +1362,14 @@ mod tests {
         let changed = price_monte_carlo(&rqmc_request(2, 1024, 4, false, risk), policy(2))
             .expect("changed seed");
         assert_eq!(first.pricing_result, replay.pricing_result);
-        assert_eq!(first.diagnostics.scramble_checksum, replay.diagnostics.scramble_checksum);
-        assert_ne!(first.diagnostics.scramble_checksum, changed.diagnostics.scramble_checksum);
+        assert_eq!(
+            first.diagnostics.scramble_checksum,
+            replay.diagnostics.scramble_checksum
+        );
+        assert_ne!(
+            first.diagnostics.scramble_checksum,
+            changed.diagnostics.scramble_checksum
+        );
         assert_ne!(
             first.pricing_result.value.value().to_bits(),
             changed.pricing_result.value.value().to_bits()
