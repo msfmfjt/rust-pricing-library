@@ -311,7 +311,7 @@ impl SimulationPlan {
         let qmc = RqmcPlan::compile(engine, 1)?;
         let antithetic = engine.variance_reduction().antithetic();
         let points = engine.points_per_scramble().get();
-        let mut replicate_values = Vec::with_capacity(
+        let mut replicate_values: Vec<[f64; PATHWISE_COMPONENTS]> = Vec::with_capacity(
             usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
         );
         for scramble in 0..engine.scramble_count().get() {
