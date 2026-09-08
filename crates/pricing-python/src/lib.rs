@@ -16,7 +16,7 @@ use pyo3::prelude::*;
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
 
-#[pyclass(frozen, name = "ValidationIssue")]
+#[pyclass(frozen, name = "ValidationIssue", skip_from_py_object)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyValidationIssue {
     pointer: String,
@@ -96,7 +96,7 @@ impl PyValidationIssue {
     }
 }
 
-#[pyclass(frozen, name = "PricingRequest")]
+#[pyclass(frozen, name = "PricingRequest", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyPricingRequest {
     inner: PricingRequest,
@@ -130,7 +130,7 @@ impl PyPricingRequest {
     }
 }
 
-#[pyclass(frozen, name = "PricingPlan")]
+#[pyclass(frozen, name = "PricingPlan", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyPricingPlan {
     inner: PricingPlan,
@@ -184,7 +184,7 @@ impl PyPricingPlan {
     }
 }
 
-#[pyclass(frozen, name = "PricingResult")]
+#[pyclass(frozen, name = "PricingResult", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyPricingResult {
     inner: MonteCarloPrice,
