@@ -5,14 +5,21 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import subprocess
-import sys
 import venv
+from zipfile import ZipFile
 
 
 def main() -> None:
     wheels = sorted(Path("dist").glob("*.whl"))
     if len(wheels) != 1:
         raise RuntimeError(f"expected exactly one wheel in dist, found {len(wheels)}")
+
+    with ZipFile(wheels[0]) as archive:
+        members = set(archive.namelist())
+    if not any(Path(member).name == "rust_pricing.pyi" for member in members):
+        raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
+    if not any(Path(member).name == "py.typed" for member in members):
+        raise RuntimeError("wheel does not contain the py.typed marker")
 
     environment = Path(".wheel-smoke-venv")
     venv.EnvBuilder(with_pip=True, clear=True).create(environment)
@@ -30,6 +37,7 @@ def main() -> None:
         ],
         check=True,
     )
+    subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run(
         [
             str(python),

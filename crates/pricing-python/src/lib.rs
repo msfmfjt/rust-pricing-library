@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod builders;
+mod diagnostics;
 
 use std::collections::BTreeMap;
 
@@ -18,10 +19,12 @@ use pyo3::prelude::*;
 use builders::{
     PyDiscountCurve, PyEngine, PyMarket, PyModel, PyProduct, PyRiskRequest, build_request,
 };
+use diagnostics::{PyDiagnostics, PyPricingWarning};
 
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
 
+/// One immutable, structured validation issue.
 #[pyclass(frozen, name = "ValidationIssue", skip_from_py_object)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyValidationIssue {
@@ -115,6 +118,7 @@ impl PyValidationIssue {
     }
 }
 
+/// Validated, immutable valuation request and replay serialization boundary.
 #[pyclass(frozen, name = "PricingRequest", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyPricingRequest {
@@ -137,6 +141,7 @@ impl PyPricingRequest {
             .map(|inner| Self { inner })
     }
 
+    /// Parse and validate a versioned pricing-request JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         parse_request_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
@@ -163,6 +168,7 @@ impl PyPricingRequest {
     }
 }
 
+/// Compiled immutable execution plan that can be evaluated repeatedly.
 #[pyclass(frozen, name = "PricingPlan", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyPricingPlan {
@@ -171,6 +177,7 @@ pub struct PyPricingPlan {
 
 #[pymethods]
 impl PyPricingPlan {
+    /// Compile a request while releasing the Python GIL.
     #[staticmethod]
     #[pyo3(signature = (request, *, worker_threads, reduction_block_size=None))]
     fn compile(
@@ -187,6 +194,7 @@ impl PyPricingPlan {
             .map_err(|error| validation_exception(py, PyValidationIssue::compile(&error)))
     }
 
+    /// Evaluate the plan while releasing the Python GIL.
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyPricingResult> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyPricingResult { inner })
@@ -218,6 +226,7 @@ impl PyPricingPlan {
     }
 }
 
+/// Immutable Price, Greeks, uncertainty, replay, and diagnostic result.
 #[pyclass(frozen, name = "PricingResult", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyPricingResult {
@@ -292,6 +301,18 @@ impl PyPricingResult {
         self.inner.evaluated_paths
     }
 
+    /// Replay, numerical-method, and warning metadata.
+    #[getter]
+    fn diagnostics(&self) -> PyDiagnostics {
+        PyDiagnostics::from_price(&self.inner)
+    }
+
+    /// Valuation warnings in deterministic emission order.
+    #[getter]
+    fn warnings(&self) -> Vec<PyPricingWarning> {
+        PyDiagnostics::from_price(&self.inner).warnings()
+    }
+
     fn to_json(&self) -> PyResult<String> {
         result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
     }
@@ -342,6 +363,8 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("ValidationError", module.py().get_type::<ValidationError>())?;
     module.add("PricingError", module.py().get_type::<PricingError>())?;
     module.add_class::<PyValidationIssue>()?;
+    module.add_class::<PyPricingWarning>()?;
+    module.add_class::<PyDiagnostics>()?;
     module.add_class::<PyDiscountCurve>()?;
     module.add_class::<PyProduct>()?;
     module.add_class::<PyMarket>()?;
