@@ -7,8 +7,17 @@ authors.workspace = true
 repository.workspace = true
 publish = false
 
+[lib]
+name = "rust_pricing"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
 [dependencies]
 pricing.workspace = true
+pyo3.workspace = true
 
 [lints]
 workspace = true

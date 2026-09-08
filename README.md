@@ -12,7 +12,7 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 
 ## Status
 
-The project has completed Gate G6 of the initial implementation roadmap: European Black–Scholes supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan.
+The project has completed Gate G6 and is progressing through Gate G7 of the initial implementation roadmap. European Black–Scholes supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and PyO3 request/plan/result facades are available; supported-platform wheel automation remains in progress.
 
 ## Workspace
 
@@ -38,8 +38,16 @@ The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), 
 ```shell
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
+cargo test --locked --workspace --all-features --exclude pricing-python
+cargo test --locked -p pricing-python
 cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+```
+
+The Python extension is built with [maturin](https://www.maturin.rs/):
+
+```shell
+python -m maturin develop --locked
+python -m unittest discover -s tests/python -v
 ```
 
 ## Platforms
