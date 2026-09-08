@@ -10,7 +10,7 @@ use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy, Produc
 use pricing_risk::{GammaConfig, SmileDynamics, SpotBump};
 
 use crate::{
-    Diagnostics, Estimate, EstimatorKind, MonteCarloError, PricingRequest, PricingResult,
+    Diagnostics, Estimate, EstimatorKind, Fingerprint, MonteCarloError, PricingRequest, PricingResult,
     PricingWarning, ReplayMetadata, ResultBuildError, RiskEstimate, RiskReport, RiskUnit,
     fingerprint_request,
 };
@@ -30,6 +30,7 @@ const PATHWISE_COMPONENTS: usize = 10;
 const AAD_WORKSPACE_SLOTS: usize = 5;
 const DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP: f64 = 1.0e-4;
 const DEFAULT_VALIDATION_VOLATILITY_BUMP: f64 = 1.0e-4;
+const PLAN_FINGERPRINT_VERSION: u32 = 1;
 
 /// Immutable one-expiry plan for the European Black-Scholes MC/RQMC slice.
 #[derive(Clone, Debug)]
@@ -56,6 +57,7 @@ pub struct SimulationPlan {
     validation_spot_bump: f64,
     validation_volatility_bump: f64,
     request_fingerprint: [u8; 32],
+    plan_fingerprint: Fingerprint,
     discount_region: CurveRegion,
     dividend_region: CurveRegion,
 }
@@ -101,6 +103,13 @@ impl SimulationPlan {
             request.risk().aad_tile_capacity(),
         )?;
         let checkpoint_policy = CheckpointPolicy::resolve(request.risk().checkpoint_interval());
+        let plan_fingerprint = build_plan_fingerprint(
+            request_fingerprint,
+            payoff.tape_fingerprint(),
+            execution_policy,
+            aad_tile_policy,
+            checkpoint_policy,
+        );
         if let Some(gamma) = request.risk().gamma() {
             let bump = resolve_spot_bump(gamma, spot);
             if !bump.is_finite() || bump >= spot {
@@ -144,6 +153,7 @@ impl SimulationPlan {
             validation_spot_bump,
             validation_volatility_bump,
             request_fingerprint,
+            plan_fingerprint,
             discount_region: forward_evaluation.discount_region,
             dividend_region: forward_evaluation.dividend_region,
         })
@@ -187,6 +197,16 @@ impl SimulationPlan {
     #[must_use]
     pub const fn execution_policy(&self) -> ExecutionPolicy {
         self.execution_policy
+    }
+
+    #[must_use]
+    pub const fn request_fingerprint(&self) -> Fingerprint {
+        Fingerprint::from_bytes(self.request_fingerprint)
+    }
+
+    #[must_use]
+    pub const fn plan_fingerprint(&self) -> Fingerprint {
+        self.plan_fingerprint
     }
 
     pub fn execute(&self) -> Result<MonteCarloPrice, MonteCarloError> {
@@ -679,6 +699,28 @@ impl SimulationPlan {
             vega_validation,
         })
     }
+}
+
+fn build_plan_fingerprint(
+    request_fingerprint: [u8; 32],
+    payoff_fingerprint: GraphFingerprint,
+    execution_policy: ExecutionPolicy,
+    aad_tile_policy: AadTilePolicy,
+    checkpoint_policy: CheckpointPolicy,
+) -> Fingerprint {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"pricing/plan\0");
+    hasher.update(&PLAN_FINGERPRINT_VERSION.to_be_bytes());
+    hasher.update(&request_fingerprint);
+    hasher.update(payoff_fingerprint.as_bytes());
+    hasher.update(&execution_policy.version().to_be_bytes());
+    hasher.update(&execution_policy.worker_threads().get().to_be_bytes());
+    hasher.update(&execution_policy.reduction_block_size().get().to_be_bytes());
+    hasher.update(&aad_tile_policy.version().to_be_bytes());
+    hasher.update(&aad_tile_policy.resolved_capacity().get().to_be_bytes());
+    hasher.update(&checkpoint_policy.version().to_be_bytes());
+    hasher.update(&checkpoint_policy.resolved_interval().get().to_be_bytes());
+    Fingerprint::from_bytes(*hasher.finalize().as_bytes())
 }
 
 #[derive(Clone, Copy, Debug)]
