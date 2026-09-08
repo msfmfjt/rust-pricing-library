@@ -19,6 +19,7 @@ pricing-product.workspace = true
 pricing-models.workspace = true
 pricing-aad = { workspace = true, optional = true }
 rayon.workspace = true
+blake3.workspace = true
 
 [lints]
 workspace = true

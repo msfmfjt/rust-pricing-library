@@ -16,7 +16,7 @@ impl fmt::Display for EngineConfigError {
             Self::ZeroSamplingUnits => write!(formatter, "sampling-unit count must be positive"),
             Self::InvalidSobolPointCount { value } => write!(
                 formatter,
-                "Sobol points per scramble must be a positive power of two; received {value}"
+                "Sobol points per scramble must be a positive power of two no greater than 2^32; received {value}"
             ),
             Self::SobolPointCountOverflow { requested } => write!(
                 formatter,
