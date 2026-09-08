@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
+use pricing::PricingRequest;
 use pricing::core::{CurrencyId, CurveId, Date, PositiveF64, UnderlyingId};
-use pricing::market::{
-    EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext,
-};
+use pricing::market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{BlackScholesSpec, ModelSpec};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump};
-use pricing::PricingRequest;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
@@ -30,8 +28,7 @@ impl PyDiscountCurve {
         discount_factors: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
         let times = copied_f64_array(py, times, "/times")?;
-        let discount_factors =
-            copied_f64_array(py, discount_factors, "/discount_factors")?;
+        let discount_factors = copied_f64_array(py, discount_factors, "/discount_factors")?;
         LogLinearDiscountCurve::new(CurveId::new(curve_id), times, discount_factors)
             .map(|curve| Self {
                 inner: Arc::new(curve),
@@ -114,10 +111,7 @@ impl PyMarket {
             Arc::clone(&dividend_curve.inner),
         );
         Ok(Self {
-            inner: MarketContext::Equity(EquityMarket::new(
-                CurrencyId::new(currency_id),
-                forward,
-            )),
+            inner: MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward)),
         })
     }
 
@@ -281,11 +275,7 @@ pub(crate) fn build_request(
     .map_err(|error| domain_error(py, "invalid_pricing_request", "", error))
 }
 
-fn copied_f64_array(
-    py: Python<'_>,
-    value: &Bound<'_, PyAny>,
-    pointer: &str,
-) -> PyResult<Vec<f64>> {
+fn copied_f64_array(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Vec<f64>> {
     value.extract::<Vec<f64>>().map_err(|error| {
         domain_error(
             py,
@@ -296,11 +286,7 @@ fn copied_f64_array(
     })
 }
 
-fn date_from_python(
-    py: Python<'_>,
-    value: &Bound<'_, PyAny>,
-    pointer: &str,
-) -> PyResult<Date> {
+fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Date> {
     let text = if value.cast::<PyString>().is_ok() {
         value.extract::<String>()?
     } else {
@@ -348,12 +334,7 @@ fn smile_dynamics_from_str(py: Python<'_>, value: &str) -> PyResult<SmileDynamic
     }
 }
 
-fn domain_error(
-    py: Python<'_>,
-    code: &str,
-    pointer: &str,
-    error: impl ToString,
-) -> PyErr {
+fn domain_error(py: Python<'_>, code: &str, pointer: &str, error: impl ToString) -> PyErr {
     validation_exception(
         py,
         PyValidationIssue::domain(pointer, code, error.to_string()),

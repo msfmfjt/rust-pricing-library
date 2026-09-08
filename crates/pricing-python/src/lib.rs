@@ -62,7 +62,11 @@ impl PyValidationIssue {
         }
     }
 
-    fn domain(pointer: impl Into<String>, code: impl Into<String>, message: impl Into<String>) -> Self {
+    fn domain(
+        pointer: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             pointer: pointer.into(),
             phase: "domain".into(),
@@ -129,16 +133,8 @@ impl PyPricingRequest {
         engine: &PyEngine,
         risk: &PyRiskRequest,
     ) -> PyResult<Self> {
-        build_request(
-            py,
-            valuation_date,
-            product,
-            market,
-            model,
-            engine,
-            risk,
-        )
-        .map(|inner| Self { inner })
+        build_request(py, valuation_date, product, market, model, engine, risk)
+            .map(|inner| Self { inner })
     }
 
     #[staticmethod]
