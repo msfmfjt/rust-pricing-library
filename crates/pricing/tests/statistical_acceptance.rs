@@ -3,9 +3,7 @@ use std::sync::Arc;
 use pricing::analytical::black_scholes_oracle;
 use pricing::core::{CurrencyId, CurveId, PositiveF64, UnderlyingId};
 use pricing::market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
-use pricing::mc::{
-    EngineConfig, ExecutionPolicy, PseudoMcConfig, RqmcConfig, VarianceReduction,
-};
+use pricing::mc::{EngineConfig, ExecutionPolicy, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{BlackScholesSpec, ModelSpec};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing::risk::{RiskRequest, SmileDynamics};
@@ -78,12 +76,8 @@ impl Coverage {
 fn reported_uncertainty_is_calibrated_across_fixed_seeds() {
     let policy = ExecutionPolicy::new(2, Some(256)).expect("execution policy");
     let oracle_request = request(EngineConfig::PseudoMonteCarlo(
-        PseudoMcConfig::new(
-            PSEUDO_SEEDS[0],
-            4_096,
-            VarianceReduction::new(true, false),
-        )
-        .expect("pseudo-MC config"),
+        PseudoMcConfig::new(PSEUDO_SEEDS[0], 4_096, VarianceReduction::new(true, false))
+            .expect("pseudo-MC config"),
     ));
     let oracle = black_scholes_oracle(&oracle_request).expect("oracle").price;
 
@@ -120,7 +114,10 @@ fn reported_uncertainty_is_calibrated_across_fixed_seeds() {
         rqmc.maximum_absolute_z
     );
 
-    assert!(pseudo.covered >= 12, "pseudo-MC 95% interval under-coverage");
+    assert!(
+        pseudo.covered >= 12,
+        "pseudo-MC 95% interval under-coverage"
+    );
     assert!(rqmc.covered >= 6, "RQMC 95% interval under-coverage");
     assert!(pseudo.maximum_absolute_z < 5.0);
     assert!(rqmc.maximum_absolute_z < 5.0);
@@ -180,11 +177,7 @@ fn request(engine: EngineConfig) -> PricingRequest {
 
 fn curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {
     Arc::new(
-        LogLinearDiscountCurve::new(
-            CurveId::new(id),
-            vec![0.0, 1.0],
-            vec![1.0, (-rate).exp()],
-        )
-        .expect("curve"),
+        LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, (-rate).exp()])
+            .expect("curve"),
     )
 }
