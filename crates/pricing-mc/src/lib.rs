@@ -5,12 +5,17 @@
 mod config;
 mod error;
 mod execution;
+mod qmc;
 mod random;
 
 pub use config::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 pub use error::EngineConfigError;
 pub use execution::{DeterministicExecutor, ExecutionError, ExecutionPolicy, ExecutorBuildError};
 pub use execution::{DeterministicStatistics, TryExecutionError};
+pub use qmc::{
+    JOE_KUO_DIRECTION_SET, RQMC_SCRAMBLE_ABI, RqmcPlan, RqmcPlanError, RqmcPointError, Scramble32,
+    Sobol32, SobolDimensionError,
+};
 pub use random::{
     NormalQuantileError, Philox4x32, RandomCoordinate, RandomDomain, antithetic_normal,
     inverse_standard_normal, open_unit_interval,

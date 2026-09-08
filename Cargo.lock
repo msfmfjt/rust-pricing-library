@@ -147,6 +147,7 @@ dependencies = [
 name = "pricing-mc"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "pricing-aad",
  "pricing-core",
  "pricing-market",

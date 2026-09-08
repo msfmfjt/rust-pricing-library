@@ -86,6 +86,7 @@ pub struct RqmcConfig {
 impl RqmcConfig {
     pub const DEFAULT_SCRAMBLE_COUNT: u32 = 16;
     pub const MAX_SOBOL_DIMENSION: u32 = 21_201;
+    pub const MAX_POINTS_PER_SCRAMBLE: u64 = 1_u64 << 32;
 
     pub fn new(
         points_per_scramble: u64,
@@ -98,7 +99,9 @@ impl RqmcConfig {
                 value: points_per_scramble,
             },
         )?;
-        if !points_per_scramble.get().is_power_of_two() {
+        if !points_per_scramble.get().is_power_of_two()
+            || points_per_scramble.get() > Self::MAX_POINTS_PER_SCRAMBLE
+        {
             return Err(EngineConfigError::InvalidSobolPointCount {
                 value: points_per_scramble.get(),
             });
@@ -126,10 +129,14 @@ impl RqmcConfig {
     }
 
     pub fn rounded_point_count(requested: u64) -> Result<u64, EngineConfigError> {
-        requested
+        let suggested = requested
             .max(1)
             .checked_next_power_of_two()
-            .ok_or(EngineConfigError::SobolPointCountOverflow { requested })
+            .ok_or(EngineConfigError::SobolPointCountOverflow { requested })?;
+        if suggested > Self::MAX_POINTS_PER_SCRAMBLE {
+            return Err(EngineConfigError::SobolPointCountOverflow { requested });
+        }
+        Ok(suggested)
     }
 
     #[must_use]
@@ -180,6 +187,7 @@ mod tests {
         assert_eq!(config.scramble_count().get(), 16);
         assert!(RqmcConfig::new(1000, 16, 99, VarianceReduction::new(false, true)).is_err());
         assert!(RqmcConfig::new(1024, 0, 99, VarianceReduction::new(false, true)).is_err());
+        assert!(RqmcConfig::new(1_u64 << 33, 16, 99, VarianceReduction::new(false, true)).is_err());
     }
 
     #[test]
