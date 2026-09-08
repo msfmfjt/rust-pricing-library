@@ -35,9 +35,7 @@ impl PyValidationIssue {
             WireError::UnsupportedSchemaVersion(_) => {
                 ("declared_schema", "unsupported_schema_version")
             }
-            WireError::WrongDocumentKind { .. } => {
-                ("declared_schema", "wrong_document_kind")
-            }
+            WireError::WrongDocumentKind { .. } => ("declared_schema", "wrong_document_kind"),
             WireError::Domain(_) => ("domain", "invalid_domain_value"),
             WireError::InvalidFingerprint(_) => ("declared_schema", "invalid_fingerprint"),
         };
@@ -125,7 +123,10 @@ impl PyPricingRequest {
     }
 
     fn __repr__(&self) -> PyResult<String> {
-        Ok(format!("PricingRequest(fingerprint={:?})", self.fingerprint()?))
+        Ok(format!(
+            "PricingRequest(fingerprint={:?})",
+            self.fingerprint()?
+        ))
     }
 }
 
