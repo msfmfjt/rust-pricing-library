@@ -144,7 +144,9 @@ pub enum RqmcPlanError {
 impl fmt::Display for RqmcPlanError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ZeroEffectiveDimension => write!(formatter, "effective Sobol dimension must be positive"),
+            Self::ZeroEffectiveDimension => {
+                write!(formatter, "effective Sobol dimension must be positive")
+            }
             Self::DimensionLimitExceeded { requested, maximum } => write!(
                 formatter,
                 "effective Sobol dimension {requested} exceeds the Joe--Kuo limit {maximum}"
@@ -210,8 +212,8 @@ impl RqmcPlan {
             });
         }
 
-        let dimension_count = usize::try_from(effective_dimension)
-            .map_err(|_| RqmcPlanError::TableSizeOverflow)?;
+        let dimension_count =
+            usize::try_from(effective_dimension).map_err(|_| RqmcPlanError::TableSizeOverflow)?;
         let scramble_count = usize::try_from(config.scramble_count().get())
             .map_err(|_| RqmcPlanError::TableSizeOverflow)?;
         let table_length = dimension_count
@@ -442,13 +444,8 @@ mod tests {
 
     #[test]
     fn point_zero_is_shift_and_midpoint_mapping_stays_open() {
-        let config = RqmcConfig::new(
-            2,
-            1,
-            99,
-            VarianceReduction::new(false, false),
-        )
-        .expect("valid RQMC config");
+        let config = RqmcConfig::new(2, 1, 99, VarianceReduction::new(false, false))
+            .expect("valid RQMC config");
         let plan = RqmcPlan::compile(config, 1).expect("valid plan");
         assert_eq!(plan.word(0, 0, 0), Ok(plan.scramble(0, 0).unwrap().shift()));
         let uniform = plan.uniform(0, 0, 0).expect("valid coordinate");
@@ -457,13 +454,8 @@ mod tests {
 
     #[test]
     fn replay_is_stable_and_coordinates_are_independent() {
-        let config = RqmcConfig::new(
-            8,
-            2,
-            42,
-            VarianceReduction::new(false, false),
-        )
-        .expect("valid RQMC config");
+        let config = RqmcConfig::new(8, 2, 42, VarianceReduction::new(false, false))
+            .expect("valid RQMC config");
         let first = RqmcPlan::compile(config, 2).expect("valid plan");
         let replay = RqmcPlan::compile(config, 2).expect("valid plan");
         assert_eq!(first.scramble_checksum(), replay.scramble_checksum());
@@ -491,13 +483,8 @@ mod tests {
 
     #[test]
     fn plan_rejects_invalid_coordinates_and_dimensions() {
-        let config = RqmcConfig::new(
-            4,
-            1,
-            0,
-            VarianceReduction::new(false, false),
-        )
-        .expect("valid RQMC config");
+        let config = RqmcConfig::new(4, 1, 0, VarianceReduction::new(false, false))
+            .expect("valid RQMC config");
         assert_eq!(
             RqmcPlan::compile(config, 0).unwrap_err(),
             RqmcPlanError::ZeroEffectiveDimension

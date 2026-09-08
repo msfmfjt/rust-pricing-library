@@ -187,15 +187,7 @@ mod tests {
         assert_eq!(config.scramble_count().get(), 16);
         assert!(RqmcConfig::new(1000, 16, 99, VarianceReduction::new(false, true)).is_err());
         assert!(RqmcConfig::new(1024, 0, 99, VarianceReduction::new(false, true)).is_err());
-        assert!(
-            RqmcConfig::new(
-                1_u64 << 33,
-                16,
-                99,
-                VarianceReduction::new(false, true)
-            )
-            .is_err()
-        );
+        assert!(RqmcConfig::new(1_u64 << 33, 16, 99, VarianceReduction::new(false, true)).is_err());
     }
 
     #[test]
