@@ -44,9 +44,16 @@ impl BrownianBridgeInstruction {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum BrownianBridgeError {
-    TooFewTimeNodes { count: usize },
-    NonFiniteTime { index: usize, bits: u64 },
-    NonZeroStart { bits: u64 },
+    TooFewTimeNodes {
+        count: usize,
+    },
+    NonFiniteTime {
+        index: usize,
+        bits: u64,
+    },
+    NonZeroStart {
+        bits: u64,
+    },
     NonIncreasingTime {
         left_index: usize,
         left_bits: u64,
@@ -54,9 +61,18 @@ pub enum BrownianBridgeError {
     },
     ZeroFactorCount,
     DimensionOverflow,
-    SobolDimensionLimitExceeded { requested: u32, maximum: u32 },
-    NormalCountMismatch { expected: usize, actual: usize },
-    IncrementCountMismatch { expected: usize, actual: usize },
+    SobolDimensionLimitExceeded {
+        requested: u32,
+        maximum: u32,
+    },
+    NormalCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    IncrementCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl fmt::Display for BrownianBridgeError {
@@ -430,8 +446,8 @@ mod tests {
 
     #[test]
     fn uniform_grid_uses_variance_then_earlier_time_order() {
-        let plan = BrownianBridgePlan::compile(vec![0.0, 0.25, 0.5, 0.75, 1.0], 1)
-            .expect("valid grid");
+        let plan =
+            BrownianBridgePlan::compile(vec![0.0, 0.25, 0.5, 0.75, 1.0], 1).expect("valid grid");
         let nodes = plan
             .instructions()
             .iter()
@@ -448,8 +464,7 @@ mod tests {
 
     #[test]
     fn nonuniform_coefficients_are_compiled_once() {
-        let plan = BrownianBridgePlan::compile(vec![0.0, 0.1, 0.4, 1.0], 1)
-            .expect("valid grid");
+        let plan = BrownianBridgePlan::compile(vec![0.0, 0.1, 0.4, 1.0], 1).expect("valid grid");
         assert_eq!(plan.instructions()[0].node(), 3);
         assert_eq!(plan.instructions()[1].node(), 2);
         let BrownianBridgeInstruction::Interior {
@@ -468,8 +483,8 @@ mod tests {
 
     #[test]
     fn forward_transform_matches_known_uniform_bridge() {
-        let plan = BrownianBridgePlan::compile(vec![0.0, 0.25, 0.5, 0.75, 1.0], 1)
-            .expect("valid grid");
+        let plan =
+            BrownianBridgePlan::compile(vec![0.0, 0.25, 0.5, 0.75, 1.0], 1).expect("valid grid");
         let increments = plan
             .apply_one_factor(&[1.0, 2.0, 3.0, 4.0])
             .expect("normal count");
@@ -500,10 +515,7 @@ mod tests {
             .expect("six dimensions");
         for factor in 0..3 {
             let separate = plan
-                .apply_one_factor(&[
-                    [1.0, 10.0, 100.0][factor],
-                    [2.0, 20.0, 200.0][factor],
-                ])
+                .apply_one_factor(&[[1.0, 10.0, 100.0][factor], [2.0, 20.0, 200.0][factor]])
                 .expect("two bridge normals");
             assert_eq!(combined[factor].to_bits(), separate[0].to_bits());
             assert_eq!(combined[3 + factor].to_bits(), separate[1].to_bits());
@@ -512,8 +524,8 @@ mod tests {
 
     #[test]
     fn reverse_is_the_exact_transpose_of_forward_linear_map() {
-        let plan = BrownianBridgePlan::compile(vec![0.0, 0.1, 0.4, 0.7, 1.0], 1)
-            .expect("valid grid");
+        let plan =
+            BrownianBridgePlan::compile(vec![0.0, 0.1, 0.4, 0.7, 1.0], 1).expect("valid grid");
         let normals = [0.3, -1.1, 0.7, 2.0];
         let increment_adjoints = [-0.2, 0.9, 1.3, -0.4];
         let increments = plan.apply_one_factor(&normals).expect("normal count");
@@ -562,8 +574,7 @@ mod tests {
             BrownianBridgePlan::compile(too_many_dimensions, 2),
             Err(BrownianBridgeError::SobolDimensionLimitExceeded { .. })
         ));
-        let plan = BrownianBridgePlan::compile(vec![0.0, 0.5, 1.0], 1)
-            .expect("valid grid");
+        let plan = BrownianBridgePlan::compile(vec![0.0, 0.5, 1.0], 1).expect("valid grid");
         assert!(matches!(
             plan.apply_one_factor(&[1.0]),
             Err(BrownianBridgeError::NormalCountMismatch { .. })
