@@ -15,6 +15,7 @@ def main() -> None:
     output.mkdir(exist_ok=True)
     rust_report = output / "rust.json"
     python_report = output / "python.json"
+    replay_report = output / "replay-candidate.json"
 
     run(
         [
@@ -28,6 +29,20 @@ def main() -> None:
             "benchmark_european_bs",
             "--",
             str(rust_report),
+        ]
+    )
+    run(
+        [
+            "cargo",
+            "run",
+            "--locked",
+            "--release",
+            "-p",
+            "pricing",
+            "--example",
+            "replay_european_bs",
+            "--",
+            str(replay_report),
         ]
     )
     wheel_python = Path(".wheel-smoke-venv") / (
