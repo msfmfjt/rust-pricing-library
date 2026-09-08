@@ -332,50 +332,50 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
-        let logical_capacity = usize::try_from(tile_capacity.get()).map_err(|_| {
-            TryExecutionError::Evaluation {
+        let logical_capacity =
+            usize::try_from(tile_capacity.get()).map_err(|_| TryExecutionError::Evaluation {
                 sampling_unit: 0,
                 source: E::from(AadConfigError::WorkspaceSizeOverflow),
-            }
-        })?;
-        let block_results = self.pool.install(|| {
-            blocks
-                .into_par_iter()
-                .map_init(
-                    || SoaWorkspace::new(slot_count, logical_capacity),
-                    |workspace, block| {
-                        let workspace = workspace.as_mut().map_err(|error| {
-                            TryExecutionError::Evaluation {
-                                sampling_unit: block.start,
-                                source: E::from(*error),
-                            }
-                        })?;
-                        let mut statistics = [DeterministicStatistics::default(); N];
-                        let mut tile_begin = block.start;
-                        while tile_begin < block.end {
-                            workspace.reset_positive_zero();
-                            let tile_end = tile_begin
-                                .saturating_add(u64::from(tile_capacity.get()))
-                                .min(block.end);
-                            for (lane, sampling_unit) in (tile_begin..tile_end).enumerate() {
-                                let values = evaluate(sampling_unit, lane, workspace).map_err(
-                                    |source| TryExecutionError::Evaluation {
-                                        sampling_unit,
-                                        source,
-                                    },
-                                )?;
-                                for (statistic, value) in statistics.iter_mut().zip(values) {
-                                    statistic.sum.add(value);
-                                    statistic.moments.add(value);
+            })?;
+        let block_results =
+            self.pool.install(|| {
+                blocks
+                    .into_par_iter()
+                    .map_init(
+                        || SoaWorkspace::new(slot_count, logical_capacity),
+                        |workspace, block| {
+                            let workspace = workspace.as_mut().map_err(|error| {
+                                TryExecutionError::Evaluation {
+                                    sampling_unit: block.start,
+                                    source: E::from(*error),
                                 }
+                            })?;
+                            let mut statistics = [DeterministicStatistics::default(); N];
+                            let mut tile_begin = block.start;
+                            while tile_begin < block.end {
+                                workspace.reset_positive_zero();
+                                let tile_end = tile_begin
+                                    .saturating_add(u64::from(tile_capacity.get()))
+                                    .min(block.end);
+                                for (lane, sampling_unit) in (tile_begin..tile_end).enumerate() {
+                                    let values = evaluate(sampling_unit, lane, workspace).map_err(
+                                        |source| TryExecutionError::Evaluation {
+                                            sampling_unit,
+                                            source,
+                                        },
+                                    )?;
+                                    for (statistic, value) in statistics.iter_mut().zip(values) {
+                                        statistic.sum.add(value);
+                                        statistic.moments.add(value);
+                                    }
+                                }
+                                tile_begin = tile_end;
                             }
-                            tile_begin = tile_end;
-                        }
-                        Ok(BlockStatistics { statistics })
-                    },
-                )
-                .collect::<Vec<_>>()
-        });
+                            Ok(BlockStatistics { statistics })
+                        },
+                    )
+                    .collect::<Vec<_>>()
+            });
         let mut per_component_sums: [Vec<NeumaierSum>; N] =
             std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
         let mut per_component_moments: [Vec<CenteredMoment>; N] =
@@ -543,15 +543,20 @@ mod tests {
                         for slot in 0..workspace.slot_count() {
                             assert_eq!(workspace.primal(slot)?.alignment_remainder(), 0);
                             assert_eq!(workspace.adjoint(slot)?.alignment_remainder(), 0);
-                            assert_eq!(workspace.primal(slot)?.get(0)?.to_bits(), 0.0_f64.to_bits());
+                            assert_eq!(
+                                workspace.primal(slot)?.get(0)?.to_bits(),
+                                0.0_f64.to_bits()
+                            );
                             assert_eq!(
                                 workspace.adjoint(slot)?.get(0)?.to_bits(),
                                 0.0_f64.to_bits()
                             );
-                            assert!(workspace
-                                .primal(slot)?
-                                .padded_lane_bits()
-                                .all(|bits| bits == 0.0_f64.to_bits()));
+                            assert!(
+                                workspace
+                                    .primal(slot)?
+                                    .padded_lane_bits()
+                                    .all(|bits| bits == 0.0_f64.to_bits())
+                            );
                         }
                     }
                     workspace.primal_mut(0)?.set(lane, sampling_unit as f64)?;

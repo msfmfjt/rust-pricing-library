@@ -328,19 +328,10 @@ impl SimulationPlan {
             0.0
         };
         let spot_bump = self.validation_spot_bump;
-        let down_spot = self.pathwise_aad(
-            normal,
-            self.spot - spot_bump,
-            self.volatility,
-        )?;
-        let up_spot = self.pathwise_aad(
-            normal,
-            self.spot + spot_bump,
-            self.volatility,
-        )?;
+        let down_spot = self.pathwise_aad(normal, self.spot - spot_bump, self.volatility)?;
+        let up_spot = self.pathwise_aad(normal, self.spot + spot_bump, self.volatility)?;
         let bump_delta = (up_spot.price - down_spot.price) / (2.0 * spot_bump);
-        let bump_gamma =
-            (up_spot.price - 2.0 * base.price + down_spot.price) / spot_bump.powi(2);
+        let bump_gamma = (up_spot.price - 2.0 * base.price + down_spot.price) / spot_bump.powi(2);
         let bump_vega = if self.validation_volatility_bump == 0.0 {
             0.0
         } else {
@@ -570,11 +561,7 @@ fn risk_validation(
 ) -> Result<RiskValidation, ResultBuildError> {
     Ok(RiskValidation {
         bump_and_revalue: estimate_from_statistics(bump, independent_units, 1.0)?,
-        bump_minus_primary: estimate_from_statistics(
-            bump_minus_primary,
-            independent_units,
-            1.0,
-        )?,
+        bump_minus_primary: estimate_from_statistics(bump_minus_primary, independent_units, 1.0)?,
     })
 }
 
@@ -895,7 +882,13 @@ mod tests {
         ] {
             assert!(validation.bump_and_revalue.value().get().is_finite());
             assert!(validation.bump_minus_primary.value().get().is_finite());
-            assert!(validation.bump_minus_primary.standard_error().get().is_finite());
+            assert!(
+                validation
+                    .bump_minus_primary
+                    .standard_error()
+                    .get()
+                    .is_finite()
+            );
         }
     }
 

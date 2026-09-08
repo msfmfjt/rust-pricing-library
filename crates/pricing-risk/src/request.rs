@@ -52,9 +52,7 @@ impl GammaConfig {
 
 /// Returns the standard half/base/double bump ladder while preserving whether
 /// the contract uses absolute or relative Spot bumps.
-pub fn gamma_bump_ladder(
-    center: GammaConfig,
-) -> Result<[GammaConfig; 3], RiskConfigError> {
+pub fn gamma_bump_ladder(center: GammaConfig) -> Result<[GammaConfig; 3], RiskConfigError> {
     let scaled = |factor: f64| match center.bump() {
         SpotBump::Absolute(value) => SpotBump::absolute(value.get() * factor),
         SpotBump::Relative(value) => SpotBump::relative(value.get() * factor),
@@ -278,10 +276,8 @@ mod tests {
 
     #[test]
     fn gamma_ladder_preserves_bump_kind_and_scales() {
-        let ladder = gamma_bump_ladder(GammaConfig::new(
-            SpotBump::relative(0.01).expect("bump"),
-        ))
-        .expect("ladder");
+        let ladder = gamma_bump_ladder(GammaConfig::new(SpotBump::relative(0.01).expect("bump")))
+            .expect("ladder");
         assert!(matches!(ladder[0].bump(), SpotBump::Relative(value) if value.get() == 0.005));
         assert!(matches!(ladder[1].bump(), SpotBump::Relative(value) if value.get() == 0.01));
         assert!(matches!(ladder[2].bump(), SpotBump::Relative(value) if value.get() == 0.02));
