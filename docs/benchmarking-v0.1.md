@@ -15,21 +15,26 @@ Apple Silicon macOS and Windows x86-64. Each run retains `rust.json`,
 - 32,768 evaluated Paths, two Rayon workers, Reduction block 256;
 - full risk requests use Delta, Gamma with a 1% relative Spot bump, and Vega.
 
-Rust records compile and evaluate timings for Price-only and full-risk Plans.
-Python records full-risk compile/evaluate timings through the installed wheel and
-the `PricingResult.value` getter overhead. Every case is warmed up before the
-recorded samples, and reports minimum, median, maximum, sample count, and Paths
-per second where applicable.
+Rust records compile and evaluate timings for Price-only, full-risk, and
+standalone common-random-number bump Plans. Python records the corresponding
+full-risk and standalone-bump timings through the installed wheel plus the
+`PricingResult.value` getter overhead. The standalone bump case evaluates five
+Price-only Plans: base, Spot-down/up, and volatility-down/up. Every case is
+warmed up before the recorded samples, and reports minimum, median, maximum,
+sample count, and kernel Path evaluations per second where applicable.
 
 ## Current measurement boundary
 
 The v0.1 full-risk executor computes AAD Delta/Vega, central-bumped AAD Delta
 for Gamma, and common-random-number validation bumps in one kernel invocation.
-The harness therefore labels this measurement
+The harness therefore labels the integrated measurement
 `evaluate_aad_with_crn_bump_validation` and explicitly records that AAD and
-Bump timing are not separable. It does not infer one cost by subtracting noisy
-wall times. Separate AAD-only and Bump-only instrumentation remains an explicit
-G8 task before the final conformance report.
+Bump timing inside that kernel are not separable. It does not infer one cost by
+subtracting noisy wall times. Instead, it reports an independently executed
+Price-only CRN bump case, labelled
+`evaluate_crn_bump_validation_price_only`. Pure AAD-only timing would require a
+new execution mode and remains a documented limitation rather than silently
+changing the frozen request/result contract.
 
 ## Host and resource metadata
 

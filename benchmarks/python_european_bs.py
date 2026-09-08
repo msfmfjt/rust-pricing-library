@@ -16,17 +16,38 @@ SAMPLING_UNITS = 16_384
 COMPILE_SAMPLES = 20
 EVALUATION_SAMPLES = 5
 GETTER_SAMPLES = 100_000
+SPOT = 100.0
+VOLATILITY = 0.2
+VALIDATION_SPOT_BUMP = 1.0
+VALIDATION_VOLATILITY_BUMP = 1.0e-4
 
 
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: python_european_bs.py <output.json>")
 
-    request = build_request()
+    request = build_request(SPOT, VOLATILITY, full_risk=True)
+    bump_requests = [
+        build_request(SPOT, VOLATILITY, full_risk=False),
+        build_request(SPOT - VALIDATION_SPOT_BUMP, VOLATILITY, full_risk=False),
+        build_request(SPOT + VALIDATION_SPOT_BUMP, VOLATILITY, full_risk=False),
+        build_request(
+            SPOT, VOLATILITY - VALIDATION_VOLATILITY_BUMP, full_risk=False
+        ),
+        build_request(
+            SPOT, VOLATILITY + VALIDATION_VOLATILITY_BUMP, full_risk=False
+        ),
+    ]
     plan = rp.PricingPlan.compile(
         request, worker_threads=2, reduction_block_size=256
     )
     result = plan.evaluate()
+    bump_plans = [
+        rp.PricingPlan.compile(item, worker_threads=2, reduction_block_size=256)
+        for item in bump_requests
+    ]
+    for bump_plan in bump_plans:
+        bump_plan.evaluate()
 
     compile_seconds = sample(
         COMPILE_SAMPLES,
@@ -35,6 +56,19 @@ def main() -> None:
         ),
     )
     evaluate_seconds = sample(EVALUATION_SAMPLES, plan.evaluate)
+    compile_bump_seconds = sample(
+        COMPILE_SAMPLES,
+        lambda: [
+            rp.PricingPlan.compile(
+                item, worker_threads=2, reduction_block_size=256
+            )
+            for item in bump_requests
+        ],
+    )
+    evaluate_bump_seconds = sample(
+        EVALUATION_SAMPLES,
+        lambda: [bump_plan.evaluate() for bump_plan in bump_plans],
+    )
     getter_seconds = sample(GETTER_SAMPLES, lambda: result.value)
 
     report = {
@@ -54,11 +88,18 @@ def main() -> None:
             "evaluate_full_risk_from_python": summarize(
                 evaluate_seconds, SAMPLING_UNITS * 2
             ),
+            "compile_crn_bump_validation_from_python": summarize(
+                compile_bump_seconds
+            ),
+            "evaluate_crn_bump_validation_from_python": summarize(
+                evaluate_bump_seconds, SAMPLING_UNITS * 2 * len(bump_plans)
+            ),
             "result_value_getter": summarize(getter_seconds),
         },
         "notes": [
             "Compile/evaluate release the GIL; timings include the Python-to-Rust call boundary.",
             "The full-risk kernel includes AAD and its CRN bump validations.",
+            "The standalone bump case evaluates base, Spot-down/up, and volatility-down/up Price-only plans with common random numbers.",
             "Results are an optimization baseline and not a latency SLA.",
         ],
     }
@@ -67,23 +108,29 @@ def main() -> None:
     )
 
 
-def build_request() -> rp.PricingRequest:
+def build_request(
+    spot: float, volatility: float, *, full_risk: bool
+) -> rp.PricingRequest:
     discount = rp.DiscountCurve(1, np.array([0.0, 1.0]), np.exp([0.0, -0.05]))
     dividend = rp.DiscountCurve(2, np.array([0.0, 1.0]), np.exp([0.0, -0.02]))
     return rp.PricingRequest(
         "2026-09-04",
         rp.Product.european_vanilla(1, 1, "2027-09-04", 100.0, 1.0, "call"),
-        rp.Market.equity(1, 1, 100.0, discount, dividend),
-        rp.Model.black_scholes(0.2),
+        rp.Market.equity(1, 1, spot, discount, dividend),
+        rp.Model.black_scholes(volatility),
         rp.Engine.pseudo_monte_carlo(
             0x0123_4567_89AB_CDEF, SAMPLING_UNITS, antithetic=True
         ),
-        rp.RiskRequest(
-            delta=True,
-            gamma_relative_bump=0.01,
-            vega=True,
-            checkpoint_interval=16,
-            aad_tile_capacity=128,
+        (
+            rp.RiskRequest(
+                delta=True,
+                gamma_relative_bump=0.01,
+                vega=True,
+                checkpoint_interval=16,
+                aad_tile_capacity=128,
+            )
+            if full_risk
+            else rp.RiskRequest()
         ),
     )
 
