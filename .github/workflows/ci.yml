@@ -102,10 +102,21 @@ jobs:
       - name: Test wheel in clean environment
         run: python scripts/smoke_test_wheel.py
 
+      - name: Run baseline benchmarks
+        run: python scripts/run_benchmark_suite.py
+
       - name: Retain private wheel
         uses: actions/upload-artifact@v4
         with:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain benchmark baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.target }}
+          path: benchmark-results/*.json
           if-no-files-found: error
           retention-days: 14
