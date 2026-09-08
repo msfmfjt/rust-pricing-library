@@ -14,7 +14,8 @@ pub mod analytical;
 pub use error::{MonteCarloError, RequestValidationError, ResultBuildError};
 pub use monte_carlo::{
     BumpValidationPolicy, MonteCarloDiagnostics, MonteCarloPrice, RiskDiagnostics, RiskMethod,
-    RiskMethodMetadata, RiskValidation, SimulationPlan, price_pseudo_monte_carlo,
+    RiskMethodMetadata, RiskValidation, SimulationPlan, price_monte_carlo,
+    price_pseudo_monte_carlo,
 };
 pub use pricing_core as core;
 pub use pricing_market as market;

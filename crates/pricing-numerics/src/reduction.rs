@@ -93,6 +93,29 @@ impl CenteredMoment {
         self.count = next_count;
     }
 
+    /// Computes moments in two deterministic passes over an ordered slice.
+    #[must_use]
+    pub fn from_ordered_values_two_pass(values: &[f64]) -> Self {
+        if values.is_empty() {
+            return Self::new();
+        }
+        let sum = values.iter().copied().collect::<NeumaierSum>();
+        let mean = sum.total() / values.len() as f64;
+        let second_moment = values
+            .iter()
+            .map(|value| {
+                let deviation = *value - mean;
+                deviation * deviation
+            })
+            .collect::<NeumaierSum>()
+            .total();
+        Self {
+            count: u64::try_from(values.len()).expect("slice length fits u64"),
+            mean,
+            second_moment,
+        }
+    }
+
     #[must_use]
     pub fn merged(left: Self, right: Self) -> Self {
         if left.count == 0 {
@@ -261,6 +284,15 @@ mod tests {
         let right = [-1.0e16, 2.0].into_iter().collect();
         let expected = NeumaierSum::merged(left, right);
         assert_eq!(reduce_sums(vec![left, right]), expected);
+    }
+
+    #[test]
+    fn two_pass_moments_use_the_compensated_mean() {
+        let values = [1.0e16, 1.0, -1.0e16, 2.0];
+        let moments = CenteredMoment::from_ordered_values_two_pass(&values);
+        assert_eq!(moments.count(), 4);
+        assert_eq!(moments.mean(), 0.75);
+        assert!(moments.sample_variance().expect("four values") > 0.0);
     }
 
     #[test]

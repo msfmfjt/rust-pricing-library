@@ -3,7 +3,7 @@ use pricing_core::{Date, DayCountConvention, SchemaVersion, UnderlyingId};
 use pricing_market::{CurveRegion, DiscountCurve};
 use pricing_mc::{
     DeterministicExecutor, DeterministicStatistics, EngineConfig, ExecutionPolicy, Philox4x32,
-    PseudoMcConfig, RandomCoordinate, RandomDomain,
+    PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan, inverse_standard_normal,
 };
 use pricing_models::ModelSpec;
 use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy, ProductSpec};
@@ -31,7 +31,7 @@ const AAD_WORKSPACE_SLOTS: usize = 5;
 const DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP: f64 = 1.0e-4;
 const DEFAULT_VALIDATION_VOLATILITY_BUMP: f64 = 1.0e-4;
 
-/// Immutable one-expiry plan for the European Black-Scholes pseudo-MC slice.
+/// Immutable one-expiry plan for the European Black-Scholes MC/RQMC slice.
 #[derive(Clone, Debug)]
 pub struct SimulationPlan {
     valuation_date: Date,
@@ -45,7 +45,7 @@ pub struct SimulationPlan {
     total_variance: f64,
     standard_deviation: f64,
     payoff: CompiledPayoff,
-    engine: PseudoMcConfig,
+    engine: EngineConfig,
     execution_policy: ExecutionPolicy,
     aad_tile_policy: AadTilePolicy,
     checkpoint_policy: CheckpointPolicy,
@@ -65,12 +65,7 @@ impl SimulationPlan {
         request: &PricingRequest,
         execution_policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
-        let engine = match request.engine() {
-            EngineConfig::PseudoMonteCarlo(engine) => engine,
-            EngineConfig::RandomizedQuasiMonteCarlo(_) => {
-                return Err(MonteCarloError::UnsupportedEngine);
-            }
-        };
+        let engine = request.engine();
         let ProductSpec::EuropeanVanilla(product) = request.product();
         let ModelSpec::BlackScholes(model) = request.model();
         let time =
@@ -86,10 +81,20 @@ impl SimulationPlan {
                 bits: total_variance.to_bits(),
             });
         }
-        if total_variance > 0.0 && engine.independent_sampling_units().get() < 2 {
-            return Err(MonteCarloError::InsufficientSamplingUnits {
-                count: engine.independent_sampling_units().get(),
-            });
+        if total_variance > 0.0 {
+            let independent_units = match engine {
+                EngineConfig::PseudoMonteCarlo(config) => {
+                    config.independent_sampling_units().get()
+                }
+                EngineConfig::RandomizedQuasiMonteCarlo(config) => {
+                    u64::from(config.scramble_count().get())
+                }
+            };
+            if independent_units < 2 {
+                return Err(MonteCarloError::InsufficientSamplingUnits {
+                    count: independent_units,
+                });
+            }
         }
         let payoff = product.source_graph()?.compile(GraphLimitPolicy::DEFAULT)?;
         let request_fingerprint = *fingerprint_request(request)?.as_bytes();
@@ -187,12 +192,19 @@ impl SimulationPlan {
     }
 
     pub fn execute(&self) -> Result<MonteCarloPrice, MonteCarloError> {
+        match self.engine {
+            EngineConfig::PseudoMonteCarlo(engine) => self.execute_pseudo(engine),
+            EngineConfig::RandomizedQuasiMonteCarlo(engine) => self.execute_rqmc(engine),
+        }
+    }
+
+    fn execute_pseudo(&self, engine: PseudoMcConfig) -> Result<MonteCarloPrice, MonteCarloError> {
         let executor = DeterministicExecutor::new(self.execution_policy)?;
-        let generator = Philox4x32::from_seed(self.engine.master_seed());
-        let antithetic = self.engine.variance_reduction().antithetic();
+        let generator = Philox4x32::from_seed(engine.master_seed());
+        let antithetic = engine.variance_reduction().antithetic();
         let statistics = if self.risk_enabled() {
             executor.try_map_reduce_statistics_array_with_aad_workspace(
-                self.engine.independent_sampling_units().get(),
+                engine.independent_sampling_units().get(),
                 self.aad_tile_policy.resolved_capacity(),
                 AAD_WORKSPACE_SLOTS,
                 |sampling_unit, lane, workspace| {
@@ -210,7 +222,7 @@ impl SimulationPlan {
             )?
         } else {
             let price = executor.try_map_reduce_statistics(
-                self.engine.independent_sampling_units().get(),
+                engine.independent_sampling_units().get(),
                 |sampling_unit| {
                     let normal = self.normal(&generator, sampling_unit);
                     let primary = self.discounted_payoff(normal)?;
@@ -227,7 +239,7 @@ impl SimulationPlan {
             values
         };
 
-        let independent_units = self.engine.independent_sampling_units().get();
+        let independent_units = engine.independent_sampling_units().get();
         let price = statistics[PRICE].sum().total() / independent_units as f64;
         let sampling_variance = if self.total_variance == 0.0 {
             0.0
@@ -239,10 +251,23 @@ impl SimulationPlan {
             )?
         };
         let estimator_variance = sampling_variance / independent_units as f64;
-        let estimate = estimate_from_statistics(statistics[PRICE], independent_units, 1.0)?;
+        let estimate = estimate_from_statistics(
+            statistics[PRICE],
+            independent_units,
+            1.0,
+            EstimatorKind::PseudoMonteCarlo,
+        )?;
         debug_assert_eq!(estimate.value().get().to_bits(), price.to_bits());
-        let risks = self.build_risk_report(&statistics, independent_units)?;
-        let risk_diagnostics = self.build_risk_diagnostics(&statistics, independent_units)?;
+        let risks = self.build_risk_report(
+            &statistics,
+            independent_units,
+            EstimatorKind::PseudoMonteCarlo,
+        )?;
+        let risk_diagnostics = self.build_risk_diagnostics(
+            &statistics,
+            independent_units,
+            EstimatorKind::PseudoMonteCarlo,
+        )?;
         let warnings = extrapolation_warnings(self.discount_region, self.dividend_region);
         let pricing_result = PricingResult {
             value: estimate,
@@ -261,9 +286,142 @@ impl SimulationPlan {
             estimator_variance,
             risk_diagnostics,
             independent_sampling_units: independent_units,
-            evaluated_paths: self.engine.evaluated_paths(),
+            evaluated_paths: engine.evaluated_paths(),
             diagnostics: MonteCarloDiagnostics {
-                master_seed: self.engine.master_seed(),
+                master_seed: engine.master_seed(),
+                estimator: EstimatorKind::PseudoMonteCarlo,
+                scramble_count: None,
+                direction_checksum: None,
+                scramble_checksum: None,
+                policy_version: self.execution_policy.version(),
+                worker_threads: self.execution_policy.worker_threads().get(),
+                reduction_block_size: self.execution_policy.reduction_block_size().get(),
+                aad_tile_policy_version: self.aad_tile_policy.version(),
+                aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
+                checkpoint_policy_version: self.checkpoint_policy.version(),
+                checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
+                antithetic,
+                discount_region: self.discount_region,
+                dividend_region: self.dividend_region,
+                payoff_fingerprint: self.payoff.tape_fingerprint(),
+            },
+        })
+    }
+
+    fn execute_rqmc(&self, engine: RqmcConfig) -> Result<MonteCarloPrice, MonteCarloError> {
+        let executor = DeterministicExecutor::new(self.execution_policy)?;
+        let qmc = RqmcPlan::compile(engine, 1)?;
+        let antithetic = engine.variance_reduction().antithetic();
+        let points = engine.points_per_scramble().get();
+        let mut replicate_values = Vec::with_capacity(
+            usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
+        );
+        for scramble in 0..engine.scramble_count().get() {
+            let within = if self.risk_enabled() {
+                executor.try_map_reduce_statistics_array_with_aad_workspace(
+                    points,
+                    self.aad_tile_policy.resolved_capacity(),
+                    AAD_WORKSPACE_SLOTS,
+                    |point, lane, workspace| {
+                        let normal = self.rqmc_normal(&qmc, scramble, point)?;
+                        let primary = self.pathwise_values(normal, lane, workspace)?;
+                        if antithetic {
+                            let mate = self.pathwise_values(-normal, lane, workspace)?;
+                            Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(
+                                std::array::from_fn(|component| {
+                                    (primary[component] + mate[component]) * 0.5
+                                }),
+                            )
+                        } else {
+                            Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
+                        }
+                    },
+                )?
+            } else {
+                let price = executor.try_map_reduce_statistics(points, |point| {
+                    let normal = self.rqmc_normal(&qmc, scramble, point)?;
+                    let primary = self.discounted_payoff(normal)?;
+                    if antithetic {
+                        let mate = self.discounted_payoff(-normal)?;
+                        Ok::<f64, MonteCarloError>((primary + mate) * 0.5)
+                    } else {
+                        Ok::<f64, MonteCarloError>(primary)
+                    }
+                })?;
+                let mut values = [DeterministicStatistics::default(); PATHWISE_COMPONENTS];
+                values[PRICE] = price;
+                values
+            };
+            replicate_values.push(std::array::from_fn(|component| {
+                within[component].sum().total() / points as f64
+            }));
+        }
+
+        let statistics: [DeterministicStatistics; PATHWISE_COMPONENTS] =
+            std::array::from_fn(|component| {
+                let values = replicate_values
+                    .iter()
+                    .map(|replicate| replicate[component])
+                    .collect::<Vec<_>>();
+                DeterministicStatistics::from_ordered_values_two_pass(&values)
+            });
+        let independent_units = u64::from(engine.scramble_count().get());
+        let sampling_variance = if self.total_variance == 0.0 {
+            0.0
+        } else {
+            statistics[PRICE].moments().sample_variance().ok_or(
+                MonteCarloError::InsufficientSamplingUnits {
+                    count: independent_units,
+                },
+            )?
+        };
+        let estimator_variance = sampling_variance / independent_units as f64;
+        let estimate = estimate_from_statistics(
+            statistics[PRICE],
+            independent_units,
+            1.0,
+            EstimatorKind::RandomizedQuasiMonteCarlo,
+        )?;
+        let risks = self.build_risk_report(
+            &statistics,
+            independent_units,
+            EstimatorKind::RandomizedQuasiMonteCarlo,
+        )?;
+        let risk_diagnostics = self.build_risk_diagnostics(
+            &statistics,
+            independent_units,
+            EstimatorKind::RandomizedQuasiMonteCarlo,
+        )?;
+        let pricing_result = PricingResult {
+            value: estimate,
+            risks,
+            diagnostics: Diagnostics::new(extrapolation_warnings(
+                self.discount_region,
+                self.dividend_region,
+            )),
+            replay: ReplayMetadata::new(
+                SchemaVersion::CURRENT,
+                self.request_fingerprint,
+                crate::version(),
+                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
+            ),
+        };
+        let multiplier = if antithetic { 2_u128 } else { 1_u128 };
+        Ok(MonteCarloPrice {
+            pricing_result,
+            sampling_variance,
+            estimator_variance,
+            risk_diagnostics,
+            independent_sampling_units: independent_units,
+            evaluated_paths: u128::from(points)
+                * u128::from(engine.scramble_count().get())
+                * multiplier,
+            diagnostics: MonteCarloDiagnostics {
+                master_seed: engine.master_scramble_seed(),
+                estimator: EstimatorKind::RandomizedQuasiMonteCarlo,
+                scramble_count: Some(engine.scramble_count().get()),
+                direction_checksum: Some(qmc.direction_checksum()),
+                scramble_checksum: Some(qmc.scramble_checksum()),
                 policy_version: self.execution_policy.version(),
                 worker_threads: self.execution_policy.worker_threads().get(),
                 reduction_block_size: self.execution_policy.reduction_block_size().get(),
@@ -293,6 +451,22 @@ impl SimulationPlan {
                 RandomDomain::Valuation,
             ))
         }
+    }
+
+    fn rqmc_normal(
+        &self,
+        plan: &RqmcPlan,
+        scramble: u32,
+        point: u64,
+    ) -> Result<f64, MonteCarloError> {
+        if self.total_variance == 0.0 {
+            return Ok(0.0);
+        }
+        let probability = plan
+            .uniform(scramble, point, 0)
+            .expect("scramble, point, and dimension originate from the compiled plan");
+        Ok(inverse_standard_normal(probability)
+            .expect("the Sobol midpoint mapping is strictly inside the unit interval"))
     }
 
     fn discounted_payoff(&self, normal: f64) -> Result<f64, pricing_product::GraphError> {
@@ -404,6 +578,7 @@ impl SimulationPlan {
         &self,
         statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
         independent_units: u64,
+        estimator: EstimatorKind,
     ) -> Result<RiskReport, MonteCarloError> {
         let delta = self
             .request_delta
@@ -414,6 +589,7 @@ impl SimulationPlan {
                     self.spot * 0.01,
                     RiskUnit::DeltaRaw,
                     RiskUnit::DeltaOnePercentSpot,
+                    estimator,
                 )
             })
             .transpose()?;
@@ -426,6 +602,7 @@ impl SimulationPlan {
                     (self.spot * 0.01).powi(2),
                     RiskUnit::GammaRaw,
                     RiskUnit::GammaOnePercentSpotSquared,
+                    estimator,
                 )
             })
             .transpose()?;
@@ -438,6 +615,7 @@ impl SimulationPlan {
                     0.01,
                     RiskUnit::VegaRaw,
                     RiskUnit::VegaOneVolPoint,
+                    estimator,
                 )
             })
             .transpose()?;
@@ -448,6 +626,7 @@ impl SimulationPlan {
         &self,
         statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
         independent_units: u64,
+        estimator: EstimatorKind,
     ) -> Result<RiskDiagnostics, MonteCarloError> {
         let delta_validation = self
             .request_delta
@@ -456,6 +635,7 @@ impl SimulationPlan {
                     statistics[BUMP_DELTA],
                     statistics[DELTA_DIFFERENCE],
                     independent_units,
+                    estimator,
                 )
             })
             .transpose()?;
@@ -466,6 +646,7 @@ impl SimulationPlan {
                     statistics[BUMP_GAMMA],
                     statistics[GAMMA_DIFFERENCE],
                     independent_units,
+                    estimator,
                 )
             })
             .transpose()?;
@@ -476,6 +657,7 @@ impl SimulationPlan {
                     statistics[BUMP_VEGA],
                     statistics[VEGA_DIFFERENCE],
                     independent_units,
+                    estimator,
                 )
             })
             .transpose()?;
@@ -523,6 +705,7 @@ fn estimate_from_statistics(
     statistics: DeterministicStatistics,
     independent_units: u64,
     scale: f64,
+    estimator: EstimatorKind,
 ) -> Result<Estimate, ResultBuildError> {
     let inverse_count = 1.0 / independent_units as f64;
     let value = statistics.sum().total() * inverse_count * scale;
@@ -534,7 +717,7 @@ fn estimate_from_statistics(
         standard_error,
         value - half_width,
         value + half_width,
-        EstimatorKind::PseudoMonteCarlo,
+        estimator,
         independent_units,
     )
 }
@@ -545,10 +728,11 @@ fn risk_estimate(
     market_scale: f64,
     raw_unit: RiskUnit,
     market_scaled_unit: RiskUnit,
+    estimator: EstimatorKind,
 ) -> Result<RiskEstimate, ResultBuildError> {
     Ok(RiskEstimate::new(
-        estimate_from_statistics(statistics, independent_units, 1.0)?,
-        estimate_from_statistics(statistics, independent_units, market_scale)?,
+        estimate_from_statistics(statistics, independent_units, 1.0, estimator)?,
+        estimate_from_statistics(statistics, independent_units, market_scale, estimator)?,
         raw_unit,
         market_scaled_unit,
     ))
@@ -558,10 +742,16 @@ fn risk_validation(
     bump: DeterministicStatistics,
     bump_minus_primary: DeterministicStatistics,
     independent_units: u64,
+    estimator: EstimatorKind,
 ) -> Result<RiskValidation, ResultBuildError> {
     Ok(RiskValidation {
-        bump_and_revalue: estimate_from_statistics(bump, independent_units, 1.0)?,
-        bump_minus_primary: estimate_from_statistics(bump_minus_primary, independent_units, 1.0)?,
+        bump_and_revalue: estimate_from_statistics(bump, independent_units, 1.0, estimator)?,
+        bump_minus_primary: estimate_from_statistics(
+            bump_minus_primary,
+            independent_units,
+            1.0,
+            estimator,
+        )?,
     })
 }
 
@@ -610,6 +800,10 @@ impl BumpValidationPolicy {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MonteCarloDiagnostics {
     pub master_seed: u64,
+    pub estimator: EstimatorKind,
+    pub scramble_count: Option<u32>,
+    pub direction_checksum: Option<[u8; 32]>,
+    pub scramble_checksum: Option<[u8; 32]>,
     pub policy_version: u32,
     pub worker_threads: u32,
     pub reduction_block_size: u64,
@@ -635,6 +829,16 @@ pub struct MonteCarloPrice {
 }
 
 pub fn price_pseudo_monte_carlo(
+    request: &PricingRequest,
+    execution_policy: ExecutionPolicy,
+) -> Result<MonteCarloPrice, MonteCarloError> {
+    if !matches!(request.engine(), EngineConfig::PseudoMonteCarlo(_)) {
+        return Err(MonteCarloError::UnsupportedEngine);
+    }
+    SimulationPlan::compile(request, execution_policy)?.execute()
+}
+
+pub fn price_monte_carlo(
     request: &PricingRequest,
     execution_policy: ExecutionPolicy,
 ) -> Result<MonteCarloPrice, MonteCarloError> {
@@ -667,7 +871,7 @@ mod tests {
 
     use pricing_core::{CurrencyId, CurveId, PositiveF64};
     use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
-    use pricing_mc::{PseudoMcConfig, VarianceReduction};
+    use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
     use pricing_models::BlackScholesSpec;
     use pricing_product::{EuropeanVanillaSpec, OptionSide};
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump};
@@ -765,6 +969,56 @@ mod tests {
             Some(64),
         )
         .expect("risk request")
+    }
+
+    fn rqmc_request(
+        scramble_seed: u64,
+        points: u64,
+        scrambles: u32,
+        antithetic: bool,
+        risk: RiskRequest,
+    ) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::EuropeanVanilla(
+            EuropeanVanillaSpec::new(
+                underlying,
+                currency,
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                1.0,
+                OptionSide::Call,
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model"));
+        let engine = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                points,
+                scrambles,
+                scramble_seed,
+                VarianceReduction::new(antithetic, true),
+            )
+            .expect("RQMC engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            risk,
+        )
+        .expect("request")
     }
 
     fn policy(workers: u32) -> ExecutionPolicy {
@@ -1044,6 +1298,82 @@ mod tests {
         assert!(matches!(
             SimulationPlan::compile(&request, policy(2)),
             Err(MonteCarloError::InvalidGammaBump { .. })
+        ));
+    }
+
+    #[test]
+    fn rqmc_price_and_error_use_independent_scrambles() {
+        let request = rqmc_request(
+            0x8877_6655_4433_2211,
+            4096,
+            16,
+            true,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        );
+        let oracle = black_scholes_oracle(&request).expect("oracle").price;
+        let result = price_monte_carlo(&request, policy(4)).expect("RQMC");
+        let estimate = result.pricing_result.value;
+        assert_eq!(estimate.estimator(), EstimatorKind::RandomizedQuasiMonteCarlo);
+        assert_eq!(estimate.effective_sampling_units().get(), 16);
+        assert_eq!(result.independent_sampling_units, 16);
+        assert_eq!(result.evaluated_paths, 4096 * 16 * 2);
+        assert_eq!(result.diagnostics.scramble_count, Some(16));
+        assert!(result.diagnostics.direction_checksum.is_some());
+        assert!(result.diagnostics.scramble_checksum.is_some());
+        assert!(
+            (estimate.value().get() - oracle).abs()
+                <= 8.0 * estimate.standard_error().get() + 2.0e-5
+        );
+    }
+
+    #[test]
+    fn rqmc_risks_replay_across_worker_counts() {
+        let request = rqmc_request(42, 1024, 8, true, all_risks());
+        let single = price_monte_carlo(&request, policy(1)).expect("single");
+        let parallel = price_monte_carlo(&request, policy(4)).expect("parallel");
+        assert_eq!(single.pricing_result, parallel.pricing_result);
+        assert_eq!(single.estimator_variance.to_bits(), parallel.estimator_variance.to_bits());
+        assert_eq!(single.diagnostics.scramble_checksum, parallel.diagnostics.scramble_checksum);
+        for estimate in [
+            single.pricing_result.risks.delta.expect("delta").raw(),
+            single.pricing_result.risks.gamma.expect("gamma").raw(),
+            single.pricing_result.risks.vega.expect("vega").raw(),
+        ] {
+            assert_eq!(estimate.estimator(), EstimatorKind::RandomizedQuasiMonteCarlo);
+            assert_eq!(estimate.effective_sampling_units().get(), 8);
+        }
+    }
+
+    #[test]
+    fn rqmc_seed_changes_randomization_but_replays_exactly() {
+        let risk = RiskRequest::price_only(SmileDynamics::StickyLogMoneyness);
+        let first = price_monte_carlo(&rqmc_request(1, 1024, 4, false, risk.clone()), policy(2))
+            .expect("first");
+        let replay = price_monte_carlo(&rqmc_request(1, 1024, 4, false, risk.clone()), policy(2))
+            .expect("replay");
+        let changed = price_monte_carlo(&rqmc_request(2, 1024, 4, false, risk), policy(2))
+            .expect("changed seed");
+        assert_eq!(first.pricing_result, replay.pricing_result);
+        assert_eq!(first.diagnostics.scramble_checksum, replay.diagnostics.scramble_checksum);
+        assert_ne!(first.diagnostics.scramble_checksum, changed.diagnostics.scramble_checksum);
+        assert_ne!(
+            first.pricing_result.value.value().to_bits(),
+            changed.pricing_result.value.value().to_bits()
+        );
+    }
+
+    #[test]
+    fn pseudo_only_entry_point_rejects_rqmc() {
+        let request = rqmc_request(
+            7,
+            8,
+            2,
+            false,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        );
+        assert!(matches!(
+            price_pseudo_monte_carlo(&request, policy(1)),
+            Err(MonteCarloError::UnsupportedEngine)
         ));
     }
 }

@@ -4,7 +4,7 @@ use std::fmt;
 use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
-use pricing_mc::{ExecutionError, ExecutorBuildError, TryExecutionError};
+use pricing_mc::{ExecutionError, ExecutorBuildError, RqmcPlanError, TryExecutionError};
 use pricing_product::GraphError;
 
 use crate::WireError;
@@ -114,6 +114,7 @@ pub enum MonteCarloError {
     ResultBuild(ResultBuildError),
     Wire(WireError),
     AadConfig(AadConfigError),
+    RqmcPlan(RqmcPlanError),
 }
 
 impl From<MarketError> for MonteCarloError {
@@ -152,6 +153,12 @@ impl From<AadConfigError> for MonteCarloError {
     }
 }
 
+impl From<RqmcPlanError> for MonteCarloError {
+    fn from(error: RqmcPlanError) -> Self {
+        Self::RqmcPlan(error)
+    }
+}
+
 impl From<TryExecutionError<GraphError>> for MonteCarloError {
     fn from(error: TryExecutionError<GraphError>) -> Self {
         match error {
@@ -174,10 +181,7 @@ impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedEngine => {
-                write!(
-                    formatter,
-                    "the European BS simulation path supports pseudo-MC only"
-                )
+                write!(formatter, "the selected pricing entry point does not support this engine")
             }
             Self::InvalidGammaBump {
                 spot_bits,
@@ -203,6 +207,7 @@ impl fmt::Display for MonteCarloError {
             Self::ResultBuild(error) => error.fmt(formatter),
             Self::Wire(error) => error.fmt(formatter),
             Self::AadConfig(error) => error.fmt(formatter),
+            Self::RqmcPlan(error) => error.fmt(formatter),
         }
     }
 }
@@ -217,6 +222,7 @@ impl Error for MonteCarloError {
             Self::ResultBuild(error) => Some(error),
             Self::Wire(error) => Some(error),
             Self::AadConfig(error) => Some(error),
+            Self::RqmcPlan(error) => Some(error),
             _ => None,
         }
     }

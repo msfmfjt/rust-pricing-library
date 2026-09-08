@@ -109,6 +109,16 @@ pub struct DeterministicStatistics {
 }
 
 impl DeterministicStatistics {
+    /// Builds cross-replicate statistics using an ordered compensated sum and
+    /// deterministic two-pass centered moments.
+    #[must_use]
+    pub fn from_ordered_values_two_pass(values: &[f64]) -> Self {
+        Self {
+            sum: values.iter().copied().collect(),
+            moments: CenteredMoment::from_ordered_values_two_pass(values),
+        }
+    }
+
     #[must_use]
     pub const fn sum(self) -> NeumaierSum {
         self.sum
