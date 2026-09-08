@@ -181,7 +181,8 @@ impl PyPricingPlan {
     ) -> PyResult<Self> {
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|error| validation_exception(py, PyValidationIssue::compile(&error.into())))?;
-        PricingPlan::compile(&request.inner, policy)
+        let request = request.inner.clone();
+        py.detach(|| PricingPlan::compile(&request, policy))
             .map(|inner| Self { inner })
             .map_err(|error| validation_exception(py, PyValidationIssue::compile(&error)))
     }
