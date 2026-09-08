@@ -12,7 +12,7 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 
 ## Status
 
-The project has completed Gate G6 and is progressing through Gate G7 of the initial implementation roadmap. European Black–Scholes supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and PyO3 request/plan/result facades are available; supported-platform wheel automation remains in progress.
+The project has completed Gate G6 and is progressing through Gate G7 of the initial implementation roadmap. European Black–Scholes supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and PyO3 request/plan/result facades are available. CI builds, installs, and smoke-tests private wheels on Apple Silicon macOS and Windows x86-64; Python typing, documentation, and diagnostic objects remain in progress.
 
 ## Workspace
 
@@ -49,6 +49,10 @@ The Python extension is built with [maturin](https://www.maturin.rs/):
 python -m maturin develop --locked
 python -m unittest discover -s tests/python -v
 ```
+
+Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
+platforms as short-lived workflow artifacts. Each wheel is installed into a
+fresh virtual environment before the Python API smoke suite runs.
 
 ## Platforms
 
