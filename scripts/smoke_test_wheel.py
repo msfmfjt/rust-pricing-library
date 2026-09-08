@@ -16,7 +16,7 @@ def main() -> None:
 
     with ZipFile(wheels[0]) as archive:
         members = set(archive.namelist())
-    if not any(Path(member).name == "rust_pricing.pyi" for member in members):
+    if "rust_pricing/__init__.pyi" not in members:
         raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
     if not any(Path(member).name == "py.typed" for member in members):
         raise RuntimeError("wheel does not contain the py.typed marker")
