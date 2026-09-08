@@ -12,7 +12,7 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 
 ## Status
 
-The project is in Gate G0 of the initial implementation roadmap: workspace and continuous-integration scaffolding.
+The project is in Gate G5 of the initial implementation roadmap: European Black–Scholes AAD Greeks and common-random-number bump diagnostics.
 
 ## Workspace
 

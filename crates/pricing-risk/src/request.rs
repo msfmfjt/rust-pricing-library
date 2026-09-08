@@ -50,6 +50,22 @@ impl GammaConfig {
     }
 }
 
+/// Returns the standard half/base/double bump ladder while preserving whether
+/// the contract uses absolute or relative Spot bumps.
+pub fn gamma_bump_ladder(
+    center: GammaConfig,
+) -> Result<[GammaConfig; 3], RiskConfigError> {
+    let scaled = |factor: f64| match center.bump() {
+        SpotBump::Absolute(value) => SpotBump::absolute(value.get() * factor),
+        SpotBump::Relative(value) => SpotBump::relative(value.get() * factor),
+    };
+    Ok([
+        GammaConfig::new(scaled(0.5)?),
+        center,
+        GammaConfig::new(scaled(2.0)?),
+    ])
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VegaKtConfig {
     maturity_nodes: Box<[Date]>,
@@ -258,5 +274,16 @@ mod tests {
         assert_eq!(config.maturity_nodes(), maturities);
         assert!(VegaKtConfig::new(maturities.clone(), vec![0.0, 0.0], 1.0e-8, false).is_err());
         assert!(VegaKtConfig::new(maturities, vec![-0.2, 0.2], 1.1, false).is_err());
+    }
+
+    #[test]
+    fn gamma_ladder_preserves_bump_kind_and_scales() {
+        let ladder = gamma_bump_ladder(GammaConfig::new(
+            SpotBump::relative(0.01).expect("bump"),
+        ))
+        .expect("ladder");
+        assert!(matches!(ladder[0].bump(), SpotBump::Relative(value) if value.get() == 0.005));
+        assert!(matches!(ladder[1].bump(), SpotBump::Relative(value) if value.get() == 0.01));
+        assert!(matches!(ladder[2].bump(), SpotBump::Relative(value) if value.get() == 0.02));
     }
 }

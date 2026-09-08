@@ -161,6 +161,15 @@ impl From<TryExecutionError<GraphError>> for MonteCarloError {
     }
 }
 
+impl From<TryExecutionError<MonteCarloError>> for MonteCarloError {
+    fn from(error: TryExecutionError<MonteCarloError>) -> Self {
+        match error {
+            TryExecutionError::Execution(error) => Self::Execution(error),
+            TryExecutionError::Evaluation { source, .. } => source,
+        }
+    }
+}
+
 impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
