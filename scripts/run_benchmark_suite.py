@@ -15,6 +15,7 @@ def main() -> None:
     output.mkdir(exist_ok=True)
     rust_report = output / "rust.json"
     python_report = output / "python.json"
+    replay_report = output / "replay.json"
 
     run(
         [
@@ -30,6 +31,21 @@ def main() -> None:
             str(rust_report),
         ]
     )
+    run(
+        [
+            "cargo",
+            "run",
+            "--locked",
+            "--release",
+            "-p",
+            "pricing",
+            "--example",
+            "replay_european_bs",
+            "--",
+            str(replay_report),
+        ]
+    )
+    run([sys.executable, "scripts/check_replay_fixture.py", str(replay_report)])
     wheel_python = Path(".wheel-smoke-venv") / (
         "Scripts/python.exe" if os.name == "nt" else "bin/python"
     )

@@ -1,6 +1,6 @@
 # European Black–Scholes Vertical Slice — Implementation Roadmap v0.1
 
-Status: Ready for implementation
+Status: Accepted (G0–G8 complete)
 Date: 2026-09-03
 Requirements baseline: `requirements-v1.0.md` (Frozen)
 Architecture baseline: `architecture-v0.1.md`

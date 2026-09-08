@@ -9,10 +9,12 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 - [Frozen MVP requirements](docs/requirements-v1.0.md)
 - [Architecture](docs/architecture-v0.1.md)
 - [European Black–Scholes implementation roadmap](docs/european-bs-roadmap-v0.1.md)
+- [European Black–Scholes conformance report](docs/european-bs-conformance-v0.1.md)
+- [European Black–Scholes diagnostics catalogue](docs/european-bs-diagnostics-v0.1.md)
 
 ## Status
 
-The project has completed Gate G7 and is progressing through Gate G8 of the initial implementation roadmap. European Black–Scholes supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, and smoke-tests private wheels on Apple Silicon macOS and Windows x86-64.
+The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. It supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
 
 ## Workspace
 
