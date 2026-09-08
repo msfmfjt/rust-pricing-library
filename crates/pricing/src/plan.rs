@@ -1,8 +1,6 @@
 use pricing_mc::ExecutionPolicy;
 
-use crate::{
-    Fingerprint, MonteCarloError, MonteCarloPrice, PricingRequest, SimulationPlan,
-};
+use crate::{Fingerprint, MonteCarloError, MonteCarloPrice, PricingRequest, SimulationPlan};
 
 /// Stable compiled-plan facade. All mutable validation and compilation work is
 /// completed before this value can be evaluated.
@@ -118,7 +116,10 @@ mod tests {
         let second = PricingPlan::compile(&request, policy(2)).expect("compile replay");
         assert_eq!(first.request_fingerprint(), second.request_fingerprint());
         assert_eq!(first.plan_fingerprint(), second.plan_fingerprint());
-        assert_eq!(evaluate(&first).expect("evaluate"), second.evaluate().expect("replay"));
+        assert_eq!(
+            evaluate(&first).expect("evaluate"),
+            second.evaluate().expect("replay")
+        );
     }
 
     #[test]
@@ -130,9 +131,15 @@ mod tests {
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         let rust_plan = compile(&request, policy(2)).expect("Rust plan");
         let json_plan = compile(&parsed, policy(2)).expect("JSON plan");
-        assert_eq!(rust_plan.request_fingerprint(), json_plan.request_fingerprint());
+        assert_eq!(
+            rust_plan.request_fingerprint(),
+            json_plan.request_fingerprint()
+        );
         assert_eq!(rust_plan.plan_fingerprint(), json_plan.plan_fingerprint());
-        assert_eq!(rust_plan.evaluate().expect("Rust"), json_plan.evaluate().expect("JSON"));
+        assert_eq!(
+            rust_plan.evaluate().expect("Rust"),
+            json_plan.evaluate().expect("JSON")
+        );
     }
 
     #[test]

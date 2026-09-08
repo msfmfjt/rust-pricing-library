@@ -10,9 +10,9 @@ use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy, Produc
 use pricing_risk::{GammaConfig, SmileDynamics, SpotBump};
 
 use crate::{
-    Diagnostics, Estimate, EstimatorKind, Fingerprint, MonteCarloError, PricingRequest, PricingResult,
-    PricingWarning, ReplayMetadata, ResultBuildError, RiskEstimate, RiskReport, RiskUnit,
-    fingerprint_request,
+    Diagnostics, Estimate, EstimatorKind, Fingerprint, MonteCarloError, PricingRequest,
+    PricingResult, PricingWarning, ReplayMetadata, ResultBuildError, RiskEstimate, RiskReport,
+    RiskUnit, fingerprint_request,
 };
 
 const NORMAL_95: f64 = 1.959_963_984_540_054;

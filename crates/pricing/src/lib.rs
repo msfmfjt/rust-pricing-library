@@ -18,13 +18,13 @@ pub use monte_carlo::{
     RiskMethodMetadata, RiskValidation, SimulationPlan, price_monte_carlo,
     price_pseudo_monte_carlo,
 };
+pub use plan::{PricingPlan, compile, evaluate};
 pub use pricing_core as core;
 pub use pricing_market as market;
 pub use pricing_mc as mc;
 pub use pricing_models as models;
 pub use pricing_product as product;
 pub use pricing_risk as risk;
-pub use plan::{PricingPlan, compile, evaluate};
 pub use request::PricingRequest;
 pub use result::{
     ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, PricingResult, PricingWarning,
