@@ -62,6 +62,7 @@ SUPPORTED_REPLAY_PLATFORMS = {
     "windows-x86_64",
 }
 FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
+GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 def main() -> None:
@@ -395,6 +396,12 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
         require_non_empty_string(document.get(key), path, key)
     for key in ["git_sha", "runner_os", "runner_arch", "processor"]:
         require_optional_non_empty_string(document.get(key), path, key)
+    if document.get("git_sha") is not None:
+        require(
+            GIT_SHA.fullmatch(document["git_sha"]) is not None,
+            path,
+            "git_sha must be a lowercase 40-character commit SHA",
+        )
     require(
         f"host: {document['target_triple']}" in document["rustc"].splitlines(),
         path,
