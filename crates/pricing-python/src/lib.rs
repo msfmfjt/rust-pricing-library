@@ -58,15 +58,19 @@ impl PyValidationIssue {
                 ("declared_schema", "unsupported_schema_version")
             }
             WireError::WrongDocumentKind { .. } => ("declared_schema", "wrong_document_kind"),
-            WireError::Domain(_) => ("domain", "invalid_domain_value"),
+            WireError::Domain(_) | WireError::DomainAt { .. } => ("domain", "invalid_domain_value"),
             WireError::InvalidFingerprint(_) => ("declared_schema", "invalid_fingerprint"),
         };
         let schema_version = match error {
             WireError::UnsupportedSchemaVersion(version) => *version,
             _ => Self::request_schema_version(),
         };
+        let pointer = match error {
+            WireError::DomainAt { pointer, .. } => pointer.clone(),
+            _ => String::new(),
+        };
         Self {
-            pointer: String::new(),
+            pointer,
             phase: phase.into(),
             schema_version,
             document_kind: Self::request_document_kind(),

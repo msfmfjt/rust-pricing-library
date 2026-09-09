@@ -94,6 +94,10 @@ pub enum WireError {
     },
     LimitOverrideExceedsHardCap,
     Json(String),
+    DomainAt {
+        pointer: String,
+        message: String,
+    },
     WrongDocumentKind {
         expected: &'static str,
         actual: String,
@@ -120,6 +124,7 @@ impl fmt::Display for WireError {
             Self::LimitOverrideExceedsHardCap => {
                 write!(formatter, "JSON limit override exceeds hard cap")
             }
+            Self::DomainAt { message, .. } => message.fmt(formatter),
             Self::Json(message) | Self::Domain(message) => message.fmt(formatter),
             Self::WrongDocumentKind { expected, actual } => {
                 write!(
@@ -769,7 +774,7 @@ impl TryFrom<RequestV1> for PricingRequest {
     type Error = WireError;
     fn try_from(value: RequestV1) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_REQUEST)?;
-        let valuation_date = parse_date(&value.valuation_date)?;
+        let valuation_date = parse_date_at(&value.valuation_date, "/valuation_date")?;
         let product = match value.product {
             ProductV1::EuropeanVanilla {
                 underlying_id,
@@ -782,7 +787,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                 EuropeanVanillaSpec::new(
                     UnderlyingId::new(underlying_id),
                     CurrencyId::new(currency_id),
-                    parse_date(&expiry)?,
+                    parse_date_at(&expiry, "/product/expiry")?,
                     strike,
                     notional,
                     match side {
@@ -805,7 +810,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                 DigitalSpec::with_payment_date(
                     UnderlyingId::new(underlying_id),
                     CurrencyId::new(currency_id),
-                    parse_date(&expiry)?,
+                    parse_date_at(&expiry, "/product/expiry")?,
                     strike,
                     payout,
                     match side {
@@ -817,8 +822,10 @@ impl TryFrom<RequestV1> for PricingRequest {
                         DigitalPayoutV1::Asset => DigitalPayout::Asset,
                     },
                     match payment_date {
-                        Some(payment_date) => parse_date(&payment_date)?,
-                        None => parse_date(&expiry)?,
+                        Some(payment_date) => {
+                            parse_date_at(&payment_date, "/product/payment_date")?
+                        }
+                        None => parse_date_at(&expiry, "/product/expiry")?,
                     },
                 )
                 .map_err(domain)?,
@@ -840,7 +847,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                 BarrierSpec::new(
                     UnderlyingId::new(underlying_id),
                     CurrencyId::new(currency_id),
-                    parse_date(&expiry)?,
+                    parse_date_at(&expiry, "/product/expiry")?,
                     strike,
                     barrier,
                     notional,
@@ -858,10 +865,13 @@ impl TryFrom<RequestV1> for PricingRequest {
                     },
                     monitoring_dates
                         .into_iter()
-                        .map(|date| parse_date(&date))
+                        .enumerate()
+                        .map(|(index, date)| {
+                            parse_date_owned_at(&date, format!("/product/monitoring_dates/{index}"))
+                        })
                         .collect::<Result<Vec<_>, _>>()?,
                     rebate,
-                    parse_date(&payment_date)?,
+                    parse_date_at(&payment_date, "/product/payment_date")?,
                 )
                 .map_err(domain)?,
             ),
@@ -885,8 +895,12 @@ impl TryFrom<RequestV1> for PricingRequest {
                     },
                     observations
                         .into_iter()
-                        .map(|observation| {
-                            let date = parse_date(&observation.date)?;
+                        .enumerate()
+                        .map(|(index, observation)| {
+                            let date = parse_date_owned_at(
+                                &observation.date,
+                                format!("/product/observations/{index}/date"),
+                            )?;
                             match observation.value {
                                 AsianObservationValueV1::Known { fixing } => {
                                     AsianObservation::known(date, observation.weight, fixing)
@@ -899,7 +913,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                             }
                         })
                         .collect::<Result<Vec<_>, WireError>>()?,
-                    parse_date(&payment_date)?,
+                    parse_date_at(&payment_date, "/product/payment_date")?,
                 )
                 .map_err(domain)?,
             ),
@@ -924,10 +938,13 @@ impl TryFrom<RequestV1> for PricingRequest {
                     },
                     monitoring_dates
                         .into_iter()
-                        .map(|date| parse_date(&date))
+                        .enumerate()
+                        .map(|(index, date)| {
+                            parse_date_owned_at(&date, format!("/product/monitoring_dates/{index}"))
+                        })
                         .collect::<Result<Vec<_>, _>>()?,
                     historical_extremum,
-                    parse_date(&payment_date)?,
+                    parse_date_at(&payment_date, "/product/payment_date")?,
                 )
                 .map_err(domain)?,
             ),
@@ -976,6 +993,8 @@ impl TryFrom<RequestV1> for PricingRequest {
             } => ModelSpec::LocalVolatility(local_volatility_from_wire(
                 local_variance_grid,
                 reporting_iv_basis,
+                "/model/local_variance_grid",
+                "/model/reporting_iv_basis",
             )?),
         };
         let engine = match value.engine {
@@ -1014,16 +1033,21 @@ impl TryFrom<RequestV1> for PricingRequest {
 fn local_volatility_from_wire(
     value: LocalVarianceGridV1,
     reporting_iv_basis: Option<ReportingIvBasisV1>,
+    grid_pointer: &'static str,
+    basis_pointer: &'static str,
 ) -> Result<LocalVolatilitySpec, WireError> {
     let expected_shape = [
         value.time_nodes.len(),
         value.log_forward_moneyness_nodes.len(),
     ];
     if value.shape != expected_shape {
-        return Err(WireError::Domain(format!(
-            "local_variance_grid shape {:?} does not match node dimensions {:?}",
-            value.shape, expected_shape
-        )));
+        return Err(domain_at(
+            grid_pointer,
+            format!(
+                "local_variance_grid shape {:?} does not match node dimensions {:?}",
+                value.shape, expected_shape
+            ),
+        ));
     }
     let mut spec = LocalVolatilitySpec::from_explicit_grid(
         value.time_nodes,
@@ -1034,23 +1058,27 @@ fn local_volatility_from_wire(
     )
     .map_err(domain)?;
     if let Some(basis) = reporting_iv_basis {
-        spec = spec.with_reporting_iv_basis(reporting_iv_basis_from_wire(basis)?);
+        spec = spec.with_reporting_iv_basis(reporting_iv_basis_from_wire(basis, basis_pointer)?);
     }
     Ok(spec)
 }
 
 fn reporting_iv_basis_from_wire(
     value: ReportingIvBasisV1,
+    pointer: &'static str,
 ) -> Result<LocalVolatilityReportingBasis, WireError> {
     let expected_shape = [
         value.maturity_nodes.len(),
         value.log_forward_moneyness_nodes.len(),
     ];
     if value.shape != expected_shape {
-        return Err(WireError::Domain(format!(
-            "reporting_iv_basis shape {:?} does not match node dimensions {:?}",
-            value.shape, expected_shape
-        )));
+        return Err(domain_at(
+            pointer,
+            format!(
+                "reporting_iv_basis shape {:?} does not match node dimensions {:?}",
+                value.shape, expected_shape
+            ),
+        ));
     }
     LocalVolatilityReportingBasis::new(
         value.maturity_nodes,
@@ -1109,7 +1137,10 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
             let dates = item
                 .maturity_nodes
                 .iter()
-                .map(|date| parse_date(date))
+                .enumerate()
+                .map(|(index, date)| {
+                    parse_date_owned_at(date, format!("/risk/vega_kt/maturity_nodes/{index}"))
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             VegaKtConfig::new(
                 dates,
@@ -1137,11 +1168,28 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
     .map_err(domain)
 }
 
-fn parse_date(value: &str) -> Result<Date, WireError> {
-    value.parse().map_err(domain)
+fn parse_date_at(value: &str, pointer: &'static str) -> Result<Date, WireError> {
+    value
+        .parse::<Date>()
+        .map_err(|error| domain_at(pointer, error))
 }
+
+fn parse_date_owned_at(value: &str, pointer: String) -> Result<Date, WireError> {
+    value.parse::<Date>().map_err(|error| WireError::DomainAt {
+        pointer,
+        message: error.to_string(),
+    })
+}
+
 fn domain(error: impl fmt::Display) -> WireError {
     WireError::Domain(error.to_string())
+}
+
+fn domain_at(pointer: &'static str, error: impl fmt::Display) -> WireError {
+    WireError::DomainAt {
+        pointer: pointer.to_owned(),
+        message: error.to_string(),
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2491,7 +2539,8 @@ mod tests {
         );
         assert!(matches!(
             parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
-            Err(WireError::Domain(message)) if message.contains("reporting_iv_basis shape")
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/model/reporting_iv_basis" && message.contains("reporting_iv_basis shape")
         ));
     }
 
@@ -2501,7 +2550,23 @@ mod tests {
         let invalid = json.replacen("\"shape\":[2,3]", "\"shape\":[3,2]", 1);
         assert!(matches!(
             parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
-            Err(WireError::Domain(message)) if message.contains("shape")
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/model/local_variance_grid" && message.contains("shape")
+        ));
+    }
+
+    #[test]
+    fn request_json_domain_date_errors_include_instance_path() {
+        let json = request_to_json(&request()).expect("json");
+        let invalid = json.replacen(
+            "\"valuation_date\":\"2026-09-04\"",
+            "\"valuation_date\":\"2026-02-31\"",
+            1,
+        );
+        assert!(matches!(
+            parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/valuation_date" && message.contains("invalid date")
         ));
     }
 
