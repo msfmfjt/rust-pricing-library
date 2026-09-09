@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
+from pathlib import Path
 import sys
 import tarfile
 import tomllib
 
+
+ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
     "Cargo.lock",
@@ -60,18 +63,9 @@ REQUIRED_FILES = {
     "scripts/check_source_archive.py",
     "scripts/run_benchmark_suite.py",
     "scripts/smoke_test_wheel.py",
-    "crates/pricing-aad/src/lib.rs",
-    "crates/pricing-core/src/lib.rs",
-    "crates/pricing-market/src/lib.rs",
-    "crates/pricing-mc/src/lib.rs",
-    "crates/pricing-models/src/lib.rs",
-    "crates/pricing-numerics/src/lib.rs",
-    "crates/pricing-product/src/lib.rs",
-    "crates/pricing-python/src/lib.rs",
-    "crates/pricing-risk/src/lib.rs",
-    "crates/pricing/src/lib.rs",
     "examples/python/european_bs.py",
     "examples/python/local_vol_vegakt.py",
+    "tests/python/test_smoke.py",
 }
 
 CRATE_MANIFESTS = {
@@ -115,7 +109,8 @@ def main() -> int:
             if member.isfile():
                 names.add(name)
 
-        missing = sorted(REQUIRED_FILES.difference(names))
+        expected = REQUIRED_FILES.union(repository_source_files())
+        missing = sorted(expected.difference(names))
         if missing:
             raise SystemExit(f"{archive}: missing required source files: {missing}")
 
@@ -130,6 +125,23 @@ def main() -> int:
 
 def has_forbidden_part(name: str) -> bool:
     return any(part in FORBIDDEN_PARTS for part in PurePosixPath(name).parts)
+
+
+def repository_source_files() -> set[str]:
+    patterns = [
+        ("crates", "*.rs"),
+        ("examples/python", "*.py"),
+        ("tests/python", "*.py"),
+        ("scripts", "*.py"),
+    ]
+    files: set[str] = set()
+    for root, pattern in patterns:
+        files.update(
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / root).rglob(pattern)
+            if path.is_file()
+        )
+    return files
 
 
 def check_cargo_manifests(package: tarfile.TarFile, archive: str) -> None:
