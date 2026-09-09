@@ -2674,6 +2674,13 @@ mod tests {
                 ..
             })
         ));
+        for constant in ["NaN", "Infinity", "-Infinity"] {
+            let invalid = json.replacen("100.0", constant, 1);
+            assert!(
+                parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "request JSON accepted {constant}"
+            );
+        }
     }
 
     #[test]
@@ -2737,6 +2744,14 @@ mod tests {
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/request_fingerprint" && message.contains("fingerprint")
         ));
+
+        for constant in ["NaN", "Infinity", "-Infinity"] {
+            let invalid = json.replacen("10.0", constant, 1);
+            assert!(
+                parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "result JSON accepted {constant}"
+            );
+        }
     }
 
     #[test]
