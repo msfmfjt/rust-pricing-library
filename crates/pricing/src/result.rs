@@ -780,4 +780,62 @@ mod tests {
         assert_eq!(diagnostics.warnings()[0].code(), "first");
         assert_eq!(diagnostics.warnings()[1].code(), "second");
     }
+
+    #[test]
+    fn vega_kt_result_requires_covariance_to_match_layout() {
+        assert_eq!(
+            vega_kt_result(VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor, None,)
+                .expect_err("missing covariance is rejected"),
+            ResultBuildError::VegaKtFullCovarianceRequired
+        );
+
+        assert_eq!(
+            vega_kt_result(
+                VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly,
+                Some(vec![Some(0.5)]),
+            )
+            .expect_err("unexpected covariance is rejected"),
+            ResultBuildError::VegaKtUnexpectedFullCovariance
+        );
+
+        assert!(
+            vega_kt_result(
+                VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor,
+                Some(vec![Some(0.5)]),
+            )
+            .is_ok()
+        );
+        assert!(
+            vega_kt_result(
+                VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly,
+                None,
+            )
+            .is_ok()
+        );
+    }
+
+    fn vega_kt_result(
+        covariance_layout: VegaKtResultCovarianceLayout,
+        full_bucket_covariance: Option<Vec<Option<f64>>>,
+    ) -> Result<VegaKtResult, ResultBuildError> {
+        let reporting_stats =
+            VegaKtResultReportingStats::new(0, 0, 0.0, 0.0).expect("valid reporting stats");
+        VegaKtResult::new(
+            vec![VegaKtResultCoordinate::new(0.5, 0.1, 0.2).expect("valid coordinate")],
+            vec![
+                VegaKtResultBucketEstimate::new(1.0, 0.01, Some(0.5), Some(0.2))
+                    .expect("valid bucket estimate"),
+            ],
+            vec![1.0],
+            full_bucket_covariance,
+            covariance_layout,
+            VegaKtResultProjection::new(1.0, 0.0, 1.0, reporting_stats).expect("valid projection"),
+            VegaKtResultResidualDiagnostics::new(0, 1, 0, 0.0, 0.0, 1.0, reporting_stats)
+                .expect("valid residual diagnostics"),
+            VegaKtResultUnit::CurrencyPerUnitAbsoluteVolatility,
+            VegaKtResultUnit::CurrencyPerVolatilityPoint,
+            "equation_11_first_order_v1",
+            "O(delta_t_k)",
+        )
+    }
 }
