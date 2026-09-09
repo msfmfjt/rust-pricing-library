@@ -120,6 +120,31 @@ pub enum MarketError {
         log_moneyness_bits: u64,
         value_bits: u64,
     },
+    InvalidEssviSliceCount {
+        count: usize,
+    },
+    InvalidEssviSlice {
+        index: usize,
+        field: &'static str,
+        bits: u64,
+    },
+    UnsortedEssviSlices {
+        left_index: usize,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    EssviSliceAdmissibilityViolation {
+        index: usize,
+        condition: &'static str,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    InconsistentEssviSlices {
+        left_index: usize,
+        condition: &'static str,
+        left_bits: u64,
+        right_bits: u64,
+    },
 }
 
 impl fmt::Display for MarketError {
@@ -274,6 +299,40 @@ impl fmt::Display for MarketError {
             } => write!(
                 formatter,
                 "implied surface {field} is not positive at time 0x{time_bits:016x}, log-moneyness 0x{log_moneyness_bits:016x}: 0x{value_bits:016x}"
+            ),
+            Self::InvalidEssviSliceCount { count } => write!(
+                formatter,
+                "an eSSVI surface requires at least two slices; received {count}"
+            ),
+            Self::InvalidEssviSlice { index, field, bits } => write!(
+                formatter,
+                "eSSVI slice {index} field {field} is invalid: 0x{bits:016x}"
+            ),
+            Self::UnsortedEssviSlices {
+                left_index,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "eSSVI slice times are not strictly increasing at {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::EssviSliceAdmissibilityViolation {
+                index,
+                condition,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "eSSVI slice {index} admissibility condition {condition} failed: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InconsistentEssviSlices {
+                left_index,
+                condition,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "eSSVI slices at {left_index} violate {condition}: 0x{left_bits:016x}, 0x{right_bits:016x}"
             ),
         }
     }

@@ -42,16 +42,16 @@ impl SurfaceValidationTolerance {
         self.relative
     }
 
-    fn effective(self, left: f64, right: f64) -> f64 {
+    pub(crate) fn effective(self, left: f64, right: f64) -> f64 {
         self.absolute
             .max(self.relative * 1.0_f64.max(left.abs()).max(right.abs()))
     }
 
-    fn permits_non_strict(self, left: f64, right: f64) -> bool {
+    pub(crate) fn permits_non_strict(self, left: f64, right: f64) -> bool {
         left - right <= self.effective(left, right)
     }
 
-    fn permits_strict(self, left: f64, right: f64) -> bool {
+    pub(crate) fn permits_strict(self, left: f64, right: f64) -> bool {
         right - left > self.effective(left, right)
     }
 }
