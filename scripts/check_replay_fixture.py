@@ -12,6 +12,10 @@ FIXTURE_PREFIXES = {
     "european_black_scholes_replay": "european_bs",
     "local_volatility_replay": "local_volatility",
 }
+SUPPORTED_PLATFORMS = {
+    "macos-aarch64",
+    "windows-x86_64",
+}
 
 
 def main() -> None:
@@ -56,6 +60,8 @@ def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
     platform = document.get("platform")
     if not isinstance(platform, str) or not platform:
         raise SystemExit(f"{path}: replay evidence has no non-empty string platform field")
+    if platform not in SUPPORTED_PLATFORMS:
+        raise SystemExit(f"{path}: unsupported replay platform: {platform!r}")
     fixture_kind = document.get("fixture_kind")
     if not isinstance(fixture_kind, str):
         raise SystemExit(f"{path}: replay evidence has no string fixture_kind field")
