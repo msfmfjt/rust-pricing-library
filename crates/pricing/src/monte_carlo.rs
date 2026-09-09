@@ -3062,6 +3062,39 @@ mod tests {
     }
 
     #[test]
+    fn digital_zero_volatility_discounts_to_explicit_payment_date() {
+        let mut request = digital_zero_vol_request(OptionSide::Call, 100.0, DigitalPayout::Cash);
+        request = PricingRequest::new(
+            request.valuation_date(),
+            ProductSpec::Digital(
+                DigitalSpec::with_payment_date(
+                    UnderlyingId::new(1),
+                    CurrencyId::new(1),
+                    "2027-09-04".parse().expect("expiry"),
+                    100.0,
+                    10.0,
+                    OptionSide::Call,
+                    DigitalPayout::Cash,
+                    "2027-09-05".parse().expect("payment"),
+                )
+                .expect("digital"),
+            ),
+            request.market().clone(),
+            request.model().clone(),
+            request.engine(),
+            request.risk().clone(),
+        )
+        .expect("request");
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+        let result = plan.execute().expect("execution");
+        assert_eq!(
+            result.pricing_result.value.value().get(),
+            plan.discount() * 10.0
+        );
+        assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
     fn barrier_zero_volatility_uses_declared_monitoring_knock_out() {
         let live =
             SimulationPlan::compile(&barrier_zero_vol_request(200.0), policy(2)).expect("live");

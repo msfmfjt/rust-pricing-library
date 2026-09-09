@@ -45,6 +45,7 @@ pub struct DigitalSpec {
     payout: PositiveF64,
     side: OptionSide,
     payout_kind: DigitalPayout,
+    payment_date: Date,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -159,6 +160,34 @@ impl DigitalSpec {
         side: OptionSide,
         payout_kind: DigitalPayout,
     ) -> Result<Self, CoreError> {
+        Self::with_payment_date(
+            underlying,
+            currency,
+            expiry,
+            strike,
+            payout,
+            side,
+            payout_kind,
+            expiry,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_payment_date(
+        underlying: UnderlyingId,
+        currency: CurrencyId,
+        expiry: Date,
+        strike: f64,
+        payout: f64,
+        side: OptionSide,
+        payout_kind: DigitalPayout,
+        payment_date: Date,
+    ) -> Result<Self, CoreError> {
+        if payment_date < expiry {
+            return Err(CoreError::InvalidOrdering {
+                field: "digital_payment_date",
+            });
+        }
         Ok(Self {
             underlying,
             currency,
@@ -167,6 +196,7 @@ impl DigitalSpec {
             payout: PositiveF64::new(payout, "payout")?,
             side,
             payout_kind,
+            payment_date,
         })
     }
 
@@ -203,6 +233,11 @@ impl DigitalSpec {
     #[must_use]
     pub const fn payout_kind(&self) -> DigitalPayout {
         self.payout_kind
+    }
+
+    #[must_use]
+    pub const fn payment_date(&self) -> Date {
+        self.payment_date
     }
 }
 
@@ -590,7 +625,7 @@ impl ProductSpec {
     pub const fn payment_date(&self) -> Date {
         match self {
             Self::EuropeanVanilla(spec) => spec.expiry(),
-            Self::Digital(spec) => spec.expiry(),
+            Self::Digital(spec) => spec.payment_date(),
             Self::Barrier(spec) => spec.payment_date(),
             Self::ArithmeticAsian(spec) => spec.payment_date(),
             Self::FixedLookback(spec) => spec.payment_date(),
@@ -649,6 +684,33 @@ mod tests {
         .expect("valid digital");
         assert_eq!(valid.payout().get(), 10.0);
         assert_eq!(valid.payout_kind(), DigitalPayout::Cash);
+        assert_eq!(valid.payment_date(), expiry);
+        assert!(
+            DigitalSpec::with_payment_date(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                expiry,
+                100.0,
+                10.0,
+                OptionSide::Call,
+                DigitalPayout::Cash,
+                "2027-09-05".parse().expect("payment"),
+            )
+            .is_ok()
+        );
+        assert!(
+            DigitalSpec::with_payment_date(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                expiry,
+                100.0,
+                10.0,
+                OptionSide::Call,
+                DigitalPayout::Cash,
+                "2027-09-03".parse().expect("payment"),
+            )
+            .is_err()
+        );
         assert!(
             DigitalSpec::new(
                 UnderlyingId::new(1),

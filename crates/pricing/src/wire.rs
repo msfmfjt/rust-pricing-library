@@ -228,6 +228,7 @@ enum ProductV1 {
         payout: f64,
         side: SideV1,
         payout_kind: DigitalPayoutV1,
+        payment_date: Option<String>,
     },
     Barrier {
         underlying_id: u32,
@@ -493,6 +494,7 @@ impl From<&ProductSpec> for ProductV1 {
                 payout: spec.payout().get(),
                 side: spec.side().into(),
                 payout_kind: spec.payout_kind().into(),
+                payment_date: Some(spec.payment_date().to_string()),
             },
             ProductSpec::Barrier(spec) => Self::Barrier {
                 underlying_id: spec.underlying().get(),
@@ -798,8 +800,9 @@ impl TryFrom<RequestV1> for PricingRequest {
                 payout,
                 side,
                 payout_kind,
+                payment_date,
             } => ProductSpec::Digital(
-                DigitalSpec::new(
+                DigitalSpec::with_payment_date(
                     UnderlyingId::new(underlying_id),
                     CurrencyId::new(currency_id),
                     parse_date(&expiry)?,
@@ -812,6 +815,10 @@ impl TryFrom<RequestV1> for PricingRequest {
                     match payout_kind {
                         DigitalPayoutV1::Cash => DigitalPayout::Cash,
                         DigitalPayoutV1::Asset => DigitalPayout::Asset,
+                    },
+                    match payment_date {
+                        Some(payment_date) => parse_date(&payment_date)?,
+                        None => parse_date(&expiry)?,
                     },
                 )
                 .map_err(domain)?,
@@ -2324,6 +2331,7 @@ mod tests {
         let json = request_to_json(&request).expect("json");
         assert!(json.contains("\"type\":\"digital\""));
         assert!(json.contains("\"payout_kind\":{\"type\":\"cash\"}"));
+        assert!(json.contains("\"payment_date\":\"2027-09-04\""));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert!(matches!(parsed.product(), ProductSpec::Digital(_)));
         assert_eq!(

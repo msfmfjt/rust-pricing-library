@@ -145,7 +145,14 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
         product = rust_pricing.Product.digital(
-            1, 2, "2027-09-04", 100.0, 10.0, "call", "cash"
+            1,
+            2,
+            "2027-09-04",
+            100.0,
+            10.0,
+            "call",
+            "cash",
+            payment_date="2027-09-05",
         )
         market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
         request = rust_pricing.PricingRequest(
@@ -159,6 +166,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         payload = json.loads(request.to_json())
         self.assertEqual(payload["product"]["type"], "digital")
         self.assertEqual(payload["product"]["payout_kind"]["type"], "cash")
+        self.assertEqual(payload["product"]["payment_date"], "2027-09-05")
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
         self.assertEqual(parsed.fingerprint, request.fingerprint)
         result = rust_pricing.PricingPlan.compile(

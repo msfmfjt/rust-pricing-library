@@ -157,6 +157,8 @@ class Product:
         payout: float,
         side: OptionSide,
         payout_kind: DigitalPayout,
+        *,
+        payment_date: DateLike | None = None,
     ) -> Product: ...
     @staticmethod
     def barrier(

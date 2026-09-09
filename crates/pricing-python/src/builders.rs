@@ -326,6 +326,7 @@ impl PyProduct {
 
     /// Build a cash-or-nothing or asset-or-nothing digital call or put.
     #[staticmethod]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, payout, side, payout_kind, *, payment_date=None))]
     #[allow(clippy::too_many_arguments)]
     fn digital(
         py: Python<'_>,
@@ -336,11 +337,16 @@ impl PyProduct {
         payout: f64,
         side: &str,
         payout_kind: &str,
+        payment_date: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let expiry = date_from_python(py, expiry, "/product/expiry")?;
         let side = option_side(py, side)?;
         let payout_kind = digital_payout(py, payout_kind)?;
-        DigitalSpec::new(
+        let payment_date = match payment_date {
+            Some(payment_date) => date_from_python(py, payment_date, "/product/payment_date")?,
+            None => expiry,
+        };
+        DigitalSpec::with_payment_date(
             UnderlyingId::new(underlying_id),
             CurrencyId::new(currency_id),
             expiry,
@@ -348,6 +354,7 @@ impl PyProduct {
             payout,
             side,
             payout_kind,
+            payment_date,
         )
         .map(|spec| Self {
             inner: ProductSpec::Digital(spec),
