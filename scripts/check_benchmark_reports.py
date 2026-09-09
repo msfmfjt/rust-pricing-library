@@ -11,6 +11,8 @@ import sys
 import tomllib
 from typing import Any
 
+from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EUROPEAN_MEASUREMENTS = {
@@ -57,10 +59,6 @@ EXPECTED_COMMAND_PEAKS = {
 }
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
-}
-SUPPORTED_REPLAY_PLATFORMS = {
-    "macos-aarch64",
-    "windows-x86_64",
 }
 FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
