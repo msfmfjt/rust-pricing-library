@@ -50,7 +50,7 @@ def main() -> None:
         ],
         check=True,
     )
-    verify_runtime_symbols(python, stub_api)
+    verify_runtime_symbols(python, stub_api, metadata["Version"])
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run(
@@ -146,7 +146,7 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
     return {"symbols": symbols, "class_members": class_members}
 
 
-def verify_runtime_symbols(python: Path, stub_api: dict[str, object]) -> None:
+def verify_runtime_symbols(python: Path, stub_api: dict[str, object], version: str) -> None:
     code = """
 import json
 import rust_pricing
@@ -161,11 +161,15 @@ for cls_name, members in api["class_members"].items():
             for member in members
             if not hasattr(cls, member)
         )
+if rust_pricing.__version__ != api["version"]:
+    missing.append("__version__")
+if rust_pricing.version() != api["version"]:
+    missing.append("version()")
 raise SystemExit("missing runtime symbols: " + ", ".join(missing) if missing else 0)
 """
     subprocess.run(
         [str(python), "-c", code],
-        input=json.dumps(stub_api),
+        input=json.dumps({**stub_api, "version": version}),
         text=True,
         check=True,
     )
