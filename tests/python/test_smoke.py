@@ -682,6 +682,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
+        self.assertIn("pricing-request JSON Schema", rust_pricing.request_json_schema.__doc__)
+        self.assertIn("pricing-result JSON Schema", rust_pricing.result_json_schema.__doc__)
 
     def test_bundled_json_schemas_are_exported(self):
         request_schema = json.loads(rust_pricing.request_json_schema())

@@ -777,11 +777,13 @@ fn version() -> &'static str {
 }
 
 #[pyfunction]
+/// Return the bundled Draft 2020-12 pricing-request JSON Schema.
 fn request_json_schema() -> &'static str {
     current_request_schema()
 }
 
 #[pyfunction]
+/// Return the bundled Draft 2020-12 pricing-result JSON Schema.
 fn result_json_schema() -> &'static str {
     current_result_schema()
 }
