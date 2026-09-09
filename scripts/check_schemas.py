@@ -625,6 +625,10 @@ def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> N
     )
     properties = schema.get("properties")
     require(isinstance(properties, dict), f"{path}: root properties must be an object")
+    require(
+        set(properties) == set(EXPECTED_TOP_LEVEL_REQUIRED[document_kind]),
+        f"{path}: root properties changed",
+    )
     require(properties.get("document_kind") == {"const": document_kind}, f"{path}: document_kind const mismatch")
     require(properties.get("schema_version") == {"const": 1}, f"{path}: schema_version const mismatch")
     defs = schema.get("$defs")
