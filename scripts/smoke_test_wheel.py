@@ -675,6 +675,17 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "AsianObservation": {
+            "date",
+            "fixing",
+            "known",
+            "unknown",
+            "weight",
+        },
+        "DiscountCurve": {
+            "__init__",
+            "curve_id",
+        },
         "DiagnosticEstimate": {
             "value",
             "standard_error",
@@ -711,6 +722,37 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "vega_validation",
             "warnings",
         },
+        "DividendEvent": {
+            "event_id",
+            "ex_time",
+            "fixed_cash",
+            "fixed_cash_and_proportional",
+            "proportional",
+        },
+        "Engine": {
+            "pseudo_monte_carlo",
+            "randomized_quasi_monte_carlo",
+        },
+        "EssviSlice": {
+            "__init__",
+            "psi",
+            "rho_psi",
+            "theta",
+            "time",
+        },
+        "Market": {
+            "equity",
+        },
+        "Model": {
+            "black_76",
+            "black_scholes",
+            "local_volatility_from_essvi",
+            "local_volatility_from_grid",
+            "local_volatility_from_grid_with_reporting_basis",
+            "local_volatility_from_standard_ssvi_heston_like",
+            "local_volatility_from_standard_ssvi_power_law",
+        },
+        "PricingError": set(),
         "PricingPlan": {
             "compile",
             "evaluate",
@@ -759,16 +801,27 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "code",
             "message",
         },
+        "Product": {
+            "arithmetic_asian",
+            "barrier",
+            "digital",
+            "european_vanilla",
+            "fixed_lookback",
+        },
         "RiskEstimate": {
             "raw",
             "market_scaled",
             "raw_unit",
             "market_scaled_unit",
         },
+        "RiskRequest": {
+            "__init__",
+        },
         "RiskValidation": {
             "bump_and_revalue",
             "bump_minus_primary",
         },
+        "ValidationError": set(),
         "ValidationIssue": {
             "pointer",
             "instance_path",
@@ -827,12 +880,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "truncation_order",
         },
     }
+    unexpected_classes = sorted(set(class_members).difference(expected_class_members))
+    if unexpected_classes:
+        raise RuntimeError(f"wheel type stub has unexpected classes: {unexpected_classes}")
+    missing_classes = sorted(set(expected_class_members).difference(class_members))
+    if missing_classes:
+        raise RuntimeError(f"wheel type stub is missing classes: {missing_classes}")
     for class_name, expected in sorted(expected_class_members.items()):
         actual = set(class_members.get(class_name, []))
-        if not expected.issubset(actual):
+        if actual != expected:
             raise RuntimeError(
-                f"wheel type stub {class_name} is missing members: "
-                f"{sorted(expected - actual)}"
+                f"wheel type stub {class_name} members changed: "
+                f"missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}"
             )
 
 
