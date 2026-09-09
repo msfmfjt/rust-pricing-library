@@ -201,17 +201,35 @@ def check_tagged_union_discriminators(schema: dict[str, Any], path: Path) -> Non
             continue
         tags: dict[str, int] = {}
         for index, variant in enumerate(one_of):
-            if not isinstance(variant, dict):
-                continue
+            variant_path = (*location, "oneOf", index)
+            require(
+                isinstance(variant, dict),
+                f"{path}:{pointer(variant_path)}: union variant must be an object schema",
+            )
+            require(
+                variant.get("type") == "object",
+                f"{path}:{pointer(variant_path)}: union variant must be an object",
+            )
+            required = variant.get("required")
+            require(
+                isinstance(required, list) and "type" in required,
+                f"{path}:{pointer(variant_path)}: union variant must require its type discriminator",
+            )
             properties = variant.get("properties")
-            if not isinstance(properties, dict):
-                continue
+            require(
+                isinstance(properties, dict),
+                f"{path}:{pointer(variant_path)}: union variant must define properties",
+            )
             discriminator = properties.get("type")
-            if not isinstance(discriminator, dict):
-                continue
+            require(
+                isinstance(discriminator, dict),
+                f"{path}:{pointer((*variant_path, 'properties', 'type'))}: union discriminator must be an object",
+            )
             tag = discriminator.get("const")
-            if not isinstance(tag, str):
-                continue
+            require(
+                isinstance(tag, str),
+                f"{path}:{pointer((*variant_path, 'properties', 'type', 'const'))}: union discriminator must be a string const",
+            )
             previous = tags.get(tag)
             require(
                 previous is None,
