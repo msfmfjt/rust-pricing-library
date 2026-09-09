@@ -14,6 +14,23 @@ dependency metadata, Rust and Python sources, schemas, fixtures, CI workflow,
 validation scripts, benchmark entry points, documentation, and QMC direction
 number data required to rebuild and review the private artifacts.
 
+The technical release gate for a candidate commit is the same command set used
+by CI and documented in the repository README:
+
+- Local Volatility reference fixture validation;
+- JSON Schema validation;
+- local Markdown link validation;
+- retained source archive validation;
+- Rust formatting, Clippy, unit/integration tests, and statistical acceptance;
+- dependency-direction validation;
+- Rust API documentation generation;
+- Python extension build, wheel smoke test, Python smoke suite, benchmark run,
+  and benchmark artifact validation.
+
+Passing these checks establishes that the commit is ready for private artifact
+retention on the supported CI platforms. It does not resolve publication,
+licensing, or access-control decisions.
+
 Before any public publication, the following non-code decisions must be resolved
 outside the repository:
 
