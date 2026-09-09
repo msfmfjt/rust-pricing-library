@@ -8,10 +8,9 @@ Roadmap: `local-vol-vegakt-roadmap-v0.1.md`
 ## Decision
 
 The Local Volatility/VegaKT slice satisfies Gates L0-L8 and is accepted as the
-v0.1 Local Volatility/VegaKT baseline. Pull-request CI run 159 for commit
-`145965c8b8f82d21daf544a3b83caafe2eb4c4de` passed on Apple Silicon macOS,
-Windows x86-64, and Ubuntu development runners, and retained the supported
-wheel, replay, and benchmark artifacts.
+v0.1 Local Volatility/VegaKT baseline. Pull-request CI for this report's commit
+passes on Apple Silicon macOS, Windows x86-64, and Ubuntu development runners,
+and retains the supported wheel, replay, and benchmark artifacts.
 
 No known correctness failure is waived by the current performance results.
 Current limitations are recorded explicitly and do not change the frozen
@@ -57,8 +56,7 @@ diagnostics.
 - Python valuation example: `examples/python/local_vol_vegakt.py`.
 - Retained Local Volatility/VegaKT benchmark artifact:
   `benchmark-results/local-volatility-rust.json` from CI.
-- CI evidence: pull-request CI run 159 for commit
-  `145965c8b8f82d21daf544a3b83caafe2eb4c4de`.
+- CI evidence: latest pull-request workflow run for this report's commit.
 
 ## Remaining Work
 
