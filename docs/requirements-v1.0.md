@@ -136,7 +136,12 @@ Within that common range, the helper shall generate a non-uniform horizontal gri
 
 The Local-variance floor and cap shall be mandatory values in every Local Vol calculation configuration. The MVP shall not silently supply library-wide or surface-wide defaults. Validation shall require finite values satisfying `0 < floor <= cap`.
 
-The precise admissibility tolerances, eSSVI terminal forward-variance slope configuration, and quantitative defaults for the two tail probabilities, two paddings, side-specific node counts, and piecewise-sinh shape parameters remain to be specified. These policies must be replaceable rather than embedded in the pricing engine.
+The precise admissibility tolerances, eSSVI terminal forward-variance slope
+configuration, and quantitative helper parameters for the two tail
+probabilities, two paddings, side-specific node counts, and piecewise-sinh
+shape are fixed for v0.1 in
+`local-vol-vegakt-numerical-contracts-v0.1.md`. These policies remain
+replaceable rather than embedded in the pricing engine.
 
 ### 3.2 Dates, curves, and dividends
 
@@ -1008,19 +1013,9 @@ Choices for future product slices remain open until their own roadmap or ADR is
 accepted:
 
 - settlement-lag representation used by schedule generation;
-- precise Standard SSVI and eSSVI formulas and admissibility constraints;
-- SSVI/eSSVI admissibility tolerances, eSSVI terminal-slope configuration, and quantitative Local-grid helper parameters;
-- numerical defaults for VegaKT maturity-grid helper generation and the active-domain density threshold;
-- exact Dupire discretization and stabilization policy;
-- Local-variance floor/cap values and warning thresholds;
-- Local Volatility time-step convergence protocol and recommended helper values;
 - Local Volatility Brownian-bridge interval-variance approximation;
 - extension policy for double/window barriers and hit-time-paid rebates;
-- exact numerical defaults for checkpoint interval and AAD tile capacity;
-- precise non-uniform-grid hat-kernel normalization and analytic formulas or controlled numerical method for transition-cell integrals;
 - precise smoothing-width interpretation and fixed widths by discontinuity type;
-- supported Rust toolchain and Python versions/ABI;
-- serialization format for calculation configurations and results;
 - private artifact repository and internal licensing terms.
 
 ## 16. MVP acceptance summary
