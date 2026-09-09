@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_replay_fixture import EXPECTED_CASE_NAMES
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 from check_replay_fixture import validate_local_vol_case
+from check_replay_fixture import validate_risk_methods
+from check_replay_fixture import validate_risk_validation
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -434,6 +436,22 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             monte_carlo.get("worker_threads") == plan.get("worker_threads"),
             path,
             f"{case_path} worker_threads must match plan",
+        )
+        risk_methods = require_object(
+            execution.get("risk_methods"),
+            path,
+            f"{case_path}.execution.risk_methods",
+        )
+        validate_risk_methods(path, f"{case_path}.execution.risk_methods", risk_methods)
+        risk_validation = require_object(
+            execution.get("risk_validation"),
+            path,
+            f"{case_path}.execution.risk_validation",
+        )
+        validate_risk_validation(
+            path,
+            f"{case_path}.execution.risk_validation",
+            risk_validation,
         )
         check_replay_sampling(
             execution,
