@@ -14,6 +14,11 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_replay_fixture import EXPECTED_CASE_NAMES
+from check_replay_fixture import FINGERPRINT
+from check_replay_fixture import REPLAY_CASE_KEYS
+from check_replay_fixture import REPLAY_EXECUTION_KEYS
+from check_replay_fixture import REPLAY_MONTE_CARLO_KEYS
+from check_replay_fixture import REPLAY_PLAN_KEYS
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 from check_replay_fixture import validate_local_vol_case
 from check_replay_fixture import validate_risk_methods
@@ -66,42 +71,7 @@ EXPECTED_COMMAND_PEAKS = {
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
 }
-FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
-REPLAY_CASE_KEYS = {"execution", "name", "plan", "request", "result"}
-REPLAY_PLAN_KEYS = {
-    "plan_fingerprint",
-    "reduction_block_size",
-    "request_fingerprint",
-    "worker_threads",
-}
-REPLAY_EXECUTION_KEYS = {
-    "estimator_variance_bits",
-    "evaluated_paths",
-    "independent_sampling_units",
-    "monte_carlo",
-    "risk_methods",
-    "risk_validation",
-    "sampling_variance_bits",
-}
-REPLAY_MONTE_CARLO_KEYS = {
-    "aad_tile_capacity",
-    "aad_tile_policy_version",
-    "antithetic",
-    "checkpoint_interval",
-    "checkpoint_policy_version",
-    "direction_checksum",
-    "discount_region",
-    "dividend_region",
-    "estimator",
-    "master_seed",
-    "payoff_fingerprint",
-    "policy_version",
-    "reduction_block_size",
-    "scramble_checksum",
-    "scramble_count",
-    "worker_threads",
-}
 
 
 def main() -> None:
