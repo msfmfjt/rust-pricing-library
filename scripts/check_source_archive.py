@@ -103,6 +103,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_source_archive.py",
     "python scripts/smoke_test_wheel.py",
     "python scripts/run_benchmark_suite.py",
+    "python scripts/check_benchmark_reports.py benchmark-results",
     "actions/upload-artifact@v4",
 }
 
