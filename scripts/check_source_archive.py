@@ -92,10 +92,24 @@ FORBIDDEN_PARTS = {
     ".git",
     "target",
     "dist",
+    "wheelhouse",
     ".venv",
     ".wheel-smoke-venv",
     "benchmark-results",
     "__pycache__",
+    ".idea",
+    ".vscode",
+}
+
+FORBIDDEN_NAMES = {
+    ".DS_Store",
+    "uv.lock",
+}
+
+FORBIDDEN_SUFFIXES = {
+    ".egg-info",
+    ".pyc",
+    ".pyo",
 }
 
 
@@ -117,14 +131,14 @@ def main() -> int:
                     f"{archive}: unsupported archive member type for {name}: {member.type!r}"
                 )
 
+        forbidden = sorted(name for name in names if has_forbidden_part(name))
+        if forbidden:
+            raise SystemExit(f"{archive}: archive contains generated/private files: {forbidden[:10]}")
+
         expected = REQUIRED_FILES.union(repository_source_files())
         missing = sorted(expected.difference(names))
         if missing:
             raise SystemExit(f"{archive}: missing required source files: {missing}")
-
-        forbidden = sorted(name for name in names if has_forbidden_part(name))
-        if forbidden:
-            raise SystemExit(f"{archive}: archive contains generated/private files: {forbidden[:10]}")
 
         check_cargo_manifests(package, archive)
 
@@ -132,7 +146,12 @@ def main() -> int:
 
 
 def has_forbidden_part(name: str) -> bool:
-    return any(part in FORBIDDEN_PARTS for part in PurePosixPath(name).parts)
+    path = PurePosixPath(name)
+    return (
+        any(part in FORBIDDEN_PARTS for part in path.parts)
+        or path.name in FORBIDDEN_NAMES
+        or any(path.name.endswith(suffix) for suffix in FORBIDDEN_SUFFIXES)
+    )
 
 
 def repository_source_files() -> set[str]:
