@@ -28,6 +28,14 @@ LOCAL_VOL_MEASUREMENTS = {
     "evaluate_selected_crn_bump_validation_price_only",
 }
 
+PYTHON_MEASUREMENTS = {
+    "compile_full_risk_from_python",
+    "evaluate_full_risk_from_python",
+    "compile_crn_bump_validation_from_python",
+    "evaluate_crn_bump_validation_from_python",
+    "result_value_getter",
+}
+
 
 def main() -> None:
     if len(sys.argv) != 2:
@@ -41,6 +49,7 @@ def main() -> None:
         LOCAL_VOL_MEASUREMENTS,
         local_volatility=True,
     )
+    check_python_report(root / "python.json")
     check_metadata(root / "metadata.json")
     print(f"benchmark reports are valid in {root}")
 
@@ -119,6 +128,38 @@ def check_report(
     require(isinstance(document.get("notes"), list), path, "notes must be an array")
 
 
+def check_python_report(path: Path) -> None:
+    document = load_object(path)
+    require(document.get("schema_version") == 1, path, "schema_version must be 1")
+    require(
+        document.get("benchmark_kind") == "python_european_black_scholes",
+        path,
+        "unexpected benchmark_kind",
+    )
+    require(isinstance(document.get("library_version"), str), path, "missing library_version")
+    configuration = require_object(document.get("configuration"), path, "configuration")
+    require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
+    require(configuration.get("antithetic") is True, path, "antithetic must be true")
+    require_positive_int(configuration.get("sampling_units"), path, "sampling_units")
+    require_positive_int(configuration.get("evaluated_paths"), path, "evaluated_paths")
+    require_positive_int(configuration.get("worker_threads"), path, "worker_threads")
+    require_positive_int(
+        configuration.get("reduction_block_size"), path, "reduction_block_size"
+    )
+
+    measurements = require_object(document.get("measurements"), path, "measurements")
+    missing = sorted(PYTHON_MEASUREMENTS.difference(measurements))
+    require(not missing, path, f"missing measurements: {missing}")
+    unexpected = sorted(set(measurements).difference(PYTHON_MEASUREMENTS))
+    require(not unexpected, path, f"unexpected measurements: {unexpected}")
+    for name in sorted(PYTHON_MEASUREMENTS):
+        check_measurement(require_object(measurements.get(name), path, name), path, name)
+    require_positive_int(
+        document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
+    )
+    require(isinstance(document.get("notes"), list), path, "notes must be an array")
+
+
 def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
     require_positive_int(document.get("samples"), path, f"{name}.samples")
     require_positive_float(document.get("median_seconds"), path, f"{name}.median_seconds")
@@ -184,10 +225,27 @@ def check_metadata(path: Path) -> None:
 def load_object(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise SystemExit(f"missing benchmark artifact: {path}")
-    document = json.loads(path.read_text(encoding="utf-8"))
+    raw = path.read_bytes()
+    require(not raw.startswith(b"\xef\xbb\xbf"), path, "UTF-8 BOM is not allowed")
+    require(b"\r" not in raw, path, "CR or CRLF line endings are not allowed")
+    require(raw.endswith(b"\n"), path, "JSON artifact must end with LF")
+    require(not raw.endswith(b"\n\n"), path, "JSON artifact must end with exactly one LF")
+    try:
+        document = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+    except ValueError as exc:
+        raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
     if not isinstance(document, dict):
         raise SystemExit(f"{path}: top-level JSON value must be an object")
     return document
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
 
 
 def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
