@@ -111,6 +111,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/smoke_test_wheel.py",
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_benchmark_reports.py benchmark-results",
+    "cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py",
     'python-version: "3.12"',
     "target: aarch64-apple-darwin",
     "target: x86_64-pc-windows-msvc",
