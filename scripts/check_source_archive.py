@@ -379,7 +379,12 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
     if project.get("dynamic") != ["version"]:
         raise SystemExit(f"{archive}: pyproject must derive version dynamically")
 
-    maturin = pyproject.get("tool", {}).get("maturin", {})
+    tool = pyproject.get("tool")
+    if not isinstance(tool, dict):
+        raise SystemExit(f"{archive}: pyproject must contain a [tool] table")
+    maturin = tool.get("maturin")
+    if not isinstance(maturin, dict):
+        raise SystemExit(f"{archive}: pyproject must contain a [tool.maturin] table")
     expected = {
         "manifest-path": "crates/pricing-python/Cargo.toml",
         "module-name": "rust_pricing",
