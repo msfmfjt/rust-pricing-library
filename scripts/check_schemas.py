@@ -301,6 +301,61 @@ def check_vega_kt_result_arrays(schema: dict[str, Any], path: Path) -> None:
             and "items" in definition,
             f"{path}: vega_kt_report.{field} must be a non-empty typed array",
         )
+    all_of = report.get("allOf")
+    require(isinstance(all_of, list), f"{path}: vega_kt_report must define layout invariants")
+    require(
+        any(
+            requires_vega_kt_full_covariance_for_layout(
+                item, "full_bucket_matrix_row_major"
+            )
+            for item in all_of
+            if isinstance(item, dict)
+        ),
+        f"{path}: full_bucket_matrix_row_major must require full_bucket_covariance",
+    )
+    require(
+        any(
+            forbids_vega_kt_full_covariance_for_layout(
+                item, "price_and_bucket_variance_only"
+            )
+            for item in all_of
+            if isinstance(item, dict)
+        ),
+        f"{path}: price_and_bucket_variance_only must forbid full_bucket_covariance",
+    )
+
+
+def requires_vega_kt_full_covariance_for_layout(item: dict[str, Any], layout: str) -> bool:
+    then = item.get("then")
+    return item_matches_vega_kt_covariance_layout(item.get("if"), layout) and isinstance(
+        then, dict
+    ) and "full_bucket_covariance" in then.get("required", [])
+
+
+def forbids_vega_kt_full_covariance_for_layout(item: dict[str, Any], layout: str) -> bool:
+    then = item.get("then")
+    not_schema = then.get("not") if isinstance(then, dict) else None
+    return (
+        item_matches_vega_kt_covariance_layout(item.get("if"), layout)
+        and isinstance(not_schema, dict)
+        and "full_bucket_covariance" in not_schema.get("required", [])
+    )
+
+
+def item_matches_vega_kt_covariance_layout(item: Any, layout: str) -> bool:
+    if not isinstance(item, dict):
+        return False
+    properties = item.get("properties")
+    if not isinstance(properties, dict):
+        return False
+    covariance_layout = properties.get("covariance_layout")
+    if not isinstance(covariance_layout, dict):
+        return False
+    layout_properties = covariance_layout.get("properties")
+    if not isinstance(layout_properties, dict):
+        return False
+    tag = layout_properties.get("type")
+    return isinstance(tag, dict) and tag.get("const") == layout
 
 
 def check_result_replay_metadata(schema: dict[str, Any], path: Path) -> None:
