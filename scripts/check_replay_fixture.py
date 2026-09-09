@@ -13,6 +13,18 @@ FIXTURE_PREFIXES = {
     "european_black_scholes_replay": "european_bs",
     "local_volatility_replay": "local_volatility",
 }
+EXPECTED_CASE_NAMES = {
+    "european_black_scholes_replay": {
+        "pseudo_mc_full_risk",
+        "rqmc_full_risk",
+    },
+    "local_volatility_replay": {
+        "pseudo_mc_price_only",
+        "rqmc_price_only",
+        "pseudo_mc_delta_gamma_vega_vegakt",
+        "rqmc_delta_gamma_vega_vegakt",
+    },
+}
 SUPPORTED_PLATFORMS = {
     "macos-aarch64",
     "windows-x86_64",
@@ -82,11 +94,24 @@ def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
         if name in case_names:
             raise SystemExit(f"{path}: duplicate replay case name: {name}")
         case_names.add(name)
-        validate_case(path, index, case, platform)
+        validate_case(path, index, case, fixture_kind, platform)
+    expected_case_names = EXPECTED_CASE_NAMES[fixture_kind]
+    if case_names != expected_case_names:
+        raise SystemExit(
+            f"{path}: replay case set mismatch; "
+            f"missing={sorted(expected_case_names - case_names)}, "
+            f"unexpected={sorted(case_names - expected_case_names)}"
+        )
     return fixture_kind, platform
 
 
-def validate_case(path: Path, index: int, case: dict[str, object], platform: str) -> None:
+def validate_case(
+    path: Path,
+    index: int,
+    case: dict[str, object],
+    fixture_kind: str,
+    platform: str,
+) -> None:
     case_path = f"cases[{index}]"
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
     request = require_object(path, case.get("request"), f"{case_path}.request")
@@ -123,6 +148,49 @@ def validate_case(path: Path, index: int, case: dict[str, object], platform: str
     if replay.get("platform") != platform:
         raise SystemExit(
             f"{path}: {case_path}.result.replay.platform must match artifact platform"
+        )
+    if fixture_kind == "local_volatility_replay":
+        validate_local_vol_case(path, case_path, case["name"], request, result)
+
+
+def validate_local_vol_case(
+    path: Path,
+    case_path: str,
+    name: object,
+    request: dict[str, object],
+    result: dict[str, object],
+) -> None:
+    risks = require_object(path, result.get("risks"), f"{case_path}.result.risks")
+    request_risk = require_object(path, request.get("risk"), f"{case_path}.request.risk")
+    if name in {"pseudo_mc_price_only", "rqmc_price_only"}:
+        if "vega_kt" in risks or "vega_kt" in request_risk:
+            raise SystemExit(f"{path}: {case_path} price-only case must not carry VegaKT")
+        return
+
+    request_vega_kt = require_object(
+        path, request_risk.get("vega_kt"), f"{case_path}.request.risk.vega_kt"
+    )
+    if request_vega_kt.get("full_bucket_covariance") is not True:
+        raise SystemExit(
+            f"{path}: {case_path}.request.risk.vega_kt.full_bucket_covariance must be true"
+        )
+    result_vega_kt = require_object(
+        path, risks.get("vega_kt"), f"{case_path}.result.risks.vega_kt"
+    )
+    layout = require_object(
+        path,
+        result_vega_kt.get("covariance_layout"),
+        f"{case_path}.result.risks.vega_kt.covariance_layout",
+    )
+    if layout.get("type") != "full_bucket_matrix_row_major":
+        raise SystemExit(
+            f"{path}: {case_path}.result.risks.vega_kt must use full covariance layout"
+        )
+    covariance = result_vega_kt.get("full_bucket_covariance")
+    if not isinstance(covariance, list) or len(covariance) != 36:
+        raise SystemExit(
+            f"{path}: {case_path}.result.risks.vega_kt.full_bucket_covariance "
+            "must contain 36 row-major entries"
         )
 
 
