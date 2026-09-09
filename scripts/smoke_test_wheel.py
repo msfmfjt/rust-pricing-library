@@ -14,12 +14,14 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tomllib
 import venv
 from zipfile import ZipFile
 
 
 def main() -> None:
     wheel = selected_wheel()
+    expected_metadata = expected_project_metadata()
 
     with ZipFile(wheel) as archive:
         members = {member for member in archive.namelist() if not member.endswith("/")}
@@ -32,7 +34,14 @@ def main() -> None:
         record = read_dist_info_text(archive, members, "RECORD")
     if not any(Path(member).name == "py.typed" for member in members):
         raise RuntimeError("wheel does not contain the py.typed marker")
-    verify_wheel_metadata(members, metadata, wheel_metadata, record, member_bytes)
+    verify_wheel_metadata(
+        members,
+        metadata,
+        wheel_metadata,
+        record,
+        member_bytes,
+        expected_metadata,
+    )
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
         raise RuntimeError("wheel type stub does not match rust_pricing.pyi")
@@ -105,13 +114,13 @@ def verify_wheel_metadata(
     wheel_metadata: Message,
     record: str,
     member_bytes: dict[str, bytes],
+    expected_metadata: dict[str, str],
 ) -> None:
-    if metadata["Name"] != "rust-pricing":
-        raise RuntimeError(f"unexpected wheel name: {metadata['Name']}")
-    if metadata["Version"] != "0.1.0":
-        raise RuntimeError(f"unexpected wheel version: {metadata['Version']}")
-    if metadata["Requires-Python"] != ">=3.12":
-        raise RuntimeError(f"unexpected Python requirement: {metadata['Requires-Python']}")
+    for field, expected_value in expected_metadata.items():
+        if metadata[field] != expected_value:
+            raise RuntimeError(
+                f"unexpected wheel {field}: {metadata[field]} != {expected_value}"
+            )
     if wheel_metadata["Root-Is-Purelib"] != "false":
         raise RuntimeError("wheel must be a platform-specific extension wheel")
     tags = wheel_metadata.get_all("Tag") or []
@@ -122,6 +131,37 @@ def verify_wheel_metadata(
     record_members = verify_wheel_record(record, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
+
+
+def expected_project_metadata() -> dict[str, str]:
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text("utf-8"))
+    cargo_manifest = tomllib.loads(Path("Cargo.toml").read_text("utf-8"))
+    project = required_table(pyproject, "project", "pyproject.toml")
+    workspace = required_table(cargo_manifest, "workspace", "Cargo.toml")
+    workspace_package = required_table(workspace, "package", "Cargo.toml workspace")
+
+    name = required_string(project, "name", "pyproject.toml project")
+    version = required_string(workspace_package, "version", "Cargo.toml workspace.package")
+    requires_python = required_string(
+        project,
+        "requires-python",
+        "pyproject.toml project",
+    )
+    return {"Name": name, "Version": version, "Requires-Python": requires_python}
+
+
+def required_table(document: dict[str, object], key: str, label: str) -> dict[str, object]:
+    value = document.get(key)
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{label} must contain a [{key}] table")
+    return value
+
+
+def required_string(document: dict[str, object], key: str, label: str) -> str:
+    value = document.get(key)
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(f"{label} must contain a non-empty {key!r} string")
+    return value
 
 
 def verify_wheel_record(
