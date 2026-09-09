@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ast
+from email.message import Message
+from email.parser import Parser
 import json
 import os
 from pathlib import Path
@@ -21,8 +23,12 @@ def main() -> None:
         if "rust_pricing/__init__.pyi" not in members:
             raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
         stub = archive.read("rust_pricing/__init__.pyi")
+        metadata = Parser().parsestr(read_dist_info_text(archive, members, "METADATA"))
+        wheel_metadata = Parser().parsestr(read_dist_info_text(archive, members, "WHEEL"))
+        record = read_dist_info_text(archive, members, "RECORD")
     if not any(Path(member).name == "py.typed" for member in members):
         raise RuntimeError("wheel does not contain the py.typed marker")
+    verify_wheel_metadata(members, metadata, wheel_metadata, record)
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
         raise RuntimeError("wheel type stub does not match rust_pricing.pyi")
@@ -76,6 +82,40 @@ def selected_wheel() -> Path:
     if len(wheels) != 1:
         raise RuntimeError(f"expected exactly one wheel in dist, found {len(wheels)}")
     return wheels[0]
+
+
+def read_dist_info_text(archive: ZipFile, members: set[str], filename: str) -> str:
+    matches = [
+        member
+        for member in members
+        if member.startswith("rust_pricing-") and member.endswith(f".dist-info/{filename}")
+    ]
+    if len(matches) != 1:
+        raise RuntimeError(f"expected one dist-info/{filename}, found {len(matches)}")
+    return archive.read(matches[0]).decode("utf-8")
+
+
+def verify_wheel_metadata(
+    members: set[str],
+    metadata: Message,
+    wheel_metadata: Message,
+    record: str,
+) -> None:
+    if metadata["Name"] != "rust-pricing":
+        raise RuntimeError(f"unexpected wheel name: {metadata['Name']}")
+    if metadata["Version"] != "0.1.0":
+        raise RuntimeError(f"unexpected wheel version: {metadata['Version']}")
+    if metadata["Requires-Python"] != ">=3.12":
+        raise RuntimeError(f"unexpected Python requirement: {metadata['Requires-Python']}")
+    if wheel_metadata["Root-Is-Purelib"] != "false":
+        raise RuntimeError("wheel must be a platform-specific extension wheel")
+    tags = wheel_metadata.get_all("Tag") or []
+    if not tags or any(tag.endswith("-none-any") for tag in tags):
+        raise RuntimeError(f"wheel must carry platform tags, got: {tags}")
+    if not any(member.endswith(".dist-info/sboms/pricing-python.cyclonedx.json") for member in members):
+        raise RuntimeError("wheel does not contain the generated CycloneDX SBOM")
+    if "rust_pricing/__init__.pyi," not in record or "rust_pricing/py.typed," not in record:
+        raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
 
 
 def create_environment(environment: Path) -> None:
