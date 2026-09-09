@@ -78,6 +78,8 @@ python -m unittest discover -s tests/python -v
 python -m maturin build --locked --release --out dist
 python scripts/smoke_test_wheel.py
 python scripts/run_benchmark_suite.py
+python scripts/check_replay_fixture.py benchmark-results/replay.json
+python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
 python scripts/check_benchmark_reports.py benchmark-results
 ```
 

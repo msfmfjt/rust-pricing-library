@@ -123,6 +123,11 @@ jobs:
       - name: Run baseline benchmarks
         run: python scripts/run_benchmark_suite.py
 
+      - name: Check replay fixtures
+        run: |
+          python scripts/check_replay_fixture.py benchmark-results/replay.json
+          python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
+
       - name: Check benchmark artifacts
         run: python scripts/check_benchmark_reports.py benchmark-results
 

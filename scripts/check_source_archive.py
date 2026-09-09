@@ -110,6 +110,8 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_source_archive.py",
     "python scripts/smoke_test_wheel.py",
     "python scripts/run_benchmark_suite.py",
+    "python scripts/check_replay_fixture.py benchmark-results/replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
     "python scripts/check_benchmark_reports.py benchmark-results",
     "cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py",
     'python-version: "3.12"',
@@ -150,6 +152,8 @@ REQUIRED_README_SNIPPETS = {
     "Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel",
     "The smoke test rejects ABI\nmismatches before installation.",
     "python scripts/run_benchmark_suite.py",
+    "python scripts/check_replay_fixture.py benchmark-results/replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
     "python scripts/check_benchmark_reports.py benchmark-results",
 }
 
