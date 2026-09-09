@@ -219,7 +219,7 @@ def check_python_report(path: Path) -> None:
 def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
     require_positive_int(document.get("samples"), path, f"{name}.samples")
     require_positive_float(document.get("median_seconds"), path, f"{name}.median_seconds")
-    require_positive_float(document.get("minimum_seconds"), path, f"{name}.minimum_seconds")
+    require_non_negative_float(document.get("minimum_seconds"), path, f"{name}.minimum_seconds")
     require_positive_float(document.get("maximum_seconds"), path, f"{name}.maximum_seconds")
     require(
         document["minimum_seconds"] <= document["median_seconds"] <= document["maximum_seconds"],
@@ -331,6 +331,14 @@ def require_positive_float(value: Any, path: Path, name: str) -> None:
         isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0.0,
         path,
         f"{name} must be a positive number",
+    )
+
+
+def require_non_negative_float(value: Any, path: Path, name: str) -> None:
+    require(
+        isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0.0,
+        path,
+        f"{name} must be a non-negative number",
     )
 
 
