@@ -112,6 +112,7 @@ def check_report(
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
     require_positive_int(configuration.get("sampling_units"), path, "sampling_units")
     require_positive_int(configuration.get("evaluated_paths"), path, "evaluated_paths")
+    check_antithetic_path_count(configuration, path)
     require_positive_int(configuration.get("worker_threads"), path, "worker_threads")
     require_positive_int(
         configuration.get("reduction_block_size"), path, "reduction_block_size"
@@ -301,6 +302,7 @@ def check_python_report(path: Path) -> None:
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
     require_positive_int(configuration.get("sampling_units"), path, "sampling_units")
     require_positive_int(configuration.get("evaluated_paths"), path, "evaluated_paths")
+    check_antithetic_path_count(configuration, path)
     require_positive_int(configuration.get("worker_threads"), path, "worker_threads")
     require_positive_int(
         configuration.get("reduction_block_size"), path, "reduction_block_size"
@@ -362,6 +364,17 @@ def expected_paths_for_measurement(name: str, evaluated_paths: int) -> int | Non
     if name == "evaluate_crn_bump_validation_from_python":
         return evaluated_paths * 5
     return evaluated_paths
+
+
+def check_antithetic_path_count(configuration: dict[str, Any], path: Path) -> None:
+    sampling_units = configuration["sampling_units"]
+    evaluated_paths = configuration["evaluated_paths"]
+    multiplicity = 2 if configuration["antithetic"] else 1
+    require(
+        evaluated_paths == sampling_units * multiplicity,
+        path,
+        "evaluated_paths must match sampling_units and antithetic",
+    )
 
 
 def check_metadata(path: Path, artifacts: set[str]) -> None:
