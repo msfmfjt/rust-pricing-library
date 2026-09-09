@@ -178,6 +178,10 @@ REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "whether a public open-source license will ever be selected",
 }
 
+REQUIRED_ARCHITECTURE_SNIPPETS = {
+    "`syntax_and_limits`, `declared_schema`, `migration`, `current_schema`, or `domain`",
+}
+
 REQUIRED_WIRE_SCHEMA_COMPATIBILITY_SNIPPETS = {
     'covariance_layout.type = "full_bucket_matrix_row_major"',
     "`full_bucket_covariance`",
@@ -282,6 +286,7 @@ def main() -> int:
         check_ci_workflow(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
+        check_architecture_contract(package, archive)
         check_release_readiness(package, archive)
         check_wire_schema_compatibility(package, archive)
         check_local_vol_diagnostics(package, archive)
@@ -443,6 +448,15 @@ def check_contributing_release_gates(package: tarfile.TarFile, archive: str) -> 
         raise SystemExit(
             f"{archive}: CONTRIBUTING is missing documented release gates: {missing}"
         )
+
+
+def check_architecture_contract(package: tarfile.TarFile, archive: str) -> None:
+    architecture = read_text(package, "docs/architecture-v0.1.md")
+    missing = sorted(
+        snippet for snippet in REQUIRED_ARCHITECTURE_SNIPPETS if snippet not in architecture
+    )
+    if missing:
+        raise SystemExit(f"{archive}: architecture is missing required contracts: {missing}")
 
 
 def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
