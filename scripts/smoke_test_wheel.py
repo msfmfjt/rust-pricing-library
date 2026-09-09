@@ -37,6 +37,8 @@ def main() -> None:
         record = read_dist_info_text(archive, members, "RECORD")
     if "rust_pricing/py.typed" not in members:
         raise RuntimeError("wheel does not contain the py.typed marker")
+    _, _, filename_tags = parse_wheel_filename(wheel.name)
+    verify_wheel_python_abi_matches_interpreter(wheel, filename_tags)
     verify_wheel_metadata(
         wheel,
         members,
@@ -276,6 +278,18 @@ def is_platform_cpython_tag(tag: str) -> bool:
         and abi_tag.startswith("cp")
         and platform_tag != "any"
         and all(parts)
+    )
+
+
+def verify_wheel_python_abi_matches_interpreter(wheel: Path, tags: set[str]) -> None:
+    expected = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    for tag in tags:
+        parts = tag.split("-")
+        if len(parts) == 3 and parts[0] == expected and parts[1] == expected:
+            return
+    raise RuntimeError(
+        f"wheel {wheel.name} is not built for this Python interpreter "
+        f"({expected}); run this smoke test with a matching Python"
     )
 
 
