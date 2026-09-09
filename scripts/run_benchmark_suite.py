@@ -260,6 +260,7 @@ def windows_process_peak_rss_bytes(pid: int) -> int:
 def add_process_peak_memory(path: Path, peak_memory_bytes: int) -> None:
     document = json.loads(
         path.read_text(encoding="utf-8"),
+        object_pairs_hook=reject_duplicate_keys,
         parse_constant=reject_json_constant,
     )
     if not isinstance(document, dict):
@@ -273,6 +274,15 @@ def add_process_peak_memory(path: Path, peak_memory_bytes: int) -> None:
         json.dumps(document, allow_nan=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
 
 
 def reject_json_constant(value: str) -> object:
