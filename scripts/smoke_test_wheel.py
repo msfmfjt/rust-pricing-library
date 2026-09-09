@@ -496,6 +496,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
     class_members: dict[str, list[str]] = {}
+    assignments: dict[str, ast.expr] = {}
 
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
@@ -504,6 +505,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             top_level_names.extend(
                 target.id for target in node.targets if isinstance(target, ast.Name)
             )
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    assignments[target.id] = node.value
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             top_level_names.append(node.target.id)
         elif isinstance(node, (ast.ClassDef, ast.FunctionDef)):
@@ -550,6 +554,24 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     if unresolved:
         raise RuntimeError(f"wheel type stub has unresolved names: {unresolved}")
 
+    expected_literals = {
+        "VegaKtCovarianceLayout": {
+            "price_and_bucket_variance_only",
+            "full_bucket_matrix_row_major",
+        },
+        "VegaKtUnit": {
+            "currency_per_unit_absolute_volatility",
+            "currency_per_volatility_point",
+        },
+    }
+    for alias, expected in sorted(expected_literals.items()):
+        actual = literal_alias_values(assignments.get(alias))
+        if actual != expected:
+            raise RuntimeError(
+                f"wheel type stub {alias} values must be {sorted(expected)}, "
+                f"found {sorted(actual)}"
+            )
+
 
 def duplicates_in(values: list[str]) -> set[str]:
     seen: set[str] = set()
@@ -559,6 +581,20 @@ def duplicates_in(values: list[str]) -> set[str]:
             duplicates.add(value)
         seen.add(value)
     return duplicates
+
+
+def literal_alias_values(node: ast.expr | None) -> set[str]:
+    if not isinstance(node, ast.Subscript):
+        return set()
+    if not isinstance(node.value, ast.Name) or node.value.id != "Literal":
+        return set()
+    slice_value = node.slice
+    elements = slice_value.elts if isinstance(slice_value, ast.Tuple) else [slice_value]
+    values = set()
+    for element in elements:
+        if isinstance(element, ast.Constant) and isinstance(element.value, str):
+            values.add(element.value)
+    return values
 
 
 def verify_runtime_symbols(python: Path, stub_api: dict[str, object], version: str) -> None:
