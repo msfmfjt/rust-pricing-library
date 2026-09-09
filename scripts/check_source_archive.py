@@ -149,6 +149,8 @@ REQUIRED_README_SNIPPETS = {
     "python scripts/check_benchmark_reports.py benchmark-results",
 }
 
+REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -228,6 +230,7 @@ def main() -> int:
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
         check_readme_release_gates(package, archive)
+        check_contributing_release_gates(package, archive)
         check_release_readiness(package, archive)
 
     return 0
@@ -368,6 +371,17 @@ def check_readme_release_gates(package: tarfile.TarFile, archive: str) -> None:
     missing = sorted(snippet for snippet in REQUIRED_README_SNIPPETS if snippet not in readme)
     if missing:
         raise SystemExit(f"{archive}: README is missing documented release gates: {missing}")
+
+
+def check_contributing_release_gates(package: tarfile.TarFile, archive: str) -> None:
+    contributing = read_text(package, "CONTRIBUTING.md")
+    missing = sorted(
+        snippet for snippet in REQUIRED_CONTRIBUTING_SNIPPETS if snippet not in contributing
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: CONTRIBUTING is missing documented release gates: {missing}"
+        )
 
 
 def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
