@@ -201,15 +201,33 @@ def verify_wheel_metadata(
             raise RuntimeError(f"wheel metadata must not declare {field}")
     if "Rust Pricing Library" not in metadata.get_payload():
         raise RuntimeError("wheel metadata does not include the README payload")
+    if wheel_metadata["Wheel-Version"] != "1.0":
+        raise RuntimeError(f"unexpected wheel metadata version: {wheel_metadata['Wheel-Version']}")
+    generator = wheel_metadata["Generator"]
+    if not isinstance(generator, str) or not generator.startswith("maturin "):
+        raise RuntimeError(f"unexpected wheel metadata generator: {generator}")
     if wheel_metadata["Root-Is-Purelib"] != "false":
         raise RuntimeError("wheel must be a platform-specific extension wheel")
     tags = wheel_metadata.get_all("Tag") or []
-    if not tags or any(tag.endswith("-none-any") for tag in tags):
+    if not tags or any(not is_platform_cpython_tag(tag) for tag in tags):
         raise RuntimeError(f"wheel must carry platform tags, got: {tags}")
     verify_cyclonedx_sbom(members, member_bytes, expected_metadata["Version"])
     record_members = verify_wheel_record(record, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
+
+
+def is_platform_cpython_tag(tag: str) -> bool:
+    parts = tag.split("-")
+    if len(parts) != 3:
+        return False
+    python_tag, abi_tag, platform_tag = parts
+    return (
+        python_tag.startswith("cp")
+        and abi_tag.startswith("cp")
+        and platform_tag != "any"
+        and all(parts)
+    )
 
 
 def verify_cyclonedx_sbom(
