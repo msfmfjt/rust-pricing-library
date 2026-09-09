@@ -36,6 +36,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         payload = json.loads(result.to_json())
         self.assertEqual(payload["document_kind"], "pricing_result")
         self.assertEqual(result.diagnostics.estimator, "pseudo_monte_carlo")
+        self.assertIsNone(result.diagnostics.direction_checksum)
+        self.assertIsNone(result.diagnostics.scramble_checksum)
         self.assertEqual(result.diagnostics.worker_threads, 2)
         self.assertEqual(
             [warning.code for warning in result.diagnostics.warnings],
@@ -468,6 +470,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(rqmc_result.value))
         self.assertEqual(
             rqmc_result.diagnostics.estimator, "randomized_quasi_monte_carlo"
+        )
+        self.assertRegex(
+            rqmc_result.diagnostics.direction_checksum, r"^[0-9a-f]{64}$"
+        )
+        self.assertRegex(
+            rqmc_result.diagnostics.scramble_checksum, r"^[0-9a-f]{64}$"
         )
         self.assertTrue(math.isfinite(rqmc_result.delta_raw))
         self.assertTrue(math.isfinite(rqmc_result.gamma_raw))

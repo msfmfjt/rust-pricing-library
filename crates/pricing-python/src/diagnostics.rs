@@ -39,6 +39,8 @@ pub struct PyDiagnostics {
     master_seed: u64,
     estimator: &'static str,
     scramble_count: Option<u32>,
+    direction_checksum: Option<String>,
+    scramble_checksum: Option<String>,
     policy_version: u32,
     worker_threads: u32,
     reduction_block_size: u64,
@@ -64,6 +66,8 @@ impl PyDiagnostics {
             master_seed: diagnostics.master_seed,
             estimator: estimator_name(diagnostics.estimator),
             scramble_count: diagnostics.scramble_count,
+            direction_checksum: diagnostics.direction_checksum.map(hex_32),
+            scramble_checksum: diagnostics.scramble_checksum.map(hex_32),
             policy_version: diagnostics.policy_version,
             worker_threads: diagnostics.worker_threads,
             reduction_block_size: diagnostics.reduction_block_size,
@@ -107,6 +111,16 @@ impl PyDiagnostics {
     #[getter]
     fn scramble_count(&self) -> Option<u32> {
         self.scramble_count
+    }
+
+    #[getter]
+    fn direction_checksum(&self) -> Option<&str> {
+        self.direction_checksum.as_deref()
+    }
+
+    #[getter]
+    fn scramble_checksum(&self) -> Option<&str> {
+        self.scramble_checksum.as_deref()
     }
 
     #[getter]
@@ -217,4 +231,11 @@ const fn risk_method_name(method: RiskMethod) -> &'static str {
         RiskMethod::CentralBump => "central_bump",
         RiskMethod::CentralBumpOfAadDelta => "central_bump_of_aad_delta",
     }
+}
+
+fn hex_32(bytes: [u8; 32]) -> String {
+    bytes
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>()
 }
