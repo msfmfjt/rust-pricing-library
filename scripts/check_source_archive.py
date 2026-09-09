@@ -110,9 +110,14 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/smoke_test_wheel.py",
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_benchmark_reports.py benchmark-results",
+    'python-version: "3.12"',
     "target: aarch64-apple-darwin",
     "target: x86_64-pc-windows-msvc",
     "actions/upload-artifact@v4",
+    "name: rust-pricing-${{ matrix.target }}-cp312",
+    "name: rust-pricing-source-${{ matrix.target }}",
+    "name: benchmark-${{ matrix.target }}",
+    "retention-days: 14",
 }
 
 REQUIRED_README_SNIPPETS = {
