@@ -20,6 +20,10 @@ EXPECTED_SCHEMAS = {
     "pricing_request": SCHEMA_ROOT / "pricing_request.schema.json",
     "pricing_result": SCHEMA_ROOT / "pricing_result.schema.json",
 }
+EXPECTED_GOLDENS = {
+    "pricing_request": ROOT / "fixtures" / "v1" / "pricing_request.golden.json",
+    "pricing_result": ROOT / "fixtures" / "v1" / "pricing_result.golden.json",
+}
 WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 DATE_STRING_FIELDS = {"date", "expiry", "payment_date", "valuation_date"}
@@ -47,10 +51,7 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def load_schema(path: Path) -> dict[str, Any]:
     raw = path.read_bytes()
-    require(not raw.startswith(b"\xef\xbb\xbf"), f"{path}: UTF-8 BOM is not allowed")
-    require(b"\r" not in raw, f"{path}: CR or CRLF line endings are not allowed")
-    require(raw.endswith(b"\n"), f"{path}: schema file must end with LF")
-    require(not raw.endswith(b"\n\n"), f"{path}: schema file must end with exactly one LF")
+    check_text_file_encoding(raw, path, "schema file")
     try:
         document = json.loads(
             raw.decode("utf-8"),
@@ -64,6 +65,44 @@ def load_schema(path: Path) -> dict[str, Any]:
     if not isinstance(document, dict):
         raise SchemaError(f"{path}: schema root must be an object")
     return document
+
+
+def load_golden(path: Path) -> dict[str, Any]:
+    raw = path.read_bytes()
+    check_text_file_encoding(raw, path, "golden JSON")
+    require(
+        b"\n" not in raw[:-1],
+        f"{path}: golden JSON must use compact single-line canonical form",
+    )
+    try:
+        document = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_json_constant,
+        )
+    except SchemaError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - report parser failures as validation failures.
+        raise SchemaError(f"{path}: invalid JSON: {exc}") from exc
+    if not isinstance(document, dict):
+        raise SchemaError(f"{path}: golden JSON root must be an object")
+    compact = json.dumps(document, separators=(",", ":"), ensure_ascii=False) + "\n"
+    require(
+        raw.decode("utf-8") == compact,
+        f"{path}: golden JSON must match canonical compact encoding",
+    )
+    return document
+
+
+def check_text_file_encoding(raw: bytes, path: Path, label: str) -> None:
+    require(not raw.startswith(b"\xef\xbb\xbf"), f"{path}: UTF-8 BOM is not allowed")
+    require(b"\r" not in raw, f"{path}: CR or CRLF line endings are not allowed")
+    require(raw.endswith(b"\n"), f"{path}: {label} must end with LF")
+    require(not raw.endswith(b"\n\n"), f"{path}: {label} must end with exactly one LF")
+    try:
+        raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SchemaError(f"{path}: invalid UTF-8: {exc}") from exc
 
 
 def require(condition: bool, message: str) -> None:
@@ -466,6 +505,33 @@ def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> N
     require(properties.get("schema_version") == {"const": 1}, f"{path}: schema_version const mismatch")
 
 
+def check_golden(document_kind: str, path: Path) -> None:
+    require(path.exists(), f"missing golden JSON {path}")
+    document = load_golden(path)
+    require(
+        document.get("document_kind") == document_kind,
+        f"{path}: document_kind must be {document_kind!r}",
+    )
+    require(document.get("schema_version") == 1, f"{path}: schema_version must be 1")
+    for location, value in walk(document):
+        require(value is not None, f"{path}:{pointer(location)}: JSON null is not permitted")
+    if document_kind == "pricing_result":
+        replay = document.get("replay")
+        require(isinstance(replay, dict), f"{path}: replay must be an object")
+        require(replay.get("schema_version") == 1, f"{path}: replay.schema_version must be 1")
+        require(
+            isinstance(replay.get("request_fingerprint"), str)
+            and re.fullmatch(r"blake3-256:[0-9a-f]{64}", replay["request_fingerprint"])
+            is not None,
+            f"{path}: replay.request_fingerprint must be canonical blake3-256 hex",
+        )
+        for field in ["library_version", "platform"]:
+            require(
+                isinstance(replay.get(field), str) and bool(replay[field]),
+                f"{path}: replay.{field} must be a non-empty string",
+            )
+
+
 def check_schema(document_kind: str, path: Path) -> None:
     require(path.exists(), f"missing schema {path}")
     schema = load_schema(path)
@@ -493,6 +559,8 @@ def main() -> int:
         require(actual == expected, f"schema file set mismatch: expected {sorted(map(str, expected))}, got {sorted(map(str, actual))}")
         for document_kind, path in EXPECTED_SCHEMAS.items():
             check_schema(document_kind, path)
+        for document_kind, path in EXPECTED_GOLDENS.items():
+            check_golden(document_kind, path)
     except SchemaError as exc:
         print(f"schema check failed: {exc}", file=sys.stderr)
         return 1
