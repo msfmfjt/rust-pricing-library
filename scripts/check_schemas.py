@@ -265,6 +265,31 @@ def check_vega_kt_result_arrays(schema: dict[str, Any], path: Path) -> None:
         )
 
 
+def check_result_replay_metadata(schema: dict[str, Any], path: Path) -> None:
+    if path != EXPECTED_SCHEMAS["pricing_result"]:
+        return
+    properties = schema.get("properties")
+    require(isinstance(properties, dict), f"{path}: root properties must be an object")
+    replay = properties.get("replay")
+    require(isinstance(replay, dict), f"{path}: replay must be an object schema")
+    replay_properties = replay.get("properties")
+    require(isinstance(replay_properties, dict), f"{path}: replay properties must be an object")
+    require(
+        replay_properties.get("schema_version") == {"const": 1},
+        f"{path}:/properties/replay/properties/schema_version: replay schema_version must be const 1",
+    )
+    require(
+        replay_properties.get("request_fingerprint")
+        == {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
+        f"{path}:/properties/replay/properties/request_fingerprint: replay request_fingerprint must use the canonical digest pattern",
+    )
+    for field in ["library_version", "platform"]:
+        require(
+            replay_properties.get(field) == {"type": "string", "minLength": 1},
+            f"{path}:/properties/replay/properties/{field}: replay {field} must be a non-empty string",
+        )
+
+
 def check_no_unstructured_objects(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict) or value.get("type") != "object":
@@ -361,6 +386,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
     check_vega_kt_result_arrays(schema, path)
+    check_result_replay_metadata(schema, path)
     check_no_unstructured_objects(schema, path)
     check_strict_objects(schema, path)
     check_tagged_union_discriminators(schema, path)

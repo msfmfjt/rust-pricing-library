@@ -17,7 +17,8 @@
       "properties": {
         "schema_version": {"const": 1},
         "request_fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
-        "library_version": {"type": "string"}, "platform": {"type": "string"}
+        "library_version": {"type": "string", "minLength": 1},
+        "platform": {"type": "string", "minLength": 1}
       }
     }
   },
