@@ -260,6 +260,16 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
             path,
             f"{case_path}.execution.monte_carlo.worker_threads",
         )
+        require(
+            monte_carlo.get("reduction_block_size") == plan.get("reduction_block_size"),
+            path,
+            f"{case_path} reduction_block_size must match plan",
+        )
+        require(
+            monte_carlo.get("worker_threads") == plan.get("worker_threads"),
+            path,
+            f"{case_path} worker_threads must match plan",
+        )
 
 
 def check_python_report(path: Path) -> None:
