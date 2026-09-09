@@ -757,6 +757,21 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         payload = json.loads(result_json)
         self.assertIn("vega_kt", payload["risks"])
 
+        unavailable_covariance = json.loads(result_json)
+        unavailable_covariance["risks"]["vega_kt"]["full_bucket_covariance"][0] = {
+            "type": "unavailable"
+        }
+        parsed_with_unavailable = rust_pricing.PricingResult.from_json(
+            json.dumps(unavailable_covariance, separators=(",", ":"))
+        )
+        self.assertIsNone(parsed_with_unavailable.vega_kt.full_bucket_covariance[0])
+        self.assertIn(
+            {"type": "unavailable"},
+            json.loads(parsed_with_unavailable.to_json())["risks"]["vega_kt"][
+                "full_bucket_covariance"
+            ],
+        )
+
         missing_covariance = json.loads(result_json)
         del missing_covariance["risks"]["vega_kt"]["full_bucket_covariance"]
         with self.assertRaises(rust_pricing.ValidationError) as captured:
