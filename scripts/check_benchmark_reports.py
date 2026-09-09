@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -10,6 +11,7 @@ import sys
 from typing import Any
 
 
+ROOT = Path(__file__).resolve().parents[1]
 EUROPEAN_MEASUREMENTS = {
     "compile_price_only",
     "evaluate_price_only",
@@ -404,6 +406,11 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
         path,
         "cargo_lock_sha256 must be lowercase SHA-256 hex",
     )
+    require(
+        document["cargo_lock_sha256"] == file_sha256(ROOT / "Cargo.lock"),
+        path,
+        "cargo_lock_sha256 must match Cargo.lock",
+    )
     enabled_features = require_object(document.get("enabled_features"), path, "enabled_features")
     for key in ["rust_benchmarks", "python_wheel"]:
         features = enabled_features.get(key)
@@ -582,6 +589,12 @@ def require_non_negative_float(value: Any, path: Path, name: str) -> None:
 
 def is_finite_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 def require(condition: bool, path: Path, message: str) -> None:
