@@ -853,8 +853,19 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         )
 
     def test_bundled_json_schemas_are_exported(self):
-        request_schema = json.loads(rust_pricing.request_json_schema())
-        result_schema = json.loads(rust_pricing.result_json_schema())
+        request_schema_text = rust_pricing.request_json_schema()
+        result_schema_text = rust_pricing.result_json_schema()
+        self.assertEqual(
+            request_schema_text,
+            Path("schemas/v1/pricing_request.schema.json").read_text(encoding="utf-8"),
+        )
+        self.assertEqual(
+            result_schema_text,
+            Path("schemas/v1/pricing_result.schema.json").read_text(encoding="utf-8"),
+        )
+
+        request_schema = json.loads(request_schema_text)
+        result_schema = json.loads(result_schema_text)
 
         self.assertEqual(
             request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
