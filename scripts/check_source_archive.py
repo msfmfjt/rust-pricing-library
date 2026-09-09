@@ -299,6 +299,12 @@ def check_cargo_manifests(package: tarfile.TarFile, archive: str) -> None:
 def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
     pyproject = read_toml(package, "pyproject.toml")
     python_manifest = read_toml(package, "crates/pricing-python/Cargo.toml")
+    build_system = pyproject.get("build-system", {})
+    if build_system.get("requires") != ["maturin>=1.9,<2.0"]:
+        raise SystemExit(f"{archive}: pyproject build-system.requires mismatch")
+    if build_system.get("build-backend") != "maturin":
+        raise SystemExit(f"{archive}: pyproject build-system.build-backend mismatch")
+
     project = pyproject.get("project", {})
     if project.get("name") != "rust-pricing":
         raise SystemExit(f"{archive}: pyproject project.name mismatch")
