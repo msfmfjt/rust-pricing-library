@@ -26,7 +26,7 @@ use builders::{
     PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket,
     PyModel, PyProduct, PyRiskRequest, build_request,
 };
-use diagnostics::{PyDiagnostics, PyPricingWarning};
+use diagnostics::{PyDiagnosticEstimate, PyDiagnostics, PyPricingWarning, PyRiskValidation};
 
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
@@ -795,6 +795,8 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("PricingError", module.py().get_type::<PricingError>())?;
     module.add_class::<PyValidationIssue>()?;
     module.add_class::<PyPricingWarning>()?;
+    module.add_class::<PyDiagnosticEstimate>()?;
+    module.add_class::<PyRiskValidation>()?;
     module.add_class::<PyDiagnostics>()?;
     module.add_class::<PyDiscountCurve>()?;
     module.add_class::<PyDividendEvent>()?;

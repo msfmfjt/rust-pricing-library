@@ -1,5 +1,5 @@
 use pricing::market::CurveRegion;
-use pricing::{EstimatorKind, MonteCarloPrice, RiskMethod};
+use pricing::{Estimate, EstimatorKind, MonteCarloPrice, RiskMethod, RiskValidation};
 use pyo3::prelude::*;
 
 /// A deterministic warning emitted by a completed valuation.
@@ -32,6 +32,81 @@ impl PyPricingWarning {
     }
 }
 
+/// One statistical estimate used by risk validation diagnostics.
+#[pyclass(frozen, name = "DiagnosticEstimate", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyDiagnosticEstimate {
+    estimate: Estimate,
+}
+
+impl PyDiagnosticEstimate {
+    fn from_estimate(estimate: Estimate) -> Self {
+        Self { estimate }
+    }
+}
+
+#[pymethods]
+impl PyDiagnosticEstimate {
+    #[getter]
+    fn value(&self) -> f64 {
+        self.estimate.value().get()
+    }
+
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.estimate.standard_error().get()
+    }
+
+    #[getter]
+    fn confidence_interval(&self) -> (f64, f64) {
+        let interval = self.estimate.confidence_interval();
+        (interval.lower().get(), interval.upper().get())
+    }
+
+    #[getter]
+    fn effective_sampling_units(&self) -> u64 {
+        self.estimate.effective_sampling_units().get()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DiagnosticEstimate(value={:?})", self.value())
+    }
+}
+
+/// CRN bump validation diagnostics for one requested risk.
+#[pyclass(frozen, name = "RiskValidation", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyRiskValidation {
+    validation: RiskValidation,
+}
+
+impl PyRiskValidation {
+    fn from_validation(validation: RiskValidation) -> Self {
+        Self { validation }
+    }
+}
+
+#[pymethods]
+impl PyRiskValidation {
+    #[getter]
+    fn bump_and_revalue(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.validation.bump_and_revalue)
+    }
+
+    #[getter]
+    fn bump_minus_primary(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.validation.bump_minus_primary)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RiskValidation(bump_and_revalue={:?}, bump_minus_primary={:?})",
+            self.bump_and_revalue().value(),
+            self.bump_minus_primary().value()
+        )
+    }
+}
+
 /// Immutable replay and numerical diagnostics for a Monte Carlo result.
 #[pyclass(frozen, name = "Diagnostics", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -59,6 +134,9 @@ pub struct PyDiagnostics {
     validation_spot_bump: Option<f64>,
     validation_volatility_bump: Option<f64>,
     bump_policy_version: u32,
+    delta_validation: Option<PyRiskValidation>,
+    gamma_validation: Option<PyRiskValidation>,
+    vega_validation: Option<PyRiskValidation>,
     warnings: Vec<PyPricingWarning>,
 }
 
@@ -90,6 +168,18 @@ impl PyDiagnostics {
             validation_spot_bump: methods.validation_spot_bump,
             validation_volatility_bump: methods.validation_volatility_bump,
             bump_policy_version: methods.bump_policy_version,
+            delta_validation: price
+                .risk_diagnostics
+                .delta_validation
+                .map(PyRiskValidation::from_validation),
+            gamma_validation: price
+                .risk_diagnostics
+                .gamma_validation
+                .map(PyRiskValidation::from_validation),
+            vega_validation: price
+                .risk_diagnostics
+                .vega_validation
+                .map(PyRiskValidation::from_validation),
             warnings: price
                 .pricing_result
                 .diagnostics
@@ -219,6 +309,21 @@ impl PyDiagnostics {
     #[getter]
     fn bump_policy_version(&self) -> u32 {
         self.bump_policy_version
+    }
+
+    #[getter]
+    fn delta_validation(&self) -> Option<PyRiskValidation> {
+        self.delta_validation
+    }
+
+    #[getter]
+    fn gamma_validation(&self) -> Option<PyRiskValidation> {
+        self.gamma_validation
+    }
+
+    #[getter]
+    fn vega_validation(&self) -> Option<PyRiskValidation> {
+        self.vega_validation
     }
 
     /// Warnings in deterministic emission order.

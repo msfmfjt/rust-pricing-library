@@ -43,6 +43,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIsNone(result.diagnostics.validation_spot_bump)
         self.assertIsNone(result.diagnostics.validation_volatility_bump)
         self.assertEqual(result.diagnostics.bump_policy_version, 1)
+        self.assertIsNone(result.diagnostics.delta_validation)
+        self.assertIsNone(result.diagnostics.gamma_validation)
+        self.assertIsNone(result.diagnostics.vega_validation)
         self.assertEqual(
             [warning.code for warning in result.diagnostics.warnings],
             [warning.code for warning in result.warnings],
@@ -321,7 +324,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
             rust_pricing.Model.black_scholes(0.2),
             rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
-            rust_pricing.RiskRequest(delta=True, vega=True),
+            rust_pricing.RiskRequest(
+                delta=True, gamma_relative_bump=0.01, vega=True
+            ),
         )
         payload = json.loads(request.to_json())
         self.assertEqual(payload["product"]["type"], "arithmetic_asian")
@@ -334,7 +339,28 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
         self.assertTrue(math.isfinite(result.delta_raw))
+        self.assertTrue(math.isfinite(result.gamma_raw))
         self.assertTrue(math.isfinite(result.vega_raw))
+        for validation in (
+            result.diagnostics.delta_validation,
+            result.diagnostics.gamma_validation,
+            result.diagnostics.vega_validation,
+        ):
+            self.assertIsNotNone(validation)
+            self.assertTrue(math.isfinite(validation.bump_and_revalue.value))
+            self.assertGreaterEqual(
+                validation.bump_and_revalue.standard_error, 0.0
+            )
+            lower, upper = validation.bump_and_revalue.confidence_interval
+            self.assertLessEqual(lower, validation.bump_and_revalue.value)
+            self.assertLessEqual(validation.bump_and_revalue.value, upper)
+            self.assertEqual(
+                validation.bump_and_revalue.effective_sampling_units,
+                result.independent_sampling_units,
+            )
+            self.assertTrue(math.isfinite(validation.bump_minus_primary.value))
+            with self.assertRaises(AttributeError):
+                validation.bump_and_revalue.value = 0.0
 
     def test_native_fully_fixed_arithmetic_asian_discounts_known_payoff(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
