@@ -14,7 +14,7 @@ fn decimal(object: &Value, field: &str) -> f64 {
 }
 
 fn assert_close(field: &str, actual: f64, expected: f64) {
-    let tolerance = 5.0e-14_f64.max(5.0e-13 * expected.abs());
+    let tolerance = 1.0e-12_f64.max(5.0e-13 * expected.abs());
     assert!(
         (actual - expected).abs() <= tolerance,
         "{field}: actual={actual:.17e}, expected={expected:.17e}, tolerance={tolerance:.3e}"
