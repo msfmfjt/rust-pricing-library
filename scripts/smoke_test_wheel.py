@@ -38,6 +38,7 @@ def main() -> None:
     if "rust_pricing/py.typed" not in members:
         raise RuntimeError("wheel does not contain the py.typed marker")
     verify_wheel_metadata(
+        wheel,
         members,
         metadata,
         wheel_metadata,
@@ -174,6 +175,7 @@ def verify_wheel_member_layout(members: set[str]) -> None:
 
 
 def verify_wheel_metadata(
+    wheel: Path,
     members: set[str],
     metadata: Message,
     wheel_metadata: Message,
@@ -186,6 +188,13 @@ def verify_wheel_metadata(
             raise RuntimeError(
                 f"unexpected wheel {field}: {metadata[field]} != {expected_value}"
             )
+    filename_distribution, filename_version, filename_tags = parse_wheel_filename(wheel.name)
+    if filename_distribution != "rust_pricing":
+        raise RuntimeError(f"unexpected wheel filename distribution: {filename_distribution}")
+    if filename_version != metadata["Version"]:
+        raise RuntimeError(
+            f"wheel filename version {filename_version} does not match METADATA version {metadata['Version']}"
+        )
     init_py = member_bytes["rust_pricing/__init__.py"].decode("utf-8")
     if "from .rust_pricing import *" not in init_py:
         raise RuntimeError("wheel __init__.py must re-export the extension module")
@@ -211,10 +220,35 @@ def verify_wheel_metadata(
     tags = wheel_metadata.get_all("Tag") or []
     if not tags or any(not is_platform_cpython_tag(tag) for tag in tags):
         raise RuntimeError(f"wheel must carry platform tags, got: {tags}")
+    if set(tags) != filename_tags:
+        raise RuntimeError(
+            f"wheel filename tags {sorted(filename_tags)} do not match WHEEL tags {sorted(tags)}"
+        )
     verify_cyclonedx_sbom(members, member_bytes, expected_metadata["Version"])
     record_members = verify_wheel_record(record, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
+
+
+def parse_wheel_filename(filename: str) -> tuple[str, str, set[str]]:
+    if not filename.endswith(".whl"):
+        raise RuntimeError(f"expected a .whl file, got: {filename}")
+    stem = filename.removesuffix(".whl")
+    parts = stem.split("-")
+    if len(parts) not in {5, 6} or any(not part for part in parts):
+        raise RuntimeError(f"invalid wheel filename: {filename}")
+    distribution = parts[0]
+    version = parts[1]
+    python_tags, abi_tags, platform_tags = (part.split(".") for part in parts[-3:])
+    tags = {
+        f"{python_tag}-{abi_tag}-{platform_tag}"
+        for python_tag in python_tags
+        for abi_tag in abi_tags
+        for platform_tag in platform_tags
+    }
+    if not tags:
+        raise RuntimeError(f"wheel filename has no tags: {filename}")
+    return distribution, version, tags
 
 
 def is_platform_cpython_tag(tag: str) -> bool:
