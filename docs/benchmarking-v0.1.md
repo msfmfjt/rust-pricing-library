@@ -48,6 +48,12 @@ Local-variance-down/up. It uses the same two-worker, Reduction block 256
 execution policy as the replay fixture and records grid sizes, checkpoint
 policy, AAD tile capacity, and covariance layout.
 
+On supported platforms, the same CI step also generates
+`local-volatility-replay.json`. If a matching frozen fixture exists, CI compares
+it byte-for-byte. If the platform fixture is not frozen yet, the generated JSON
+is retained as an artifact so it can be reviewed and promoted in a follow-up
+change.
+
 ## Host and resource metadata
 
 `metadata.json` records the commit, runner OS/architecture, platform and CPU

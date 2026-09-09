@@ -55,14 +55,17 @@ diagnostics.
 - Candidate Python valuation example: `examples/python/local_vol_vegakt.py`.
 - Candidate Local Volatility/VegaKT benchmark artifact:
   `benchmark-results/local-volatility-rust.json` from CI.
+- Candidate unfrozen Windows replay artifact:
+  `benchmark-results/local-volatility-replay.json` from Windows CI.
 - Candidate CI evidence: latest pull request workflow run for this report's
   commit.
 
 ## Remaining acceptance work
 
 - Freeze the Windows x86-64 Local Volatility Price-only and
-  Delta/Gamma/Vega/VegaKT replay fixture under the same same-platform
-  byte-comparison contract used by the European baseline.
+  Delta/Gamma/Vega/VegaKT replay fixture from the Windows CI replay artifact,
+  then enable same-platform byte-comparison under the European baseline
+  contract.
 - Retain final benchmark artifacts from CI that separately identify the
   AD/decomposition workload and selected CRN bump validations.
 - Promote this report from candidate to accepted only after the retained replay

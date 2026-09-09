@@ -62,7 +62,7 @@ def main() -> None:
         ]
     )
     run([sys.executable, "scripts/check_replay_fixture.py", str(replay_report)])
-    if local_volatility_fixture_exists():
+    if local_volatility_platform_name() is not None:
         run(
             [
                 "cargo",
@@ -77,7 +77,12 @@ def main() -> None:
                 str(local_vol_replay_report),
             ]
         )
-        run([sys.executable, "scripts/check_replay_fixture.py", str(local_vol_replay_report)])
+        if local_volatility_fixture_exists():
+            run([sys.executable, "scripts/check_replay_fixture.py", str(local_vol_replay_report)])
+        else:
+            print(
+                f"generated unfrozen Local Volatility replay evidence at {local_vol_replay_report}"
+            )
     wheel_python = Path(".wheel-smoke-venv") / (
         "Scripts/python.exe" if os.name == "nt" else "bin/python"
     )
@@ -112,14 +117,18 @@ def run(command: list[str]) -> None:
 
 
 def local_volatility_fixture_exists() -> bool:
-    platform_name = {
+    platform_name = local_volatility_platform_name()
+    if platform_name is None:
+        return False
+    return (Path("fixtures/replay") / f"local_volatility-{platform_name}.json").is_file()
+
+
+def local_volatility_platform_name() -> str | None:
+    return {
         ("Darwin", "arm64"): "macos-aarch64",
         ("Windows", "AMD64"): "windows-x86_64",
         ("Windows", "x86_64"): "windows-x86_64",
     }.get((platform.system(), platform.machine()))
-    if platform_name is None:
-        return False
-    return (Path("fixtures/replay") / f"local_volatility-{platform_name}.json").is_file()
 
 
 def capture(command: list[str]) -> str:
