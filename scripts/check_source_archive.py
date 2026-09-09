@@ -88,6 +88,23 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
     "pricing": "crates/pricing",
 }
 
+REQUIRED_CI_SNIPPETS = {
+    "python scripts/check_local_vol_reference_fixture.py",
+    "python scripts/check_schemas.py",
+    "python scripts/check_markdown_links.py",
+    "cargo fmt --all --check",
+    "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
+    "cargo test --locked --workspace --all-features --exclude pricing-python",
+    "cargo test --locked -p pricing-python",
+    "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "python -m maturin build --locked --release --out dist",
+    "git archive --format=tar.gz --output",
+    "python scripts/check_source_archive.py",
+    "python scripts/smoke_test_wheel.py",
+    "python scripts/run_benchmark_suite.py",
+    "actions/upload-artifact@v4",
+}
+
 FORBIDDEN_PARTS = {
     ".git",
     "target",
@@ -141,6 +158,7 @@ def main() -> int:
             raise SystemExit(f"{archive}: missing required source files: {missing}")
 
         check_cargo_manifests(package, archive)
+        check_ci_workflow(package, archive)
 
     return 0
 
@@ -201,6 +219,23 @@ def check_cargo_manifests(package: tarfile.TarFile, archive: str) -> None:
             value = package_section.get(key)
             if not isinstance(value, dict) or value.get("workspace") is not True:
                 raise SystemExit(f"{archive}: {manifest} package.{key} must use workspace")
+
+
+def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/ci.yml")
+    missing = sorted(snippet for snippet in REQUIRED_CI_SNIPPETS if snippet not in workflow)
+    if missing:
+        raise SystemExit(f"{archive}: CI workflow is missing required gates: {missing}")
+
+
+def read_text(package: tarfile.TarFile, name: str) -> str:
+    member = package.extractfile(name)
+    if member is None:
+        raise SystemExit(f"missing text member: {name}")
+    try:
+        return member.read().decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SystemExit(f"{name}: invalid UTF-8: {exc}") from exc
 
 
 def read_toml(package: tarfile.TarFile, name: str) -> dict[str, object]:
