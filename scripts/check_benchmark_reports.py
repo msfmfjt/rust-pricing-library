@@ -141,8 +141,31 @@ def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
 def check_metadata(path: Path) -> None:
     document = load_object(path)
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
-    for key in ["platform", "machine", "python", "rustc", "cargo"]:
+    for key in [
+        "platform",
+        "machine",
+        "python",
+        "python_abi",
+        "rustc",
+        "cargo",
+        "target_triple",
+        "cargo_lock_sha256",
+    ]:
         require(isinstance(document.get(key), str), path, f"missing {key}")
+    require(
+        len(document["cargo_lock_sha256"]) == 64
+        and all(character in "0123456789abcdef" for character in document["cargo_lock_sha256"]),
+        path,
+        "cargo_lock_sha256 must be lowercase SHA-256 hex",
+    )
+    enabled_features = require_object(document.get("enabled_features"), path, "enabled_features")
+    for key in ["rust_benchmarks", "python_wheel"]:
+        features = enabled_features.get(key)
+        require(
+            isinstance(features, list) and all(isinstance(feature, str) for feature in features),
+            path,
+            f"enabled_features.{key} must be a string array",
+        )
     require_positive_int(document.get("peak_memory_bytes"), path, "peak_memory_bytes")
     command_peaks = require_object(
         document.get("command_peak_memory_bytes"), path, "command_peak_memory_bytes"

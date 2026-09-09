@@ -1884,6 +1884,15 @@ impl SimulationPlan {
         normals: &[f64],
         volatility: f64,
     ) -> Vec<(f64, f64)> {
+        if self.observation_times.len() == 1 {
+            let time = self.observation_times[0];
+            let normal = normals[0];
+            let total_variance = volatility * volatility * time;
+            let standard_deviation = total_variance.sqrt();
+            let brownian = time.sqrt() * normal;
+            let log_return = -0.5 * total_variance + standard_deviation * normal;
+            return vec![(self.observation_forwards[0] * log_return.exp(), brownian)];
+        }
         let mut previous_time = 0.0;
         let mut brownian = 0.0;
         self.observation_times
@@ -1963,6 +1972,9 @@ impl SimulationPlan {
         spot: f64,
         volatility: f64,
     ) -> Result<PathwiseAad, pricing_product::GraphError> {
+        if self.observation_dates.len() == 1 && self.observation_dates[0] == self.expiry {
+            return self.pathwise_aad_single_terminal(normals[0], spot, volatility);
+        }
         let spot_scale = spot / self.spot;
         let spots = self
             .spots_and_brownians_from_normals(normals, volatility)
@@ -2004,6 +2016,36 @@ impl SimulationPlan {
             delta: self.discount * delta,
             vega: self.discount * vega,
         })
+    }
+
+    fn pathwise_aad_single_terminal(
+        &self,
+        normal: f64,
+        spot: f64,
+        volatility: f64,
+    ) -> Result<PathwiseAad, pricing_product::GraphError> {
+        let total_variance = volatility * volatility * self.time;
+        let standard_deviation = total_variance.sqrt();
+        let log_return = -0.5 * total_variance + standard_deviation * normal;
+        let bumped_forward = self.forward * (spot / self.spot);
+        let terminal = bumped_forward * log_return.exp();
+        let payoff = self
+            .payoff
+            .evaluate_single_with_terminal_adjoint(|underlying, date| {
+                (underlying == self.underlying && date == self.expiry).then_some(terminal)
+            })?;
+        let terminal_adjoint = payoff
+            .terminal_adjoints
+            .iter()
+            .filter(|adjoint| {
+                adjoint.underlying == self.underlying && adjoint.observation_date == self.expiry
+            })
+            .fold(0.0, |total, adjoint| total + adjoint.value);
+        let price = self.discount * payoff.value;
+        let delta = self.discount * terminal_adjoint * terminal / spot;
+        let terminal_vega = terminal * (-volatility * self.time + self.time.sqrt() * normal);
+        let vega = self.discount * terminal_adjoint * terminal_vega;
+        Ok(PathwiseAad { price, delta, vega })
     }
 
     fn build_risk_report(

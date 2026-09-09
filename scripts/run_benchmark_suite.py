@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -106,6 +107,8 @@ def main() -> None:
         python_report, command_peak_memory_bytes["python_european_black_scholes"]
     )
 
+    rustc = capture(["rustc", "-vV"])
+    cargo = capture(["cargo", "-V"])
     metadata = {
         "schema_version": 1,
         "git_sha": os.environ.get("GITHUB_SHA"),
@@ -115,8 +118,15 @@ def main() -> None:
         "machine": platform.machine(),
         "processor": platform.processor() or None,
         "python": sys.version,
-        "rustc": capture(["rustc", "-vV"]),
-        "cargo": capture(["cargo", "-V"]),
+        "python_abi": sys.implementation.cache_tag,
+        "rustc": rustc,
+        "cargo": cargo,
+        "target_triple": rustc_host(rustc),
+        "enabled_features": {
+            "rust_benchmarks": [],
+            "python_wheel": ["pricing-python/extension-module"],
+        },
+        "cargo_lock_sha256": file_sha256(Path("Cargo.lock")),
         "peak_memory_bytes": max(command_peak_memory_bytes.values()),
         "command_peak_memory_bytes": command_peak_memory_bytes,
         "allocation_count": None,
@@ -277,6 +287,19 @@ def capture(command: list[str]) -> str:
     return subprocess.run(
         command, check=True, text=True, stdout=subprocess.PIPE
     ).stdout.strip()
+
+
+def rustc_host(rustc_version: str) -> str:
+    for line in rustc_version.splitlines():
+        if line.startswith("host: "):
+            return line.removeprefix("host: ")
+    raise RuntimeError("rustc -vV output did not include host target")
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 if __name__ == "__main__":

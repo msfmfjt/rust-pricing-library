@@ -57,8 +57,9 @@ change.
 ## Host and resource metadata
 
 `metadata.json` records the commit, runner OS/architecture, platform and CPU
-strings, Python version, full `rustc -vV`/`cargo -V` output, and observed peak
-RSS for each benchmark/replay child process. Allocation counters require an
-instrumented allocator and remain recorded explicitly as unavailable rather
-than silently omitted. Later instrumentation must add fields without silently
-changing the v0.1 workload.
+strings, Python version and ABI tag, full `rustc -vV`/`cargo -V` output, target
+triple, enabled feature sets for Rust and wheel measurements, the SHA-256
+digest of `Cargo.lock`, and observed peak RSS for each benchmark/replay child
+process. Allocation counters require an instrumented allocator and remain
+recorded explicitly as unavailable rather than silently omitted. Later
+instrumentation must add fields without silently changing the v0.1 workload.
