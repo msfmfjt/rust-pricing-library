@@ -1096,6 +1096,37 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
+    def test_json_resource_limit_error_reports_syntax_and_limits_phase(self):
+        oversized_number = "1" * 129
+        cases = [
+            (
+                "request",
+                lambda: rust_pricing.PricingRequest.from_json(
+                    f'{{"schema_version":{oversized_number}}}'
+                ),
+                "pricing_request",
+            ),
+            (
+                "result",
+                lambda: rust_pricing.PricingResult.from_json(
+                    f'{{"schema_version":{oversized_number}}}'
+                ),
+                "pricing_result",
+            ),
+        ]
+
+        for name, parser, document_kind in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    parser()
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "syntax_and_limits")
+                self.assertEqual(issue.code, "resource_limit")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, document_kind)
+                self.assertEqual(issue.instance_path, "")
+
     def test_validation_issue_equality_compares_payload(self):
         invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as first:
