@@ -136,6 +136,21 @@ def check_report(
     local_volatility: bool = False,
 ) -> None:
     document = load_object(path)
+    require_exact_keys(
+        document,
+        {
+            "benchmark_kind",
+            "capabilities",
+            "configuration",
+            "library_version",
+            "measurements",
+            "notes",
+            "process_peak_memory_bytes",
+            "schema_version",
+        },
+        path,
+        "report",
+    )
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(document.get("benchmark_kind") == benchmark_kind, path, "unexpected benchmark_kind")
     require(
@@ -144,6 +159,27 @@ def check_report(
         "library_version must match Cargo workspace version",
     )
     configuration = require_object(document.get("configuration"), path, "configuration")
+    expected_configuration_keys = {
+        "antithetic",
+        "compile_samples",
+        "engine",
+        "evaluated_paths",
+        "evaluation_samples",
+        "reduction_block_size",
+        "sampling_units",
+        "worker_threads",
+    }
+    if local_volatility:
+        expected_configuration_keys.update(
+            {
+                "aad_tile_capacity",
+                "checkpoint_interval",
+                "local_variance_grid_shape",
+                "reporting_iv_basis_shape",
+                "vega_kt_covariance_layout",
+            }
+        )
+    require_exact_keys(configuration, expected_configuration_keys, path, "configuration")
     require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
     require_positive_int(configuration.get("sampling_units"), path, "sampling_units")
@@ -193,6 +229,26 @@ def check_report(
     )
 
     capabilities = require_object(document.get("capabilities"), path, "capabilities")
+    expected_capability_keys = {
+        "allocation_count_available",
+        "peak_memory_available_in_process",
+    }
+    if local_volatility:
+        expected_capability_keys.update(
+            {
+                "aad_local_vega_timing_available",
+                "standalone_spot_and_local_variance_bump_timing_available",
+                "vega_kt_decomposition_timing_available",
+            }
+        )
+    else:
+        expected_capability_keys.update(
+            {
+                "aad_and_bump_timing_separable",
+                "standalone_bump_timing_available",
+            }
+        )
+    require_exact_keys(capabilities, expected_capability_keys, path, "capabilities")
     require(
         capabilities.get("peak_memory_available_in_process") is True,
         path,
@@ -214,6 +270,12 @@ def check_report(
 
 def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> None:
     document = load_object(path)
+    require_exact_keys(
+        document,
+        {"cases", "fixture_kind", "platform", "schema_version"},
+        path,
+        "replay report",
+    )
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(document.get("fixture_kind") == fixture_kind, path, "unexpected fixture_kind")
     require(
@@ -356,6 +418,21 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
 
 def check_python_report(path: Path, library_version: str) -> None:
     document = load_object(path)
+    require_exact_keys(
+        document,
+        {
+            "benchmark_kind",
+            "capabilities",
+            "configuration",
+            "library_version",
+            "measurements",
+            "notes",
+            "process_peak_memory_bytes",
+            "schema_version",
+        },
+        path,
+        "python report",
+    )
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(
         document.get("benchmark_kind") == "python_european_black_scholes",
@@ -368,6 +445,19 @@ def check_python_report(path: Path, library_version: str) -> None:
         "library_version must match Cargo workspace version",
     )
     configuration = require_object(document.get("configuration"), path, "configuration")
+    require_exact_keys(
+        configuration,
+        {
+            "antithetic",
+            "engine",
+            "evaluated_paths",
+            "reduction_block_size",
+            "sampling_units",
+            "worker_threads",
+        },
+        path,
+        "configuration",
+    )
     require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
     require_positive_int(configuration.get("sampling_units"), path, "sampling_units")
@@ -393,6 +483,18 @@ def check_python_report(path: Path, library_version: str) -> None:
     require_positive_int(
         document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
     )
+    capabilities = require_object(document.get("capabilities"), path, "capabilities")
+    require_exact_keys(
+        capabilities,
+        {"peak_memory_available_in_process"},
+        path,
+        "capabilities",
+    )
+    require(
+        capabilities.get("peak_memory_available_in_process") is True,
+        path,
+        "peak memory capability must be true",
+    )
     require_string_array(document.get("notes"), path, "notes")
 
 
@@ -402,6 +504,19 @@ def check_measurement(
     name: str,
     expected_paths_per_sample: int | None,
 ) -> None:
+    require_exact_keys(
+        document,
+        {
+            "evaluated_paths_per_sample",
+            "maximum_seconds",
+            "median_paths_per_second",
+            "median_seconds",
+            "minimum_seconds",
+            "samples",
+        },
+        path,
+        name,
+    )
     require_positive_int(document.get("samples"), path, f"{name}.samples")
     require_positive_float(document.get("median_seconds"), path, f"{name}.median_seconds")
     require_non_negative_float(document.get("minimum_seconds"), path, f"{name}.minimum_seconds")
@@ -449,6 +564,31 @@ def check_antithetic_path_count(configuration: dict[str, Any], path: Path) -> No
 
 def check_metadata(path: Path, artifacts: set[str]) -> None:
     document = load_object(path)
+    require_exact_keys(
+        document,
+        {
+            "allocation_count",
+            "cargo",
+            "cargo_lock_sha256",
+            "command_peak_memory_bytes",
+            "enabled_features",
+            "git_sha",
+            "machine",
+            "peak_memory_bytes",
+            "platform",
+            "processor",
+            "python",
+            "python_abi",
+            "runner_arch",
+            "runner_os",
+            "rustc",
+            "schema_version",
+            "target_triple",
+            "unavailable_metrics",
+        },
+        path,
+        "metadata",
+    )
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     for key in [
         "platform",
@@ -567,6 +707,16 @@ def reject_json_constant(value: str) -> Any:
 def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
     require(isinstance(value, dict), path, f"{name} must be an object")
     return value
+
+
+def require_exact_keys(
+    document: dict[str, Any], expected_keys: set[str], path: Path, name: str
+) -> None:
+    actual_keys = set(document)
+    missing = sorted(expected_keys.difference(actual_keys))
+    require(not missing, path, f"{name} missing keys: {missing}")
+    unexpected = sorted(actual_keys.difference(expected_keys))
+    require(not unexpected, path, f"{name} unexpected keys: {unexpected}")
 
 
 def require_non_empty_string(value: Any, path: Path, name: str) -> None:
