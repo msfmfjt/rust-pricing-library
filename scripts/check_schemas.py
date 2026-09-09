@@ -149,6 +149,22 @@ def check_required_properties(schema: dict[str, Any], path: Path) -> None:
             require(field in properties, f"{path}:{pointer((*location, 'required'))}: required field {field!r} missing from properties")
 
 
+def check_schema_version_fields(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        properties = value.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        definition = properties.get("schema_version")
+        if definition is None:
+            continue
+        require(
+            definition == {"const": 1},
+            f"{path}:{pointer((*location, 'properties', 'schema_version'))}: schema_version must be const 1",
+        )
+
+
 def check_date_fields(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict):
@@ -340,6 +356,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_refs(schema, path)
     check_wire_names(schema, path)
     check_required_properties(schema, path)
+    check_schema_version_fields(schema, path)
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)

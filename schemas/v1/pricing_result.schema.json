@@ -15,7 +15,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["schema_version", "request_fingerprint", "library_version", "platform"],
       "properties": {
-        "schema_version": {"type": "integer", "minimum": 1},
+        "schema_version": {"const": 1},
         "request_fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
         "library_version": {"type": "string"}, "platform": {"type": "string"}
       }
