@@ -978,17 +978,34 @@ Implementation order for the European Black–Scholes slice:
 
 This slice intentionally does not begin with a generic plugin system. It proves the compiled boundary and matched primal/adjoint kernel first; subsequent products and models extend those established interfaces.
 
-## 19. Architecture decisions still required
+## 19. Decision status
 
-The next design iteration shall choose:
+The v0.1 baseline resolves the decisions needed for the European
+Black-Scholes and Local Volatility/VegaKT slices:
 
-- final package/project prefix;
-- concrete pure-Rust matrix library and pivoted-QR implementation;
-- concrete primal/reverse kernel ABI version and initial numerical defaults for checkpoint interval and AAD tile capacity;
-- exact closed `PayoffOpcode` variants, payload layout, and stable logical ABI tags;
+- package and artifact names use the `pricing-*` Rust crates and the
+  `rust-pricing` Python package;
+- the supported build uses only pure-Rust numerical code and does not link
+  BLAS/LAPACK;
+- the primal/reverse kernel contracts, Source graph version, tape ABI,
+  checkpoint policy, and AAD tile policy are versioned and exposed in replay
+  diagnostics;
+- the v0.1 Source opcode set, payload layout, and stable logical ABI tags are
+  frozen by the wire schema, fixtures, and payoff fingerprints;
+- SSVI/eSSVI admissibility, eSSVI terminal slope handling, Local-grid helpers,
+  VegaKT transition integration, and non-uniform-grid hat-kernel normalization
+  are fixed in `local-vol-vegakt-numerical-contracts-v0.1.md`;
+- scalar dates use the in-house `pricing-core::Date` representation, while
+  settlement-lag calendars remain outside v0.1;
+- schema version 1 is the only released wire version for request and result
+  documents; and
+- Rust 1.98 and Python 3.12 are the minimum supported toolchain versions for
+  the private artifacts.
+
+The following decisions remain outside the v0.1 release and require a new
+requirements or ADR record before implementation:
+
+- column-pivoted QR details for a production LSM slice;
 - double/window barrier and hit-time-rebate estimator extensions;
-- SSVI/eSSVI admissibility tolerances, eSSVI terminal-slope configuration, and numerical defaults for the Local-grid tail, padding, and piecewise-sinh parameters;
-- VegaKT transition-cell integration formulas and non-uniform-grid hat-kernel boundary normalization;
-- date crate choice and settlement-lag representation;
-- serialization schema/versioning; and
-- minimum supported Rust and Python versions.
+- multi-asset correlation term structures; and
+- public publication, licensing, and artifact-access policy.
