@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import ast
+import base64
 import csv
 from email.message import Message
 from email.parser import Parser
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,7 +22,8 @@ def main() -> None:
     wheel = selected_wheel()
 
     with ZipFile(wheel) as archive:
-        members = set(archive.namelist())
+        members = {member for member in archive.namelist() if not member.endswith("/")}
+        member_bytes = {member: archive.read(member) for member in members}
         if "rust_pricing/__init__.pyi" not in members:
             raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
         stub = archive.read("rust_pricing/__init__.pyi")
@@ -29,7 +32,7 @@ def main() -> None:
         record = read_dist_info_text(archive, members, "RECORD")
     if not any(Path(member).name == "py.typed" for member in members):
         raise RuntimeError("wheel does not contain the py.typed marker")
-    verify_wheel_metadata(members, metadata, wheel_metadata, record)
+    verify_wheel_metadata(members, metadata, wheel_metadata, record, member_bytes)
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
         raise RuntimeError("wheel type stub does not match rust_pricing.pyi")
@@ -101,6 +104,7 @@ def verify_wheel_metadata(
     metadata: Message,
     wheel_metadata: Message,
     record: str,
+    member_bytes: dict[str, bytes],
 ) -> None:
     if metadata["Name"] != "rust-pricing":
         raise RuntimeError(f"unexpected wheel name: {metadata['Name']}")
@@ -115,31 +119,56 @@ def verify_wheel_metadata(
         raise RuntimeError(f"wheel must carry platform tags, got: {tags}")
     if not any(member.endswith(".dist-info/sboms/pricing-python.cyclonedx.json") for member in members):
         raise RuntimeError("wheel does not contain the generated CycloneDX SBOM")
-    record_members = wheel_record_members(record)
-    missing_from_record = sorted(members.difference(record_members))
-    if missing_from_record:
-        raise RuntimeError(f"wheel RECORD is missing entries: {missing_from_record[:10]}")
-    missing_from_wheel = sorted(record_members.difference(members))
-    if missing_from_wheel:
-        raise RuntimeError(f"wheel RECORD lists missing files: {missing_from_wheel[:10]}")
+    record_members = verify_wheel_record(record, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
 
 
-def wheel_record_members(record: str) -> set[str]:
+def verify_wheel_record(
+    record: str,
+    wheel_members: set[str],
+    member_bytes: dict[str, bytes],
+) -> set[str]:
     rows = list(csv.reader(record.splitlines()))
+    entries: list[tuple[int, str, str, str]] = []
     members: set[str] = set()
     for index, row in enumerate(rows, start=1):
         if len(row) != 3:
             raise RuntimeError(f"wheel RECORD row {index} must have three fields")
-        path, _digest, _size = row
+        path, digest, size = row
         if not path:
             raise RuntimeError(f"wheel RECORD row {index} has an empty path")
         if path in members:
             raise RuntimeError(f"wheel RECORD lists {path!r} more than once")
         members.add(path)
+        entries.append((index, path, digest, size))
     if not any(member.endswith(".dist-info/RECORD") for member in members):
         raise RuntimeError("wheel RECORD does not list itself")
+
+    missing_from_record = sorted(wheel_members.difference(members))
+    if missing_from_record:
+        raise RuntimeError(f"wheel RECORD is missing entries: {missing_from_record[:10]}")
+    missing_from_wheel = sorted(members.difference(wheel_members))
+    if missing_from_wheel:
+        raise RuntimeError(f"wheel RECORD lists missing files: {missing_from_wheel[:10]}")
+
+    for index, path, digest, size in entries:
+        if path.endswith(".dist-info/RECORD"):
+            if digest or size:
+                raise RuntimeError("wheel RECORD entry must omit its own digest and size")
+            continue
+        if not digest.startswith("sha256="):
+            raise RuntimeError(f"wheel RECORD row {index} must use a sha256 digest")
+        expected_digest = base64.urlsafe_b64encode(
+            hashlib.sha256(member_bytes[path]).digest()
+        ).decode("ascii").rstrip("=")
+        actual_digest = digest.removeprefix("sha256=")
+        if actual_digest != expected_digest:
+            raise RuntimeError(f"wheel RECORD row {index} has an invalid digest for {path}")
+        if not size.isdecimal():
+            raise RuntimeError(f"wheel RECORD row {index} has an invalid size")
+        if int(size) != len(member_bytes[path]):
+            raise RuntimeError(f"wheel RECORD row {index} has the wrong size for {path}")
     return members
 
 
