@@ -67,7 +67,7 @@
     "model": {
       "oneOf": [
         {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"const": "black_scholes"}, "volatility": {"type": "number", "minimum": 0}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "local_variance_grid"], "properties": {"type": {"const": "local_volatility"}, "local_variance_grid": {"$ref": "#/$defs/local_variance_grid"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "local_variance_grid"], "properties": {"type": {"const": "local_volatility"}, "local_variance_grid": {"$ref": "#/$defs/local_variance_grid"}, "reporting_iv_basis": {"$ref": "#/$defs/reporting_iv_basis"}}}
       ]
     },
     "local_variance_grid": {
@@ -80,6 +80,16 @@
         "values": {"type": "array", "minItems": 4, "items": {"type": "number", "exclusiveMinimum": 0}},
         "floor": {"type": "number", "minimum": 0},
         "cap": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "reporting_iv_basis": {
+      "type": "object", "additionalProperties": false,
+      "required": ["maturity_nodes", "log_forward_moneyness_nodes", "shape", "implied_volatilities"],
+      "properties": {
+        "maturity_nodes": {"type": "array", "minItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}},
+        "log_forward_moneyness_nodes": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "shape": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 2}},
+        "implied_volatilities": {"type": "array", "minItems": 4, "items": {"type": "number", "exclusiveMinimum": 0}}
       }
     },
     "variance_reduction": {

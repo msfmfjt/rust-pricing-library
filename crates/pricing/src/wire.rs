@@ -8,7 +8,9 @@ use pricing_market::{
     MarketContext,
 };
 use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing_models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
+use pricing_models::{
+    BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
+};
 use pricing_product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use serde::{Deserialize, Serialize};
@@ -267,6 +269,8 @@ enum ModelV1 {
     },
     LocalVolatility {
         local_variance_grid: LocalVarianceGridV1,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reporting_iv_basis: Option<ReportingIvBasisV1>,
     },
 }
 
@@ -279,6 +283,15 @@ struct LocalVarianceGridV1 {
     values: Vec<f64>,
     floor: f64,
     cap: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReportingIvBasisV1 {
+    maturity_nodes: Vec<f64>,
+    log_forward_moneyness_nodes: Vec<f64>,
+    shape: [usize; 2],
+    implied_volatilities: Vec<f64>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -453,6 +466,7 @@ impl From<&ModelSpec> for ModelV1 {
             },
             ModelSpec::LocalVolatility(spec) => Self::LocalVolatility {
                 local_variance_grid: LocalVarianceGridV1::from(spec.local_variance_grid()),
+                reporting_iv_basis: spec.reporting_iv_basis().map(ReportingIvBasisV1::from),
             },
         }
     }
@@ -467,6 +481,20 @@ impl From<&pricing_market::LocalVarianceGrid> for LocalVarianceGridV1 {
             values: grid.values().to_vec(),
             floor: grid.floor(),
             cap: grid.cap(),
+        }
+    }
+}
+
+impl From<&LocalVolatilityReportingBasis> for ReportingIvBasisV1 {
+    fn from(basis: &LocalVolatilityReportingBasis) -> Self {
+        Self {
+            maturity_nodes: basis.maturity_nodes().to_vec(),
+            log_forward_moneyness_nodes: basis.log_forward_moneyness_nodes().to_vec(),
+            shape: [
+                basis.maturity_nodes().len(),
+                basis.log_forward_moneyness_nodes().len(),
+            ],
+            implied_volatilities: basis.implied_volatilities().to_vec(),
         }
     }
 }
@@ -617,7 +645,11 @@ impl TryFrom<RequestV1> for PricingRequest {
             }
             ModelV1::LocalVolatility {
                 local_variance_grid,
-            } => ModelSpec::LocalVolatility(local_volatility_from_wire(local_variance_grid)?),
+                reporting_iv_basis,
+            } => ModelSpec::LocalVolatility(local_volatility_from_wire(
+                local_variance_grid,
+                reporting_iv_basis,
+            )?),
         };
         let engine = match value.engine {
             EngineV1::PseudoMonteCarlo {
@@ -654,6 +686,7 @@ impl TryFrom<RequestV1> for PricingRequest {
 
 fn local_volatility_from_wire(
     value: LocalVarianceGridV1,
+    reporting_iv_basis: Option<ReportingIvBasisV1>,
 ) -> Result<LocalVolatilitySpec, WireError> {
     let expected_shape = [
         value.time_nodes.len(),
@@ -665,12 +698,37 @@ fn local_volatility_from_wire(
             value.shape, expected_shape
         )));
     }
-    LocalVolatilitySpec::from_explicit_grid(
+    let mut spec = LocalVolatilitySpec::from_explicit_grid(
         value.time_nodes,
         value.log_forward_moneyness_nodes,
         value.values,
         value.floor,
         value.cap,
+    )
+    .map_err(domain)?;
+    if let Some(basis) = reporting_iv_basis {
+        spec = spec.with_reporting_iv_basis(reporting_iv_basis_from_wire(basis)?);
+    }
+    Ok(spec)
+}
+
+fn reporting_iv_basis_from_wire(
+    value: ReportingIvBasisV1,
+) -> Result<LocalVolatilityReportingBasis, WireError> {
+    let expected_shape = [
+        value.maturity_nodes.len(),
+        value.log_forward_moneyness_nodes.len(),
+    ];
+    if value.shape != expected_shape {
+        return Err(WireError::Domain(format!(
+            "reporting_iv_basis shape {:?} does not match node dimensions {:?}",
+            value.shape, expected_shape
+        )));
+    }
+    LocalVolatilityReportingBasis::new(
+        value.maturity_nodes,
+        value.log_forward_moneyness_nodes,
+        value.implied_volatilities,
     )
     .map_err(domain)
 }
@@ -1322,21 +1380,25 @@ mod tests {
     }
 
     fn local_vol_request() -> PricingRequest {
+        local_vol_request_with_model(
+            LocalVolatilitySpec::from_explicit_grid(
+                vec![0.25, 1.0],
+                vec![-0.1, 0.0, 0.2],
+                vec![0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
+                1.0e-8,
+                4.0,
+            )
+            .expect("local vol"),
+        )
+    }
+
+    fn local_vol_request_with_model(model: LocalVolatilitySpec) -> PricingRequest {
         let mut request = request();
         request = PricingRequest::new(
             request.valuation_date(),
             request.product().clone(),
             request.market().clone(),
-            ModelSpec::LocalVolatility(
-                LocalVolatilitySpec::from_explicit_grid(
-                    vec![0.25, 1.0],
-                    vec![-0.1, 0.0, 0.2],
-                    vec![0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
-                    1.0e-8,
-                    4.0,
-                )
-                .expect("local vol"),
-            ),
+            ModelSpec::LocalVolatility(model),
             request.engine(),
             request.risk().clone(),
         )
@@ -1437,6 +1499,71 @@ mod tests {
             panic!("local vol model");
         };
         assert_eq!(model.local_variance_grid().values()[4], 0.045);
+        assert!(model.reporting_iv_basis().is_none());
+    }
+
+    #[test]
+    fn request_json_round_trips_local_volatility_reporting_iv_basis() {
+        let basis = LocalVolatilityReportingBasis::new(
+            vec![0.25, 1.0],
+            vec![-0.2, 0.0, 0.2],
+            vec![0.22, 0.20, 0.21, 0.24, 0.22, 0.23],
+        )
+        .expect("basis");
+        let model = LocalVolatilitySpec::from_explicit_grid(
+            vec![0.25, 1.0],
+            vec![-0.1, 0.0, 0.2],
+            vec![0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
+            1.0e-8,
+            4.0,
+        )
+        .expect("local vol")
+        .with_reporting_iv_basis(basis);
+        let request = local_vol_request_with_model(model);
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"reporting_iv_basis\""));
+        assert!(json.contains("\"shape\":[2,3]"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
+        let ModelSpec::LocalVolatility(model) = parsed.model() else {
+            panic!("local vol model");
+        };
+        let basis = model.reporting_iv_basis().expect("basis");
+        assert_eq!(basis.maturity_nodes(), [0.25, 1.0]);
+        assert_eq!(basis.log_forward_moneyness_nodes(), [-0.2, 0.0, 0.2]);
+        assert_eq!(basis.implied_volatilities()[4], 0.22);
+    }
+
+    #[test]
+    fn request_json_rejects_mismatched_reporting_iv_basis_shape() {
+        let basis = LocalVolatilityReportingBasis::new(
+            vec![0.25, 1.0],
+            vec![-0.2, 0.0, 0.2],
+            vec![0.22, 0.20, 0.21, 0.24, 0.22, 0.23],
+        )
+        .expect("basis");
+        let model = LocalVolatilitySpec::from_explicit_grid(
+            vec![0.25, 1.0],
+            vec![-0.1, 0.0, 0.2],
+            vec![0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
+            1.0e-8,
+            4.0,
+        )
+        .expect("local vol")
+        .with_reporting_iv_basis(basis);
+        let json = request_to_json(&local_vol_request_with_model(model)).expect("json");
+        let invalid = json.replacen(
+            "\"reporting_iv_basis\":{\"maturity_nodes\":[0.25,1.0],\"log_forward_moneyness_nodes\":[-0.2,0.0,0.2],\"shape\":[2,3]",
+            "\"reporting_iv_basis\":{\"maturity_nodes\":[0.25,1.0],\"log_forward_moneyness_nodes\":[-0.2,0.0,0.2],\"shape\":[3,2]",
+            1,
+        );
+        assert!(matches!(
+            parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::Domain(message)) if message.contains("reporting_iv_basis shape")
+        ));
     }
 
     #[test]

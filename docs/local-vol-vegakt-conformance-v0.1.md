@@ -25,7 +25,7 @@ European Black-Scholes baseline.
 | Market surfaces | Unit and reference tests in `pricing-market` | SSVI/eSSVI values, analytic derivatives, density factors, Local-variance repairs, node helpers, and affine dividends pass |
 | Path engine | Unit tests in `pricing-mc` and the public `pricing` facade | Non-uniform Brownian bridge, Local Volatility Log-Euler, Price/Delta/Gamma MC/RQMC evaluation, event substeps, boundary diagnostics, reverse interpolation, and dividend reverse caches pass |
 | VegaKT | Unit tests in `pricing-risk` | Active domain, equation (11), transition operator, reporting-IV basis, projection residuals, bucket estimates, and covariance layouts pass |
-| Public API | Rust wire tests, Python smoke tests, and Python examples | Discrete dividends, explicit Local Volatility grids, eSSVI helpers, standard SSVI helpers, and VegaKT requests serialize through public facades |
+| Public API | Rust wire tests, Python smoke tests, and Python examples | Discrete dividends, explicit Local Volatility grids, optional reporting-IV bases, eSSVI helpers, standard SSVI helpers, and VegaKT requests serialize through public facades |
 | CI | Latest pull request CI for this report's commit | Formatting, Clippy, Rust tests, statistical acceptance, supported wheels, Python smoke tests, dependency checks, and benchmark harness pass |
 
 ## Requirements Section 13.1 status
@@ -79,5 +79,6 @@ diagnostics.
   metadata for the same reason documented by the European benchmark baseline.
 - The public Python Local Volatility helpers materialize explicit grids before
   request compilation; they do not preserve calibrated surface parameters as a
-  separate runtime model path.
+  separate runtime model path. The Rust/JSON model can retain an explicit
+  reporting-IV basis for future public VegaKT evaluation.
 - SSVI parameter Greeks are intentionally outside the MVP VegaKT definition.
