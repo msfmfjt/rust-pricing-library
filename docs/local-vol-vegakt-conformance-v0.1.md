@@ -25,7 +25,7 @@ European Black-Scholes baseline.
 | Market surfaces | Unit and reference tests in `pricing-market` | SSVI/eSSVI values, analytic derivatives, density factors, Local-variance repairs, node helpers, and affine dividends pass |
 | Path engine | Unit tests in `pricing-mc` and the public `pricing` facade | Non-uniform Brownian bridge, Local Volatility Log-Euler, Price/Delta/Gamma MC/RQMC evaluation, event substeps, boundary diagnostics, reverse interpolation, and dividend reverse caches pass |
 | VegaKT | Unit tests in `pricing-risk` | Active domain, equation (11), transition operator, reporting-IV basis, projection residuals, bucket estimates, and covariance layouts pass |
-| Public API | Rust wire tests, Python smoke tests, and Python examples | Discrete dividends, explicit Local Volatility grids, optional reporting-IV bases, eSSVI helpers, standard SSVI helpers, VegaKT requests, and VegaKT result reports serialize through public facades |
+| Public API | Rust wire tests, Python smoke tests, and Python examples | Discrete dividends, explicit Local Volatility grids, optional reporting-IV bases, eSSVI helpers, standard SSVI helpers, VegaKT requests, and VegaKT result reports serialize through public facades; Python exposes typed VegaKT result accessors when a report is attached |
 | CI | Latest pull request CI for this report's commit | Formatting, Clippy, Rust tests, statistical acceptance, supported wheels, Python smoke tests, dependency checks, and benchmark harness pass |
 
 ## Requirements Section 13.1 status

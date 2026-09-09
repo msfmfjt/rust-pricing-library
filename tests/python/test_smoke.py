@@ -31,6 +31,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(result.independent_sampling_units, 1024)
         self.assertEqual(result.evaluated_paths, 2048)
         self.assertIsNone(result.delta_raw)
+        self.assertIsNone(result.vega_kt)
 
         payload = json.loads(result.to_json())
         self.assertEqual(payload["document_kind"], "pricing_result")
@@ -294,6 +295,19 @@ class PricingFacadeSmokeTest(unittest.TestCase):
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
+
+    def test_vega_kt_result_api_is_exported(self):
+        exported = [
+            "VegaKtResult",
+            "VegaKtCoordinate",
+            "VegaKtBucketEstimate",
+            "VegaKtProjection",
+            "VegaKtResidualDiagnostics",
+            "VegaKtReportingStats",
+        ]
+        for name in exported:
+            self.assertTrue(hasattr(rust_pricing, name), name)
+        self.assertTrue(hasattr(rust_pricing.PricingResult, "vega_kt"))
 
     def test_native_builder_error_is_structured(self):
         curve = rust_pricing.DiscountCurve(1, [0.0, 1.0], [1.0, 0.95])

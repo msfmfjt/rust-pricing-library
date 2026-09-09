@@ -10,7 +10,10 @@ use std::collections::BTreeMap;
 use pricing::mc::ExecutionPolicy;
 use pricing::{
     Estimate, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest, RiskEstimate,
-    WireError, fingerprint_request, parse_request_json, request_to_json, result_to_json,
+    VegaKtResult, VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
+    VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
+    VegaKtResultUnit, WireError, fingerprint_request, parse_request_json, request_to_json,
+    result_to_json,
 };
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
@@ -234,6 +237,258 @@ pub struct PyPricingResult {
     inner: MonteCarloPrice,
 }
 
+/// One VegaKT bucket coordinate in maturity/log-moneyness space.
+#[pyclass(frozen, name = "VegaKtCoordinate", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtCoordinate {
+    inner: VegaKtResultCoordinate,
+}
+
+#[pymethods]
+impl PyVegaKtCoordinate {
+    #[getter]
+    fn maturity(&self) -> f64 {
+        self.inner.maturity().get()
+    }
+
+    #[getter]
+    fn log_moneyness(&self) -> f64 {
+        self.inner.log_moneyness().get()
+    }
+
+    #[getter]
+    fn implied_volatility(&self) -> f64 {
+        self.inner.implied_volatility().get()
+    }
+}
+
+/// One VegaKT bucket estimate with raw and market-scaled units.
+#[pyclass(frozen, name = "VegaKtBucketEstimate", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtBucketEstimate {
+    inner: VegaKtResultBucketEstimate,
+}
+
+#[pymethods]
+impl PyVegaKtBucketEstimate {
+    #[getter]
+    fn raw_mean(&self) -> f64 {
+        self.inner.raw_mean().get()
+    }
+
+    #[getter]
+    fn market_scaled_mean(&self) -> f64 {
+        self.inner.market_scaled_mean().get()
+    }
+
+    #[getter]
+    fn sample_variance(&self) -> Option<f64> {
+        self.inner.sample_variance().map(|value| value.get())
+    }
+
+    #[getter]
+    fn price_covariance(&self) -> Option<f64> {
+        self.inner.price_covariance().map(|value| value.get())
+    }
+}
+
+/// Reporting-edge sensitivity diagnostics for VegaKT projection.
+#[pyclass(frozen, name = "VegaKtReportingStats", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtReportingStats {
+    inner: VegaKtResultReportingStats,
+}
+
+#[pymethods]
+impl PyVegaKtReportingStats {
+    #[getter]
+    fn left_edge_count(&self) -> u64 {
+        self.inner.left_edge_count()
+    }
+
+    #[getter]
+    fn right_edge_count(&self) -> u64 {
+        self.inner.right_edge_count()
+    }
+
+    #[getter]
+    fn left_edge_sensitivity(&self) -> f64 {
+        self.inner.left_edge_sensitivity().get()
+    }
+
+    #[getter]
+    fn right_edge_sensitivity(&self) -> f64 {
+        self.inner.right_edge_sensitivity().get()
+    }
+}
+
+/// Projection summary used to reconcile VegaKT buckets with scalar vega.
+#[pyclass(frozen, name = "VegaKtProjection", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtProjection {
+    inner: VegaKtResultProjection,
+}
+
+#[pymethods]
+impl PyVegaKtProjection {
+    #[getter]
+    fn scalar_vega(&self) -> f64 {
+        self.inner.scalar_vega().get()
+    }
+
+    #[getter]
+    fn signed_residual(&self) -> f64 {
+        self.inner.signed_residual().get()
+    }
+
+    #[getter]
+    fn pre_projection(&self) -> f64 {
+        self.inner.pre_projection().get()
+    }
+
+    #[getter]
+    fn reporting_stats(&self) -> PyVegaKtReportingStats {
+        PyVegaKtReportingStats {
+            inner: self.inner.reporting_stats(),
+        }
+    }
+}
+
+/// Residual diagnostics for the VegaKT active reporting domain.
+#[pyclass(frozen, name = "VegaKtResidualDiagnostics", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtResidualDiagnostics {
+    inner: VegaKtResultResidualDiagnostics,
+}
+
+#[pymethods]
+impl PyVegaKtResidualDiagnostics {
+    #[getter]
+    fn active_domain_start_index(&self) -> usize {
+        self.inner.active_domain_start_index()
+    }
+
+    #[getter]
+    fn active_domain_end_index(&self) -> usize {
+        self.inner.active_domain_end_index()
+    }
+
+    #[getter]
+    fn active_domain_forward_index(&self) -> usize {
+        self.inner.active_domain_forward_index()
+    }
+
+    #[getter]
+    fn excluded_probability_mass(&self) -> f64 {
+        self.inner.excluded_probability_mass().get()
+    }
+
+    #[getter]
+    fn signed_residual(&self) -> f64 {
+        self.inner.signed_residual().get()
+    }
+
+    #[getter]
+    fn pre_projection(&self) -> f64 {
+        self.inner.pre_projection().get()
+    }
+
+    #[getter]
+    fn reporting_stats(&self) -> PyVegaKtReportingStats {
+        PyVegaKtReportingStats {
+            inner: self.inner.reporting_stats(),
+        }
+    }
+}
+
+/// Full VegaKT bucket report attached to a pricing result when requested.
+#[pyclass(frozen, name = "VegaKtResult", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtResult {
+    inner: VegaKtResult,
+}
+
+#[pymethods]
+impl PyVegaKtResult {
+    #[getter]
+    fn coordinates(&self) -> Vec<PyVegaKtCoordinate> {
+        self.inner
+            .coordinates()
+            .iter()
+            .copied()
+            .map(|inner| PyVegaKtCoordinate { inner })
+            .collect()
+    }
+
+    #[getter]
+    fn estimates(&self) -> Vec<PyVegaKtBucketEstimate> {
+        self.inner
+            .estimates()
+            .iter()
+            .copied()
+            .map(|inner| PyVegaKtBucketEstimate { inner })
+            .collect()
+    }
+
+    #[getter]
+    fn raw_buckets(&self) -> Vec<f64> {
+        self.inner
+            .raw_buckets()
+            .iter()
+            .map(|value| value.get())
+            .collect()
+    }
+
+    #[getter]
+    fn full_bucket_covariance(&self) -> Option<Vec<Option<f64>>> {
+        self.inner.full_bucket_covariance().map(|values| {
+            values
+                .iter()
+                .map(|value| value.map(|value| value.get()))
+                .collect()
+        })
+    }
+
+    #[getter]
+    fn covariance_layout(&self) -> &'static str {
+        vega_kt_covariance_layout_name(self.inner.covariance_layout())
+    }
+
+    #[getter]
+    fn projection(&self) -> PyVegaKtProjection {
+        PyVegaKtProjection {
+            inner: self.inner.projection(),
+        }
+    }
+
+    #[getter]
+    fn residual_diagnostics(&self) -> PyVegaKtResidualDiagnostics {
+        PyVegaKtResidualDiagnostics {
+            inner: self.inner.residual_diagnostics(),
+        }
+    }
+
+    #[getter]
+    fn raw_unit(&self) -> &'static str {
+        vega_kt_unit_name(self.inner.raw_unit())
+    }
+
+    #[getter]
+    fn market_scaled_unit(&self) -> &'static str {
+        vega_kt_unit_name(self.inner.market_scaled_unit())
+    }
+
+    #[getter]
+    fn policy_label(&self) -> &str {
+        self.inner.policy_label()
+    }
+
+    #[getter]
+    fn truncation_order(&self) -> &str {
+        self.inner.truncation_order()
+    }
+}
+
 #[pymethods]
 impl PyPricingResult {
     #[getter]
@@ -280,6 +535,16 @@ impl PyPricingResult {
     #[getter]
     fn vega_market_scaled(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.vega, true)
+    }
+
+    #[getter]
+    fn vega_kt(&self) -> Option<PyVegaKtResult> {
+        self.inner
+            .pricing_result
+            .risks
+            .vega_kt
+            .clone()
+            .map(|inner| PyVegaKtResult { inner })
     }
 
     #[getter]
@@ -334,6 +599,24 @@ fn risk_value(risk: Option<RiskEstimate>, market_scaled: bool) -> Option<f64> {
     })
 }
 
+fn vega_kt_covariance_layout_name(value: VegaKtResultCovarianceLayout) -> &'static str {
+    match value {
+        VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly => {
+            "price_and_bucket_variance_only"
+        }
+        VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor => "full_bucket_matrix_row_major",
+    }
+}
+
+fn vega_kt_unit_name(value: VegaKtResultUnit) -> &'static str {
+    match value {
+        VegaKtResultUnit::CurrencyPerUnitAbsoluteVolatility => {
+            "currency_per_unit_absolute_volatility"
+        }
+        VegaKtResultUnit::CurrencyPerVolatilityPoint => "currency_per_volatility_point",
+    }
+}
+
 pub(crate) fn validation_exception(py: Python<'_>, issue: PyValidationIssue) -> PyErr {
     let message = issue.message.clone();
     let error = ValidationError::new_err(message);
@@ -377,6 +660,12 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
     module.add_class::<PyPricingResult>()?;
+    module.add_class::<PyVegaKtCoordinate>()?;
+    module.add_class::<PyVegaKtBucketEstimate>()?;
+    module.add_class::<PyVegaKtReportingStats>()?;
+    module.add_class::<PyVegaKtProjection>()?;
+    module.add_class::<PyVegaKtResidualDiagnostics>()?;
+    module.add_class::<PyVegaKtResult>()?;
     module.add_function(wrap_pyfunction!(version, module)?)?;
     Ok(())
 }
