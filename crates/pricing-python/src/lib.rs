@@ -14,6 +14,7 @@ use pricing::{
     VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit, WireError,
     fingerprint_request, parse_request_json, parse_result_json, request_to_json, result_to_json,
 };
+use pyo3::basic::CompareOp;
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -178,6 +179,16 @@ impl PyValidationIssue {
             self.code,
             self.message
         )
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self == other),
+            CompareOp::Ne => Ok(self != other),
+            _ => Err(PyValueError::new_err(
+                "ValidationIssue only supports equality comparison",
+            )),
+        }
     }
 }
 

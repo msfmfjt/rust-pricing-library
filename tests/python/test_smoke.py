@@ -671,6 +671,19 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             issue.code = "changed"
 
+    def test_validation_issue_equality_compares_payload(self):
+        invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
+        with self.assertRaises(rust_pricing.ValidationError) as first:
+            rust_pricing.PricingRequest.from_json(invalid_schema)
+        with self.assertRaises(rust_pricing.ValidationError) as second:
+            rust_pricing.PricingRequest.from_json(invalid_schema)
+        invalid_spot = self.request_json.replace('"spot":100.0', '"spot":-100.0')
+        with self.assertRaises(rust_pricing.ValidationError) as third:
+            rust_pricing.PricingRequest.from_json(invalid_spot)
+
+        self.assertEqual(first.exception.issues[0], second.exception.issues[0])
+        self.assertNotEqual(first.exception.issues[0], third.exception.issues[0])
+
     def test_json_domain_error_reports_instance_path(self):
         invalid = self.request_json.replace(
             '"valuation_date":"2026-09-04"', '"valuation_date":"2026-02-31"'
