@@ -7,8 +7,10 @@ import json
 from pathlib import Path
 import re
 import sys
+import tomllib
 
 
+ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PREFIXES = {
     "european_black_scholes_replay": "european_bs",
     "local_volatility_replay": "local_volatility",
@@ -37,8 +39,9 @@ def main() -> None:
         raise SystemExit("usage: check_replay_fixture.py <generated.json>")
 
     generated = Path(sys.argv[1])
+    library_version = workspace_package_version()
     generated_text, document = load_object(generated)
-    fixture_kind, platform = replay_identity(generated, document)
+    fixture_kind, platform = replay_identity(generated, document, library_version)
     fixture_prefix = FIXTURE_PREFIXES[fixture_kind]
 
     expected = Path("fixtures/replay") / f"{fixture_prefix}-{platform}.json"
@@ -46,7 +49,11 @@ def main() -> None:
         raise SystemExit(f"no frozen replay fixture for {platform}: {expected}")
 
     expected_text, expected_document = load_object(expected)
-    expected_fixture_kind, expected_platform = replay_identity(expected, expected_document)
+    expected_fixture_kind, expected_platform = replay_identity(
+        expected,
+        expected_document,
+        library_version,
+    )
     if expected_fixture_kind != fixture_kind or expected_platform != platform:
         raise SystemExit(
             f"{expected}: fixture identity "
@@ -67,7 +74,25 @@ def main() -> None:
     print(f"replay fixture matches {expected}")
 
 
-def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
+def workspace_package_version() -> str:
+    manifest = tomllib.loads((ROOT / "Cargo.toml").read_text("utf-8"))
+    workspace = manifest.get("workspace")
+    if not isinstance(workspace, dict):
+        raise SystemExit(f"{ROOT / 'Cargo.toml'}: missing workspace table")
+    package = workspace.get("package")
+    if not isinstance(package, dict):
+        raise SystemExit(f"{ROOT / 'Cargo.toml'}: missing workspace.package table")
+    version = package.get("version")
+    if not isinstance(version, str) or not version:
+        raise SystemExit(f"{ROOT / 'Cargo.toml'}: workspace package version must be a string")
+    return version
+
+
+def replay_identity(
+    path: Path,
+    document: dict[str, object],
+    library_version: str,
+) -> tuple[str, str]:
     schema_version = document.get("schema_version")
     if schema_version != 1:
         raise SystemExit(f"{path}: schema_version must be 1")
@@ -94,7 +119,7 @@ def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
         if name in case_names:
             raise SystemExit(f"{path}: duplicate replay case name: {name}")
         case_names.add(name)
-        validate_case(path, index, case, fixture_kind, platform)
+        validate_case(path, index, case, fixture_kind, platform, library_version)
     expected_case_names = EXPECTED_CASE_NAMES[fixture_kind]
     if case_names != expected_case_names:
         raise SystemExit(
@@ -111,6 +136,7 @@ def validate_case(
     case: dict[str, object],
     fixture_kind: str,
     platform: str,
+    library_version: str,
 ) -> None:
     case_path = f"cases[{index}]"
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
@@ -142,9 +168,11 @@ def validate_case(
         )
     if replay.get("schema_version") != 1:
         raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 1")
-    library_version = replay.get("library_version")
-    if not isinstance(library_version, str) or not library_version:
-        raise SystemExit(f"{path}: {case_path}.result.replay.library_version must be non-empty")
+    replay_library_version = replay.get("library_version")
+    if replay_library_version != library_version:
+        raise SystemExit(
+            f"{path}: {case_path}.result.replay.library_version must match Cargo workspace version"
+        )
     if replay.get("platform") != platform:
         raise SystemExit(
             f"{path}: {case_path}.result.replay.platform must match artifact platform"
