@@ -13,6 +13,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from check_replay_fixture import EXPECTED_CASE_NAMES
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 
 
@@ -335,6 +336,67 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             path,
             case_path,
         )
+        if fixture_kind == "local_volatility_replay":
+            check_local_volatility_replay_case(
+                case_name,
+                request,
+                result,
+                path,
+                case_path,
+            )
+    expected_case_names = EXPECTED_CASE_NAMES[fixture_kind]
+    require(
+        seen_case_names == expected_case_names,
+        path,
+        "replay case set mismatch: "
+        f"missing={sorted(expected_case_names - seen_case_names)}, "
+        f"unexpected={sorted(seen_case_names - expected_case_names)}",
+    )
+
+
+def check_local_volatility_replay_case(
+    case_name: str,
+    request: dict[str, Any],
+    result: dict[str, Any],
+    path: Path,
+    case_path: str,
+) -> None:
+    risks = require_object(result.get("risks"), path, f"{case_path}.result.risks")
+    request_risk = require_object(request.get("risk"), path, f"{case_path}.request.risk")
+    if case_name in {"pseudo_mc_price_only", "rqmc_price_only"}:
+        require(
+            "vega_kt" not in risks and "vega_kt" not in request_risk,
+            path,
+            f"{case_path} price-only case must not carry VegaKT",
+        )
+        return
+    request_vega_kt = require_object(
+        request_risk.get("vega_kt"), path, f"{case_path}.request.risk.vega_kt"
+    )
+    require(
+        request_vega_kt.get("full_bucket_covariance") is True,
+        path,
+        f"{case_path}.request.risk.vega_kt.full_bucket_covariance must be true",
+    )
+    result_vega_kt = require_object(
+        risks.get("vega_kt"), path, f"{case_path}.result.risks.vega_kt"
+    )
+    covariance_layout = require_object(
+        result_vega_kt.get("covariance_layout"),
+        path,
+        f"{case_path}.result.risks.vega_kt.covariance_layout",
+    )
+    require(
+        covariance_layout.get("type") == "full_bucket_matrix_row_major",
+        path,
+        f"{case_path}.result.risks.vega_kt must use full covariance layout",
+    )
+    covariance = result_vega_kt.get("full_bucket_covariance")
+    require(
+        isinstance(covariance, list) and len(covariance) == 36,
+        path,
+        f"{case_path}.result.risks.vega_kt.full_bucket_covariance must contain 36 row-major entries",
+    )
 
 
 def check_python_report(path: Path, library_version: str) -> None:
