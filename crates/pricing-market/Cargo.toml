@@ -11,5 +11,8 @@ publish = false
 pricing-core.workspace = true
 pricing-numerics.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

@@ -6,6 +6,8 @@ mod context;
 mod curve;
 mod error;
 mod forward;
+mod pchip;
+mod ssvi;
 
 pub use context::{EquityMarket, MarketContext};
 pub use curve::{
@@ -13,6 +15,11 @@ pub use curve::{
 };
 pub use error::MarketError;
 pub use forward::{EquityForward, ForwardEvaluation};
+pub use pchip::{ThetaEvaluation, ThetaPchip, ThetaRegion};
+pub use ssvi::{
+    ImpliedVarianceSurface, PhiEvaluation, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
+    TotalVarianceDerivatives,
+};
 
 /// Returns the lower-level role used by market numerics.
 #[must_use]

@@ -70,6 +70,56 @@ pub enum MarketError {
         time_bits: u64,
         forward_bits: u64,
     },
+    InvalidSurfaceKnotCount {
+        count: usize,
+    },
+    SurfaceKnotLengthMismatch {
+        times: usize,
+        values: usize,
+    },
+    InvalidSurfaceKnotTime {
+        index: usize,
+        bits: u64,
+    },
+    UnsortedSurfaceKnots {
+        left_index: usize,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    InvalidTheta {
+        index: usize,
+        bits: u64,
+    },
+    DecreasingTheta {
+        left_index: usize,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    InvalidSurfaceParameter {
+        parameter: &'static str,
+        bits: u64,
+    },
+    SsviAdmissibilityViolation {
+        condition: &'static str,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    InvalidSurfaceQuery {
+        coordinate: &'static str,
+        bits: u64,
+    },
+    NonFiniteSurfaceValue {
+        field: &'static str,
+        time_bits: u64,
+        log_moneyness_bits: u64,
+        value_bits: u64,
+    },
+    NonPositiveSurfaceValue {
+        field: &'static str,
+        time_bits: u64,
+        log_moneyness_bits: u64,
+        value_bits: u64,
+    },
 }
 
 impl fmt::Display for MarketError {
@@ -158,6 +208,72 @@ impl fmt::Display for MarketError {
             } => write!(
                 formatter,
                 "underlying {underlying} produced an invalid forward at 0x{time_bits:016x}: 0x{forward_bits:016x}"
+            ),
+            Self::InvalidSurfaceKnotCount { count } => write!(
+                formatter,
+                "an implied surface theta curve requires at least two knots; received {count}"
+            ),
+            Self::SurfaceKnotLengthMismatch { times, values } => write!(
+                formatter,
+                "an implied surface theta curve has {times} times and {values} values"
+            ),
+            Self::InvalidSurfaceKnotTime { index, bits } => write!(
+                formatter,
+                "implied surface knot {index} time must be finite and positive: 0x{bits:016x}"
+            ),
+            Self::UnsortedSurfaceKnots {
+                left_index,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "implied surface times are not strictly increasing at {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidTheta { index, bits } => write!(
+                formatter,
+                "implied surface theta {index} must be finite and positive: 0x{bits:016x}"
+            ),
+            Self::DecreasingTheta {
+                left_index,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "implied surface theta decreases at {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidSurfaceParameter { parameter, bits } => write!(
+                formatter,
+                "implied surface parameter {parameter} is invalid: 0x{bits:016x}"
+            ),
+            Self::SsviAdmissibilityViolation {
+                condition,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "SSVI admissibility condition {condition} failed: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidSurfaceQuery { coordinate, bits } => write!(
+                formatter,
+                "implied surface query {coordinate} is invalid: 0x{bits:016x}"
+            ),
+            Self::NonFiniteSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => write!(
+                formatter,
+                "implied surface {field} is non-finite at time 0x{time_bits:016x}, log-moneyness 0x{log_moneyness_bits:016x}: 0x{value_bits:016x}"
+            ),
+            Self::NonPositiveSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => write!(
+                formatter,
+                "implied surface {field} is not positive at time 0x{time_bits:016x}, log-moneyness 0x{log_moneyness_bits:016x}: 0x{value_bits:016x}"
             ),
         }
     }
