@@ -283,6 +283,7 @@ def check_cargo_manifests(package: tarfile.TarFile, archive: str) -> None:
 
 def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
     pyproject = read_toml(package, "pyproject.toml")
+    python_manifest = read_toml(package, "crates/pricing-python/Cargo.toml")
     project = pyproject.get("project", {})
     if project.get("name") != "rust-pricing":
         raise SystemExit(f"{archive}: pyproject project.name mismatch")
@@ -300,6 +301,20 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
     for key, expected_value in expected.items():
         if maturin.get(key) != expected_value:
             raise SystemExit(f"{archive}: pyproject tool.maturin.{key} mismatch")
+
+    python_package = python_manifest.get("package", {})
+    if python_package.get("name") != "pricing-python":
+        raise SystemExit(f"{archive}: pricing-python package.name mismatch")
+    if python_package.get("version") != {"workspace": True}:
+        raise SystemExit(f"{archive}: pricing-python package.version must use workspace")
+    python_lib = python_manifest.get("lib", {})
+    if python_lib.get("name") != "rust_pricing":
+        raise SystemExit(f"{archive}: pricing-python lib.name mismatch")
+    if python_lib.get("crate-type") != ["cdylib", "rlib"]:
+        raise SystemExit(f"{archive}: pricing-python lib.crate-type mismatch")
+    features = python_manifest.get("features", {})
+    if features.get("extension-module") != ["pyo3/extension-module"]:
+        raise SystemExit(f"{archive}: pricing-python extension-module feature mismatch")
 
 
 def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
