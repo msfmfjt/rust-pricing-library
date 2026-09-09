@@ -27,6 +27,10 @@ pub enum RequestValidationError {
         valuation_date: Date,
         expiry: Date,
     },
+    PaymentBeforeValuation {
+        valuation_date: Date,
+        payment_date: Date,
+    },
     AsianPastObservationRequiresKnownFixing {
         observation_date: Date,
         valuation_date: Date,
@@ -66,6 +70,13 @@ impl fmt::Display for RequestValidationError {
             } => write!(
                 formatter,
                 "expiry {expiry} is before valuation date {valuation_date}"
+            ),
+            Self::PaymentBeforeValuation {
+                valuation_date,
+                payment_date,
+            } => write!(
+                formatter,
+                "payment date {payment_date} is before valuation date {valuation_date}"
             ),
             Self::AsianPastObservationRequiresKnownFixing {
                 observation_date,

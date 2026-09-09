@@ -386,8 +386,15 @@ impl SimulationPlan {
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let product = request.product();
-        let time =
-            DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry());
+        let payoff = product
+            .source_graph(request.valuation_date())?
+            .compile(GraphLimitPolicy::DEFAULT)?;
+        let observations = payoff.terminal_observations();
+        let time = if observations.is_empty() {
+            0.0
+        } else {
+            DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry())
+        };
         let payment_time = DayCountConvention::Act365F
             .year_fraction(request.valuation_date(), product.payment_date());
         let market_forward = request.market().equity().forward();
@@ -435,15 +442,6 @@ impl SimulationPlan {
                     count: independent_units,
                 });
             }
-        }
-        let payoff = product
-            .source_graph(request.valuation_date())?
-            .compile(GraphLimitPolicy::DEFAULT)?;
-        let observations = payoff.terminal_observations();
-        if observations.is_empty() {
-            return Err(MonteCarloError::Graph(
-                pricing_product::GraphError::NoOutputs,
-            ));
         }
         for (underlying, _) in &observations {
             if *underlying != product.underlying() {
@@ -591,10 +589,150 @@ impl SimulationPlan {
     }
 
     pub fn execute(&self) -> Result<MonteCarloPrice, MonteCarloError> {
+        if self.observation_dates.is_empty() {
+            return self.execute_fixed_payoff();
+        }
         match self.engine {
             EngineConfig::PseudoMonteCarlo(engine) => self.execute_pseudo(engine),
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => self.execute_rqmc(engine),
         }
+    }
+
+    fn execute_fixed_payoff(&self) -> Result<MonteCarloPrice, MonteCarloError> {
+        let value = self.discounted_payoff_from_normals(&[])?;
+        let (
+            estimator,
+            master_seed,
+            independent_units,
+            evaluated_paths,
+            scramble_count,
+            antithetic,
+        ) = match self.engine {
+            EngineConfig::PseudoMonteCarlo(engine) => (
+                EstimatorKind::PseudoMonteCarlo,
+                engine.master_seed(),
+                engine.independent_sampling_units().get(),
+                engine.evaluated_paths(),
+                None,
+                engine.variance_reduction().antithetic(),
+            ),
+            EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
+                let multiplier = if engine.variance_reduction().antithetic() {
+                    2_u128
+                } else {
+                    1_u128
+                };
+                (
+                    EstimatorKind::RandomizedQuasiMonteCarlo,
+                    engine.master_scramble_seed(),
+                    u64::from(engine.scramble_count().get()),
+                    u128::from(engine.points_per_scramble().get())
+                        * u128::from(engine.scramble_count().get())
+                        * multiplier,
+                    Some(engine.scramble_count().get()),
+                    engine.variance_reduction().antithetic(),
+                )
+            }
+        };
+        let estimate = Estimate::new(value, 0.0, value, value, estimator, independent_units)?;
+        let risks = self.fixed_payoff_risk_report(estimator, independent_units)?;
+        let risk_diagnostics = self.fixed_payoff_risk_diagnostics(estimator, independent_units)?;
+        let pricing_result = PricingResult {
+            value: estimate,
+            risks,
+            diagnostics: Diagnostics::new(extrapolation_warnings(
+                self.discount_region,
+                self.dividend_region,
+            )),
+            replay: ReplayMetadata::new(
+                SchemaVersion::CURRENT,
+                self.request_fingerprint,
+                crate::version(),
+                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
+            ),
+        };
+        Ok(MonteCarloPrice {
+            pricing_result,
+            sampling_variance: 0.0,
+            estimator_variance: 0.0,
+            risk_diagnostics,
+            independent_sampling_units: independent_units,
+            evaluated_paths,
+            diagnostics: MonteCarloDiagnostics {
+                master_seed,
+                estimator,
+                scramble_count,
+                direction_checksum: None,
+                scramble_checksum: None,
+                policy_version: self.execution_policy.version(),
+                worker_threads: self.execution_policy.worker_threads().get(),
+                reduction_block_size: self.execution_policy.reduction_block_size().get(),
+                aad_tile_policy_version: self.aad_tile_policy.version(),
+                aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
+                checkpoint_policy_version: self.checkpoint_policy.version(),
+                checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
+                antithetic,
+                discount_region: self.discount_region,
+                dividend_region: self.dividend_region,
+                payoff_fingerprint: self.payoff.tape_fingerprint(),
+            },
+        })
+    }
+
+    fn fixed_payoff_risk_report(
+        &self,
+        estimator: EstimatorKind,
+        independent_units: u64,
+    ) -> Result<RiskReport, MonteCarloError> {
+        let zero_delta = self
+            .request_delta
+            .then(|| {
+                zero_risk_estimate(
+                    estimator,
+                    independent_units,
+                    RiskUnit::DeltaRaw,
+                    RiskUnit::DeltaOnePercentSpot,
+                )
+            })
+            .transpose()?;
+        let zero_gamma = self
+            .request_gamma
+            .map(|_| {
+                zero_risk_estimate(
+                    estimator,
+                    independent_units,
+                    RiskUnit::GammaRaw,
+                    RiskUnit::GammaOnePercentSpotSquared,
+                )
+            })
+            .transpose()?;
+        let zero_vega = self
+            .request_vega
+            .then(|| {
+                zero_risk_estimate(
+                    estimator,
+                    independent_units,
+                    RiskUnit::VegaRaw,
+                    RiskUnit::VegaOneVolPoint,
+                )
+            })
+            .transpose()?;
+        Ok(RiskReport {
+            delta: zero_delta,
+            gamma: zero_gamma,
+            vega: zero_vega,
+            vega_kt: None,
+        })
+    }
+
+    fn fixed_payoff_risk_diagnostics(
+        &self,
+        estimator: EstimatorKind,
+        independent_units: u64,
+    ) -> Result<RiskDiagnostics, MonteCarloError> {
+        let zero_statistics =
+            [DeterministicStatistics::from_ordered_values_two_pass(&[0.0]); PATHWISE_COMPONENTS];
+        self.build_risk_diagnostics(&zero_statistics, independent_units, estimator)
     }
 
     fn execute_pseudo(&self, engine: PseudoMcConfig) -> Result<MonteCarloPrice, MonteCarloError> {
@@ -2080,6 +2218,22 @@ fn risk_estimate(
     ))
 }
 
+fn zero_risk_estimate(
+    estimator: EstimatorKind,
+    independent_units: u64,
+    raw_unit: RiskUnit,
+    market_scaled_unit: RiskUnit,
+) -> Result<RiskEstimate, ResultBuildError> {
+    let raw = Estimate::new(0.0, 0.0, 0.0, 0.0, estimator, independent_units)?;
+    let market_scaled = Estimate::new(0.0, 0.0, 0.0, 0.0, estimator, independent_units)?;
+    Ok(RiskEstimate::new(
+        raw,
+        market_scaled,
+        raw_unit,
+        market_scaled_unit,
+    ))
+}
+
 fn risk_validation(
     bump: DeterministicStatistics,
     bump_minus_primary: DeterministicStatistics,
@@ -2635,6 +2789,110 @@ mod tests {
         .expect("request")
     }
 
+    fn fully_fixed_asian_request(engine: EngineConfig) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                underlying,
+                currency,
+                100.0,
+                2.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::known("2026-03-04".parse().expect("first"), 0.25, 95.0)
+                        .expect("first"),
+                    AsianObservation::known("2026-06-04".parse().expect("second"), 0.75, 115.0)
+                        .expect("second"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model"));
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn fully_fixed_lookback_request(engine: EngineConfig) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                underlying,
+                currency,
+                100.0,
+                2.0,
+                OptionSide::Call,
+                vec![
+                    "2026-03-04".parse().expect("first"),
+                    "2026-06-04".parse().expect("second"),
+                ],
+                Some(120.0),
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model"));
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn fixed_payoff_pseudo_engine() -> EngineConfig {
+        EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x0123_4567_89ab_cdef,
+                16,
+                VarianceReduction::new(true, false),
+            )
+            .expect("engine"),
+        )
+    }
+
+    fn fixed_payoff_rqmc_engine() -> EngineConfig {
+        EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                16,
+                4,
+                0xfedc_ba98_7654_3210,
+                VarianceReduction::new(true, false),
+            )
+            .expect("RQMC engine"),
+        )
+    }
+
     fn zero_carry_rqmc_request(model: ModelSpec) -> PricingRequest {
         zero_carry_rqmc_request_with_risk(
             model,
@@ -3130,6 +3388,23 @@ mod tests {
     }
 
     #[test]
+    fn fully_fixed_arithmetic_asian_prices_as_discounted_cashflow() {
+        for engine in [fixed_payoff_pseudo_engine(), fixed_payoff_rqmc_engine()] {
+            let request = fully_fixed_asian_request(engine);
+            let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+            assert!(plan.observation_dates.is_empty());
+            let result = plan.execute().expect("execution");
+            let expected = plan.discount() * 20.0;
+            assert!((result.pricing_result.value.value().get() - expected).abs() <= 1.0e-12);
+            assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+            assert_eq!(
+                result.pricing_result.value.standard_error().get().to_bits(),
+                0.0_f64.to_bits()
+            );
+        }
+    }
+
+    #[test]
     fn fixed_lookback_zero_volatility_uses_declared_monitoring_extremum() {
         let request = lookback_zero_vol_request();
         let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
@@ -3143,6 +3418,23 @@ mod tests {
         let result = plan.execute().expect("execution");
         assert!((result.pricing_result.value.value().get() - expected).abs() <= 1.0e-12);
         assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
+    fn fully_fixed_lookback_prices_as_discounted_cashflow() {
+        for engine in [fixed_payoff_pseudo_engine(), fixed_payoff_rqmc_engine()] {
+            let request = fully_fixed_lookback_request(engine);
+            let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+            assert!(plan.observation_dates.is_empty());
+            let result = plan.execute().expect("execution");
+            let expected = plan.discount() * 40.0;
+            assert!((result.pricing_result.value.value().get() - expected).abs() <= 1.0e-12);
+            assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+            assert_eq!(
+                result.pricing_result.value.standard_error().get().to_bits(),
+                0.0_f64.to_bits()
+            );
+        }
     }
 
     #[test]

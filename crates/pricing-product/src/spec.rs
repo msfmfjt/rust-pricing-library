@@ -636,6 +636,24 @@ impl ProductSpec {
     pub const fn supports_pathwise_risk(&self) -> bool {
         matches!(self, Self::EuropeanVanilla(_))
     }
+
+    #[must_use]
+    pub fn payoff_determined_by(&self, valuation_date: Date) -> bool {
+        match self {
+            Self::ArithmeticAsian(spec) => spec
+                .observations()
+                .iter()
+                .all(|observation| matches!(observation.value(), AsianObservationValue::Known(_))),
+            Self::FixedLookback(spec) => {
+                spec.historical_extremum().is_some()
+                    && spec
+                        .monitoring_dates()
+                        .iter()
+                        .all(|date| *date < valuation_date)
+            }
+            Self::EuropeanVanilla(_) | Self::Digital(_) | Self::Barrier(_) => false,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -274,6 +274,32 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
 
+    def test_native_fully_fixed_arithmetic_asian_discounts_known_payoff(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        observations = [
+            rust_pricing.AsianObservation.known("2026-03-04", 0.25, 95.0),
+            rust_pricing.AsianObservation.known("2026-06-04", 0.75, 115.0),
+        ]
+        product = rust_pricing.Product.arithmetic_asian(
+            1, 2, 100.0, 2.0, "call", observations, "2027-09-04"
+        )
+        request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.randomized_quasi_monte_carlo(
+                16, 7, scramble_count=4, antithetic=True
+            ),
+            rust_pricing.RiskRequest(),
+        )
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        self.assertAlmostEqual(result.value, 19.0, places=12)
+        self.assertEqual(result.standard_error, 0.0)
+
     def test_native_fixed_lookback_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])

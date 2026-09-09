@@ -38,7 +38,13 @@ impl PricingRequest {
                 market: market.equity().forward().underlying(),
             });
         }
-        if product.expiry() < valuation_date {
+        if product.payment_date() < valuation_date {
+            return Err(RequestValidationError::PaymentBeforeValuation {
+                valuation_date,
+                payment_date: product.payment_date(),
+            });
+        }
+        if product.expiry() < valuation_date && !product.payoff_determined_by(valuation_date) {
             return Err(RequestValidationError::ExpiryBeforeValuation {
                 valuation_date,
                 expiry: product.expiry(),
@@ -357,6 +363,72 @@ mod tests {
     }
 
     #[test]
+    fn request_accepts_fully_fixed_asian_with_future_payment() {
+        let currency = CurrencyId::new(1);
+        let (base, market, model, engine, risk) = components(currency, currency);
+        let product = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                base.underlying(),
+                currency,
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::known("2026-03-04".parse().expect("first"), 0.25, 95.0)
+                        .expect("first"),
+                    AsianObservation::known("2026-06-04".parse().expect("second"), 0.75, 115.0)
+                        .expect("second"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("asian"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation date"),
+            product,
+            market,
+            model,
+            engine,
+            risk,
+        )
+        .expect("fully fixed asian");
+    }
+
+    #[test]
+    fn request_rejects_payment_before_valuation() {
+        let currency = CurrencyId::new(1);
+        let (base, market, model, engine, risk) = components(currency, currency);
+        let product = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                base.underlying(),
+                currency,
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::known("2026-03-04".parse().expect("first"), 0.25, 95.0)
+                        .expect("first"),
+                    AsianObservation::known("2026-06-04".parse().expect("second"), 0.75, 115.0)
+                        .expect("second"),
+                ],
+                "2026-06-04".parse().expect("payment"),
+            )
+            .expect("asian"),
+        );
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                product,
+                market,
+                model,
+                engine,
+                risk,
+            ),
+            Err(RequestValidationError::PaymentBeforeValuation { .. })
+        ));
+    }
+
+    #[test]
     fn request_rejects_barrier_past_monitoring_without_state() {
         let currency = CurrencyId::new(1);
         let (base, market, model, engine, risk) = components(currency, currency);
@@ -424,6 +496,32 @@ mod tests {
             risk.clone(),
         )
         .expect("valid lookback");
+
+        let fully_fixed = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                base.underlying(),
+                currency,
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    "2026-03-04".parse().expect("first"),
+                    "2026-06-04".parse().expect("second"),
+                ],
+                Some(115.0),
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("lookback"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation date"),
+            fully_fixed,
+            market.clone(),
+            model.clone(),
+            engine,
+            risk.clone(),
+        )
+        .expect("fully fixed lookback");
         assert!(matches!(
             PricingRequest::new(
                 "2026-09-04".parse().expect("valuation date"),
