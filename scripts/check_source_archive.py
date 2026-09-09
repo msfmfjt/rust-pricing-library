@@ -226,7 +226,12 @@ def repository_source_files() -> set[str]:
     patterns = [
         ("crates", "*.rs"),
         ("benchmarks", "*.py"),
+        ("docs", "*.md"),
         ("examples/python", "*.py"),
+        ("fixtures", "*.csv"),
+        ("fixtures", "*.json"),
+        ("fixtures", "*.md"),
+        ("schemas", "*.json"),
         ("tests/python", "*.py"),
         ("scripts", "*.py"),
     ]
