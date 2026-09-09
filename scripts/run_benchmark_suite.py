@@ -16,6 +16,7 @@ def main() -> None:
     rust_report = output / "rust.json"
     python_report = output / "python.json"
     replay_report = output / "replay.json"
+    local_vol_replay_report = output / "local-volatility-replay.json"
 
     run(
         [
@@ -46,6 +47,22 @@ def main() -> None:
         ]
     )
     run([sys.executable, "scripts/check_replay_fixture.py", str(replay_report)])
+    if local_volatility_fixture_exists():
+        run(
+            [
+                "cargo",
+                "run",
+                "--locked",
+                "--release",
+                "-p",
+                "pricing",
+                "--example",
+                "replay_local_vol",
+                "--",
+                str(local_vol_replay_report),
+            ]
+        )
+        run([sys.executable, "scripts/check_replay_fixture.py", str(local_vol_replay_report)])
     wheel_python = Path(".wheel-smoke-venv") / (
         "Scripts/python.exe" if os.name == "nt" else "bin/python"
     )
@@ -76,6 +93,17 @@ def main() -> None:
 
 def run(command: list[str]) -> None:
     subprocess.run(command, check=True)
+
+
+def local_volatility_fixture_exists() -> bool:
+    platform_name = {
+        ("Darwin", "arm64"): "macos-aarch64",
+        ("Windows", "AMD64"): "windows-x86_64",
+        ("Windows", "x86_64"): "windows-x86_64",
+    }.get((platform.system(), platform.machine()))
+    if platform_name is None:
+        return False
+    return (Path("fixtures/replay") / f"local_volatility-{platform_name}.json").is_file()
 
 
 def capture(command: list[str]) -> str:

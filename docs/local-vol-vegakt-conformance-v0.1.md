@@ -8,10 +8,10 @@ Roadmap: `local-vol-vegakt-roadmap-v0.1.md`
 ## Decision
 
 The Local Volatility/VegaKT slice has implementation and CI evidence for Gates
-L0-L7 and partial L8 evidence. It is not yet marked accepted because complete
-same-platform Local Volatility replay fixtures and full benchmark artifacts for
-the AD/decomposition-versus-bump workload still need to be frozen as retained
-release evidence.
+L0-L7 and partial L8 evidence. It is not yet marked accepted because the
+Windows Local Volatility replay fixture, Greek/VegaKT replay fixtures, and full
+benchmark artifacts for the AD/decomposition-versus-bump workload still need to
+be frozen as retained release evidence.
 
 No known correctness failure is waived by the current performance results.
 Current limitations are recorded explicitly and do not change the frozen
@@ -47,6 +47,8 @@ diagnostics.
 ## Frozen and candidate artifacts
 
 - Frozen equation-level artifact: `fixtures/local-vol/reference-cases-v0.1.json`.
+- Frozen Apple Silicon macOS Price-only replay artifact:
+  `fixtures/replay/local_volatility-macos-aarch64.json`.
 - Frozen numerical policy: `docs/local-vol-vegakt-numerical-contracts-v0.1.md`.
 - Candidate diagnostics catalogue: `docs/local-vol-vegakt-diagnostics-v0.1.md`.
 - Candidate Python request example: `examples/python/local_vol_vegakt.py`.
@@ -55,9 +57,10 @@ diagnostics.
 
 ## Remaining acceptance work
 
-- Freeze Local Volatility Price, Greek, and VegaKT replay fixtures for Apple
-  Silicon macOS and Windows x86-64 under the same same-platform byte-comparison
-  contract used by the European baseline.
+- Freeze the Windows x86-64 Local Volatility Price-only replay fixture and the
+  Local Volatility Greek/VegaKT replay fixtures for both supported platforms
+  under the same same-platform byte-comparison contract used by the European
+  baseline.
 - Extend the public Local Volatility entry point from Price-only MC/RQMC to
   Greeks and VegaKT output.
 - Retain benchmark artifacts that separately identify the AD/decomposition
@@ -69,7 +72,9 @@ diagnostics.
 
 ## Known limitations
 
-- Same-platform Local Volatility replay fixtures are not yet frozen.
+- The Apple Silicon macOS Price-only Local Volatility replay fixture is frozen;
+  the Windows x86-64 Price-only fixture and all Greek/VegaKT replay fixtures are
+  not yet frozen.
 - Portable peak-memory and allocation counters remain `null` in benchmark
   metadata for the same reason documented by the European benchmark baseline.
 - The public Python Local Volatility helpers materialize explicit grids before
