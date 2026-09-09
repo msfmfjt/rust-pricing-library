@@ -1150,7 +1150,17 @@ fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> 
     let text = if value.cast::<PyString>().is_ok() {
         value.extract::<String>()?
     } else {
-        let date_type = py.import("datetime")?.getattr("date")?;
+        let datetime_module = py.import("datetime")?;
+        let datetime_type = datetime_module.getattr("datetime")?;
+        if value.is_instance(&datetime_type)? {
+            return Err(domain_error(
+                py,
+                "invalid_date_type",
+                pointer,
+                "datetime values with time-of-day semantics are not supported; expected datetime.date or an ISO YYYY-MM-DD string",
+            ));
+        }
+        let date_type = datetime_module.getattr("date")?;
         if !value.is_instance(&date_type)? {
             return Err(domain_error(
                 py,

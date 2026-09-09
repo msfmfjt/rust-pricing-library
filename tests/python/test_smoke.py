@@ -1,7 +1,7 @@
 import json
 import math
 import unittest
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
@@ -83,6 +83,26 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         native_result = native_plan.evaluate()
         json_result = json_plan.evaluate()
         self.assertEqual(native_result.to_json(), json_result.to_json())
+
+    def test_datetime_values_are_rejected_as_dates(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        with self.assertRaises(rust_pricing.ValidationError):
+            rust_pricing.Product.european_vanilla(
+                1, 2, datetime(2027, 9, 4, 12, 30), 100.0, 1.0, "call"
+            )
+        product = rust_pricing.Product.european_vanilla(
+            1, 2, "2027-09-04", 100.0, 1.0, "call"
+        )
+        with self.assertRaises(rust_pricing.ValidationError):
+            rust_pricing.PricingRequest(
+                datetime(2026, 9, 4, 9, 0),
+                product,
+                rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+                rust_pricing.Model.black_scholes(0.2),
+                rust_pricing.Engine.pseudo_monte_carlo(7, 1024),
+                rust_pricing.RiskRequest(),
+            )
 
     def test_native_discrete_dividends_match_json_request(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
