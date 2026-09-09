@@ -44,9 +44,31 @@ request = rp.PricingRequest(
 )
 plan = rp.PricingPlan.compile(request, worker_threads=2, reduction_block_size=256)
 result = plan.evaluate()
+assert result.delta is not None
+assert result.gamma is not None
+assert result.vega is not None
+assert result.diagnostics.delta_validation is not None
+assert result.diagnostics.gamma_validation is not None
+assert result.diagnostics.vega_validation is not None
 
 # %% Structured result and diagnostics
 print(result.to_pretty_json())
 print("plan:", plan.plan_fingerprint)
 print("estimator:", result.diagnostics.estimator)
+print("price estimate:", result.estimate.value, "+/-", result.estimate.standard_error)
+print("delta:", result.delta.raw.value, result.delta.raw_unit)
+print("gamma:", result.gamma.raw.value, result.gamma.raw_unit)
+print("vega:", result.vega.market_scaled.value, result.vega.market_scaled_unit)
+print(
+    "delta CRN validation:",
+    result.diagnostics.delta_validation.bump_and_revalue.value,
+)
+print(
+    "gamma CRN validation:",
+    result.diagnostics.gamma_validation.bump_and_revalue.value,
+)
+print(
+    "vega CRN validation:",
+    result.diagnostics.vega_validation.bump_and_revalue.value,
+)
 print("warnings:", [(warning.code, warning.message) for warning in result.warnings])
