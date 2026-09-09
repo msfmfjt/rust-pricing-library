@@ -572,6 +572,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(len(grid["values"]), 9)
         basis = payload["model"]["reporting_iv_basis"]
         self.assertEqual(basis["shape"], [2, 3])
+        self.assertEqual(basis["maturity_nodes"], [0.25, 1.0])
         self.assertEqual(len(basis["implied_volatilities"]), 6)
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
         parsed_model = json.loads(parsed.to_json())["model"]
@@ -645,6 +646,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 )
                 self.assertEqual(
                     parsed_model["reporting_iv_basis"]["shape"], [2, 3]
+                )
+                self.assertEqual(
+                    parsed_model["reporting_iv_basis"]["maturity_nodes"],
+                    [0.25, 1.0],
                 )
 
     def test_native_vega_kt_request_matches_json_request(self):

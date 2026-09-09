@@ -700,6 +700,34 @@ mod tests {
         }
     }
 
+    struct PositiveTimeOnlySurface {
+        variance: f64,
+    }
+
+    impl ImpliedVarianceSurface for PositiveTimeOnlySurface {
+        fn total_variance_derivatives(
+            &self,
+            time: f64,
+            _log_moneyness: f64,
+        ) -> Result<TotalVarianceDerivatives, MarketError> {
+            if time <= 0.0 {
+                return Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "time",
+                    bits: time.to_bits(),
+                });
+            }
+            Ok(TotalVarianceDerivatives {
+                total_variance: self.variance * time,
+                log_moneyness_derivative: 0.0,
+                log_moneyness_second_derivative: 0.0,
+                time_derivative: self.variance,
+                theta: self.variance * time,
+                theta_derivative: self.variance,
+                theta_region: ThetaRegion::Interpolated,
+            })
+        }
+    }
+
     struct RawLocalVarianceSurface {
         raw: f64,
     }
@@ -743,7 +771,7 @@ mod tests {
 
     #[test]
     fn dupire_grid_initial_row_uses_first_positive_surface_time() {
-        let surface = ConstantVarianceSurface { variance: 0.09 };
+        let surface = PositiveTimeOnlySurface { variance: 0.09 };
         let grid = LocalVarianceGrid::from_surface(
             &surface,
             vec![0.0, 0.5, 1.0],
