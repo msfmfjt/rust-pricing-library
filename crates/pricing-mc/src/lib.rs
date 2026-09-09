@@ -15,8 +15,9 @@ pub use error::EngineConfigError;
 pub use execution::{DeterministicExecutor, ExecutionError, ExecutionPolicy, ExecutorBuildError};
 pub use execution::{DeterministicStatistics, TryExecutionError};
 pub use local_vol::{
-    LOCAL_VOL_LOG_EULER_SCHEME, LocalVolError, LocalVolLogEulerPlan, LocalVolPath,
-    LocalVolReverseAdjoints, LocalVolStepCache, LocalVolTimeGrid,
+    LOCAL_VOL_LOG_EULER_SCHEME, LocalVolDividendCheckpoint, LocalVolDividendCheckpointSchedule,
+    LocalVolDividendReverseCache, LocalVolError, LocalVolLogEulerPlan, LocalVolPath,
+    LocalVolPostDividendSpot, LocalVolReverseAdjoints, LocalVolStepCache, LocalVolTimeGrid,
 };
 pub use qmc::{
     JOE_KUO_DIRECTION_SET, RQMC_SCRAMBLE_ABI, RqmcPlan, RqmcPlanError, RqmcPointError, Scramble32,
