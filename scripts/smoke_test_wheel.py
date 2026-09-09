@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import csv
 from email.message import Message
 from email.parser import Parser
 import json
@@ -114,8 +115,32 @@ def verify_wheel_metadata(
         raise RuntimeError(f"wheel must carry platform tags, got: {tags}")
     if not any(member.endswith(".dist-info/sboms/pricing-python.cyclonedx.json") for member in members):
         raise RuntimeError("wheel does not contain the generated CycloneDX SBOM")
-    if "rust_pricing/__init__.pyi," not in record or "rust_pricing/py.typed," not in record:
+    record_members = wheel_record_members(record)
+    missing_from_record = sorted(members.difference(record_members))
+    if missing_from_record:
+        raise RuntimeError(f"wheel RECORD is missing entries: {missing_from_record[:10]}")
+    missing_from_wheel = sorted(record_members.difference(members))
+    if missing_from_wheel:
+        raise RuntimeError(f"wheel RECORD lists missing files: {missing_from_wheel[:10]}")
+    if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
+
+
+def wheel_record_members(record: str) -> set[str]:
+    rows = list(csv.reader(record.splitlines()))
+    members: set[str] = set()
+    for index, row in enumerate(rows, start=1):
+        if len(row) != 3:
+            raise RuntimeError(f"wheel RECORD row {index} must have three fields")
+        path, _digest, _size = row
+        if not path:
+            raise RuntimeError(f"wheel RECORD row {index} has an empty path")
+        if path in members:
+            raise RuntimeError(f"wheel RECORD lists {path!r} more than once")
+        members.add(path)
+    if not any(member.endswith(".dist-info/RECORD") for member in members):
+        raise RuntimeError("wheel RECORD does not list itself")
+    return members
 
 
 def create_environment(environment: Path) -> None:
