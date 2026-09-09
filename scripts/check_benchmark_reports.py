@@ -145,7 +145,12 @@ def check_report(
     unexpected = sorted(set(measurements).difference(required_measurements))
     require(not unexpected, path, f"unexpected measurements: {unexpected}")
     for name in sorted(required_measurements):
-        check_measurement(require_object(measurements.get(name), path, name), path, name)
+        check_measurement(
+            require_object(measurements.get(name), path, name),
+            path,
+            name,
+            expected_paths_for_measurement(name, configuration["evaluated_paths"]),
+        )
     require_positive_int(
         document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
     )
@@ -307,14 +312,24 @@ def check_python_report(path: Path) -> None:
     unexpected = sorted(set(measurements).difference(PYTHON_MEASUREMENTS))
     require(not unexpected, path, f"unexpected measurements: {unexpected}")
     for name in sorted(PYTHON_MEASUREMENTS):
-        check_measurement(require_object(measurements.get(name), path, name), path, name)
+        check_measurement(
+            require_object(measurements.get(name), path, name),
+            path,
+            name,
+            expected_paths_for_measurement(name, configuration["evaluated_paths"]),
+        )
     require_positive_int(
         document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
     )
     require_string_array(document.get("notes"), path, "notes")
 
 
-def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
+def check_measurement(
+    document: dict[str, Any],
+    path: Path,
+    name: str,
+    expected_paths_per_sample: int | None,
+) -> None:
     require_positive_int(document.get("samples"), path, f"{name}.samples")
     require_positive_float(document.get("median_seconds"), path, f"{name}.median_seconds")
     require_non_negative_float(document.get("minimum_seconds"), path, f"{name}.minimum_seconds")
@@ -326,11 +341,27 @@ def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
     )
     paths = document.get("evaluated_paths_per_sample")
     paths_per_second = document.get("median_paths_per_second")
-    if paths is None:
+    if expected_paths_per_sample is None:
+        require(paths is None, path, f"{name}.evaluated_paths_per_sample must be null")
         require(paths_per_second is None, path, f"{name} paths/sec must be null")
     else:
         require_positive_int(paths, path, f"{name}.evaluated_paths_per_sample")
+        require(
+            paths == expected_paths_per_sample,
+            path,
+            f"{name}.evaluated_paths_per_sample mismatch",
+        )
         require_positive_float(paths_per_second, path, f"{name}.median_paths_per_second")
+
+
+def expected_paths_for_measurement(name: str, evaluated_paths: int) -> int | None:
+    if name.startswith("compile_") or name == "result_value_getter":
+        return None
+    if "crn_bump_validation" in name and "price_only" in name:
+        return evaluated_paths * 5
+    if name == "evaluate_crn_bump_validation_from_python":
+        return evaluated_paths * 5
+    return evaluated_paths
 
 
 def check_metadata(path: Path, artifacts: set[str]) -> None:
