@@ -522,6 +522,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
     class_members: dict[str, list[str]] = {}
+    class_methods: dict[str, dict[str, ast.FunctionDef]] = {}
     assignments: dict[str, ast.expr] = {}
 
     for node in tree.body:
@@ -544,6 +545,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                     for member in node.body
                     if isinstance(member, ast.FunctionDef)
                 ]
+                class_methods[node.name] = {
+                    member.name: member
+                    for member in node.body
+                    if isinstance(member, ast.FunctionDef)
+                }
 
     duplicates = sorted(duplicates_in(top_level_names))
     if duplicates:
@@ -685,6 +691,17 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             raise RuntimeError(
                 f"wheel type stub {alias} values must be {sorted(expected)}, "
                 f"found {sorted(actual)}"
+            )
+
+    expected_return_names = {
+        ("ValidationIssue", "phase"): "ValidationPhase",
+    }
+    for (class_name, method_name), expected in sorted(expected_return_names.items()):
+        actual = function_return_name(class_methods.get(class_name, {}).get(method_name))
+        if actual != expected:
+            raise RuntimeError(
+                f"wheel type stub {class_name}.{method_name} must return {expected}, "
+                f"found {actual}"
             )
 
     expected_class_members = {
@@ -930,6 +947,15 @@ def literal_alias_values(node: ast.expr | None) -> set[str]:
         if isinstance(element, ast.Constant) and isinstance(element.value, str):
             values.add(element.value)
     return values
+
+
+def function_return_name(node: ast.FunctionDef | None) -> str | None:
+    if node is None:
+        return None
+    annotation = node.returns
+    if isinstance(annotation, ast.Name):
+        return annotation.id
+    return None
 
 
 def verify_runtime_symbols(python: Path, stub_api: dict[str, object], version: str) -> None:
