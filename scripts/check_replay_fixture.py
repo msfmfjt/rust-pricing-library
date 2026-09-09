@@ -82,11 +82,11 @@ def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
         if name in case_names:
             raise SystemExit(f"{path}: duplicate replay case name: {name}")
         case_names.add(name)
-        validate_case(path, index, case)
+        validate_case(path, index, case, platform)
     return fixture_kind, platform
 
 
-def validate_case(path: Path, index: int, case: dict[str, object]) -> None:
+def validate_case(path: Path, index: int, case: dict[str, object], platform: str) -> None:
     case_path = f"cases[{index}]"
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
     request = require_object(path, case.get("request"), f"{case_path}.request")
@@ -117,10 +117,13 @@ def validate_case(path: Path, index: int, case: dict[str, object]) -> None:
         )
     if replay.get("schema_version") != 1:
         raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 1")
-    for key in ["library_version", "platform"]:
-        value = replay.get(key)
-        if not isinstance(value, str) or not value:
-            raise SystemExit(f"{path}: {case_path}.result.replay.{key} must be non-empty")
+    library_version = replay.get("library_version")
+    if not isinstance(library_version, str) or not library_version:
+        raise SystemExit(f"{path}: {case_path}.result.replay.library_version must be non-empty")
+    if replay.get("platform") != platform:
+        raise SystemExit(
+            f"{path}: {case_path}.result.replay.platform must match artifact platform"
+        )
 
 
 def require_object(path: Path, value: object, field: str) -> dict[str, object]:
