@@ -2860,6 +2860,32 @@ mod tests {
             None
         );
         assert_eq!(parsed_vega_kt.projection().scalar_vega().get(), 3.0);
+
+        let mut missing_full_covariance: Value = serde_json::from_str(&json).expect("result JSON");
+        missing_full_covariance["risks"]["vega_kt"]
+            .as_object_mut()
+            .expect("vega kt")
+            .remove("full_bucket_covariance");
+        let missing_full_covariance = serde_json::to_vec(&missing_full_covariance).expect("JSON");
+        assert!(matches!(
+            parse_result_json(&missing_full_covariance, JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/risks/vega_kt"
+                    && message.contains("requires full_bucket_covariance")
+        ));
+
+        let mut unexpected_full_covariance: Value =
+            serde_json::from_str(&json).expect("result JSON");
+        unexpected_full_covariance["risks"]["vega_kt"]["covariance_layout"] =
+            serde_json::json!({"type": "price_and_bucket_variance_only"});
+        let unexpected_full_covariance =
+            serde_json::to_vec(&unexpected_full_covariance).expect("JSON");
+        assert!(matches!(
+            parse_result_json(&unexpected_full_covariance, JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/risks/vega_kt"
+                    && message.contains("must not include full_bucket_covariance")
+        ));
     }
 
     #[test]

@@ -433,6 +433,15 @@ impl VegaKtResult {
             }
             None => None,
         };
+        match (covariance_layout, full_bucket_covariance.is_some()) {
+            (VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor, false) => {
+                return Err(ResultBuildError::VegaKtFullCovarianceRequired);
+            }
+            (VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly, true) => {
+                return Err(ResultBuildError::VegaKtUnexpectedFullCovariance);
+            }
+            _ => {}
+        }
         Ok(Self {
             coordinates: coordinates.into_boxed_slice(),
             estimates: estimates.into_boxed_slice(),

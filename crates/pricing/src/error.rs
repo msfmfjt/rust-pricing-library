@@ -138,6 +138,8 @@ pub enum ResultBuildError {
         expected: usize,
         actual: usize,
     },
+    VegaKtFullCovarianceRequired,
+    VegaKtUnexpectedFullCovariance,
     ZeroEffectiveSamplingUnits,
 }
 
@@ -170,6 +172,14 @@ impl fmt::Display for ResultBuildError {
             Self::VegaKtFullCovarianceLengthMismatch { expected, actual } => write!(
                 formatter,
                 "VegaKT full covariance length must be {expected}; received {actual}"
+            ),
+            Self::VegaKtFullCovarianceRequired => write!(
+                formatter,
+                "VegaKT full covariance layout requires full_bucket_covariance"
+            ),
+            Self::VegaKtUnexpectedFullCovariance => write!(
+                formatter,
+                "VegaKT price-and-bucket variance layout must not include full_bucket_covariance"
             ),
             Self::ZeroEffectiveSamplingUnits => {
                 write!(formatter, "effective sampling-unit count must be positive")
