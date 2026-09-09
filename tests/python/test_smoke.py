@@ -664,6 +664,19 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
 
+    def test_bundled_json_schemas_are_exported(self):
+        request_schema = json.loads(rust_pricing.request_json_schema())
+        result_schema = json.loads(rust_pricing.result_json_schema())
+
+        self.assertEqual(
+            request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
+        )
+        self.assertEqual(request_schema["properties"]["document_kind"]["const"], "pricing_request")
+        self.assertEqual(
+            result_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
+        )
+        self.assertEqual(result_schema["properties"]["document_kind"]["const"], "pricing_result")
+
     def test_vega_kt_result_api_is_exported(self):
         exported = [
             "VegaKtResult",

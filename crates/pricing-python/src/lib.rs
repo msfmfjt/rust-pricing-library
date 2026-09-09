@@ -12,7 +12,8 @@ use pricing::{
     RiskDiagnostics, RiskEstimate, RiskMethodMetadata, VegaKtResult, VegaKtResultBucketEstimate,
     VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
     VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit, WireError,
-    fingerprint_request, parse_request_json, parse_result_json, request_to_json, result_to_json,
+    current_request_schema, current_result_schema, fingerprint_request, parse_request_json,
+    parse_result_json, request_to_json, result_to_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -766,6 +767,16 @@ fn version() -> &'static str {
     facade_version()
 }
 
+#[pyfunction]
+fn request_json_schema() -> &'static str {
+    current_request_schema()
+}
+
+#[pyfunction]
+fn result_json_schema() -> &'static str {
+    current_result_schema()
+}
+
 #[pymodule]
 fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("__version__", facade_version())?;
@@ -793,6 +804,8 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyVegaKtResidualDiagnostics>()?;
     module.add_class::<PyVegaKtResult>()?;
     module.add_function(wrap_pyfunction!(version, module)?)?;
+    module.add_function(wrap_pyfunction!(request_json_schema, module)?)?;
+    module.add_function(wrap_pyfunction!(result_json_schema, module)?)?;
     Ok(())
 }
 
@@ -803,6 +816,12 @@ mod tests {
     #[test]
     fn boundary_uses_facade_version() {
         assert_eq!(crate::facade_version(), env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn python_schema_helpers_return_bundled_schemas() {
+        assert_eq!(crate::request_json_schema(), current_request_schema());
+        assert_eq!(crate::result_json_schema(), current_result_schema());
     }
 
     #[test]
