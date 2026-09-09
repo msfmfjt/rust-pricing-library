@@ -161,7 +161,7 @@ def check_report(
             path,
             "VegaKT timing capability must be true",
         )
-    require(isinstance(document.get("notes"), list), path, "notes must be an array")
+    require_string_array(document.get("notes"), path, "notes")
 
 
 def check_replay_report(path: Path, fixture_kind: str) -> None:
@@ -214,7 +214,7 @@ def check_python_report(path: Path) -> None:
     require_positive_int(
         document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
     )
-    require(isinstance(document.get("notes"), list), path, "notes must be an array")
+    require_string_array(document.get("notes"), path, "notes")
 
 
 def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
@@ -259,11 +259,7 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
     enabled_features = require_object(document.get("enabled_features"), path, "enabled_features")
     for key in ["rust_benchmarks", "python_wheel"]:
         features = enabled_features.get(key)
-        require(
-            isinstance(features, list) and all(isinstance(feature, str) for feature in features),
-            path,
-            f"enabled_features.{key} must be a string array",
-        )
+        require_string_array(features, path, f"enabled_features.{key}")
     require_positive_int(document.get("peak_memory_bytes"), path, "peak_memory_bytes")
     command_peaks = require_object(
         document.get("command_peak_memory_bytes"), path, "command_peak_memory_bytes"
@@ -285,11 +281,7 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
         "peak_memory_bytes must match the maximum command peak",
     )
     require(document.get("allocation_count") is None, path, "allocation_count must be null")
-    require(
-        isinstance(document.get("unavailable_metrics"), list),
-        path,
-        "unavailable_metrics must be an array",
-    )
+    require_string_array(document.get("unavailable_metrics"), path, "unavailable_metrics")
 
 
 def load_object(path: Path) -> dict[str, Any]:
@@ -329,6 +321,12 @@ def reject_json_constant(value: str) -> Any:
 def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
     require(isinstance(value, dict), path, f"{name} must be an object")
     return value
+
+
+def require_string_array(value: Any, path: Path, name: str) -> None:
+    require(isinstance(value, list), path, f"{name} must be a string array")
+    for index, item in enumerate(value):
+        require(isinstance(item, str), path, f"{name}[{index}] must be a string")
 
 
 def require_positive_int(value: Any, path: Path, name: str) -> None:
