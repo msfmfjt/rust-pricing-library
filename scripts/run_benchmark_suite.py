@@ -14,6 +14,7 @@ def main() -> None:
     output = Path("benchmark-results")
     output.mkdir(exist_ok=True)
     rust_report = output / "rust.json"
+    local_vol_rust_report = output / "local-volatility-rust.json"
     python_report = output / "python.json"
     replay_report = output / "replay.json"
     local_vol_replay_report = output / "local-volatility-replay.json"
@@ -30,6 +31,20 @@ def main() -> None:
             "benchmark_european_bs",
             "--",
             str(rust_report),
+        ]
+    )
+    run(
+        [
+            "cargo",
+            "run",
+            "--locked",
+            "--release",
+            "-p",
+            "pricing",
+            "--example",
+            "benchmark_local_vol",
+            "--",
+            str(local_vol_rust_report),
         ]
     )
     run(

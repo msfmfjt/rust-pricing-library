@@ -5,7 +5,8 @@ Status: baseline harness; measured artifacts are produced by CI
 The benchmark suite is a regression and optimization baseline, not a latency
 service-level agreement. Pull-request CI runs it on the two MVP targets:
 Apple Silicon macOS and Windows x86-64. Each run retains `rust.json`,
-`python.json`, and `metadata.json` as a short-lived workflow artifact.
+`local-volatility-rust.json`, `python.json`, and `metadata.json` as a
+short-lived workflow artifact.
 
 ## Workload
 
@@ -35,6 +36,17 @@ Price-only CRN bump case, labelled
 `evaluate_crn_bump_validation_price_only`. Pure AAD-only timing would require a
 new execution mode and remains a documented limitation rather than silently
 changing the frozen request/result contract.
+
+## Local Volatility/VegaKT candidate workload
+
+The suite also emits `local-volatility-rust.json` as candidate L8 evidence for
+the Local Volatility/VegaKT slice. It records Rust compile and evaluate timings
+for Price-only, AAD Local Vega, VegaKT decomposition with full bucket
+covariance, and selected common-random-number bump workloads. The standalone
+bump case evaluates five Price-only Plans: base, Spot-down/up, and uniform
+Local-variance-down/up. It uses the same two-worker, Reduction block 256
+execution policy as the replay fixture and records grid sizes, checkpoint
+policy, AAD tile capacity, and covariance layout.
 
 ## Host and resource metadata
 
