@@ -25,6 +25,20 @@ REQUIRED_FILES = {
     "schemas/v1/pricing_request.schema.json",
     "schemas/v1/pricing_result.schema.json",
     "rust_pricing.pyi",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "crates/pricing-aad/src/lib.rs",
+    "crates/pricing-core/src/lib.rs",
+    "crates/pricing-market/src/lib.rs",
+    "crates/pricing-mc/src/lib.rs",
+    "crates/pricing-models/src/lib.rs",
+    "crates/pricing-numerics/src/lib.rs",
+    "crates/pricing-product/src/lib.rs",
+    "crates/pricing-python/src/lib.rs",
+    "crates/pricing-risk/src/lib.rs",
+    "crates/pricing/src/lib.rs",
+    "examples/python/european_bs.py",
+    "examples/python/local_vol_vegakt.py",
 }
 
 FORBIDDEN_PARTS = {
