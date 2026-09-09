@@ -96,9 +96,38 @@
       "type": "object", "additionalProperties": false, "required": ["delta", "vega", "smile_dynamics"],
       "properties": {
         "delta": {"type": "boolean"}, "vega": {"type": "boolean"},
-        "gamma": {"type": "object"}, "vega_kt": {"type": "object"},
-        "smile_dynamics": {"type": "object"}, "checkpoint_interval": {"type": "integer", "minimum": 1}, "aad_tile_capacity": {"type": "integer", "minimum": 1}
+        "gamma": {"$ref": "#/$defs/gamma"},
+        "vega_kt": {"$ref": "#/$defs/vega_kt"},
+        "smile_dynamics": {"$ref": "#/$defs/smile_dynamics"},
+        "checkpoint_interval": {"type": "integer", "minimum": 1}, "aad_tile_capacity": {"type": "integer", "minimum": 1}
       }
+    },
+    "gamma": {
+      "type": "object", "additionalProperties": false, "required": ["bump"],
+      "properties": {"bump": {"$ref": "#/$defs/spot_bump"}}
+    },
+    "spot_bump": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"const": "absolute"}, "value": {"type": "number", "exclusiveMinimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"const": "relative"}, "value": {"type": "number", "exclusiveMinimum": 0}}}
+      ]
+    },
+    "vega_kt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["maturity_nodes", "log_forward_moneyness_nodes", "relative_density_threshold", "full_bucket_covariance"],
+      "properties": {
+        "maturity_nodes": {"type": "array", "minItems": 2, "items": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}},
+        "log_forward_moneyness_nodes": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+        "relative_density_threshold": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "full_bucket_covariance": {"type": "boolean"}
+      }
+    },
+    "smile_dynamics": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "sticky_log_moneyness"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "sticky_strike"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "sticky_delta"}}}
+      ]
     }
   }
 }

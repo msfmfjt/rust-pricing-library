@@ -1344,6 +1344,39 @@ mod tests {
         request
     }
 
+    fn local_vol_vega_kt_request() -> PricingRequest {
+        let request = local_vol_request();
+        PricingRequest::new(
+            request.valuation_date(),
+            request.product().clone(),
+            request.market().clone(),
+            request.model().clone(),
+            request.engine(),
+            RiskRequest::new(
+                true,
+                None,
+                true,
+                Some(
+                    VegaKtConfig::new(
+                        vec![
+                            "2027-03-04".parse().expect("date"),
+                            "2027-09-04".parse().expect("date"),
+                        ],
+                        vec![-0.2, 0.0, 0.2],
+                        1.0e-8,
+                        true,
+                    )
+                    .expect("vega kt"),
+                ),
+                SmileDynamics::StickyLogMoneyness,
+                Some(16),
+                Some(256),
+            )
+            .expect("risk"),
+        )
+        .expect("request")
+    }
+
     #[test]
     fn request_round_trip_and_noncanonical_input_have_same_fingerprint() {
         let request = request();
@@ -1414,6 +1447,22 @@ mod tests {
             parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
             Err(WireError::Domain(message)) if message.contains("shape")
         ));
+    }
+
+    #[test]
+    fn request_json_round_trips_local_volatility_vega_kt_request() {
+        let request = local_vol_vega_kt_request();
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"vega_kt\""));
+        assert!(json.contains("\"full_bucket_covariance\":true"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
+        let vega_kt = parsed.risk().vega_kt().expect("vega kt");
+        assert_eq!(vega_kt.maturity_nodes()[0].to_string(), "2027-03-04");
+        assert!(vega_kt.full_bucket_covariance());
     }
 
     #[test]

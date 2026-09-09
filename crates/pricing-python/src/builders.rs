@@ -9,7 +9,7 @@ use pricing::market::{
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
-use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump};
+use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
@@ -383,7 +383,7 @@ pub struct PyRiskRequest {
 #[pymethods]
 impl PyRiskRequest {
     #[new]
-    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
+    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -391,6 +391,10 @@ impl PyRiskRequest {
         gamma_relative_bump: Option<f64>,
         gamma_absolute_bump: Option<f64>,
         vega: bool,
+        vega_kt_maturity_nodes: Option<&Bound<'_, PyAny>>,
+        vega_kt_log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
+        vega_kt_relative_density_threshold: Option<f64>,
+        vega_kt_full_bucket_covariance: bool,
         smile_dynamics: &str,
         checkpoint_interval: Option<u32>,
         aad_tile_capacity: Option<u32>,
@@ -409,12 +413,19 @@ impl PyRiskRequest {
             .transpose()
             .map_err(|error| domain_error(py, "invalid_gamma_bump", "/risk/gamma", error))?
             .map(GammaConfig::new);
+        let vega_kt = vega_kt_from_python(
+            py,
+            vega_kt_maturity_nodes,
+            vega_kt_log_forward_moneyness_nodes,
+            vega_kt_relative_density_threshold,
+            vega_kt_full_bucket_covariance,
+        )?;
         let smile_dynamics = smile_dynamics_from_str(py, smile_dynamics)?;
         RiskRequest::new(
             delta,
             gamma,
             vega,
-            None,
+            vega_kt,
             smile_dynamics,
             checkpoint_interval,
             aad_tile_capacity,
@@ -458,6 +469,78 @@ fn copied_f64_array(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> 
             format!("expected a one-dimensional numeric sequence: {error}"),
         )
     })
+}
+
+fn copied_date_array(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+    pointer: &str,
+) -> PyResult<Vec<Date>> {
+    let mut dates = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_date_sequence",
+            pointer,
+            format!("expected a sequence of datetime.date or ISO date values: {error}"),
+        )
+    })?;
+    for item in iter {
+        dates.push(date_from_python(py, &item?, pointer)?);
+    }
+    Ok(dates)
+}
+
+fn vega_kt_from_python(
+    py: Python<'_>,
+    maturity_nodes: Option<&Bound<'_, PyAny>>,
+    log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
+    relative_density_threshold: Option<f64>,
+    full_bucket_covariance: bool,
+) -> PyResult<Option<VegaKtConfig>> {
+    let requested = maturity_nodes.is_some()
+        || log_forward_moneyness_nodes.is_some()
+        || relative_density_threshold.is_some()
+        || full_bucket_covariance;
+    if !requested {
+        return Ok(None);
+    }
+    let maturity_nodes = maturity_nodes.ok_or_else(|| {
+        domain_error(
+            py,
+            "missing_vega_kt_maturity_nodes",
+            "/risk/vega_kt/maturity_nodes",
+            "VegaKT requires maturity nodes",
+        )
+    })?;
+    let log_forward_moneyness_nodes = log_forward_moneyness_nodes.ok_or_else(|| {
+        domain_error(
+            py,
+            "missing_vega_kt_log_forward_moneyness_nodes",
+            "/risk/vega_kt/log_forward_moneyness_nodes",
+            "VegaKT requires log-forward-moneyness nodes",
+        )
+    })?;
+    let relative_density_threshold = relative_density_threshold.ok_or_else(|| {
+        domain_error(
+            py,
+            "missing_vega_kt_relative_density_threshold",
+            "/risk/vega_kt/relative_density_threshold",
+            "VegaKT requires a relative density threshold",
+        )
+    })?;
+    VegaKtConfig::new(
+        copied_date_array(py, maturity_nodes, "/risk/vega_kt/maturity_nodes")?,
+        copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/risk/vega_kt/log_forward_moneyness_nodes",
+        )?,
+        relative_density_threshold,
+        full_bucket_covariance,
+    )
+    .map(Some)
+    .map_err(|error| domain_error(py, "invalid_vega_kt", "/risk/vega_kt", error))
 }
 
 fn dividend_events_from_python(
