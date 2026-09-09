@@ -66,6 +66,40 @@ OPTIONAL_COMMAND_PEAKS = {
 }
 FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
+REPLAY_CASE_KEYS = {"execution", "name", "plan", "request", "result"}
+REPLAY_PLAN_KEYS = {
+    "plan_fingerprint",
+    "reduction_block_size",
+    "request_fingerprint",
+    "worker_threads",
+}
+REPLAY_EXECUTION_KEYS = {
+    "estimator_variance_bits",
+    "evaluated_paths",
+    "independent_sampling_units",
+    "monte_carlo",
+    "risk_methods",
+    "risk_validation",
+    "sampling_variance_bits",
+}
+REPLAY_MONTE_CARLO_KEYS = {
+    "aad_tile_capacity",
+    "aad_tile_policy_version",
+    "antithetic",
+    "checkpoint_interval",
+    "checkpoint_policy_version",
+    "direction_checksum",
+    "discount_region",
+    "dividend_region",
+    "estimator",
+    "master_seed",
+    "payoff_fingerprint",
+    "policy_version",
+    "reduction_block_size",
+    "scramble_checksum",
+    "scramble_count",
+    "worker_threads",
+}
 
 
 def main() -> None:
@@ -294,6 +328,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
     for index, case in enumerate(cases):
         case_path = f"cases[{index}]"
         case_object = require_object(case, path, case_path)
+        require_exact_keys(case_object, REPLAY_CASE_KEYS, path, case_path)
         case_name = case_object.get("name")
         require(
             isinstance(case_name, str) and case_name,
@@ -307,6 +342,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
         )
         seen_case_names.add(case_name)
         plan = require_object(case_object.get("plan"), path, f"{case_path}.plan")
+        require_exact_keys(plan, REPLAY_PLAN_KEYS, path, f"{case_path}.plan")
         require_fingerprint(
             plan.get("plan_fingerprint"), path, f"{case_path}.plan.plan_fingerprint"
         )
@@ -369,8 +405,15 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path} request fingerprints must match",
         )
         execution = require_object(case_object.get("execution"), path, f"{case_path}.execution")
+        require_exact_keys(execution, REPLAY_EXECUTION_KEYS, path, f"{case_path}.execution")
         monte_carlo = require_object(
             execution.get("monte_carlo"), path, f"{case_path}.execution.monte_carlo"
+        )
+        require_exact_keys(
+            monte_carlo,
+            REPLAY_MONTE_CARLO_KEYS,
+            path,
+            f"{case_path}.execution.monte_carlo",
         )
         require_positive_int(
             monte_carlo.get("reduction_block_size"),

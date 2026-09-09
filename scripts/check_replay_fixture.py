@@ -32,6 +32,41 @@ SUPPORTED_PLATFORMS = {
     "windows-x86_64",
 }
 FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
+REPLAY_DOCUMENT_KEYS = {"cases", "fixture_kind", "platform", "schema_version"}
+REPLAY_CASE_KEYS = {"execution", "name", "plan", "request", "result"}
+REPLAY_PLAN_KEYS = {
+    "plan_fingerprint",
+    "reduction_block_size",
+    "request_fingerprint",
+    "worker_threads",
+}
+REPLAY_EXECUTION_KEYS = {
+    "estimator_variance_bits",
+    "evaluated_paths",
+    "independent_sampling_units",
+    "monte_carlo",
+    "risk_methods",
+    "risk_validation",
+    "sampling_variance_bits",
+}
+REPLAY_MONTE_CARLO_KEYS = {
+    "aad_tile_capacity",
+    "aad_tile_policy_version",
+    "antithetic",
+    "checkpoint_interval",
+    "checkpoint_policy_version",
+    "direction_checksum",
+    "discount_region",
+    "dividend_region",
+    "estimator",
+    "master_seed",
+    "payoff_fingerprint",
+    "policy_version",
+    "reduction_block_size",
+    "scramble_checksum",
+    "scramble_count",
+    "worker_threads",
+}
 
 
 def main() -> None:
@@ -93,6 +128,7 @@ def replay_identity(
     document: dict[str, object],
     library_version: str,
 ) -> tuple[str, str]:
+    require_exact_keys(path, document, REPLAY_DOCUMENT_KEYS, "replay document")
     schema_version = document.get("schema_version")
     if schema_version != 1:
         raise SystemExit(f"{path}: schema_version must be 1")
@@ -113,6 +149,7 @@ def replay_identity(
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             raise SystemExit(f"{path}: cases[{index}] must be an object")
+        require_exact_keys(path, case, REPLAY_CASE_KEYS, f"cases[{index}]")
         name = case.get("name")
         if not isinstance(name, str) or not name:
             raise SystemExit(f"{path}: cases[{index}].name must be a non-empty string")
@@ -140,9 +177,20 @@ def validate_case(
 ) -> None:
     case_path = f"cases[{index}]"
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
+    require_exact_keys(path, plan, REPLAY_PLAN_KEYS, f"{case_path}.plan")
     request = require_object(path, case.get("request"), f"{case_path}.request")
     result = require_object(path, case.get("result"), f"{case_path}.result")
-    require_object(path, case.get("execution"), f"{case_path}.execution")
+    execution = require_object(path, case.get("execution"), f"{case_path}.execution")
+    require_exact_keys(path, execution, REPLAY_EXECUTION_KEYS, f"{case_path}.execution")
+    monte_carlo = require_object(
+        path, execution.get("monte_carlo"), f"{case_path}.execution.monte_carlo"
+    )
+    require_exact_keys(
+        path,
+        monte_carlo,
+        REPLAY_MONTE_CARLO_KEYS,
+        f"{case_path}.execution.monte_carlo",
+    )
 
     require_fingerprint(path, plan.get("plan_fingerprint"), f"{case_path}.plan.plan_fingerprint")
     request_fingerprint = require_fingerprint(
@@ -226,6 +274,21 @@ def require_object(path: Path, value: object, field: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise SystemExit(f"{path}: {field} must be an object")
     return value
+
+
+def require_exact_keys(
+    path: Path,
+    document: dict[str, object],
+    expected_keys: set[str],
+    field: str,
+) -> None:
+    actual_keys = set(document)
+    missing = sorted(expected_keys.difference(actual_keys))
+    if missing:
+        raise SystemExit(f"{path}: {field} missing keys: {missing}")
+    unexpected = sorted(actual_keys.difference(expected_keys))
+    if unexpected:
+        raise SystemExit(f"{path}: {field} unexpected keys: {unexpected}")
 
 
 def require_fingerprint(path: Path, value: object, field: str) -> str:
