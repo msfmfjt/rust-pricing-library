@@ -627,6 +627,11 @@ impl PyPricingResult {
     }
 
     #[getter]
+    fn estimate(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.pricing_result.value)
+    }
+
+    #[getter]
     fn delta(&self) -> Option<PyRiskEstimate> {
         self.inner
             .pricing_result

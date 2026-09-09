@@ -28,6 +28,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         result = plan.evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
+        self.assertEqual(result.estimate.value, result.value)
+        self.assertEqual(result.estimate.standard_error, result.standard_error)
+        self.assertEqual(result.estimate.estimator, result.diagnostics.estimator)
+        self.assertEqual(result.estimate.effective_sampling_units, 1024)
         self.assertEqual(result.independent_sampling_units, 1024)
         self.assertEqual(result.evaluated_paths, 2048)
         self.assertIsNone(result.delta)
@@ -347,6 +351,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(result.delta.raw_unit, "delta_raw")
         self.assertEqual(result.delta.market_scaled_unit, "delta_one_percent_spot")
         self.assertEqual(result.delta.raw.value, result.delta_raw)
+        self.assertEqual(result.delta.raw.estimator, result.diagnostics.estimator)
         self.assertEqual(result.delta.market_scaled.value, result.delta_market_scaled)
         self.assertGreaterEqual(result.delta.raw.standard_error, 0.0)
         self.assertEqual(

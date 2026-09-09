@@ -64,6 +64,11 @@ impl PyDiagnosticEstimate {
     }
 
     #[getter]
+    fn estimator(&self) -> &str {
+        estimator_name(self.estimate.estimator())
+    }
+
+    #[getter]
     fn effective_sampling_units(&self) -> u64 {
         self.estimate.effective_sampling_units().get()
     }

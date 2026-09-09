@@ -93,8 +93,8 @@ The Python facade exposes the same versioned JSON boundary as Rust:
 Draft 2020-12 schemas are available through `request_json_schema()` and
 `result_json_schema()` for external validation or fixture review. Pricing
 results expose Price and Greek estimates with standard errors, confidence
-intervals, effective sample counts, and raw/market-scaled risk units. Result
-diagnostics expose replay-critical seeds, execution policy fields, curve
+intervals, estimator labels, effective sample counts, and raw/market-scaled
+risk units. Result diagnostics expose replay-critical seeds, execution policy fields, curve
 regions, Payoff fingerprints, QMC direction/scramble checksums, bump validation
 policy fields, and CRN bump validation estimates for requested Greeks.
 
