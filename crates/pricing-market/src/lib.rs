@@ -4,6 +4,7 @@
 
 mod context;
 mod curve;
+mod essvi;
 mod error;
 mod forward;
 mod pchip;
@@ -13,6 +14,7 @@ pub use context::{EquityMarket, MarketContext};
 pub use curve::{
     CurveEvaluation, CurveExtrapolationStats, CurveRegion, DiscountCurve, LogLinearDiscountCurve,
 };
+pub use essvi::{EssviParameters, EssviSlice, EssviSurface};
 pub use error::MarketError;
 pub use forward::{EquityForward, ForwardEvaluation};
 pub use pchip::{ThetaEvaluation, ThetaPchip, ThetaRegion};
