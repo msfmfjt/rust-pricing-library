@@ -88,6 +88,21 @@ impl EquityForward {
         self.discrete_dividends.as_ref()
     }
 
+    pub fn with_spot(&self, spot: PositiveF64) -> Result<Self, MarketError> {
+        let discrete_dividends = self
+            .discrete_dividends
+            .as_ref()
+            .map(|dividends| dividends.with_spot(spot))
+            .transpose()?;
+        Ok(Self {
+            underlying: self.underlying,
+            spot,
+            discount_curve: Arc::clone(&self.discount_curve),
+            dividend_curve: Arc::clone(&self.dividend_curve),
+            discrete_dividends,
+        })
+    }
+
     pub fn evaluate(&self, time: f64) -> Result<ForwardEvaluation, MarketError> {
         let discount = self.discount_curve.evaluate(time)?;
         let dividend = self.dividend_curve.evaluate(time)?;
@@ -185,6 +200,35 @@ mod tests {
         assert!((value.affine_coordinate.b() - 0.9).abs() < 1.0e-15);
         assert!((value.spot_contract_forward - (0.9 * f_forward - 4.0)).abs() < 1.0e-13);
         assert!(forward.discrete_dividends().is_some());
+    }
+
+    #[test]
+    fn bumped_spot_recompiles_discrete_dividends_with_fixed_cash_held_constant() {
+        let forward = EquityForward::with_discrete_dividends(
+            UnderlyingId::new(3),
+            PositiveF64::new(100.0, "spot").expect("positive spot"),
+            flat_curve(10, 0.05),
+            flat_curve(11, 0.02),
+            vec![
+                DividendEvent::new(
+                    EventId::new(1),
+                    0.5,
+                    DividendQuote::fixed_cash_and_proportional(4.0, 0.1, EventId::new(1))
+                        .expect("quote"),
+                )
+                .expect("event"),
+            ],
+        )
+        .expect("forward");
+        let bumped = forward
+            .with_spot(PositiveF64::new(125.0, "spot").expect("positive spot"))
+            .expect("bumped");
+
+        let event = bumped.discrete_dividends().expect("dividends").events()[0];
+        assert_eq!(event.fixed_cash(), 4.0);
+        assert!((event.alpha() - 4.0 / 125.0).abs() < 1.0e-15);
+        assert_eq!(event.beta(), 0.1);
+        assert_eq!(bumped.spot().get(), 125.0);
     }
 
     #[test]

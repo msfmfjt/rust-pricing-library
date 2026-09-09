@@ -214,6 +214,7 @@ const fn curve_region_name(region: CurveRegion) -> &'static str {
 const fn risk_method_name(method: RiskMethod) -> &'static str {
     match method {
         RiskMethod::AadReverse => "aad_reverse",
+        RiskMethod::CentralBump => "central_bump",
         RiskMethod::CentralBumpOfAadDelta => "central_bump_of_aad_delta",
     }
 }

@@ -134,7 +134,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 4.0,
             ),
             rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
-            rust_pricing.RiskRequest(),
+            rust_pricing.RiskRequest(delta=True, gamma_relative_bump=0.01),
         )
         payload = json.loads(request.to_json())
         self.assertEqual(payload["model"]["type"], "local_volatility")
@@ -148,7 +148,11 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         result = plan.evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreater(result.standard_error, 0.0)
-        self.assertIsNone(result.delta_raw)
+        self.assertTrue(math.isfinite(result.delta_raw))
+        self.assertTrue(math.isfinite(result.gamma_raw))
+        self.assertIsNone(result.vega_raw)
+        self.assertEqual(result.diagnostics.delta_method, "central_bump")
+        self.assertEqual(result.diagnostics.gamma_method, "central_bump")
 
         rqmc_request = rust_pricing.PricingRequest(
             "2026-09-04",
@@ -166,7 +170,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.Engine.randomized_quasi_monte_carlo(
                 256, 11, scramble_count=4, antithetic=True
             ),
-            rust_pricing.RiskRequest(),
+            rust_pricing.RiskRequest(delta=True, gamma_relative_bump=0.01),
         )
         rqmc_plan = rust_pricing.PricingPlan.compile(
             rqmc_request, worker_threads=2, reduction_block_size=256
@@ -176,6 +180,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(
             rqmc_result.diagnostics.estimator, "randomized_quasi_monte_carlo"
         )
+        self.assertTrue(math.isfinite(rqmc_result.delta_raw))
+        self.assertTrue(math.isfinite(rqmc_result.gamma_raw))
+        self.assertEqual(rqmc_result.diagnostics.delta_method, "central_bump")
 
     def test_native_local_volatility_can_materialize_from_essvi(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])

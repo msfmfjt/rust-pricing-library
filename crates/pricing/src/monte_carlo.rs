@@ -1,5 +1,5 @@
 use pricing_aad::{AadTilePolicy, CheckpointPolicy, SoaWorkspace};
-use pricing_core::{Date, DayCountConvention, PathIndex, SchemaVersion, UnderlyingId};
+use pricing_core::{Date, DayCountConvention, PathIndex, PositiveF64, SchemaVersion, UnderlyingId};
 use pricing_market::{
     AffineDividendTransform, CurveRegion, DiscountCurve, EquityForward, LocalVarianceGrid,
 };
@@ -64,6 +64,7 @@ pub struct SimulationPlan {
     plan_fingerprint: Fingerprint,
     discount_region: CurveRegion,
     dividend_region: CurveRegion,
+    market_forward: EquityForward,
     local_volatility: Option<LocalVolRuntime>,
 }
 
@@ -95,6 +96,15 @@ impl LocalVolRuntime {
             })
             .sum()
     }
+}
+
+#[derive(Clone, Debug)]
+struct LocalVolBumpRuntimes {
+    down_spot: f64,
+    down: LocalVolRuntime,
+    up_spot: f64,
+    up: LocalVolRuntime,
+    spot_bump: f64,
 }
 
 fn compile_local_vol_runtime(
@@ -173,11 +183,7 @@ impl SimulationPlan {
                 (volatility, volatility * volatility * time, None)
             }
             ModelSpec::LocalVolatility(model) => {
-                if request.risk().delta()
-                    || request.risk().gamma().is_some()
-                    || request.risk().vega()
-                    || request.risk().vega_kt().is_some()
-                {
+                if request.risk().vega() || request.risk().vega_kt().is_some() {
                     return Err(MonteCarloError::UnsupportedRiskForModel {
                         model: request.model().name(),
                     });
@@ -270,6 +276,7 @@ impl SimulationPlan {
             plan_fingerprint,
             discount_region: forward_evaluation.discount_region,
             dividend_region: forward_evaluation.dividend_region,
+            market_forward: market_forward.clone(),
             local_volatility,
         })
     }
@@ -586,8 +593,10 @@ impl SimulationPlan {
         let executor = DeterministicExecutor::new(self.execution_policy)?;
         let antithetic = engine.variance_reduction().antithetic();
         let brownian_bridge = engine.variance_reduction().brownian_bridge();
-        let price = executor.try_map_reduce_statistics(
+        let bump_runtimes = self.local_vol_bump_runtimes()?;
+        let statistics = executor.try_map_reduce_statistics_array_tiled(
             engine.independent_sampling_units().get(),
+            self.aad_tile_policy.resolved_capacity(),
             |sampling_unit| {
                 let shocks = local_volatility.plan.path_shocks(
                     engine.master_seed(),
@@ -595,32 +604,36 @@ impl SimulationPlan {
                     RandomDomain::Valuation,
                     brownian_bridge,
                 )?;
-                let primary = self.local_vol_discounted_payoff(
+                let primary = self.local_vol_pathwise_values(
                     local_volatility,
+                    bump_runtimes.as_ref(),
                     &shocks,
                     PathIndex::new(sampling_unit),
                 )?;
                 if antithetic {
                     let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
-                    let mate = self.local_vol_discounted_payoff(
+                    let mate = self.local_vol_pathwise_values(
                         local_volatility,
+                        bump_runtimes.as_ref(),
                         &mate_shocks,
                         PathIndex::new(sampling_unit),
                     )?;
-                    Ok::<f64, MonteCarloError>((primary + mate) * 0.5)
+                    Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                        |component| (primary[component] + mate[component]) * 0.5,
+                    ))
                 } else {
-                    Ok::<f64, MonteCarloError>(primary)
+                    Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
                 }
             },
         )?;
         let independent_units = engine.independent_sampling_units().get();
         let estimate = estimate_from_statistics(
-            price,
+            statistics[PRICE],
             independent_units,
             1.0,
             EstimatorKind::PseudoMonteCarlo,
         )?;
-        let sampling_variance = price.moments().sample_variance().ok_or(
+        let sampling_variance = statistics[PRICE].moments().sample_variance().ok_or(
             MonteCarloError::InsufficientSamplingUnits {
                 count: independent_units,
             },
@@ -628,11 +641,11 @@ impl SimulationPlan {
         let estimator_variance = sampling_variance / independent_units as f64;
         let pricing_result = PricingResult {
             value: estimate,
-            risks: RiskReport {
-                delta: None,
-                gamma: None,
-                vega: None,
-            },
+            risks: self.build_risk_report(
+                &statistics,
+                independent_units,
+                EstimatorKind::PseudoMonteCarlo,
+            )?,
             diagnostics: Diagnostics::new(extrapolation_warnings(
                 self.discount_region,
                 self.dividend_region,
@@ -648,21 +661,7 @@ impl SimulationPlan {
             pricing_result,
             sampling_variance,
             estimator_variance,
-            risk_diagnostics: RiskDiagnostics {
-                methods: RiskMethodMetadata {
-                    delta: None,
-                    gamma: None,
-                    vega: None,
-                    smile_dynamics: self.smile_dynamics,
-                    gamma_spot_bump: None,
-                    validation_spot_bump: None,
-                    validation_volatility_bump: None,
-                    bump_policy_version: BumpValidationPolicy::VERSION,
-                },
-                delta_validation: None,
-                gamma_validation: None,
-                vega_validation: None,
-            },
+            risk_diagnostics: self.build_local_vol_risk_diagnostics(),
             independent_sampling_units: independent_units,
             evaluated_paths: engine.evaluated_paths(),
             diagnostics: MonteCarloDiagnostics {
@@ -692,13 +691,23 @@ impl SimulationPlan {
         shocks: &[f64],
         path: PathIndex,
     ) -> Result<f64, MonteCarloError> {
+        self.local_vol_discounted_payoff_at_spot(local_volatility, self.spot, shocks, path)
+    }
+
+    fn local_vol_discounted_payoff_at_spot(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        spot: f64,
+        shocks: &[f64],
+        path: PathIndex,
+    ) -> Result<f64, MonteCarloError> {
         let path = if let (Some(dividends), Some(schedule)) = (
             local_volatility.dividends.as_ref(),
             local_volatility.dividend_schedule.as_ref(),
         ) {
             local_volatility.plan.evolve_path_with_dividend_checks(
                 &local_volatility.grid,
-                self.spot,
+                spot,
                 shocks,
                 dividends,
                 schedule,
@@ -716,7 +725,7 @@ impl SimulationPlan {
                 .ok_or(MonteCarloError::UnsupportedModel {
                     model: "local_volatility",
                 })?;
-        let terminal = local_volatility.terminal_affine_a * self.spot
+        let terminal = local_volatility.terminal_affine_a * spot
             + local_volatility.terminal_affine_b * terminal_f;
         let outputs = self.payoff.evaluate(|underlying, date| {
             (underlying == self.underlying && date == self.expiry).then_some(terminal)
@@ -726,6 +735,78 @@ impl SimulationPlan {
                 .first()
                 .copied()
                 .ok_or(pricing_product::GraphError::NoOutputs)?)
+    }
+
+    fn local_vol_bump_runtimes(&self) -> Result<Option<LocalVolBumpRuntimes>, MonteCarloError> {
+        if !self.request_delta && self.request_gamma.is_none() {
+            return Ok(None);
+        }
+        let local_volatility =
+            self.local_volatility
+                .as_ref()
+                .ok_or(MonteCarloError::UnsupportedModel {
+                    model: "local_volatility",
+                })?;
+        let spot_bump = self.validation_spot_bump;
+        let down_spot = self.spot - spot_bump;
+        let up_spot = self.spot + spot_bump;
+        let down = self.local_vol_runtime_for_spot(local_volatility, down_spot)?;
+        let up = self.local_vol_runtime_for_spot(local_volatility, up_spot)?;
+        Ok(Some(LocalVolBumpRuntimes {
+            down_spot,
+            down,
+            up_spot,
+            up,
+            spot_bump,
+        }))
+    }
+
+    fn local_vol_runtime_for_spot(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        spot: f64,
+    ) -> Result<LocalVolRuntime, MonteCarloError> {
+        let spot = PositiveF64::new(spot, "spot").map_err(ResultBuildError::from)?;
+        let market_forward = self.market_forward.with_spot(spot)?;
+        let forward_evaluation = market_forward.evaluate(self.time)?;
+        compile_local_vol_runtime(
+            local_volatility.grid.clone(),
+            &market_forward,
+            self.time,
+            forward_evaluation.affine_coordinate.a(),
+            forward_evaluation.affine_coordinate.b(),
+        )
+    }
+
+    fn local_vol_pathwise_values(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        bump_runtimes: Option<&LocalVolBumpRuntimes>,
+        shocks: &[f64],
+        path: PathIndex,
+    ) -> Result<[f64; PATHWISE_COMPONENTS], MonteCarloError> {
+        let price = self.local_vol_discounted_payoff(local_volatility, shocks, path)?;
+        let mut values = [0.0; PATHWISE_COMPONENTS];
+        values[PRICE] = price;
+        if let Some(bumps) = bump_runtimes {
+            let down = self.local_vol_discounted_payoff_at_spot(
+                &bumps.down,
+                bumps.down_spot,
+                shocks,
+                path,
+            )?;
+            let up =
+                self.local_vol_discounted_payoff_at_spot(&bumps.up, bumps.up_spot, shocks, path)?;
+            let delta = (up - down) / (2.0 * bumps.spot_bump);
+            values[DELTA] = delta;
+            values[BUMP_DELTA] = delta;
+            if self.request_gamma.is_some() {
+                let gamma = (up - 2.0 * price + down) / bumps.spot_bump.powi(2);
+                values[GAMMA] = gamma;
+                values[BUMP_GAMMA] = gamma;
+            }
+        }
+        Ok(values)
     }
 
     fn execute_local_vol_rqmc(
@@ -747,39 +828,61 @@ impl SimulationPlan {
         let executor = DeterministicExecutor::new(self.execution_policy)?;
         let antithetic = engine.variance_reduction().antithetic();
         let points = engine.points_per_scramble().get();
-        let mut replicate_prices = Vec::with_capacity(
+        let bump_runtimes = self.local_vol_bump_runtimes()?;
+        let mut replicate_values: Vec<[f64; PATHWISE_COMPONENTS]> = Vec::with_capacity(
             usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
         );
         for scramble in 0..engine.scramble_count().get() {
-            let within = executor.try_map_reduce_statistics(points, |point| {
-                let path_index = PathIndex::new(u64::from(scramble).saturating_mul(points) + point);
-                let shocks = local_vol_rqmc_shocks(&qmc, bridge.as_ref(), scramble, point)?;
-                let primary =
-                    self.local_vol_discounted_payoff(local_volatility, &shocks, path_index)?;
-                if antithetic {
-                    let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
-                    let mate = self.local_vol_discounted_payoff(
+            let within = executor.try_map_reduce_statistics_array_tiled(
+                points,
+                self.aad_tile_policy.resolved_capacity(),
+                |point| {
+                    let path_index =
+                        PathIndex::new(u64::from(scramble).saturating_mul(points) + point);
+                    let shocks = local_vol_rqmc_shocks(&qmc, bridge.as_ref(), scramble, point)?;
+                    let primary = self.local_vol_pathwise_values(
                         local_volatility,
-                        &mate_shocks,
+                        bump_runtimes.as_ref(),
+                        &shocks,
                         path_index,
                     )?;
-                    Ok::<f64, MonteCarloError>((primary + mate) * 0.5)
-                } else {
-                    Ok::<f64, MonteCarloError>(primary)
-                }
-            })?;
-            replicate_prices.push(within.sum().total() / points as f64);
+                    if antithetic {
+                        let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                        let mate = self.local_vol_pathwise_values(
+                            local_volatility,
+                            bump_runtimes.as_ref(),
+                            &mate_shocks,
+                            path_index,
+                        )?;
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                            |component| (primary[component] + mate[component]) * 0.5,
+                        ))
+                    } else {
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
+                    }
+                },
+            )?;
+            replicate_values.push(std::array::from_fn(|component| {
+                within[component].sum().total() / points as f64
+            }));
         }
 
-        let price = DeterministicStatistics::from_ordered_values_two_pass(&replicate_prices);
+        let statistics: [DeterministicStatistics; PATHWISE_COMPONENTS] =
+            std::array::from_fn(|component| {
+                let values = replicate_values
+                    .iter()
+                    .map(|replicate| replicate[component])
+                    .collect::<Vec<_>>();
+                DeterministicStatistics::from_ordered_values_two_pass(&values)
+            });
         let independent_units = u64::from(engine.scramble_count().get());
         let estimate = estimate_from_statistics(
-            price,
+            statistics[PRICE],
             independent_units,
             1.0,
             EstimatorKind::RandomizedQuasiMonteCarlo,
         )?;
-        let sampling_variance = price.moments().sample_variance().ok_or(
+        let sampling_variance = statistics[PRICE].moments().sample_variance().ok_or(
             MonteCarloError::InsufficientSamplingUnits {
                 count: independent_units,
             },
@@ -787,11 +890,11 @@ impl SimulationPlan {
         let estimator_variance = sampling_variance / independent_units as f64;
         let pricing_result = PricingResult {
             value: estimate,
-            risks: RiskReport {
-                delta: None,
-                gamma: None,
-                vega: None,
-            },
+            risks: self.build_risk_report(
+                &statistics,
+                independent_units,
+                EstimatorKind::RandomizedQuasiMonteCarlo,
+            )?,
             diagnostics: Diagnostics::new(extrapolation_warnings(
                 self.discount_region,
                 self.dividend_region,
@@ -808,21 +911,7 @@ impl SimulationPlan {
             pricing_result,
             sampling_variance,
             estimator_variance,
-            risk_diagnostics: RiskDiagnostics {
-                methods: RiskMethodMetadata {
-                    delta: None,
-                    gamma: None,
-                    vega: None,
-                    smile_dynamics: self.smile_dynamics,
-                    gamma_spot_bump: None,
-                    validation_spot_bump: None,
-                    validation_volatility_bump: None,
-                    bump_policy_version: BumpValidationPolicy::VERSION,
-                },
-                delta_validation: None,
-                gamma_validation: None,
-                vega_validation: None,
-            },
+            risk_diagnostics: self.build_local_vol_risk_diagnostics(),
             independent_sampling_units: independent_units,
             evaluated_paths: u128::from(points)
                 * u128::from(engine.scramble_count().get())
@@ -1090,6 +1179,27 @@ impl SimulationPlan {
             vega_validation,
         })
     }
+
+    fn build_local_vol_risk_diagnostics(&self) -> RiskDiagnostics {
+        RiskDiagnostics {
+            methods: RiskMethodMetadata {
+                delta: self.request_delta.then_some(RiskMethod::CentralBump),
+                gamma: self.request_gamma.map(|_| RiskMethod::CentralBump),
+                vega: None,
+                smile_dynamics: self.smile_dynamics,
+                gamma_spot_bump: self
+                    .request_gamma
+                    .map(|gamma| resolve_spot_bump(gamma, self.spot)),
+                validation_spot_bump: (self.request_delta || self.request_gamma.is_some())
+                    .then_some(self.validation_spot_bump),
+                validation_volatility_bump: None,
+                bump_policy_version: BumpValidationPolicy::VERSION,
+            },
+            delta_validation: None,
+            gamma_validation: None,
+            vega_validation: None,
+        }
+    }
 }
 
 fn build_plan_fingerprint(
@@ -1213,6 +1323,7 @@ fn local_vol_rqmc_shocks(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RiskMethod {
     AadReverse,
+    CentralBump,
     CentralBumpOfAadDelta,
 }
 
@@ -1512,6 +1623,13 @@ mod tests {
     }
 
     fn zero_carry_rqmc_request(model: ModelSpec) -> PricingRequest {
+        zero_carry_rqmc_request_with_risk(
+            model,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+    }
+
+    fn zero_carry_rqmc_request_with_risk(model: ModelSpec, risk: RiskRequest) -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
         let product = ProductSpec::EuropeanVanilla(
@@ -1549,7 +1667,7 @@ mod tests {
             market,
             model,
             engine,
-            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            risk,
         )
         .expect("request")
     }
@@ -1685,7 +1803,69 @@ mod tests {
     }
 
     #[test]
-    fn local_vol_risk_requests_are_explicitly_unsupported() {
+    fn local_vol_delta_and_gamma_use_common_random_number_bumps() {
+        let risk = RiskRequest::new(
+            true,
+            Some(GammaConfig::new(
+                SpotBump::relative(0.01).expect("gamma bump"),
+            )),
+            false,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            Some(16),
+            Some(128),
+        )
+        .expect("risk");
+        let request = local_vol_price_only_request(4096, true, risk);
+        let result = price_pseudo_monte_carlo(&request, policy(2)).expect("local vol risks");
+        assert!(result.pricing_result.risks.delta.is_some());
+        assert!(result.pricing_result.risks.gamma.is_some());
+        assert!(result.pricing_result.risks.vega.is_none());
+        assert_eq!(
+            result.risk_diagnostics.methods.delta,
+            Some(RiskMethod::CentralBump)
+        );
+        assert_eq!(
+            result.risk_diagnostics.methods.gamma,
+            Some(RiskMethod::CentralBump)
+        );
+        assert_eq!(result.risk_diagnostics.methods.vega, None);
+        assert_eq!(result.risk_diagnostics.delta_validation, None);
+        assert_eq!(result.risk_diagnostics.gamma_validation, None);
+    }
+
+    #[test]
+    fn local_vol_rqmc_delta_and_gamma_use_between_scramble_uncertainty() {
+        let risk = RiskRequest::new(
+            true,
+            Some(GammaConfig::new(
+                SpotBump::relative(0.01).expect("gamma bump"),
+            )),
+            false,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            Some(16),
+            Some(128),
+        )
+        .expect("risk");
+        let request = zero_carry_rqmc_request_with_risk(constant_local_vol_model(), risk);
+        let result = price_monte_carlo(&request, policy(2)).expect("local vol rqmc risks");
+        let delta = result.pricing_result.risks.delta.expect("delta").raw();
+        let gamma = result.pricing_result.risks.gamma.expect("gamma").raw();
+        assert_eq!(delta.effective_sampling_units().get(), 16);
+        assert_eq!(gamma.effective_sampling_units().get(), 16);
+        assert_eq!(
+            result.risk_diagnostics.methods.delta,
+            Some(RiskMethod::CentralBump)
+        );
+        assert_eq!(
+            result.risk_diagnostics.methods.gamma,
+            Some(RiskMethod::CentralBump)
+        );
+    }
+
+    #[test]
+    fn local_vol_vega_requests_are_explicitly_unsupported() {
         let request = local_vol_price_only_request(4096, true, all_risks());
         assert!(matches!(
             SimulationPlan::compile(&request, policy(2)),

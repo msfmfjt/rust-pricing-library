@@ -37,6 +37,12 @@ nearest boundary. Runtime interpolation statistics record:
 | `max_left_excursion` | Maximum absolute distance beyond the left boundary |
 | `max_right_excursion` | Maximum absolute distance beyond the right boundary |
 
+Public Local Volatility Delta and Gamma are reported with risk method
+`central_bump`. The bump is evaluated with common random numbers, fixed
+reduction order, and Spot-specific recompilation of forward normalizers and
+affine dividend transforms. Public Local Vega and VegaKT output remain separate
+acceptance work.
+
 ## Affine dividend diagnostics
 
 Discrete dividends are represented by deterministic affine transforms between
