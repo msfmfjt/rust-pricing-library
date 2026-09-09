@@ -1,5 +1,5 @@
 use pricing_core::{CoreError, NonNegativeF64};
-use pricing_market::{LocalVarianceGrid, MarketError};
+use pricing_market::{ImpliedVarianceSurface, LocalVarianceGrid, MarketError};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BlackScholesSpec {
@@ -25,6 +25,24 @@ pub struct LocalVolatilitySpec {
 }
 
 impl LocalVolatilitySpec {
+    pub fn from_surface(
+        surface: &dyn ImpliedVarianceSurface,
+        time_nodes: Vec<f64>,
+        log_moneyness_nodes: Vec<f64>,
+        floor: f64,
+        cap: f64,
+    ) -> Result<Self, MarketError> {
+        Ok(Self {
+            local_variance_grid: LocalVarianceGrid::from_surface(
+                surface,
+                time_nodes,
+                log_moneyness_nodes,
+                floor,
+                cap,
+            )?,
+        })
+    }
+
     pub fn from_explicit_grid(
         time_nodes: Vec<f64>,
         log_moneyness_nodes: Vec<f64>,
@@ -98,5 +116,29 @@ mod tests {
             [-0.1, 0.0, 0.2]
         );
         assert_eq!(spec.local_variance_grid().values()[4], 0.045);
+    }
+
+    #[test]
+    fn local_volatility_can_materialize_from_implied_variance_surface() {
+        use pricing_market::{EssviSlice, EssviSurface, SurfaceValidationTolerance};
+
+        let surface = EssviSurface::new(
+            vec![
+                EssviSlice::new(0.25, 0.02, 0.1, -0.03).expect("first"),
+                EssviSlice::new(1.0, 0.04, 0.2, -0.06).expect("second"),
+            ],
+            0.02,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .expect("surface");
+        let spec = LocalVolatilitySpec::from_surface(
+            &surface,
+            vec![0.25, 1.0],
+            vec![-0.1, 0.0, 0.2],
+            1.0e-8,
+            4.0,
+        )
+        .expect("local vol");
+        assert_eq!(spec.local_variance_grid().values().len(), 6);
     }
 }

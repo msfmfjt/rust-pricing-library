@@ -104,6 +104,18 @@ class DividendEvent:
     def ex_time(self) -> float: ...
 
 
+class EssviSlice:
+    def __init__(self, time: float, theta: float, psi: float, rho_psi: float) -> None: ...
+    @property
+    def time(self) -> float: ...
+    @property
+    def theta(self) -> float: ...
+    @property
+    def psi(self) -> float: ...
+    @property
+    def rho_psi(self) -> float: ...
+
+
 class Product:
     @staticmethod
     def european_vanilla(
@@ -137,6 +149,15 @@ class Model:
         time_nodes: Sequence[float],
         log_forward_moneyness_nodes: Sequence[float],
         local_variances: Sequence[float],
+        floor: float,
+        cap: float,
+    ) -> Model: ...
+    @staticmethod
+    def local_volatility_from_essvi(
+        slices: Sequence[EssviSlice],
+        terminal_theta_slope: float,
+        time_nodes: Sequence[float],
+        log_forward_moneyness_nodes: Sequence[float],
         floor: float,
         cap: float,
     ) -> Model: ...

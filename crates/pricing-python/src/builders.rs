@@ -3,8 +3,8 @@ use std::sync::Arc;
 use pricing::PricingRequest;
 use pricing::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, UnderlyingId};
 use pricing::market::{
-    DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
-    MarketContext,
+    DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice, EssviSurface,
+    LogLinearDiscountCurve, MarketContext, SurfaceValidationTolerance,
 };
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
@@ -158,6 +158,53 @@ impl PyDividendEvent {
     }
 }
 
+/// Immutable eSSVI slice used to materialize Local Volatility grids.
+#[pyclass(frozen, name = "EssviSlice", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyEssviSlice {
+    inner: EssviSlice,
+}
+
+#[pymethods]
+impl PyEssviSlice {
+    #[new]
+    fn new(py: Python<'_>, time: f64, theta: f64, psi: f64, rho_psi: f64) -> PyResult<Self> {
+        EssviSlice::new(time, theta, psi, rho_psi)
+            .map(|inner| Self { inner })
+            .map_err(|error| domain_error(py, "invalid_essvi_slice", "/model/essvi/slices", error))
+    }
+
+    #[getter]
+    fn time(&self) -> f64 {
+        self.inner.time()
+    }
+
+    #[getter]
+    fn theta(&self) -> f64 {
+        self.inner.theta()
+    }
+
+    #[getter]
+    fn psi(&self) -> f64 {
+        self.inner.psi()
+    }
+
+    #[getter]
+    fn rho_psi(&self) -> f64 {
+        self.inner.rho_psi()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "EssviSlice(time={}, theta={}, psi={}, rho_psi={})",
+            self.time(),
+            self.theta(),
+            self.psi(),
+            self.rho_psi()
+        )
+    }
+}
+
 /// Immutable product specification built through named factory methods.
 #[pyclass(frozen, name = "Product", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -290,6 +337,49 @@ impl PyModel {
             time_nodes,
             log_forward_moneyness_nodes,
             local_variances,
+            floor,
+            cap,
+        )
+        .map(|spec| Self {
+            inner: ModelSpec::LocalVolatility(spec),
+        })
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_local_variance_grid",
+                "/model/local_variance_grid",
+                error,
+            )
+        })
+    }
+
+    /// Build a Local Volatility model by sampling an eSSVI implied-volatility surface.
+    #[staticmethod]
+    fn local_volatility_from_essvi(
+        py: Python<'_>,
+        slices: &Bound<'_, PyAny>,
+        terminal_theta_slope: f64,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        let surface = EssviSurface::new(
+            essvi_slices_from_python(py, slices)?,
+            terminal_theta_slope,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .map_err(|error| domain_error(py, "invalid_essvi_surface", "/model/essvi", error))?;
+        let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+        let log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/model/local_variance_grid/log_forward_moneyness_nodes",
+        )?;
+        LocalVolatilitySpec::from_surface(
+            &surface,
+            time_nodes,
+            log_forward_moneyness_nodes,
             floor,
             cap,
         )
@@ -541,6 +631,31 @@ fn vega_kt_from_python(
     )
     .map(Some)
     .map_err(|error| domain_error(py, "invalid_vega_kt", "/risk/vega_kt", error))
+}
+
+fn essvi_slices_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Vec<EssviSlice>> {
+    let mut slices = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_essvi_slice_sequence",
+            "/model/essvi/slices",
+            format!("expected a sequence of EssviSlice objects: {error}"),
+        )
+    })?;
+    for item in iter {
+        let item = item?;
+        let slice = item.extract::<PyRef<'_, PyEssviSlice>>().map_err(|error| {
+            domain_error(
+                py,
+                "invalid_essvi_slice",
+                "/model/essvi/slices",
+                format!("expected EssviSlice: {error}"),
+            )
+        })?;
+        slices.push(slice.inner);
+    }
+    Ok(slices)
 }
 
 fn dividend_events_from_python(
