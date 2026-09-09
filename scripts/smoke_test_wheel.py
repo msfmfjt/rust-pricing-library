@@ -121,6 +121,15 @@ def verify_wheel_metadata(
             raise RuntimeError(
                 f"unexpected wheel {field}: {metadata[field]} != {expected_value}"
             )
+    content_type = metadata["Description-Content-Type"]
+    if not (
+        isinstance(content_type, str)
+        and content_type.startswith("text/markdown")
+        and "charset=UTF-8" in content_type
+    ):
+        raise RuntimeError(f"unexpected wheel Description-Content-Type: {content_type}")
+    if "Rust Pricing Library" not in metadata.get_payload():
+        raise RuntimeError("wheel metadata does not include the README payload")
     if wheel_metadata["Root-Is-Purelib"] != "false":
         raise RuntimeError("wheel must be a platform-specific extension wheel")
     tags = wheel_metadata.get_all("Tag") or []
@@ -141,13 +150,26 @@ def expected_project_metadata() -> dict[str, str]:
     workspace_package = required_table(workspace, "package", "Cargo.toml workspace")
 
     name = required_string(project, "name", "pyproject.toml project")
+    description = required_string(project, "description", "pyproject.toml project")
+    readme = required_string(project, "readme", "pyproject.toml project")
+    if readme != "README.md":
+        raise RuntimeError("pyproject.toml project.readme must be README.md")
+    authors = project.get("authors")
+    if authors != [{"name": "Masafumi Fujita"}]:
+        raise RuntimeError("pyproject.toml project.authors mismatch")
     version = required_string(workspace_package, "version", "Cargo.toml workspace.package")
     requires_python = required_string(
         project,
         "requires-python",
         "pyproject.toml project",
     )
-    return {"Name": name, "Version": version, "Requires-Python": requires_python}
+    return {
+        "Name": name,
+        "Version": version,
+        "Summary": description,
+        "Author": "Masafumi Fujita",
+        "Requires-Python": requires_python,
+    }
 
 
 def required_table(document: dict[str, object], key: str, label: str) -> dict[str, object]:

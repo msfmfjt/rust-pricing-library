@@ -289,8 +289,14 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
     project = pyproject.get("project", {})
     if project.get("name") != "rust-pricing":
         raise SystemExit(f"{archive}: pyproject project.name mismatch")
+    if project.get("description") != "Deterministic Rust and Python derivatives-pricing library.":
+        raise SystemExit(f"{archive}: pyproject project.description mismatch")
+    if project.get("readme") != "README.md":
+        raise SystemExit(f"{archive}: pyproject project.readme mismatch")
     if project.get("requires-python") != ">=3.12":
         raise SystemExit(f"{archive}: pyproject project.requires-python mismatch")
+    if project.get("authors") != [{"name": "Masafumi Fujita"}]:
+        raise SystemExit(f"{archive}: pyproject project.authors mismatch")
     if project.get("dynamic") != ["version"]:
         raise SystemExit(f"{archive}: pyproject must derive version dynamically")
 
