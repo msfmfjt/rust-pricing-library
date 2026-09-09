@@ -210,6 +210,7 @@ def main() -> int:
             raise SystemExit(f"{archive}: missing required source files: {missing}")
 
         check_cargo_manifests(package, archive)
+        check_pyproject(package, archive)
         check_ci_workflow(package, archive)
         check_readme_release_gates(package, archive)
         check_release_readiness(package, archive)
@@ -278,6 +279,27 @@ def check_cargo_manifests(package: tarfile.TarFile, archive: str) -> None:
             value = package_section.get(key)
             if not isinstance(value, dict) or value.get("workspace") is not True:
                 raise SystemExit(f"{archive}: {manifest} package.{key} must use workspace")
+
+
+def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
+    pyproject = read_toml(package, "pyproject.toml")
+    project = pyproject.get("project", {})
+    if project.get("name") != "rust-pricing":
+        raise SystemExit(f"{archive}: pyproject project.name mismatch")
+    if project.get("requires-python") != ">=3.12":
+        raise SystemExit(f"{archive}: pyproject project.requires-python mismatch")
+    if project.get("dynamic") != ["version"]:
+        raise SystemExit(f"{archive}: pyproject must derive version dynamically")
+
+    maturin = pyproject.get("tool", {}).get("maturin", {})
+    expected = {
+        "manifest-path": "crates/pricing-python/Cargo.toml",
+        "module-name": "rust_pricing",
+        "features": ["extension-module"],
+    }
+    for key, expected_value in expected.items():
+        if maturin.get(key) != expected_value:
+            raise SystemExit(f"{archive}: pyproject tool.maturin.{key} mismatch")
 
 
 def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
