@@ -836,6 +836,20 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.document_kind, "pricing_request")
         self.assertEqual(issue.code, "invalid_spot")
 
+    def test_native_builders_reject_nonfinite_numbers(self):
+        for bad in [float("nan"), float("inf"), float("-inf")]:
+            with self.subTest(value=bad, builder="curve_time"):
+                with self.assertRaises(rust_pricing.ValidationError):
+                    rust_pricing.DiscountCurve(1, [0.0, bad], [1.0, 0.95])
+
+            with self.subTest(value=bad, builder="model_volatility"):
+                with self.assertRaises(rust_pricing.ValidationError):
+                    rust_pricing.Model.black_scholes(bad)
+
+            with self.subTest(value=bad, builder="dividend_cash"):
+                with self.assertRaises(rust_pricing.ValidationError):
+                    rust_pricing.DividendEvent.fixed_cash(1, 0.25, bad)
+
     def test_validation_error_has_immutable_structured_issues(self):
         invalid = self.request_json.replace('"schema_version":1', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as captured:
