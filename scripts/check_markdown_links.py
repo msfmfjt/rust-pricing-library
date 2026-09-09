@@ -18,10 +18,10 @@ def main() -> int:
     for path in markdown_files():
         text = path.read_text(encoding="utf-8")
         for target in LINK_PATTERN.findall(text):
-            normalized = local_target(target)
+            normalized = local_target(path, target)
             if normalized is None:
                 continue
-            resolved = (path.parent / normalized).resolve()
+            resolved, anchor = normalized
             try:
                 resolved.relative_to(ROOT)
             except ValueError:
@@ -29,6 +29,9 @@ def main() -> int:
                 continue
             if not resolved.exists():
                 missing.append((path, target, "target does not exist"))
+                continue
+            if anchor is not None and anchor not in markdown_anchors(resolved):
+                missing.append((path, target, "anchor does not exist"))
 
     if missing:
         for path, target, reason in missing:
@@ -49,17 +52,40 @@ def markdown_files() -> list[Path]:
     return sorted(files)
 
 
-def local_target(target: str) -> str | None:
+def local_target(path: Path, target: str) -> tuple[Path, str | None] | None:
     target = target.strip()
-    if not target or target.startswith("#"):
+    if not target:
         return None
     if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target):
         return None
-    without_anchor = target.split("#", 1)[0]
-    without_query = without_anchor.split("?", 1)[0]
-    if not without_query:
-        return None
-    return unquote(without_query)
+    before_anchor, separator, raw_anchor = target.partition("#")
+    without_query = before_anchor.split("?", 1)[0]
+    resolved = path if not without_query else (path.parent / unquote(without_query)).resolve()
+    anchor = unquote(raw_anchor) if separator else None
+    return resolved, anchor
+
+
+def markdown_anchors(path: Path) -> set[str]:
+    if path.suffix.lower() != ".md":
+        return set()
+    anchors: set[str] = set()
+    heading_counts: dict[str, int] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^(#{1,6})\s+(.+?)\s*#*$", line)
+        if match is None:
+            continue
+        base = github_heading_slug(match.group(2))
+        count = heading_counts.get(base, 0)
+        heading_counts[base] = count + 1
+        anchors.add(base if count == 0 else f"{base}-{count}")
+    return anchors
+
+
+def github_heading_slug(heading: str) -> str:
+    lowered = heading.strip().lower()
+    slug = re.sub(r"[^\w\s-]", "", lowered, flags=re.UNICODE)
+    slug = re.sub(r"\s+", "-", slug.strip())
+    return slug
 
 
 if __name__ == "__main__":
