@@ -18,7 +18,9 @@ use serde_json::Value;
 
 use crate::{
     Diagnostics, Estimate, EstimatorKind, PricingRequest, PricingResult, PricingWarning,
-    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit,
+    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult, VegaKtResultBucketEstimate,
+    VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
+    VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit,
 };
 
 const DOCUMENT_REQUEST: &str = "pricing_request";
@@ -856,6 +858,8 @@ struct RiskReportV1 {
     gamma: Option<RiskEstimateV1>,
     #[serde(skip_serializing_if = "Option::is_none")]
     vega: Option<RiskEstimateV1>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vega_kt: Option<VegaKtReportV1>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -876,6 +880,93 @@ enum RiskUnitV1 {
     GammaOnePercentSpotSquared,
     VegaRaw,
     VegaOneVolPoint,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VegaKtReportV1 {
+    coordinates: Vec<VegaKtCoordinateV1>,
+    estimates: Vec<VegaKtBucketEstimateV1>,
+    raw_buckets: Vec<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    full_bucket_covariance: Option<Vec<VegaKtCovarianceEntryV1>>,
+    covariance_layout: VegaKtCovarianceLayoutV1,
+    projection: VegaKtProjectionV1,
+    residual_diagnostics: VegaKtResidualDiagnosticsV1,
+    raw_unit: VegaKtBucketUnitV1,
+    market_scaled_unit: VegaKtBucketUnitV1,
+    policy_label: String,
+    truncation_order: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VegaKtCoordinateV1 {
+    maturity: f64,
+    log_moneyness: f64,
+    implied_volatility: f64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VegaKtBucketEstimateV1 {
+    raw_mean: f64,
+    market_scaled_mean: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sample_variance: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    price_covariance: Option<f64>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum VegaKtCovarianceLayoutV1 {
+    PriceAndBucketVarianceOnly,
+    FullBucketMatrixRowMajor,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum VegaKtCovarianceEntryV1 {
+    Value { value: f64 },
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VegaKtProjectionV1 {
+    scalar_vega: f64,
+    signed_residual: f64,
+    pre_projection: f64,
+    reporting_stats: ReportingIvProjectionStatsV1,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VegaKtResidualDiagnosticsV1 {
+    active_domain_start_index: usize,
+    active_domain_end_index: usize,
+    active_domain_forward_index: usize,
+    excluded_probability_mass: f64,
+    signed_residual: f64,
+    pre_projection: f64,
+    reporting_stats: ReportingIvProjectionStatsV1,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReportingIvProjectionStatsV1 {
+    left_edge_count: u64,
+    right_edge_count: u64,
+    left_edge_sensitivity: f64,
+    right_edge_sensitivity: f64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum VegaKtBucketUnitV1 {
+    CurrencyPerUnitAbsoluteVolatility,
+    CurrencyPerVolatilityPoint,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -957,6 +1048,7 @@ impl From<&RiskReport> for RiskReportV1 {
             delta: value.delta.map(Into::into),
             gamma: value.gamma.map(Into::into),
             vega: value.vega.map(Into::into),
+            vega_kt: value.vega_kt.as_ref().map(VegaKtReportV1::from),
         }
     }
 }
@@ -983,6 +1075,122 @@ impl From<RiskUnit> for RiskUnitV1 {
     }
 }
 
+impl From<&VegaKtResult> for VegaKtReportV1 {
+    fn from(value: &VegaKtResult) -> Self {
+        Self {
+            coordinates: value
+                .coordinates()
+                .iter()
+                .copied()
+                .map(Into::into)
+                .collect(),
+            estimates: value.estimates().iter().copied().map(Into::into).collect(),
+            raw_buckets: value
+                .raw_buckets()
+                .iter()
+                .map(|value| value.get())
+                .collect(),
+            full_bucket_covariance: value.full_bucket_covariance().map(|values| {
+                values
+                    .iter()
+                    .map(|value| match value {
+                        Some(value) => VegaKtCovarianceEntryV1::Value { value: value.get() },
+                        None => VegaKtCovarianceEntryV1::Unavailable,
+                    })
+                    .collect()
+            }),
+            covariance_layout: value.covariance_layout().into(),
+            projection: value.projection().into(),
+            residual_diagnostics: value.residual_diagnostics().into(),
+            raw_unit: value.raw_unit().into(),
+            market_scaled_unit: value.market_scaled_unit().into(),
+            policy_label: value.policy_label().to_owned(),
+            truncation_order: value.truncation_order().to_owned(),
+        }
+    }
+}
+
+impl From<VegaKtResultCoordinate> for VegaKtCoordinateV1 {
+    fn from(value: VegaKtResultCoordinate) -> Self {
+        Self {
+            maturity: value.maturity().get(),
+            log_moneyness: value.log_moneyness().get(),
+            implied_volatility: value.implied_volatility().get(),
+        }
+    }
+}
+
+impl From<VegaKtResultBucketEstimate> for VegaKtBucketEstimateV1 {
+    fn from(value: VegaKtResultBucketEstimate) -> Self {
+        Self {
+            raw_mean: value.raw_mean().get(),
+            market_scaled_mean: value.market_scaled_mean().get(),
+            sample_variance: value.sample_variance().map(|value| value.get()),
+            price_covariance: value.price_covariance().map(|value| value.get()),
+        }
+    }
+}
+
+impl From<VegaKtResultCovarianceLayout> for VegaKtCovarianceLayoutV1 {
+    fn from(value: VegaKtResultCovarianceLayout) -> Self {
+        match value {
+            VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly => {
+                Self::PriceAndBucketVarianceOnly
+            }
+            VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor => {
+                Self::FullBucketMatrixRowMajor
+            }
+        }
+    }
+}
+
+impl From<VegaKtResultProjection> for VegaKtProjectionV1 {
+    fn from(value: VegaKtResultProjection) -> Self {
+        Self {
+            scalar_vega: value.scalar_vega().get(),
+            signed_residual: value.signed_residual().get(),
+            pre_projection: value.pre_projection().get(),
+            reporting_stats: value.reporting_stats().into(),
+        }
+    }
+}
+
+impl From<VegaKtResultResidualDiagnostics> for VegaKtResidualDiagnosticsV1 {
+    fn from(value: VegaKtResultResidualDiagnostics) -> Self {
+        Self {
+            active_domain_start_index: value.active_domain_start_index(),
+            active_domain_end_index: value.active_domain_end_index(),
+            active_domain_forward_index: value.active_domain_forward_index(),
+            excluded_probability_mass: value.excluded_probability_mass().get(),
+            signed_residual: value.signed_residual().get(),
+            pre_projection: value.pre_projection().get(),
+            reporting_stats: value.reporting_stats().into(),
+        }
+    }
+}
+
+impl From<VegaKtResultReportingStats> for ReportingIvProjectionStatsV1 {
+    fn from(value: VegaKtResultReportingStats) -> Self {
+        Self {
+            left_edge_count: value.left_edge_count(),
+            right_edge_count: value.right_edge_count(),
+            left_edge_sensitivity: value.left_edge_sensitivity().get(),
+            right_edge_sensitivity: value.right_edge_sensitivity().get(),
+        }
+    }
+}
+
+impl From<VegaKtResultUnit> for VegaKtBucketUnitV1 {
+    fn from(value: VegaKtResultUnit) -> Self {
+        match value {
+            VegaKtResultUnit::CurrencyPerUnitAbsoluteVolatility => {
+                Self::CurrencyPerUnitAbsoluteVolatility
+            }
+            VegaKtResultUnit::CurrencyPerVolatilityPoint => Self::CurrencyPerVolatilityPoint,
+        }
+    }
+}
+
 impl TryFrom<ResultV1> for PricingResult {
     type Error = WireError;
     fn try_from(value: ResultV1) -> Result<Self, Self::Error> {
@@ -994,6 +1202,7 @@ impl TryFrom<ResultV1> for PricingResult {
                 delta: value.risks.delta.map(risk_estimate_from_wire).transpose()?,
                 gamma: value.risks.gamma.map(risk_estimate_from_wire).transpose()?,
                 vega: value.risks.vega.map(risk_estimate_from_wire).transpose()?,
+                vega_kt: value.risks.vega_kt.map(vega_kt_from_wire).transpose()?,
             },
             diagnostics: Diagnostics::new(
                 value
@@ -1044,6 +1253,117 @@ fn risk_unit_from_wire(value: RiskUnitV1) -> RiskUnit {
         RiskUnitV1::GammaOnePercentSpotSquared => RiskUnit::GammaOnePercentSpotSquared,
         RiskUnitV1::VegaRaw => RiskUnit::VegaRaw,
         RiskUnitV1::VegaOneVolPoint => RiskUnit::VegaOneVolPoint,
+    }
+}
+
+fn vega_kt_from_wire(value: VegaKtReportV1) -> Result<VegaKtResult, WireError> {
+    VegaKtResult::new(
+        value
+            .coordinates
+            .into_iter()
+            .map(|coordinate| {
+                VegaKtResultCoordinate::new(
+                    coordinate.maturity,
+                    coordinate.log_moneyness,
+                    coordinate.implied_volatility,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(domain)?,
+        value
+            .estimates
+            .into_iter()
+            .map(|estimate| {
+                VegaKtResultBucketEstimate::new(
+                    estimate.raw_mean,
+                    estimate.market_scaled_mean,
+                    estimate.sample_variance,
+                    estimate.price_covariance,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(domain)?,
+        value.raw_buckets,
+        value.full_bucket_covariance.map(|values| {
+            values
+                .into_iter()
+                .map(|value| match value {
+                    VegaKtCovarianceEntryV1::Value { value } => Some(value),
+                    VegaKtCovarianceEntryV1::Unavailable => None,
+                })
+                .collect()
+        }),
+        vega_kt_covariance_layout_from_wire(value.covariance_layout),
+        vega_kt_projection_from_wire(value.projection)?,
+        vega_kt_residual_diagnostics_from_wire(value.residual_diagnostics)?,
+        vega_kt_unit_from_wire(value.raw_unit),
+        vega_kt_unit_from_wire(value.market_scaled_unit),
+        value.policy_label,
+        value.truncation_order,
+    )
+    .map_err(domain)
+}
+
+fn vega_kt_projection_from_wire(
+    value: VegaKtProjectionV1,
+) -> Result<VegaKtResultProjection, WireError> {
+    VegaKtResultProjection::new(
+        value.scalar_vega,
+        value.signed_residual,
+        value.pre_projection,
+        reporting_stats_from_wire(value.reporting_stats)?,
+    )
+    .map_err(domain)
+}
+
+fn vega_kt_residual_diagnostics_from_wire(
+    value: VegaKtResidualDiagnosticsV1,
+) -> Result<VegaKtResultResidualDiagnostics, WireError> {
+    VegaKtResultResidualDiagnostics::new(
+        value.active_domain_start_index,
+        value.active_domain_end_index,
+        value.active_domain_forward_index,
+        value.excluded_probability_mass,
+        value.signed_residual,
+        value.pre_projection,
+        reporting_stats_from_wire(value.reporting_stats)?,
+    )
+    .map_err(domain)
+}
+
+fn reporting_stats_from_wire(
+    value: ReportingIvProjectionStatsV1,
+) -> Result<VegaKtResultReportingStats, WireError> {
+    VegaKtResultReportingStats::new(
+        value.left_edge_count,
+        value.right_edge_count,
+        value.left_edge_sensitivity,
+        value.right_edge_sensitivity,
+    )
+    .map_err(domain)
+}
+
+fn vega_kt_covariance_layout_from_wire(
+    value: VegaKtCovarianceLayoutV1,
+) -> VegaKtResultCovarianceLayout {
+    match value {
+        VegaKtCovarianceLayoutV1::PriceAndBucketVarianceOnly => {
+            VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly
+        }
+        VegaKtCovarianceLayoutV1::FullBucketMatrixRowMajor => {
+            VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor
+        }
+    }
+}
+
+fn vega_kt_unit_from_wire(value: VegaKtBucketUnitV1) -> VegaKtResultUnit {
+    match value {
+        VegaKtBucketUnitV1::CurrencyPerUnitAbsoluteVolatility => {
+            VegaKtResultUnit::CurrencyPerUnitAbsoluteVolatility
+        }
+        VegaKtBucketUnitV1::CurrencyPerVolatilityPoint => {
+            VegaKtResultUnit::CurrencyPerVolatilityPoint
+        }
     }
 }
 
@@ -1655,6 +1975,56 @@ mod tests {
             parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("round trip"),
             result
         );
+    }
+
+    #[test]
+    fn result_json_round_trips_vega_kt_report_without_null_covariance_entries() {
+        let estimate = Estimate::new(10.0, 0.5, 9.0, 11.0, EstimatorKind::PseudoMonteCarlo, 64)
+            .expect("estimate");
+        let reporting_stats = VegaKtResultReportingStats::new(1, 2, -0.5, 0.25).expect("stats");
+        let vega_kt = VegaKtResult::new(
+            vec![
+                VegaKtResultCoordinate::new(0.5, -0.1, 0.2).expect("coordinate"),
+                VegaKtResultCoordinate::new(0.5, 0.1, 0.21).expect("coordinate"),
+            ],
+            vec![
+                VegaKtResultBucketEstimate::new(1.0, 0.01, Some(0.5), Some(-0.1)).expect("bucket"),
+                VegaKtResultBucketEstimate::new(2.0, 0.02, None, Some(0.2)).expect("bucket"),
+            ],
+            vec![1.0, 2.0],
+            Some(vec![Some(0.5), None, None, Some(0.75)]),
+            VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor,
+            VegaKtResultProjection::new(3.0, -0.25, 2.75, reporting_stats).expect("projection"),
+            VegaKtResultResidualDiagnostics::new(1, 2, 1, 0.001, -0.25, 2.75, reporting_stats)
+                .expect("residual"),
+            VegaKtResultUnit::CurrencyPerUnitAbsoluteVolatility,
+            VegaKtResultUnit::CurrencyPerVolatilityPoint,
+            "equation_11_first_order_v1",
+            "O(delta_t_k)",
+        )
+        .expect("vega kt");
+        let result = PricingResult {
+            value: estimate,
+            risks: RiskReport {
+                vega_kt: Some(vega_kt),
+                ..RiskReport::default()
+            },
+            diagnostics: Diagnostics::default(),
+            replay: ReplayMetadata::new(SchemaVersion::CURRENT, [7; 32], "0.1.0", "test-platform"),
+        };
+        let json = result_to_json(&result).expect("json");
+        assert!(json.contains("\"vega_kt\""));
+        assert!(json.contains("\"unavailable\""));
+        assert!(!json.contains("null"));
+        let parsed = parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        let parsed_vega_kt = parsed.risks.vega_kt.expect("vega kt");
+        assert_eq!(parsed_vega_kt.coordinates().len(), 2);
+        assert_eq!(parsed_vega_kt.estimates()[1].sample_variance(), None);
+        assert_eq!(
+            parsed_vega_kt.full_bucket_covariance().expect("covariance")[1],
+            None
+        );
+        assert_eq!(parsed_vega_kt.projection().scalar_vega().get(), 3.0);
     }
 
     #[test]

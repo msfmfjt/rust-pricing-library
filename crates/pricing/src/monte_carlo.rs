@@ -1115,7 +1115,12 @@ impl SimulationPlan {
                 )
             })
             .transpose()?;
-        Ok(RiskReport { delta, gamma, vega })
+        Ok(RiskReport {
+            delta,
+            gamma,
+            vega,
+            vega_kt: None,
+        })
     }
 
     fn build_risk_diagnostics(

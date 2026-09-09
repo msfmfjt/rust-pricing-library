@@ -9,7 +9,7 @@
     "document_kind": {"const": "pricing_result"},
     "schema_version": {"const": 1},
     "value": {"$ref": "#/$defs/estimate"},
-    "risks": {"type": "object"},
+    "risks": {"$ref": "#/$defs/risk_report"},
     "diagnostics": {"type": "object"},
     "replay": {
       "type": "object", "additionalProperties": false,
@@ -29,6 +29,100 @@
         "value": {"type": "number"}, "standard_error": {"type": "number", "minimum": 0},
         "confidence_lower": {"type": "number"}, "confidence_upper": {"type": "number"},
         "estimator": {"type": "object"}, "effective_sampling_units": {"type": "integer", "minimum": 1}
+      }
+    },
+    "risk_report": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "delta": {"$ref": "#/$defs/risk_estimate"},
+        "gamma": {"$ref": "#/$defs/risk_estimate"},
+        "vega": {"$ref": "#/$defs/risk_estimate"},
+        "vega_kt": {"$ref": "#/$defs/vega_kt_report"}
+      }
+    },
+    "risk_estimate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw", "market_scaled", "raw_unit", "market_scaled_unit"],
+      "properties": {
+        "raw": {"$ref": "#/$defs/estimate"},
+        "market_scaled": {"$ref": "#/$defs/estimate"},
+        "raw_unit": {"type": "object"},
+        "market_scaled_unit": {"type": "object"}
+      }
+    },
+    "vega_kt_report": {
+      "type": "object", "additionalProperties": false,
+      "required": ["coordinates", "estimates", "raw_buckets", "covariance_layout", "projection", "residual_diagnostics", "raw_unit", "market_scaled_unit", "policy_label", "truncation_order"],
+      "properties": {
+        "coordinates": {"type": "array", "items": {"$ref": "#/$defs/vega_kt_coordinate"}},
+        "estimates": {"type": "array", "items": {"$ref": "#/$defs/vega_kt_bucket_estimate"}},
+        "raw_buckets": {"type": "array", "items": {"type": "number"}},
+        "full_bucket_covariance": {"type": "array", "items": {"$ref": "#/$defs/vega_kt_covariance_entry"}},
+        "covariance_layout": {"type": "object"},
+        "projection": {"$ref": "#/$defs/vega_kt_projection"},
+        "residual_diagnostics": {"$ref": "#/$defs/vega_kt_residual_diagnostics"},
+        "raw_unit": {"type": "object"},
+        "market_scaled_unit": {"type": "object"},
+        "policy_label": {"type": "string"},
+        "truncation_order": {"type": "string"}
+      }
+    },
+    "vega_kt_coordinate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["maturity", "log_moneyness", "implied_volatility"],
+      "properties": {
+        "maturity": {"type": "number", "exclusiveMinimum": 0},
+        "log_moneyness": {"type": "number"},
+        "implied_volatility": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "vega_kt_bucket_estimate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw_mean", "market_scaled_mean"],
+      "properties": {
+        "raw_mean": {"type": "number"},
+        "market_scaled_mean": {"type": "number"},
+        "sample_variance": {"type": "number", "minimum": 0},
+        "price_covariance": {"type": "number"}
+      }
+    },
+    "vega_kt_covariance_entry": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"const": "value"}, "value": {"type": "number"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "unavailable"}}}
+      ]
+    },
+    "vega_kt_projection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scalar_vega", "signed_residual", "pre_projection", "reporting_stats"],
+      "properties": {
+        "scalar_vega": {"type": "number"},
+        "signed_residual": {"type": "number"},
+        "pre_projection": {"type": "number"},
+        "reporting_stats": {"$ref": "#/$defs/reporting_iv_projection_stats"}
+      }
+    },
+    "vega_kt_residual_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["active_domain_start_index", "active_domain_end_index", "active_domain_forward_index", "excluded_probability_mass", "signed_residual", "pre_projection", "reporting_stats"],
+      "properties": {
+        "active_domain_start_index": {"type": "integer", "minimum": 0},
+        "active_domain_end_index": {"type": "integer", "minimum": 0},
+        "active_domain_forward_index": {"type": "integer", "minimum": 0},
+        "excluded_probability_mass": {"type": "number", "minimum": 0},
+        "signed_residual": {"type": "number"},
+        "pre_projection": {"type": "number"},
+        "reporting_stats": {"$ref": "#/$defs/reporting_iv_projection_stats"}
+      }
+    },
+    "reporting_iv_projection_stats": {
+      "type": "object", "additionalProperties": false,
+      "required": ["left_edge_count", "right_edge_count", "left_edge_sensitivity", "right_edge_sensitivity"],
+      "properties": {
+        "left_edge_count": {"type": "integer", "minimum": 0},
+        "right_edge_count": {"type": "integer", "minimum": 0},
+        "left_edge_sensitivity": {"type": "number"},
+        "right_edge_sensitivity": {"type": "number"}
       }
     }
   }

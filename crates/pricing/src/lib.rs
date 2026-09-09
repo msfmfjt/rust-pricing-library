@@ -28,7 +28,9 @@ pub use pricing_risk as risk;
 pub use request::PricingRequest;
 pub use result::{
     ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, PricingResult, PricingWarning,
-    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit,
+    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult, VegaKtResultBucketEstimate,
+    VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
+    VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit,
 };
 pub use wire::{
     Fingerprint, JsonLimits, MigrationRegistry, WireError, current_request_schema,

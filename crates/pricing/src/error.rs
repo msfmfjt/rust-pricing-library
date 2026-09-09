@@ -65,6 +65,15 @@ pub enum ResultBuildError {
         value_bits: u64,
         upper_bits: u64,
     },
+    VegaKtLengthMismatch {
+        coordinates: usize,
+        estimates: usize,
+        raw_buckets: usize,
+    },
+    VegaKtFullCovarianceLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
     ZeroEffectiveSamplingUnits,
 }
 
@@ -85,6 +94,18 @@ impl fmt::Display for ResultBuildError {
             } => write!(
                 formatter,
                 "confidence interval must satisfy lower <= value <= upper; received 0x{lower_bits:016x}, 0x{value_bits:016x}, 0x{upper_bits:016x}"
+            ),
+            Self::VegaKtLengthMismatch {
+                coordinates,
+                estimates,
+                raw_buckets,
+            } => write!(
+                formatter,
+                "VegaKT result lengths must match; coordinates={coordinates}, estimates={estimates}, raw_buckets={raw_buckets}"
+            ),
+            Self::VegaKtFullCovarianceLengthMismatch { expected, actual } => write!(
+                formatter,
+                "VegaKT full covariance length must be {expected}; received {actual}"
             ),
             Self::ZeroEffectiveSamplingUnits => {
                 write!(formatter, "effective sampling-unit count must be positive")
