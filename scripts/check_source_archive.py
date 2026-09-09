@@ -171,6 +171,18 @@ REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "whether a public open-source license will ever be selected",
 }
 
+REQUIRED_WIRE_SCHEMA_COMPATIBILITY_SNIPPETS = {
+    'covariance_layout.type = "full_bucket_matrix_row_major"',
+    "`full_bucket_covariance`",
+    'covariance_layout.type =\n"price_and_bucket_variance_only"',
+    "A present\n`null`, a missing full matrix under the full-matrix layout, or an unexpected\nmatrix under the compact layout is invalid schema/domain input.",
+}
+
+REQUIRED_LOCAL_VOL_DIAGNOSTICS_SNIPPETS = {
+    "the full-matrix layout requires `full_bucket_covariance`",
+    "the compact\nprice-and-bucket variance layout omits that field",
+}
+
 FORBIDDEN_PARTS = {
     ".git",
     "target",
@@ -264,6 +276,8 @@ def main() -> int:
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_release_readiness(package, archive)
+        check_wire_schema_compatibility(package, archive)
+        check_local_vol_diagnostics(package, archive)
         check_direction_data(package, archive)
         check_direction_data_readme(package, archive)
         check_third_party_notices(package, archive)
@@ -426,6 +440,32 @@ def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
     )
     if missing:
         raise SystemExit(f"{archive}: release readiness is missing required statements: {missing}")
+
+
+def check_wire_schema_compatibility(package: tarfile.TarFile, archive: str) -> None:
+    compatibility = read_text(package, "docs/wire-schema-compatibility.md")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_WIRE_SCHEMA_COMPATIBILITY_SNIPPETS
+        if snippet not in compatibility
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: wire schema compatibility is missing required statements: {missing}"
+        )
+
+
+def check_local_vol_diagnostics(package: tarfile.TarFile, archive: str) -> None:
+    diagnostics = read_text(package, "docs/local-vol-vegakt-diagnostics-v0.1.md")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_LOCAL_VOL_DIAGNOSTICS_SNIPPETS
+        if snippet not in diagnostics
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: Local Volatility diagnostics are missing required statements: {missing}"
+        )
 
 
 def check_direction_data(package: tarfile.TarFile, archive: str) -> None:
