@@ -26,6 +26,7 @@ def main() -> None:
     with ZipFile(wheel) as archive:
         members = {member for member in archive.namelist() if not member.endswith("/")}
         member_bytes = {member: archive.read(member) for member in members}
+        verify_wheel_member_layout(members)
         if "rust_pricing/__init__.pyi" not in members:
             raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
         stub = archive.read("rust_pricing/__init__.pyi")
@@ -106,6 +107,44 @@ def read_dist_info_text(archive: ZipFile, members: set[str], filename: str) -> s
     if len(matches) != 1:
         raise RuntimeError(f"expected one dist-info/{filename}, found {len(matches)}")
     return archive.read(matches[0]).decode("utf-8")
+
+
+def verify_wheel_member_layout(members: set[str]) -> None:
+    expected_package_members = {
+        "rust_pricing/__init__.py",
+        "rust_pricing/__init__.pyi",
+        "rust_pricing/py.typed",
+    }
+    missing_package_members = sorted(expected_package_members.difference(members))
+    if missing_package_members:
+        raise RuntimeError(f"wheel is missing package members: {missing_package_members}")
+
+    extensions = [
+        member
+        for member in members
+        if member.startswith("rust_pricing/")
+        and (member.endswith(".so") or member.endswith(".pyd") or member.endswith(".dll"))
+    ]
+    if len(extensions) != 1:
+        raise RuntimeError(f"wheel must contain exactly one extension module, found {extensions}")
+    extension_name = Path(extensions[0]).name
+    if not extension_name.startswith("rust_pricing."):
+        raise RuntimeError(f"unexpected extension module name: {extension_name}")
+
+    dist_info_members = [
+        member for member in members if member.startswith("rust_pricing-") and ".dist-info/" in member
+    ]
+    for filename in ["METADATA", "WHEEL", "RECORD"]:
+        matches = [
+            member for member in dist_info_members if member.endswith(f".dist-info/{filename}")
+        ]
+        if len(matches) != 1:
+            raise RuntimeError(f"wheel must contain exactly one dist-info/{filename}")
+
+    allowed_prefixes = ("rust_pricing/", "rust_pricing-")
+    unexpected = sorted(member for member in members if not member.startswith(allowed_prefixes))
+    if unexpected:
+        raise RuntimeError(f"wheel contains unexpected top-level members: {unexpected}")
 
 
 def verify_wheel_metadata(
