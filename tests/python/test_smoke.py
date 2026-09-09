@@ -812,6 +812,13 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIn(
             "bump-and-revalue", rust_pricing.RiskValidation.bump_and_revalue.__doc__
         )
+        self.assertIn(
+            "replay metadata", rust_pricing.PricingResult.replay_schema_version.__doc__
+        )
+        self.assertIn(
+            "normalized request",
+            rust_pricing.PricingResult.replay_request_fingerprint.__doc__,
+        )
 
     def test_bundled_json_schemas_are_exported(self):
         request_schema = json.loads(rust_pricing.request_json_schema())
