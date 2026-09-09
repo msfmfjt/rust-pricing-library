@@ -21,6 +21,7 @@ Do not combine an optimization with an untested numerical-policy change.
 ```shell
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
+cargo test --locked --workspace --all-features --exclude pricing-python
+cargo test --locked -p pricing-python
 cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
 ```
