@@ -355,8 +355,9 @@ impl PyProduct {
         .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
     }
 
-    /// Build a rebate-free fixed-strike discrete barrier call or put.
+    /// Build a fixed-strike discrete barrier call or put with an optional expiry rebate.
     #[staticmethod]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring_dates, payment_date, *, rebate=None))]
     #[allow(clippy::too_many_arguments)]
     fn barrier(
         py: Python<'_>,
@@ -371,6 +372,7 @@ impl PyProduct {
         style: &str,
         monitoring_dates: &Bound<'_, PyAny>,
         payment_date: &Bound<'_, PyAny>,
+        rebate: Option<f64>,
     ) -> PyResult<Self> {
         let expiry = date_from_python(py, expiry, "/product/expiry")?;
         let side = option_side(py, side)?;
@@ -390,6 +392,7 @@ impl PyProduct {
             direction,
             style,
             monitoring_dates,
+            rebate,
             payment_date,
         )
         .map(|spec| Self {

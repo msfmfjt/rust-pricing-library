@@ -240,6 +240,7 @@ enum ProductV1 {
         direction: BarrierDirectionV1,
         style: BarrierStyleV1,
         monitoring_dates: Vec<String>,
+        rebate: Option<f64>,
         payment_date: String,
     },
     ArithmeticAsian {
@@ -508,6 +509,7 @@ impl From<&ProductSpec> for ProductV1 {
                     .iter()
                     .map(ToString::to_string)
                     .collect(),
+                rebate: spec.rebate().map(|value| value.get()),
                 payment_date: spec.payment_date().to_string(),
             },
             ProductSpec::ArithmeticAsian(spec) => Self::ArithmeticAsian {
@@ -825,6 +827,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                 direction,
                 style,
                 monitoring_dates,
+                rebate,
                 payment_date,
             } => ProductSpec::Barrier(
                 BarrierSpec::new(
@@ -850,6 +853,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                         .into_iter()
                         .map(|date| parse_date(&date))
                         .collect::<Result<Vec<_>, _>>()?,
+                    rebate,
                     parse_date(&payment_date)?,
                 )
                 .map_err(domain)?,
@@ -2063,6 +2067,7 @@ mod tests {
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
                 ],
+                Some(3.0),
                 "2027-09-04".parse().expect("payment"),
             )
             .expect("product"),
@@ -2336,6 +2341,7 @@ mod tests {
         assert!(json.contains("\"type\":\"barrier\""));
         assert!(json.contains("\"direction\":{\"type\":\"up\"}"));
         assert!(json.contains("\"style\":{\"type\":\"knock_out\"}"));
+        assert!(json.contains("\"rebate\":3.0"));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert!(matches!(parsed.product(), ProductSpec::Barrier(_)));
         assert_eq!(

@@ -59,6 +59,7 @@ pub struct BarrierSpec {
     direction: BarrierDirection,
     style: BarrierStyle,
     monitoring_dates: Box<[Date]>,
+    rebate: Option<PositiveF64>,
     payment_date: Date,
 }
 
@@ -218,6 +219,7 @@ impl BarrierSpec {
         direction: BarrierDirection,
         style: BarrierStyle,
         monitoring_dates: Vec<Date>,
+        rebate: Option<f64>,
         payment_date: Date,
     ) -> Result<Self, CoreError> {
         if monitoring_dates.is_empty() {
@@ -253,6 +255,9 @@ impl BarrierSpec {
             direction,
             style,
             monitoring_dates: monitoring_dates.into_boxed_slice(),
+            rebate: rebate
+                .map(|value| PositiveF64::new(value, "barrier_rebate"))
+                .transpose()?,
             payment_date,
         })
     }
@@ -305,6 +310,11 @@ impl BarrierSpec {
     #[must_use]
     pub const fn monitoring_dates(&self) -> &[Date] {
         &self.monitoring_dates
+    }
+
+    #[must_use]
+    pub const fn rebate(&self) -> Option<PositiveF64> {
+        self.rebate
     }
 
     #[must_use]
@@ -668,11 +678,13 @@ mod tests {
             BarrierDirection::Up,
             BarrierStyle::KnockOut,
             vec![first, expiry],
+            Some(3.0),
             expiry,
         )
         .expect("barrier");
         assert_eq!(product.expiry(), expiry);
         assert_eq!(product.monitoring_dates(), [first, expiry]);
+        assert_eq!(product.rebate().expect("rebate").get(), 3.0);
         assert!(
             BarrierSpec::new(
                 UnderlyingId::new(1),
@@ -685,6 +697,7 @@ mod tests {
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
                 vec![expiry],
+                None,
                 first,
             )
             .is_err()
@@ -701,6 +714,7 @@ mod tests {
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
                 vec![expiry, first],
+                None,
                 expiry,
             )
             .is_err()

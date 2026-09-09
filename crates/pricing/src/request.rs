@@ -375,6 +375,7 @@ mod tests {
                     "2026-03-04".parse().expect("past"),
                     "2027-09-04".parse().expect("future"),
                 ],
+                None,
                 "2027-09-04".parse().expect("payment"),
             )
             .expect("barrier"),

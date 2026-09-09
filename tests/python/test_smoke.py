@@ -192,6 +192,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             "knock_out",
             ["2027-03-04", "2027-09-04"],
             "2027-09-04",
+            rebate=3.0,
         )
         request = rust_pricing.PricingRequest(
             "2026-09-04",
@@ -205,6 +206,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(payload["product"]["type"], "barrier")
         self.assertEqual(payload["product"]["direction"]["type"], "up")
         self.assertEqual(payload["product"]["style"]["type"], "knock_out")
+        self.assertEqual(payload["product"]["rebate"], 3.0)
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
         self.assertEqual(parsed.fingerprint, request.fingerprint)
         result = rust_pricing.PricingPlan.compile(

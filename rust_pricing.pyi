@@ -171,6 +171,8 @@ class Product:
         style: BarrierStyle,
         monitoring_dates: Sequence[DateLike],
         payment_date: DateLike,
+        *,
+        rebate: float | None = None,
     ) -> Product: ...
     @staticmethod
     def arithmetic_asian(

@@ -2504,6 +2504,7 @@ mod tests {
                     "2027-03-05".parse().expect("first"),
                     "2027-09-04".parse().expect("second"),
                 ],
+                None,
                 "2027-09-04".parse().expect("payment"),
             )
             .expect("product"),

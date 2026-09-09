@@ -425,10 +425,28 @@ impl BarrierSpec {
                 })?
             }
         };
-        let payoff = builder.push(SourceOpcode::Multiply {
+        let active_payoff = builder.push(SourceOpcode::Multiply {
             left: vanilla_payoff,
             right: active,
         })?;
+        let payoff = if let Some(rebate) = self.rebate() {
+            let one = builder.literal(1.0)?;
+            let inactive = builder.push(SourceOpcode::Subtract {
+                left: one,
+                right: active,
+            })?;
+            let rebate = builder.literal(rebate.get())?;
+            let inactive_payoff = builder.push(SourceOpcode::Multiply {
+                left: inactive,
+                right: rebate,
+            })?;
+            builder.push(SourceOpcode::Add {
+                left: active_payoff,
+                right: inactive_payoff,
+            })?
+        } else {
+            active_payoff
+        };
         Ok(builder.finish(vec![payoff]))
     }
 }
@@ -1606,6 +1624,7 @@ mod tests {
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
                 ],
+                None,
                 "2027-09-04".parse().expect("payment"),
             )
             .expect("barrier");
@@ -1619,6 +1638,48 @@ mod tests {
                     .evaluate(|_, date| match date.to_string().as_str() {
                         "2027-03-04" => Some(march_spot),
                         "2027-09-04" => Some(expiry_spot),
+                        _ => None,
+                    })
+                    .expect("execute"),
+                vec![expected]
+            );
+        }
+    }
+
+    #[test]
+    fn barrier_builder_pays_rebate_when_vanilla_branch_is_inactive() {
+        for (style, march_spot, expected) in [
+            (BarrierStyle::KnockOut, 125.0, 7.0),
+            (BarrierStyle::KnockIn, 110.0, 7.0),
+        ] {
+            let product = BarrierSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                120.0,
+                2.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                style,
+                vec![
+                    "2027-03-04".parse().expect("monitoring"),
+                    "2027-09-04".parse().expect("expiry"),
+                ],
+                Some(7.0),
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("barrier");
+            let compiled = product
+                .source_graph()
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            assert_eq!(
+                compiled
+                    .evaluate(|_, date| match date.to_string().as_str() {
+                        "2027-03-04" => Some(march_spot),
+                        "2027-09-04" => Some(115.0),
                         _ => None,
                     })
                     .expect("execute"),
