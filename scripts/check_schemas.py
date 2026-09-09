@@ -24,6 +24,12 @@ WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 DATE_STRING_FIELDS = {"date", "expiry", "payment_date", "valuation_date"}
 DATE_STRING_ARRAY_FIELDS = {"monitoring_dates"}
+ID_FIELD_MAXIMUMS = {
+    "currency_id": 65_535,
+    "curve_id": 4_294_967_295,
+    "event_id": 4_294_967_295,
+    "underlying_id": 4_294_967_295,
+}
 
 
 class SchemaError(Exception):
@@ -180,6 +186,27 @@ def check_date_fields(schema: dict[str, Any], path: Path) -> None:
                 )
 
 
+def check_id_fields(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        properties = value.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        for field, maximum in ID_FIELD_MAXIMUMS.items():
+            definition = properties.get(field)
+            if definition is None:
+                continue
+            field_location = (*location, "properties", field)
+            require(
+                isinstance(definition, dict)
+                and definition.get("type") == "integer"
+                and definition.get("minimum") == 0
+                and definition.get("maximum") == maximum,
+                f"{path}:{pointer(field_location)}: {field} must match its Rust integer width",
+            )
+
+
 def check_strict_objects(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict) or value.get("type") != "object" or "properties" not in value:
@@ -260,6 +287,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_wire_names(schema, path)
     check_required_properties(schema, path)
     check_date_fields(schema, path)
+    check_id_fields(schema, path)
     check_strict_objects(schema, path)
     check_tagged_union_discriminators(schema, path)
 
