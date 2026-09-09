@@ -394,6 +394,11 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
     for key in ["git_sha", "runner_os", "runner_arch", "processor"]:
         require_optional_non_empty_string(document.get(key), path, key)
     require(
+        f"host: {document['target_triple']}" in document["rustc"].splitlines(),
+        path,
+        "target_triple must match rustc host",
+    )
+    require(
         len(document["cargo_lock_sha256"]) == 64
         and all(character in "0123456789abcdef" for character in document["cargo_lock_sha256"]),
         path,
