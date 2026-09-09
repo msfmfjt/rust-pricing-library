@@ -1122,7 +1122,8 @@ impl SimulationPlan {
             usize::try_from(independent_units).expect("sampling-unit count fits usize"),
         );
         let mut price_samples = Vec::with_capacity(values.capacity());
-        let mut raw_bucket_samples = Vec::with_capacity(values.capacity() * bucket_count);
+        let mut raw_bucket_samples =
+            Vec::with_capacity(bucket_sample_capacity(values.capacity(), bucket_count));
         for sampling_unit in 0..independent_units {
             let shocks = local_volatility.plan.path_shocks(
                 engine.master_seed(),
@@ -1655,7 +1656,10 @@ impl SimulationPlan {
             usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
         );
         let mut price_samples = Vec::with_capacity(replicate_values.capacity());
-        let mut raw_bucket_samples = Vec::with_capacity(replicate_values.capacity() * bucket_count);
+        let mut raw_bucket_samples = Vec::with_capacity(bucket_sample_capacity(
+            replicate_values.capacity(),
+            bucket_count,
+        ));
 
         for scramble in 0..engine.scramble_count().get() {
             let mut component_sums = [pricing_numerics::NeumaierSum::new(); PATHWISE_COMPONENTS];
@@ -2318,6 +2322,10 @@ fn local_vol_rqmc_shocks(
     }
 }
 
+fn bucket_sample_capacity(row_capacity: usize, bucket_count: usize) -> usize {
+    row_capacity.checked_mul(bucket_count).unwrap_or(0)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RiskMethod {
     AadReverse,
@@ -2446,6 +2454,12 @@ mod tests {
 
     use super::*;
     use crate::analytical::{black_76_oracle, black_scholes_oracle};
+
+    #[test]
+    fn bucket_sample_capacity_rejects_overflow() {
+        assert_eq!(bucket_sample_capacity(3, 4), 12);
+        assert_eq!(bucket_sample_capacity(usize::MAX, 2), 0);
+    }
 
     fn curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {
         Arc::new(
