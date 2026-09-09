@@ -33,7 +33,7 @@ def main() -> None:
         metadata = Parser().parsestr(read_dist_info_text(archive, members, "METADATA"))
         wheel_metadata = Parser().parsestr(read_dist_info_text(archive, members, "WHEEL"))
         record = read_dist_info_text(archive, members, "RECORD")
-    if not any(Path(member).name == "py.typed" for member in members):
+    if "rust_pricing/py.typed" not in members:
         raise RuntimeError("wheel does not contain the py.typed marker")
     verify_wheel_metadata(
         members,
@@ -119,6 +119,17 @@ def verify_wheel_member_layout(members: set[str]) -> None:
     if missing_package_members:
         raise RuntimeError(f"wheel is missing package members: {missing_package_members}")
 
+    dist_info_dirs = {
+        member.split(".dist-info/", 1)[0] + ".dist-info"
+        for member in members
+        if ".dist-info/" in member
+    }
+    if len(dist_info_dirs) != 1:
+        raise RuntimeError(f"wheel must contain exactly one dist-info directory, found {dist_info_dirs}")
+    dist_info_dir = next(iter(dist_info_dirs))
+    if not dist_info_dir.startswith("rust_pricing-"):
+        raise RuntimeError(f"unexpected dist-info directory: {dist_info_dir}")
+
     extensions = [
         member
         for member in members
@@ -131,17 +142,14 @@ def verify_wheel_member_layout(members: set[str]) -> None:
     if not extension_name.startswith("rust_pricing."):
         raise RuntimeError(f"unexpected extension module name: {extension_name}")
 
-    dist_info_members = [
-        member for member in members if member.startswith("rust_pricing-") and ".dist-info/" in member
-    ]
     for filename in ["METADATA", "WHEEL", "RECORD"]:
         matches = [
-            member for member in dist_info_members if member.endswith(f".dist-info/{filename}")
+            member for member in members if member == f"{dist_info_dir}/{filename}"
         ]
         if len(matches) != 1:
             raise RuntimeError(f"wheel must contain exactly one dist-info/{filename}")
 
-    allowed_prefixes = ("rust_pricing/", "rust_pricing-")
+    allowed_prefixes = ("rust_pricing/", f"{dist_info_dir}/")
     unexpected = sorted(member for member in members if not member.startswith(allowed_prefixes))
     if unexpected:
         raise RuntimeError(f"wheel contains unexpected top-level members: {unexpected}")
@@ -160,6 +168,9 @@ def verify_wheel_metadata(
             raise RuntimeError(
                 f"unexpected wheel {field}: {metadata[field]} != {expected_value}"
             )
+    init_py = member_bytes["rust_pricing/__init__.py"].decode("utf-8")
+    if "from .rust_pricing import *" not in init_py:
+        raise RuntimeError("wheel __init__.py must re-export the extension module")
     content_type = metadata["Description-Content-Type"]
     if not (
         isinstance(content_type, str)
