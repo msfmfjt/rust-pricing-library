@@ -55,11 +55,7 @@ fn essvi_matches_v1_interpolation_fixture() {
         / (parameters.psi * parameters.psi);
     assert_close("theta", parameters.theta, decimal(expected, "theta"));
     assert_close("psi", parameters.psi, decimal(expected, "psi"));
-    assert_close(
-        "rho_psi",
-        parameters.rho_psi,
-        decimal(expected, "rho_psi"),
-    );
+    assert_close("rho_psi", parameters.rho_psi, decimal(expected, "rho_psi"));
     assert_close("rho", rho, decimal(expected, "rho"));
     assert_close("rho_t", rho_derivative, decimal(expected, "rho_t"));
 

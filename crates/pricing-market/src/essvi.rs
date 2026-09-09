@@ -215,9 +215,12 @@ impl EssviSurface {
             .slices
             .binary_search_by(|slice| slice.time.total_cmp(&time))
         {
-            Ok(index) if index + 1 < self.slices.len() => {
-                Ok(interpolate(self.slices[index], self.slices[index + 1], time, ThetaRegion::Knot))
-            }
+            Ok(index) if index + 1 < self.slices.len() => Ok(interpolate(
+                self.slices[index],
+                self.slices[index + 1],
+                time,
+                ThetaRegion::Knot,
+            )),
             Ok(index) => Ok(long_parameters(
                 self.slices[index],
                 time,
@@ -274,7 +277,9 @@ fn validate_slice(
     }
     let curvature = slice.psi * slice.psi * (1.0 + rho.abs());
     let limit = 4.0 * slice.theta;
-    if !curvature.is_finite() || !limit.is_finite() || !tolerance.permits_non_strict(curvature, limit)
+    if !curvature.is_finite()
+        || !limit.is_finite()
+        || !tolerance.permits_non_strict(curvature, limit)
     {
         return Err(MarketError::EssviSliceAdmissibilityViolation {
             index,
@@ -342,11 +347,9 @@ fn evaluate_total_variance(
     let y_derivative = log_moneyness * phi_derivative;
     let a = y + rho;
     let q = (a * a + 1.0 - rho * rho).sqrt();
-    let q_derivative =
-        (a * (y_derivative + rho_derivative) - rho * rho_derivative) / q;
+    let q_derivative = (a * (y_derivative + rho_derivative) - rho * rho_derivative) / q;
     let shape = 1.0 + rho * y + q;
-    let shape_derivative =
-        rho_derivative * y + rho * y_derivative + q_derivative;
+    let shape_derivative = rho_derivative * y + rho * y_derivative + q_derivative;
     let total_variance = parameters.theta * shape / 2.0;
     let log_moneyness_derivative = parameters.theta * phi * (rho + a / q) / 2.0;
     let log_moneyness_second_derivative =
