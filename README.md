@@ -57,6 +57,8 @@ The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
 python3 scripts/check_schemas.py
+git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
+python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-features --exclude pricing-python

@@ -109,6 +109,9 @@ jobs:
         shell: bash
         run: git archive --format=tar.gz --output "dist/rust-pricing-source-${{ matrix.target }}.tar.gz" HEAD
 
+      - name: Check Rust source package
+        run: python scripts/check_source_archive.py "dist/rust-pricing-source-${{ matrix.target }}.tar.gz"
+
       - name: Test wheel in clean environment
         run: python scripts/smoke_test_wheel.py
 
