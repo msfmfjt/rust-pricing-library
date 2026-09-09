@@ -81,6 +81,13 @@ It builds an explicit Local variance grid plus reporting-IV basis, requests
 VegaKT reporting buckets, round-trips the canonical JSON payload, and evaluates
 Price, Greeks, and the VegaKT result report.
 
+The Python facade exposes the same versioned JSON boundary as Rust:
+`PricingRequest.to_json()`, `PricingRequest.to_pretty_json()`,
+`PricingRequest.from_json()`, `PricingResult.to_json()`,
+`PricingResult.to_pretty_json()`, and `PricingResult.from_json()`. The bundled
+Draft 2020-12 schemas are available through `request_json_schema()` and
+`result_json_schema()` for external validation or fixture review.
+
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts. Each wheel is installed into a
 fresh virtual environment before the Python API smoke suite runs. CI also
