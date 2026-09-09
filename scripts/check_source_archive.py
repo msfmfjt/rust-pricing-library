@@ -107,6 +107,27 @@ REQUIRED_CI_SNIPPETS = {
     "actions/upload-artifact@v4",
 }
 
+REQUIRED_README_SNIPPETS = {
+    "python3 scripts/check_local_vol_reference_fixture.py",
+    "python3 scripts/check_schemas.py",
+    "python3 scripts/check_markdown_links.py",
+    "git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD",
+    "python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz",
+    "cargo fmt --all --check",
+    "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
+    "cargo test --locked --workspace --all-features --exclude pricing-python",
+    "cargo test --locked -p pricing-python",
+    "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "cargo doc --locked --workspace --all-features --no-deps",
+    "cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py",
+    "python -m maturin develop --locked",
+    "python -m unittest discover -s tests/python -v",
+    "python -m maturin build --locked --release --out dist",
+    "python scripts/smoke_test_wheel.py",
+    "python scripts/run_benchmark_suite.py",
+    "python scripts/check_benchmark_reports.py benchmark-results",
+}
+
 FORBIDDEN_PARTS = {
     ".git",
     "target",
@@ -161,6 +182,7 @@ def main() -> int:
 
         check_cargo_manifests(package, archive)
         check_ci_workflow(package, archive)
+        check_readme_release_gates(package, archive)
 
     return 0
 
@@ -228,6 +250,13 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
     missing = sorted(snippet for snippet in REQUIRED_CI_SNIPPETS if snippet not in workflow)
     if missing:
         raise SystemExit(f"{archive}: CI workflow is missing required gates: {missing}")
+
+
+def check_readme_release_gates(package: tarfile.TarFile, archive: str) -> None:
+    readme = read_text(package, "README.md")
+    missing = sorted(snippet for snippet in REQUIRED_README_SNIPPETS if snippet not in readme)
+    if missing:
+        raise SystemExit(f"{archive}: README is missing documented release gates: {missing}")
 
 
 def read_text(package: tarfile.TarFile, name: str) -> str:
