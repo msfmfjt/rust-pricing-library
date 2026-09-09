@@ -76,7 +76,9 @@ bucket covariance matrix was requested.
 Bucket estimates expose raw means in currency per unit absolute volatility and
 market-scaled means in currency per volatility point. Per-bucket sample
 variance and covariance with Price are present when sample data is supplied.
-The full bucket covariance matrix is populated only when explicitly requested.
+The full bucket covariance matrix is populated only when explicitly requested:
+the full-matrix layout requires `full_bucket_covariance`, and the compact
+price-and-bucket variance layout omits that field.
 
 ## Errors
 
