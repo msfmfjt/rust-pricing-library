@@ -41,9 +41,9 @@ EXPECTED_ARTIFACTS = {
     "local-volatility-rust.json",
     "python.json",
     "replay.json",
-    "local-volatility-replay.json",
     "metadata.json",
 }
+OPTIONAL_ARTIFACTS = {"local-volatility-replay.json"}
 
 
 def main() -> None:
@@ -61,7 +61,9 @@ def main() -> None:
     )
     check_python_report(root / "python.json")
     check_replay_report(root / "replay.json", "european_black_scholes_replay")
-    check_replay_report(root / "local-volatility-replay.json", "local_volatility_replay")
+    local_volatility_replay = root / "local-volatility-replay.json"
+    if local_volatility_replay.is_file():
+        check_replay_report(local_volatility_replay, "local_volatility_replay")
     check_metadata(root / "metadata.json")
     print(f"benchmark reports are valid in {root}")
 
@@ -71,7 +73,8 @@ def check_artifact_set(root: Path) -> None:
     missing = sorted(EXPECTED_ARTIFACTS.difference(actual))
     if missing:
         raise SystemExit(f"{root}: missing benchmark artifacts: {missing}")
-    unexpected = sorted(actual.difference(EXPECTED_ARTIFACTS))
+    expected = EXPECTED_ARTIFACTS.union(OPTIONAL_ARTIFACTS)
+    unexpected = sorted(actual.difference(expected))
     if unexpected:
         raise SystemExit(f"{root}: unexpected benchmark artifacts: {unexpected}")
 

@@ -5,9 +5,9 @@ Status: baseline harness; measured artifacts are produced by CI
 The benchmark suite is a regression and optimization baseline, not a latency
 service-level agreement. Pull-request CI runs it on the two MVP targets:
 Apple Silicon macOS and Windows x86-64. Each run retains `rust.json`,
-`local-volatility-rust.json`, `python.json`, `replay.json`,
-`local-volatility-replay.json`, and `metadata.json` as a short-lived workflow
-artifact.
+`local-volatility-rust.json`, `python.json`, `replay.json`, and
+`metadata.json` as a short-lived workflow artifact. Supported platforms also
+retain `local-volatility-replay.json`.
 
 ## Workload
 
