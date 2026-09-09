@@ -11,15 +11,9 @@ import subprocess
 import sys
 import time
 
+from check_benchmark_reports import EXPECTED_ARTIFACTS, OPTIONAL_ARTIFACTS
 
-BENCHMARK_ARTIFACTS = {
-    "rust.json",
-    "local-volatility-rust.json",
-    "python.json",
-    "replay.json",
-    "local-volatility-replay.json",
-    "metadata.json",
-}
+BENCHMARK_ARTIFACTS = EXPECTED_ARTIFACTS.union(OPTIONAL_ARTIFACTS)
 
 
 def main() -> None:
