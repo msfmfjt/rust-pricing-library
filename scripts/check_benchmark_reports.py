@@ -36,12 +36,22 @@ PYTHON_MEASUREMENTS = {
     "result_value_getter",
 }
 
+EXPECTED_ARTIFACTS = {
+    "rust.json",
+    "local-volatility-rust.json",
+    "python.json",
+    "replay.json",
+    "local-volatility-replay.json",
+    "metadata.json",
+}
+
 
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: check_benchmark_reports.py <benchmark-results-dir>")
 
     root = Path(sys.argv[1])
+    check_artifact_set(root)
     check_report(root / "rust.json", "rust_european_black_scholes", EUROPEAN_MEASUREMENTS)
     check_report(
         root / "local-volatility-rust.json",
@@ -50,8 +60,20 @@ def main() -> None:
         local_volatility=True,
     )
     check_python_report(root / "python.json")
+    check_replay_report(root / "replay.json", "european_black_scholes_replay")
+    check_replay_report(root / "local-volatility-replay.json", "local_volatility_replay")
     check_metadata(root / "metadata.json")
     print(f"benchmark reports are valid in {root}")
+
+
+def check_artifact_set(root: Path) -> None:
+    actual = {path.name for path in root.glob("*.json")}
+    missing = sorted(EXPECTED_ARTIFACTS.difference(actual))
+    if missing:
+        raise SystemExit(f"{root}: missing benchmark artifacts: {missing}")
+    unexpected = sorted(actual.difference(EXPECTED_ARTIFACTS))
+    if unexpected:
+        raise SystemExit(f"{root}: unexpected benchmark artifacts: {unexpected}")
 
 
 def check_report(
@@ -126,6 +148,22 @@ def check_report(
             "VegaKT timing capability must be true",
         )
     require(isinstance(document.get("notes"), list), path, "notes must be an array")
+
+
+def check_replay_report(path: Path, fixture_kind: str) -> None:
+    document = load_object(path)
+    require(document.get("fixture_kind") == fixture_kind, path, "unexpected fixture_kind")
+    require(isinstance(document.get("platform"), str), path, "missing platform")
+    cases = document.get("cases")
+    require(isinstance(cases, list) and len(cases) > 0, path, "cases must be a non-empty array")
+    for index, case in enumerate(cases):
+        case_path = f"cases[{index}]"
+        case_object = require_object(case, path, case_path)
+        require(isinstance(case_object.get("name"), str), path, f"{case_path}.name")
+        require_object(case_object.get("request"), path, f"{case_path}.request")
+        require_object(case_object.get("result"), path, f"{case_path}.result")
+        execution = require_object(case_object.get("execution"), path, f"{case_path}.execution")
+        require_object(execution.get("monte_carlo"), path, f"{case_path}.execution.monte_carlo")
 
 
 def check_python_report(path: Path) -> None:
