@@ -12,6 +12,13 @@ BarrierStyle = Literal["knock_in", "knock_out"]
 SmileDynamics = Literal[
     "sticky_log_moneyness", "sticky_strike", "sticky_delta"
 ]
+ValidationPhase = Literal[
+    "syntax_and_limits",
+    "declared_schema",
+    "migration",
+    "current_schema",
+    "domain",
+]
 VegaKtCovarianceLayout = Literal[
     "price_and_bucket_variance_only", "full_bucket_matrix_row_major"
 ]
@@ -36,7 +43,7 @@ class ValidationIssue:
     @property
     def instance_path(self) -> str: ...
     @property
-    def phase(self) -> str: ...
+    def phase(self) -> ValidationPhase: ...
     @property
     def schema_version(self) -> int: ...
     @property

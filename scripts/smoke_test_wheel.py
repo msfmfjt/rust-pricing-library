@@ -577,6 +577,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "SmileDynamics",
         "ValidationError",
         "ValidationIssue",
+        "ValidationPhase",
         "VegaKtBucketEstimate",
         "VegaKtCoordinate",
         "VegaKtCovarianceLayout",
@@ -661,6 +662,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "sticky_delta",
             "sticky_log_moneyness",
             "sticky_strike",
+        },
+        "ValidationPhase": {
+            "current_schema",
+            "declared_schema",
+            "domain",
+            "migration",
+            "syntax_and_limits",
         },
         "VegaKtCovarianceLayout": {
             "price_and_bucket_variance_only",
