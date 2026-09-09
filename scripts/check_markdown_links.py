@@ -9,7 +9,7 @@ from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MARKDOWN_ROOTS = [ROOT / "README.md", ROOT / "docs", ROOT / "fixtures"]
+MARKDOWN_ROOTS = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "docs", ROOT / "fixtures"]
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
