@@ -44,6 +44,15 @@ EXPECTED_ARTIFACTS = {
     "metadata.json",
 }
 OPTIONAL_ARTIFACTS = {"local-volatility-replay.json"}
+EXPECTED_COMMAND_PEAKS = {
+    "rust_european_black_scholes",
+    "rust_local_volatility_vegakt",
+    "replay_european_black_scholes",
+    "python_european_black_scholes",
+}
+OPTIONAL_COMMAND_PEAKS = {
+    "local-volatility-replay.json": "replay_local_volatility",
+}
 
 
 def main() -> None:
@@ -51,7 +60,7 @@ def main() -> None:
         raise SystemExit("usage: check_benchmark_reports.py <benchmark-results-dir>")
 
     root = Path(sys.argv[1])
-    check_artifact_set(root)
+    artifacts = check_artifact_set(root)
     check_report(root / "rust.json", "rust_european_black_scholes", EUROPEAN_MEASUREMENTS)
     check_report(
         root / "local-volatility-rust.json",
@@ -64,11 +73,11 @@ def main() -> None:
     local_volatility_replay = root / "local-volatility-replay.json"
     if local_volatility_replay.is_file():
         check_replay_report(local_volatility_replay, "local_volatility_replay")
-    check_metadata(root / "metadata.json")
+    check_metadata(root / "metadata.json", artifacts)
     print(f"benchmark reports are valid in {root}")
 
 
-def check_artifact_set(root: Path) -> None:
+def check_artifact_set(root: Path) -> set[str]:
     actual = {path.name for path in root.glob("*.json")}
     missing = sorted(EXPECTED_ARTIFACTS.difference(actual))
     if missing:
@@ -77,6 +86,7 @@ def check_artifact_set(root: Path) -> None:
     unexpected = sorted(actual.difference(expected))
     if unexpected:
         raise SystemExit(f"{root}: unexpected benchmark artifacts: {unexpected}")
+    return actual
 
 
 def check_report(
@@ -220,7 +230,7 @@ def check_measurement(document: dict[str, Any], path: Path, name: str) -> None:
         require_positive_float(paths_per_second, path, f"{name}.median_paths_per_second")
 
 
-def check_metadata(path: Path) -> None:
+def check_metadata(path: Path, artifacts: set[str]) -> None:
     document = load_object(path)
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     for key in [
@@ -252,9 +262,22 @@ def check_metadata(path: Path) -> None:
     command_peaks = require_object(
         document.get("command_peak_memory_bytes"), path, "command_peak_memory_bytes"
     )
+    expected_command_peaks = set(EXPECTED_COMMAND_PEAKS)
+    for artifact, command_name in OPTIONAL_COMMAND_PEAKS.items():
+        if artifact in artifacts:
+            expected_command_peaks.add(command_name)
+    missing = sorted(expected_command_peaks.difference(command_peaks))
+    require(not missing, path, f"missing command_peak_memory_bytes entries: {missing}")
+    unexpected = sorted(set(command_peaks).difference(expected_command_peaks))
+    require(not unexpected, path, f"unexpected command_peak_memory_bytes entries: {unexpected}")
     for name, peak in command_peaks.items():
         require(isinstance(name, str) and name, path, "command peak name must be non-empty")
         require_positive_int(peak, path, f"command_peak_memory_bytes.{name}")
+    require(
+        document["peak_memory_bytes"] == max(command_peaks.values()),
+        path,
+        "peak_memory_bytes must match the maximum command peak",
+    )
     require(document.get("allocation_count") is None, path, "allocation_count must be null")
     require(
         isinstance(document.get("unavailable_metrics"), list),

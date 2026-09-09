@@ -61,6 +61,8 @@ change.
 strings, Python version and ABI tag, full `rustc -vV`/`cargo -V` output, target
 triple, enabled feature sets for Rust and wheel measurements, the SHA-256
 digest of `Cargo.lock`, and observed peak RSS for each benchmark/replay child
-process. Allocation counters require an instrumented allocator and remain
-recorded explicitly as unavailable rather than silently omitted. Later
-instrumentation must add fields without silently changing the v0.1 workload.
+process. The Local Volatility replay peak is present exactly when
+`local-volatility-replay.json` is retained. Allocation counters require an
+instrumented allocator and remain recorded explicitly as unavailable rather
+than silently omitted. Later instrumentation must add fields without silently
+changing the v0.1 workload.
