@@ -160,19 +160,21 @@ impl LocalVarianceGrid {
         let mut values = Vec::with_capacity(time_nodes.len() * log_moneyness_nodes.len());
         let mut repairs = Vec::new();
         for (time_index, time) in time_nodes.iter().copied().enumerate() {
+            let surface_time = if time == 0.0 { time_nodes[1] } else { time };
             for (log_moneyness_index, log_moneyness) in
                 log_moneyness_nodes.iter().copied().enumerate()
             {
-                let variance = surface.total_variance_derivatives(time, log_moneyness)?;
+                let variance = surface.total_variance_derivatives(surface_time, log_moneyness)?;
                 if !variance.time_derivative.is_finite() {
                     return Err(MarketError::NonFiniteSurfaceValue {
                         field: "time_derivative",
-                        time_bits: time.to_bits(),
+                        time_bits: surface_time.to_bits(),
                         log_moneyness_bits: log_moneyness.to_bits(),
                         value_bits: variance.time_derivative.to_bits(),
                     });
                 }
-                let density_factor = durrleman_density_factor(time, log_moneyness, variance)?;
+                let density_factor =
+                    durrleman_density_factor(surface_time, log_moneyness, variance)?;
                 let raw = variance.time_derivative / density_factor;
                 let (value, reason) = classify_local_variance(raw, floor, cap);
                 if let Some(reason) = reason {
@@ -732,6 +734,26 @@ mod tests {
         )
         .expect("grid");
         assert!(grid.repairs().is_empty());
+        assert!(
+            grid.values()
+                .iter()
+                .all(|value| (*value - 0.09).abs() < 1.0e-15)
+        );
+    }
+
+    #[test]
+    fn dupire_grid_initial_row_uses_first_positive_surface_time() {
+        let surface = ConstantVarianceSurface { variance: 0.09 };
+        let grid = LocalVarianceGrid::from_surface(
+            &surface,
+            vec![0.0, 0.5, 1.0],
+            vec![-0.2, 0.0, 0.3],
+            0.0001,
+            1.0,
+        )
+        .expect("grid");
+        assert!(grid.repairs().is_empty());
+        assert_eq!(grid.time_nodes(), &[0.0, 0.5, 1.0]);
         assert!(
             grid.values()
                 .iter()

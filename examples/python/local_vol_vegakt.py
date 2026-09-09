@@ -26,7 +26,7 @@ def year_fraction(start: date, end: date) -> float:
     return (end - start).days / 365.0
 
 
-# %% Contract, market, explicit Local Volatility grids, and VegaKT request
+# %% Contract, market, calibrated eSSVI surface, and VegaKT request
 product = rp.Product.european_vanilla(
     underlying_id=1,
     currency_id=2,
@@ -52,49 +52,19 @@ bucket_maturities = np.array(
 local_vol_times = np.array(
     [0.0, bucket_maturities[0], bucket_maturities[1]], dtype=np.float64
 )
-local_vol_log_moneyness = np.array([-0.2, -0.1, 0.0, 0.1, 0.2], dtype=np.float64)
-local_variances = np.array(
-    [
-        0.038,
-        0.039,
-        0.040,
-        0.041,
-        0.042,
-        0.037,
-        0.039,
-        0.040,
-        0.042,
-        0.044,
-        0.036,
-        0.038,
-        0.041,
-        0.044,
-        0.047,
-    ],
-    dtype=np.float64,
-)
 reporting_log_moneyness = np.array([-0.2, 0.0, 0.2], dtype=np.float64)
-reporting_implied_volatilities = np.array(
-    [
-        0.195,
-        0.200,
-        0.207,
-        0.190,
-        0.202,
-        0.215,
-    ],
-    dtype=np.float64,
-)
+essvi_slices = [
+    rp.EssviSlice(bucket_maturities[0], 0.020, 0.080, -0.020),
+    rp.EssviSlice(bucket_maturities[1], 0.042, 0.120, -0.040),
+]
 vega_kt_maturity_dates = [FIRST_BUCKET_MATURITY, EXPIRY]
-model = rp.Model.local_volatility_from_grid_with_reporting_basis(
+model = rp.Model.local_volatility_from_essvi(
+    essvi_slices,
+    0.020,
     local_vol_times,
-    local_vol_log_moneyness,
-    local_variances,
+    reporting_log_moneyness,
     1.0e-8,
     4.0,
-    bucket_maturities,
-    reporting_log_moneyness,
-    reporting_implied_volatilities,
 )
 engine = rp.Engine.pseudo_monte_carlo(
     master_seed=7,

@@ -557,7 +557,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                     rust_pricing.EssviSlice(1.0, 0.04, 0.2, -0.06),
                 ],
                 0.02,
-                [0.25, 1.0],
+                [0.0, 0.25, 1.0],
                 [-0.1, 0.0, 0.2],
                 1.0e-8,
                 4.0,
@@ -568,16 +568,16 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         payload = json.loads(request.to_json())
         grid = payload["model"]["local_variance_grid"]
         self.assertEqual(payload["model"]["type"], "local_volatility")
-        self.assertEqual(grid["shape"], [2, 3])
-        self.assertEqual(len(grid["values"]), 6)
+        self.assertEqual(grid["shape"], [3, 3])
+        self.assertEqual(len(grid["values"]), 9)
         basis = payload["model"]["reporting_iv_basis"]
         self.assertEqual(basis["shape"], [2, 3])
         self.assertEqual(len(basis["implied_volatilities"]), 6)
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
         parsed_model = json.loads(parsed.to_json())["model"]
         parsed_grid = parsed_model["local_variance_grid"]
-        self.assertEqual(parsed_grid["shape"], [2, 3])
-        self.assertEqual(len(parsed_grid["values"]), 6)
+        self.assertEqual(parsed_grid["shape"], [3, 3])
+        self.assertEqual(len(parsed_grid["values"]), 9)
         self.assertEqual(parsed_model["reporting_iv_basis"]["shape"], [2, 3])
 
     def test_native_local_volatility_can_materialize_from_standard_ssvi(self):
@@ -601,7 +601,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                     -0.3,
                     0.5,
                     0.4,
-                    [0.25, 1.0],
+                    [0.0, 0.25, 1.0],
                     [-0.1, 0.0, 0.2],
                     1.0e-8,
                     4.0,
@@ -615,7 +615,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                     0.02,
                     -0.3,
                     0.5,
-                    [0.25, 1.0],
+                    [0.0, 0.25, 1.0],
                     [-0.1, 0.0, 0.2],
                     1.0e-8,
                     4.0,
@@ -636,12 +636,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 payload = json.loads(request.to_json())
                 grid = payload["model"]["local_variance_grid"]
                 self.assertEqual(payload["model"]["type"], "local_volatility")
-                self.assertEqual(grid["shape"], [2, 3])
-                self.assertEqual(len(grid["values"]), 6)
+                self.assertEqual(grid["shape"], [3, 3])
+                self.assertEqual(len(grid["values"]), 9)
                 parsed = rust_pricing.PricingRequest.from_json(request.to_json())
                 parsed_model = json.loads(parsed.to_json())["model"]
                 self.assertEqual(
-                    parsed_model["local_variance_grid"]["shape"], [2, 3]
+                    parsed_model["local_variance_grid"]["shape"], [3, 3]
                 )
                 self.assertEqual(
                     parsed_model["reporting_iv_basis"]["shape"], [2, 3]

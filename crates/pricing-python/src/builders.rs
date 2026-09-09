@@ -695,7 +695,7 @@ impl PyModel {
             log_forward_moneyness_nodes.clone(),
             floor,
             cap,
-            time_nodes,
+            reporting_maturity_nodes(&time_nodes),
             log_forward_moneyness_nodes,
         )
         .map(|spec| Self {
@@ -1045,7 +1045,7 @@ fn local_volatility_from_standard_ssvi(
         log_forward_moneyness_nodes.clone(),
         floor,
         cap,
-        time_nodes,
+        reporting_maturity_nodes(&time_nodes),
         log_forward_moneyness_nodes,
     )
     .map(|spec| PyModel {
@@ -1059,6 +1059,14 @@ fn local_volatility_from_standard_ssvi(
             error,
         )
     })
+}
+
+fn reporting_maturity_nodes(time_nodes: &[f64]) -> Vec<f64> {
+    time_nodes
+        .iter()
+        .copied()
+        .filter(|time| *time > 0.0)
+        .collect()
 }
 
 fn essvi_slices_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Vec<EssviSlice>> {
