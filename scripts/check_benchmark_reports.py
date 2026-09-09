@@ -215,11 +215,36 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
         require_positive_int(
             plan.get("worker_threads"), path, f"{case_path}.plan.worker_threads"
         )
-        require_object(case_object.get("request"), path, f"{case_path}.request")
+        request = require_object(case_object.get("request"), path, f"{case_path}.request")
+        require(
+            request.get("document_kind") == "pricing_request",
+            path,
+            f"{case_path}.request.document_kind",
+        )
+        require(
+            request.get("schema_version") == 1,
+            path,
+            f"{case_path}.request.schema_version",
+        )
         result = require_object(case_object.get("result"), path, f"{case_path}.result")
+        require(
+            result.get("document_kind") == "pricing_result",
+            path,
+            f"{case_path}.result.document_kind",
+        )
+        require(
+            result.get("schema_version") == 1,
+            path,
+            f"{case_path}.result.schema_version",
+        )
         replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
         require_fingerprint(
             replay.get("request_fingerprint"), path, f"{case_path}.result.replay.request_fingerprint"
+        )
+        require(
+            replay.get("request_fingerprint") == plan.get("request_fingerprint"),
+            path,
+            f"{case_path} request fingerprints must match",
         )
         execution = require_object(case_object.get("execution"), path, f"{case_path}.execution")
         monte_carlo = require_object(
