@@ -193,6 +193,8 @@ def check_standard_ssvi(fixture: dict[str, Any], checks: Checks) -> None:
 
 def check_essvi(fixture: dict[str, Any], checks: Checks) -> None:
     case = fixture["essvi_interpolation"]
+    if case.get("id") != "midpoint_regular":
+        raise AssertionError("essvi_interpolation.id must be midpoint_regular")
     x = {key: D(value) for key, value in case["inputs"].items()}
     weight = (x["t"] - x["t0"]) / (x["t1"] - x["t0"])
     theta = x["theta0"] + weight * (x["theta1"] - x["theta0"])
