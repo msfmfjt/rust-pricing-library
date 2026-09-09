@@ -322,6 +322,7 @@ def create_environment(environment: Path) -> None:
 
 def exported_stub_api(stub: bytes) -> dict[str, object]:
     tree = ast.parse(stub.decode("utf-8"))
+    verify_stub_static_shape(tree)
     symbols = []
     class_members: dict[str, list[str]] = {}
     for node in tree.body:
@@ -336,6 +337,75 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             symbols.append(node.target.id)
     return {"symbols": symbols, "class_members": class_members}
+
+
+def verify_stub_static_shape(tree: ast.Module) -> None:
+    imported_names: set[str] = set()
+    top_level_names: list[str] = []
+    class_members: dict[str, list[str]] = {}
+
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            imported_names.update(alias.asname or alias.name for alias in node.names)
+        elif isinstance(node, ast.Assign):
+            top_level_names.extend(
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            )
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            top_level_names.append(node.target.id)
+        elif isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+            top_level_names.append(node.name)
+            if isinstance(node, ast.ClassDef):
+                class_members[node.name] = [
+                    member.name
+                    for member in node.body
+                    if isinstance(member, ast.FunctionDef)
+                ]
+
+    duplicates = sorted(duplicates_in(top_level_names))
+    if duplicates:
+        raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
+
+    for class_name, members in sorted(class_members.items()):
+        duplicate_members = sorted(duplicates_in(members))
+        if duplicate_members:
+            raise RuntimeError(
+                f"wheel type stub has duplicate members in {class_name}: {duplicate_members}"
+            )
+
+    known_names = {
+        "None",
+        "RuntimeError",
+        "ValueError",
+        "bool",
+        "dict",
+        "float",
+        "int",
+        "list",
+        "object",
+        "property",
+        "staticmethod",
+        "str",
+        "tuple",
+    }.union(imported_names, top_level_names)
+    referenced_names = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    unresolved = sorted(referenced_names.difference(known_names))
+    if unresolved:
+        raise RuntimeError(f"wheel type stub has unresolved names: {unresolved}")
+
+
+def duplicates_in(values: list[str]) -> set[str]:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        if value in seen:
+            duplicates.add(value)
+        seen.add(value)
+    return duplicates
 
 
 def verify_runtime_symbols(python: Path, stub_api: dict[str, object], version: str) -> None:
