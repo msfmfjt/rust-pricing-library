@@ -127,7 +127,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             ),
             rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
             rust_pricing.Model.local_volatility_from_grid(
-                [0.25, 1.0],
+                [0.0, 1.0],
                 [-0.1, 0.0, 0.2],
                 [0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
                 1.0e-8,
@@ -142,6 +142,13 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
         self.assertEqual(parsed.fingerprint, request.fingerprint)
         self.assertEqual(parsed.to_json(), request.to_json())
+        plan = rust_pricing.PricingPlan.compile(
+            parsed, worker_threads=2, reduction_block_size=256
+        )
+        result = plan.evaluate()
+        self.assertTrue(math.isfinite(result.value))
+        self.assertGreater(result.standard_error, 0.0)
+        self.assertIsNone(result.delta_raw)
 
     def test_native_local_volatility_can_materialize_from_essvi(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])

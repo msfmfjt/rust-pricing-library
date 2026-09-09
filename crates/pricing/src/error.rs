@@ -4,7 +4,9 @@ use std::fmt;
 use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
-use pricing_mc::{ExecutionError, ExecutorBuildError, RqmcPlanError, TryExecutionError};
+use pricing_mc::{
+    ExecutionError, ExecutorBuildError, LocalVolError, RqmcPlanError, TryExecutionError,
+};
 use pricing_product::GraphError;
 
 use crate::WireError;
@@ -104,11 +106,29 @@ impl Error for ResultBuildError {
 #[non_exhaustive]
 pub enum MonteCarloError {
     UnsupportedEngine,
-    UnsupportedModel { model: &'static str },
-    InvalidGammaBump { spot_bits: u64, bump_bits: u64 },
-    InsufficientSamplingUnits { count: u64 },
-    NonFiniteTotalVariance { bits: u64 },
+    UnsupportedModel {
+        model: &'static str,
+    },
+    UnsupportedRiskForModel {
+        model: &'static str,
+    },
+    InvalidLocalVolatilityTimeGrid {
+        expiry_bits: u64,
+        first_bits: u64,
+        last_bits: u64,
+    },
+    InvalidGammaBump {
+        spot_bits: u64,
+        bump_bits: u64,
+    },
+    InsufficientSamplingUnits {
+        count: u64,
+    },
+    NonFiniteTotalVariance {
+        bits: u64,
+    },
     Market(MarketError),
+    LocalVol(LocalVolError),
     Graph(GraphError),
     ExecutorBuild(ExecutorBuildError),
     Execution(ExecutionError),
@@ -121,6 +141,12 @@ pub enum MonteCarloError {
 impl From<MarketError> for MonteCarloError {
     fn from(error: MarketError) -> Self {
         Self::Market(error)
+    }
+}
+
+impl From<LocalVolError> for MonteCarloError {
+    fn from(error: LocalVolError) -> Self {
+        Self::LocalVol(error)
     }
 }
 
@@ -193,6 +219,20 @@ impl fmt::Display for MonteCarloError {
                     "the selected pricing entry point does not support the {model} model yet"
                 )
             }
+            Self::UnsupportedRiskForModel { model } => {
+                write!(
+                    formatter,
+                    "the selected pricing entry point does not support risk requests for the {model} model yet"
+                )
+            }
+            Self::InvalidLocalVolatilityTimeGrid {
+                expiry_bits,
+                first_bits,
+                last_bits,
+            } => write!(
+                formatter,
+                "Local Volatility Price-only evaluation requires explicit time nodes from 0.0 through expiry; expiry=0x{expiry_bits:016x}, first=0x{first_bits:016x}, last=0x{last_bits:016x}"
+            ),
             Self::InvalidGammaBump {
                 spot_bits,
                 bump_bits,
@@ -211,6 +251,7 @@ impl fmt::Display for MonteCarloError {
                 )
             }
             Self::Market(error) => error.fmt(formatter),
+            Self::LocalVol(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),
             Self::ExecutorBuild(error) => error.fmt(formatter),
             Self::Execution(error) => error.fmt(formatter),
@@ -226,6 +267,7 @@ impl Error for MonteCarloError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Market(error) => Some(error),
+            Self::LocalVol(error) => Some(error),
             Self::Graph(error) => Some(error),
             Self::ExecutorBuild(error) => Some(error),
             Self::Execution(error) => Some(error),
