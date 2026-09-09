@@ -523,6 +523,53 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     if duplicates:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
+    expected_top_level_names = {
+        "AsianObservation",
+        "BarrierDirection",
+        "BarrierStyle",
+        "DateLike",
+        "DiagnosticEstimate",
+        "Diagnostics",
+        "DigitalPayout",
+        "DiscountCurve",
+        "DividendEvent",
+        "Engine",
+        "EssviSlice",
+        "Market",
+        "Model",
+        "OptionSide",
+        "PricingError",
+        "PricingPlan",
+        "PricingRequest",
+        "PricingResult",
+        "PricingWarning",
+        "Product",
+        "RiskEstimate",
+        "RiskRequest",
+        "RiskUnit",
+        "RiskValidation",
+        "SmileDynamics",
+        "ValidationError",
+        "ValidationIssue",
+        "VegaKtBucketEstimate",
+        "VegaKtCoordinate",
+        "VegaKtCovarianceLayout",
+        "VegaKtProjection",
+        "VegaKtReportingStats",
+        "VegaKtResidualDiagnostics",
+        "VegaKtResult",
+        "VegaKtUnit",
+        "__version__",
+        "request_json_schema",
+        "result_json_schema",
+        "version",
+    }
+    missing_top_level_names = sorted(expected_top_level_names.difference(top_level_names))
+    if missing_top_level_names:
+        raise RuntimeError(
+            f"wheel type stub is missing top-level definitions: {missing_top_level_names}"
+        )
+
     for class_name, members in sorted(class_members.items()):
         duplicate_members = sorted(duplicates_in(members))
         if duplicate_members:
