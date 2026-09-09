@@ -459,9 +459,26 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
         "cargo_lock_sha256 must match Cargo.lock",
     )
     enabled_features = require_object(document.get("enabled_features"), path, "enabled_features")
-    for key in ["rust_benchmarks", "python_wheel"]:
+    expected_features = {
+        "rust_benchmarks": [],
+        "python_wheel": ["pricing-python/extension-module"],
+    }
+    missing_feature_sets = sorted(set(expected_features).difference(enabled_features))
+    require(
+        not missing_feature_sets,
+        path,
+        f"missing enabled feature sets: {missing_feature_sets}",
+    )
+    unexpected_feature_sets = sorted(set(enabled_features).difference(expected_features))
+    require(
+        not unexpected_feature_sets,
+        path,
+        f"unexpected enabled feature sets: {unexpected_feature_sets}",
+    )
+    for key, expected in expected_features.items():
         features = enabled_features.get(key)
         require_string_array(features, path, f"enabled_features.{key}")
+        require(features == expected, path, f"enabled_features.{key} mismatch")
     require_positive_int(document.get("peak_memory_bytes"), path, "peak_memory_bytes")
     command_peaks = require_object(
         document.get("command_peak_memory_bytes"), path, "command_peak_memory_bytes"
