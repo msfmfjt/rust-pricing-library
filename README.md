@@ -55,11 +55,14 @@ Dependency direction is checked in CI. Lower-level crates may not depend on high
 The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run:
 
 ```shell
+python3 scripts/check_local_vol_reference_fixture.py
+python3 scripts/check_schemas.py
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-features --exclude pricing-python
 cargo test --locked -p pricing-python
-cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
+cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 ```
 
 The Python extension is built with [maturin](https://www.maturin.rs/):
