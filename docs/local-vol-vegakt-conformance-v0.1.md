@@ -51,7 +51,7 @@ diagnostics.
   `fixtures/replay/local_volatility-macos-aarch64.json`.
 - Frozen numerical policy: `docs/local-vol-vegakt-numerical-contracts-v0.1.md`.
 - Candidate diagnostics catalogue: `docs/local-vol-vegakt-diagnostics-v0.1.md`.
-- Candidate Python request example: `examples/python/local_vol_vegakt.py`.
+- Candidate Python valuation example: `examples/python/local_vol_vegakt.py`.
 - Candidate CI evidence: latest pull request workflow run for this report's
   commit.
 
@@ -63,8 +63,6 @@ diagnostics.
   European baseline.
 - Retain benchmark artifacts that separately identify the AD/decomposition
   workload and its selected and aggregate CRN bump validations.
-- Update the Python Local Volatility/VegaKT example once the public entry point
-  can return Price, Greeks, and VegaKT output for calibrated surface inputs.
 - Promote this report from candidate to accepted only after the retained replay
   and benchmark evidence is attached to the final acceptance PR.
 

@@ -159,6 +159,17 @@ class Model:
         cap: float,
     ) -> Model: ...
     @staticmethod
+    def local_volatility_from_grid_with_reporting_basis(
+        time_nodes: Sequence[float],
+        log_forward_moneyness_nodes: Sequence[float],
+        local_variances: Sequence[float],
+        floor: float,
+        cap: float,
+        reporting_maturity_nodes: Sequence[float],
+        reporting_log_forward_moneyness_nodes: Sequence[float],
+        reporting_implied_volatilities: Sequence[float],
+    ) -> Model: ...
+    @staticmethod
     def local_volatility_from_essvi(
         slices: Sequence[EssviSlice],
         terminal_theta_slope: float,

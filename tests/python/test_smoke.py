@@ -292,6 +292,59 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(parsed.fingerprint, request.fingerprint)
         self.assertEqual(parsed.to_json(), request.to_json())
 
+    def test_native_local_volatility_evaluates_vega_kt_report(self):
+        valuation = date(2026, 9, 4)
+        first_maturity = date(2027, 3, 5)
+        expiry = date(2027, 9, 4)
+        maturity_nodes = [
+            (first_maturity - valuation).days / 365.0,
+            (expiry - valuation).days / 365.0,
+        ]
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        request = rust_pricing.PricingRequest(
+            valuation,
+            rust_pricing.Product.european_vanilla(
+                1, 2, expiry, 100.0, 1.0, "call"
+            ),
+            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            rust_pricing.Model.local_volatility_from_grid_with_reporting_basis(
+                [0.0, maturity_nodes[0], maturity_nodes[1]],
+                [-0.2, 0.0, 0.2],
+                [0.038, 0.04, 0.042, 0.037, 0.04, 0.044, 0.036, 0.041, 0.047],
+                1.0e-8,
+                4.0,
+                maturity_nodes,
+                [-0.2, 0.0, 0.2],
+                [0.195, 0.2, 0.207, 0.19, 0.202, 0.215],
+            ),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(
+                delta=True,
+                gamma_relative_bump=0.01,
+                vega=True,
+                vega_kt_maturity_nodes=[first_maturity, expiry],
+                vega_kt_log_forward_moneyness_nodes=[-0.2, 0.0, 0.2],
+                vega_kt_relative_density_threshold=1.0e-8,
+                vega_kt_full_bucket_covariance=True,
+                checkpoint_interval=16,
+                aad_tile_capacity=128,
+            ),
+        )
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        self.assertTrue(math.isfinite(result.vega_raw))
+        vega_kt = result.vega_kt
+        self.assertIsNotNone(vega_kt)
+        self.assertEqual(len(vega_kt.coordinates), 6)
+        self.assertEqual(len(vega_kt.estimates), 6)
+        self.assertEqual(len(vega_kt.raw_buckets), 6)
+        self.assertEqual(len(vega_kt.full_bucket_covariance), 36)
+        self.assertTrue(math.isfinite(vega_kt.projection.scalar_vega))
+        payload = json.loads(result.to_json())
+        self.assertIn("vega_kt", payload["risks"])
+
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)

@@ -8,7 +8,9 @@ use pricing::market::{
     ThetaPchip,
 };
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
+use pricing::models::{
+    BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
+};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
@@ -343,6 +345,76 @@ impl PyModel {
         )
         .map(|spec| Self {
             inner: ModelSpec::LocalVolatility(spec),
+        })
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_local_variance_grid",
+                "/model/local_variance_grid",
+                error,
+            )
+        })
+    }
+
+    /// Build a Local Volatility model from explicit local-variance and reporting-IV grids.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn local_volatility_from_grid_with_reporting_basis(
+        py: Python<'_>,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        local_variances: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+        reporting_maturity_nodes: &Bound<'_, PyAny>,
+        reporting_log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        reporting_implied_volatilities: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+        let log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/model/local_variance_grid/log_forward_moneyness_nodes",
+        )?;
+        let local_variances =
+            copied_f64_array(py, local_variances, "/model/local_variance_grid/values")?;
+        let reporting_maturity_nodes = copied_f64_array(
+            py,
+            reporting_maturity_nodes,
+            "/model/reporting_iv_basis/maturity_nodes",
+        )?;
+        let reporting_log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            reporting_log_forward_moneyness_nodes,
+            "/model/reporting_iv_basis/log_forward_moneyness_nodes",
+        )?;
+        let reporting_implied_volatilities = copied_f64_array(
+            py,
+            reporting_implied_volatilities,
+            "/model/reporting_iv_basis/implied_volatilities",
+        )?;
+        let basis = LocalVolatilityReportingBasis::new(
+            reporting_maturity_nodes,
+            reporting_log_forward_moneyness_nodes,
+            reporting_implied_volatilities,
+        )
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_reporting_iv_basis",
+                "/model/reporting_iv_basis",
+                error,
+            )
+        })?;
+        LocalVolatilitySpec::from_explicit_grid(
+            time_nodes,
+            log_forward_moneyness_nodes,
+            local_variances,
+            floor,
+            cap,
+        )
+        .map(|spec| Self {
+            inner: ModelSpec::LocalVolatility(spec.with_reporting_iv_basis(basis)),
         })
         .map_err(|error| {
             domain_error(
