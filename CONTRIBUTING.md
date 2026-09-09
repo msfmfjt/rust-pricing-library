@@ -38,3 +38,7 @@ python scripts/smoke_test_wheel.py
 python scripts/run_benchmark_suite.py
 python scripts/check_benchmark_reports.py benchmark-results
 ```
+
+Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
+tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
+mismatches before installation.

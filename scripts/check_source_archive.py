@@ -147,6 +147,8 @@ REQUIRED_README_SNIPPETS = {
     "python -m unittest discover -s tests/python -v",
     "python -m maturin build --locked --release --out dist",
     "python scripts/smoke_test_wheel.py",
+    "Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel",
+    "The smoke test rejects ABI\nmismatches before installation.",
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_benchmark_reports.py benchmark-results",
 }
