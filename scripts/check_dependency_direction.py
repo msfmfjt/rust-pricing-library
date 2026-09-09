@@ -38,8 +38,16 @@ def main() -> int:
 
     for crate_name in sorted(set(packages) & set(LEVEL)):
         package = packages[crate_name]
+        seen_dependencies = set()
         for dependency in package["dependencies"]:
-            dependency_name = dependency["name"]
+            dependency_name = dependency.get("name")
+            if not isinstance(dependency_name, str) or not dependency_name:
+                errors.append(f"{crate_name} has a dependency without a non-empty string name")
+                continue
+            if dependency_name in seen_dependencies:
+                errors.append(f"{crate_name} lists dependency {dependency_name} more than once")
+                continue
+            seen_dependencies.add(dependency_name)
             if dependency_name not in LEVEL:
                 continue
             if LEVEL[dependency_name] >= LEVEL[crate_name]:
