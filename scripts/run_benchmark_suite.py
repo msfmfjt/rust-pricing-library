@@ -12,9 +12,20 @@ import sys
 import time
 
 
+BENCHMARK_ARTIFACTS = {
+    "rust.json",
+    "local-volatility-rust.json",
+    "python.json",
+    "replay.json",
+    "local-volatility-replay.json",
+    "metadata.json",
+}
+
+
 def main() -> None:
     output = Path("benchmark-results")
     output.mkdir(exist_ok=True)
+    clear_previous_artifacts(output)
     rust_report = output / "rust.json"
     local_vol_rust_report = output / "local-volatility-rust.json"
     python_report = output / "python.json"
@@ -139,6 +150,15 @@ def main() -> None:
         encoding="utf-8",
     )
     run([sys.executable, "scripts/check_benchmark_reports.py", str(output)])
+
+
+def clear_previous_artifacts(output: Path) -> None:
+    for name in sorted(BENCHMARK_ARTIFACTS):
+        artifact = output / name
+        if artifact.exists():
+            if not artifact.is_file():
+                raise RuntimeError(f"benchmark artifact path is not a file: {artifact}")
+            artifact.unlink()
 
 
 def run(command: list[str]) -> None:
