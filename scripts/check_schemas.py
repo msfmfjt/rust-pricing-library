@@ -207,6 +207,28 @@ def check_id_fields(schema: dict[str, Any], path: Path) -> None:
             )
 
 
+def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        properties = value.get("properties")
+        if not isinstance(properties, dict) or "shape" not in properties:
+            continue
+        definition = properties["shape"]
+        items = definition.get("items") if isinstance(definition, dict) else None
+        field_location = (*location, "properties", "shape")
+        require(
+            isinstance(definition, dict)
+            and definition.get("type") == "array"
+            and definition.get("minItems") == 2
+            and definition.get("maxItems") == 2
+            and isinstance(items, dict)
+            and items.get("type") == "integer"
+            and items.get("minimum") == 2,
+            f"{path}:{pointer(field_location)}: shape must be a two-dimensional integer array",
+        )
+
+
 def check_strict_objects(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict) or value.get("type") != "object" or "properties" not in value:
@@ -288,6 +310,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_required_properties(schema, path)
     check_date_fields(schema, path)
     check_id_fields(schema, path)
+    check_shape_fields(schema, path)
     check_strict_objects(schema, path)
     check_tagged_union_discriminators(schema, path)
 
