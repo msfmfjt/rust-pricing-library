@@ -8,29 +8,34 @@ from pathlib import Path
 import sys
 
 
+FIXTURE_PREFIXES = {
+    "european_black_scholes_replay": "european_bs",
+    "local_volatility_replay": "local_volatility",
+}
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: check_replay_fixture.py <generated.json>")
 
     generated = Path(sys.argv[1])
     generated_text, document = load_object(generated)
-    platform = document.get("platform")
-    if not isinstance(platform, str):
-        raise SystemExit("generated replay evidence has no string platform field")
-
-    fixture_kind = document.get("fixture_kind")
-    if fixture_kind == "european_black_scholes_replay":
-        fixture_prefix = "european_bs"
-    elif fixture_kind == "local_volatility_replay":
-        fixture_prefix = "local_volatility"
-    else:
-        raise SystemExit(f"unsupported replay fixture_kind: {fixture_kind!r}")
+    fixture_kind, platform = replay_identity(generated, document)
+    fixture_prefix = FIXTURE_PREFIXES[fixture_kind]
 
     expected = Path("fixtures/replay") / f"{fixture_prefix}-{platform}.json"
     if not expected.is_file():
         raise SystemExit(f"no frozen replay fixture for {platform}: {expected}")
 
-    expected_text, _ = load_object(expected)
+    expected_text, expected_document = load_object(expected)
+    expected_fixture_kind, expected_platform = replay_identity(expected, expected_document)
+    if expected_fixture_kind != fixture_kind or expected_platform != platform:
+        raise SystemExit(
+            f"{expected}: fixture identity "
+            f"{expected_fixture_kind!r}/{expected_platform!r} does not match generated "
+            f"{fixture_kind!r}/{platform!r}"
+        )
+
     if generated_text != expected_text:
         diff = difflib.unified_diff(
             expected_text.splitlines(),
@@ -42,6 +47,21 @@ def main() -> None:
         raise SystemExit("replay fixture mismatch:\n" + "\n".join(diff))
 
     print(f"replay fixture matches {expected}")
+
+
+def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
+    schema_version = document.get("schema_version")
+    if schema_version != 1:
+        raise SystemExit(f"{path}: schema_version must be 1")
+    platform = document.get("platform")
+    if not isinstance(platform, str) or not platform:
+        raise SystemExit(f"{path}: replay evidence has no non-empty string platform field")
+    fixture_kind = document.get("fixture_kind")
+    if not isinstance(fixture_kind, str):
+        raise SystemExit(f"{path}: replay evidence has no string fixture_kind field")
+    if fixture_kind not in FIXTURE_PREFIXES:
+        raise SystemExit(f"{path}: unsupported replay fixture_kind: {fixture_kind!r}")
+    return fixture_kind, platform
 
 
 def load_object(path: Path) -> tuple[str, dict[str, object]]:

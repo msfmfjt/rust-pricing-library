@@ -165,8 +165,13 @@ def check_report(
 
 def check_replay_report(path: Path, fixture_kind: str) -> None:
     document = load_object(path)
+    require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(document.get("fixture_kind") == fixture_kind, path, "unexpected fixture_kind")
-    require(isinstance(document.get("platform"), str), path, "missing platform")
+    require(
+        isinstance(document.get("platform"), str) and document["platform"],
+        path,
+        "missing platform",
+    )
     cases = document.get("cases")
     require(isinstance(cases, list) and len(cases) > 0, path, "cases must be a non-empty array")
     for index, case in enumerate(cases):
