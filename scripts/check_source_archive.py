@@ -120,6 +120,14 @@ REQUIRED_CI_SNIPPETS = {
     "retention-days: 14",
 }
 
+REQUIRED_CI_SNIPPET_COUNTS = {
+    'python-version: "3.12"': 2,
+    "python -m maturin build --locked --release --out dist": 2,
+    "python scripts/smoke_test_wheel.py": 2,
+    "actions/upload-artifact@v4": 3,
+    "retention-days: 14": 3,
+}
+
 REQUIRED_README_SNIPPETS = {
     "python3 scripts/check_local_vol_reference_fixture.py",
     "python3 scripts/check_schemas.py",
@@ -340,6 +348,13 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
     missing = sorted(snippet for snippet in REQUIRED_CI_SNIPPETS if snippet not in workflow)
     if missing:
         raise SystemExit(f"{archive}: CI workflow is missing required gates: {missing}")
+    for snippet, expected_count in sorted(REQUIRED_CI_SNIPPET_COUNTS.items()):
+        actual_count = workflow.count(snippet)
+        if actual_count != expected_count:
+            raise SystemExit(
+                f"{archive}: CI workflow must contain {snippet!r} "
+                f"{expected_count} times, found {actual_count}"
+            )
 
 
 def check_readme_release_gates(package: tarfile.TarFile, archive: str) -> None:
