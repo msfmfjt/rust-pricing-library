@@ -734,6 +734,30 @@ impl PyPricingResult {
         PyDiagnostics::from_price(&self.inner).warnings()
     }
 
+    /// Schema version stamped into the replay metadata.
+    #[getter]
+    fn replay_schema_version(&self) -> u32 {
+        self.inner.pricing_result.replay.schema_version().get()
+    }
+
+    /// Fingerprint of the normalized request that produced the result.
+    #[getter]
+    fn replay_request_fingerprint(&self) -> String {
+        format_fingerprint(self.inner.pricing_result.replay.request_fingerprint())
+    }
+
+    /// Library version that produced the result.
+    #[getter]
+    fn replay_library_version(&self) -> &str {
+        self.inner.pricing_result.replay.library_version()
+    }
+
+    /// Platform string that produced the result.
+    #[getter]
+    fn replay_platform(&self) -> &str {
+        self.inner.pricing_result.replay.platform()
+    }
+
     fn to_json(&self) -> PyResult<String> {
         result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
     }
@@ -756,6 +780,16 @@ fn risk_value(risk: Option<RiskEstimate>, market_scaled: bool) -> Option<f64> {
         };
         estimate.value().get()
     })
+}
+
+fn format_fingerprint(bytes: &[u8; 32]) -> String {
+    format!(
+        "blake3-256:{}",
+        bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    )
 }
 
 fn risk_unit_name(value: RiskUnit) -> &'static str {

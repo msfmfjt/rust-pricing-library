@@ -42,6 +42,13 @@ class PricingFacadeSmokeTest(unittest.TestCase):
 
         payload = json.loads(result.to_json())
         self.assertEqual(payload["document_kind"], "pricing_result")
+        self.assertEqual(result.replay_schema_version, payload["replay"]["schema_version"])
+        self.assertEqual(
+            result.replay_request_fingerprint,
+            payload["replay"]["request_fingerprint"],
+        )
+        self.assertEqual(result.replay_library_version, payload["replay"]["library_version"])
+        self.assertEqual(result.replay_platform, payload["replay"]["platform"])
         self.assertEqual(result.diagnostics.estimator, "pseudo_monte_carlo")
         self.assertIsNone(result.diagnostics.direction_checksum)
         self.assertIsNone(result.diagnostics.scramble_checksum)
@@ -751,6 +758,13 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(parsed.value, result.value)
         self.assertEqual(parsed.independent_sampling_units, result.independent_sampling_units)
         self.assertAlmostEqual(parsed.estimator_variance, result.standard_error ** 2)
+        self.assertEqual(parsed.replay_schema_version, result.replay_schema_version)
+        self.assertEqual(
+            parsed.replay_request_fingerprint,
+            result.replay_request_fingerprint,
+        )
+        self.assertEqual(parsed.replay_library_version, result.replay_library_version)
+        self.assertEqual(parsed.replay_platform, result.replay_platform)
 
     def test_pretty_json_helpers_round_trip(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
