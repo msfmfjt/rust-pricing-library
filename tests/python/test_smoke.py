@@ -757,6 +757,28 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         payload = json.loads(result_json)
         self.assertIn("vega_kt", payload["risks"])
 
+        missing_covariance = json.loads(result_json)
+        del missing_covariance["risks"]["vega_kt"]["full_bucket_covariance"]
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingResult.from_json(
+                json.dumps(missing_covariance, separators=(",", ":"))
+            )
+        self.assertEqual(
+            captured.exception.issues[0].instance_path, "/risks/vega_kt"
+        )
+
+        unexpected_covariance = json.loads(result_json)
+        unexpected_covariance["risks"]["vega_kt"]["covariance_layout"] = {
+            "type": "price_and_bucket_variance_only"
+        }
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingResult.from_json(
+                json.dumps(unexpected_covariance, separators=(",", ":"))
+            )
+        self.assertEqual(
+            captured.exception.issues[0].instance_path, "/risks/vega_kt"
+        )
+
     def test_pricing_result_round_trips_from_json(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
         result = rust_pricing.PricingPlan.compile(
