@@ -8,6 +8,7 @@ use pricing_mc::{
     ExecutionError, ExecutorBuildError, LocalVolError, RqmcPlanError, TryExecutionError,
 };
 use pricing_product::GraphError;
+use pricing_risk::RiskConfigError;
 
 use crate::WireError;
 
@@ -138,6 +139,8 @@ pub enum MonteCarloError {
         first_bits: u64,
         last_bits: u64,
     },
+    MissingLocalVolatilityReportingBasis,
+    MismatchedLocalVolatilityReportingBasis,
     InvalidGammaBump {
         spot_bits: u64,
         bump_bits: u64,
@@ -157,6 +160,7 @@ pub enum MonteCarloError {
     Wire(WireError),
     AadConfig(AadConfigError),
     RqmcPlan(RqmcPlanError),
+    RiskConfig(RiskConfigError),
 }
 
 impl From<MarketError> for MonteCarloError {
@@ -207,6 +211,12 @@ impl From<RqmcPlanError> for MonteCarloError {
     }
 }
 
+impl From<RiskConfigError> for MonteCarloError {
+    fn from(error: RiskConfigError) -> Self {
+        Self::RiskConfig(error)
+    }
+}
+
 impl From<TryExecutionError<GraphError>> for MonteCarloError {
     fn from(error: TryExecutionError<GraphError>) -> Self {
         match error {
@@ -254,6 +264,14 @@ impl fmt::Display for MonteCarloError {
                 formatter,
                 "Local Volatility Price-only evaluation requires explicit time nodes from 0.0 through expiry; expiry=0x{expiry_bits:016x}, first=0x{first_bits:016x}, last=0x{last_bits:016x}"
             ),
+            Self::MissingLocalVolatilityReportingBasis => write!(
+                formatter,
+                "Local Volatility VegaKT evaluation requires a reporting-IV basis on the model"
+            ),
+            Self::MismatchedLocalVolatilityReportingBasis => write!(
+                formatter,
+                "Local Volatility VegaKT request nodes must match the model reporting-IV basis"
+            ),
             Self::InvalidGammaBump {
                 spot_bits,
                 bump_bits,
@@ -280,6 +298,7 @@ impl fmt::Display for MonteCarloError {
             Self::Wire(error) => error.fmt(formatter),
             Self::AadConfig(error) => error.fmt(formatter),
             Self::RqmcPlan(error) => error.fmt(formatter),
+            Self::RiskConfig(error) => error.fmt(formatter),
         }
     }
 }
@@ -296,6 +315,7 @@ impl Error for MonteCarloError {
             Self::Wire(error) => Some(error),
             Self::AadConfig(error) => Some(error),
             Self::RqmcPlan(error) => Some(error),
+            Self::RiskConfig(error) => Some(error),
             _ => None,
         }
     }

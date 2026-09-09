@@ -773,6 +773,34 @@ impl VegaKtProjection {
     }
 }
 
+pub fn vega_kt_projection_from_parts(
+    raw_buckets: Vec<f64>,
+    signed_residual: f64,
+    pre_projection: f64,
+    reporting_stats: ReportingIvProjectionStats,
+) -> Result<VegaKtProjection, RiskConfigError> {
+    for bucket in &raw_buckets {
+        validate_finite(*bucket, "vega_kt_raw_bucket")?;
+    }
+    validate_finite(signed_residual, "vega_kt_signed_residual")?;
+    validate_finite(pre_projection, "vega_kt_pre_projection")?;
+    let scalar_vega = raw_buckets.iter().copied().collect::<NeumaierSum>().total();
+    let projection = VegaKtProjection {
+        raw_buckets: raw_buckets.into_boxed_slice(),
+        scalar_vega,
+        signed_residual,
+        pre_projection,
+        reporting_stats,
+    };
+    if !projection.reconciles() {
+        return Err(RiskConfigError::VegaKtProjectionReconciliationFailure {
+            reconstructed_bits: projection.reconstructed_pre_projection().to_bits(),
+            pre_projection_bits: projection.pre_projection().to_bits(),
+        });
+    }
+    Ok(projection)
+}
+
 pub fn vega_kt_bucket_estimates(
     price_samples: &[f64],
     raw_bucket_samples: &[f64],
