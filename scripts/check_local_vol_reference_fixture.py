@@ -366,8 +366,17 @@ def check_dividend(fixture: dict[str, Any], checks: Checks) -> None:
 
 
 def main() -> None:
+    raw = FIXTURE.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise AssertionError(f"{FIXTURE}: UTF-8 BOM is not allowed")
+    if b"\r" in raw:
+        raise AssertionError(f"{FIXTURE}: CR or CRLF line endings are not allowed")
+    if not raw.endswith(b"\n"):
+        raise AssertionError(f"{FIXTURE}: JSON artifact must end with LF")
+    if raw.endswith(b"\n\n"):
+        raise AssertionError(f"{FIXTURE}: JSON artifact must end with exactly one LF")
     fixture = json.loads(
-        FIXTURE.read_text(encoding="utf-8"),
+        raw.decode("utf-8"),
         object_pairs_hook=reject_duplicate_keys,
         parse_constant=reject_json_constant,
     )
