@@ -869,6 +869,16 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.schema_version, 1)
         self.assertEqual(issue.code, "invalid_domain_value")
 
+        payload = json.loads(result.to_json())
+        payload["replay"]["request_fingerprint"] = "blake3-256:" + "A" * 64
+        invalid = json.dumps(payload, separators=(",", ":"))
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingResult.from_json(invalid)
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.document_kind, "pricing_result")
+        self.assertEqual(issue.instance_path, "/replay/request_fingerprint")
+        self.assertEqual(issue.code, "invalid_domain_value")
+
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
