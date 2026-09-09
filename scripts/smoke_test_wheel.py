@@ -595,6 +595,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(
             f"wheel type stub is missing top-level definitions: {missing_top_level_names}"
         )
+    unexpected_top_level_names = sorted(set(top_level_names).difference(expected_top_level_names))
+    if unexpected_top_level_names:
+        raise RuntimeError(
+            f"wheel type stub has unexpected top-level definitions: {unexpected_top_level_names}"
+        )
 
     for class_name, members in sorted(class_members.items()):
         duplicate_members = sorted(duplicates_in(members))
