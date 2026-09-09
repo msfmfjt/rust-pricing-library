@@ -1057,15 +1057,30 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.to_dict()["code"], "unsupported_schema_version")
 
     def test_json_syntax_error_reports_syntax_and_limits_phase(self):
-        with self.assertRaises(rust_pricing.ValidationError) as captured:
-            rust_pricing.PricingRequest.from_json('{"schema_version":1')
+        cases = [
+            (
+                "request",
+                lambda: rust_pricing.PricingRequest.from_json('{"schema_version":1'),
+                "pricing_request",
+            ),
+            (
+                "result",
+                lambda: rust_pricing.PricingResult.from_json('{"schema_version":1'),
+                "pricing_result",
+            ),
+        ]
 
-        issue = captured.exception.issues[0]
-        self.assertEqual(issue.phase, "syntax_and_limits")
-        self.assertEqual(issue.code, "invalid_json")
-        self.assertEqual(issue.schema_version, 1)
-        self.assertEqual(issue.document_kind, "pricing_request")
-        self.assertEqual(issue.instance_path, "")
+        for name, parser, document_kind in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    parser()
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "syntax_and_limits")
+                self.assertEqual(issue.code, "invalid_json")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, document_kind)
+                self.assertEqual(issue.instance_path, "")
 
     def test_validation_issue_equality_compares_payload(self):
         invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
