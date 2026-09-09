@@ -9,12 +9,12 @@ use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
 use pricing::{
     Estimate, MonteCarloDiagnostics, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest,
-    RiskDiagnostics, RiskEstimate, RiskMethodMetadata, VegaKtResult, VegaKtResultBucketEstimate,
-    VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
-    VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit, WireError,
-    current_request_schema, current_result_schema, fingerprint_request, parse_request_json,
-    parse_result_json, request_to_json, request_to_pretty_json, result_to_json,
-    result_to_pretty_json,
+    RiskDiagnostics, RiskEstimate, RiskMethodMetadata, RiskUnit, VegaKtResult,
+    VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
+    VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
+    VegaKtResultUnit, WireError, current_request_schema, current_result_schema,
+    fingerprint_request, parse_request_json, parse_result_json, request_to_json,
+    request_to_pretty_json, result_to_json, result_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -313,6 +313,40 @@ pub struct PyPricingResult {
     inner: MonteCarloPrice,
 }
 
+/// One risk estimate in raw and market-scaled units.
+#[pyclass(frozen, name = "RiskEstimate", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyRiskEstimate {
+    inner: RiskEstimate,
+}
+
+#[pymethods]
+impl PyRiskEstimate {
+    #[getter]
+    fn raw(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.raw())
+    }
+
+    #[getter]
+    fn market_scaled(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.market_scaled())
+    }
+
+    #[getter]
+    fn raw_unit(&self) -> &'static str {
+        risk_unit_name(self.inner.raw_unit())
+    }
+
+    #[getter]
+    fn market_scaled_unit(&self) -> &'static str {
+        risk_unit_name(self.inner.market_scaled_unit())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RiskEstimate(raw={:?})", self.inner.raw().value().get())
+    }
+}
+
 /// One VegaKT bucket coordinate in maturity/log-moneyness space.
 #[pyclass(frozen, name = "VegaKtCoordinate", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -593,6 +627,15 @@ impl PyPricingResult {
     }
 
     #[getter]
+    fn delta(&self) -> Option<PyRiskEstimate> {
+        self.inner
+            .pricing_result
+            .risks
+            .delta
+            .map(|inner| PyRiskEstimate { inner })
+    }
+
+    #[getter]
     fn delta_raw(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.delta, false)
     }
@@ -603,6 +646,15 @@ impl PyPricingResult {
     }
 
     #[getter]
+    fn gamma(&self) -> Option<PyRiskEstimate> {
+        self.inner
+            .pricing_result
+            .risks
+            .gamma
+            .map(|inner| PyRiskEstimate { inner })
+    }
+
+    #[getter]
     fn gamma_raw(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.gamma, false)
     }
@@ -610,6 +662,15 @@ impl PyPricingResult {
     #[getter]
     fn gamma_market_scaled(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.gamma, true)
+    }
+
+    #[getter]
+    fn vega(&self) -> Option<PyRiskEstimate> {
+        self.inner
+            .pricing_result
+            .risks
+            .vega
+            .map(|inner| PyRiskEstimate { inner })
     }
 
     #[getter]
@@ -686,6 +747,17 @@ fn risk_value(risk: Option<RiskEstimate>, market_scaled: bool) -> Option<f64> {
         };
         estimate.value().get()
     })
+}
+
+fn risk_unit_name(value: RiskUnit) -> &'static str {
+    match value {
+        RiskUnit::DeltaRaw => "delta_raw",
+        RiskUnit::DeltaOnePercentSpot => "delta_one_percent_spot",
+        RiskUnit::GammaRaw => "gamma_raw",
+        RiskUnit::GammaOnePercentSpotSquared => "gamma_one_percent_spot_squared",
+        RiskUnit::VegaRaw => "vega_raw",
+        RiskUnit::VegaOneVolPoint => "vega_one_vol_point",
+    }
 }
 
 fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> MonteCarloPrice {
@@ -809,6 +881,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<PyRiskEstimate>()?;
     module.add_class::<PyPricingResult>()?;
     module.add_class::<PyVegaKtCoordinate>()?;
     module.add_class::<PyVegaKtBucketEstimate>()?;

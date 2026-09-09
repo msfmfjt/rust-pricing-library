@@ -18,6 +18,14 @@ VegaKtCovarianceLayout = Literal[
 VegaKtUnit = Literal[
     "currency_per_unit_absolute_volatility", "currency_per_volatility_point"
 ]
+RiskUnit = Literal[
+    "delta_raw",
+    "delta_one_percent_spot",
+    "gamma_raw",
+    "gamma_one_percent_spot_squared",
+    "vega_raw",
+    "vega_one_vol_point",
+]
 
 __version__: str
 
@@ -72,6 +80,17 @@ class RiskValidation:
     def bump_and_revalue(self) -> DiagnosticEstimate: ...
     @property
     def bump_minus_primary(self) -> DiagnosticEstimate: ...
+
+
+class RiskEstimate:
+    @property
+    def raw(self) -> DiagnosticEstimate: ...
+    @property
+    def market_scaled(self) -> DiagnosticEstimate: ...
+    @property
+    def raw_unit(self) -> RiskUnit: ...
+    @property
+    def market_scaled_unit(self) -> RiskUnit: ...
 
 
 class Diagnostics:
@@ -486,13 +505,19 @@ class PricingResult:
     @property
     def confidence_interval(self) -> tuple[float, float]: ...
     @property
+    def delta(self) -> RiskEstimate | None: ...
+    @property
     def delta_raw(self) -> float | None: ...
     @property
     def delta_market_scaled(self) -> float | None: ...
     @property
+    def gamma(self) -> RiskEstimate | None: ...
+    @property
     def gamma_raw(self) -> float | None: ...
     @property
     def gamma_market_scaled(self) -> float | None: ...
+    @property
+    def vega(self) -> RiskEstimate | None: ...
     @property
     def vega_raw(self) -> float | None: ...
     @property

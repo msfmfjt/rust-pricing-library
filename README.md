@@ -91,11 +91,12 @@ The Python facade exposes the same versioned JSON boundary as Rust:
 `PricingRequest.from_json()`, `PricingResult.to_json()`,
 `PricingResult.to_pretty_json()`, and `PricingResult.from_json()`. The bundled
 Draft 2020-12 schemas are available through `request_json_schema()` and
-`result_json_schema()` for external validation or fixture review. Result
+`result_json_schema()` for external validation or fixture review. Pricing
+results expose Price and Greek estimates with standard errors, confidence
+intervals, effective sample counts, and raw/market-scaled risk units. Result
 diagnostics expose replay-critical seeds, execution policy fields, curve
-regions, Payoff fingerprints, QMC direction/scramble checksums, bump
-validation policy fields, and CRN bump validation estimates for requested
-Greeks.
+regions, Payoff fingerprints, QMC direction/scramble checksums, bump validation
+policy fields, and CRN bump validation estimates for requested Greeks.
 
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts. Each wheel is installed into a

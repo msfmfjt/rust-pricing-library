@@ -40,7 +40,7 @@ pub struct PyDiagnosticEstimate {
 }
 
 impl PyDiagnosticEstimate {
-    fn from_estimate(estimate: Estimate) -> Self {
+    pub(crate) fn from_estimate(estimate: Estimate) -> Self {
         Self { estimate }
     }
 }

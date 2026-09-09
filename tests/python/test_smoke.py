@@ -30,7 +30,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertGreaterEqual(result.standard_error, 0.0)
         self.assertEqual(result.independent_sampling_units, 1024)
         self.assertEqual(result.evaluated_paths, 2048)
+        self.assertIsNone(result.delta)
         self.assertIsNone(result.delta_raw)
+        self.assertIsNone(result.gamma)
+        self.assertIsNone(result.vega)
         self.assertIsNone(result.vega_kt)
 
         payload = json.loads(result.to_json())
@@ -341,6 +344,25 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(result.delta_raw))
         self.assertTrue(math.isfinite(result.gamma_raw))
         self.assertTrue(math.isfinite(result.vega_raw))
+        self.assertEqual(result.delta.raw_unit, "delta_raw")
+        self.assertEqual(result.delta.market_scaled_unit, "delta_one_percent_spot")
+        self.assertEqual(result.delta.raw.value, result.delta_raw)
+        self.assertEqual(result.delta.market_scaled.value, result.delta_market_scaled)
+        self.assertGreaterEqual(result.delta.raw.standard_error, 0.0)
+        self.assertEqual(
+            result.delta.raw.effective_sampling_units,
+            result.independent_sampling_units,
+        )
+        self.assertEqual(result.gamma.raw_unit, "gamma_raw")
+        self.assertEqual(
+            result.gamma.market_scaled_unit, "gamma_one_percent_spot_squared"
+        )
+        self.assertEqual(result.gamma.raw.value, result.gamma_raw)
+        self.assertEqual(result.vega.raw_unit, "vega_raw")
+        self.assertEqual(result.vega.market_scaled_unit, "vega_one_vol_point")
+        self.assertEqual(result.vega.raw.value, result.vega_raw)
+        with self.assertRaises(AttributeError):
+            result.delta.raw = result.gamma.raw
         for validation in (
             result.diagnostics.delta_validation,
             result.diagnostics.gamma_validation,
