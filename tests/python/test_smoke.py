@@ -599,6 +599,33 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         payload = json.loads(result.to_json())
         self.assertIn("vega_kt", payload["risks"])
 
+    def test_pricing_result_round_trips_from_json(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        parsed = rust_pricing.PricingResult.from_json(result.to_json())
+
+        self.assertEqual(parsed.to_json(), result.to_json())
+        self.assertEqual(parsed.value, result.value)
+        self.assertEqual(parsed.independent_sampling_units, result.independent_sampling_units)
+        self.assertAlmostEqual(parsed.estimator_variance, result.standard_error ** 2)
+
+    def test_pricing_result_from_json_error_is_structured(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        payload = json.loads(result.to_json())
+        payload["value"]["standard_error"] = -0.5
+        invalid = json.dumps(payload, separators=(",", ":"))
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingResult.from_json(invalid)
+
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.document_kind, "pricing_result")
+        self.assertEqual(issue.instance_path, "/value")
+
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)

@@ -5,13 +5,14 @@
 mod builders;
 mod diagnostics;
 
+use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
 use pricing::{
-    Estimate, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest, RiskEstimate,
-    VegaKtResult, VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
-    VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
-    VegaKtResultUnit, WireError, fingerprint_request, parse_request_json, request_to_json,
-    result_to_json,
+    Estimate, MonteCarloDiagnostics, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest,
+    RiskDiagnostics, RiskEstimate, RiskMethodMetadata, VegaKtResult, VegaKtResultBucketEstimate,
+    VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
+    VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit, WireError,
+    fingerprint_request, parse_request_json, parse_result_json, request_to_json, result_to_json,
 };
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
@@ -44,11 +45,23 @@ impl PyValidationIssue {
         pricing::core::SchemaVersion::CURRENT.get()
     }
 
-    fn request_document_kind() -> String {
-        pricing::core::DocumentKind::PricingRequest.as_str().into()
+    fn request_document_kind() -> &'static str {
+        pricing::core::DocumentKind::PricingRequest.as_str()
     }
 
-    fn wire(error: &WireError) -> Self {
+    fn result_document_kind() -> &'static str {
+        pricing::core::DocumentKind::PricingResult.as_str()
+    }
+
+    fn request_wire(error: &WireError) -> Self {
+        Self::wire(error, Self::request_document_kind())
+    }
+
+    fn result_wire(error: &WireError) -> Self {
+        Self::wire(error, Self::result_document_kind())
+    }
+
+    fn wire(error: &WireError, document_kind: &'static str) -> Self {
         let (phase, code) = match error {
             WireError::Json(_) | WireError::Utf8Bom => ("syntax_and_limits", "invalid_json"),
             WireError::ResourceLimit { .. } | WireError::LimitOverrideExceedsHardCap => {
@@ -73,7 +86,7 @@ impl PyValidationIssue {
             pointer,
             phase: phase.into(),
             schema_version,
-            document_kind: Self::request_document_kind(),
+            document_kind: document_kind.into(),
             code: code.into(),
             message: error.to_string(),
         }
@@ -84,7 +97,7 @@ impl PyValidationIssue {
             pointer: String::new(),
             phase: "domain".into(),
             schema_version: Self::request_schema_version(),
-            document_kind: Self::request_document_kind(),
+            document_kind: Self::request_document_kind().into(),
             code: "plan_compile_error".into(),
             message: error.to_string(),
         }
@@ -99,7 +112,7 @@ impl PyValidationIssue {
             pointer: pointer.into(),
             phase: "domain".into(),
             schema_version: Self::request_schema_version(),
-            document_kind: Self::request_document_kind(),
+            document_kind: Self::request_document_kind().into(),
             code: code.into(),
             message: message.into(),
         }
@@ -196,7 +209,7 @@ impl PyPricingRequest {
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         parse_request_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
             .map(|inner| Self { inner })
-            .map_err(|error| validation_exception(py, PyValidationIssue::wire(&error)))
+            .map_err(|error| validation_exception(py, PyValidationIssue::request_wire(&error)))
     }
 
     fn to_json(&self) -> PyResult<String> {
@@ -537,6 +550,15 @@ impl PyVegaKtResult {
 
 #[pymethods]
 impl PyPricingResult {
+    /// Parse and validate a versioned pricing-result JSON document.
+    #[staticmethod]
+    fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
+        parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+            .map(monte_carlo_price_from_result)
+            .map(|inner| Self { inner })
+            .map_err(|error| validation_exception(py, PyValidationIssue::result_wire(&error)))
+    }
+
     #[getter]
     fn value(&self) -> f64 {
         self.inner.pricing_result.value.value().get()
@@ -645,6 +667,52 @@ fn risk_value(risk: Option<RiskEstimate>, market_scaled: bool) -> Option<f64> {
     })
 }
 
+fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> MonteCarloPrice {
+    let effective_units = pricing_result.value.effective_sampling_units().get();
+    let estimator_variance = pricing_result.value.standard_error().get().powi(2);
+    let estimator = pricing_result.value.estimator();
+    MonteCarloPrice {
+        sampling_variance: estimator_variance * effective_units as f64,
+        estimator_variance,
+        risk_diagnostics: RiskDiagnostics {
+            methods: RiskMethodMetadata {
+                delta: None,
+                gamma: None,
+                vega: None,
+                smile_dynamics: pricing::risk::SmileDynamics::StickyLogMoneyness,
+                gamma_spot_bump: None,
+                validation_spot_bump: None,
+                validation_volatility_bump: None,
+                bump_policy_version: 0,
+            },
+            delta_validation: None,
+            gamma_validation: None,
+            vega_validation: None,
+        },
+        pricing_result,
+        independent_sampling_units: effective_units,
+        evaluated_paths: u128::from(effective_units),
+        diagnostics: MonteCarloDiagnostics {
+            master_seed: 0,
+            estimator,
+            scramble_count: None,
+            direction_checksum: None,
+            scramble_checksum: None,
+            policy_version: 0,
+            worker_threads: 1,
+            reduction_block_size: 1,
+            aad_tile_policy_version: 0,
+            aad_tile_capacity: 1,
+            checkpoint_policy_version: 0,
+            checkpoint_interval: 1,
+            antithetic: false,
+            discount_region: CurveRegion::Pillar,
+            dividend_region: CurveRegion::Pillar,
+            payoff_fingerprint: pricing::product::GraphFingerprint::from_bytes([0; 32]),
+        },
+    }
+}
+
 fn vega_kt_covariance_layout_name(value: VegaKtResultCovarianceLayout) -> &'static str {
     match value {
         VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly => {
@@ -728,7 +796,7 @@ mod tests {
 
     #[test]
     fn wire_errors_have_stable_issue_codes() {
-        let issue = PyValidationIssue::wire(&WireError::UnsupportedSchemaVersion(99));
+        let issue = PyValidationIssue::request_wire(&WireError::UnsupportedSchemaVersion(99));
         assert_eq!(issue.phase, "declared_schema");
         assert_eq!(issue.code, "unsupported_schema_version");
     }

@@ -438,6 +438,8 @@ class VegaKtResult:
 
 
 class PricingResult:
+    @staticmethod
+    def from_json(json: str) -> PricingResult: ...
     @property
     def value(self) -> float: ...
     @property
