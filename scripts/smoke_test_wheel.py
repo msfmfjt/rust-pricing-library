@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import venv
 from zipfile import ZipFile
@@ -22,7 +23,7 @@ def main() -> None:
         raise RuntimeError("wheel does not contain the py.typed marker")
 
     environment = Path(".wheel-smoke-venv")
-    venv.EnvBuilder(with_pip=True, clear=True).create(environment)
+    create_environment(environment)
     python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
     subprocess.run(
@@ -51,6 +52,16 @@ def main() -> None:
         ],
         check=True,
     )
+
+
+def create_environment(environment: Path) -> None:
+    try:
+        venv.EnvBuilder(with_pip=True, clear=True).create(environment)
+    except subprocess.CalledProcessError:
+        uv = shutil.which("uv")
+        if uv is None:
+            raise
+        subprocess.run([uv, "venv", "--seed", str(environment)], check=True)
 
 
 if __name__ == "__main__":

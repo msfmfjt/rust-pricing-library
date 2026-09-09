@@ -1,5 +1,6 @@
 /target/
 /.venv/
+/.wheel-smoke-venv/
 /dist/
 /wheelhouse/
 /benchmark-results/
