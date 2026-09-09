@@ -80,5 +80,19 @@ fn standard_ssvi_matches_v1_reference_fixture() {
             decimal(expected, "w_kk"),
         );
         assert_close("w_t", result.time_derivative, decimal(expected, "w_t"));
+
+        let call = surface
+            .forward_call_evaluation(1.0, log_moneyness, decimal(inputs, "forward"))
+            .expect("valid forward call evaluation");
+        assert_close(
+            "density_factor",
+            call.density_factor,
+            decimal(expected, "density_factor"),
+        );
+        assert_close(
+            "call_density",
+            call.call_density,
+            decimal(expected, "call_density"),
+        );
     }
 }

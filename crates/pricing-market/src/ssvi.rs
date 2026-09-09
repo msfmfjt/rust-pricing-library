@@ -1,4 +1,5 @@
 use crate::{MarketError, ThetaPchip, ThetaRegion};
+use pricing_numerics::{standard_normal_cdf, standard_normal_pdf};
 
 const SMALL_HESTON_Z: f64 = 1.0e-4;
 
@@ -185,12 +186,118 @@ pub struct TotalVarianceDerivatives {
     pub theta_region: ThetaRegion,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ForwardCallEvaluation {
+    pub forward: f64,
+    pub strike: f64,
+    pub undiscounted_price: f64,
+    pub density_factor: f64,
+    pub call_density: f64,
+    pub d1: f64,
+    pub d2: f64,
+    pub variance: TotalVarianceDerivatives,
+}
+
 pub trait ImpliedVarianceSurface: Send + Sync {
     fn total_variance_derivatives(
         &self,
         time: f64,
         log_moneyness: f64,
     ) -> Result<TotalVarianceDerivatives, MarketError>;
+
+    fn forward_call_evaluation(
+        &self,
+        time: f64,
+        log_moneyness: f64,
+        forward: f64,
+    ) -> Result<ForwardCallEvaluation, MarketError> {
+        if !forward.is_finite() || forward <= 0.0 {
+            return Err(MarketError::InvalidSurfaceQuery {
+                coordinate: "forward",
+                bits: forward.to_bits(),
+            });
+        }
+        let variance = self.total_variance_derivatives(time, log_moneyness)?;
+        evaluate_forward_call(time, log_moneyness, forward, variance)
+    }
+}
+
+fn evaluate_forward_call(
+    time: f64,
+    log_moneyness: f64,
+    forward: f64,
+    variance: TotalVarianceDerivatives,
+) -> Result<ForwardCallEvaluation, MarketError> {
+    let strike = forward * log_moneyness.exp();
+    if !strike.is_finite() || strike <= 0.0 {
+        return Err(MarketError::NonPositiveSurfaceValue {
+            field: "strike",
+            time_bits: time.to_bits(),
+            log_moneyness_bits: log_moneyness.to_bits(),
+            value_bits: strike.to_bits(),
+        });
+    }
+
+    let total_variance = variance.total_variance;
+    let root_variance = total_variance.sqrt();
+    let d2 = -log_moneyness / root_variance - root_variance / 2.0;
+    let d1 = d2 + root_variance;
+    let undiscounted_price =
+        forward * standard_normal_cdf(d1) - strike * standard_normal_cdf(d2);
+    let u = 1.0
+        - log_moneyness * variance.log_moneyness_derivative / (2.0 * total_variance);
+    let density_factor = u * u
+        - (variance.log_moneyness_derivative * variance.log_moneyness_derivative / 4.0)
+            * (1.0 / total_variance + 1.0 / 4.0)
+        + variance.log_moneyness_second_derivative / 2.0;
+    if !density_factor.is_finite() || density_factor <= 0.0 {
+        return Err(MarketError::NonPositiveSurfaceValue {
+            field: "density_factor",
+            time_bits: time.to_bits(),
+            log_moneyness_bits: log_moneyness.to_bits(),
+            value_bits: density_factor.to_bits(),
+        });
+    }
+    let call_density = standard_normal_pdf(d2) / (strike * root_variance) * density_factor;
+    let result = ForwardCallEvaluation {
+        forward,
+        strike,
+        undiscounted_price,
+        density_factor,
+        call_density,
+        d1,
+        d2,
+        variance,
+    };
+    for (field, value) in [
+        ("undiscounted_call_price", result.undiscounted_price),
+        ("call_density", result.call_density),
+        ("d1", result.d1),
+        ("d2", result.d2),
+    ] {
+        if !value.is_finite() {
+            return Err(MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits: time.to_bits(),
+                log_moneyness_bits: log_moneyness.to_bits(),
+                value_bits: value.to_bits(),
+            });
+        }
+    }
+    if result.undiscounted_price < 0.0 || result.call_density < 0.0 {
+        let (field, value) = if result.undiscounted_price < 0.0 {
+            ("undiscounted_call_price", result.undiscounted_price)
+        } else {
+            ("call_density", result.call_density)
+        };
+        return Err(MarketError::NonPositiveSurfaceValue {
+            field,
+            time_bits: time.to_bits(),
+            log_moneyness_bits: log_moneyness.to_bits(),
+            value_bits: value.to_bits(),
+        });
+    }
+    Ok(result)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -496,5 +603,40 @@ mod tests {
         .expect("valid surface");
         assert!(surface.total_variance_derivatives(0.0, 0.0).is_err());
         assert!(surface.total_variance_derivatives(1.0, f64::NAN).is_err());
+        assert!(surface.forward_call_evaluation(1.0, 0.0, 0.0).is_err());
+    }
+
+    #[test]
+    fn non_positive_density_factor_is_rejected() {
+        struct InvalidDensitySurface;
+
+        impl ImpliedVarianceSurface for InvalidDensitySurface {
+            fn total_variance_derivatives(
+                &self,
+                _time: f64,
+                _log_moneyness: f64,
+            ) -> Result<TotalVarianceDerivatives, MarketError> {
+                Ok(TotalVarianceDerivatives {
+                    total_variance: 0.04,
+                    log_moneyness_derivative: 0.0,
+                    log_moneyness_second_derivative: -3.0,
+                    time_derivative: 0.04,
+                    theta: 0.04,
+                    theta_derivative: 0.04,
+                    theta_region: ThetaRegion::Interpolated,
+                })
+            }
+        }
+
+        let error = InvalidDensitySurface
+            .forward_call_evaluation(1.0, 0.0, 100.0)
+            .expect_err("negative density factor must fail");
+        assert!(matches!(
+            error,
+            MarketError::NonPositiveSurfaceValue {
+                field: "density_factor",
+                ..
+            }
+        ));
     }
 }
