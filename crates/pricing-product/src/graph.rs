@@ -5,7 +5,10 @@ use std::mem;
 
 use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
-use crate::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec};
+use crate::{
+    ArithmeticAsianSpec, AsianObservationValue, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+    OptionSide, ProductSpec,
+};
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
 const TAPE_ABI_VERSION: u32 = 1;
@@ -310,11 +313,59 @@ impl DigitalSpec {
     }
 }
 
+impl ArithmeticAsianSpec {
+    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        let mut builder = SourceGraphBuilder::new();
+        let mut weighted_sum = builder.literal(0.0)?;
+        for observation in self.observations() {
+            let observed = match observation.value() {
+                AsianObservationValue::Known(fixing) => builder.literal(fixing.get())?,
+                AsianObservationValue::Unknown => builder.push(SourceOpcode::TerminalSpot {
+                    underlying: self.underlying(),
+                    observation_date: observation.date(),
+                })?,
+            };
+            let weight = builder.literal(observation.weight().get())?;
+            let weighted = builder.push(SourceOpcode::Multiply {
+                left: observed,
+                right: weight,
+            })?;
+            weighted_sum = builder.push(SourceOpcode::Add {
+                left: weighted_sum,
+                right: weighted,
+            })?;
+        }
+        let strike = builder.literal(self.strike().get())?;
+        let signed_intrinsic = match self.side() {
+            OptionSide::Call => builder.push(SourceOpcode::Subtract {
+                left: weighted_sum,
+                right: strike,
+            })?,
+            OptionSide::Put => builder.push(SourceOpcode::Subtract {
+                left: strike,
+                right: weighted_sum,
+            })?,
+        };
+        let zero = builder.literal(0.0)?;
+        let positive_part = builder.push(SourceOpcode::Maximum {
+            left: signed_intrinsic,
+            right: zero,
+        })?;
+        let notional = builder.literal(self.notional().get())?;
+        let payoff = builder.push(SourceOpcode::Multiply {
+            left: positive_part,
+            right: notional,
+        })?;
+        Ok(builder.finish(vec![payoff]))
+    }
+}
+
 impl ProductSpec {
     pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
         match self {
             Self::EuropeanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
+            Self::ArithmeticAsian(spec) => spec.source_graph(),
         }
     }
 }
@@ -422,6 +473,22 @@ impl CompiledPayoff {
     #[must_use]
     pub const fn tape_fingerprint(&self) -> GraphFingerprint {
         self.tape_fingerprint
+    }
+
+    #[must_use]
+    pub fn terminal_observations(&self) -> Vec<(UnderlyingId, Date)> {
+        let mut observations = BTreeSet::new();
+        for opcode in &self.opcodes {
+            if let CompiledOpcode::TerminalSpot {
+                underlying,
+                observation_date,
+                ..
+            } = *opcode
+            {
+                observations.insert((underlying, observation_date));
+            }
+        }
+        observations.into_iter().collect()
     }
 
     pub fn evaluate<F>(&self, mut observation: F) -> Result<Vec<f64>, GraphError>
@@ -1381,6 +1448,40 @@ mod tests {
                 vec![expected]
             );
         }
+    }
+
+    #[test]
+    fn arithmetic_asian_builder_executes_weighted_average_payoff() {
+        let product = ArithmeticAsianSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            100.0,
+            2.0,
+            OptionSide::Call,
+            vec![
+                crate::AsianObservation::known("2027-03-04".parse().expect("date"), 0.25, 90.0)
+                    .expect("known"),
+                crate::AsianObservation::unknown("2027-09-04".parse().expect("date"), 0.75)
+                    .expect("unknown"),
+            ],
+            "2027-09-04".parse().expect("payment"),
+        )
+        .expect("asian");
+        let compiled = product
+            .source_graph()
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile");
+        assert_eq!(
+            compiled
+                .evaluate(|_, date| (date.to_string() == "2027-09-04").then_some(130.0))
+                .expect("execute"),
+            vec![40.0]
+        );
+        assert_eq!(
+            compiled.terminal_observations(),
+            vec![(UnderlyingId::new(4), "2027-09-04".parse().expect("date"))]
+        );
     }
 
     #[test]

@@ -1,4 +1,6 @@
-use pricing_core::{CoreError, CurrencyId, Date, PositiveF64, UnderlyingId};
+use pricing_core::{
+    CoreError, CurrencyId, Date, FiniteF64, NonNegativeF64, PositiveF64, UnderlyingId,
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum OptionSide {
@@ -31,6 +33,30 @@ pub struct DigitalSpec {
     payout: PositiveF64,
     side: OptionSide,
     payout_kind: DigitalPayout,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AsianObservationValue {
+    Known(PositiveF64),
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AsianObservation {
+    date: Date,
+    weight: NonNegativeF64,
+    value: AsianObservationValue,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArithmeticAsianSpec {
+    underlying: UnderlyingId,
+    currency: CurrencyId,
+    strike: PositiveF64,
+    notional: PositiveF64,
+    side: OptionSide,
+    observations: Box<[AsianObservation]>,
+    payment_date: Date,
 }
 
 impl EuropeanVanillaSpec {
@@ -140,10 +166,138 @@ impl DigitalSpec {
     }
 }
 
+impl AsianObservation {
+    pub fn unknown(date: Date, weight: f64) -> Result<Self, CoreError> {
+        Ok(Self {
+            date,
+            weight: NonNegativeF64::new(weight, "asian_observation_weight")?,
+            value: AsianObservationValue::Unknown,
+        })
+    }
+
+    pub fn known(date: Date, weight: f64, fixing: f64) -> Result<Self, CoreError> {
+        Ok(Self {
+            date,
+            weight: NonNegativeF64::new(weight, "asian_observation_weight")?,
+            value: AsianObservationValue::Known(PositiveF64::new(fixing, "asian_fixing")?),
+        })
+    }
+
+    #[must_use]
+    pub const fn date(self) -> Date {
+        self.date
+    }
+
+    #[must_use]
+    pub const fn weight(self) -> NonNegativeF64 {
+        self.weight
+    }
+
+    #[must_use]
+    pub const fn value(self) -> AsianObservationValue {
+        self.value
+    }
+}
+
+impl ArithmeticAsianSpec {
+    pub fn new(
+        underlying: UnderlyingId,
+        currency: CurrencyId,
+        strike: f64,
+        notional: f64,
+        side: OptionSide,
+        observations: Vec<AsianObservation>,
+        payment_date: Date,
+    ) -> Result<Self, CoreError> {
+        if observations.is_empty() {
+            return Err(CoreError::EmptyInput {
+                field: "asian_observations",
+            });
+        }
+        for pair in observations.windows(2) {
+            if pair[0].date() >= pair[1].date() {
+                return Err(CoreError::InvalidOrdering {
+                    field: "asian_observations",
+                });
+            }
+        }
+        let fixing_date = observations.last().expect("non-empty observations").date();
+        if payment_date < fixing_date {
+            return Err(CoreError::InvalidOrdering {
+                field: "asian_payment_date",
+            });
+        }
+        let weight_sum = observations
+            .iter()
+            .map(|obs| obs.weight().get())
+            .sum::<f64>();
+        let weight_error = (weight_sum - 1.0).abs();
+        let tolerance = 1.0e-12_f64.max(1.0e-12 * observations.len() as f64);
+        if !FiniteF64::new(weight_sum, "asian_weight_sum").is_ok() || weight_error > tolerance {
+            return Err(CoreError::InvalidWeights {
+                field: "asian_observation_weights",
+            });
+        }
+        Ok(Self {
+            underlying,
+            currency,
+            strike: PositiveF64::new(strike, "strike")?,
+            notional: PositiveF64::new(notional, "notional")?,
+            side,
+            observations: observations.into_boxed_slice(),
+            payment_date,
+        })
+    }
+
+    #[must_use]
+    pub const fn underlying(&self) -> UnderlyingId {
+        self.underlying
+    }
+
+    #[must_use]
+    pub const fn currency(&self) -> CurrencyId {
+        self.currency
+    }
+
+    #[must_use]
+    pub fn expiry(&self) -> Date {
+        self.observations
+            .last()
+            .expect("constructor rejects empty observations")
+            .date()
+    }
+
+    #[must_use]
+    pub const fn strike(&self) -> PositiveF64 {
+        self.strike
+    }
+
+    #[must_use]
+    pub const fn notional(&self) -> PositiveF64 {
+        self.notional
+    }
+
+    #[must_use]
+    pub const fn side(&self) -> OptionSide {
+        self.side
+    }
+
+    #[must_use]
+    pub const fn observations(&self) -> &[AsianObservation] {
+        &self.observations
+    }
+
+    #[must_use]
+    pub const fn payment_date(&self) -> Date {
+        self.payment_date
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProductSpec {
     EuropeanVanilla(EuropeanVanillaSpec),
     Digital(DigitalSpec),
+    ArithmeticAsian(ArithmeticAsianSpec),
 }
 
 impl ProductSpec {
@@ -152,6 +306,7 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.underlying(),
             Self::Digital(spec) => spec.underlying(),
+            Self::ArithmeticAsian(spec) => spec.underlying(),
         }
     }
 
@@ -160,14 +315,25 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.currency(),
             Self::Digital(spec) => spec.currency(),
+            Self::ArithmeticAsian(spec) => spec.currency(),
         }
     }
 
     #[must_use]
-    pub const fn expiry(&self) -> Date {
+    pub fn expiry(&self) -> Date {
         match self {
             Self::EuropeanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.expiry(),
+            Self::ArithmeticAsian(spec) => spec.expiry(),
+        }
+    }
+
+    #[must_use]
+    pub const fn payment_date(&self) -> Date {
+        match self {
+            Self::EuropeanVanilla(spec) => spec.expiry(),
+            Self::Digital(spec) => spec.expiry(),
+            Self::ArithmeticAsian(spec) => spec.payment_date(),
         }
     }
 
@@ -232,6 +398,42 @@ mod tests {
                 0.0,
                 OptionSide::Call,
                 DigitalPayout::Asset,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn arithmetic_asian_contract_validates_schedule_and_weights() {
+        let first = "2027-03-04".parse().expect("date");
+        let second = "2027-09-04".parse().expect("date");
+        let product = ArithmeticAsianSpec::new(
+            UnderlyingId::new(1),
+            CurrencyId::new(2),
+            100.0,
+            1.0,
+            OptionSide::Call,
+            vec![
+                AsianObservation::unknown(first, 0.25).expect("first"),
+                AsianObservation::known(second, 0.75, 105.0).expect("second"),
+            ],
+            second,
+        )
+        .expect("asian");
+        assert_eq!(product.expiry(), second);
+        assert_eq!(product.observations().len(), 2);
+        assert!(
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown(second, 0.5).expect("first"),
+                    AsianObservation::unknown(first, 0.5).expect("second"),
+                ],
+                second,
             )
             .is_err()
         );

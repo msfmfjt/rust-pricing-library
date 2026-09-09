@@ -27,6 +27,14 @@ pub enum RequestValidationError {
         valuation_date: Date,
         expiry: Date,
     },
+    AsianPastObservationRequiresKnownFixing {
+        observation_date: Date,
+        valuation_date: Date,
+    },
+    AsianFutureObservationCannotCarryFixing {
+        observation_date: Date,
+        valuation_date: Date,
+    },
     VegaKtUnsupportedForConstantVolatility,
     RiskUnsupportedForDiscontinuousProduct,
 }
@@ -48,6 +56,20 @@ impl fmt::Display for RequestValidationError {
             } => write!(
                 formatter,
                 "expiry {expiry} is before valuation date {valuation_date}"
+            ),
+            Self::AsianPastObservationRequiresKnownFixing {
+                observation_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "Asian observation {observation_date} before valuation date {valuation_date} requires a known fixing"
+            ),
+            Self::AsianFutureObservationCannotCarryFixing {
+                observation_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "Asian observation {observation_date} after valuation date {valuation_date} cannot carry a known fixing"
             ),
             Self::VegaKtUnsupportedForConstantVolatility => {
                 write!(formatter, "VegaKT requires a Local Volatility model")
@@ -155,6 +177,10 @@ pub enum MonteCarloError {
     },
     NonFiniteTotalVariance {
         bits: u64,
+    },
+    UnsupportedObservationUnderlying {
+        product: UnderlyingId,
+        market: UnderlyingId,
     },
     Market(MarketError),
     LocalVol(LocalVolError),
@@ -294,6 +320,10 @@ impl fmt::Display for MonteCarloError {
                     "Black-Scholes total variance is non-finite: 0x{bits:016x}"
                 )
             }
+            Self::UnsupportedObservationUnderlying { product, market } => write!(
+                formatter,
+                "product observation underlying {product} does not match market underlying {market}"
+            ),
             Self::Market(error) => error.fmt(formatter),
             Self::LocalVol(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),

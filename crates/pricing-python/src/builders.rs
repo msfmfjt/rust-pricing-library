@@ -11,7 +11,10 @@ use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
-use pricing::product::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec};
+use pricing::product::{
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
+    EuropeanVanillaSpec, OptionSide, ProductSpec,
+};
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
@@ -161,6 +164,82 @@ impl PyDividendEvent {
     }
 }
 
+/// Immutable Asian observation row.
+#[pyclass(frozen, name = "AsianObservation", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyAsianObservation {
+    pub(crate) inner: AsianObservation,
+}
+
+#[pymethods]
+impl PyAsianObservation {
+    /// Build an unknown model observation.
+    #[staticmethod]
+    fn unknown(py: Python<'_>, date: &Bound<'_, PyAny>, weight: f64) -> PyResult<Self> {
+        let date = date_from_python(py, date, "/product/observations/date")?;
+        AsianObservation::unknown(date, weight)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_asian_observation",
+                    "/product/observations",
+                    error,
+                )
+            })
+    }
+
+    /// Build a known historical fixing observation.
+    #[staticmethod]
+    fn known(py: Python<'_>, date: &Bound<'_, PyAny>, weight: f64, fixing: f64) -> PyResult<Self> {
+        let date = date_from_python(py, date, "/product/observations/date")?;
+        AsianObservation::known(date, weight, fixing)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_asian_observation",
+                    "/product/observations",
+                    error,
+                )
+            })
+    }
+
+    #[getter]
+    fn date(&self) -> String {
+        self.inner.date().to_string()
+    }
+
+    #[getter]
+    fn weight(&self) -> f64 {
+        self.inner.weight().get()
+    }
+
+    #[getter]
+    fn fixing(&self) -> Option<f64> {
+        match self.inner.value() {
+            AsianObservationValue::Known(fixing) => Some(fixing.get()),
+            AsianObservationValue::Unknown => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.fixing() {
+            Some(fixing) => format!(
+                "AsianObservation(date='{}', weight={}, fixing={})",
+                self.date(),
+                self.weight(),
+                fixing
+            ),
+            None => format!(
+                "AsianObservation(date='{}', weight={}, fixing=None)",
+                self.date(),
+                self.weight()
+            ),
+        }
+    }
+}
+
 /// Immutable eSSVI slice used to materialize Local Volatility grids.
 #[pyclass(frozen, name = "EssviSlice", skip_from_py_object)]
 #[derive(Clone, Copy, Debug)]
@@ -273,6 +352,37 @@ impl PyProduct {
             inner: ProductSpec::Digital(spec),
         })
         .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
+    }
+
+    /// Build an arithmetic average-price Asian call or put.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn arithmetic_asian(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        strike: f64,
+        notional: f64,
+        side: &str,
+        observations: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let side = option_side(py, side)?;
+        let observations = asian_observations_from_python(py, observations)?;
+        let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
+        ArithmeticAsianSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            strike,
+            notional,
+            side,
+            observations,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::ArithmeticAsian(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_arithmetic_asian", "/product", error))
     }
 
     fn __repr__(&self) -> String {
@@ -917,6 +1027,36 @@ fn dividend_events_from_python(
     Ok(events)
 }
 
+fn asian_observations_from_python(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<Vec<AsianObservation>> {
+    let mut observations = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_asian_observation_sequence",
+            "/product/observations",
+            format!("expected a sequence of AsianObservation objects: {error}"),
+        )
+    })?;
+    for item in iter {
+        let item = item?;
+        let observation = item
+            .extract::<PyRef<'_, PyAsianObservation>>()
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_asian_observation",
+                    "/product/observations",
+                    format!("expected AsianObservation: {error}"),
+                )
+            })?;
+        observations.push(observation.inner);
+    }
+    Ok(observations)
+}
+
 fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Date> {
     let text = if value.cast::<PyString>().is_ok() {
         value.extract::<String>()?
@@ -966,6 +1106,7 @@ const fn product_name(product: &ProductSpec) -> &'static str {
     match product {
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
         ProductSpec::Digital(_) => "digital",
+        ProductSpec::ArithmeticAsian(_) => "arithmetic_asian",
     }
 }
 

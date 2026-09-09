@@ -111,6 +111,19 @@ class DividendEvent:
     def ex_time(self) -> float: ...
 
 
+class AsianObservation:
+    @staticmethod
+    def unknown(date: DateLike, weight: float) -> AsianObservation: ...
+    @staticmethod
+    def known(date: DateLike, weight: float, fixing: float) -> AsianObservation: ...
+    @property
+    def date(self) -> str: ...
+    @property
+    def weight(self) -> float: ...
+    @property
+    def fixing(self) -> float | None: ...
+
+
 class EssviSlice:
     def __init__(self, time: float, theta: float, psi: float, rho_psi: float) -> None: ...
     @property
@@ -142,6 +155,16 @@ class Product:
         payout: float,
         side: OptionSide,
         payout_kind: DigitalPayout,
+    ) -> Product: ...
+    @staticmethod
+    def arithmetic_asian(
+        underlying_id: int,
+        currency_id: int,
+        strike: float,
+        notional: float,
+        side: OptionSide,
+        observations: Sequence[AsianObservation],
+        payment_date: DateLike,
     ) -> Product: ...
 
 

@@ -8,8 +8,10 @@ Greeks, common-random-number bump validation, and deterministic replay. The
 same public request, wire, and Python surfaces also expose a Black-76
 constant-volatility model on the market forward. Price-only Monte Carlo
 requests can also use cash-or-nothing and asset-or-nothing Digital calls and
-puts; pathwise risk requests for Digital products are rejected until
-discontinuous-payoff smoothing is implemented.
+puts, plus forward-starting or partially fixed arithmetic average-price Asian
+calls and puts under the constant-volatility engines. Pathwise risk requests for
+Digital and Asian products are rejected until discontinuous/path-dependent AAD
+support is implemented.
 
 ## Design baselines
 

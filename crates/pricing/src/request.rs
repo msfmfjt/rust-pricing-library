@@ -2,7 +2,7 @@ use pricing_core::Date;
 use pricing_market::MarketContext;
 use pricing_mc::EngineConfig;
 use pricing_models::ModelSpec;
-use pricing_product::ProductSpec;
+use pricing_product::{AsianObservationValue, ProductSpec};
 use pricing_risk::RiskRequest;
 
 use crate::RequestValidationError;
@@ -43,6 +43,29 @@ impl PricingRequest {
                 valuation_date,
                 expiry: product.expiry(),
             });
+        }
+        if let ProductSpec::ArithmeticAsian(asian) = &product {
+            for observation in asian.observations() {
+                match observation.value() {
+                    AsianObservationValue::Known(_) if observation.date() > valuation_date => {
+                        return Err(
+                            RequestValidationError::AsianFutureObservationCannotCarryFixing {
+                                observation_date: observation.date(),
+                                valuation_date,
+                            },
+                        );
+                    }
+                    AsianObservationValue::Unknown if observation.date() < valuation_date => {
+                        return Err(
+                            RequestValidationError::AsianPastObservationRequiresKnownFixing {
+                                observation_date: observation.date(),
+                                valuation_date,
+                            },
+                        );
+                    }
+                    AsianObservationValue::Known(_) | AsianObservationValue::Unknown => {}
+                }
+            }
         }
         if risk.vega_kt().is_some()
             && matches!(&model, ModelSpec::BlackScholes(_) | ModelSpec::Black76(_))
@@ -103,7 +126,10 @@ mod tests {
     use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve};
     use pricing_mc::{PseudoMcConfig, VarianceReduction};
     use pricing_models::BlackScholesSpec;
-    use pricing_product::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide};
+    use pricing_product::{
+        ArithmeticAsianSpec, AsianObservation, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+        OptionSide,
+    };
     use pricing_risk::SmileDynamics;
 
     use super::*;
@@ -221,6 +247,74 @@ mod tests {
                 risk,
             ),
             Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
+        ));
+    }
+
+    #[test]
+    fn request_validates_asian_observation_fixing_status_against_valuation_date() {
+        let currency = CurrencyId::new(1);
+        let (base, market, model, engine, risk) = components(currency, currency);
+        let asian = |observations| {
+            ProductSpec::ArithmeticAsian(
+                ArithmeticAsianSpec::new(
+                    base.underlying(),
+                    currency,
+                    100.0,
+                    1.0,
+                    OptionSide::Call,
+                    observations,
+                    "2027-09-04".parse().expect("payment"),
+                )
+                .expect("asian"),
+            )
+        };
+        let valid = asian(vec![
+            AsianObservation::known("2026-03-04".parse().expect("date"), 0.25, 95.0)
+                .expect("known"),
+            AsianObservation::unknown("2027-09-04".parse().expect("date"), 0.75).expect("unknown"),
+        ]);
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation date"),
+            valid,
+            market.clone(),
+            model.clone(),
+            engine,
+            risk.clone(),
+        )
+        .expect("valid asian");
+
+        let past_unknown = asian(vec![
+            AsianObservation::unknown("2026-03-04".parse().expect("date"), 0.25).expect("unknown"),
+            AsianObservation::unknown("2027-09-04".parse().expect("date"), 0.75).expect("unknown"),
+        ]);
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                past_unknown,
+                market.clone(),
+                model.clone(),
+                engine,
+                risk.clone(),
+            ),
+            Err(RequestValidationError::AsianPastObservationRequiresKnownFixing { .. })
+        ));
+
+        let future_known = asian(vec![
+            AsianObservation::known("2026-03-04".parse().expect("date"), 0.25, 95.0)
+                .expect("known"),
+            AsianObservation::known("2027-09-04".parse().expect("date"), 0.75, 105.0)
+                .expect("known"),
+        ]);
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                future_known,
+                market,
+                model,
+                engine,
+                risk,
+            ),
+            Err(RequestValidationError::AsianFutureObservationCannotCarryFixing { .. })
         ));
     }
 }

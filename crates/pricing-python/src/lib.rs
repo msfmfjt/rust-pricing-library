@@ -20,8 +20,8 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
 use builders::{
-    PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket, PyModel, PyProduct,
-    PyRiskRequest, build_request,
+    PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket,
+    PyModel, PyProduct, PyRiskRequest, build_request,
 };
 use diagnostics::{PyDiagnostics, PyPricingWarning};
 
@@ -651,6 +651,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyDiagnostics>()?;
     module.add_class::<PyDiscountCurve>()?;
     module.add_class::<PyDividendEvent>()?;
+    module.add_class::<PyAsianObservation>()?;
     module.add_class::<PyEssviSlice>()?;
     module.add_class::<PyProduct>()?;
     module.add_class::<PyMarket>()?;
