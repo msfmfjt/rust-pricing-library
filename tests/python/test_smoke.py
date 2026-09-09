@@ -44,6 +44,35 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             result.diagnostics.master_seed = 99
 
+    def test_pricing_warnings_are_immutable_and_freshly_owned(self):
+        request = rust_pricing.PricingRequest.from_json(
+            self.request_json.replace(
+                '"times":[0.0,1.0]', '"times":[0.0,0.5]', 2
+            ).replace(
+                '"discount_factors":[1.0,0.95]',
+                '"discount_factors":[1.0,0.975]',
+                1,
+            ).replace(
+                '"discount_factors":[1.0,0.98]',
+                '"discount_factors":[1.0,0.99]',
+                1,
+            )
+        )
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=1, reduction_block_size=256
+        ).evaluate()
+
+        warnings = result.warnings
+        self.assertEqual(
+            [warning.code for warning in warnings],
+            ["discount_curve_extrapolation", "dividend_curve_extrapolation"],
+        )
+        with self.assertRaises(AttributeError):
+            warnings[0].code = "changed"
+        warnings.clear()
+        self.assertEqual(len(result.warnings), 2)
+        self.assertEqual(len(result.diagnostics.warnings), 2)
+
     def test_native_builders_match_json_request_and_result(self):
         discount = rust_pricing.DiscountCurve(
             10,
