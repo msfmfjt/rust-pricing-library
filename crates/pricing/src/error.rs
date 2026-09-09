@@ -104,6 +104,7 @@ impl Error for ResultBuildError {
 #[non_exhaustive]
 pub enum MonteCarloError {
     UnsupportedEngine,
+    UnsupportedModel { model: &'static str },
     InvalidGammaBump { spot_bits: u64, bump_bits: u64 },
     InsufficientSamplingUnits { count: u64 },
     NonFiniteTotalVariance { bits: u64 },
@@ -184,6 +185,12 @@ impl fmt::Display for MonteCarloError {
                 write!(
                     formatter,
                     "the selected pricing entry point does not support this engine"
+                )
+            }
+            Self::UnsupportedModel { model } => {
+                write!(
+                    formatter,
+                    "the selected pricing entry point does not support the {model} model yet"
                 )
             }
             Self::InvalidGammaBump {

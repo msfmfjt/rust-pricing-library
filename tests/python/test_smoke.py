@@ -117,6 +117,32 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(parsed.fingerprint, request.fingerprint)
         self.assertEqual(parsed.to_json(), request.to_json())
 
+    def test_native_local_volatility_grid_matches_json_request(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            rust_pricing.Product.european_vanilla(
+                1, 2, "2027-09-04", 100.0, 1.0, "call"
+            ),
+            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            rust_pricing.Model.local_volatility_from_grid(
+                [0.25, 1.0],
+                [-0.1, 0.0, 0.2],
+                [0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
+                1.0e-8,
+                4.0,
+            ),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(),
+        )
+        payload = json.loads(request.to_json())
+        self.assertEqual(payload["model"]["type"], "local_volatility")
+        self.assertEqual(payload["model"]["local_variance_grid"]["shape"], [2, 3])
+        parsed = rust_pricing.PricingRequest.from_json(request.to_json())
+        self.assertEqual(parsed.fingerprint, request.fingerprint)
+        self.assertEqual(parsed.to_json(), request.to_json())
+
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)

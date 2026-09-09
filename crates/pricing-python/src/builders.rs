@@ -7,7 +7,7 @@ use pricing::market::{
     MarketContext,
 };
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing::models::{BlackScholesSpec, ModelSpec};
+use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump};
 use pyo3::prelude::*;
@@ -268,8 +268,46 @@ impl PyModel {
             .map_err(|error| domain_error(py, "invalid_volatility", "/model/volatility", error))
     }
 
+    /// Build a Local Volatility model from a row-major local-variance grid.
+    #[staticmethod]
+    fn local_volatility_from_grid(
+        py: Python<'_>,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        local_variances: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+        let log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/model/local_variance_grid/log_forward_moneyness_nodes",
+        )?;
+        let local_variances =
+            copied_f64_array(py, local_variances, "/model/local_variance_grid/values")?;
+        LocalVolatilitySpec::from_explicit_grid(
+            time_nodes,
+            log_forward_moneyness_nodes,
+            local_variances,
+            floor,
+            cap,
+        )
+        .map(|spec| Self {
+            inner: ModelSpec::LocalVolatility(spec),
+        })
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_local_variance_grid",
+                "/model/local_variance_grid",
+                error,
+            )
+        })
+    }
+
     fn __repr__(&self) -> String {
-        "Model(type='black_scholes')".into()
+        format!("Model(type={:?})", self.inner.name())
     }
 }
 

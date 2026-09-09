@@ -8,7 +8,7 @@ use pricing_market::{
     MarketContext,
 };
 use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing_models::{BlackScholesSpec, ModelSpec};
+use pricing_models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
 use pricing_product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use serde::{Deserialize, Serialize};
@@ -259,10 +259,26 @@ struct CurveV1 {
     discount_factors: Vec<f64>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum ModelV1 {
-    BlackScholes { volatility: f64 },
+    BlackScholes {
+        volatility: f64,
+    },
+    LocalVolatility {
+        local_variance_grid: LocalVarianceGridV1,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LocalVarianceGridV1 {
+    time_nodes: Vec<f64>,
+    log_forward_moneyness_nodes: Vec<f64>,
+    shape: [usize; 2],
+    values: Vec<f64>,
+    floor: f64,
+    cap: f64,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -435,6 +451,22 @@ impl From<&ModelSpec> for ModelV1 {
             ModelSpec::BlackScholes(spec) => Self::BlackScholes {
                 volatility: spec.volatility().get(),
             },
+            ModelSpec::LocalVolatility(spec) => Self::LocalVolatility {
+                local_variance_grid: LocalVarianceGridV1::from(spec.local_variance_grid()),
+            },
+        }
+    }
+}
+
+impl From<&pricing_market::LocalVarianceGrid> for LocalVarianceGridV1 {
+    fn from(grid: &pricing_market::LocalVarianceGrid) -> Self {
+        Self {
+            time_nodes: grid.time_nodes().to_vec(),
+            log_forward_moneyness_nodes: grid.log_moneyness_nodes().to_vec(),
+            shape: [grid.time_nodes().len(), grid.log_moneyness_nodes().len()],
+            values: grid.values().to_vec(),
+            floor: grid.floor(),
+            cap: grid.cap(),
         }
     }
 }
@@ -583,6 +615,9 @@ impl TryFrom<RequestV1> for PricingRequest {
             ModelV1::BlackScholes { volatility } => {
                 ModelSpec::BlackScholes(BlackScholesSpec::new(volatility).map_err(domain)?)
             }
+            ModelV1::LocalVolatility {
+                local_variance_grid,
+            } => ModelSpec::LocalVolatility(local_volatility_from_wire(local_variance_grid)?),
         };
         let engine = match value.engine {
             EngineV1::PseudoMonteCarlo {
@@ -615,6 +650,29 @@ impl TryFrom<RequestV1> for PricingRequest {
         let risk = risk_from_wire(value.risk)?;
         PricingRequest::new(valuation_date, product, market, model, engine, risk).map_err(domain)
     }
+}
+
+fn local_volatility_from_wire(
+    value: LocalVarianceGridV1,
+) -> Result<LocalVolatilitySpec, WireError> {
+    let expected_shape = [
+        value.time_nodes.len(),
+        value.log_forward_moneyness_nodes.len(),
+    ];
+    if value.shape != expected_shape {
+        return Err(WireError::Domain(format!(
+            "local_variance_grid shape {:?} does not match node dimensions {:?}",
+            value.shape, expected_shape
+        )));
+    }
+    LocalVolatilitySpec::from_explicit_grid(
+        value.time_nodes,
+        value.log_forward_moneyness_nodes,
+        value.values,
+        value.floor,
+        value.cap,
+    )
+    .map_err(domain)
 }
 
 fn dividend_event_from_wire(value: DividendEventV1) -> Result<DividendEvent, WireError> {
@@ -1263,6 +1321,29 @@ mod tests {
         .expect("request")
     }
 
+    fn local_vol_request() -> PricingRequest {
+        let mut request = request();
+        request = PricingRequest::new(
+            request.valuation_date(),
+            request.product().clone(),
+            request.market().clone(),
+            ModelSpec::LocalVolatility(
+                LocalVolatilitySpec::from_explicit_grid(
+                    vec![0.25, 1.0],
+                    vec![-0.1, 0.0, 0.2],
+                    vec![0.03, 0.04, 0.05, 0.035, 0.045, 0.055],
+                    1.0e-8,
+                    4.0,
+                )
+                .expect("local vol"),
+            ),
+            request.engine(),
+            request.risk().clone(),
+        )
+        .expect("request");
+        request
+    }
+
     #[test]
     fn request_round_trip_and_noncanonical_input_have_same_fingerprint() {
         let request = request();
@@ -1306,6 +1387,33 @@ mod tests {
         assert_eq!(dividends.events()[0].event(), EventId::new(77));
         assert_eq!(dividends.events()[0].fixed_cash(), 1.5);
         assert_eq!(dividends.events()[0].beta(), 0.02);
+    }
+
+    #[test]
+    fn request_json_round_trips_local_volatility_grid_shape() {
+        let request = local_vol_request();
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"local_volatility\""));
+        assert!(json.contains("\"shape\":[2,3]"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
+        let ModelSpec::LocalVolatility(model) = parsed.model() else {
+            panic!("local vol model");
+        };
+        assert_eq!(model.local_variance_grid().values()[4], 0.045);
+    }
+
+    #[test]
+    fn request_json_rejects_mismatched_local_volatility_grid_shape() {
+        let json = request_to_json(&local_vol_request()).expect("json");
+        let invalid = json.replacen("\"shape\":[2,3]", "\"shape\":[3,2]", 1);
+        assert!(matches!(
+            parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::Domain(message)) if message.contains("shape")
+        ));
     }
 
     #[test]

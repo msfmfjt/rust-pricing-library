@@ -69,7 +69,11 @@ impl SimulationPlan {
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let ProductSpec::EuropeanVanilla(product) = request.product();
-        let ModelSpec::BlackScholes(model) = request.model();
+        let ModelSpec::BlackScholes(model) = request.model() else {
+            return Err(MonteCarloError::UnsupportedModel {
+                model: request.model().name(),
+            });
+        };
         let time =
             DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry());
         let market_forward = request.market().equity().forward();

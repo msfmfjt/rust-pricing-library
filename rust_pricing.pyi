@@ -132,6 +132,14 @@ class Market:
 class Model:
     @staticmethod
     def black_scholes(volatility: float) -> Model: ...
+    @staticmethod
+    def local_volatility_from_grid(
+        time_nodes: Sequence[float],
+        log_forward_moneyness_nodes: Sequence[float],
+        local_variances: Sequence[float],
+        floor: float,
+        cap: float,
+    ) -> Model: ...
 
 
 class Engine:
