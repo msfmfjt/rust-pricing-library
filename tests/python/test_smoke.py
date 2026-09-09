@@ -753,6 +753,13 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
         self.assertIn("pricing-request JSON Schema", rust_pricing.request_json_schema.__doc__)
         self.assertIn("pricing-result JSON Schema", rust_pricing.result_json_schema.__doc__)
+        self.assertIn("statistical estimate", rust_pricing.DiagnosticEstimate.__doc__)
+        self.assertIn("Standard error", rust_pricing.DiagnosticEstimate.standard_error.__doc__)
+        self.assertIn("raw and market-scaled", rust_pricing.RiskEstimate.__doc__)
+        self.assertIn("CRN bump validation", rust_pricing.RiskValidation.__doc__)
+        self.assertIn(
+            "bump-and-revalue", rust_pricing.RiskValidation.bump_and_revalue.__doc__
+        )
 
     def test_bundled_json_schemas_are_exported(self):
         request_schema = json.loads(rust_pricing.request_json_schema())

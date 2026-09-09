@@ -322,21 +322,25 @@ pub struct PyRiskEstimate {
 
 #[pymethods]
 impl PyRiskEstimate {
+    /// Estimate in the raw mathematical risk unit.
     #[getter]
     fn raw(&self) -> PyDiagnosticEstimate {
         PyDiagnosticEstimate::from_estimate(self.inner.raw())
     }
 
+    /// Estimate scaled to the reporting market convention.
     #[getter]
     fn market_scaled(&self) -> PyDiagnosticEstimate {
         PyDiagnosticEstimate::from_estimate(self.inner.market_scaled())
     }
 
+    /// Raw mathematical risk unit label.
     #[getter]
     fn raw_unit(&self) -> &'static str {
         risk_unit_name(self.inner.raw_unit())
     }
 
+    /// Market-scaled reporting risk unit label.
     #[getter]
     fn market_scaled_unit(&self) -> &'static str {
         risk_unit_name(self.inner.market_scaled_unit())

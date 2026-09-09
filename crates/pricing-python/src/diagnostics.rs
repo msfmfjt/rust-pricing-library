@@ -47,27 +47,32 @@ impl PyDiagnosticEstimate {
 
 #[pymethods]
 impl PyDiagnosticEstimate {
+    /// Mean estimate value.
     #[getter]
     fn value(&self) -> f64 {
         self.estimate.value().get()
     }
 
+    /// Standard error of the estimate.
     #[getter]
     fn standard_error(&self) -> f64 {
         self.estimate.standard_error().get()
     }
 
+    /// Two-sided confidence interval as `(lower, upper)`.
     #[getter]
     fn confidence_interval(&self) -> (f64, f64) {
         let interval = self.estimate.confidence_interval();
         (interval.lower().get(), interval.upper().get())
     }
 
+    /// Estimator kind used for this estimate.
     #[getter]
     fn estimator(&self) -> &str {
         estimator_name(self.estimate.estimator())
     }
 
+    /// Number of statistically independent sampling units.
     #[getter]
     fn effective_sampling_units(&self) -> u64 {
         self.estimate.effective_sampling_units().get()
@@ -93,11 +98,13 @@ impl PyRiskValidation {
 
 #[pymethods]
 impl PyRiskValidation {
+    /// Independent bump-and-revalue estimate.
     #[getter]
     fn bump_and_revalue(&self) -> PyDiagnosticEstimate {
         PyDiagnosticEstimate::from_estimate(self.validation.bump_and_revalue)
     }
 
+    /// CRN bump estimate minus the primary AAD or bumped-AAD estimate.
     #[getter]
     fn bump_minus_primary(&self) -> PyDiagnosticEstimate {
         PyDiagnosticEstimate::from_estimate(self.validation.bump_minus_primary)
