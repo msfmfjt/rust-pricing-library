@@ -110,6 +110,8 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/smoke_test_wheel.py",
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_benchmark_reports.py benchmark-results",
+    "target: aarch64-apple-darwin",
+    "target: x86_64-pc-windows-msvc",
     "actions/upload-artifact@v4",
 }
 
