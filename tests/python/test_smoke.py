@@ -212,10 +212,15 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(payload["model"]["type"], "local_volatility")
         self.assertEqual(grid["shape"], [2, 3])
         self.assertEqual(len(grid["values"]), 6)
+        basis = payload["model"]["reporting_iv_basis"]
+        self.assertEqual(basis["shape"], [2, 3])
+        self.assertEqual(len(basis["implied_volatilities"]), 6)
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
-        parsed_grid = json.loads(parsed.to_json())["model"]["local_variance_grid"]
+        parsed_model = json.loads(parsed.to_json())["model"]
+        parsed_grid = parsed_model["local_variance_grid"]
         self.assertEqual(parsed_grid["shape"], [2, 3])
         self.assertEqual(len(parsed_grid["values"]), 6)
+        self.assertEqual(parsed_model["reporting_iv_basis"]["shape"], [2, 3])
 
     def test_native_local_volatility_can_materialize_from_standard_ssvi(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
@@ -247,10 +252,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(grid["shape"], [2, 3])
         self.assertEqual(len(grid["values"]), 6)
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
-        self.assertEqual(
-            json.loads(parsed.to_json())["model"]["local_variance_grid"]["shape"],
-            [2, 3],
-        )
+        parsed_model = json.loads(parsed.to_json())["model"]
+        self.assertEqual(parsed_model["local_variance_grid"]["shape"], [2, 3])
+        self.assertEqual(parsed_model["reporting_iv_basis"]["shape"], [2, 3])
 
     def test_native_vega_kt_request_matches_json_request(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])

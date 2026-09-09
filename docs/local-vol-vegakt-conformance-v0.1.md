@@ -79,6 +79,6 @@ diagnostics.
   metadata for the same reason documented by the European benchmark baseline.
 - The public Python Local Volatility helpers materialize explicit grids before
   request compilation; they do not preserve calibrated surface parameters as a
-  separate runtime model path. The Rust/JSON model can retain an explicit
-  reporting-IV basis for future public VegaKT evaluation.
+  separate runtime model path. The calibrated-surface helpers now retain an
+  explicit reporting-IV basis for future public VegaKT evaluation.
 - SSVI parameter Greeks are intentionally outside the MVP VegaKT definition.

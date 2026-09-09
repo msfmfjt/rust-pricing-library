@@ -377,12 +377,14 @@ impl PyModel {
             log_forward_moneyness_nodes,
             "/model/local_variance_grid/log_forward_moneyness_nodes",
         )?;
-        LocalVolatilitySpec::from_surface(
+        LocalVolatilitySpec::from_surface_with_reporting_basis(
             &surface,
-            time_nodes,
-            log_forward_moneyness_nodes,
+            time_nodes.clone(),
+            log_forward_moneyness_nodes.clone(),
             floor,
             cap,
+            time_nodes,
+            log_forward_moneyness_nodes,
         )
         .map(|spec| Self {
             inner: ModelSpec::LocalVolatility(spec),
@@ -725,12 +727,14 @@ fn local_volatility_from_standard_ssvi(
         log_forward_moneyness_nodes,
         "/model/local_variance_grid/log_forward_moneyness_nodes",
     )?;
-    LocalVolatilitySpec::from_surface(
+    LocalVolatilitySpec::from_surface_with_reporting_basis(
         &surface,
-        time_nodes,
-        log_forward_moneyness_nodes,
+        time_nodes.clone(),
+        log_forward_moneyness_nodes.clone(),
         floor,
         cap,
+        time_nodes,
+        log_forward_moneyness_nodes,
     )
     .map(|spec| PyModel {
         inner: ModelSpec::LocalVolatility(spec),

@@ -79,6 +79,7 @@ payload = json.loads(round_trip.to_json())
 print(json.dumps(payload, indent=2))
 print("request:", round_trip.fingerprint)
 print("local variance shape:", payload["model"]["local_variance_grid"]["shape"])
+print("reporting IV shape:", payload["model"]["reporting_iv_basis"]["shape"])
 print(
     "vega kt buckets:",
     len(payload["risk"]["vega_kt"]["maturity_nodes"])
