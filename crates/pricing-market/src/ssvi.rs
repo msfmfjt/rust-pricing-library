@@ -242,10 +242,8 @@ fn evaluate_forward_call(
     let root_variance = total_variance.sqrt();
     let d2 = -log_moneyness / root_variance - root_variance / 2.0;
     let d1 = d2 + root_variance;
-    let undiscounted_price =
-        forward * standard_normal_cdf(d1) - strike * standard_normal_cdf(d2);
-    let u = 1.0
-        - log_moneyness * variance.log_moneyness_derivative / (2.0 * total_variance);
+    let undiscounted_price = forward * standard_normal_cdf(d1) - strike * standard_normal_cdf(d2);
+    let u = 1.0 - log_moneyness * variance.log_moneyness_derivative / (2.0 * total_variance);
     let density_factor = u * u
         - (variance.log_moneyness_derivative * variance.log_moneyness_derivative / 4.0)
             * (1.0 / total_variance + 1.0 / 4.0)

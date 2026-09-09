@@ -6,9 +6,7 @@ use std::fmt;
 use pricing_core::DayCountConvention;
 use pricing_market::{DiscountCurve, MarketError};
 use pricing_models::ModelSpec;
-use pricing_numerics::{
-    standard_normal_cdf as normal_cdf, standard_normal_pdf as normal_density,
-};
+use pricing_numerics::{standard_normal_cdf as normal_cdf, standard_normal_pdf as normal_density};
 use pricing_product::{OptionSide, ProductSpec};
 
 use crate::PricingRequest;
