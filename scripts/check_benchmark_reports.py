@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 import re
 import sys
+import tomllib
 from typing import Any
 
 
@@ -70,19 +71,30 @@ def main() -> None:
         raise SystemExit("usage: check_benchmark_reports.py <benchmark-results-dir>")
 
     root = Path(sys.argv[1])
+    library_version = workspace_package_version()
     artifacts = check_artifact_set(root)
-    check_report(root / "rust.json", "rust_european_black_scholes", EUROPEAN_MEASUREMENTS)
+    check_report(
+        root / "rust.json",
+        "rust_european_black_scholes",
+        EUROPEAN_MEASUREMENTS,
+        library_version,
+    )
     check_report(
         root / "local-volatility-rust.json",
         "rust_local_volatility_vegakt",
         LOCAL_VOL_MEASUREMENTS,
+        library_version,
         local_volatility=True,
     )
-    check_python_report(root / "python.json")
-    check_replay_report(root / "replay.json", "european_black_scholes_replay")
+    check_python_report(root / "python.json", library_version)
+    check_replay_report(root / "replay.json", "european_black_scholes_replay", library_version)
     local_volatility_replay = root / "local-volatility-replay.json"
     if local_volatility_replay.is_file():
-        check_replay_report(local_volatility_replay, "local_volatility_replay")
+        check_replay_report(
+            local_volatility_replay,
+            "local_volatility_replay",
+            library_version,
+        )
     check_metadata(root / "metadata.json", artifacts)
     print(f"benchmark reports are valid in {root}")
 
@@ -99,17 +111,36 @@ def check_artifact_set(root: Path) -> set[str]:
     return actual
 
 
+def workspace_package_version() -> str:
+    manifest = tomllib.loads((ROOT / "Cargo.toml").read_text("utf-8"))
+    workspace = manifest.get("workspace")
+    if not isinstance(workspace, dict):
+        raise SystemExit(f"{ROOT / 'Cargo.toml'}: missing workspace table")
+    package = workspace.get("package")
+    if not isinstance(package, dict):
+        raise SystemExit(f"{ROOT / 'Cargo.toml'}: missing workspace.package table")
+    version = package.get("version")
+    if not isinstance(version, str) or not version:
+        raise SystemExit(f"{ROOT / 'Cargo.toml'}: workspace package version must be a string")
+    return version
+
+
 def check_report(
     path: Path,
     benchmark_kind: str,
     required_measurements: set[str],
+    library_version: str,
     *,
     local_volatility: bool = False,
 ) -> None:
     document = load_object(path)
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(document.get("benchmark_kind") == benchmark_kind, path, "unexpected benchmark_kind")
-    require(isinstance(document.get("library_version"), str), path, "missing library_version")
+    require(
+        document.get("library_version") == library_version,
+        path,
+        "library_version must match Cargo workspace version",
+    )
     configuration = require_object(document.get("configuration"), path, "configuration")
     require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
@@ -179,7 +210,7 @@ def check_report(
     require_string_array(document.get("notes"), path, "notes")
 
 
-def check_replay_report(path: Path, fixture_kind: str) -> None:
+def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> None:
     document = load_object(path)
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(document.get("fixture_kind") == fixture_kind, path, "unexpected fixture_kind")
@@ -250,6 +281,11 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
             f"{case_path}.result.schema_version",
         )
         replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
+        require(
+            replay.get("library_version") == library_version,
+            path,
+            f"{case_path}.result.replay.library_version must match Cargo workspace version",
+        )
         require_fingerprint(
             replay.get("request_fingerprint"), path, f"{case_path}.result.replay.request_fingerprint"
         )
@@ -291,7 +327,7 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
         )
 
 
-def check_python_report(path: Path) -> None:
+def check_python_report(path: Path, library_version: str) -> None:
     document = load_object(path)
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     require(
@@ -299,7 +335,11 @@ def check_python_report(path: Path) -> None:
         path,
         "unexpected benchmark_kind",
     )
-    require(isinstance(document.get("library_version"), str), path, "missing library_version")
+    require(
+        document.get("library_version") == library_version,
+        path,
+        "library_version must match Cargo workspace version",
+    )
     configuration = require_object(document.get("configuration"), path, "configuration")
     require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
