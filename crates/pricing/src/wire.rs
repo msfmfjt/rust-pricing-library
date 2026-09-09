@@ -2472,6 +2472,20 @@ mod tests {
     }
 
     #[test]
+    fn digital_request_json_defaults_missing_payment_date_to_expiry() {
+        let json = request_to_json(&digital_request()).expect("json");
+        let legacy_json = json.replace(",\"payment_date\":\"2027-09-04\"", "");
+
+        let parsed =
+            parse_request_json(legacy_json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        let ProductSpec::Digital(product) = parsed.product() else {
+            panic!("digital product");
+        };
+        assert_eq!(product.payment_date(), product.expiry());
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
     fn request_json_round_trips_barrier_product() {
         let request = barrier_request();
 

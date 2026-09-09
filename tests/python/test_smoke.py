@@ -246,6 +246,14 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(payload["product"]["payment_date"], "2027-09-05")
         parsed = rust_pricing.PricingRequest.from_json(request.to_json())
         self.assertEqual(parsed.fingerprint, request.fingerprint)
+
+        legacy_payload = json.loads(request.to_json())
+        del legacy_payload["product"]["payment_date"]
+        legacy_json = json.dumps(legacy_payload, separators=(",", ":"))
+        parsed_legacy = rust_pricing.PricingRequest.from_json(legacy_json)
+        normalized_legacy = json.loads(parsed_legacy.to_json())
+        self.assertEqual(normalized_legacy["product"]["payment_date"], "2027-09-04")
+
         result = rust_pricing.PricingPlan.compile(
             parsed, worker_threads=2, reduction_block_size=256
         ).evaluate()
