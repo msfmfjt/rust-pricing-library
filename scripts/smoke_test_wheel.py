@@ -195,6 +195,10 @@ def verify_wheel_metadata(
         raise RuntimeError(
             f"wheel filename version {filename_version} does not match METADATA version {metadata['Version']}"
         )
+    expected_dist_info = f"rust_pricing-{metadata['Version']}.dist-info"
+    actual_dist_info = dist_info_dir(members)
+    if actual_dist_info != expected_dist_info:
+        raise RuntimeError(f"unexpected wheel dist-info directory: {actual_dist_info}")
     init_py = member_bytes["rust_pricing/__init__.py"].decode("utf-8")
     if "from .rust_pricing import *" not in init_py:
         raise RuntimeError("wheel __init__.py must re-export the extension module")
@@ -249,6 +253,17 @@ def parse_wheel_filename(filename: str) -> tuple[str, str, set[str]]:
     if not tags:
         raise RuntimeError(f"wheel filename has no tags: {filename}")
     return distribution, version, tags
+
+
+def dist_info_dir(members: set[str]) -> str:
+    dist_info_dirs = {
+        member.split(".dist-info/", 1)[0] + ".dist-info"
+        for member in members
+        if ".dist-info/" in member
+    }
+    if len(dist_info_dirs) != 1:
+        raise RuntimeError(f"wheel must contain exactly one dist-info directory, found {dist_info_dirs}")
+    return next(iter(dist_info_dirs))
 
 
 def is_platform_cpython_tag(tag: str) -> bool:
