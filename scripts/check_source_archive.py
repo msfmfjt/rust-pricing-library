@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 import sys
 import tarfile
+import tomllib
 
 
 REQUIRED_FILES = {
@@ -52,6 +53,22 @@ REQUIRED_FILES = {
     "examples/python/local_vol_vegakt.py",
 }
 
+CRATE_MANIFESTS = {
+    name for name in REQUIRED_FILES if name.startswith("crates/") and name.endswith("/Cargo.toml")
+}
+
+INTERNAL_WORKSPACE_DEPENDENCIES = {
+    "pricing-core": "crates/pricing-core",
+    "pricing-numerics": "crates/pricing-numerics",
+    "pricing-aad": "crates/pricing-aad",
+    "pricing-market": "crates/pricing-market",
+    "pricing-product": "crates/pricing-product",
+    "pricing-models": "crates/pricing-models",
+    "pricing-mc": "crates/pricing-mc",
+    "pricing-risk": "crates/pricing-risk",
+    "pricing": "crates/pricing",
+}
+
 FORBIDDEN_PARTS = {
     ".git",
     "target",
@@ -77,19 +94,65 @@ def main() -> int:
             if member.isfile():
                 names.add(name)
 
-    missing = sorted(REQUIRED_FILES.difference(names))
-    if missing:
-        raise SystemExit(f"{archive}: missing required source files: {missing}")
+        missing = sorted(REQUIRED_FILES.difference(names))
+        if missing:
+            raise SystemExit(f"{archive}: missing required source files: {missing}")
 
-    forbidden = sorted(name for name in names if has_forbidden_part(name))
-    if forbidden:
-        raise SystemExit(f"{archive}: archive contains generated/private files: {forbidden[:10]}")
+        forbidden = sorted(name for name in names if has_forbidden_part(name))
+        if forbidden:
+            raise SystemExit(f"{archive}: archive contains generated/private files: {forbidden[:10]}")
+
+        check_cargo_manifests(package, archive)
 
     return 0
 
 
 def has_forbidden_part(name: str) -> bool:
     return any(part in FORBIDDEN_PARTS for part in PurePosixPath(name).parts)
+
+
+def check_cargo_manifests(package: tarfile.TarFile, archive: str) -> None:
+    workspace = read_toml(package, "Cargo.toml")
+    workspace_package = workspace.get("workspace", {}).get("package", {})
+    version = workspace_package.get("version")
+    if version != "0.1.0":
+        raise SystemExit(f"{archive}: workspace package version must be 0.1.0")
+    if workspace_package.get("repository") != "https://github.com/msfmfjt/rust-pricing-library":
+        raise SystemExit(f"{archive}: workspace repository URL mismatch")
+
+    workspace_dependencies = workspace.get("workspace", {}).get("dependencies", {})
+    for dependency, expected_path in INTERNAL_WORKSPACE_DEPENDENCIES.items():
+        spec = workspace_dependencies.get(dependency)
+        if not isinstance(spec, dict):
+            raise SystemExit(f"{archive}: missing workspace dependency {dependency}")
+        if spec.get("version") != version or spec.get("path") != expected_path:
+            raise SystemExit(
+                f"{archive}: workspace dependency {dependency} must declare "
+                f"version {version} and path {expected_path}"
+            )
+
+    for manifest in sorted(CRATE_MANIFESTS):
+        document = read_toml(package, manifest)
+        package_section = document.get("package", {})
+        if package_section.get("publish") is not False:
+            raise SystemExit(f"{archive}: {manifest} must declare publish = false")
+        for key in ["version", "edition", "rust-version", "authors", "repository"]:
+            value = package_section.get(key)
+            if not isinstance(value, dict) or value.get("workspace") is not True:
+                raise SystemExit(f"{archive}: {manifest} package.{key} must use workspace")
+
+
+def read_toml(package: tarfile.TarFile, name: str) -> dict[str, object]:
+    member = package.extractfile(name)
+    if member is None:
+        raise SystemExit(f"missing TOML member: {name}")
+    try:
+        document = tomllib.loads(member.read().decode("utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise SystemExit(f"{name}: invalid TOML: {exc}") from exc
+    if not isinstance(document, dict):
+        raise SystemExit(f"{name}: TOML root must be a table")
+    return document
 
 
 if __name__ == "__main__":
