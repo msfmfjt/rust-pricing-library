@@ -245,6 +245,44 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
         )
 
 
+def check_request_digital_payment_date_contract(schema: dict[str, Any], path: Path) -> None:
+    if path != EXPECTED_SCHEMAS["pricing_request"]:
+        return
+    defs = schema.get("$defs", {})
+    require(isinstance(defs, dict), f"{path}: $defs must be an object")
+    product = defs.get("product")
+    require(isinstance(product, dict), f"{path}: product definition must be an object")
+    variants = product.get("oneOf")
+    require(isinstance(variants, list), f"{path}: product definition must use oneOf")
+    digital = None
+    for variant in variants:
+        if not isinstance(variant, dict):
+            continue
+        properties = variant.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        discriminator = properties.get("type")
+        if isinstance(discriminator, dict) and discriminator.get("const") == "digital":
+            digital = variant
+            break
+    require(digital is not None, f"{path}: product definition must include digital")
+    required = digital.get("required")
+    properties = digital.get("properties")
+    require(isinstance(required, list), f"{path}: digital.required must be an array")
+    require(isinstance(properties, dict), f"{path}: digital.properties must be an object")
+    require(
+        "payment_date" not in required,
+        f"{path}: digital payment_date must remain optional for legacy request JSON",
+    )
+    payment_date = properties.get("payment_date")
+    require(
+        isinstance(payment_date, dict)
+        and payment_date.get("type") == "string"
+        and payment_date.get("pattern") == DATE_PATTERN,
+        f"{path}: optional digital payment_date must use the schema date pattern",
+    )
+
+
 def check_vega_kt_result_arrays(schema: dict[str, Any], path: Path) -> None:
     defs = schema.get("$defs", {})
     if not isinstance(defs, dict):
@@ -385,6 +423,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
+    check_request_digital_payment_date_contract(schema, path)
     check_vega_kt_result_arrays(schema, path)
     check_result_replay_metadata(schema, path)
     check_no_unstructured_objects(schema, path)
