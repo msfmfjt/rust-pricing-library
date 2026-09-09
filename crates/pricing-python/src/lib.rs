@@ -91,6 +91,11 @@ impl PyValidationIssue {
     }
 
     #[getter]
+    fn instance_path(&self) -> &str {
+        &self.pointer
+    }
+
+    #[getter]
     fn phase(&self) -> &str {
         &self.phase
     }
@@ -108,6 +113,7 @@ impl PyValidationIssue {
     fn to_dict(&self) -> BTreeMap<String, String> {
         BTreeMap::from([
             ("pointer".into(), self.pointer.clone()),
+            ("instance_path".into(), self.pointer.clone()),
             ("phase".into(), self.phase.clone()),
             ("code".into(), self.code.clone()),
             ("message".into(), self.message.clone()),

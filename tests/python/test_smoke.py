@@ -622,6 +622,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.Market.equity(2, 1, -100.0, curve, curve)
         issue = captured.exception.issues[0]
         self.assertEqual(issue.pointer, "/market/spot")
+        self.assertEqual(issue.instance_path, "/market/spot")
         self.assertEqual(issue.code, "invalid_spot")
 
     def test_validation_error_has_immutable_structured_issues(self):
@@ -635,6 +636,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.phase, "declared_schema")
         self.assertEqual(issue.code, "unsupported_schema_version")
         self.assertEqual(issue.to_dict()["pointer"], "")
+        self.assertEqual(issue.to_dict()["instance_path"], "")
         with self.assertRaises(AttributeError):
             issue.code = "changed"
 
