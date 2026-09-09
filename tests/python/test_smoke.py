@@ -882,6 +882,65 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 with self.assertRaises(rust_pricing.ValidationError):
                     rust_pricing.DividendEvent.fixed_cash(1, 0.25, bad)
 
+            with self.subTest(value=bad, builder="dividend_proportion"):
+                with self.assertRaises(rust_pricing.ValidationError):
+                    rust_pricing.DividendEvent.proportional(1, 0.25, bad)
+
+            with self.subTest(value=bad, builder="combined_dividend_cash"):
+                with self.assertRaises(rust_pricing.ValidationError):
+                    rust_pricing.DividendEvent.fixed_cash_and_proportional(1, 0.25, bad, 0.1)
+
+            with self.subTest(value=bad, builder="combined_dividend_proportion"):
+                with self.assertRaises(rust_pricing.ValidationError):
+                    rust_pricing.DividendEvent.fixed_cash_and_proportional(1, 0.25, 1.0, bad)
+
+    def test_native_dividend_builders_reject_out_of_range_values(self):
+        cases = [
+            (
+                "negative fixed cash",
+                lambda: rust_pricing.DividendEvent.fixed_cash(1, 0.25, -0.01),
+                "invalid_dividend_cash",
+            ),
+            (
+                "negative proportional beta",
+                lambda: rust_pricing.DividendEvent.proportional(1, 0.25, -0.01),
+                "invalid_dividend_proportion",
+            ),
+            (
+                "unit proportional beta",
+                lambda: rust_pricing.DividendEvent.proportional(1, 0.25, 1.0),
+                "invalid_dividend_proportion",
+            ),
+            (
+                "combined negative cash",
+                lambda: rust_pricing.DividendEvent.fixed_cash_and_proportional(
+                    1, 0.25, -0.01, 0.1
+                ),
+                "invalid_dividend_quote",
+            ),
+            (
+                "combined unit beta",
+                lambda: rust_pricing.DividendEvent.fixed_cash_and_proportional(
+                    1, 0.25, 1.0, 1.0
+                ),
+                "invalid_dividend_quote",
+            ),
+            (
+                "negative event time",
+                lambda: rust_pricing.DividendEvent.fixed_cash(1, -0.01, 1.0),
+                "invalid_dividend_event",
+            ),
+        ]
+
+        for name, builder, code in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    builder()
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.code, code)
+                self.assertEqual(issue.pointer, "/market/discrete_dividends")
+                self.assertEqual(issue.instance_path, "/market/discrete_dividends")
+
     def test_validation_error_has_immutable_structured_issues(self):
         invalid = self.request_json.replace('"schema_version":1', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as captured:
