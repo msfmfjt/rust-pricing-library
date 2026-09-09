@@ -1127,6 +1127,36 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
+    def test_json_wrong_document_kind_reports_declared_schema_phase(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        cases = [
+            (
+                "request parser received result",
+                lambda: rust_pricing.PricingRequest.from_json(result.to_json()),
+                "pricing_request",
+            ),
+            (
+                "result parser received request",
+                lambda: rust_pricing.PricingResult.from_json(self.request_json),
+                "pricing_result",
+            ),
+        ]
+
+        for name, parser, document_kind in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    parser()
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "declared_schema")
+                self.assertEqual(issue.code, "wrong_document_kind")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, document_kind)
+                self.assertEqual(issue.instance_path, "")
+
     def test_validation_issue_equality_compares_payload(self):
         invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as first:
