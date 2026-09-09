@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import json
 from pathlib import Path
+import re
 import sys
 
 
@@ -16,6 +17,7 @@ SUPPORTED_PLATFORMS = {
     "macos-aarch64",
     "windows-x86_64",
 }
+FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 
 
 def main() -> None:
@@ -80,7 +82,57 @@ def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
         if name in case_names:
             raise SystemExit(f"{path}: duplicate replay case name: {name}")
         case_names.add(name)
+        validate_case(path, index, case)
     return fixture_kind, platform
+
+
+def validate_case(path: Path, index: int, case: dict[str, object]) -> None:
+    case_path = f"cases[{index}]"
+    plan = require_object(path, case.get("plan"), f"{case_path}.plan")
+    request = require_object(path, case.get("request"), f"{case_path}.request")
+    result = require_object(path, case.get("result"), f"{case_path}.result")
+    require_object(path, case.get("execution"), f"{case_path}.execution")
+
+    require_fingerprint(path, plan.get("plan_fingerprint"), f"{case_path}.plan.plan_fingerprint")
+    request_fingerprint = require_fingerprint(
+        path, plan.get("request_fingerprint"), f"{case_path}.plan.request_fingerprint"
+    )
+    if request.get("document_kind") != "pricing_request":
+        raise SystemExit(f"{path}: {case_path}.request.document_kind must be pricing_request")
+    if request.get("schema_version") != 1:
+        raise SystemExit(f"{path}: {case_path}.request.schema_version must be 1")
+    if result.get("document_kind") != "pricing_result":
+        raise SystemExit(f"{path}: {case_path}.result.document_kind must be pricing_result")
+    if result.get("schema_version") != 1:
+        raise SystemExit(f"{path}: {case_path}.result.schema_version must be 1")
+    replay = require_object(path, result.get("replay"), f"{case_path}.result.replay")
+    result_request_fingerprint = require_fingerprint(
+        path,
+        replay.get("request_fingerprint"),
+        f"{case_path}.result.replay.request_fingerprint",
+    )
+    if result_request_fingerprint != request_fingerprint:
+        raise SystemExit(
+            f"{path}: {case_path} plan/result request fingerprints do not match"
+        )
+    if replay.get("schema_version") != 1:
+        raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 1")
+    for key in ["library_version", "platform"]:
+        value = replay.get(key)
+        if not isinstance(value, str) or not value:
+            raise SystemExit(f"{path}: {case_path}.result.replay.{key} must be non-empty")
+
+
+def require_object(path: Path, value: object, field: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise SystemExit(f"{path}: {field} must be an object")
+    return value
+
+
+def require_fingerprint(path: Path, value: object, field: str) -> str:
+    if not isinstance(value, str) or FINGERPRINT.fullmatch(value) is None:
+        raise SystemExit(f"{path}: {field} must be a BLAKE3-256 fingerprint")
+    return value
 
 
 def load_object(path: Path) -> tuple[str, dict[str, object]]:
