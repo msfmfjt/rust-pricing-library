@@ -138,11 +138,79 @@ def verify_wheel_metadata(
     tags = wheel_metadata.get_all("Tag") or []
     if not tags or any(tag.endswith("-none-any") for tag in tags):
         raise RuntimeError(f"wheel must carry platform tags, got: {tags}")
-    if not any(member.endswith(".dist-info/sboms/pricing-python.cyclonedx.json") for member in members):
-        raise RuntimeError("wheel does not contain the generated CycloneDX SBOM")
+    verify_cyclonedx_sbom(members, member_bytes, expected_metadata["Version"])
     record_members = verify_wheel_record(record, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
+
+
+def verify_cyclonedx_sbom(
+    members: set[str],
+    member_bytes: dict[str, bytes],
+    version: str,
+) -> None:
+    matches = [
+        member
+        for member in members
+        if member.endswith(".dist-info/sboms/pricing-python.cyclonedx.json")
+    ]
+    if len(matches) != 1:
+        raise RuntimeError(f"expected one generated CycloneDX SBOM, found {len(matches)}")
+    try:
+        sbom = json.loads(member_bytes[matches[0]].decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("wheel CycloneDX SBOM must be valid UTF-8 JSON") from exc
+    if not isinstance(sbom, dict):
+        raise RuntimeError("wheel CycloneDX SBOM root must be an object")
+    if sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
+        raise RuntimeError("wheel CycloneDX SBOM must use CycloneDX 1.5")
+    metadata = sbom.get("metadata")
+    if not isinstance(metadata, dict):
+        raise RuntimeError("wheel CycloneDX SBOM metadata must be an object")
+    component = metadata.get("component")
+    if not isinstance(component, dict):
+        raise RuntimeError("wheel CycloneDX SBOM metadata.component must be an object")
+    if component.get("name") != "pricing-python" or component.get("version") != version:
+        raise RuntimeError("wheel CycloneDX SBOM root component metadata mismatch")
+
+    components = sbom.get("components")
+    if not isinstance(components, list):
+        raise RuntimeError("wheel CycloneDX SBOM components must be an array")
+    component_names = {
+        component.get("name")
+        for component in components
+        if isinstance(component, dict) and isinstance(component.get("name"), str)
+    }
+    required_workspace_components = {
+        "pricing",
+        "pricing-aad",
+        "pricing-core",
+        "pricing-market",
+        "pricing-mc",
+        "pricing-models",
+        "pricing-numerics",
+        "pricing-product",
+        "pricing-risk",
+    }
+    missing = sorted(required_workspace_components.difference(component_names))
+    if missing:
+        raise RuntimeError(f"wheel CycloneDX SBOM is missing components: {missing}")
+
+    dependencies = sbom.get("dependencies")
+    if not isinstance(dependencies, list) or not dependencies:
+        raise RuntimeError("wheel CycloneDX SBOM dependencies must be a non-empty array")
+    for index, dependency in enumerate(dependencies, start=1):
+        if not isinstance(dependency, dict):
+            raise RuntimeError(f"wheel CycloneDX SBOM dependency {index} must be an object")
+        if not isinstance(dependency.get("ref"), str) or not dependency["ref"]:
+            raise RuntimeError(f"wheel CycloneDX SBOM dependency {index} has no ref")
+        depends_on = dependency.get("dependsOn")
+        if depends_on is not None and (not isinstance(depends_on, list) or not all(
+            isinstance(item, str) and item for item in depends_on
+        )):
+            raise RuntimeError(
+                f"wheel CycloneDX SBOM dependency {index} must list string dependsOn refs"
+            )
 
 
 def expected_project_metadata() -> dict[str, str]:
