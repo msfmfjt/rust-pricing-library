@@ -97,6 +97,7 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked --workspace --all-features --exclude pricing-python",
     "cargo test --locked -p pricing-python",
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
     "python scripts/check_source_archive.py",
