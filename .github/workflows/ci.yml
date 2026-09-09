@@ -102,6 +102,10 @@ jobs:
           python -m pip install "maturin>=1.9,<2.0"
           python -m maturin build --locked --release --out dist
 
+      - name: Build Rust source package
+        shell: bash
+        run: git archive --format=tar.gz --output "dist/rust-pricing-source-${{ matrix.target }}.tar.gz" HEAD
+
       - name: Test wheel in clean environment
         run: python scripts/smoke_test_wheel.py
 
@@ -113,6 +117,14 @@ jobs:
         with:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain Rust source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-pricing-source-${{ matrix.target }}
+          path: dist/rust-pricing-source-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 14
 

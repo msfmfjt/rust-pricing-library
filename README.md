@@ -83,7 +83,9 @@ Price, Greeks, and the VegaKT result report.
 
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts. Each wheel is installed into a
-fresh virtual environment before the Python API smoke suite runs.
+fresh virtual environment before the Python API smoke suite runs. CI also
+retains a source archive for the exact commit, including the locked Rust
+dependency metadata required to consume the Rust crates privately.
 
 The [benchmark baseline protocol](docs/benchmarking-v0.1.md) records native
 Rust and installed-wheel Python timings and the host/build metadata required to
