@@ -95,8 +95,16 @@ def check_report(
     require(not unexpected, path, f"unexpected measurements: {unexpected}")
     for name in sorted(required_measurements):
         check_measurement(require_object(measurements.get(name), path, name), path, name)
+    require_positive_int(
+        document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
+    )
 
     capabilities = require_object(document.get("capabilities"), path, "capabilities")
+    require(
+        capabilities.get("peak_memory_available_in_process") is True,
+        path,
+        "peak memory capability must be true",
+    )
     if local_volatility:
         require(
             capabilities.get("aad_local_vega_timing_available") is True,
@@ -135,7 +143,13 @@ def check_metadata(path: Path) -> None:
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     for key in ["platform", "machine", "python", "rustc", "cargo"]:
         require(isinstance(document.get(key), str), path, f"missing {key}")
-    require(document.get("peak_memory_bytes") is None, path, "peak_memory_bytes must be null")
+    require_positive_int(document.get("peak_memory_bytes"), path, "peak_memory_bytes")
+    command_peaks = require_object(
+        document.get("command_peak_memory_bytes"), path, "command_peak_memory_bytes"
+    )
+    for name, peak in command_peaks.items():
+        require(isinstance(name, str) and name, path, "command peak name must be non-empty")
+        require_positive_int(peak, path, f"command_peak_memory_bytes.{name}")
     require(document.get("allocation_count") is None, path, "allocation_count must be null")
     require(
         isinstance(document.get("unavailable_metrics"), list),

@@ -36,7 +36,7 @@ European Black-Scholes baseline.
 | Coordinates, units, and bucket ordering | Covered by `VegaKtBucketCoordinate`, unit accessors, row-major shape checks, and report tests |
 | CRN bump-and-revalue agreement | Scalar and basis-bump validation paths exist; Apple Silicon macOS and Windows risk replay fixtures are frozen |
 | Reproducibility diagnostics | Estimator, bump conventions, Local-variance interpolation, clamp records, active domain, residual, and covariance layout are observable |
-| Runtime and peak-memory benchmarks | CI runs the baseline benchmark harness and emits a retained Local Volatility/VegaKT Rust benchmark covering Price-only, AAD Local Vega, VegaKT decomposition, and selected CRN bump workloads; peak memory and allocation counts remain explicitly unavailable under the portable harness |
+| Runtime and peak-memory benchmarks | CI runs the baseline benchmark harness and emits a retained Local Volatility/VegaKT Rust benchmark covering Price-only, AAD Local Vega, VegaKT decomposition, and selected CRN bump workloads; each retained benchmark report includes observed process peak RSS, and shared metadata records per-command peak RSS; allocation counts remain explicitly unavailable under the portable harness |
 
 The additional conservation requirements are covered by unit tests for hat-kernel
 projection, cell-integrated transition probability, reporting-basis partition of
@@ -68,8 +68,8 @@ diagnostics.
 - Same-platform bitwise replay is guaranteed only for the pinned supported
   platform, toolchain, configuration, and library version represented by each
   fixture. Cross-platform bitwise equality is not required.
-- Portable peak-memory and allocation counters remain `null` in benchmark
-  metadata for the same reason documented by the European benchmark baseline.
+- Allocation counters remain `null` in benchmark metadata for the same reason
+  documented by the European benchmark baseline.
 - The public Python Local Volatility helpers materialize explicit grids before
   request compilation; they do not preserve calibrated surface parameters as a
   separate runtime model path. The calibrated-surface helpers now retain an

@@ -57,8 +57,8 @@ change.
 ## Host and resource metadata
 
 `metadata.json` records the commit, runner OS/architecture, platform and CPU
-strings, Python version, and full `rustc -vV`/`cargo -V` output. Portable peak
-memory and allocation counters are not currently available without changing
-the measured process or allocator, so the corresponding fields are `null` and
-the reason is recorded. Later instrumentation must add fields without silently
+strings, Python version, full `rustc -vV`/`cargo -V` output, and observed peak
+RSS for each benchmark/replay child process. Allocation counters require an
+instrumented allocator and remain recorded explicitly as unavailable rather
+than silently omitted. Later instrumentation must add fields without silently
 changing the v0.1 workload.
