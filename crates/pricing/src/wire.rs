@@ -1204,10 +1204,6 @@ fn parse_date_owned_at(value: &str, pointer: String) -> Result<Date, WireError> 
     })
 }
 
-fn domain(error: impl fmt::Display) -> WireError {
-    WireError::Domain(error.to_string())
-}
-
 fn domain_at(pointer: impl Into<String>, error: impl fmt::Display) -> WireError {
     WireError::DomainAt {
         pointer: pointer.into(),
@@ -1591,14 +1587,31 @@ impl TryFrom<ResultV1> for PricingResult {
     type Error = WireError;
     fn try_from(value: ResultV1) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_RESULT)?;
-        let replay_version = SchemaVersion::new(value.replay.schema_version).map_err(domain)?;
+        let replay_version = SchemaVersion::new(value.replay.schema_version)
+            .map_err(|error| domain_at("/replay/schema_version", error))?;
         Ok(Self {
-            value: estimate_from_wire(value.value)?,
+            value: estimate_from_wire(value.value, "/value")?,
             risks: RiskReport {
-                delta: value.risks.delta.map(risk_estimate_from_wire).transpose()?,
-                gamma: value.risks.gamma.map(risk_estimate_from_wire).transpose()?,
-                vega: value.risks.vega.map(risk_estimate_from_wire).transpose()?,
-                vega_kt: value.risks.vega_kt.map(vega_kt_from_wire).transpose()?,
+                delta: value
+                    .risks
+                    .delta
+                    .map(|risk| risk_estimate_from_wire(risk, "/risks/delta"))
+                    .transpose()?,
+                gamma: value
+                    .risks
+                    .gamma
+                    .map(|risk| risk_estimate_from_wire(risk, "/risks/gamma"))
+                    .transpose()?,
+                vega: value
+                    .risks
+                    .vega
+                    .map(|risk| risk_estimate_from_wire(risk, "/risks/vega"))
+                    .transpose()?,
+                vega_kt: value
+                    .risks
+                    .vega_kt
+                    .map(|risk| vega_kt_from_wire(risk, "/risks/vega_kt"))
+                    .transpose()?,
             },
             diagnostics: Diagnostics::new(
                 value
@@ -1610,7 +1623,10 @@ impl TryFrom<ResultV1> for PricingResult {
             ),
             replay: ReplayMetadata::new(
                 replay_version,
-                parse_fingerprint(&value.replay.request_fingerprint)?,
+                parse_fingerprint_at(
+                    &value.replay.request_fingerprint,
+                    "/replay/request_fingerprint",
+                )?,
                 value.replay.library_version,
                 value.replay.platform,
             ),
@@ -1618,7 +1634,11 @@ impl TryFrom<ResultV1> for PricingResult {
     }
 }
 
-fn estimate_from_wire(value: EstimateV1) -> Result<Estimate, WireError> {
+fn estimate_from_wire(
+    value: EstimateV1,
+    pointer: impl Into<String>,
+) -> Result<Estimate, WireError> {
+    let pointer = pointer.into();
     Estimate::new(
         value.value,
         value.standard_error,
@@ -1631,12 +1651,15 @@ fn estimate_from_wire(value: EstimateV1) -> Result<Estimate, WireError> {
         },
         value.effective_sampling_units,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
-fn risk_estimate_from_wire(value: RiskEstimateV1) -> Result<RiskEstimate, WireError> {
+fn risk_estimate_from_wire(
+    value: RiskEstimateV1,
+    pointer: &'static str,
+) -> Result<RiskEstimate, WireError> {
     Ok(RiskEstimate::new(
-        estimate_from_wire(value.raw)?,
-        estimate_from_wire(value.market_scaled)?,
+        estimate_from_wire(value.raw, format!("{pointer}/raw"))?,
+        estimate_from_wire(value.market_scaled, format!("{pointer}/market_scaled"))?,
         risk_unit_from_wire(value.raw_unit),
         risk_unit_from_wire(value.market_scaled_unit),
     ))
@@ -1652,33 +1675,38 @@ fn risk_unit_from_wire(value: RiskUnitV1) -> RiskUnit {
     }
 }
 
-fn vega_kt_from_wire(value: VegaKtReportV1) -> Result<VegaKtResult, WireError> {
+fn vega_kt_from_wire(
+    value: VegaKtReportV1,
+    pointer: &'static str,
+) -> Result<VegaKtResult, WireError> {
     VegaKtResult::new(
         value
             .coordinates
             .into_iter()
-            .map(|coordinate| {
+            .enumerate()
+            .map(|(index, coordinate)| {
                 VegaKtResultCoordinate::new(
                     coordinate.maturity,
                     coordinate.log_moneyness,
                     coordinate.implied_volatility,
                 )
+                .map_err(|error| domain_at(format!("{pointer}/coordinates/{index}"), error))
             })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(domain)?,
+            .collect::<Result<Vec<_>, _>>()?,
         value
             .estimates
             .into_iter()
-            .map(|estimate| {
+            .enumerate()
+            .map(|(index, estimate)| {
                 VegaKtResultBucketEstimate::new(
                     estimate.raw_mean,
                     estimate.market_scaled_mean,
                     estimate.sample_variance,
                     estimate.price_covariance,
                 )
+                .map_err(|error| domain_at(format!("{pointer}/estimates/{index}"), error))
             })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(domain)?,
+            .collect::<Result<Vec<_>, _>>()?,
         value.raw_buckets,
         value.full_bucket_covariance.map(|values| {
             values
@@ -1690,31 +1718,40 @@ fn vega_kt_from_wire(value: VegaKtReportV1) -> Result<VegaKtResult, WireError> {
                 .collect()
         }),
         vega_kt_covariance_layout_from_wire(value.covariance_layout),
-        vega_kt_projection_from_wire(value.projection)?,
-        vega_kt_residual_diagnostics_from_wire(value.residual_diagnostics)?,
+        vega_kt_projection_from_wire(value.projection, format!("{pointer}/projection"))?,
+        vega_kt_residual_diagnostics_from_wire(
+            value.residual_diagnostics,
+            format!("{pointer}/residual_diagnostics"),
+        )?,
         vega_kt_unit_from_wire(value.raw_unit),
         vega_kt_unit_from_wire(value.market_scaled_unit),
         value.policy_label,
         value.truncation_order,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn vega_kt_projection_from_wire(
     value: VegaKtProjectionV1,
+    pointer: String,
 ) -> Result<VegaKtResultProjection, WireError> {
+    let stats =
+        reporting_stats_from_wire(value.reporting_stats, format!("{pointer}/reporting_stats"))?;
     VegaKtResultProjection::new(
         value.scalar_vega,
         value.signed_residual,
         value.pre_projection,
-        reporting_stats_from_wire(value.reporting_stats)?,
+        stats,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn vega_kt_residual_diagnostics_from_wire(
     value: VegaKtResidualDiagnosticsV1,
+    pointer: String,
 ) -> Result<VegaKtResultResidualDiagnostics, WireError> {
+    let stats =
+        reporting_stats_from_wire(value.reporting_stats, format!("{pointer}/reporting_stats"))?;
     VegaKtResultResidualDiagnostics::new(
         value.active_domain_start_index,
         value.active_domain_end_index,
@@ -1722,13 +1759,14 @@ fn vega_kt_residual_diagnostics_from_wire(
         value.excluded_probability_mass,
         value.signed_residual,
         value.pre_projection,
-        reporting_stats_from_wire(value.reporting_stats)?,
+        stats,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn reporting_stats_from_wire(
     value: ReportingIvProjectionStatsV1,
+    pointer: String,
 ) -> Result<VegaKtResultReportingStats, WireError> {
     VegaKtResultReportingStats::new(
         value.left_edge_count,
@@ -1736,7 +1774,7 @@ fn reporting_stats_from_wire(
         value.left_edge_sensitivity,
         value.right_edge_sensitivity,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn vega_kt_covariance_layout_from_wire(
@@ -1996,6 +2034,10 @@ fn parse_fingerprint(value: &str) -> Result<[u8; 32], WireError> {
             .map_err(|_| WireError::InvalidFingerprint(value.to_owned()))?;
     }
     Ok(bytes)
+}
+
+fn parse_fingerprint_at(value: &str, pointer: &'static str) -> Result<[u8; 32], WireError> {
+    parse_fingerprint(value).map_err(|error| domain_at(pointer, error))
 }
 
 #[must_use]
@@ -2672,6 +2714,29 @@ mod tests {
             parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("round trip"),
             result
         );
+    }
+
+    #[test]
+    fn result_json_domain_errors_include_instance_paths() {
+        let json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let invalid_estimate =
+            json.replacen("\"standard_error\":0.5", "\"standard_error\":-0.5", 1);
+        assert!(matches!(
+            parse_result_json(invalid_estimate.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/value" && message.contains("standard_error")
+        ));
+
+        let invalid_fingerprint = json.replacen(
+            "\"request_fingerprint\":\"blake3-256:0000000000000000000000000000000000000000000000000000000000000000\"",
+            "\"request_fingerprint\":\"not-a-fingerprint\"",
+            1,
+        );
+        assert!(matches!(
+            parse_result_json(invalid_fingerprint.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/request_fingerprint" && message.contains("fingerprint")
+        ));
     }
 
     #[test]
