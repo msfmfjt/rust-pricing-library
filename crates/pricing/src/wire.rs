@@ -1627,8 +1627,8 @@ impl TryFrom<ResultV1> for PricingResult {
                     &value.replay.request_fingerprint,
                     "/replay/request_fingerprint",
                 )?,
-                value.replay.library_version,
-                value.replay.platform,
+                non_empty_string_at(value.replay.library_version, "/replay/library_version")?,
+                non_empty_string_at(value.replay.platform, "/replay/platform")?,
             ),
         })
     }
@@ -2038,6 +2038,13 @@ fn parse_fingerprint(value: &str) -> Result<[u8; 32], WireError> {
 
 fn parse_fingerprint_at(value: &str, pointer: &'static str) -> Result<[u8; 32], WireError> {
     parse_fingerprint(value).map_err(|error| domain_at(pointer, error))
+}
+
+fn non_empty_string_at(value: String, pointer: &'static str) -> Result<String, WireError> {
+    if value.is_empty() {
+        return Err(domain_at(pointer, "string must not be empty"));
+    }
+    Ok(value)
 }
 
 #[must_use]
@@ -2744,6 +2751,22 @@ mod tests {
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/request_fingerprint" && message.contains("fingerprint")
         ));
+
+        for (field, original, pointer) in [
+            ("library_version", "0.1.0", "/replay/library_version"),
+            ("platform", "acceptance-test", "/replay/platform"),
+        ] {
+            let invalid = json.replacen(
+                &format!("\"{field}\":\"{original}\""),
+                &format!("\"{field}\":\"\""),
+                1,
+            );
+            assert!(matches!(
+                parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+                Err(WireError::DomainAt { pointer: actual, message })
+                    if actual == pointer && message.contains("empty")
+            ));
+        }
 
         for constant in ["NaN", "Infinity", "-Infinity"] {
             let invalid = json.replacen("10.0", constant, 1);

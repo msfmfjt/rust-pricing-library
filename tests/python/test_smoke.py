@@ -800,6 +800,17 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.document_kind, "pricing_result")
         self.assertEqual(issue.instance_path, "/value")
 
+        for field in ["library_version", "platform"]:
+            payload = json.loads(result.to_json())
+            payload["replay"][field] = ""
+            invalid = json.dumps(payload, separators=(",", ":"))
+            with self.subTest(field=field):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    rust_pricing.PricingResult.from_json(invalid)
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.document_kind, "pricing_result")
+                self.assertEqual(issue.instance_path, f"/replay/{field}")
+
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)
