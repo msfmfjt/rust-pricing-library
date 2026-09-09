@@ -112,6 +112,10 @@ def main() -> int:
                 raise SystemExit(f"{archive}: unsafe archive member path: {name}")
             if member.isfile():
                 names.add(name)
+            elif not member.isdir():
+                raise SystemExit(
+                    f"{archive}: unsupported archive member type for {name}: {member.type!r}"
+                )
 
         expected = REQUIRED_FILES.union(repository_source_files())
         missing = sorted(expected.difference(names))
