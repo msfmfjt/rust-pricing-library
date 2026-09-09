@@ -196,9 +196,27 @@ FORBIDDEN_SUFFIXES = {
 }
 
 JOE_KUO_DIRECTION_DATA = "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin"
+JOE_KUO_DIRECTION_DATA_README = "crates/pricing-mc/data/README.md"
+JOE_KUO_DIRECTION_DATA_MAGIC = b"JK621201"
+JOE_KUO_DIRECTION_DATA_VERSION = 1
+JOE_KUO_DIRECTION_DATA_DIMENSIONS = 21_201
+JOE_KUO_DIRECTION_DATA_BITS = 32
 JOE_KUO_DIRECTION_DATA_SHA256 = (
     "189f65c4e4fcf7455efb7618f3dafbbbaf70303fc35ecd380fa28a67ab896900"
 )
+REQUIRED_DIRECTION_DATA_README_SNIPPETS = {
+    "`joe-kuo-6.21201-u32be.bin` embeds the complete 21,201-dimensional",
+    "ASCII magic `JK621201`",
+    "big-endian format version `1`",
+    "big-endian dimension count `21201`",
+    "big-endian bit count `32`",
+    "row-major, big-endian `u32` direction words",
+    "SciPy's `_sobol_direction_numbers.npz`",
+    "new-joe-kuo-6.21201",
+    "updated 5 January 2010",
+    JOE_KUO_DIRECTION_DATA_SHA256,
+    "BSD 3-Clause License",
+}
 REQUIRED_THIRD_PARTY_NOTICE_SNIPPETS = {
     "SciPy Sobol direction-number data",
     JOE_KUO_DIRECTION_DATA,
@@ -246,6 +264,8 @@ def main() -> int:
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_release_readiness(package, archive)
+        check_direction_data(package, archive)
+        check_direction_data_readme(package, archive)
         check_third_party_notices(package, archive)
 
     return 0
@@ -408,13 +428,48 @@ def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
         raise SystemExit(f"{archive}: release readiness is missing required statements: {missing}")
 
 
-def check_third_party_notices(package: tarfile.TarFile, archive: str) -> None:
+def check_direction_data(package: tarfile.TarFile, archive: str) -> None:
     direction_data = read_bytes(package, JOE_KUO_DIRECTION_DATA)
+    expected_size = 20 + JOE_KUO_DIRECTION_DATA_DIMENSIONS * JOE_KUO_DIRECTION_DATA_BITS * 4
+    if len(direction_data) != expected_size:
+        raise SystemExit(
+            f"{archive}: Joe-Kuo direction data size mismatch: "
+            f"expected {expected_size} bytes, found {len(direction_data)}"
+        )
+    if direction_data[:8] != JOE_KUO_DIRECTION_DATA_MAGIC:
+        raise SystemExit(
+            f"{archive}: Joe-Kuo direction data magic mismatch: {direction_data[:8]!r}"
+        )
+    version = int.from_bytes(direction_data[8:12], "big")
+    if version != JOE_KUO_DIRECTION_DATA_VERSION:
+        raise SystemExit(
+            f"{archive}: Joe-Kuo direction data version mismatch: {version}"
+        )
+    dimensions = int.from_bytes(direction_data[12:16], "big")
+    if dimensions != JOE_KUO_DIRECTION_DATA_DIMENSIONS:
+        raise SystemExit(
+            f"{archive}: Joe-Kuo direction data dimension count mismatch: {dimensions}"
+        )
+    bits = int.from_bytes(direction_data[16:20], "big")
+    if bits != JOE_KUO_DIRECTION_DATA_BITS:
+        raise SystemExit(f"{archive}: Joe-Kuo direction data bit count mismatch: {bits}")
     actual_digest = hashlib.sha256(direction_data).hexdigest()
     if actual_digest != JOE_KUO_DIRECTION_DATA_SHA256:
         raise SystemExit(
             f"{archive}: Joe-Kuo direction data SHA-256 mismatch: {actual_digest}"
         )
+
+
+def check_direction_data_readme(package: tarfile.TarFile, archive: str) -> None:
+    readme = read_text(package, JOE_KUO_DIRECTION_DATA_README)
+    missing = sorted(
+        snippet for snippet in REQUIRED_DIRECTION_DATA_README_SNIPPETS if snippet not in readme
+    )
+    if missing:
+        raise SystemExit(f"{archive}: direction data README is missing: {missing}")
+
+
+def check_third_party_notices(package: tarfile.TarFile, archive: str) -> None:
     notices = read_text(package, "THIRD_PARTY_NOTICES.md")
     missing = sorted(
         snippet for snippet in REQUIRED_THIRD_PARTY_NOTICE_SNIPPETS if snippet not in notices
