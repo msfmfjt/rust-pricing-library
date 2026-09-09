@@ -128,6 +128,25 @@ REQUIRED_README_SNIPPETS = {
     "python scripts/check_benchmark_reports.py benchmark-results",
 }
 
+REQUIRED_RELEASE_READINESS_SNIPPETS = {
+    "Status: code and private artifact gates ready; external publication decisions open",
+    "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
+    "the retained Rust source archive for the exact commit",
+    "benchmark and replay artifacts for the supported platforms",
+    "Local Volatility reference fixture validation",
+    "JSON Schema validation",
+    "local Markdown link validation",
+    "retained source archive validation",
+    "Rust formatting, Clippy, unit/integration tests, and statistical acceptance",
+    "dependency-direction validation",
+    "Rust API documentation generation",
+    "Python extension build, wheel smoke test, Python smoke suite, benchmark run",
+    "benchmark artifact validation",
+    "private artifact repository location and access policy",
+    "internal licensing terms for private consumers",
+    "whether a public open-source license will ever be selected",
+}
+
 FORBIDDEN_PARTS = {
     ".git",
     "target",
@@ -183,6 +202,7 @@ def main() -> int:
         check_cargo_manifests(package, archive)
         check_ci_workflow(package, archive)
         check_readme_release_gates(package, archive)
+        check_release_readiness(package, archive)
 
     return 0
 
@@ -257,6 +277,15 @@ def check_readme_release_gates(package: tarfile.TarFile, archive: str) -> None:
     missing = sorted(snippet for snippet in REQUIRED_README_SNIPPETS if snippet not in readme)
     if missing:
         raise SystemExit(f"{archive}: README is missing documented release gates: {missing}")
+
+
+def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
+    readiness = read_text(package, "docs/release-readiness-v0.1.md")
+    missing = sorted(
+        snippet for snippet in REQUIRED_RELEASE_READINESS_SNIPPETS if snippet not in readiness
+    )
+    if missing:
+        raise SystemExit(f"{archive}: release readiness is missing required statements: {missing}")
 
 
 def read_text(package: tarfile.TarFile, name: str) -> str:
