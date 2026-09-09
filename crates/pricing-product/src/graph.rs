@@ -959,7 +959,11 @@ fn compile(graph: &SourceGraph, limits: GraphLimitPolicy) -> Result<CompiledPayo
         folded.insert(id, fold_node(id, opcode, &folded)?);
         if let Some(destinations) = outgoing.get(&id) {
             for destination in destinations {
-                let degree = indegree.get_mut(destination).expect("known destination");
+                let degree = indegree
+                    .get_mut(destination)
+                    .ok_or(GraphError::InternalOrdering {
+                        operand: *destination,
+                    })?;
                 *degree -= 1;
                 if *degree == 0 {
                     ready.insert(*destination);
@@ -971,7 +975,13 @@ fn compile(graph: &SourceGraph, limits: GraphLimitPolicy) -> Result<CompiledPayo
         let node = indegree
             .iter()
             .find_map(|(&id, &degree)| (degree != 0).then_some(id))
-            .expect("cycle leaves non-zero indegree");
+            .ok_or(GraphError::InternalOrdering {
+                operand: graph
+                    .outputs
+                    .first()
+                    .copied()
+                    .ok_or(GraphError::NoOutputs)?,
+            })?;
         return Err(GraphError::Cycle { node });
     }
 
