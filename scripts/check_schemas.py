@@ -132,8 +132,11 @@ def check_required_properties(schema: dict[str, Any], path: Path) -> None:
             continue
         require(isinstance(required, list), f"{path}:{pointer((*location, 'required'))}: required must be an array")
         require(isinstance(properties, dict), f"{path}:{pointer(location)}: object with required must define properties")
+        seen_required: set[str] = set()
         for field in required:
             require(isinstance(field, str), f"{path}:{pointer((*location, 'required'))}: required entry must be a string")
+            require(field not in seen_required, f"{path}:{pointer((*location, 'required'))}: duplicate required field {field!r}")
+            seen_required.add(field)
             require(field in properties, f"{path}:{pointer((*location, 'required'))}: required field {field!r} missing from properties")
 
 
@@ -147,6 +150,35 @@ def check_strict_objects(schema: dict[str, Any], path: Path) -> None:
             value.get("additionalProperties") is False or value.get("unevaluatedProperties") is False,
             f"{path}:{pointer(location)}: schema object must reject unknown fields",
         )
+
+
+def check_tagged_union_discriminators(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        one_of = value.get("oneOf")
+        if not isinstance(one_of, list):
+            continue
+        tags: dict[str, int] = {}
+        for index, variant in enumerate(one_of):
+            if not isinstance(variant, dict):
+                continue
+            properties = variant.get("properties")
+            if not isinstance(properties, dict):
+                continue
+            discriminator = properties.get("type")
+            if not isinstance(discriminator, dict):
+                continue
+            tag = discriminator.get("const")
+            if not isinstance(tag, str):
+                continue
+            previous = tags.get(tag)
+            require(
+                previous is None,
+                f"{path}:{pointer((*location, 'oneOf', index, 'properties', 'type', 'const'))}: "
+                f"duplicate union discriminator {tag!r} also appears in oneOf[{previous}]",
+            )
+            tags[tag] = index
 
 
 def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> None:
@@ -170,6 +202,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_wire_names(schema, path)
     check_required_properties(schema, path)
     check_strict_objects(schema, path)
+    check_tagged_union_discriminators(schema, path)
 
 
 def main() -> int:
