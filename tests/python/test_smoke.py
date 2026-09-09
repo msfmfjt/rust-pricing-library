@@ -645,6 +645,25 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(parsed.independent_sampling_units, result.independent_sampling_units)
         self.assertAlmostEqual(parsed.estimator_variance, result.standard_error ** 2)
 
+    def test_pretty_json_helpers_round_trip(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        pretty_request = request.to_pretty_json()
+        self.assertIn("\n  ", pretty_request)
+        self.assertEqual(
+            rust_pricing.PricingRequest.from_json(pretty_request).to_json(),
+            request.to_json(),
+        )
+
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        pretty_result = result.to_pretty_json()
+        self.assertIn("\n  ", pretty_result)
+        self.assertEqual(
+            rust_pricing.PricingResult.from_json(pretty_result).to_json(),
+            result.to_json(),
+        )
+
     def test_pricing_result_from_json_error_is_structured(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
         result = rust_pricing.PricingPlan.compile(

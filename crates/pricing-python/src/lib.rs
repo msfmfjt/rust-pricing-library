@@ -13,7 +13,8 @@ use pricing::{
     VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
     VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit, WireError,
     current_request_schema, current_result_schema, fingerprint_request, parse_request_json,
-    parse_result_json, request_to_json, result_to_json,
+    parse_result_json, request_to_json, request_to_pretty_json, result_to_json,
+    result_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -226,6 +227,10 @@ impl PyPricingRequest {
 
     fn to_json(&self) -> PyResult<String> {
         request_to_json(&self.inner).map_err(pricing_exception)
+    }
+
+    fn to_pretty_json(&self) -> PyResult<String> {
+        request_to_pretty_json(&self.inner).map_err(pricing_exception)
     }
 
     #[getter]
@@ -661,6 +666,10 @@ impl PyPricingResult {
 
     fn to_json(&self) -> PyResult<String> {
         result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
+    }
+
+    fn to_pretty_json(&self) -> PyResult<String> {
+        result_to_pretty_json(&self.inner.pricing_result).map_err(pricing_exception)
     }
 
     fn __repr__(&self) -> String {
