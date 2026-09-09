@@ -925,6 +925,20 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         for name in exported:
             self.assertTrue(hasattr(rust_pricing, name), name)
         self.assertTrue(hasattr(rust_pricing.PricingResult, "vega_kt"))
+        for name in [
+            "coordinates",
+            "estimates",
+            "raw_buckets",
+            "full_bucket_covariance",
+            "covariance_layout",
+            "projection",
+            "residual_diagnostics",
+            "raw_unit",
+            "market_scaled_unit",
+            "policy_label",
+            "truncation_order",
+        ]:
+            self.assertTrue(hasattr(rust_pricing.VegaKtResult, name), name)
 
     def test_native_builder_error_is_structured(self):
         curve = rust_pricing.DiscountCurve(1, [0.0, 1.0], [1.0, 0.95])
