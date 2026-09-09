@@ -13,7 +13,7 @@ def main() -> None:
         raise SystemExit("usage: check_replay_fixture.py <generated.json>")
 
     generated = Path(sys.argv[1])
-    document = json.loads(generated.read_text(encoding="utf-8"))
+    generated_text, document = load_object(generated)
     platform = document.get("platform")
     if not isinstance(platform, str):
         raise SystemExit("generated replay evidence has no string platform field")
@@ -30,8 +30,7 @@ def main() -> None:
     if not expected.is_file():
         raise SystemExit(f"no frozen replay fixture for {platform}: {expected}")
 
-    generated_text = generated.read_text(encoding="utf-8")
-    expected_text = expected.read_text(encoding="utf-8")
+    expected_text, _ = load_object(expected)
     if generated_text != expected_text:
         diff = difflib.unified_diff(
             expected_text.splitlines(),
@@ -43,6 +42,35 @@ def main() -> None:
         raise SystemExit("replay fixture mismatch:\n" + "\n".join(diff))
 
     print(f"replay fixture matches {expected}")
+
+
+def load_object(path: Path) -> tuple[str, dict[str, object]]:
+    raw = path.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise SystemExit(f"{path}: UTF-8 BOM is not allowed")
+    if b"\r" in raw:
+        raise SystemExit(f"{path}: CR or CRLF line endings are not allowed")
+    if not raw.endswith(b"\n"):
+        raise SystemExit(f"{path}: JSON artifact must end with LF")
+    if raw.endswith(b"\n\n"):
+        raise SystemExit(f"{path}: JSON artifact must end with exactly one LF")
+    try:
+        text = raw.decode("utf-8")
+        document = json.loads(text, object_pairs_hook=reject_duplicate_keys)
+    except ValueError as exc:
+        raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
+    if not isinstance(document, dict):
+        raise SystemExit(f"{path}: top-level JSON value must be an object")
+    return text, document
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    document = {}
+    for key, value in pairs:
+        if key in document:
+            raise ValueError(f"duplicate key: {key}")
+        document[key] = value
+    return document
 
 
 if __name__ == "__main__":
