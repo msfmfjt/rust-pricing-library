@@ -55,12 +55,8 @@ fn standard_ssvi_matches_v1_reference_fixture() {
             decimal(expected, "phi_theta"),
         );
 
-        let theta_curve = ThetaPchip::new(
-            vec![1.0, 2.0],
-            vec![theta, theta + theta_t],
-            theta_t,
-        )
-        .expect("valid linear theta curve");
+        let theta_curve = ThetaPchip::new(vec![1.0, 2.0], vec![theta, theta + theta_t], theta_t)
+            .expect("valid linear theta curve");
         let surface = StandardSsvi::new(
             theta_curve,
             rho,

@@ -10,7 +10,10 @@ pub struct SurfaceValidationTolerance {
 
 impl SurfaceValidationTolerance {
     pub fn new(absolute: f64, relative: f64) -> Result<Self, MarketError> {
-        for (parameter, value) in [("absolute_tolerance", absolute), ("relative_tolerance", relative)] {
+        for (parameter, value) in [
+            ("absolute_tolerance", absolute),
+            ("relative_tolerance", relative),
+        ] {
             if !value.is_finite() || value < 0.0 {
                 return Err(MarketError::InvalidSurfaceParameter {
                     parameter,
@@ -79,11 +82,7 @@ impl PhiSpec {
         Ok(())
     }
 
-    fn validate(
-        self,
-        rho: f64,
-        tolerance: SurfaceValidationTolerance,
-    ) -> Result<(), MarketError> {
+    fn validate(self, rho: f64, tolerance: SurfaceValidationTolerance) -> Result<(), MarketError> {
         self.validate_syntax()?;
         match self {
             Self::PowerLaw { eta, gamma } => {
@@ -128,8 +127,7 @@ impl PhiSpec {
         let evaluation = match self {
             Self::PowerLaw { eta, gamma } => {
                 let value = eta / (theta.powf(gamma) * (1.0 + theta).powf(1.0 - gamma));
-                let theta_derivative = -value
-                    * (gamma / theta + (1.0 - gamma) / (1.0 + theta));
+                let theta_derivative = -value * (gamma / theta + (1.0 - gamma) / (1.0 + theta));
                 PhiEvaluation {
                     value,
                     theta_derivative,
@@ -142,13 +140,11 @@ impl PhiSpec {
                         + z * (-1.0 / 6.0
                             + z * (1.0 / 24.0
                                 + z * (-1.0 / 120.0
-                                    + z * (1.0 / 720.0
-                                        + z * (-1.0 / 5040.0 + z / 40320.0)))));
+                                    + z * (1.0 / 720.0 + z * (-1.0 / 5040.0 + z / 40320.0)))));
                     let derivative_by_z = -1.0 / 6.0
                         + z * (1.0 / 12.0
                             + z * (-1.0 / 40.0
-                                + z * (1.0 / 180.0
-                                    + z * (-1.0 / 1008.0 + z / 6720.0))));
+                                + z * (1.0 / 180.0 + z * (-1.0 / 1008.0 + z / 6720.0))));
                     PhiEvaluation {
                         value,
                         theta_derivative: lambda * derivative_by_z,
@@ -157,8 +153,7 @@ impl PhiSpec {
                     let exp_minus_z = (-z).exp();
                     PhiEvaluation {
                         value: (z - 1.0 + exp_minus_z) / (z * z),
-                        theta_derivative: lambda
-                            * (2.0 - z - (z + 2.0) * exp_minus_z)
+                        theta_derivative: lambda * (2.0 - z - (z + 2.0) * exp_minus_z)
                             / (z * z * z),
                     }
                 }
@@ -296,17 +291,10 @@ impl ImpliedVarianceSurface for StandardSsvi {
         let total_variance = theta.theta * shape / 2.0;
         let common = self.rho + a / q;
         let log_moneyness_derivative = theta.theta * phi.value * common / 2.0;
-        let log_moneyness_second_derivative = theta.theta
-            * phi.value
-            * phi.value
-            * (1.0 - self.rho * self.rho)
-            / (2.0 * q * q * q);
-        let theta_partial = shape / 2.0
-            + theta.theta
-                * log_moneyness
-                * phi.theta_derivative
-                * common
-                / 2.0;
+        let log_moneyness_second_derivative =
+            theta.theta * phi.value * phi.value * (1.0 - self.rho * self.rho) / (2.0 * q * q * q);
+        let theta_partial =
+            shape / 2.0 + theta.theta * log_moneyness * phi.theta_derivative * common / 2.0;
         let time_derivative = theta_partial * theta.derivative;
         let result = TotalVarianceDerivatives {
             total_variance,

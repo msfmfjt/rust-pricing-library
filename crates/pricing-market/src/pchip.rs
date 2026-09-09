@@ -163,8 +163,7 @@ impl ThetaPchip {
             Err(_) => {
                 let last = self.times.len() - 1;
                 Ok(ThetaEvaluation {
-                    theta: self.values[last]
-                        + self.terminal_slope * (time - self.times[last]),
+                    theta: self.values[last] + self.terminal_slope * (time - self.times[last]),
                     derivative: self.terminal_slope,
                     region: ThetaRegion::LongExtrapolated,
                 })
@@ -282,8 +281,8 @@ mod tests {
 
     #[test]
     fn extrapolation_rules_are_explicit() {
-        let curve = ThetaPchip::new(vec![0.5, 1.0], vec![0.02, 0.03], 0.004)
-            .expect("valid theta curve");
+        let curve =
+            ThetaPchip::new(vec![0.5, 1.0], vec![0.02, 0.03], 0.004).expect("valid theta curve");
         assert_eq!(
             curve.evaluate(0.25).expect("short"),
             ThetaEvaluation {
