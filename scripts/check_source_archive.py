@@ -38,6 +38,8 @@ REQUIRED_FILES = {
     "crates/pricing-python/Cargo.toml",
     "crates/pricing-risk/Cargo.toml",
     "crates/pricing/Cargo.toml",
+    "crates/pricing-mc/data/README.md",
+    "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin",
     "schemas/v1/pricing_request.schema.json",
     "schemas/v1/pricing_result.schema.json",
     "fixtures/acceptance/README.md",
