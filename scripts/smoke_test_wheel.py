@@ -358,6 +358,19 @@ def expected_project_metadata() -> dict[str, str]:
             raise RuntimeError(
                 f"pyproject.toml project.{key} must stay absent until licensing is decided"
             )
+    if project.get("dynamic") != ["version"]:
+        raise RuntimeError("pyproject.toml project.dynamic must derive version dynamically")
+    maturin = required_table(pyproject, "tool", "pyproject.toml").get("maturin")
+    if not isinstance(maturin, dict):
+        raise RuntimeError("pyproject.toml must contain a [tool.maturin] table")
+    expected_maturin = {
+        "manifest-path": "crates/pricing-python/Cargo.toml",
+        "module-name": "rust_pricing",
+        "features": ["extension-module"],
+    }
+    for key, expected_value in expected_maturin.items():
+        if maturin.get(key) != expected_value:
+            raise RuntimeError(f"pyproject.toml tool.maturin.{key} mismatch")
     version = required_string(workspace_package, "version", "Cargo.toml workspace.package")
     requires_python = required_string(
         project,
