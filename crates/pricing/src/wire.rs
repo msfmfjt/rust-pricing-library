@@ -2036,6 +2036,12 @@ fn parse_fingerprint(value: &str) -> Result<[u8; 32], WireError> {
     if hex.len() != 64 {
         return Err(WireError::InvalidFingerprint(value.to_owned()));
     }
+    if !hex
+        .bytes()
+        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(WireError::InvalidFingerprint(value.to_owned()));
+    }
     let mut bytes = [0_u8; 32];
     for (index, chunk) in hex.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let text = std::str::from_utf8(chunk)
@@ -2772,6 +2778,16 @@ mod tests {
         );
         assert!(matches!(
             parse_result_json(invalid_fingerprint.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/request_fingerprint" && message.contains("fingerprint")
+        ));
+        let uppercase_fingerprint = json.replacen(
+            "\"request_fingerprint\":\"blake3-256:0000000000000000000000000000000000000000000000000000000000000000\"",
+            "\"request_fingerprint\":\"blake3-256:ABCDEF0000000000000000000000000000000000000000000000000000000000\"",
+            1,
+        );
+        assert!(matches!(
+            parse_result_json(uppercase_fingerprint.as_bytes(), JsonLimits::DEFAULT),
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/request_fingerprint" && message.contains("fingerprint")
         ));
