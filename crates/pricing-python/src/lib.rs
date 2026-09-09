@@ -5,8 +5,6 @@
 mod builders;
 mod diagnostics;
 
-use std::collections::BTreeMap;
-
 use pricing::mc::ExecutionPolicy;
 use pricing::{
     Estimate, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest, RiskEstimate,
@@ -18,6 +16,7 @@ use pricing::{
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 use builders::{
     PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket,
@@ -34,11 +33,21 @@ create_exception!(rust_pricing, PricingError, PyRuntimeError);
 pub struct PyValidationIssue {
     pointer: String,
     phase: String,
+    schema_version: u32,
+    document_kind: String,
     code: String,
     message: String,
 }
 
 impl PyValidationIssue {
+    fn request_schema_version() -> u32 {
+        pricing::core::SchemaVersion::CURRENT.get()
+    }
+
+    fn request_document_kind() -> String {
+        pricing::core::DocumentKind::PricingRequest.as_str().into()
+    }
+
     fn wire(error: &WireError) -> Self {
         let (phase, code) = match error {
             WireError::Json(_) | WireError::Utf8Bom => ("syntax_and_limits", "invalid_json"),
@@ -52,9 +61,15 @@ impl PyValidationIssue {
             WireError::Domain(_) => ("domain", "invalid_domain_value"),
             WireError::InvalidFingerprint(_) => ("declared_schema", "invalid_fingerprint"),
         };
+        let schema_version = match error {
+            WireError::UnsupportedSchemaVersion(version) => *version,
+            _ => Self::request_schema_version(),
+        };
         Self {
             pointer: String::new(),
             phase: phase.into(),
+            schema_version,
+            document_kind: Self::request_document_kind(),
             code: code.into(),
             message: error.to_string(),
         }
@@ -64,6 +79,8 @@ impl PyValidationIssue {
         Self {
             pointer: String::new(),
             phase: "domain".into(),
+            schema_version: Self::request_schema_version(),
+            document_kind: Self::request_document_kind(),
             code: "plan_compile_error".into(),
             message: error.to_string(),
         }
@@ -77,6 +94,8 @@ impl PyValidationIssue {
         Self {
             pointer: pointer.into(),
             phase: "domain".into(),
+            schema_version: Self::request_schema_version(),
+            document_kind: Self::request_document_kind(),
             code: code.into(),
             message: message.into(),
         }
@@ -101,6 +120,16 @@ impl PyValidationIssue {
     }
 
     #[getter]
+    fn schema_version(&self) -> u32 {
+        self.schema_version
+    }
+
+    #[getter]
+    fn document_kind(&self) -> &str {
+        &self.document_kind
+    }
+
+    #[getter]
     fn code(&self) -> &str {
         &self.code
     }
@@ -110,20 +139,27 @@ impl PyValidationIssue {
         &self.message
     }
 
-    fn to_dict(&self) -> BTreeMap<String, String> {
-        BTreeMap::from([
-            ("pointer".into(), self.pointer.clone()),
-            ("instance_path".into(), self.pointer.clone()),
-            ("phase".into(), self.phase.clone()),
-            ("code".into(), self.code.clone()),
-            ("message".into(), self.message.clone()),
-        ])
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("pointer", &self.pointer)?;
+        dict.set_item("instance_path", &self.pointer)?;
+        dict.set_item("phase", &self.phase)?;
+        dict.set_item("schema_version", self.schema_version)?;
+        dict.set_item("document_kind", &self.document_kind)?;
+        dict.set_item("code", &self.code)?;
+        dict.set_item("message", &self.message)?;
+        Ok(dict)
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "ValidationIssue(pointer={:?}, phase={:?}, code={:?}, message={:?})",
-            self.pointer, self.phase, self.code, self.message
+            "ValidationIssue(pointer={:?}, phase={:?}, schema_version={}, document_kind={:?}, code={:?}, message={:?})",
+            self.pointer,
+            self.phase,
+            self.schema_version,
+            self.document_kind,
+            self.code,
+            self.message
         )
     }
 }

@@ -623,6 +623,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         issue = captured.exception.issues[0]
         self.assertEqual(issue.pointer, "/market/spot")
         self.assertEqual(issue.instance_path, "/market/spot")
+        self.assertEqual(issue.schema_version, 1)
+        self.assertEqual(issue.document_kind, "pricing_request")
         self.assertEqual(issue.code, "invalid_spot")
 
     def test_validation_error_has_immutable_structured_issues(self):
@@ -637,6 +639,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.code, "unsupported_schema_version")
         self.assertEqual(issue.to_dict()["pointer"], "")
         self.assertEqual(issue.to_dict()["instance_path"], "")
+        self.assertEqual(issue.to_dict()["schema_version"], 99)
+        self.assertEqual(issue.to_dict()["document_kind"], "pricing_request")
         with self.assertRaises(AttributeError):
             issue.code = "changed"
 
