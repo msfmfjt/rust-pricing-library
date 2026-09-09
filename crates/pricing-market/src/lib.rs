@@ -19,8 +19,8 @@ pub use essvi::{EssviParameters, EssviSlice, EssviSurface};
 pub use forward::{EquityForward, ForwardEvaluation};
 pub use pchip::{ThetaEvaluation, ThetaPchip, ThetaRegion};
 pub use ssvi::{
-    ImpliedVarianceSurface, PhiEvaluation, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
-    TotalVarianceDerivatives,
+    ForwardCallEvaluation, ImpliedVarianceSurface, PhiEvaluation, PhiSpec, StandardSsvi,
+    SurfaceValidationTolerance, TotalVarianceDerivatives,
 };
 
 /// Returns the lower-level role used by market numerics.

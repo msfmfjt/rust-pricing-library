@@ -74,4 +74,22 @@ fn essvi_matches_v1_interpolation_fixture() {
         decimal(expected, "w_kk"),
     );
     assert_close("w_t", result.time_derivative, decimal(expected, "w_t"));
+
+    let forward = 100.0;
+    let log_moneyness = decimal(inputs, "k");
+    let call = surface
+        .forward_call_evaluation(time, log_moneyness, forward)
+        .expect("valid forward call evaluation");
+    let strike_bump = 0.02;
+    let up = surface
+        .forward_call_evaluation(time, ((call.strike + strike_bump) / forward).ln(), forward)
+        .expect("up strike")
+        .undiscounted_price;
+    let down = surface
+        .forward_call_evaluation(time, ((call.strike - strike_bump) / forward).ln(), forward)
+        .expect("down strike")
+        .undiscounted_price;
+    let finite_difference =
+        (up - 2.0 * call.undiscounted_price + down) / (strike_bump * strike_bump);
+    assert!((call.call_density - finite_difference).abs() < 1.0e-8);
 }

@@ -135,6 +135,7 @@ dependencies = [
  "pricing-market",
  "pricing-mc",
  "pricing-models",
+ "pricing-numerics",
  "pricing-product",
  "pricing-risk",
  "serde",
