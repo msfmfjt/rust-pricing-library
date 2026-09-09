@@ -795,7 +795,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                         SideV1::Put => OptionSide::Put,
                     },
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/product", error))?,
             ),
             ProductV1::Digital {
                 underlying_id,
@@ -828,7 +828,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                         None => parse_date_at(&expiry, "/product/expiry")?,
                     },
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/product", error))?,
             ),
             ProductV1::Barrier {
                 underlying_id,
@@ -873,7 +873,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                     rebate,
                     parse_date_at(&payment_date, "/product/payment_date")?,
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/product", error))?,
             ),
             ProductV1::ArithmeticAsian {
                 underlying_id,
@@ -904,18 +904,26 @@ impl TryFrom<RequestV1> for PricingRequest {
                             match observation.value {
                                 AsianObservationValueV1::Known { fixing } => {
                                     AsianObservation::known(date, observation.weight, fixing)
-                                        .map_err(domain)
+                                        .map_err(|error| {
+                                            domain_at(
+                                                format!("/product/observations/{index}"),
+                                                error,
+                                            )
+                                        })
                                 }
-                                AsianObservationValueV1::Unknown => {
-                                    AsianObservation::unknown(date, observation.weight)
-                                        .map_err(domain)
-                                }
+                                AsianObservationValueV1::Unknown => AsianObservation::unknown(
+                                    date,
+                                    observation.weight,
+                                )
+                                .map_err(|error| {
+                                    domain_at(format!("/product/observations/{index}"), error)
+                                }),
                             }
                         })
                         .collect::<Result<Vec<_>, WireError>>()?,
                     parse_date_at(&payment_date, "/product/payment_date")?,
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/product", error))?,
             ),
             ProductV1::FixedLookback {
                 underlying_id,
@@ -946,7 +954,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                     historical_extremum,
                     parse_date_at(&payment_date, "/product/payment_date")?,
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/product", error))?,
             ),
         };
         let market = match value.market {
@@ -958,10 +966,11 @@ impl TryFrom<RequestV1> for PricingRequest {
                 dividend_curve,
                 discrete_dividends,
             } => {
-                let discount = Arc::new(curve_from_wire(discount_curve)?);
-                let dividend = Arc::new(curve_from_wire(dividend_curve)?);
+                let discount = Arc::new(curve_from_wire(discount_curve, "/market/discount_curve")?);
+                let dividend = Arc::new(curve_from_wire(dividend_curve, "/market/dividend_curve")?);
                 let underlying = UnderlyingId::new(underlying_id);
-                let spot = PositiveF64::new(spot, "spot").map_err(domain)?;
+                let spot = PositiveF64::new(spot, "spot")
+                    .map_err(|error| domain_at("/market/spot", error))?;
                 let forward = if discrete_dividends.is_empty() {
                     EquityForward::new(underlying, spot, discount, dividend)
                 } else {
@@ -972,21 +981,29 @@ impl TryFrom<RequestV1> for PricingRequest {
                         dividend,
                         discrete_dividends
                             .into_iter()
-                            .map(dividend_event_from_wire)
+                            .enumerate()
+                            .map(|(index, event)| {
+                                dividend_event_from_wire(
+                                    event,
+                                    format!("/market/discrete_dividends/{index}"),
+                                )
+                            })
                             .collect::<Result<Vec<_>, _>>()?,
                     )
-                    .map_err(domain)?
+                    .map_err(|error| domain_at("/market/discrete_dividends", error))?
                 };
                 MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
             }
         };
         let model = match value.model {
-            ModelV1::BlackScholes { volatility } => {
-                ModelSpec::BlackScholes(BlackScholesSpec::new(volatility).map_err(domain)?)
-            }
-            ModelV1::Black76 { volatility } => {
-                ModelSpec::Black76(Black76Spec::new(volatility).map_err(domain)?)
-            }
+            ModelV1::BlackScholes { volatility } => ModelSpec::BlackScholes(
+                BlackScholesSpec::new(volatility)
+                    .map_err(|error| domain_at("/model/volatility", error))?,
+            ),
+            ModelV1::Black76 { volatility } => ModelSpec::Black76(
+                Black76Spec::new(volatility)
+                    .map_err(|error| domain_at("/model/volatility", error))?,
+            ),
             ModelV1::LocalVolatility {
                 local_variance_grid,
                 reporting_iv_basis,
@@ -1008,7 +1025,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                     independent_sampling_units,
                     variance_reduction.into(),
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/engine", error))?,
             ),
             EngineV1::RandomizedQuasiMonteCarlo {
                 points_per_scramble,
@@ -1022,11 +1039,12 @@ impl TryFrom<RequestV1> for PricingRequest {
                     master_scramble_seed,
                     variance_reduction.into(),
                 )
-                .map_err(domain)?,
+                .map_err(|error| domain_at("/engine", error))?,
             ),
         };
         let risk = risk_from_wire(value.risk)?;
-        PricingRequest::new(valuation_date, product, market, model, engine, risk).map_err(domain)
+        PricingRequest::new(valuation_date, product, market, model, engine, risk)
+            .map_err(|error| domain_at("", error))
     }
 }
 
@@ -1056,7 +1074,7 @@ fn local_volatility_from_wire(
         value.floor,
         value.cap,
     )
-    .map_err(domain)?;
+    .map_err(|error| domain_at(grid_pointer, error))?;
     if let Some(basis) = reporting_iv_basis {
         spec = spec.with_reporting_iv_basis(reporting_iv_basis_from_wire(basis, basis_pointer)?);
     }
@@ -1085,23 +1103,25 @@ fn reporting_iv_basis_from_wire(
         value.log_forward_moneyness_nodes,
         value.implied_volatilities,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
 
-fn dividend_event_from_wire(value: DividendEventV1) -> Result<DividendEvent, WireError> {
+fn dividend_event_from_wire(
+    value: DividendEventV1,
+    pointer: String,
+) -> Result<DividendEvent, WireError> {
     let event = EventId::new(value.event_id);
     let quote = match value.quote {
-        DividendQuoteV1::FixedCash { amount } => {
-            DividendQuote::fixed_cash(amount, event).map_err(domain)?
-        }
-        DividendQuoteV1::Proportional { beta } => {
-            DividendQuote::proportional(beta, event).map_err(domain)?
-        }
+        DividendQuoteV1::FixedCash { amount } => DividendQuote::fixed_cash(amount, event)
+            .map_err(|error| domain_at(format!("{pointer}/quote/amount"), error))?,
+        DividendQuoteV1::Proportional { beta } => DividendQuote::proportional(beta, event)
+            .map_err(|error| domain_at(format!("{pointer}/quote/beta"), error))?,
         DividendQuoteV1::FixedCashAndProportional { fixed_cash, beta } => {
-            DividendQuote::fixed_cash_and_proportional(fixed_cash, beta, event).map_err(domain)?
+            DividendQuote::fixed_cash_and_proportional(fixed_cash, beta, event)
+                .map_err(|error| domain_at(format!("{pointer}/quote"), error))?
         }
     };
-    DividendEvent::new(event, value.ex_time, quote).map_err(domain)
+    DividendEvent::new(event, value.ex_time, quote).map_err(|error| domain_at(pointer, error))
 }
 
 impl From<VarianceReductionV1> for VarianceReduction {
@@ -1110,13 +1130,16 @@ impl From<VarianceReductionV1> for VarianceReduction {
     }
 }
 
-fn curve_from_wire(value: CurveV1) -> Result<LogLinearDiscountCurve, WireError> {
+fn curve_from_wire(
+    value: CurveV1,
+    pointer: &'static str,
+) -> Result<LogLinearDiscountCurve, WireError> {
     LogLinearDiscountCurve::new(
         CurveId::new(value.curve_id),
         value.times,
         value.discount_factors,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
@@ -1127,7 +1150,7 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
                 SpotBumpV1::Absolute(x) => SpotBump::absolute(x),
                 SpotBumpV1::Relative(x) => SpotBump::relative(x),
             }
-            .map_err(domain)?;
+            .map_err(|error| domain_at("/risk/gamma/bump", error))?;
             Ok::<_, WireError>(GammaConfig::new(bump))
         })
         .transpose()?;
@@ -1148,7 +1171,7 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
                 item.relative_density_threshold,
                 item.full_bucket_covariance,
             )
-            .map_err(domain)
+            .map_err(|error| domain_at("/risk/vega_kt", error))
         })
         .transpose()?;
     let smile = match value.smile_dynamics {
@@ -1165,7 +1188,7 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
         value.checkpoint_interval,
         value.aad_tile_capacity,
     )
-    .map_err(domain)
+    .map_err(|error| domain_at("/risk", error))
 }
 
 fn parse_date_at(value: &str, pointer: &'static str) -> Result<Date, WireError> {
@@ -1185,9 +1208,9 @@ fn domain(error: impl fmt::Display) -> WireError {
     WireError::Domain(error.to_string())
 }
 
-fn domain_at(pointer: &'static str, error: impl fmt::Display) -> WireError {
+fn domain_at(pointer: impl Into<String>, error: impl fmt::Display) -> WireError {
     WireError::DomainAt {
-        pointer: pointer.to_owned(),
+        pointer: pointer.into(),
         message: error.to_string(),
     }
 }

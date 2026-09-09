@@ -656,6 +656,16 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.instance_path, "/valuation_date")
         self.assertEqual(issue.to_dict()["instance_path"], "/valuation_date")
 
+    def test_json_market_error_reports_instance_path(self):
+        invalid = self.request_json.replace('"spot":100.0', '"spot":-100.0')
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingRequest.from_json(invalid)
+
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.phase, "domain")
+        self.assertEqual(issue.instance_path, "/market/spot")
+        self.assertEqual(issue.code, "invalid_domain_value")
+
 
 if __name__ == "__main__":
     unittest.main()
