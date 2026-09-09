@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import PurePosixPath
 from pathlib import Path
 import sys
@@ -194,6 +195,19 @@ FORBIDDEN_SUFFIXES = {
     ".pyo",
 }
 
+JOE_KUO_DIRECTION_DATA = "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin"
+JOE_KUO_DIRECTION_DATA_SHA256 = (
+    "189f65c4e4fcf7455efb7618f3dafbbbaf70303fc35ecd380fa28a67ab896900"
+)
+REQUIRED_THIRD_PARTY_NOTICE_SNIPPETS = {
+    "SciPy Sobol direction-number data",
+    JOE_KUO_DIRECTION_DATA,
+    "generated from SciPy's `_sobol_direction_numbers.npz`",
+    "Frances Y. Kuo's UNSW Sobol sequence resource",
+    "BSD 3-Clause License",
+    "Redistribution and use in source and binary forms",
+}
+
 
 def main() -> int:
     if len(sys.argv) != 2:
@@ -232,6 +246,7 @@ def main() -> int:
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_release_readiness(package, archive)
+        check_third_party_notices(package, archive)
 
     return 0
 
@@ -391,6 +406,28 @@ def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
     )
     if missing:
         raise SystemExit(f"{archive}: release readiness is missing required statements: {missing}")
+
+
+def check_third_party_notices(package: tarfile.TarFile, archive: str) -> None:
+    direction_data = read_bytes(package, JOE_KUO_DIRECTION_DATA)
+    actual_digest = hashlib.sha256(direction_data).hexdigest()
+    if actual_digest != JOE_KUO_DIRECTION_DATA_SHA256:
+        raise SystemExit(
+            f"{archive}: Joe-Kuo direction data SHA-256 mismatch: {actual_digest}"
+        )
+    notices = read_text(package, "THIRD_PARTY_NOTICES.md")
+    missing = sorted(
+        snippet for snippet in REQUIRED_THIRD_PARTY_NOTICE_SNIPPETS if snippet not in notices
+    )
+    if missing:
+        raise SystemExit(f"{archive}: third-party notices are missing: {missing}")
+
+
+def read_bytes(package: tarfile.TarFile, name: str) -> bytes:
+    member = package.extractfile(name)
+    if member is None:
+        raise SystemExit(f"missing binary member: {name}")
+    return member.read()
 
 
 def read_text(package: tarfile.TarFile, name: str) -> str:
