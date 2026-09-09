@@ -325,11 +325,6 @@ def verify_cyclonedx_sbom(
     components = sbom.get("components")
     if not isinstance(components, list):
         raise RuntimeError("wheel CycloneDX SBOM components must be an array")
-    component_names = {
-        component.get("name")
-        for component in components
-        if isinstance(component, dict) and isinstance(component.get("name"), str)
-    }
     required_workspace_components = {
         "pricing",
         "pricing-aad",
@@ -341,6 +336,23 @@ def verify_cyclonedx_sbom(
         "pricing-product",
         "pricing-risk",
     }
+    component_names = set()
+    for index, component in enumerate(components, start=1):
+        if not isinstance(component, dict):
+            raise RuntimeError(f"wheel CycloneDX SBOM component {index} must be an object")
+        name = component.get("name")
+        if not isinstance(name, str) or not name:
+            raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no name")
+        component_names.add(name)
+        if name in required_workspace_components:
+            if component.get("type") != "library":
+                raise RuntimeError(
+                    f"wheel CycloneDX SBOM component {name} must be a library"
+                )
+            if component.get("version") != version:
+                raise RuntimeError(
+                    f"wheel CycloneDX SBOM component {name} version mismatch"
+                )
     missing = sorted(required_workspace_components.difference(component_names))
     if missing:
         raise RuntimeError(f"wheel CycloneDX SBOM is missing components: {missing}")
