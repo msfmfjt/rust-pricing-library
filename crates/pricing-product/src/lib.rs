@@ -9,7 +9,7 @@ pub use graph::{
     CompiledOpcode, CompiledPayoff, GraphError, GraphFingerprint, GraphLimitPolicy,
     PayoffEvaluation, SourceGraph, SourceGraphBuilder, SourceNode, SourceOpcode, TerminalAdjoint,
 };
-pub use spec::{EuropeanVanillaSpec, OptionSide, ProductSpec};
+pub use spec::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec};
 
 /// Returns the domain foundation role.
 #[must_use]

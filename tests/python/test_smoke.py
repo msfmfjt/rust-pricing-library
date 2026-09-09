@@ -141,6 +141,42 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
 
+    def test_native_digital_product_evaluates_and_round_trips(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        product = rust_pricing.Product.digital(
+            1, 2, "2027-09-04", 100.0, 10.0, "call", "cash"
+        )
+        market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
+        request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(),
+        )
+        payload = json.loads(request.to_json())
+        self.assertEqual(payload["product"]["type"], "digital")
+        self.assertEqual(payload["product"]["payout_kind"]["type"], "cash")
+        parsed = rust_pricing.PricingRequest.from_json(request.to_json())
+        self.assertEqual(parsed.fingerprint, request.fingerprint)
+        result = rust_pricing.PricingPlan.compile(
+            parsed, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        self.assertTrue(math.isfinite(result.value))
+        self.assertGreaterEqual(result.standard_error, 0.0)
+
+        with self.assertRaises(rust_pricing.ValidationError):
+            rust_pricing.PricingRequest(
+                "2026-09-04",
+                product,
+                market,
+                rust_pricing.Model.black_scholes(0.2),
+                rust_pricing.Engine.pseudo_monte_carlo(7, 1024),
+                rust_pricing.RiskRequest(delta=True),
+            )
+
     def test_native_local_volatility_grid_matches_json_request(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])

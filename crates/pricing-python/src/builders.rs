@@ -11,7 +11,7 @@ use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
-use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
+use pricing::product::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
@@ -244,8 +244,39 @@ impl PyProduct {
         .map_err(|error| domain_error(py, "invalid_european_vanilla", "/product", error))
     }
 
+    /// Build a cash-or-nothing or asset-or-nothing digital call or put.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn digital(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: &Bound<'_, PyAny>,
+        strike: f64,
+        payout: f64,
+        side: &str,
+        payout_kind: &str,
+    ) -> PyResult<Self> {
+        let expiry = date_from_python(py, expiry, "/product/expiry")?;
+        let side = option_side(py, side)?;
+        let payout_kind = digital_payout(py, payout_kind)?;
+        DigitalSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            expiry,
+            strike,
+            payout,
+            side,
+            payout_kind,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::Digital(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
+    }
+
     fn __repr__(&self) -> String {
-        "Product(type='european_vanilla')".into()
+        format!("Product(type={:?})", product_name(&self.inner))
     }
 }
 
@@ -915,6 +946,26 @@ fn option_side(py: Python<'_>, value: &str) -> PyResult<OptionSide> {
             "/product/side",
             format!("expected 'call' or 'put', received {value:?}"),
         )),
+    }
+}
+
+fn digital_payout(py: Python<'_>, value: &str) -> PyResult<DigitalPayout> {
+    match value {
+        "cash" => Ok(DigitalPayout::Cash),
+        "asset" => Ok(DigitalPayout::Asset),
+        _ => Err(domain_error(
+            py,
+            "invalid_digital_payout",
+            "/product/payout_kind",
+            format!("expected 'cash' or 'asset', received {value:?}"),
+        )),
+    }
+}
+
+const fn product_name(product: &ProductSpec) -> &'static str {
+    match product {
+        ProductSpec::EuropeanVanilla(_) => "european_vanilla",
+        ProductSpec::Digital(_) => "digital",
     }
 }
 

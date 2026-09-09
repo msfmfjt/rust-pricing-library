@@ -6,6 +6,7 @@ from typing import Literal
 
 DateLike = date | str
 OptionSide = Literal["call", "put"]
+DigitalPayout = Literal["cash", "asset"]
 SmileDynamics = Literal[
     "sticky_log_moneyness", "sticky_strike", "sticky_delta"
 ]
@@ -131,6 +132,16 @@ class Product:
         strike: float,
         notional: float,
         side: OptionSide,
+    ) -> Product: ...
+    @staticmethod
+    def digital(
+        underlying_id: int,
+        currency_id: int,
+        expiry: DateLike,
+        strike: float,
+        payout: float,
+        side: OptionSide,
+        payout_kind: DigitalPayout,
     ) -> Product: ...
 
 

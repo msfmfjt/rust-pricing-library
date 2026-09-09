@@ -6,7 +6,10 @@ The first vertical slice is a European vanilla option under Black-Scholes, with
 analytical reference values, Pseudo-Monte Carlo, randomized Sobol QMC, AAD
 Greeks, common-random-number bump validation, and deterministic replay. The
 same public request, wire, and Python surfaces also expose a Black-76
-constant-volatility model on the market forward.
+constant-volatility model on the market forward. Price-only Monte Carlo
+requests can also use cash-or-nothing and asset-or-nothing Digital calls and
+puts; pathwise risk requests for Digital products are rejected until
+discontinuous-payoff smoothing is implemented.
 
 ## Design baselines
 

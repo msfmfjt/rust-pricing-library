@@ -11,7 +11,7 @@ use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing_models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
-use pricing_product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
+use pricing_product::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -216,6 +216,15 @@ enum ProductV1 {
         notional: f64,
         side: SideV1,
     },
+    Digital {
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: String,
+        strike: f64,
+        payout: f64,
+        side: SideV1,
+        payout_kind: DigitalPayoutV1,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -223,6 +232,13 @@ enum ProductV1 {
 enum SideV1 {
     Call,
     Put,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum DigitalPayoutV1 {
+    Cash,
+    Asset,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -403,6 +419,15 @@ impl From<&ProductSpec> for ProductV1 {
                 notional: spec.notional().get(),
                 side: spec.side().into(),
             },
+            ProductSpec::Digital(spec) => Self::Digital {
+                underlying_id: spec.underlying().get(),
+                currency_id: spec.currency().get(),
+                expiry: spec.expiry().to_string(),
+                strike: spec.strike().get(),
+                payout: spec.payout().get(),
+                side: spec.side().into(),
+                payout_kind: spec.payout_kind().into(),
+            },
         }
     }
 }
@@ -412,6 +437,15 @@ impl From<OptionSide> for SideV1 {
         match side {
             OptionSide::Call => Self::Call,
             OptionSide::Put => Self::Put,
+        }
+    }
+}
+
+impl From<DigitalPayout> for DigitalPayoutV1 {
+    fn from(value: DigitalPayout) -> Self {
+        match value {
+            DigitalPayout::Cash => Self::Cash,
+            DigitalPayout::Asset => Self::Asset,
         }
     }
 }
@@ -612,6 +646,32 @@ impl TryFrom<RequestV1> for PricingRequest {
                     match side {
                         SideV1::Call => OptionSide::Call,
                         SideV1::Put => OptionSide::Put,
+                    },
+                )
+                .map_err(domain)?,
+            ),
+            ProductV1::Digital {
+                underlying_id,
+                currency_id,
+                expiry,
+                strike,
+                payout,
+                side,
+                payout_kind,
+            } => ProductSpec::Digital(
+                DigitalSpec::new(
+                    UnderlyingId::new(underlying_id),
+                    CurrencyId::new(currency_id),
+                    parse_date(&expiry)?,
+                    strike,
+                    payout,
+                    match side {
+                        SideV1::Call => OptionSide::Call,
+                        SideV1::Put => OptionSide::Put,
+                    },
+                    match payout_kind {
+                        DigitalPayoutV1::Cash => DigitalPayout::Cash,
+                        DigitalPayoutV1::Asset => DigitalPayout::Asset,
                     },
                 )
                 .map_err(domain)?,
@@ -1699,6 +1759,44 @@ mod tests {
         .expect("request")
     }
 
+    fn digital_request() -> PricingRequest {
+        let curve = |id, discount| {
+            Arc::new(
+                LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, discount])
+                    .expect("curve"),
+            )
+        };
+        let product = ProductSpec::Digital(
+            DigitalSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                "2027-09-04".parse().expect("date"),
+                100.0,
+                10.0,
+                OptionSide::Call,
+                DigitalPayout::Cash,
+            )
+            .expect("product"),
+        );
+        let forward = EquityForward::new(
+            UnderlyingId::new(1),
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(10, 0.95),
+            curve(11, 0.98),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("date"),
+            product,
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(2), forward)),
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
     fn dividend_request() -> PricingRequest {
         let curve = |id, discount| {
             Arc::new(
@@ -1837,6 +1935,22 @@ mod tests {
         assert!(json.contains("\"type\":\"black_76\""));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert!(matches!(parsed.model(), ModelSpec::Black76(_)));
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
+    fn request_json_round_trips_digital_product() {
+        let request = digital_request();
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"type\":\"digital\""));
+        assert!(json.contains("\"payout_kind\":{\"type\":\"cash\"}"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert!(matches!(parsed.product(), ProductSpec::Digital(_)));
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
         assert_eq!(request_to_json(&parsed).expect("json"), json);
     }
 

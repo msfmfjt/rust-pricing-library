@@ -49,6 +49,11 @@ impl PricingRequest {
         {
             return Err(RequestValidationError::VegaKtUnsupportedForConstantVolatility);
         }
+        if !product.supports_pathwise_risk()
+            && (risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some())
+        {
+            return Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct);
+        }
         Ok(Self {
             valuation_date,
             product,
@@ -98,7 +103,7 @@ mod tests {
     use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve};
     use pricing_mc::{PseudoMcConfig, VarianceReduction};
     use pricing_models::BlackScholesSpec;
-    use pricing_product::{EuropeanVanillaSpec, OptionSide};
+    use pricing_product::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide};
     use pricing_risk::SmileDynamics;
 
     use super::*;
@@ -177,6 +182,45 @@ mod tests {
                 risk,
             ),
             Err(RequestValidationError::CurrencyMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn request_rejects_pathwise_risk_for_digital_products() {
+        let currency = CurrencyId::new(1);
+        let (product, market, model, engine, _) = components(currency, currency);
+        let digital = ProductSpec::Digital(
+            DigitalSpec::new(
+                product.underlying(),
+                currency,
+                product.expiry(),
+                100.0,
+                10.0,
+                OptionSide::Call,
+                DigitalPayout::Cash,
+            )
+            .expect("digital"),
+        );
+        let risk = RiskRequest::new(
+            true,
+            None,
+            false,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk");
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                digital,
+                market,
+                model,
+                engine,
+                risk,
+            ),
+            Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
         ));
     }
 }

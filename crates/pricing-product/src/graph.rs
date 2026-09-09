@@ -5,7 +5,7 @@ use std::mem;
 
 use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
-use crate::{EuropeanVanillaSpec, OptionSide};
+use crate::{DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec};
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
 const TAPE_ABI_VERSION: u32 = 1;
@@ -95,6 +95,9 @@ pub enum SourceOpcode {
         left: NodeId,
         right: NodeId,
     },
+    Indicator {
+        input: NodeId,
+    },
     Negate {
         input: NodeId,
     },
@@ -104,7 +107,7 @@ impl SourceOpcode {
     fn operands(self) -> ([NodeId; 2], usize) {
         match self {
             Self::Literal(_) | Self::TerminalSpot { .. } => ([NodeId::new(0); 2], 0),
-            Self::Negate { input } => ([input, NodeId::new(0)], 1),
+            Self::Negate { input } | Self::Indicator { input } => ([input, NodeId::new(0)], 1),
             Self::Add { left, right }
             | Self::Subtract { left, right }
             | Self::Multiply { left, right }
@@ -127,6 +130,7 @@ impl SourceOpcode {
             Self::Divide { .. } => "divide",
             Self::Minimum { .. } => "minimum",
             Self::Maximum { .. } => "maximum",
+            Self::Indicator { .. } => "indicator",
             Self::Negate { .. } => "negate",
         }
     }
@@ -269,6 +273,52 @@ impl EuropeanVanillaSpec {
     }
 }
 
+impl DigitalSpec {
+    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        let mut builder = SourceGraphBuilder::new();
+        let spot = builder.push(SourceOpcode::TerminalSpot {
+            underlying: self.underlying(),
+            observation_date: self.expiry(),
+        })?;
+        let strike = builder.literal(self.strike().get())?;
+        let signed_distance = match self.side() {
+            OptionSide::Call => builder.push(SourceOpcode::Subtract {
+                left: spot,
+                right: strike,
+            })?,
+            OptionSide::Put => builder.push(SourceOpcode::Subtract {
+                left: strike,
+                right: spot,
+            })?,
+        };
+        let indicator = builder.push(SourceOpcode::Indicator {
+            input: signed_distance,
+        })?;
+        let payout = builder.literal(self.payout().get())?;
+        let payoff_base = match self.payout_kind() {
+            DigitalPayout::Cash => payout,
+            DigitalPayout::Asset => builder.push(SourceOpcode::Multiply {
+                left: spot,
+                right: payout,
+            })?,
+        };
+        let payoff = builder.push(SourceOpcode::Multiply {
+            left: indicator,
+            right: payoff_base,
+        })?;
+        Ok(builder.finish(vec![payoff]))
+    }
+}
+
+impl ProductSpec {
+    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        match self {
+            Self::EuropeanVanilla(spec) => spec.source_graph(),
+            Self::Digital(spec) => spec.source_graph(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompiledOpcode {
     Literal {
@@ -308,6 +358,10 @@ pub enum CompiledOpcode {
     Maximum {
         left: u32,
         right: u32,
+        output: u32,
+    },
+    Indicator {
+        input: u32,
         output: u32,
     },
     Negate {
@@ -502,6 +556,7 @@ fn reverse_opcode(
                 add_adjoint(adjoints, right, output_adjoint, opcode.name())?;
             }
         }
+        CompiledOpcode::Indicator { .. } => {}
         CompiledOpcode::Negate { input, .. } => {
             add_adjoint(adjoints, input, -output_adjoint, opcode.name())?;
         }
@@ -538,6 +593,7 @@ impl CompiledOpcode {
             Self::Divide { .. } => "divide",
             Self::Minimum { .. } => "minimum",
             Self::Maximum { .. } => "maximum",
+            Self::Indicator { .. } => "indicator",
             Self::Negate { .. } => "negate",
         }
     }
@@ -552,6 +608,7 @@ impl CompiledOpcode {
             | Self::Divide { output, .. }
             | Self::Minimum { output, .. }
             | Self::Maximum { output, .. }
+            | Self::Indicator { output, .. }
             | Self::Negate { output, .. } => output,
         }
     }
@@ -616,6 +673,10 @@ where
             output,
         } => binary(left, right)
             .map(|(left, right)| (output, if left >= right { left } else { right })),
+        CompiledOpcode::Indicator { input, output } => {
+            let value = slots[checked_index(input, slots.len())?];
+            Ok((output, if value >= 0.0 { 1.0 } else { 0.0 }))
+        }
         CompiledOpcode::Negate { input, output } => {
             Ok((output, -slots[checked_index(input, slots.len())?]))
         }
@@ -791,6 +852,13 @@ fn fold_node(
                 values[1]
             }
         }
+        SourceOpcode::Indicator { .. } => {
+            if values[0] >= 0.0 {
+                1.0
+            } else {
+                0.0
+            }
+        }
         SourceOpcode::Negate { .. } => -values[0],
         SourceOpcode::Literal(_) | SourceOpcode::TerminalSpot { .. } => unreachable!(),
     };
@@ -859,6 +927,10 @@ fn compile_opcode(
         SourceOpcode::Maximum { left, right } => Ok(CompiledOpcode::Maximum {
             left: slot(left)?,
             right: slot(right)?,
+            output,
+        }),
+        SourceOpcode::Indicator { input } => Ok(CompiledOpcode::Indicator {
+            input: slot(input)?,
             output,
         }),
         SourceOpcode::Negate { input } => Ok(CompiledOpcode::Negate {
@@ -952,7 +1024,9 @@ fn encode_source_opcode(bytes: &mut Vec<u8>, opcode: SourceOpcode) {
             put_u32(bytes, underlying.get());
             put_date(bytes, observation_date);
         }
-        SourceOpcode::Negate { input } => put_u32(bytes, input.get()),
+        SourceOpcode::Negate { input } | SourceOpcode::Indicator { input } => {
+            put_u32(bytes, input.get());
+        }
         _ => {
             let (operands, count) = opcode.operands();
             for operand in operands.into_iter().take(count) {
@@ -978,7 +1052,7 @@ fn encode_compiled_opcode(bytes: &mut Vec<u8>, opcode: CompiledOpcode) {
             put_date(bytes, observation_date);
             put_u32(bytes, output);
         }
-        CompiledOpcode::Negate { input, output } => {
+        CompiledOpcode::Negate { input, output } | CompiledOpcode::Indicator { input, output } => {
             put_u32(bytes, input);
             put_u32(bytes, output);
         }
@@ -1034,6 +1108,7 @@ const fn opcode_tag(opcode: SourceOpcode) -> u8 {
         SourceOpcode::Minimum { .. } => 6,
         SourceOpcode::Maximum { .. } => 7,
         SourceOpcode::Negate { .. } => 8,
+        SourceOpcode::Indicator { .. } => 9,
     }
 }
 
@@ -1048,6 +1123,7 @@ const fn compiled_opcode_tag(opcode: CompiledOpcode) -> u8 {
         CompiledOpcode::Minimum { .. } => 6,
         CompiledOpcode::Maximum { .. } => 7,
         CompiledOpcode::Negate { .. } => 8,
+        CompiledOpcode::Indicator { .. } => 9,
     }
 }
 
@@ -1269,6 +1345,40 @@ mod tests {
             assert_eq!(
                 result.terminal_adjoints[0].observation_date,
                 "2027-09-04".parse().expect("date")
+            );
+        }
+    }
+
+    #[test]
+    fn digital_builder_executes_exact_cash_and_asset_payoffs() {
+        for (side, payout_kind, terminal, expected) in [
+            (OptionSide::Call, DigitalPayout::Cash, 120.0, 10.0),
+            (OptionSide::Call, DigitalPayout::Cash, 99.0, 0.0),
+            (OptionSide::Call, DigitalPayout::Cash, 100.0, 10.0),
+            (OptionSide::Put, DigitalPayout::Cash, 80.0, 10.0),
+            (OptionSide::Put, DigitalPayout::Cash, 101.0, 0.0),
+            (OptionSide::Put, DigitalPayout::Cash, 100.0, 10.0),
+            (OptionSide::Call, DigitalPayout::Asset, 120.0, 1200.0),
+            (OptionSide::Put, DigitalPayout::Asset, 80.0, 800.0),
+        ] {
+            let product = DigitalSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                "2027-09-04".parse().expect("date"),
+                100.0,
+                10.0,
+                side,
+                payout_kind,
+            )
+            .expect("digital");
+            let compiled = product
+                .source_graph()
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            assert_eq!(
+                compiled.evaluate(|_, _| Some(terminal)).expect("execute"),
+                vec![expected]
             );
         }
     }

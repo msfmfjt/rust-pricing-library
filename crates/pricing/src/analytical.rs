@@ -68,7 +68,9 @@ impl Error for AnalyticalError {
 pub fn black_scholes_oracle(
     request: &PricingRequest,
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
-    let ProductSpec::EuropeanVanilla(product) = request.product();
+    let ProductSpec::EuropeanVanilla(product) = request.product() else {
+        return Err(AnalyticalError::UnsupportedProductOrModel);
+    };
     let ModelSpec::BlackScholes(model) = request.model() else {
         return Err(AnalyticalError::UnsupportedProductOrModel);
     };
@@ -92,7 +94,9 @@ pub fn black_scholes_oracle(
 pub fn black_76_oracle(
     request: &PricingRequest,
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
-    let ProductSpec::EuropeanVanilla(product) = request.product();
+    let ProductSpec::EuropeanVanilla(product) = request.product() else {
+        return Err(AnalyticalError::UnsupportedProductOrModel);
+    };
     let ModelSpec::Black76(model) = request.model() else {
         return Err(AnalyticalError::UnsupportedProductOrModel);
     };

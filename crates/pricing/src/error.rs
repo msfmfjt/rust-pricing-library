@@ -28,6 +28,7 @@ pub enum RequestValidationError {
         expiry: Date,
     },
     VegaKtUnsupportedForConstantVolatility,
+    RiskUnsupportedForDiscontinuousProduct,
 }
 
 impl fmt::Display for RequestValidationError {
@@ -51,6 +52,10 @@ impl fmt::Display for RequestValidationError {
             Self::VegaKtUnsupportedForConstantVolatility => {
                 write!(formatter, "VegaKT requires a Local Volatility model")
             }
+            Self::RiskUnsupportedForDiscontinuousProduct => write!(
+                formatter,
+                "Delta, Gamma, Vega, and VegaKT require a smooth product payoff"
+            ),
         }
     }
 }

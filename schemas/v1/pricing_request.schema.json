@@ -23,13 +23,33 @@
       ]
     },
     "product": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "notional", "side"],
-      "properties": {
-        "type": {"const": "european_vanilla"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
-        "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string"},
-        "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"}
-      }
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "notional", "side"],
+          "properties": {
+            "type": {"const": "european_vanilla"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string"},
+            "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "payout", "side", "payout_kind"],
+          "properties": {
+            "type": {"const": "digital"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string"},
+            "strike": {"type": "number", "exclusiveMinimum": 0}, "payout": {"type": "number", "exclusiveMinimum": 0},
+            "side": {"$ref": "#/$defs/side"}, "payout_kind": {"$ref": "#/$defs/digital_payout"}
+          }
+        }
+      ]
+    },
+    "digital_payout": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "cash"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "asset"}}}
+      ]
     },
     "curve": {
       "type": "object", "additionalProperties": false, "required": ["curve_id", "times", "discount_factors"],

@@ -11,7 +11,7 @@ use pricing_mc::{
     RqmcPlanError, inverse_standard_normal,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
-use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy, ProductSpec};
+use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy};
 use pricing_risk::{
     AnalyticCallDensityRow, GammaConfig, ReportingIvBasis, SmileDynamics, SpotBump, VegaKtConfig,
     analytic_call_density_rows_from_surface, local_vega_density_from_node_adjoints,
@@ -383,7 +383,7 @@ impl SimulationPlan {
         execution_policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
-        let ProductSpec::EuropeanVanilla(product) = request.product();
+        let product = request.product();
         let time =
             DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry());
         let market_forward = request.market().equity().forward();
@@ -2125,7 +2125,9 @@ mod tests {
     use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
     use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
     use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
-    use pricing_product::{EuropeanVanillaSpec, OptionSide};
+    use pricing_product::{
+        DigitalPayout, DigitalSpec, EuropeanVanillaSpec, OptionSide, ProductSpec,
+    };
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 
     use super::*;
@@ -2315,6 +2317,54 @@ mod tests {
             antithetic,
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
         )
+    }
+
+    fn digital_zero_vol_request(
+        side: OptionSide,
+        strike: f64,
+        payout_kind: DigitalPayout,
+    ) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::Digital(
+            DigitalSpec::new(
+                underlying,
+                currency,
+                "2027-09-04".parse().expect("expiry"),
+                strike,
+                10.0,
+                side,
+                payout_kind,
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.0).expect("model"));
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x0123_4567_89ab_cdef,
+                1,
+                VarianceReduction::new(false, false),
+            )
+            .expect("engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
     }
 
     fn zero_carry_rqmc_request(model: ModelSpec) -> PricingRequest {
@@ -2714,6 +2764,33 @@ mod tests {
         assert_eq!(result.pricing_result.value.value().get(), expected);
         assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
         assert_eq!(result.pricing_result.value.standard_error().get(), 0.0);
+    }
+
+    #[test]
+    fn digital_zero_volatility_obeys_exact_indicator_payoff_discounting() {
+        let cash_request = digital_zero_vol_request(OptionSide::Call, 100.0, DigitalPayout::Cash);
+        let cash_plan = SimulationPlan::compile(&cash_request, policy(2)).expect("cash plan");
+        let cash_expected = cash_plan.discount() * 10.0;
+        let cash_result = cash_plan.execute().expect("cash execution");
+        assert_eq!(
+            cash_result.pricing_result.value.value().get(),
+            cash_expected
+        );
+        assert_eq!(cash_result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+
+        let asset_request = digital_zero_vol_request(OptionSide::Call, 100.0, DigitalPayout::Asset);
+        let asset_plan = SimulationPlan::compile(&asset_request, policy(2)).expect("asset plan");
+        let asset_expected = asset_plan.discount() * asset_plan.forward() * 10.0;
+        let asset_result = asset_plan.execute().expect("asset execution");
+        assert!(
+            (asset_result.pricing_result.value.value().get() - asset_expected).abs() <= 1.0e-12
+        );
+        assert_eq!(asset_result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+
+        let out_request = digital_zero_vol_request(OptionSide::Put, 100.0, DigitalPayout::Cash);
+        let out_result = price_pseudo_monte_carlo(&out_request, policy(2)).expect("out");
+        assert_eq!(out_result.pricing_result.value.value().get(), 0.0);
+        assert_eq!(out_result.sampling_variance.to_bits(), 0.0_f64.to_bits());
     }
 
     #[test]
