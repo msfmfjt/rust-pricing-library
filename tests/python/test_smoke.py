@@ -752,7 +752,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(len(vega_kt.raw_buckets), 6)
         self.assertEqual(len(vega_kt.full_bucket_covariance), 36)
         self.assertTrue(math.isfinite(vega_kt.projection.scalar_vega))
-        payload = json.loads(result.to_json())
+        result_json = result.to_json()
+        self.assertNotIn("null", result_json)
+        payload = json.loads(result_json)
         self.assertIn("vega_kt", payload["risks"])
 
     def test_pricing_result_round_trips_from_json(self):
