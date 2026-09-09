@@ -147,7 +147,6 @@ version = "0.1.0"
 dependencies = [
  "pricing-core",
  "pricing-numerics",
- "serde_json",
 ]
 
 [[package]]
@@ -160,6 +159,7 @@ version = "0.1.0"
 dependencies = [
  "pricing-core",
  "pricing-numerics",
+ "serde_json",
 ]
 
 [[package]]
