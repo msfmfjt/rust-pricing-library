@@ -25,6 +25,73 @@ EXPECTED_GOLDENS = {
     "pricing_request": GOLDEN_ROOT / "pricing_request.golden.json",
     "pricing_result": GOLDEN_ROOT / "pricing_result.golden.json",
 }
+EXPECTED_SCHEMA_DEFS = {
+    "pricing_request": {
+        "asian_observation",
+        "asian_observation_value",
+        "barrier_direction",
+        "barrier_style",
+        "curve",
+        "digital_payout",
+        "dividend_event",
+        "dividend_quote",
+        "engine",
+        "gamma",
+        "local_variance_grid",
+        "market",
+        "model",
+        "product",
+        "reporting_iv_basis",
+        "risk",
+        "side",
+        "smile_dynamics",
+        "spot_bump",
+        "variance_reduction",
+        "vega_kt",
+    },
+    "pricing_result": {
+        "diagnostics",
+        "estimate",
+        "estimator",
+        "reporting_iv_projection_stats",
+        "risk_estimate",
+        "risk_report",
+        "risk_unit",
+        "vega_kt_bucket_estimate",
+        "vega_kt_bucket_unit",
+        "vega_kt_coordinate",
+        "vega_kt_covariance_entry",
+        "vega_kt_covariance_layout",
+        "vega_kt_projection",
+        "vega_kt_report",
+        "vega_kt_residual_diagnostics",
+        "warning",
+    },
+}
+EXPECTED_TOP_LEVEL_REQUIRED = {
+    "pricing_request": [
+        "document_kind",
+        "schema_version",
+        "valuation_date",
+        "product",
+        "market",
+        "model",
+        "engine",
+        "risk",
+    ],
+    "pricing_result": [
+        "document_kind",
+        "schema_version",
+        "value",
+        "risks",
+        "diagnostics",
+        "replay",
+    ],
+}
+EXPECTED_GOLDEN_KEYS = {
+    "pricing_request": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_request"]),
+    "pricing_result": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_result"]),
+}
 WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 DATE_STRING_FIELDS = {"date", "expiry", "payment_date", "valuation_date"}
@@ -546,19 +613,35 @@ def check_tagged_union_discriminators(schema: dict[str, Any], path: Path) -> Non
 
 def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> None:
     expected_id = f"urn:rust-pricing-library:schema:v1:{document_kind}"
+    expected_title = "".join(part.title() for part in document_kind.split("_")) + " schema v1"
     require(schema.get("$schema") == DRAFT_2020_12, f"{path}: $schema must be Draft 2020-12")
     require(schema.get("$id") == expected_id, f"{path}: $id must be {expected_id}")
+    require(schema.get("title") == expected_title, f"{path}: title must be {expected_title!r}")
     require(schema.get("type") == "object", f"{path}: root type must be object")
     require(schema.get("additionalProperties") is False, f"{path}: root must reject unknown fields")
+    require(
+        schema.get("required") == EXPECTED_TOP_LEVEL_REQUIRED[document_kind],
+        f"{path}: root required fields changed",
+    )
     properties = schema.get("properties")
     require(isinstance(properties, dict), f"{path}: root properties must be an object")
     require(properties.get("document_kind") == {"const": document_kind}, f"{path}: document_kind const mismatch")
     require(properties.get("schema_version") == {"const": 1}, f"{path}: schema_version const mismatch")
+    defs = schema.get("$defs")
+    require(isinstance(defs, dict), f"{path}: $defs must be an object")
+    require(
+        set(defs) == EXPECTED_SCHEMA_DEFS[document_kind],
+        f"{path}: $defs names changed",
+    )
 
 
 def check_golden(document_kind: str, path: Path) -> None:
     require(path.exists(), f"missing golden JSON {path}")
     document = load_golden(path)
+    require(
+        set(document) == EXPECTED_GOLDEN_KEYS[document_kind],
+        f"{path}: top-level golden fields changed",
+    )
     require(
         document.get("document_kind") == document_kind,
         f"{path}: document_kind must be {document_kind!r}",
