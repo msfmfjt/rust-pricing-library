@@ -161,6 +161,31 @@ class Model:
         floor: float,
         cap: float,
     ) -> Model: ...
+    @staticmethod
+    def local_volatility_from_standard_ssvi_power_law(
+        theta_times: Sequence[float],
+        theta_values: Sequence[float],
+        terminal_theta_slope: float,
+        rho: float,
+        eta: float,
+        gamma: float,
+        time_nodes: Sequence[float],
+        log_forward_moneyness_nodes: Sequence[float],
+        floor: float,
+        cap: float,
+    ) -> Model: ...
+    @staticmethod
+    def local_volatility_from_standard_ssvi_heston_like(
+        theta_times: Sequence[float],
+        theta_values: Sequence[float],
+        terminal_theta_slope: float,
+        rho: float,
+        lambda_: float,
+        time_nodes: Sequence[float],
+        log_forward_moneyness_nodes: Sequence[float],
+        floor: float,
+        cap: float,
+    ) -> Model: ...
 
 
 class Engine:

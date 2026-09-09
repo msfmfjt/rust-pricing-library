@@ -4,7 +4,8 @@ use pricing::PricingRequest;
 use pricing::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, UnderlyingId};
 use pricing::market::{
     DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice, EssviSurface,
-    LogLinearDiscountCurve, MarketContext, SurfaceValidationTolerance,
+    LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
+    ThetaPchip,
 };
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
@@ -396,6 +397,65 @@ impl PyModel {
         })
     }
 
+    /// Build a Local Volatility model by sampling a standard SSVI power-law surface.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn local_volatility_from_standard_ssvi_power_law(
+        py: Python<'_>,
+        theta_times: &Bound<'_, PyAny>,
+        theta_values: &Bound<'_, PyAny>,
+        terminal_theta_slope: f64,
+        rho: f64,
+        eta: f64,
+        gamma: f64,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        local_volatility_from_standard_ssvi(
+            py,
+            theta_times,
+            theta_values,
+            terminal_theta_slope,
+            rho,
+            PhiSpec::PowerLaw { eta, gamma },
+            time_nodes,
+            log_forward_moneyness_nodes,
+            floor,
+            cap,
+        )
+    }
+
+    /// Build a Local Volatility model by sampling a standard SSVI Heston-like surface.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn local_volatility_from_standard_ssvi_heston_like(
+        py: Python<'_>,
+        theta_times: &Bound<'_, PyAny>,
+        theta_values: &Bound<'_, PyAny>,
+        terminal_theta_slope: f64,
+        rho: f64,
+        lambda_: f64,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        local_volatility_from_standard_ssvi(
+            py,
+            theta_times,
+            theta_values,
+            terminal_theta_slope,
+            rho,
+            PhiSpec::HestonLike { lambda: lambda_ },
+            time_nodes,
+            log_forward_moneyness_nodes,
+            floor,
+            cap,
+        )
+    }
+
     fn __repr__(&self) -> String {
         format!("Model(type={:?})", self.inner.name())
     }
@@ -631,6 +691,58 @@ fn vega_kt_from_python(
     )
     .map(Some)
     .map_err(|error| domain_error(py, "invalid_vega_kt", "/risk/vega_kt", error))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn local_volatility_from_standard_ssvi(
+    py: Python<'_>,
+    theta_times: &Bound<'_, PyAny>,
+    theta_values: &Bound<'_, PyAny>,
+    terminal_theta_slope: f64,
+    rho: f64,
+    phi: PhiSpec,
+    time_nodes: &Bound<'_, PyAny>,
+    log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+    floor: f64,
+    cap: f64,
+) -> PyResult<PyModel> {
+    let theta_curve = ThetaPchip::new(
+        copied_f64_array(py, theta_times, "/model/standard_ssvi/theta_times")?,
+        copied_f64_array(py, theta_values, "/model/standard_ssvi/theta_values")?,
+        terminal_theta_slope,
+    )
+    .map_err(|error| domain_error(py, "invalid_theta_curve", "/model/standard_ssvi", error))?;
+    let surface = StandardSsvi::new(
+        theta_curve,
+        rho,
+        phi,
+        SurfaceValidationTolerance::local_vol_vegakt_v1(),
+    )
+    .map_err(|error| domain_error(py, "invalid_standard_ssvi", "/model/standard_ssvi", error))?;
+    let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+    let log_forward_moneyness_nodes = copied_f64_array(
+        py,
+        log_forward_moneyness_nodes,
+        "/model/local_variance_grid/log_forward_moneyness_nodes",
+    )?;
+    LocalVolatilitySpec::from_surface(
+        &surface,
+        time_nodes,
+        log_forward_moneyness_nodes,
+        floor,
+        cap,
+    )
+    .map(|spec| PyModel {
+        inner: ModelSpec::LocalVolatility(spec),
+    })
+    .map_err(|error| {
+        domain_error(
+            py,
+            "invalid_local_variance_grid",
+            "/model/local_variance_grid",
+            error,
+        )
+    })
 }
 
 fn essvi_slices_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Vec<EssviSlice>> {
