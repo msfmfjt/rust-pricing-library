@@ -104,6 +104,7 @@ def main() -> None:
     (output / "metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    run([sys.executable, "scripts/check_benchmark_reports.py", str(output)])
 
 
 def run(command: list[str]) -> None:
