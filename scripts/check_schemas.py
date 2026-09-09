@@ -21,6 +21,9 @@ EXPECTED_SCHEMAS = {
     "pricing_result": SCHEMA_ROOT / "pricing_result.schema.json",
 }
 WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+DATE_STRING_FIELDS = {"date", "expiry", "payment_date", "valuation_date"}
+DATE_STRING_ARRAY_FIELDS = {"monitoring_dates"}
 
 
 class SchemaError(Exception):
@@ -140,6 +143,43 @@ def check_required_properties(schema: dict[str, Any], path: Path) -> None:
             require(field in properties, f"{path}:{pointer((*location, 'required'))}: required field {field!r} missing from properties")
 
 
+def check_date_fields(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        properties = value.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        for field, definition in properties.items():
+            if not isinstance(definition, dict):
+                continue
+            field_location = (*location, "properties", field)
+            if field in DATE_STRING_FIELDS:
+                require(
+                    definition.get("type") == "string"
+                    and definition.get("pattern") == DATE_PATTERN,
+                    f"{path}:{pointer(field_location)}: date field must use the schema date pattern",
+                )
+            if field in DATE_STRING_ARRAY_FIELDS:
+                items = definition.get("items")
+                require(
+                    definition.get("type") == "array"
+                    and isinstance(items, dict)
+                    and items.get("type") == "string"
+                    and items.get("pattern") == DATE_PATTERN,
+                    f"{path}:{pointer(field_location)}: date array must use the schema date pattern",
+                )
+            if field == "maturity_nodes" and "vega_kt" in location:
+                items = definition.get("items")
+                require(
+                    definition.get("type") == "array"
+                    and isinstance(items, dict)
+                    and items.get("type") == "string"
+                    and items.get("pattern") == DATE_PATTERN,
+                    f"{path}:{pointer(field_location)}: VegaKT maturity nodes must use the schema date pattern",
+                )
+
+
 def check_strict_objects(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict) or value.get("type") != "object" or "properties" not in value:
@@ -201,6 +241,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_refs(schema, path)
     check_wire_names(schema, path)
     check_required_properties(schema, path)
+    check_date_fields(schema, path)
     check_strict_objects(schema, path)
     check_tagged_union_discriminators(schema, path)
 

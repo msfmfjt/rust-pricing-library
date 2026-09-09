@@ -29,7 +29,7 @@
           "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "notional", "side"],
           "properties": {
             "type": {"const": "european_vanilla"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
-            "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string"},
+            "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"}
           }
         },
@@ -38,7 +38,7 @@
           "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "payout", "side", "payout_kind"],
           "properties": {
             "type": {"const": "digital"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
-            "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string"},
+            "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "payout": {"type": "number", "exclusiveMinimum": 0},
             "side": {"$ref": "#/$defs/side"}, "payout_kind": {"$ref": "#/$defs/digital_payout"},
             "payment_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
