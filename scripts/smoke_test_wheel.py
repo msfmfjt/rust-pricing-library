@@ -6,16 +6,15 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import venv
 from zipfile import ZipFile
 
 
 def main() -> None:
-    wheels = sorted(Path("dist").glob("*.whl"))
-    if len(wheels) != 1:
-        raise RuntimeError(f"expected exactly one wheel in dist, found {len(wheels)}")
+    wheel = selected_wheel()
 
-    with ZipFile(wheels[0]) as archive:
+    with ZipFile(wheel) as archive:
         members = set(archive.namelist())
     if "rust_pricing/__init__.pyi" not in members:
         raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
@@ -34,7 +33,7 @@ def main() -> None:
             "install",
             "--disable-pip-version-check",
             "numpy>=2.0,<3.0",
-            str(wheels[0].resolve()),
+            str(wheel.resolve()),
         ],
         check=True,
     )
@@ -52,6 +51,23 @@ def main() -> None:
         ],
         check=True,
     )
+
+
+def selected_wheel() -> Path:
+    if len(sys.argv) == 2:
+        wheel = Path(sys.argv[1])
+        if not wheel.is_file():
+            raise RuntimeError(f"wheel does not exist: {wheel}")
+        if wheel.suffix != ".whl":
+            raise RuntimeError(f"expected a .whl file, got: {wheel}")
+        return wheel
+    if len(sys.argv) != 1:
+        raise RuntimeError("usage: smoke_test_wheel.py [wheel]")
+
+    wheels = sorted(Path("dist").glob("*.whl"))
+    if len(wheels) != 1:
+        raise RuntimeError(f"expected exactly one wheel in dist, found {len(wheels)}")
+    return wheels[0]
 
 
 def create_environment(environment: Path) -> None:
