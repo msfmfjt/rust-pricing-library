@@ -11,6 +11,8 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from check_benchmark_reports import EXPECTED_ARTIFACTS, OPTIONAL_ARTIFACTS
 
 BENCHMARK_ARTIFACTS = EXPECTED_ARTIFACTS.union(OPTIONAL_ARTIFACTS)

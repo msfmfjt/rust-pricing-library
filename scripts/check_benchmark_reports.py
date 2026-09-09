@@ -11,6 +11,8 @@ import sys
 import tomllib
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 
 
