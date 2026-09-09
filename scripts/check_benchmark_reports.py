@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -58,6 +59,7 @@ SUPPORTED_REPLAY_PLATFORMS = {
     "macos-aarch64",
     "windows-x86_64",
 }
+FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 
 
 def main() -> None:
@@ -184,14 +186,55 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
     )
     cases = document.get("cases")
     require(isinstance(cases, list) and len(cases) > 0, path, "cases must be a non-empty array")
+    seen_case_names: set[str] = set()
     for index, case in enumerate(cases):
         case_path = f"cases[{index}]"
         case_object = require_object(case, path, case_path)
-        require(isinstance(case_object.get("name"), str), path, f"{case_path}.name")
+        case_name = case_object.get("name")
+        require(
+            isinstance(case_name, str) and case_name,
+            path,
+            f"{case_path}.name must be a non-empty string",
+        )
+        require(
+            case_name not in seen_case_names,
+            path,
+            f"duplicate replay case name: {case_name!r}",
+        )
+        seen_case_names.add(case_name)
+        plan = require_object(case_object.get("plan"), path, f"{case_path}.plan")
+        require_fingerprint(
+            plan.get("plan_fingerprint"), path, f"{case_path}.plan.plan_fingerprint"
+        )
+        require_fingerprint(
+            plan.get("request_fingerprint"), path, f"{case_path}.plan.request_fingerprint"
+        )
+        require_positive_int(
+            plan.get("reduction_block_size"), path, f"{case_path}.plan.reduction_block_size"
+        )
+        require_positive_int(
+            plan.get("worker_threads"), path, f"{case_path}.plan.worker_threads"
+        )
         require_object(case_object.get("request"), path, f"{case_path}.request")
-        require_object(case_object.get("result"), path, f"{case_path}.result")
+        result = require_object(case_object.get("result"), path, f"{case_path}.result")
+        replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
+        require_fingerprint(
+            replay.get("request_fingerprint"), path, f"{case_path}.result.replay.request_fingerprint"
+        )
         execution = require_object(case_object.get("execution"), path, f"{case_path}.execution")
-        require_object(execution.get("monte_carlo"), path, f"{case_path}.execution.monte_carlo")
+        monte_carlo = require_object(
+            execution.get("monte_carlo"), path, f"{case_path}.execution.monte_carlo"
+        )
+        require_positive_int(
+            monte_carlo.get("reduction_block_size"),
+            path,
+            f"{case_path}.execution.monte_carlo.reduction_block_size",
+        )
+        require_positive_int(
+            monte_carlo.get("worker_threads"),
+            path,
+            f"{case_path}.execution.monte_carlo.worker_threads",
+        )
 
 
 def check_python_report(path: Path) -> None:
@@ -330,6 +373,14 @@ def reject_json_constant(value: str) -> Any:
 def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
     require(isinstance(value, dict), path, f"{name} must be an object")
     return value
+
+
+def require_fingerprint(value: Any, path: Path, name: str) -> None:
+    require(
+        isinstance(value, str) and FINGERPRINT.fullmatch(value) is not None,
+        path,
+        f"{name} must be a blake3-256 fingerprint",
+    )
 
 
 def require_string_array(value: Any, path: Path, name: str) -> None:
