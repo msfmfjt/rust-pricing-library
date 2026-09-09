@@ -15,14 +15,15 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_ROOT = ROOT / "schemas" / "v1"
+GOLDEN_ROOT = ROOT / "fixtures" / "v1"
 DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 EXPECTED_SCHEMAS = {
     "pricing_request": SCHEMA_ROOT / "pricing_request.schema.json",
     "pricing_result": SCHEMA_ROOT / "pricing_result.schema.json",
 }
 EXPECTED_GOLDENS = {
-    "pricing_request": ROOT / "fixtures" / "v1" / "pricing_request.golden.json",
-    "pricing_result": ROOT / "fixtures" / "v1" / "pricing_result.golden.json",
+    "pricing_request": GOLDEN_ROOT / "pricing_request.golden.json",
+    "pricing_result": GOLDEN_ROOT / "pricing_result.golden.json",
 }
 WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
@@ -557,6 +558,12 @@ def main() -> int:
         actual = set(SCHEMA_ROOT.glob("*.schema.json"))
         expected = set(EXPECTED_SCHEMAS.values())
         require(actual == expected, f"schema file set mismatch: expected {sorted(map(str, expected))}, got {sorted(map(str, actual))}")
+        actual_goldens = set(GOLDEN_ROOT.glob("*.golden.json"))
+        expected_goldens = set(EXPECTED_GOLDENS.values())
+        require(
+            actual_goldens == expected_goldens,
+            f"golden JSON file set mismatch: expected {sorted(map(str, expected_goldens))}, got {sorted(map(str, actual_goldens))}",
+        )
         for document_kind, path in EXPECTED_SCHEMAS.items():
             check_schema(document_kind, path)
         for document_kind, path in EXPECTED_GOLDENS.items():
