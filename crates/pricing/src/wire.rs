@@ -1589,6 +1589,16 @@ impl TryFrom<ResultV1> for PricingResult {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_RESULT)?;
         let replay_version = SchemaVersion::new(value.replay.schema_version)
             .map_err(|error| domain_at("/replay/schema_version", error))?;
+        if replay_version != SchemaVersion::CURRENT {
+            return Err(domain_at(
+                "/replay/schema_version",
+                format!(
+                    "unsupported replay schema_version {}; expected {}",
+                    replay_version.get(),
+                    SchemaVersion::CURRENT.get()
+                ),
+            ));
+        }
         Ok(Self {
             value: estimate_from_wire(value.value, "/value")?,
             risks: RiskReport {
@@ -2750,6 +2760,17 @@ mod tests {
             parse_result_json(invalid_fingerprint.as_bytes(), JsonLimits::DEFAULT),
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/request_fingerprint" && message.contains("fingerprint")
+        ));
+
+        let future_replay_schema = json.replace(
+            "\"replay\":{\"schema_version\":1",
+            "\"replay\":{\"schema_version\":2",
+        );
+        assert!(matches!(
+            parse_result_json(future_replay_schema.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/schema_version"
+                    && message.contains("unsupported replay schema_version 2")
         ));
 
         for (field, original, pointer) in [
