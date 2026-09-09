@@ -185,10 +185,14 @@ def main() -> int:
     archive = sys.argv[1]
     with tarfile.open(archive, "r:gz") as package:
         names = set()
+        seen_members = set()
         for member in package.getmembers():
             name = member.name
             if PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
                 raise SystemExit(f"{archive}: unsafe archive member path: {name}")
+            if name in seen_members:
+                raise SystemExit(f"{archive}: duplicate archive member path: {name}")
+            seen_members.add(name)
             if member.isfile():
                 names.add(name)
             elif not member.isdir():
