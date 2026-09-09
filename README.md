@@ -91,7 +91,9 @@ The Python facade exposes the same versioned JSON boundary as Rust:
 `PricingRequest.from_json()`, `PricingResult.to_json()`,
 `PricingResult.to_pretty_json()`, and `PricingResult.from_json()`. The bundled
 Draft 2020-12 schemas are available through `request_json_schema()` and
-`result_json_schema()` for external validation or fixture review.
+`result_json_schema()` for external validation or fixture review. Result
+diagnostics expose replay-critical seeds, execution policy fields, curve
+regions, Payoff fingerprints, and QMC direction/scramble checksums.
 
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts. Each wheel is installed into a
