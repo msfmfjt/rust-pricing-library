@@ -363,6 +363,56 @@ def check_vega_kt_result_arrays(schema: dict[str, Any], path: Path) -> None:
         ),
         f"{path}: price_and_bucket_variance_only must forbid full_bucket_covariance",
     )
+    check_vega_kt_covariance_entry(defs, path)
+
+
+def check_vega_kt_covariance_entry(defs: dict[str, Any], path: Path) -> None:
+    entry = defs.get("vega_kt_covariance_entry")
+    require(isinstance(entry, dict), f"{path}: vega_kt_covariance_entry must be defined")
+    one_of = entry.get("oneOf")
+    require(
+        isinstance(one_of, list) and len(one_of) == 2,
+        f"{path}: vega_kt_covariance_entry must have exactly value and unavailable variants",
+    )
+    variants = {}
+    for index, variant in enumerate(one_of):
+        require(
+            isinstance(variant, dict),
+            f"{path}: vega_kt_covariance_entry oneOf[{index}] must be an object schema",
+        )
+        properties = variant.get("properties")
+        require(
+            isinstance(properties, dict),
+            f"{path}: vega_kt_covariance_entry oneOf[{index}] must define properties",
+        )
+        discriminator = properties.get("type")
+        require(
+            isinstance(discriminator, dict) and isinstance(discriminator.get("const"), str),
+            f"{path}: vega_kt_covariance_entry oneOf[{index}] must use a string type tag",
+        )
+        variants[discriminator["const"]] = variant
+
+    require(
+        set(variants) == {"value", "unavailable"},
+        f"{path}: vega_kt_covariance_entry variants must be value and unavailable",
+    )
+    value_variant = variants["value"]
+    value_properties = value_variant.get("properties")
+    require(
+        isinstance(value_properties, dict),
+        f"{path}: value covariance entry must define properties",
+    )
+    require(
+        value_variant.get("required") == ["type", "value"]
+        and value_properties.get("value") == {"type": "number"},
+        f"{path}: value covariance entry must require a numeric value",
+    )
+    unavailable_variant = variants["unavailable"]
+    require(
+        unavailable_variant.get("required") == ["type"]
+        and set(unavailable_variant.get("properties", {})) == {"type"},
+        f"{path}: unavailable covariance entry must carry only its type tag",
+    )
 
 
 def requires_vega_kt_full_covariance_for_layout(item: dict[str, Any], layout: str) -> bool:
