@@ -391,6 +391,8 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
         "cargo_lock_sha256",
     ]:
         require_non_empty_string(document.get(key), path, key)
+    for key in ["git_sha", "runner_os", "runner_arch", "processor"]:
+        require_optional_non_empty_string(document.get(key), path, key)
     require(
         len(document["cargo_lock_sha256"]) == 64
         and all(character in "0123456789abcdef" for character in document["cargo_lock_sha256"]),
@@ -466,6 +468,14 @@ def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
 
 def require_non_empty_string(value: Any, path: Path, name: str) -> None:
     require(isinstance(value, str) and value, path, f"{name} must be a non-empty string")
+
+
+def require_optional_non_empty_string(value: Any, path: Path, name: str) -> None:
+    require(
+        value is None or (isinstance(value, str) and value),
+        path,
+        f"{name} must be null or a non-empty string",
+    )
 
 
 def require_fingerprint(value: Any, path: Path, name: str) -> None:
