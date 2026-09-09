@@ -2,7 +2,6 @@
 
 # %% Imports and market data
 from datetime import date
-import json
 
 import numpy as np
 import rust_pricing as rp
@@ -47,7 +46,7 @@ plan = rp.PricingPlan.compile(request, worker_threads=2, reduction_block_size=25
 result = plan.evaluate()
 
 # %% Structured result and diagnostics
-print(json.dumps(json.loads(result.to_json()), indent=2))
+print(result.to_pretty_json())
 print("plan:", plan.plan_fingerprint)
 print("estimator:", result.diagnostics.estimator)
 print("warnings:", [(warning.code, warning.message) for warning in result.warnings])

@@ -2,7 +2,6 @@
 
 # %% Imports and market data
 from datetime import date
-import json
 
 import numpy as np
 import rust_pricing as rp
@@ -86,6 +85,7 @@ reporting_implied_volatilities = np.array(
     ],
     dtype=np.float64,
 )
+vega_kt_maturity_dates = [FIRST_BUCKET_MATURITY, EXPIRY]
 model = rp.Model.local_volatility_from_grid_with_reporting_basis(
     local_vol_times,
     local_vol_log_moneyness,
@@ -105,7 +105,7 @@ risks = rp.RiskRequest(
     delta=True,
     gamma_relative_bump=0.01,
     vega=True,
-    vega_kt_maturity_nodes=[FIRST_BUCKET_MATURITY, EXPIRY],
+    vega_kt_maturity_nodes=vega_kt_maturity_dates,
     vega_kt_log_forward_moneyness_nodes=reporting_log_moneyness,
     vega_kt_relative_density_threshold=1.0e-8,
     vega_kt_full_bucket_covariance=True,
@@ -123,17 +123,14 @@ request = rp.PricingRequest(
     risk=risks,
 )
 round_trip = rp.PricingRequest.from_json(request.to_json())
-payload = json.loads(round_trip.to_json())
 
 # %% Inspect the materialized Local Volatility and VegaKT inputs
-print(json.dumps(payload, indent=2))
+print(round_trip.to_pretty_json())
 print("request:", round_trip.fingerprint)
-print("local variance shape:", payload["model"]["local_variance_grid"]["shape"])
-print("reporting IV shape:", payload["model"]["reporting_iv_basis"]["shape"])
+print("request schema bytes:", len(rp.request_json_schema()))
 print(
     "vega kt buckets:",
-    len(payload["risk"]["vega_kt"]["maturity_nodes"])
-    * len(payload["risk"]["vega_kt"]["log_forward_moneyness_nodes"]),
+    len(vega_kt_maturity_dates) * len(reporting_log_moneyness),
 )
 
 # %% Evaluate and inspect the VegaKT result report
