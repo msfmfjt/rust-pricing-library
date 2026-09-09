@@ -13,10 +13,12 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 - [European Black–Scholes diagnostics catalogue](docs/european-bs-diagnostics-v0.1.md)
 - [Local Volatility and VegaKT implementation roadmap](docs/local-vol-vegakt-roadmap-v0.1.md)
 - [Local Volatility and VegaKT numerical contracts](docs/local-vol-vegakt-numerical-contracts-v0.1.md)
+- [Local Volatility and VegaKT diagnostics catalogue](docs/local-vol-vegakt-diagnostics-v0.1.md)
+- [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
 
 ## Status
 
-The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility Gate L0 is accepted: exact SSVI/eSSVI, Dupire, non-uniform hat, equation (11), transition-cell, reporting-unit, and affine-dividend numerical contracts are frozen with independently checked equation fixtures. Gate L1, the calibrated SSVI/eSSVI market implementation, is next. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
+The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility/VegaKT now has candidate Gates L0–L7 coverage: exact SSVI/eSSVI, Dupire Local variance, non-uniform interpolation, Log-Euler Local Volatility simulation, Local Vega/VegaKT operators, affine dividends, public Rust/JSON/Python request surfaces, and independently checked equation fixtures. Gate L8 acceptance work is in progress, with candidate diagnostics and conformance reports published in `docs/`. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
 
 ## Workspace
 
