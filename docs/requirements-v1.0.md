@@ -962,7 +962,11 @@ It shall cover:
 8. comparison with the analytical Black–Scholes price and Greeks;
 9. deterministic replay for a fixed complete configuration.
 
-The subsequent vertical slice shall add calibrated SSVI/eSSVI input, Dupire Local Volatility construction, and VegaKT decomposition before expanding to all path-dependent and multi-asset products.
+The subsequent Local Volatility/VegaKT vertical slice adds calibrated
+SSVI/eSSVI input, Dupire Local Volatility construction, and VegaKT
+decomposition before expansion to the remaining path-dependent and multi-asset
+products. Its v0.1 acceptance evidence is recorded in
+`local-vol-vegakt-conformance-v0.1.md`.
 
 ### 13.1 VegaKT acceptance criteria
 
@@ -979,7 +983,11 @@ Acceptance additionally requires conservation checks for the hat-kernel projecti
 
 ## 14. Proposed delivery stages
 
-The European Black–Scholes stage is committed through `european-bs-roadmap-v0.1.md`. Later stages remain sequencing recommendations until their own implementation roadmaps are accepted.
+The European Black-Scholes stage is committed through
+`european-bs-roadmap-v0.1.md`. The Local Volatility/VegaKT stage is committed
+through `local-vol-vegakt-roadmap-v0.1.md` and accepted in
+`local-vol-vegakt-conformance-v0.1.md`. Later stages remain sequencing
+recommendations until their own implementation roadmaps are accepted.
 
 1. **Foundation:** numerical types, market objects, product/model/engine interfaces, result diagnostics, Python packaging.
 2. **European Black–Scholes slice:** MC/QMC, analytical benchmark, AAD and bump Greeks.
@@ -991,7 +999,13 @@ The European Black–Scholes stage is committed through `european-bs-roadmap-v0.
 
 ## 15. Architecture and numerical-specification decisions
 
-The following choices do not change the agreed product scope or externally observable requirements, but must be fixed and documented during architecture and detailed numerical design:
+The following choices do not change the agreed product scope or externally
+observable requirements. Decisions needed by the accepted European
+Black-Scholes and Local Volatility/VegaKT baselines are recorded in
+`architecture-v0.1.md`,
+`local-vol-vegakt-numerical-contracts-v0.1.md`, and the conformance reports.
+Choices for future product slices remain open until their own roadmap or ADR is
+accepted:
 
 - settlement-lag representation used by schedule generation;
 - precise Standard SSVI and eSSVI formulas and admissibility constraints;
