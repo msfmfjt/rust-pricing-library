@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
-use pricing_market::{LocalVarianceBoundaryStats, LocalVarianceGrid};
+use pricing_market::{LocalVarianceBoundaryStats, LocalVarianceGrid, LocalVarianceInterpolation};
 
 use crate::{BrownianBridgeError, BrownianBridgePlan, Philox4x32, RandomCoordinate, RandomDomain};
 
@@ -19,6 +19,7 @@ pub enum LocalVolError {
     InvalidInitialState { bits: u64 },
     ShockCountMismatch { expected: usize, actual: usize },
     NonFiniteState { step: usize, bits: u64 },
+    AdjointCountMismatch { expected: usize, actual: usize },
     BrownianBridge(BrownianBridgeError),
     Market(pricing_market::MarketError),
 }
@@ -58,6 +59,10 @@ impl fmt::Display for LocalVolError {
             Self::NonFiniteState { step, bits } => write!(
                 formatter,
                 "Local Volatility Log-Euler produced a non-finite state at step {step}: 0x{bits:016x}"
+            ),
+            Self::AdjointCountMismatch { expected, actual } => write!(
+                formatter,
+                "Local Volatility reverse expected {expected} adjoints; received {actual}"
             ),
             Self::BrownianBridge(error) => error.fmt(formatter),
             Self::Market(error) => error.fmt(formatter),
@@ -239,6 +244,7 @@ impl LocalVolLogEulerPlan {
 
         let mut states = Vec::with_capacity(self.time_grid.nodes().len());
         let mut variances = Vec::with_capacity(self.time_grid.step_count());
+        let mut step_cache = Vec::with_capacity(self.time_grid.step_count());
         let mut boundary_stats = LocalVarianceBoundaryStats::default();
         let mut state = initial_f;
         states.push(state);
@@ -251,7 +257,20 @@ impl LocalVolLogEulerPlan {
                 local_variance_grid.interpolate_and_record(time, x, &mut boundary_stats)?;
             let local_variance = interpolation.value;
             let local_volatility = local_variance.sqrt();
-            state *= (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
+            let exponential =
+                (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
+            step_cache.push(LocalVolStepCache {
+                state_before: state,
+                local_variance,
+                local_variance_state_derivative: local_variance_grid
+                    .interpolation_log_moneyness_derivative(interpolation)
+                    / state,
+                shock,
+                dt,
+                interpolation,
+                exponential,
+            });
+            state *= exponential;
             if !state.is_finite() || state <= 0.0 {
                 return Err(LocalVolError::NonFiniteState {
                     step: step + 1,
@@ -264,6 +283,7 @@ impl LocalVolLogEulerPlan {
         Ok(LocalVolPath {
             states: states.into_boxed_slice(),
             local_variances: variances.into_boxed_slice(),
+            step_cache: step_cache.into_boxed_slice(),
             boundary_stats,
         })
     }
@@ -322,6 +342,7 @@ impl LocalVolLogEulerPlan {
 pub struct LocalVolPath {
     states: Box<[f64]>,
     local_variances: Box<[f64]>,
+    step_cache: Box<[LocalVolStepCache]>,
     boundary_stats: LocalVarianceBoundaryStats,
 }
 
@@ -337,8 +358,100 @@ impl LocalVolPath {
     }
 
     #[must_use]
+    pub fn step_cache(&self) -> &[LocalVolStepCache] {
+        &self.step_cache
+    }
+
+    #[must_use]
     pub const fn boundary_stats(&self) -> LocalVarianceBoundaryStats {
         self.boundary_stats
+    }
+
+    pub fn reverse_terminal(
+        &self,
+        terminal_state_adjoint: f64,
+        grid_value_count: usize,
+        grid_log_moneyness_count: usize,
+    ) -> Result<LocalVolReverseAdjoints, LocalVolError> {
+        for cache in self.step_cache.iter().copied() {
+            let required = (cache.interpolation.lower_time_index + 2)
+                .checked_mul(grid_log_moneyness_count)
+                .ok_or(LocalVolError::StepCountOverflow)?;
+            if grid_log_moneyness_count < 2 || required > grid_value_count {
+                return Err(LocalVolError::AdjointCountMismatch {
+                    expected: required,
+                    actual: grid_value_count,
+                });
+            }
+        }
+        let mut state_adjoints = vec![0.0; self.states.len()];
+        let mut shock_adjoints = vec![0.0; self.step_cache.len()];
+        let mut local_variance_value_adjoints = vec![0.0; grid_value_count];
+        state_adjoints[self.states.len() - 1] = terminal_state_adjoint;
+        for step in (0..self.step_cache.len()).rev() {
+            let cache = self.step_cache[step];
+            let next_state_adjoint = state_adjoints[step + 1];
+            let next_state = self.states[step + 1];
+            let log_exponent_adjoint = next_state_adjoint * next_state;
+            let local_volatility = cache.local_variance.sqrt();
+            state_adjoints[step] += next_state_adjoint * cache.exponential;
+            shock_adjoints[step] += log_exponent_adjoint * local_volatility * cache.dt.sqrt();
+            let local_variance_adjoint = log_exponent_adjoint
+                * (-0.5 * cache.dt + cache.shock * cache.dt.sqrt() / (2.0 * local_volatility));
+            state_adjoints[step] += local_variance_adjoint * cache.local_variance_state_derivative;
+            cache.interpolation.transpose_accumulate(
+                local_variance_adjoint,
+                &mut local_variance_value_adjoints,
+                grid_log_moneyness_count,
+            );
+        }
+        Ok(LocalVolReverseAdjoints {
+            initial_state_adjoint: state_adjoints[0],
+            state_adjoints: state_adjoints.into_boxed_slice(),
+            shock_adjoints: shock_adjoints.into_boxed_slice(),
+            local_variance_value_adjoints: local_variance_value_adjoints.into_boxed_slice(),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LocalVolStepCache {
+    pub state_before: f64,
+    pub local_variance: f64,
+    pub local_variance_state_derivative: f64,
+    pub shock: f64,
+    pub dt: f64,
+    pub interpolation: LocalVarianceInterpolation,
+    pub exponential: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LocalVolReverseAdjoints {
+    initial_state_adjoint: f64,
+    state_adjoints: Box<[f64]>,
+    shock_adjoints: Box<[f64]>,
+    local_variance_value_adjoints: Box<[f64]>,
+}
+
+impl LocalVolReverseAdjoints {
+    #[must_use]
+    pub const fn initial_state_adjoint(&self) -> f64 {
+        self.initial_state_adjoint
+    }
+
+    #[must_use]
+    pub fn state_adjoints(&self) -> &[f64] {
+        &self.state_adjoints
+    }
+
+    #[must_use]
+    pub fn shock_adjoints(&self) -> &[f64] {
+        &self.shock_adjoints
+    }
+
+    #[must_use]
+    pub fn local_variance_value_adjoints(&self) -> &[f64] {
+        &self.local_variance_value_adjoints
     }
 }
 
@@ -424,6 +537,94 @@ mod tests {
             .expect("path");
         assert_eq!(path.boundary_stats().right_flat_count, 1);
         assert!(path.boundary_stats().max_right_excursion > 0.39);
+    }
+
+    #[test]
+    fn reverse_terminal_preserves_primal_and_matches_finite_differences() {
+        let time_grid = LocalVolTimeGrid::compile(vec![1.0], 0.5).expect("time grid");
+        let plan = LocalVolLogEulerPlan::with_constant_forward(time_grid, 100.0).expect("plan");
+        let variance_values = vec![0.03, 0.05, 0.07, 0.09, 0.11, 0.13];
+        let variance_grid = LocalVarianceGrid::new(
+            vec![0.0, 0.5, 1.0],
+            vec![-1.0, 1.0],
+            variance_values.clone(),
+            0.0001,
+            1.0,
+        )
+        .expect("variance grid");
+        let shocks = vec![0.2, -0.1];
+        let path = plan
+            .evolve_path(&variance_grid, 100.0, &shocks)
+            .expect("path");
+        let adjoints = path
+            .reverse_terminal(
+                1.0,
+                variance_grid.values().len(),
+                variance_grid.log_moneyness_nodes().len(),
+            )
+            .expect("reverse");
+        let bump = 1.0e-5;
+        let up_path = plan
+            .evolve_path(&variance_grid, 100.0 + bump, &shocks)
+            .expect("up initial");
+        let down_path = plan
+            .evolve_path(&variance_grid, 100.0 - bump, &shocks)
+            .expect("down initial");
+        let finite_initial = (up_path.states()[up_path.states().len() - 1]
+            - down_path.states()[down_path.states().len() - 1])
+            / (2.0 * bump);
+        assert!((adjoints.initial_state_adjoint() - finite_initial).abs() < 1.0e-7);
+
+        for shock_index in 0..shocks.len() {
+            let mut up_shocks = shocks.clone();
+            up_shocks[shock_index] += bump;
+            let mut down_shocks = shocks.clone();
+            down_shocks[shock_index] -= bump;
+            let up_path = plan
+                .evolve_path(&variance_grid, 100.0, &up_shocks)
+                .expect("up shock");
+            let down_path = plan
+                .evolve_path(&variance_grid, 100.0, &down_shocks)
+                .expect("down shock");
+            let finite = (up_path.states()[up_path.states().len() - 1]
+                - down_path.states()[down_path.states().len() - 1])
+                / (2.0 * bump);
+            let actual = adjoints.shock_adjoints()[shock_index];
+            assert!(
+                (actual - finite).abs() < 1.0e-5,
+                "shock {shock_index}: actual={actual:.17e}, finite={finite:.17e}"
+            );
+        }
+    }
+
+    #[test]
+    fn reverse_deposits_local_variance_adjoint_with_interpolation_weights() {
+        let time_grid = LocalVolTimeGrid::compile(vec![0.5], 0.5).expect("time grid");
+        let plan = LocalVolLogEulerPlan::with_constant_forward(time_grid, 100.0).expect("plan");
+        let variance_grid = LocalVarianceGrid::new(
+            vec![0.0, 0.5],
+            vec![-1.0, 1.0],
+            vec![0.04, 0.08, 0.12, 0.16],
+            0.0001,
+            1.0,
+        )
+        .expect("variance grid");
+        let path = plan
+            .evolve_path(&variance_grid, 100.0, &[0.0])
+            .expect("path");
+        let adjoints = path
+            .reverse_terminal(
+                1.0,
+                variance_grid.values().len(),
+                variance_grid.log_moneyness_nodes().len(),
+            )
+            .expect("reverse");
+        let deposited = adjoints.local_variance_value_adjoints();
+        assert_eq!(deposited.len(), variance_grid.values().len());
+        assert_eq!(deposited[0], deposited[1]);
+        assert_eq!(deposited[2], 0.0);
+        assert_eq!(deposited[3], 0.0);
+        assert!(deposited[0] < 0.0);
     }
 
     #[test]

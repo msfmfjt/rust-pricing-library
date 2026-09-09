@@ -344,6 +344,24 @@ impl LocalVarianceGrid {
         stats.record(interpolation)?;
         Ok(interpolation)
     }
+
+    #[must_use]
+    pub fn interpolation_log_moneyness_derivative(
+        &self,
+        interpolation: LocalVarianceInterpolation,
+    ) -> f64 {
+        if interpolation.boundary != LocalVarianceBoundary::InRange {
+            return 0.0;
+        }
+        let x_count = self.log_moneyness_nodes.len();
+        let row = interpolation.lower_time_index * x_count;
+        let next_row = row + x_count;
+        let left = interpolation.lower_log_moneyness_index;
+        let width = self.log_moneyness_nodes[left + 1] - self.log_moneyness_nodes[left];
+        let lower_slope = (self.values[row + left + 1] - self.values[row + left]) / width;
+        let upper_slope = (self.values[next_row + left + 1] - self.values[next_row + left]) / width;
+        lower_slope * (1.0 - interpolation.time_weight) + upper_slope * interpolation.time_weight
+    }
 }
 
 pub fn piecewise_sinh_log_moneyness_nodes(
@@ -775,6 +793,7 @@ mod tests {
         let interpolation = grid.interpolate(1.25, 0.0).expect("interpolate");
         assert_eq!(interpolation.boundary, LocalVarianceBoundary::InRange);
         assert!((interpolation.value - 3.0).abs() < 1.0e-15);
+        assert!((grid.interpolation_log_moneyness_derivative(interpolation) - 1.0).abs() < 1.0e-15);
 
         let mut adjoints = vec![0.0; grid.values().len()];
         interpolation.transpose_accumulate(2.0, &mut adjoints, grid.log_moneyness_nodes().len());
