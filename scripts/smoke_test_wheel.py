@@ -16,10 +16,14 @@ def main() -> None:
 
     with ZipFile(wheel) as archive:
         members = set(archive.namelist())
-    if "rust_pricing/__init__.pyi" not in members:
-        raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
+        if "rust_pricing/__init__.pyi" not in members:
+            raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
+        stub = archive.read("rust_pricing/__init__.pyi")
     if not any(Path(member).name == "py.typed" for member in members):
         raise RuntimeError("wheel does not contain the py.typed marker")
+    expected_stub = Path("rust_pricing.pyi").read_bytes()
+    if stub != expected_stub:
+        raise RuntimeError("wheel type stub does not match rust_pricing.pyi")
 
     environment = Path(".wheel-smoke-venv")
     create_environment(environment)
