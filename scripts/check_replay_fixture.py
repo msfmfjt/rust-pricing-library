@@ -76,7 +76,11 @@ def load_object(path: Path) -> tuple[str, dict[str, object]]:
         raise SystemExit(f"{path}: JSON artifact must end with exactly one LF")
     try:
         text = raw.decode("utf-8")
-        document = json.loads(text, object_pairs_hook=reject_duplicate_keys)
+        document = json.loads(
+            text,
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_json_constant,
+        )
     except ValueError as exc:
         raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
     if not isinstance(document, dict):
@@ -91,6 +95,10 @@ def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
             raise ValueError(f"duplicate key: {key}")
         document[key] = value
     return document
+
+
+def reject_json_constant(value: str) -> object:
+    raise ValueError(f"non-standard JSON constant: {value}")
 
 
 if __name__ == "__main__":

@@ -300,7 +300,11 @@ def load_object(path: Path) -> dict[str, Any]:
     require(raw.endswith(b"\n"), path, "JSON artifact must end with LF")
     require(not raw.endswith(b"\n\n"), path, "JSON artifact must end with exactly one LF")
     try:
-        document = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+        document = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_json_constant,
+        )
     except ValueError as exc:
         raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
     if not isinstance(document, dict):
@@ -315,6 +319,10 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             raise ValueError(f"duplicate object key {key!r}")
         result[key] = value
     return result
+
+
+def reject_json_constant(value: str) -> Any:
+    raise ValueError(f"non-standard JSON constant: {value}")
 
 
 def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:

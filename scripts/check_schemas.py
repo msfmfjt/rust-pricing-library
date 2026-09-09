@@ -43,7 +43,11 @@ def load_schema(path: Path) -> dict[str, Any]:
     require(raw.endswith(b"\n"), f"{path}: schema file must end with LF")
     require(not raw.endswith(b"\n\n"), f"{path}: schema file must end with exactly one LF")
     try:
-        document = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+        document = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_json_constant,
+        )
     except SchemaError:
         raise
     except Exception as exc:  # noqa: BLE001 - report parser failures as validation failures.
@@ -56,6 +60,10 @@ def load_schema(path: Path) -> dict[str, Any]:
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise SchemaError(message)
+
+
+def reject_json_constant(value: str) -> Any:
+    raise SchemaError(f"non-standard JSON constant: {value}")
 
 
 def pointer(path: tuple[str | int, ...]) -> str:

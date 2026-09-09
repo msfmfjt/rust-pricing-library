@@ -104,7 +104,8 @@ def main() -> None:
         ],
     }
     Path(sys.argv[1]).write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(report, allow_nan=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
 
 

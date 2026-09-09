@@ -49,6 +49,19 @@ def require_keys(value: dict[str, Any], expected: set[str], label: str) -> None:
         )
 
 
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
+
+
+def reject_json_constant(value: str) -> Any:
+    raise ValueError(f"non-standard JSON constant: {value}")
+
+
 def ssvi_values(
     theta: D,
     rho: D,
@@ -353,7 +366,11 @@ def check_dividend(fixture: dict[str, Any], checks: Checks) -> None:
 
 
 def main() -> None:
-    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    fixture = json.loads(
+        FIXTURE.read_text(encoding="utf-8"),
+        object_pairs_hook=reject_duplicate_keys,
+        parse_constant=reject_json_constant,
+    )
     require_keys(
         fixture,
         {

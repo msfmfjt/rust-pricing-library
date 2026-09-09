@@ -135,7 +135,8 @@ def main() -> None:
         ],
     }
     (output / "metadata.json").write_text(
-        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(metadata, allow_nan=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     run([sys.executable, "scripts/check_benchmark_reports.py", str(output)])
 
@@ -257,7 +258,10 @@ def windows_process_peak_rss_bytes(pid: int) -> int:
 
 
 def add_process_peak_memory(path: Path, peak_memory_bytes: int) -> None:
-    document = json.loads(path.read_text(encoding="utf-8"))
+    document = json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=reject_json_constant,
+    )
     if not isinstance(document, dict):
         raise RuntimeError(f"{path}: top-level JSON value must be an object")
     capabilities = document.setdefault("capabilities", {})
@@ -265,7 +269,14 @@ def add_process_peak_memory(path: Path, peak_memory_bytes: int) -> None:
         raise RuntimeError(f"{path}: capabilities must be an object")
     capabilities["peak_memory_available_in_process"] = True
     document["process_peak_memory_bytes"] = peak_memory_bytes
-    path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(document, allow_nan=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def reject_json_constant(value: str) -> object:
+    raise ValueError(f"non-standard JSON constant: {value}")
 
 
 def local_volatility_fixture_exists() -> bool:
