@@ -336,6 +336,11 @@ def verify_cyclonedx_sbom(
 def expected_project_metadata() -> dict[str, str]:
     pyproject = tomllib.loads(Path("pyproject.toml").read_text("utf-8"))
     cargo_manifest = tomllib.loads(Path("Cargo.toml").read_text("utf-8"))
+    build_system = required_table(pyproject, "build-system", "pyproject.toml")
+    if build_system.get("requires") != ["maturin>=1.9,<2.0"]:
+        raise RuntimeError("pyproject.toml build-system.requires mismatch")
+    if build_system.get("build-backend") != "maturin":
+        raise RuntimeError("pyproject.toml build-system.build-backend mismatch")
     project = required_table(pyproject, "project", "pyproject.toml")
     workspace = required_table(cargo_manifest, "workspace", "Cargo.toml")
     workspace_package = required_table(workspace, "package", "Cargo.toml workspace")
