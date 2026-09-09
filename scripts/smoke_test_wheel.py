@@ -572,6 +572,29 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 f"found {sorted(actual)}"
             )
 
+    expected_class_members = {
+        "VegaKtResult": {
+            "coordinates",
+            "estimates",
+            "raw_buckets",
+            "full_bucket_covariance",
+            "covariance_layout",
+            "projection",
+            "residual_diagnostics",
+            "raw_unit",
+            "market_scaled_unit",
+            "policy_label",
+            "truncation_order",
+        },
+    }
+    for class_name, expected in sorted(expected_class_members.items()):
+        actual = set(class_members.get(class_name, []))
+        if not expected.issubset(actual):
+            raise RuntimeError(
+                f"wheel type stub {class_name} is missing members: "
+                f"{sorted(expected - actual)}"
+            )
+
 
 def duplicates_in(values: list[str]) -> set[str]:
     seen: set[str] = set()
