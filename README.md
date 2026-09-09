@@ -72,6 +72,10 @@ The Python extension is built with [maturin](https://www.maturin.rs/):
 ```shell
 python -m maturin develop --locked
 python -m unittest discover -s tests/python -v
+python -m maturin build --locked --release --out dist
+python scripts/smoke_test_wheel.py
+python scripts/run_benchmark_suite.py
+python scripts/check_benchmark_reports.py benchmark-results
 ```
 
 A cell-oriented end-to-end example is available at
@@ -94,9 +98,10 @@ Draft 2020-12 schemas are available through `request_json_schema()` and
 `result_json_schema()` for external validation or fixture review. Pricing
 results expose Price and Greek estimates with standard errors, confidence
 intervals, estimator labels, effective sample counts, and raw/market-scaled
-risk units. Result diagnostics expose replay-critical seeds, execution policy fields, curve
-regions, Payoff fingerprints, QMC direction/scramble checksums, bump validation
-policy fields, and CRN bump validation estimates for requested Greeks.
+risk units. Result diagnostics expose replay-critical seeds, execution policy
+fields, curve regions, Payoff fingerprints, QMC direction/scramble checksums,
+bump validation policy fields, and CRN bump validation estimates for requested
+Greeks.
 
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts. Each wheel is installed into a
