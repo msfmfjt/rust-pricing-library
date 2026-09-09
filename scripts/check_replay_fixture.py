@@ -35,6 +35,30 @@ FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 FLOAT_BITS = re.compile(r"^[0-9a-f]{16}$")
 REPLAY_DOCUMENT_KEYS = {"cases", "fixture_kind", "platform", "schema_version"}
 REPLAY_CASE_KEYS = {"execution", "name", "plan", "request", "result"}
+REPLAY_REQUEST_KEYS = {
+    "document_kind",
+    "engine",
+    "market",
+    "model",
+    "product",
+    "risk",
+    "schema_version",
+    "valuation_date",
+}
+REPLAY_RESULT_KEYS = {
+    "diagnostics",
+    "document_kind",
+    "replay",
+    "risks",
+    "schema_version",
+    "value",
+}
+REPLAY_METADATA_KEYS = {
+    "library_version",
+    "platform",
+    "request_fingerprint",
+    "schema_version",
+}
 REPLAY_PLAN_KEYS = {
     "plan_fingerprint",
     "reduction_block_size",
@@ -204,7 +228,9 @@ def validate_case(
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
     require_exact_keys(path, plan, REPLAY_PLAN_KEYS, f"{case_path}.plan")
     request = require_object(path, case.get("request"), f"{case_path}.request")
+    require_exact_keys(path, request, REPLAY_REQUEST_KEYS, f"{case_path}.request")
     result = require_object(path, case.get("result"), f"{case_path}.result")
+    require_exact_keys(path, result, REPLAY_RESULT_KEYS, f"{case_path}.result")
     execution = require_object(path, case.get("execution"), f"{case_path}.execution")
     require_exact_keys(path, execution, REPLAY_EXECUTION_KEYS, f"{case_path}.execution")
     monte_carlo = require_object(
@@ -246,6 +272,7 @@ def validate_case(
     if result.get("schema_version") != 1:
         raise SystemExit(f"{path}: {case_path}.result.schema_version must be 1")
     replay = require_object(path, result.get("replay"), f"{case_path}.result.replay")
+    require_exact_keys(path, replay, REPLAY_METADATA_KEYS, f"{case_path}.result.replay")
     result_request_fingerprint = require_fingerprint(
         path,
         replay.get("request_fingerprint"),

@@ -17,8 +17,11 @@ from check_replay_fixture import EXPECTED_CASE_NAMES
 from check_replay_fixture import FINGERPRINT
 from check_replay_fixture import REPLAY_CASE_KEYS
 from check_replay_fixture import REPLAY_EXECUTION_KEYS
+from check_replay_fixture import REPLAY_METADATA_KEYS
 from check_replay_fixture import REPLAY_MONTE_CARLO_KEYS
 from check_replay_fixture import REPLAY_PLAN_KEYS
+from check_replay_fixture import REPLAY_REQUEST_KEYS
+from check_replay_fixture import REPLAY_RESULT_KEYS
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 from check_replay_fixture import validate_local_vol_case
 from check_replay_fixture import validate_risk_methods
@@ -328,6 +331,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             plan.get("worker_threads"), path, f"{case_path}.plan.worker_threads"
         )
         request = require_object(case_object.get("request"), path, f"{case_path}.request")
+        require_exact_keys(request, REPLAY_REQUEST_KEYS, path, f"{case_path}.request")
         require(
             request.get("document_kind") == "pricing_request",
             path,
@@ -342,6 +346,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             request.get("engine"), path, f"{case_path}.request.engine"
         )
         result = require_object(case_object.get("result"), path, f"{case_path}.result")
+        require_exact_keys(result, REPLAY_RESULT_KEYS, path, f"{case_path}.result")
         require(
             result.get("document_kind") == "pricing_result",
             path,
@@ -353,6 +358,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path}.result.schema_version",
         )
         replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
+        require_exact_keys(replay, REPLAY_METADATA_KEYS, path, f"{case_path}.result.replay")
         require(
             replay.get("schema_version") == 1,
             path,
