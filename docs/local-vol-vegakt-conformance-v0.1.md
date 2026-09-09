@@ -25,7 +25,7 @@ European Black-Scholes baseline.
 | Market surfaces | Unit and reference tests in `pricing-market` | SSVI/eSSVI values, analytic derivatives, density factors, Local-variance repairs, node helpers, and affine dividends pass |
 | Path engine | Unit tests in `pricing-mc` | Non-uniform Brownian bridge, Local Volatility Log-Euler, event substeps, boundary diagnostics, reverse interpolation, and dividend reverse caches pass |
 | VegaKT | Unit tests in `pricing-risk` | Active domain, equation (11), transition operator, reporting-IV basis, projection residuals, bucket estimates, and covariance layouts pass |
-| Public API | Rust wire tests and Python smoke tests | Discrete dividends, explicit Local Volatility grids, eSSVI helpers, standard SSVI helpers, and VegaKT requests serialize through public facades |
+| Public API | Rust wire tests, Python smoke tests, and Python examples | Discrete dividends, explicit Local Volatility grids, eSSVI helpers, standard SSVI helpers, and VegaKT requests serialize through public facades |
 | CI | Pull request CI run 143 for commit `8947908` | Formatting, Clippy, Rust tests, statistical acceptance, supported wheels, Python smoke tests, dependency checks, and benchmark harness pass |
 
 ## Requirements Section 13.1 status
@@ -49,6 +49,7 @@ diagnostics.
 - Frozen equation-level artifact: `fixtures/local-vol/reference-cases-v0.1.json`.
 - Frozen numerical policy: `docs/local-vol-vegakt-numerical-contracts-v0.1.md`.
 - Candidate diagnostics catalogue: `docs/local-vol-vegakt-diagnostics-v0.1.md`.
+- Candidate Python request example: `examples/python/local_vol_vegakt.py`.
 - Candidate CI evidence: pull request run 143 on commit `8947908`.
 
 ## Remaining acceptance work
@@ -58,8 +59,9 @@ diagnostics.
   contract used by the European baseline.
 - Retain benchmark artifacts that separately identify the AD/decomposition
   workload and its selected and aggregate CRN bump validations.
-- Add a Python example that starts from calibrated SSVI/eSSVI input and requests
-  Local Volatility pricing plus VegaKT output.
+- Connect the public pricing entry point to Local Volatility evaluation so the
+  Python example can progress from canonical request construction to Price,
+  Greeks, and VegaKT output.
 - Promote this report from candidate to accepted only after the retained replay
   and benchmark evidence is attached to the final acceptance PR.
 
