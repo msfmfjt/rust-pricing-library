@@ -226,6 +226,9 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
             path,
             f"{case_path}.request.schema_version",
         )
+        request_engine = require_object(
+            request.get("engine"), path, f"{case_path}.request.engine"
+        )
         result = require_object(case_object.get("result"), path, f"{case_path}.result")
         require(
             result.get("document_kind") == "pricing_result",
@@ -269,6 +272,13 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
             monte_carlo.get("worker_threads") == plan.get("worker_threads"),
             path,
             f"{case_path} worker_threads must match plan",
+        )
+        check_replay_sampling(
+            execution,
+            monte_carlo,
+            request_engine,
+            path,
+            case_path,
         )
 
 
@@ -418,6 +428,56 @@ def require_fingerprint(value: Any, path: Path, name: str) -> None:
     )
 
 
+def check_replay_sampling(
+    execution: dict[str, Any],
+    monte_carlo: dict[str, Any],
+    request_engine: dict[str, Any],
+    path: Path,
+    case_path: str,
+) -> None:
+    sampling_units = execution.get("independent_sampling_units")
+    require_positive_int(
+        sampling_units, path, f"{case_path}.execution.independent_sampling_units"
+    )
+    evaluated_paths = require_positive_decimal_int(
+        execution.get("evaluated_paths"), path, f"{case_path}.execution.evaluated_paths"
+    )
+    antithetic = monte_carlo.get("antithetic")
+    require(
+        isinstance(antithetic, bool),
+        path,
+        f"{case_path}.execution.monte_carlo.antithetic",
+    )
+    multiplicity = 2 if antithetic else 1
+    scramble_count = monte_carlo.get("scramble_count")
+    if scramble_count is None:
+        expected_paths = sampling_units * multiplicity
+    else:
+        require_positive_int(
+            scramble_count, path, f"{case_path}.execution.monte_carlo.scramble_count"
+        )
+        require(
+            request_engine.get("scramble_count") == scramble_count,
+            path,
+            f"{case_path} scramble_count must match request",
+        )
+        require(
+            sampling_units == scramble_count,
+            path,
+            f"{case_path} independent_sampling_units must match scramble_count",
+        )
+        points_per_scramble = request_engine.get("points_per_scramble")
+        require_positive_int(
+            points_per_scramble, path, f"{case_path}.request.engine.points_per_scramble"
+        )
+        expected_paths = points_per_scramble * scramble_count * multiplicity
+    require(
+        evaluated_paths == expected_paths,
+        path,
+        f"{case_path} evaluated_paths must match the sampling policy",
+    )
+
+
 def require_string_array(value: Any, path: Path, name: str) -> None:
     require(isinstance(value, list), path, f"{name} must be a string array")
     for index, item in enumerate(value):
@@ -430,6 +490,15 @@ def require_positive_int(value: Any, path: Path, name: str) -> None:
         path,
         f"{name} must be a positive integer",
     )
+
+
+def require_positive_decimal_int(value: Any, path: Path, name: str) -> int:
+    require(
+        isinstance(value, str) and value.isdecimal() and int(value) > 0,
+        path,
+        f"{name} must be a positive decimal integer string",
+    )
+    return int(value)
 
 
 def require_positive_float(value: Any, path: Path, name: str) -> None:
