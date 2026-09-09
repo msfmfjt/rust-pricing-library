@@ -282,9 +282,19 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
         )
         replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
         require(
+            replay.get("schema_version") == 1,
+            path,
+            f"{case_path}.result.replay.schema_version must be 1",
+        )
+        require(
             replay.get("library_version") == library_version,
             path,
             f"{case_path}.result.replay.library_version must match Cargo workspace version",
+        )
+        require(
+            replay.get("platform") == document["platform"],
+            path,
+            f"{case_path}.result.replay.platform must match artifact platform",
         )
         require_fingerprint(
             replay.get("request_fingerprint"), path, f"{case_path}.result.replay.request_fingerprint"
