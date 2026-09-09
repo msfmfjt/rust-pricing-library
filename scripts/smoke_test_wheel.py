@@ -26,7 +26,7 @@ def main() -> None:
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
         raise RuntimeError("wheel type stub does not match rust_pricing.pyi")
-    stub_symbols = exported_stub_symbols(expected_stub)
+    stub_api = exported_stub_api(expected_stub)
 
     environment = Path(".wheel-smoke-venv")
     create_environment(environment)
@@ -44,7 +44,7 @@ def main() -> None:
         ],
         check=True,
     )
-    verify_runtime_symbols(python, stub_symbols)
+    verify_runtime_symbols(python, stub_api)
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run(
@@ -88,26 +88,44 @@ def create_environment(environment: Path) -> None:
         subprocess.run([uv, "venv", "--seed", str(environment)], check=True)
 
 
-def exported_stub_symbols(stub: bytes) -> list[str]:
+def exported_stub_api(stub: bytes) -> dict[str, object]:
     tree = ast.parse(stub.decode("utf-8"))
     symbols = []
+    class_members: dict[str, list[str]] = {}
     for node in tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
             symbols.append(node.name)
+            if isinstance(node, ast.ClassDef):
+                class_members[node.name] = [
+                    member.name
+                    for member in node.body
+                    if isinstance(member, ast.FunctionDef)
+                ]
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             symbols.append(node.target.id)
-    return symbols
+    return {"symbols": symbols, "class_members": class_members}
 
 
-def verify_runtime_symbols(python: Path, symbols: list[str]) -> None:
-    code = (
-        "import json, rust_pricing; "
-        "missing = [name for name in json.loads(input()) if not hasattr(rust_pricing, name)]; "
-        "raise SystemExit('missing runtime symbols: ' + ', '.join(missing) if missing else 0)"
-    )
+def verify_runtime_symbols(python: Path, stub_api: dict[str, object]) -> None:
+    code = """
+import json
+import rust_pricing
+
+api = json.loads(input())
+missing = [name for name in api["symbols"] if not hasattr(rust_pricing, name)]
+for cls_name, members in api["class_members"].items():
+    cls = getattr(rust_pricing, cls_name, None)
+    if cls is not None:
+        missing.extend(
+            f"{cls_name}.{member}"
+            for member in members
+            if not hasattr(cls, member)
+        )
+raise SystemExit("missing runtime symbols: " + ", ".join(missing) if missing else 0)
+"""
     subprocess.run(
         [str(python), "-c", code],
-        input=json.dumps(symbols),
+        input=json.dumps(stub_api),
         text=True,
         check=True,
     )
