@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 import sys
 from typing import Any
@@ -331,12 +332,16 @@ def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
 
 
 def require_positive_int(value: Any, path: Path, name: str) -> None:
-    require(isinstance(value, int) and value > 0, path, f"{name} must be a positive integer")
+    require(
+        isinstance(value, int) and not isinstance(value, bool) and value > 0,
+        path,
+        f"{name} must be a positive integer",
+    )
 
 
 def require_positive_float(value: Any, path: Path, name: str) -> None:
     require(
-        isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0.0,
+        is_finite_number(value) and value > 0.0,
         path,
         f"{name} must be a positive number",
     )
@@ -344,10 +349,14 @@ def require_positive_float(value: Any, path: Path, name: str) -> None:
 
 def require_non_negative_float(value: Any, path: Path, name: str) -> None:
     require(
-        isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0.0,
+        is_finite_number(value) and value >= 0.0,
         path,
         f"{name} must be a non-negative number",
     )
+
+
+def is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def require(condition: bool, path: Path, message: str) -> None:
