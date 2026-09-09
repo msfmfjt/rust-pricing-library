@@ -65,6 +65,7 @@ REQUIRED_FILES = {
     "scripts/check_source_archive.py",
     "scripts/run_benchmark_suite.py",
     "scripts/smoke_test_wheel.py",
+    "benchmarks/python_european_bs.py",
     "examples/python/european_bs.py",
     "examples/python/local_vol_vegakt.py",
     "tests/python/test_smoke.py",
@@ -132,6 +133,7 @@ def has_forbidden_part(name: str) -> bool:
 def repository_source_files() -> set[str]:
     patterns = [
         ("crates", "*.rs"),
+        ("benchmarks", "*.py"),
         ("examples/python", "*.py"),
         ("tests/python", "*.py"),
         ("scripts", "*.py"),
