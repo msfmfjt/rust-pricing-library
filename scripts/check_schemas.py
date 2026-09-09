@@ -229,6 +229,18 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
         )
 
 
+def check_no_unstructured_objects(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict) or value.get("type") != "object":
+            continue
+        if "properties" in value or "oneOf" in value:
+            continue
+        require(
+            False,
+            f"{path}:{pointer(location)}: object schema must define properties or oneOf",
+        )
+
+
 def check_strict_objects(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict) or value.get("type") != "object" or "properties" not in value:
@@ -311,6 +323,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
+    check_no_unstructured_objects(schema, path)
     check_strict_objects(schema, path)
     check_tagged_union_discriminators(schema, path)
 
