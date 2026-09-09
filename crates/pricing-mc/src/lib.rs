@@ -6,6 +6,7 @@ mod bridge;
 mod config;
 mod error;
 mod execution;
+mod local_vol;
 mod qmc;
 mod random;
 
@@ -13,6 +14,9 @@ pub use config::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 pub use error::EngineConfigError;
 pub use execution::{DeterministicExecutor, ExecutionError, ExecutionPolicy, ExecutorBuildError};
 pub use execution::{DeterministicStatistics, TryExecutionError};
+pub use local_vol::{
+    LOCAL_VOL_LOG_EULER_SCHEME, LocalVolError, LocalVolLogEulerPlan, LocalVolPath, LocalVolTimeGrid,
+};
 pub use qmc::{
     JOE_KUO_DIRECTION_SET, RQMC_SCRAMBLE_ABI, RqmcPlan, RqmcPlanError, RqmcPointError, Scramble32,
     Sobol32, SobolDimensionError,

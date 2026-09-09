@@ -441,7 +441,7 @@ pub fn suggest_log_moneyness_nodes_from_density(
 fn validate_nodes(
     coordinate: &'static str,
     values: &[f64],
-    require_positive: bool,
+    reject_negative: bool,
 ) -> Result<(), MarketError> {
     if values.len() < 2 {
         return Err(MarketError::InvalidLocalVarianceNodeCount {
@@ -450,7 +450,7 @@ fn validate_nodes(
         });
     }
     for (index, value) in values.iter().copied().enumerate() {
-        if !value.is_finite() || (require_positive && value <= 0.0) {
+        if !value.is_finite() || (reject_negative && value < 0.0) {
             return Err(MarketError::InvalidLocalVarianceNode {
                 coordinate,
                 index,
