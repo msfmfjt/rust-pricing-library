@@ -145,6 +145,37 @@ pub enum MarketError {
         left_bits: u64,
         right_bits: u64,
     },
+    InvalidLocalVarianceNodeCount {
+        coordinate: &'static str,
+        count: usize,
+    },
+    InvalidLocalVarianceNode {
+        coordinate: &'static str,
+        index: usize,
+        bits: u64,
+    },
+    UnsortedLocalVarianceNodes {
+        coordinate: &'static str,
+        left_index: usize,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    LocalVarianceValueLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    InvalidLocalVarianceValue {
+        index: usize,
+        bits: u64,
+    },
+    LocalVarianceBoundaryCountOverflow {
+        boundary: &'static str,
+    },
+    SurfaceQuantileNotBracketed {
+        side: &'static str,
+        time_bits: u64,
+        probability_bits: u64,
+    },
 }
 
 impl fmt::Display for MarketError {
@@ -333,6 +364,47 @@ impl fmt::Display for MarketError {
             } => write!(
                 formatter,
                 "eSSVI slices at {left_index} violate {condition}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidLocalVarianceNodeCount { coordinate, count } => write!(
+                formatter,
+                "Local variance {coordinate} grid requires at least two nodes; received {count}"
+            ),
+            Self::InvalidLocalVarianceNode {
+                coordinate,
+                index,
+                bits,
+            } => write!(
+                formatter,
+                "Local variance {coordinate} node {index} is invalid: 0x{bits:016x}"
+            ),
+            Self::UnsortedLocalVarianceNodes {
+                coordinate,
+                left_index,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "Local variance {coordinate} nodes are not strictly increasing at {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::LocalVarianceValueLengthMismatch { expected, actual } => write!(
+                formatter,
+                "Local variance grid expected {expected} row-major values; received {actual}"
+            ),
+            Self::InvalidLocalVarianceValue { index, bits } => write!(
+                formatter,
+                "Local variance grid value {index} is invalid: 0x{bits:016x}"
+            ),
+            Self::LocalVarianceBoundaryCountOverflow { boundary } => write!(
+                formatter,
+                "Local variance {boundary} boundary counter overflowed"
+            ),
+            Self::SurfaceQuantileNotBracketed {
+                side,
+                time_bits,
+                probability_bits,
+            } => write!(
+                formatter,
+                "implied surface {side} quantile was not bracketed at time 0x{time_bits:016x}, probability 0x{probability_bits:016x}"
             ),
         }
     }

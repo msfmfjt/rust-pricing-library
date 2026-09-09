@@ -222,6 +222,55 @@ pub trait ImpliedVarianceSurface: Send + Sync {
     }
 }
 
+pub fn durrleman_density_factor(
+    time: f64,
+    log_moneyness: f64,
+    variance: TotalVarianceDerivatives,
+) -> Result<f64, MarketError> {
+    let total_variance = variance.total_variance;
+    if !total_variance.is_finite() || total_variance <= 0.0 {
+        return Err(MarketError::NonPositiveSurfaceValue {
+            field: "total_variance",
+            time_bits: time.to_bits(),
+            log_moneyness_bits: log_moneyness.to_bits(),
+            value_bits: total_variance.to_bits(),
+        });
+    }
+    for (field, value) in [
+        (
+            "log_moneyness_derivative",
+            variance.log_moneyness_derivative,
+        ),
+        (
+            "log_moneyness_second_derivative",
+            variance.log_moneyness_second_derivative,
+        ),
+    ] {
+        if !value.is_finite() {
+            return Err(MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits: time.to_bits(),
+                log_moneyness_bits: log_moneyness.to_bits(),
+                value_bits: value.to_bits(),
+            });
+        }
+    }
+    let u = 1.0 - log_moneyness * variance.log_moneyness_derivative / (2.0 * total_variance);
+    let density_factor = u * u
+        - (variance.log_moneyness_derivative * variance.log_moneyness_derivative / 4.0)
+            * (1.0 / total_variance + 1.0 / 4.0)
+        + variance.log_moneyness_second_derivative / 2.0;
+    if !density_factor.is_finite() || density_factor <= 0.0 {
+        return Err(MarketError::NonPositiveSurfaceValue {
+            field: "density_factor",
+            time_bits: time.to_bits(),
+            log_moneyness_bits: log_moneyness.to_bits(),
+            value_bits: density_factor.to_bits(),
+        });
+    }
+    Ok(density_factor)
+}
+
 fn evaluate_forward_call(
     time: f64,
     log_moneyness: f64,
@@ -243,19 +292,7 @@ fn evaluate_forward_call(
     let d2 = -log_moneyness / root_variance - root_variance / 2.0;
     let d1 = d2 + root_variance;
     let undiscounted_price = forward * standard_normal_cdf(d1) - strike * standard_normal_cdf(d2);
-    let u = 1.0 - log_moneyness * variance.log_moneyness_derivative / (2.0 * total_variance);
-    let density_factor = u * u
-        - (variance.log_moneyness_derivative * variance.log_moneyness_derivative / 4.0)
-            * (1.0 / total_variance + 1.0 / 4.0)
-        + variance.log_moneyness_second_derivative / 2.0;
-    if !density_factor.is_finite() || density_factor <= 0.0 {
-        return Err(MarketError::NonPositiveSurfaceValue {
-            field: "density_factor",
-            time_bits: time.to_bits(),
-            log_moneyness_bits: log_moneyness.to_bits(),
-            value_bits: density_factor.to_bits(),
-        });
-    }
+    let density_factor = durrleman_density_factor(time, log_moneyness, variance)?;
     let call_density = standard_normal_pdf(d2) / (strike * root_variance) * density_factor;
     let result = ForwardCallEvaluation {
         forward,
