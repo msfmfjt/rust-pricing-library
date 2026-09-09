@@ -9,7 +9,7 @@ use pricing_market::{
 };
 use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing_models::{
-    BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
+    Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing_product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
@@ -269,6 +269,10 @@ enum ModelV1 {
     BlackScholes {
         volatility: f64,
     },
+    #[serde(rename = "black_76")]
+    Black76 {
+        volatility: f64,
+    },
     LocalVolatility {
         local_variance_grid: LocalVarianceGridV1,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -466,6 +470,9 @@ impl From<&ModelSpec> for ModelV1 {
             ModelSpec::BlackScholes(spec) => Self::BlackScholes {
                 volatility: spec.volatility().get(),
             },
+            ModelSpec::Black76(spec) => Self::Black76 {
+                volatility: spec.volatility().get(),
+            },
             ModelSpec::LocalVolatility(spec) => Self::LocalVolatility {
                 local_variance_grid: LocalVarianceGridV1::from(spec.local_variance_grid()),
                 reporting_iv_basis: spec.reporting_iv_basis().map(ReportingIvBasisV1::from),
@@ -644,6 +651,9 @@ impl TryFrom<RequestV1> for PricingRequest {
         let model = match value.model {
             ModelV1::BlackScholes { volatility } => {
                 ModelSpec::BlackScholes(BlackScholesSpec::new(volatility).map_err(domain)?)
+            }
+            ModelV1::Black76 { volatility } => {
+                ModelSpec::Black76(Black76Spec::new(volatility).map_err(domain)?)
             }
             ModelV1::LocalVolatility {
                 local_variance_grid,
@@ -1652,6 +1662,43 @@ mod tests {
         .expect("request")
     }
 
+    fn black_76_request() -> PricingRequest {
+        let curve = |id, discount| {
+            Arc::new(
+                LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, discount])
+                    .expect("curve"),
+            )
+        };
+        let product = ProductSpec::EuropeanVanilla(
+            EuropeanVanillaSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                "2027-09-04".parse().expect("date"),
+                100.0,
+                1.0,
+                OptionSide::Call,
+            )
+            .expect("product"),
+        );
+        let forward = EquityForward::new(
+            UnderlyingId::new(1),
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(10, 0.95),
+            curve(11, 0.95),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("date"),
+            product,
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(2), forward)),
+            ModelSpec::Black76(Black76Spec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
     fn dividend_request() -> PricingRequest {
         let curve = |id, discount| {
             Arc::new(
@@ -1780,6 +1827,17 @@ mod tests {
             fingerprint_request(&parsed).expect("fingerprint"),
             fingerprint_request(&reparsed).expect("fingerprint")
         );
+    }
+
+    #[test]
+    fn request_json_round_trips_black_76_model() {
+        let request = black_76_request();
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"type\":\"black_76\""));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert!(matches!(parsed.model(), ModelSpec::Black76(_)));
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
     }
 
     #[test]

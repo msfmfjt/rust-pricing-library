@@ -151,6 +151,8 @@ class Model:
     @staticmethod
     def black_scholes(volatility: float) -> Model: ...
     @staticmethod
+    def black_76(volatility: float) -> Model: ...
+    @staticmethod
     def local_volatility_from_grid(
         time_nodes: Sequence[float],
         log_forward_moneyness_nodes: Sequence[float],

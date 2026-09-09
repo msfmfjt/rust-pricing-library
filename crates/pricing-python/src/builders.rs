@@ -9,7 +9,7 @@ use pricing::market::{
 };
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{
-    BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
+    Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
@@ -314,6 +314,16 @@ impl PyModel {
         BlackScholesSpec::new(volatility)
             .map(|spec| Self {
                 inner: ModelSpec::BlackScholes(spec),
+            })
+            .map_err(|error| domain_error(py, "invalid_volatility", "/model/volatility", error))
+    }
+
+    /// Build a constant-volatility Black--76 model on the market forward.
+    #[staticmethod]
+    fn black_76(py: Python<'_>, volatility: f64) -> PyResult<Self> {
+        Black76Spec::new(volatility)
+            .map(|spec| Self {
+                inner: ModelSpec::Black76(spec),
             })
             .map_err(|error| domain_error(py, "invalid_volatility", "/model/volatility", error))
     }

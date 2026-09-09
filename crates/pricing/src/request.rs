@@ -44,8 +44,10 @@ impl PricingRequest {
                 expiry: product.expiry(),
             });
         }
-        if risk.vega_kt().is_some() && matches!(&model, ModelSpec::BlackScholes(_)) {
-            return Err(RequestValidationError::VegaKtUnsupportedForBlackScholes);
+        if risk.vega_kt().is_some()
+            && matches!(&model, ModelSpec::BlackScholes(_) | ModelSpec::Black76(_))
+        {
+            return Err(RequestValidationError::VegaKtUnsupportedForConstantVolatility);
         }
         Ok(Self {
             valuation_date,

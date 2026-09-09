@@ -27,7 +27,7 @@ pub enum RequestValidationError {
         valuation_date: Date,
         expiry: Date,
     },
-    VegaKtUnsupportedForBlackScholes,
+    VegaKtUnsupportedForConstantVolatility,
 }
 
 impl fmt::Display for RequestValidationError {
@@ -48,7 +48,7 @@ impl fmt::Display for RequestValidationError {
                 formatter,
                 "expiry {expiry} is before valuation date {valuation_date}"
             ),
-            Self::VegaKtUnsupportedForBlackScholes => {
+            Self::VegaKtUnsupportedForConstantVolatility => {
                 write!(formatter, "VegaKT requires a Local Volatility model")
             }
         }

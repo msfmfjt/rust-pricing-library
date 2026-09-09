@@ -395,6 +395,10 @@ impl SimulationPlan {
                 let volatility = model.volatility().get();
                 (volatility, volatility * volatility * time, None)
             }
+            ModelSpec::Black76(model) => {
+                let volatility = model.volatility().get();
+                (volatility, volatility * volatility * time, None)
+            }
             ModelSpec::LocalVolatility(model) => {
                 let runtime = compile_local_vol_runtime(LocalVolRuntimeInputs {
                     grid: model.local_variance_grid().clone(),
@@ -2120,12 +2124,12 @@ mod tests {
     use pricing_core::{CurrencyId, CurveId, PositiveF64};
     use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
     use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
-    use pricing_models::{BlackScholesSpec, LocalVolatilitySpec};
+    use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
     use pricing_product::{EuropeanVanillaSpec, OptionSide};
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 
     use super::*;
-    use crate::analytical::black_scholes_oracle;
+    use crate::analytical::{black_76_oracle, black_scholes_oracle};
 
     fn curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {
         Arc::new(
@@ -2304,6 +2308,15 @@ mod tests {
         )
     }
 
+    fn zero_carry_black_76_request(sampling_units: u64, antithetic: bool) -> PricingRequest {
+        price_only_request_with_model(
+            ModelSpec::Black76(Black76Spec::new(0.2).expect("model")),
+            sampling_units,
+            antithetic,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+    }
+
     fn zero_carry_rqmc_request(model: ModelSpec) -> PricingRequest {
         zero_carry_rqmc_request_with_risk(
             model,
@@ -2456,6 +2469,16 @@ mod tests {
             result.estimator_variance.sqrt().to_bits(),
             estimate.standard_error().get().to_bits()
         );
+    }
+
+    #[test]
+    fn black_76_mc_converges_to_the_analytical_oracle_with_reported_error() {
+        let request = zero_carry_black_76_request(131_072, true);
+        let oracle = black_76_oracle(&request).expect("oracle").price;
+        let result = price_pseudo_monte_carlo(&request, policy(4)).expect("MC");
+        let estimate = result.pricing_result.value;
+        let error = (estimate.value().get() - oracle).abs();
+        assert!(error <= 6.0 * estimate.standard_error().get());
     }
 
     #[test]

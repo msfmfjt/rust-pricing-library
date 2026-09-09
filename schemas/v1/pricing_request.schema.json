@@ -67,6 +67,7 @@
     "model": {
       "oneOf": [
         {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"const": "black_scholes"}, "volatility": {"type": "number", "minimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"const": "black_76"}, "volatility": {"type": "number", "minimum": 0}}},
         {"type": "object", "additionalProperties": false, "required": ["type", "local_variance_grid"], "properties": {"type": {"const": "local_volatility"}, "local_variance_grid": {"$ref": "#/$defs/local_variance_grid"}, "reporting_iv_basis": {"$ref": "#/$defs/reporting_iv_basis"}}}
       ]
     },

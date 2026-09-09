@@ -6,7 +6,25 @@ pub struct BlackScholesSpec {
     volatility: NonNegativeF64,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Black76Spec {
+    volatility: NonNegativeF64,
+}
+
 impl BlackScholesSpec {
+    pub fn new(volatility: f64) -> Result<Self, CoreError> {
+        Ok(Self {
+            volatility: NonNegativeF64::new(volatility, "volatility")?,
+        })
+    }
+
+    #[must_use]
+    pub const fn volatility(self) -> NonNegativeF64 {
+        self.volatility
+    }
+}
+
+impl Black76Spec {
     pub fn new(volatility: f64) -> Result<Self, CoreError> {
         Ok(Self {
             volatility: NonNegativeF64::new(volatility, "volatility")?,
@@ -228,6 +246,7 @@ fn core_error_to_market(error: CoreError) -> MarketError {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ModelSpec {
     BlackScholes(BlackScholesSpec),
+    Black76(Black76Spec),
     LocalVolatility(LocalVolatilitySpec),
 }
 
@@ -236,6 +255,7 @@ impl ModelSpec {
     pub const fn name(&self) -> &'static str {
         match self {
             Self::BlackScholes(_) => "black_scholes",
+            Self::Black76(_) => "black_76",
             Self::LocalVolatility(_) => "local_volatility",
         }
     }
@@ -256,6 +276,23 @@ mod tests {
         );
         assert!(BlackScholesSpec::new(-0.01).is_err());
         assert!(BlackScholesSpec::new(f64::NAN).is_err());
+    }
+
+    #[test]
+    fn black_76_uses_same_constant_volatility_validation() {
+        assert_eq!(
+            Black76Spec::new(0.0)
+                .expect("zero-volatility limit")
+                .volatility()
+                .get(),
+            0.0
+        );
+        assert!(Black76Spec::new(-0.01).is_err());
+        assert!(Black76Spec::new(f64::NAN).is_err());
+        assert_eq!(
+            ModelSpec::Black76(Black76Spec::new(0.2).expect("model")).name(),
+            "black_76"
+        );
     }
 
     #[test]

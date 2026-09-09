@@ -2,7 +2,11 @@
 
 An extensible derivatives-pricing library for model validation and quantitative research. The calculation core is written in Rust and will expose a Python interface for interactive single-trade analysis.
 
-The first vertical slice is a European vanilla option under Black–Scholes, with analytical reference values, Pseudo-Monte Carlo, randomized Sobol QMC, AAD Greeks, common-random-number bump validation, and deterministic replay.
+The first vertical slice is a European vanilla option under Black-Scholes, with
+analytical reference values, Pseudo-Monte Carlo, randomized Sobol QMC, AAD
+Greeks, common-random-number bump validation, and deterministic replay. The
+same public request, wire, and Python surfaces also expose a Black-76
+constant-volatility model on the market forward.
 
 ## Design baselines
 
