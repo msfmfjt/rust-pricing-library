@@ -809,10 +809,12 @@ pub fn vega_kt_bucket_estimates(
     if price_samples.is_empty() || bucket_count == 0 {
         return Err(RiskConfigError::EmptyVegaKtBucketSamples);
     }
-    let expected = price_samples
-        .len()
-        .checked_mul(bucket_count)
-        .expect("sample count product fits usize");
+    let Some(expected) = price_samples.len().checked_mul(bucket_count) else {
+        return Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
+            expected_multiple: bucket_count,
+            actual: raw_bucket_samples.len(),
+        });
+    };
     if raw_bucket_samples.len() != expected {
         return Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
             expected_multiple: bucket_count,
@@ -2356,6 +2358,13 @@ mod tests {
             Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
                 expected_multiple: 2,
                 actual: 3
+            })
+        ));
+        assert!(matches!(
+            vega_kt_bucket_estimates(&[1.0, 2.0], &[], usize::MAX),
+            Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
+                expected_multiple: usize::MAX,
+                actual: 0
             })
         ));
     }
