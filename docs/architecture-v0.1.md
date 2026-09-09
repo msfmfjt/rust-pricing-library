@@ -1,7 +1,7 @@
 # Rust Derivatives Pricing Library — Architecture v0.1
 
-Status: Initial architecture proposal; AAD execution boundary agreed
-Date: 2026-09-03
+Status: Accepted for the v0.1 European Black-Scholes and Local Volatility/VegaKT baselines
+Date: 2026-09-09
 Requirements baseline: `requirements-v1.0.md`
 Initial implementation roadmap: `european-bs-roadmap-v0.1.md`
 
