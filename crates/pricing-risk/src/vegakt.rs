@@ -866,8 +866,9 @@ pub fn vega_kt_full_bucket_covariance(
         validate_finite(*sample, "vega_kt_raw_bucket_sample")?;
     }
 
+    let expected = full_bucket_covariance_len(bucket_count)?;
     let sample_count = raw_bucket_samples.len() / bucket_count;
-    let mut covariance = Vec::with_capacity(bucket_count * bucket_count);
+    let mut covariance = Vec::with_capacity(expected);
     for left_bucket in 0..bucket_count {
         for right_bucket in 0..bucket_count {
             let mut accumulator = CenteredCovariance::new();
@@ -912,9 +913,7 @@ pub fn vega_kt_report(
     }
     let full_bucket_covariance = match full_bucket_covariance {
         Some(covariance) => {
-            let expected = bucket_count
-                .checked_mul(bucket_count)
-                .expect("bucket matrix size fits usize");
+            let expected = full_bucket_covariance_len(bucket_count)?;
             if covariance.len() != expected {
                 return Err(RiskConfigError::VegaKtFullCovarianceLengthMismatch {
                     expected,
@@ -1431,6 +1430,15 @@ fn reporting_iv_value_count(
 ) -> Result<usize, RiskConfigError> {
     maturity_count.checked_mul(log_moneyness_count).ok_or(
         RiskConfigError::ReportingIvValueLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
+}
+
+fn full_bucket_covariance_len(bucket_count: usize) -> Result<usize, RiskConfigError> {
+    bucket_count.checked_mul(bucket_count).ok_or(
+        RiskConfigError::VegaKtFullCovarianceLengthMismatch {
             expected: usize::MAX,
             actual: 0,
         },
@@ -2411,6 +2419,13 @@ mod tests {
             Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
                 expected_multiple: 2,
                 actual: 3
+            })
+        ));
+        assert!(matches!(
+            full_bucket_covariance_len(usize::MAX),
+            Err(RiskConfigError::VegaKtFullCovarianceLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
             })
         ));
     }

@@ -410,9 +410,7 @@ impl VegaKtResult {
         }
         let full_bucket_covariance = match full_bucket_covariance {
             Some(values) => {
-                let expected = bucket_count
-                    .checked_mul(bucket_count)
-                    .expect("bucket matrix size fits usize");
+                let expected = vega_kt_full_covariance_len(bucket_count)?;
                 if values.len() != expected {
                     return Err(ResultBuildError::VegaKtFullCovarianceLengthMismatch {
                         expected,
@@ -515,6 +513,15 @@ impl VegaKtResult {
     pub fn truncation_order(&self) -> &str {
         &self.truncation_order
     }
+}
+
+fn vega_kt_full_covariance_len(bucket_count: usize) -> Result<usize, ResultBuildError> {
+    bucket_count.checked_mul(bucket_count).ok_or(
+        ResultBuildError::VegaKtFullCovarianceLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
 }
 
 impl From<VegaKtBucketUnit> for VegaKtResultUnit {
@@ -811,6 +818,18 @@ mod tests {
                 None,
             )
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn vega_kt_full_covariance_len_rejects_overflow() {
+        assert_eq!(vega_kt_full_covariance_len(3).expect("count"), 9);
+        assert_eq!(
+            vega_kt_full_covariance_len(usize::MAX).expect_err("overflow"),
+            ResultBuildError::VegaKtFullCovarianceLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
+            }
         );
     }
 
