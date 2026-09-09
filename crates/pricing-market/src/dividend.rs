@@ -697,6 +697,20 @@ mod tests {
                 bits: 1.0_f64.to_bits()
             })
         );
+        assert_eq!(
+            DividendQuote::fixed_cash_and_proportional(-1.0, 0.2, EventId::new(9)),
+            Err(MarketError::InvalidDividendCash {
+                event: EventId::new(9),
+                bits: (-1.0_f64).to_bits()
+            })
+        );
+        assert_eq!(
+            DividendQuote::fixed_cash_and_proportional(1.0, -0.2, EventId::new(9)),
+            Err(MarketError::InvalidDividendProportion {
+                event: EventId::new(9),
+                bits: (-0.2_f64).to_bits()
+            })
+        );
         assert!(matches!(
             AffineDividendTransform::new(
                 UnderlyingId::new(7),
