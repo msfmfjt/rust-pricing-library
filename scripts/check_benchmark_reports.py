@@ -54,6 +54,10 @@ EXPECTED_COMMAND_PEAKS = {
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
 }
+SUPPORTED_REPLAY_PLATFORMS = {
+    "macos-aarch64",
+    "windows-x86_64",
+}
 
 
 def main() -> None:
@@ -172,6 +176,11 @@ def check_replay_report(path: Path, fixture_kind: str) -> None:
         isinstance(document.get("platform"), str) and document["platform"],
         path,
         "missing platform",
+    )
+    require(
+        document["platform"] in SUPPORTED_REPLAY_PLATFORMS,
+        path,
+        f"unsupported replay platform: {document['platform']!r}",
     )
     cases = document.get("cases")
     require(isinstance(cases, list) and len(cases) > 0, path, "cases must be a non-empty array")
