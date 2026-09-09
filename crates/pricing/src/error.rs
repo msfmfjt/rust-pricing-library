@@ -35,6 +35,10 @@ pub enum RequestValidationError {
         observation_date: Date,
         valuation_date: Date,
     },
+    BarrierPastMonitoringUnsupported {
+        monitoring_date: Date,
+        valuation_date: Date,
+    },
     LookbackPastMonitoringRequiresHistoricalExtremum {
         valuation_date: Date,
     },
@@ -76,6 +80,13 @@ impl fmt::Display for RequestValidationError {
             } => write!(
                 formatter,
                 "Asian observation {observation_date} after valuation date {valuation_date} cannot carry a known fixing"
+            ),
+            Self::BarrierPastMonitoringUnsupported {
+                monitoring_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "Barrier monitoring date {monitoring_date} before valuation date {valuation_date} requires historical barrier state"
             ),
             Self::LookbackPastMonitoringRequiresHistoricalExtremum { valuation_date } => write!(
                 formatter,

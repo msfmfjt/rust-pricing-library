@@ -6,8 +6,8 @@ use std::mem;
 use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
 use crate::{
-    ArithmeticAsianSpec, AsianObservationValue, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-    FixedLookbackSpec, OptionSide, ProductSpec,
+    ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec, BarrierStyle,
+    DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
@@ -360,6 +360,79 @@ impl ArithmeticAsianSpec {
     }
 }
 
+impl BarrierSpec {
+    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        let mut builder = SourceGraphBuilder::new();
+        let strike = builder.literal(self.strike().get())?;
+        let terminal = builder.push(SourceOpcode::TerminalSpot {
+            underlying: self.underlying(),
+            observation_date: self.expiry(),
+        })?;
+        let signed_intrinsic = match self.side() {
+            OptionSide::Call => builder.push(SourceOpcode::Subtract {
+                left: terminal,
+                right: strike,
+            })?,
+            OptionSide::Put => builder.push(SourceOpcode::Subtract {
+                left: strike,
+                right: terminal,
+            })?,
+        };
+        let zero = builder.literal(0.0)?;
+        let positive_part = builder.push(SourceOpcode::Maximum {
+            left: signed_intrinsic,
+            right: zero,
+        })?;
+        let notional = builder.literal(self.notional().get())?;
+        let vanilla_payoff = builder.push(SourceOpcode::Multiply {
+            left: positive_part,
+            right: notional,
+        })?;
+
+        let barrier = builder.literal(self.barrier().get())?;
+        let mut hit = zero;
+        for date in self.monitoring_dates() {
+            let spot = builder.push(SourceOpcode::TerminalSpot {
+                underlying: self.underlying(),
+                observation_date: *date,
+            })?;
+            let signed_distance = match self.direction() {
+                BarrierDirection::Up => builder.push(SourceOpcode::Subtract {
+                    left: spot,
+                    right: barrier,
+                })?,
+                BarrierDirection::Down => builder.push(SourceOpcode::Subtract {
+                    left: barrier,
+                    right: spot,
+                })?,
+            };
+            let date_hit = builder.push(SourceOpcode::Indicator {
+                input: signed_distance,
+            })?;
+            hit = builder.push(SourceOpcode::Maximum {
+                left: hit,
+                right: date_hit,
+            })?;
+        }
+
+        let active = match self.style() {
+            BarrierStyle::KnockIn => hit,
+            BarrierStyle::KnockOut => {
+                let one = builder.literal(1.0)?;
+                builder.push(SourceOpcode::Subtract {
+                    left: one,
+                    right: hit,
+                })?
+            }
+        };
+        let payoff = builder.push(SourceOpcode::Multiply {
+            left: vanilla_payoff,
+            right: active,
+        })?;
+        Ok(builder.finish(vec![payoff]))
+    }
+}
+
 impl FixedLookbackSpec {
     pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
         let mut builder = SourceGraphBuilder::new();
@@ -424,6 +497,7 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
+            Self::Barrier(spec) => spec.source_graph(),
             Self::ArithmeticAsian(spec) => spec.source_graph(),
             Self::FixedLookback(spec) => spec.source_graph(valuation_date),
         }
@@ -1505,6 +1579,49 @@ mod tests {
                 .expect("compile");
             assert_eq!(
                 compiled.evaluate(|_, _| Some(terminal)).expect("execute"),
+                vec![expected]
+            );
+        }
+    }
+
+    #[test]
+    fn barrier_builder_executes_discrete_knock_out_and_knock_in_payoffs() {
+        for (style, march_spot, expiry_spot, expected) in [
+            (BarrierStyle::KnockOut, 110.0, 115.0, 30.0),
+            (BarrierStyle::KnockOut, 125.0, 115.0, 0.0),
+            (BarrierStyle::KnockIn, 110.0, 115.0, 0.0),
+            (BarrierStyle::KnockIn, 125.0, 115.0, 30.0),
+        ] {
+            let product = BarrierSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                120.0,
+                2.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                style,
+                vec![
+                    "2027-03-04".parse().expect("monitoring"),
+                    "2027-09-04".parse().expect("expiry"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("barrier");
+            let compiled = product
+                .source_graph()
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            assert_eq!(
+                compiled
+                    .evaluate(|_, date| match date.to_string().as_str() {
+                        "2027-03-04" => Some(march_spot),
+                        "2027-09-04" => Some(expiry_spot),
+                        _ => None,
+                    })
+                    .expect("execute"),
                 vec![expected]
             );
         }

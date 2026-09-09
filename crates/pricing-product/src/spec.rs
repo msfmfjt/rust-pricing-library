@@ -24,6 +24,18 @@ pub enum DigitalPayout {
     Asset,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BarrierDirection {
+    Up,
+    Down,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BarrierStyle {
+    KnockIn,
+    KnockOut,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DigitalSpec {
     underlying: UnderlyingId,
@@ -33,6 +45,21 @@ pub struct DigitalSpec {
     payout: PositiveF64,
     side: OptionSide,
     payout_kind: DigitalPayout,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BarrierSpec {
+    underlying: UnderlyingId,
+    currency: CurrencyId,
+    expiry: Date,
+    strike: PositiveF64,
+    barrier: PositiveF64,
+    notional: PositiveF64,
+    side: OptionSide,
+    direction: BarrierDirection,
+    style: BarrierStyle,
+    monitoring_dates: Box<[Date]>,
+    payment_date: Date,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -175,6 +202,114 @@ impl DigitalSpec {
     #[must_use]
     pub const fn payout_kind(&self) -> DigitalPayout {
         self.payout_kind
+    }
+}
+
+impl BarrierSpec {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        underlying: UnderlyingId,
+        currency: CurrencyId,
+        expiry: Date,
+        strike: f64,
+        barrier: f64,
+        notional: f64,
+        side: OptionSide,
+        direction: BarrierDirection,
+        style: BarrierStyle,
+        monitoring_dates: Vec<Date>,
+        payment_date: Date,
+    ) -> Result<Self, CoreError> {
+        if monitoring_dates.is_empty() {
+            return Err(CoreError::EmptyInput {
+                field: "barrier_monitoring_dates",
+            });
+        }
+        for pair in monitoring_dates.windows(2) {
+            if pair[0] >= pair[1] {
+                return Err(CoreError::InvalidOrdering {
+                    field: "barrier_monitoring_dates",
+                });
+            }
+        }
+        if *monitoring_dates.last().expect("non-empty monitoring dates") > expiry {
+            return Err(CoreError::InvalidOrdering {
+                field: "barrier_monitoring_dates",
+            });
+        }
+        if payment_date < expiry {
+            return Err(CoreError::InvalidOrdering {
+                field: "barrier_payment_date",
+            });
+        }
+        Ok(Self {
+            underlying,
+            currency,
+            expiry,
+            strike: PositiveF64::new(strike, "strike")?,
+            barrier: PositiveF64::new(barrier, "barrier")?,
+            notional: PositiveF64::new(notional, "notional")?,
+            side,
+            direction,
+            style,
+            monitoring_dates: monitoring_dates.into_boxed_slice(),
+            payment_date,
+        })
+    }
+
+    #[must_use]
+    pub const fn underlying(&self) -> UnderlyingId {
+        self.underlying
+    }
+
+    #[must_use]
+    pub const fn currency(&self) -> CurrencyId {
+        self.currency
+    }
+
+    #[must_use]
+    pub const fn expiry(&self) -> Date {
+        self.expiry
+    }
+
+    #[must_use]
+    pub const fn strike(&self) -> PositiveF64 {
+        self.strike
+    }
+
+    #[must_use]
+    pub const fn barrier(&self) -> PositiveF64 {
+        self.barrier
+    }
+
+    #[must_use]
+    pub const fn notional(&self) -> PositiveF64 {
+        self.notional
+    }
+
+    #[must_use]
+    pub const fn side(&self) -> OptionSide {
+        self.side
+    }
+
+    #[must_use]
+    pub const fn direction(&self) -> BarrierDirection {
+        self.direction
+    }
+
+    #[must_use]
+    pub const fn style(&self) -> BarrierStyle {
+        self.style
+    }
+
+    #[must_use]
+    pub const fn monitoring_dates(&self) -> &[Date] {
+        &self.monitoring_dates
+    }
+
+    #[must_use]
+    pub const fn payment_date(&self) -> Date {
+        self.payment_date
     }
 }
 
@@ -402,6 +537,7 @@ impl FixedLookbackSpec {
 pub enum ProductSpec {
     EuropeanVanilla(EuropeanVanillaSpec),
     Digital(DigitalSpec),
+    Barrier(BarrierSpec),
     ArithmeticAsian(ArithmeticAsianSpec),
     FixedLookback(FixedLookbackSpec),
 }
@@ -412,6 +548,7 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.underlying(),
             Self::Digital(spec) => spec.underlying(),
+            Self::Barrier(spec) => spec.underlying(),
             Self::ArithmeticAsian(spec) => spec.underlying(),
             Self::FixedLookback(spec) => spec.underlying(),
         }
@@ -422,6 +559,7 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.currency(),
             Self::Digital(spec) => spec.currency(),
+            Self::Barrier(spec) => spec.currency(),
             Self::ArithmeticAsian(spec) => spec.currency(),
             Self::FixedLookback(spec) => spec.currency(),
         }
@@ -432,6 +570,7 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.expiry(),
+            Self::Barrier(spec) => spec.expiry(),
             Self::ArithmeticAsian(spec) => spec.expiry(),
             Self::FixedLookback(spec) => spec.expiry(),
         }
@@ -442,6 +581,7 @@ impl ProductSpec {
         match self {
             Self::EuropeanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.expiry(),
+            Self::Barrier(spec) => spec.payment_date(),
             Self::ArithmeticAsian(spec) => spec.payment_date(),
             Self::FixedLookback(spec) => spec.payment_date(),
         }
@@ -508,6 +648,60 @@ mod tests {
                 0.0,
                 OptionSide::Call,
                 DigitalPayout::Asset,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn barrier_contract_validates_monitoring_and_payment_dates() {
+        let first = "2027-03-04".parse().expect("first");
+        let expiry = "2027-09-04".parse().expect("expiry");
+        let product = BarrierSpec::new(
+            UnderlyingId::new(1),
+            CurrencyId::new(2),
+            expiry,
+            100.0,
+            120.0,
+            1.0,
+            OptionSide::Call,
+            BarrierDirection::Up,
+            BarrierStyle::KnockOut,
+            vec![first, expiry],
+            expiry,
+        )
+        .expect("barrier");
+        assert_eq!(product.expiry(), expiry);
+        assert_eq!(product.monitoring_dates(), [first, expiry]);
+        assert!(
+            BarrierSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                first,
+                100.0,
+                120.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                vec![expiry],
+                first,
+            )
+            .is_err()
+        );
+        assert!(
+            BarrierSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                expiry,
+                100.0,
+                120.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                vec![expiry, first],
+                expiry,
             )
             .is_err()
         );

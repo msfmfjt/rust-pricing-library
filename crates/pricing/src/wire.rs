@@ -12,8 +12,9 @@ use pricing_models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing_product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
+    ProductSpec,
 };
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use serde::{Deserialize, Serialize};
@@ -228,6 +229,19 @@ enum ProductV1 {
         side: SideV1,
         payout_kind: DigitalPayoutV1,
     },
+    Barrier {
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: String,
+        strike: f64,
+        barrier: f64,
+        notional: f64,
+        side: SideV1,
+        direction: BarrierDirectionV1,
+        style: BarrierStyleV1,
+        monitoring_dates: Vec<String>,
+        payment_date: String,
+    },
     ArithmeticAsian {
         underlying_id: u32,
         currency_id: u16,
@@ -261,6 +275,20 @@ enum SideV1 {
 enum DigitalPayoutV1 {
     Cash,
     Asset,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum BarrierDirectionV1 {
+    Up,
+    Down,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum BarrierStyleV1 {
+    KnockIn,
+    KnockOut,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -465,6 +493,23 @@ impl From<&ProductSpec> for ProductV1 {
                 side: spec.side().into(),
                 payout_kind: spec.payout_kind().into(),
             },
+            ProductSpec::Barrier(spec) => Self::Barrier {
+                underlying_id: spec.underlying().get(),
+                currency_id: spec.currency().get(),
+                expiry: spec.expiry().to_string(),
+                strike: spec.strike().get(),
+                barrier: spec.barrier().get(),
+                notional: spec.notional().get(),
+                side: spec.side().into(),
+                direction: spec.direction().into(),
+                style: spec.style().into(),
+                monitoring_dates: spec
+                    .monitoring_dates()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+                payment_date: spec.payment_date().to_string(),
+            },
             ProductSpec::ArithmeticAsian(spec) => Self::ArithmeticAsian {
                 underlying_id: spec.underlying().get(),
                 currency_id: spec.currency().get(),
@@ -521,6 +566,24 @@ impl From<DigitalPayout> for DigitalPayoutV1 {
         match value {
             DigitalPayout::Cash => Self::Cash,
             DigitalPayout::Asset => Self::Asset,
+        }
+    }
+}
+
+impl From<BarrierDirection> for BarrierDirectionV1 {
+    fn from(value: BarrierDirection) -> Self {
+        match value {
+            BarrierDirection::Up => Self::Up,
+            BarrierDirection::Down => Self::Down,
+        }
+    }
+}
+
+impl From<BarrierStyle> for BarrierStyleV1 {
+    fn from(value: BarrierStyle) -> Self {
+        match value {
+            BarrierStyle::KnockIn => Self::KnockIn,
+            BarrierStyle::KnockOut => Self::KnockOut,
         }
     }
 }
@@ -748,6 +811,46 @@ impl TryFrom<RequestV1> for PricingRequest {
                         DigitalPayoutV1::Cash => DigitalPayout::Cash,
                         DigitalPayoutV1::Asset => DigitalPayout::Asset,
                     },
+                )
+                .map_err(domain)?,
+            ),
+            ProductV1::Barrier {
+                underlying_id,
+                currency_id,
+                expiry,
+                strike,
+                barrier,
+                notional,
+                side,
+                direction,
+                style,
+                monitoring_dates,
+                payment_date,
+            } => ProductSpec::Barrier(
+                BarrierSpec::new(
+                    UnderlyingId::new(underlying_id),
+                    CurrencyId::new(currency_id),
+                    parse_date(&expiry)?,
+                    strike,
+                    barrier,
+                    notional,
+                    match side {
+                        SideV1::Call => OptionSide::Call,
+                        SideV1::Put => OptionSide::Put,
+                    },
+                    match direction {
+                        BarrierDirectionV1::Up => BarrierDirection::Up,
+                        BarrierDirectionV1::Down => BarrierDirection::Down,
+                    },
+                    match style {
+                        BarrierStyleV1::KnockIn => BarrierStyle::KnockIn,
+                        BarrierStyleV1::KnockOut => BarrierStyle::KnockOut,
+                    },
+                    monitoring_dates
+                        .into_iter()
+                        .map(|date| parse_date(&date))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    parse_date(&payment_date)?,
                 )
                 .map_err(domain)?,
             ),
@@ -1938,6 +2041,51 @@ mod tests {
         .expect("request")
     }
 
+    fn barrier_request() -> PricingRequest {
+        let curve = |id, discount| {
+            Arc::new(
+                LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, discount])
+                    .expect("curve"),
+            )
+        };
+        let product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                120.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                vec![
+                    "2027-03-04".parse().expect("monitoring"),
+                    "2027-09-04".parse().expect("expiry"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let forward = EquityForward::new(
+            UnderlyingId::new(1),
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(10, 0.95),
+            curve(11, 0.98),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("date"),
+            product,
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(2), forward)),
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
     fn asian_request() -> PricingRequest {
         let curve = |id, discount| {
             Arc::new(
@@ -2173,6 +2321,23 @@ mod tests {
         assert!(json.contains("\"payout_kind\":{\"type\":\"cash\"}"));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert!(matches!(parsed.product(), ProductSpec::Digital(_)));
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
+    fn request_json_round_trips_barrier_product() {
+        let request = barrier_request();
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"type\":\"barrier\""));
+        assert!(json.contains("\"direction\":{\"type\":\"up\"}"));
+        assert!(json.contains("\"style\":{\"type\":\"knock_out\"}"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert!(matches!(parsed.product(), ProductSpec::Barrier(_)));
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")

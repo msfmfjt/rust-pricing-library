@@ -2243,8 +2243,9 @@ mod tests {
     use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
     use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
     use pricing_product::{
-        ArithmeticAsianSpec, AsianObservation, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-        FixedLookbackSpec, OptionSide, ProductSpec,
+        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
+        DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
+        ProductSpec,
     };
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 
@@ -2453,6 +2454,57 @@ mod tests {
                 10.0,
                 side,
                 payout_kind,
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.0).expect("model"));
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x0123_4567_89ab_cdef,
+                1,
+                VarianceReduction::new(false, false),
+            )
+            .expect("engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn barrier_zero_vol_request(barrier: f64) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                underlying,
+                currency,
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                barrier,
+                2.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                vec![
+                    "2027-03-05".parse().expect("first"),
+                    "2027-09-04".parse().expect("second"),
+                ],
+                "2027-09-04".parse().expect("payment"),
             )
             .expect("product"),
         );
@@ -3006,6 +3058,29 @@ mod tests {
         let out_result = price_pseudo_monte_carlo(&out_request, policy(2)).expect("out");
         assert_eq!(out_result.pricing_result.value.value().get(), 0.0);
         assert_eq!(out_result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
+    fn barrier_zero_volatility_uses_declared_monitoring_knock_out() {
+        let live =
+            SimulationPlan::compile(&barrier_zero_vol_request(200.0), policy(2)).expect("live");
+        assert_eq!(live.observation_dates.len(), 2);
+        let live_expected = live.discount() * (live.observation_forwards[1] - 100.0) * 2.0;
+        let live_result = live.execute().expect("live execution");
+        assert!((live_result.pricing_result.value.value().get() - live_expected).abs() <= 1.0e-12);
+        assert_eq!(live_result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+
+        let knocked =
+            SimulationPlan::compile(&barrier_zero_vol_request(50.0), policy(2)).expect("knocked");
+        let knocked_result = knocked.execute().expect("knocked execution");
+        assert_eq!(
+            knocked_result.pricing_result.value.value().get().to_bits(),
+            0.0_f64.to_bits()
+        );
+        assert_eq!(
+            knocked_result.sampling_variance.to_bits(),
+            0.0_f64.to_bits()
+        );
     }
 
     #[test]

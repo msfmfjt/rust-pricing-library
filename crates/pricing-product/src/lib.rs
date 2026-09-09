@@ -10,8 +10,9 @@ pub use graph::{
     PayoffEvaluation, SourceGraph, SourceGraphBuilder, SourceNode, SourceOpcode, TerminalAdjoint,
 };
 pub use spec::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
+    ProductSpec,
 };
 
 /// Returns the domain foundation role.

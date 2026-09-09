@@ -67,6 +67,18 @@ impl PricingRequest {
                 }
             }
         }
+        if let ProductSpec::Barrier(barrier) = &product
+            && let Some(monitoring_date) = barrier
+                .monitoring_dates()
+                .iter()
+                .copied()
+                .find(|date| *date < valuation_date)
+        {
+            return Err(RequestValidationError::BarrierPastMonitoringUnsupported {
+                monitoring_date,
+                valuation_date,
+            });
+        }
         if let ProductSpec::FixedLookback(lookback) = &product {
             let has_past_monitoring = lookback
                 .monitoring_dates()
@@ -153,8 +165,8 @@ mod tests {
     use pricing_mc::{PseudoMcConfig, VarianceReduction};
     use pricing_models::BlackScholesSpec;
     use pricing_product::{
-        ArithmeticAsianSpec, AsianObservation, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-        FixedLookbackSpec, OptionSide,
+        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
+        DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
     };
     use pricing_risk::SmileDynamics;
 
@@ -341,6 +353,42 @@ mod tests {
                 risk,
             ),
             Err(RequestValidationError::AsianFutureObservationCannotCarryFixing { .. })
+        ));
+    }
+
+    #[test]
+    fn request_rejects_barrier_past_monitoring_without_state() {
+        let currency = CurrencyId::new(1);
+        let (base, market, model, engine, risk) = components(currency, currency);
+        let product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                base.underlying(),
+                currency,
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                120.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                vec![
+                    "2026-03-04".parse().expect("past"),
+                    "2027-09-04".parse().expect("future"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("barrier"),
+        );
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                product,
+                market,
+                model,
+                engine,
+                risk,
+            ),
+            Err(RequestValidationError::BarrierPastMonitoringUnsupported { .. })
         ));
     }
 

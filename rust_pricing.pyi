@@ -7,6 +7,8 @@ from typing import Literal
 DateLike = date | str
 OptionSide = Literal["call", "put"]
 DigitalPayout = Literal["cash", "asset"]
+BarrierDirection = Literal["up", "down"]
+BarrierStyle = Literal["knock_in", "knock_out"]
 SmileDynamics = Literal[
     "sticky_log_moneyness", "sticky_strike", "sticky_delta"
 ]
@@ -155,6 +157,20 @@ class Product:
         payout: float,
         side: OptionSide,
         payout_kind: DigitalPayout,
+    ) -> Product: ...
+    @staticmethod
+    def barrier(
+        underlying_id: int,
+        currency_id: int,
+        expiry: DateLike,
+        strike: float,
+        barrier: float,
+        notional: float,
+        side: OptionSide,
+        direction: BarrierDirection,
+        style: BarrierStyle,
+        monitoring_dates: Sequence[DateLike],
+        payment_date: DateLike,
     ) -> Product: ...
     @staticmethod
     def arithmetic_asian(

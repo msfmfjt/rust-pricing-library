@@ -12,8 +12,9 @@ use pricing::models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing::product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
+    ProductSpec,
 };
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
@@ -352,6 +353,49 @@ impl PyProduct {
             inner: ProductSpec::Digital(spec),
         })
         .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
+    }
+
+    /// Build a rebate-free fixed-strike discrete barrier call or put.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn barrier(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: &Bound<'_, PyAny>,
+        strike: f64,
+        barrier: f64,
+        notional: f64,
+        side: &str,
+        direction: &str,
+        style: &str,
+        monitoring_dates: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let expiry = date_from_python(py, expiry, "/product/expiry")?;
+        let side = option_side(py, side)?;
+        let direction = barrier_direction(py, direction)?;
+        let style = barrier_style(py, style)?;
+        let monitoring_dates =
+            copied_date_array(py, monitoring_dates, "/product/monitoring_dates")?;
+        let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
+        BarrierSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            expiry,
+            strike,
+            barrier,
+            notional,
+            side,
+            direction,
+            style,
+            monitoring_dates,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::Barrier(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_barrier", "/product", error))
     }
 
     /// Build an arithmetic average-price Asian call or put.
@@ -1137,10 +1181,37 @@ fn digital_payout(py: Python<'_>, value: &str) -> PyResult<DigitalPayout> {
     }
 }
 
+fn barrier_direction(py: Python<'_>, value: &str) -> PyResult<BarrierDirection> {
+    match value {
+        "up" => Ok(BarrierDirection::Up),
+        "down" => Ok(BarrierDirection::Down),
+        _ => Err(domain_error(
+            py,
+            "invalid_barrier_direction",
+            "/product/direction",
+            format!("expected 'up' or 'down', received {value:?}"),
+        )),
+    }
+}
+
+fn barrier_style(py: Python<'_>, value: &str) -> PyResult<BarrierStyle> {
+    match value {
+        "knock_in" => Ok(BarrierStyle::KnockIn),
+        "knock_out" => Ok(BarrierStyle::KnockOut),
+        _ => Err(domain_error(
+            py,
+            "invalid_barrier_style",
+            "/product/style",
+            format!("expected 'knock_in' or 'knock_out', received {value:?}"),
+        )),
+    }
+}
+
 const fn product_name(product: &ProductSpec) -> &'static str {
     match product {
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
         ProductSpec::Digital(_) => "digital",
+        ProductSpec::Barrier(_) => "barrier",
         ProductSpec::ArithmeticAsian(_) => "arithmetic_asian",
         ProductSpec::FixedLookback(_) => "fixed_lookback",
     }
