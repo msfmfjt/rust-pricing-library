@@ -66,6 +66,7 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-features --exclude pricing-python
 cargo test --locked -p pricing-python
 cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
+cargo doc --locked --workspace --all-features --no-deps
 cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 ```
 
