@@ -14,6 +14,9 @@ and compare it with the matching platform file:
 - `local_volatility-macos-aarch64.json` for Apple Silicon macOS Local
   Volatility Price-only and Delta/Gamma/Vega/VegaKT Pseudo-MC and randomized
   Sobol QMC.
+- `local_volatility-windows-x86_64.json` for Windows x86-64 MSVC Local
+  Volatility Price-only and Delta/Gamma/Vega/VegaKT Pseudo-MC and randomized
+  Sobol QMC.
 
 The primary estimates currently match across the two platforms, while a small
 number of CRN difference diagnostics differ in low bits. They are intentionally
