@@ -50,6 +50,7 @@ REQUIRED_FILES = {
     "rust_pricing.pyi",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
+    "scripts/check_markdown_links.py",
     "crates/pricing-aad/src/lib.rs",
     "crates/pricing-core/src/lib.rs",
     "crates/pricing-market/src/lib.rs",

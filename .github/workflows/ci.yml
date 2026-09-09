@@ -43,6 +43,9 @@ jobs:
       - name: Check JSON schemas
         run: python scripts/check_schemas.py
 
+      - name: Check Markdown links
+        run: python scripts/check_markdown_links.py
+
       - name: Check formatting
         run: cargo fmt --all --check
 
