@@ -628,6 +628,35 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has unresolved names: {unresolved}")
 
     expected_literals = {
+        "BarrierDirection": {
+            "down",
+            "up",
+        },
+        "BarrierStyle": {
+            "knock_in",
+            "knock_out",
+        },
+        "DigitalPayout": {
+            "asset",
+            "cash",
+        },
+        "OptionSide": {
+            "call",
+            "put",
+        },
+        "RiskUnit": {
+            "delta_one_percent_spot",
+            "delta_raw",
+            "gamma_one_percent_spot_squared",
+            "gamma_raw",
+            "vega_one_vol_point",
+            "vega_raw",
+        },
+        "SmileDynamics": {
+            "sticky_delta",
+            "sticky_log_moneyness",
+            "sticky_strike",
+        },
         "VegaKtCovarianceLayout": {
             "price_and_bucket_variance_only",
             "full_bucket_matrix_row_major",
