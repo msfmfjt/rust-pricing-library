@@ -103,6 +103,11 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 rust_pricing.Engine.pseudo_monte_carlo(7, 1024),
                 rust_pricing.RiskRequest(),
             )
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.Product.european_vanilla(
+                1, 2, np.datetime64("2027-09-04"), 100.0, 1.0, "call"
+            )
+        self.assertEqual(captured.exception.issues[0].code, "invalid_date_type")
 
     def test_native_discrete_dividends_match_json_request(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
