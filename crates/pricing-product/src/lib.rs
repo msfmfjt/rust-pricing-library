@@ -11,7 +11,7 @@ pub use graph::{
 };
 pub use spec::{
     ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, OptionSide, ProductSpec,
+    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
 
 /// Returns the domain foundation role.

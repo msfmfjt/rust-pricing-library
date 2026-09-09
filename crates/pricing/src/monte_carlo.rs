@@ -436,7 +436,9 @@ impl SimulationPlan {
                 });
             }
         }
-        let payoff = product.source_graph()?.compile(GraphLimitPolicy::DEFAULT)?;
+        let payoff = product
+            .source_graph(request.valuation_date())?
+            .compile(GraphLimitPolicy::DEFAULT)?;
         let observations = payoff.terminal_observations();
         if observations.is_empty() {
             return Err(MonteCarloError::Graph(
@@ -2242,7 +2244,7 @@ mod tests {
     use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
     use pricing_product::{
         ArithmeticAsianSpec, AsianObservation, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-        OptionSide, ProductSpec,
+        FixedLookbackSpec, OptionSide, ProductSpec,
     };
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 
@@ -2499,6 +2501,54 @@ mod tests {
                     AsianObservation::unknown("2027-09-04".parse().expect("second"), 0.75)
                         .expect("second"),
                 ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.0).expect("model"));
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x0123_4567_89ab_cdef,
+                1,
+                VarianceReduction::new(false, false),
+            )
+            .expect("engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn lookback_zero_vol_request() -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                underlying,
+                currency,
+                100.0,
+                2.0,
+                OptionSide::Call,
+                vec![
+                    "2027-03-05".parse().expect("first"),
+                    "2027-09-04".parse().expect("second"),
+                ],
+                None,
                 "2027-09-04".parse().expect("payment"),
             )
             .expect("product"),
@@ -2965,6 +3015,22 @@ mod tests {
         assert_eq!(plan.observation_dates.len(), 2);
         let average = 0.25 * plan.observation_forwards[0] + 0.75 * plan.observation_forwards[1];
         let expected = plan.discount() * (average - 100.0) * 2.0;
+        let result = plan.execute().expect("execution");
+        assert!((result.pricing_result.value.value().get() - expected).abs() <= 1.0e-12);
+        assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
+    fn fixed_lookback_zero_volatility_uses_declared_monitoring_extremum() {
+        let request = lookback_zero_vol_request();
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+        assert_eq!(plan.observation_dates.len(), 2);
+        let maximum = plan
+            .observation_forwards
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
+        let expected = plan.discount() * (maximum - 100.0) * 2.0;
         let result = plan.execute().expect("execution");
         assert!((result.pricing_result.value.value().get() - expected).abs() <= 1.0e-12);
         assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());

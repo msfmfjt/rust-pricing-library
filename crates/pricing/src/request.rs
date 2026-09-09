@@ -67,6 +67,32 @@ impl PricingRequest {
                 }
             }
         }
+        if let ProductSpec::FixedLookback(lookback) = &product {
+            let has_past_monitoring = lookback
+                .monitoring_dates()
+                .iter()
+                .any(|date| *date < valuation_date);
+            match (
+                has_past_monitoring,
+                lookback.historical_extremum().is_some(),
+            ) {
+                (true, false) => {
+                    return Err(
+                        RequestValidationError::LookbackPastMonitoringRequiresHistoricalExtremum {
+                            valuation_date,
+                        },
+                    );
+                }
+                (false, true) => {
+                    return Err(
+                        RequestValidationError::LookbackHistoricalExtremumWithoutPastMonitoring {
+                            valuation_date,
+                        },
+                    );
+                }
+                (true, true) | (false, false) => {}
+            }
+        }
         if risk.vega_kt().is_some()
             && matches!(&model, ModelSpec::BlackScholes(_) | ModelSpec::Black76(_))
         {
@@ -128,7 +154,7 @@ mod tests {
     use pricing_models::BlackScholesSpec;
     use pricing_product::{
         ArithmeticAsianSpec, AsianObservation, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-        OptionSide,
+        FixedLookbackSpec, OptionSide,
     };
     use pricing_risk::SmileDynamics;
 
@@ -315,6 +341,75 @@ mod tests {
                 risk,
             ),
             Err(RequestValidationError::AsianFutureObservationCannotCarryFixing { .. })
+        ));
+    }
+
+    #[test]
+    fn request_validates_lookback_historical_extremum_against_valuation_date() {
+        let currency = CurrencyId::new(1);
+        let (base, market, model, engine, risk) = components(currency, currency);
+        let lookback = |historical_extremum| {
+            ProductSpec::FixedLookback(
+                FixedLookbackSpec::new(
+                    base.underlying(),
+                    currency,
+                    100.0,
+                    1.0,
+                    OptionSide::Call,
+                    vec![
+                        "2026-03-04".parse().expect("past"),
+                        "2027-09-04".parse().expect("future"),
+                    ],
+                    historical_extremum,
+                    "2027-09-04".parse().expect("payment"),
+                )
+                .expect("lookback"),
+            )
+        };
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation date"),
+            lookback(Some(110.0)),
+            market.clone(),
+            model.clone(),
+            engine,
+            risk.clone(),
+        )
+        .expect("valid lookback");
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                lookback(None),
+                market.clone(),
+                model.clone(),
+                engine,
+                risk.clone(),
+            ),
+            Err(RequestValidationError::LookbackPastMonitoringRequiresHistoricalExtremum { .. })
+        ));
+
+        let future_only = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                base.underlying(),
+                currency,
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec!["2027-09-04".parse().expect("future")],
+                Some(110.0),
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("lookback"),
+        );
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                future_only,
+                market,
+                model,
+                engine,
+                risk,
+            ),
+            Err(RequestValidationError::LookbackHistoricalExtremumWithoutPastMonitoring { .. })
         ));
     }
 }

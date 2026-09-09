@@ -166,6 +166,18 @@ class Product:
         observations: Sequence[AsianObservation],
         payment_date: DateLike,
     ) -> Product: ...
+    @staticmethod
+    def fixed_lookback(
+        underlying_id: int,
+        currency_id: int,
+        strike: float,
+        notional: float,
+        side: OptionSide,
+        monitoring_dates: Sequence[DateLike],
+        payment_date: DateLike,
+        *,
+        historical_extremum: float | None = None,
+    ) -> Product: ...
 
 
 class Market:

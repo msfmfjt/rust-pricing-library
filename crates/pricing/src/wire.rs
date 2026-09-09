@@ -13,7 +13,7 @@ use pricing_models::{
 };
 use pricing_product::{
     ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, OptionSide, ProductSpec,
+    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use serde::{Deserialize, Serialize};
@@ -235,6 +235,16 @@ enum ProductV1 {
         notional: f64,
         side: SideV1,
         observations: Vec<AsianObservationV1>,
+        payment_date: String,
+    },
+    FixedLookback {
+        underlying_id: u32,
+        currency_id: u16,
+        strike: f64,
+        notional: f64,
+        side: SideV1,
+        monitoring_dates: Vec<String>,
+        historical_extremum: Option<f64>,
         payment_date: String,
     },
 }
@@ -477,6 +487,20 @@ impl From<&ProductSpec> for ProductV1 {
                         },
                     })
                     .collect(),
+                payment_date: spec.payment_date().to_string(),
+            },
+            ProductSpec::FixedLookback(spec) => Self::FixedLookback {
+                underlying_id: spec.underlying().get(),
+                currency_id: spec.currency().get(),
+                strike: spec.strike().get(),
+                notional: spec.notional().get(),
+                side: spec.side().into(),
+                monitoring_dates: spec
+                    .monitoring_dates()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+                historical_extremum: spec.historical_extremum().map(|value| value.get()),
                 payment_date: spec.payment_date().to_string(),
             },
         }
@@ -761,6 +785,34 @@ impl TryFrom<RequestV1> for PricingRequest {
                             }
                         })
                         .collect::<Result<Vec<_>, WireError>>()?,
+                    parse_date(&payment_date)?,
+                )
+                .map_err(domain)?,
+            ),
+            ProductV1::FixedLookback {
+                underlying_id,
+                currency_id,
+                strike,
+                notional,
+                side,
+                monitoring_dates,
+                historical_extremum,
+                payment_date,
+            } => ProductSpec::FixedLookback(
+                FixedLookbackSpec::new(
+                    UnderlyingId::new(underlying_id),
+                    CurrencyId::new(currency_id),
+                    strike,
+                    notional,
+                    match side {
+                        SideV1::Call => OptionSide::Call,
+                        SideV1::Put => OptionSide::Put,
+                    },
+                    monitoring_dates
+                        .into_iter()
+                        .map(|date| parse_date(&date))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    historical_extremum,
                     parse_date(&payment_date)?,
                 )
                 .map_err(domain)?,
@@ -1929,6 +1981,48 @@ mod tests {
         .expect("request")
     }
 
+    fn lookback_request() -> PricingRequest {
+        let curve = |id, discount| {
+            Arc::new(
+                LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, discount])
+                    .expect("curve"),
+            )
+        };
+        let product = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Put,
+                vec![
+                    "2026-03-04".parse().expect("date"),
+                    "2027-09-04".parse().expect("date"),
+                ],
+                Some(92.0),
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let forward = EquityForward::new(
+            UnderlyingId::new(1),
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(10, 0.95),
+            curve(11, 0.98),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("date"),
+            product,
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(2), forward)),
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
     fn dividend_request() -> PricingRequest {
         let curve = |id, discount| {
             Arc::new(
@@ -2095,6 +2189,22 @@ mod tests {
         assert!(json.contains("\"observations\""));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert!(matches!(parsed.product(), ProductSpec::ArithmeticAsian(_)));
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
+    fn request_json_round_trips_fixed_lookback_product() {
+        let request = lookback_request();
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"type\":\"fixed_lookback\""));
+        assert!(json.contains("\"historical_extremum\":92.0"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert!(matches!(parsed.product(), ProductSpec::FixedLookback(_)));
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")

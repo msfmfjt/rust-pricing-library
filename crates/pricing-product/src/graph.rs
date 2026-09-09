@@ -7,7 +7,7 @@ use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
 use crate::{
     ArithmeticAsianSpec, AsianObservationValue, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-    OptionSide, ProductSpec,
+    FixedLookbackSpec, OptionSide, ProductSpec,
 };
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
@@ -360,12 +360,72 @@ impl ArithmeticAsianSpec {
     }
 }
 
+impl FixedLookbackSpec {
+    pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
+        let mut builder = SourceGraphBuilder::new();
+        let mut dates = self
+            .monitoring_dates()
+            .iter()
+            .copied()
+            .filter(|date| *date >= valuation_date);
+        let first = if let Some(extremum) = self.historical_extremum() {
+            builder.literal(extremum.get())?
+        } else {
+            let date = dates.next().ok_or(GraphError::NoOutputs)?;
+            builder.push(SourceOpcode::TerminalSpot {
+                underlying: self.underlying(),
+                observation_date: date,
+            })?
+        };
+        let mut extremum = first;
+        for date in dates {
+            let spot = builder.push(SourceOpcode::TerminalSpot {
+                underlying: self.underlying(),
+                observation_date: date,
+            })?;
+            extremum = match self.side() {
+                OptionSide::Call => builder.push(SourceOpcode::Maximum {
+                    left: extremum,
+                    right: spot,
+                })?,
+                OptionSide::Put => builder.push(SourceOpcode::Minimum {
+                    left: extremum,
+                    right: spot,
+                })?,
+            };
+        }
+        let strike = builder.literal(self.strike().get())?;
+        let signed_intrinsic = match self.side() {
+            OptionSide::Call => builder.push(SourceOpcode::Subtract {
+                left: extremum,
+                right: strike,
+            })?,
+            OptionSide::Put => builder.push(SourceOpcode::Subtract {
+                left: strike,
+                right: extremum,
+            })?,
+        };
+        let zero = builder.literal(0.0)?;
+        let positive_part = builder.push(SourceOpcode::Maximum {
+            left: signed_intrinsic,
+            right: zero,
+        })?;
+        let notional = builder.literal(self.notional().get())?;
+        let payoff = builder.push(SourceOpcode::Multiply {
+            left: positive_part,
+            right: notional,
+        })?;
+        Ok(builder.finish(vec![payoff]))
+    }
+}
+
 impl ProductSpec {
-    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+    pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
         match self {
             Self::EuropeanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
             Self::ArithmeticAsian(spec) => spec.source_graph(),
+            Self::FixedLookback(spec) => spec.source_graph(valuation_date),
         }
     }
 }
@@ -1481,6 +1541,47 @@ mod tests {
         assert_eq!(
             compiled.terminal_observations(),
             vec![(UnderlyingId::new(4), "2027-09-04".parse().expect("date"))]
+        );
+    }
+
+    #[test]
+    fn fixed_lookback_builder_executes_running_extremum_payoff() {
+        let product = FixedLookbackSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            100.0,
+            2.0,
+            OptionSide::Call,
+            vec![
+                "2027-03-04".parse().expect("date"),
+                "2027-06-04".parse().expect("date"),
+                "2027-09-04".parse().expect("date"),
+            ],
+            Some(112.0),
+            "2027-09-04".parse().expect("payment"),
+        )
+        .expect("lookback");
+        let compiled = product
+            .source_graph("2027-05-04".parse().expect("valuation"))
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile");
+        assert_eq!(
+            compiled
+                .evaluate(|_, date| match date.to_string().as_str() {
+                    "2027-06-04" => Some(95.0),
+                    "2027-09-04" => Some(118.0),
+                    _ => None,
+                })
+                .expect("execute"),
+            vec![36.0]
+        );
+        assert_eq!(
+            compiled.terminal_observations(),
+            vec![
+                (UnderlyingId::new(4), "2027-06-04".parse().expect("date")),
+                (UnderlyingId::new(4), "2027-09-04".parse().expect("date")),
+            ]
         );
     }
 

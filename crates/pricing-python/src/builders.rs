@@ -13,7 +13,7 @@ use pricing::models::{
 };
 use pricing::product::{
     ArithmeticAsianSpec, AsianObservation, AsianObservationValue, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, OptionSide, ProductSpec,
+    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
@@ -383,6 +383,41 @@ impl PyProduct {
             inner: ProductSpec::ArithmeticAsian(spec),
         })
         .map_err(|error| domain_error(py, "invalid_arithmetic_asian", "/product", error))
+    }
+
+    /// Build a fixed-strike discrete-monitoring Lookback call or put.
+    #[staticmethod]
+    #[pyo3(signature = (underlying_id, currency_id, strike, notional, side, monitoring_dates, payment_date, *, historical_extremum=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn fixed_lookback(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        strike: f64,
+        notional: f64,
+        side: &str,
+        monitoring_dates: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+        historical_extremum: Option<f64>,
+    ) -> PyResult<Self> {
+        let side = option_side(py, side)?;
+        let monitoring_dates =
+            copied_date_array(py, monitoring_dates, "/product/monitoring_dates")?;
+        let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
+        FixedLookbackSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            strike,
+            notional,
+            side,
+            monitoring_dates,
+            historical_extremum,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::FixedLookback(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_fixed_lookback", "/product", error))
     }
 
     fn __repr__(&self) -> String {
@@ -1107,6 +1142,7 @@ const fn product_name(product: &ProductSpec) -> &'static str {
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
         ProductSpec::Digital(_) => "digital",
         ProductSpec::ArithmeticAsian(_) => "arithmetic_asian",
+        ProductSpec::FixedLookback(_) => "fixed_lookback",
     }
 }
 
