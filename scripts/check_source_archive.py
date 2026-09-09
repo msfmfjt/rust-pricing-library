@@ -12,9 +12,16 @@ REQUIRED_FILES = {
     "Cargo.toml",
     "rust-toolchain.toml",
     "pyproject.toml",
-    "crates/pricing/Cargo.toml",
+    "crates/pricing-aad/Cargo.toml",
     "crates/pricing-core/Cargo.toml",
+    "crates/pricing-market/Cargo.toml",
+    "crates/pricing-mc/Cargo.toml",
+    "crates/pricing-models/Cargo.toml",
+    "crates/pricing-numerics/Cargo.toml",
+    "crates/pricing-product/Cargo.toml",
     "crates/pricing-python/Cargo.toml",
+    "crates/pricing-risk/Cargo.toml",
+    "crates/pricing/Cargo.toml",
     "schemas/v1/pricing_request.schema.json",
     "schemas/v1/pricing_result.schema.json",
     "rust_pricing.pyi",
@@ -37,7 +44,13 @@ def main() -> int:
 
     archive = sys.argv[1]
     with tarfile.open(archive, "r:gz") as package:
-        names = {member.name for member in package.getmembers() if member.isfile()}
+        names = set()
+        for member in package.getmembers():
+            name = member.name
+            if PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
+                raise SystemExit(f"{archive}: unsafe archive member path: {name}")
+            if member.isfile():
+                names.add(name)
 
     missing = sorted(REQUIRED_FILES.difference(names))
     if missing:
