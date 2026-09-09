@@ -634,7 +634,10 @@ impl ProductSpec {
 
     #[must_use]
     pub const fn supports_pathwise_risk(&self) -> bool {
-        matches!(self, Self::EuropeanVanilla(_))
+        matches!(
+            self,
+            Self::EuropeanVanilla(_) | Self::ArithmeticAsian(_) | Self::FixedLookback(_)
+        )
     }
 
     #[must_use]

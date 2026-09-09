@@ -174,7 +174,7 @@ mod tests {
         ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
         DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
     };
-    use pricing_risk::SmileDynamics;
+    use pricing_risk::{GammaConfig, SmileDynamics, SpotBump};
 
     use super::*;
 
@@ -292,6 +292,76 @@ mod tests {
             ),
             Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
         ));
+    }
+
+    #[test]
+    fn request_accepts_pathwise_risk_for_supported_path_products() {
+        let currency = CurrencyId::new(1);
+        let (base, market, model, engine, _) = components(currency, currency);
+        let risk = RiskRequest::new(
+            true,
+            Some(GammaConfig::new(
+                SpotBump::relative(0.01).expect("gamma bump"),
+            )),
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk");
+        let asian = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                base.underlying(),
+                currency,
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown("2026-09-04".parse().expect("first"), 0.25)
+                        .expect("first"),
+                    AsianObservation::unknown("2027-09-04".parse().expect("second"), 0.75)
+                        .expect("second"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("asian"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation date"),
+            asian,
+            market.clone(),
+            model.clone(),
+            engine,
+            risk.clone(),
+        )
+        .expect("asian risk");
+
+        let lookback = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                base.underlying(),
+                currency,
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    "2026-09-04".parse().expect("first"),
+                    "2027-09-04".parse().expect("second"),
+                ],
+                None,
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("lookback"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation date"),
+            lookback,
+            market,
+            model,
+            engine,
+            risk,
+        )
+        .expect("lookback risk");
     }
 
     #[test]

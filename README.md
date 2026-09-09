@@ -12,9 +12,10 @@ puts, fixed-strike discrete Barrier calls and puts with optional expiry
 rebates, forward-starting, partially fixed, or fully fixed arithmetic
 average-price Asian calls and puts, plus fixed-strike discrete-monitoring
 Lookback calls and puts with future or fully fixed monitoring
-under the constant-volatility engines. Pathwise risk requests for Digital,
-Barrier, Asian, and Lookback products are rejected until
-discontinuous/path-dependent AAD support is implemented.
+under the constant-volatility engines. Pathwise Delta, bumped-AAD Gamma, and
+Vega are available for European, Asian, and Lookback products under constant
+volatility. Pathwise risk requests for Digital and Barrier products are
+rejected until discontinuous-event AAD support is implemented.
 
 ## Design baselines
 

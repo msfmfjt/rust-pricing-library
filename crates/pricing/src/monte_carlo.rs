@@ -748,10 +748,12 @@ impl SimulationPlan {
                 self.aad_tile_policy.resolved_capacity(),
                 AAD_WORKSPACE_SLOTS,
                 |sampling_unit, lane, workspace| {
-                    let normal = self.normal(&generator, sampling_unit);
-                    let primary = self.pathwise_values(normal, lane, workspace)?;
+                    let normals = self.normals(&generator, sampling_unit);
+                    let primary = self.pathwise_values(&normals, lane, workspace)?;
                     if antithetic {
-                        let mate = self.pathwise_values(-normal, lane, workspace)?;
+                        let mate_normals =
+                            normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                        let mate = self.pathwise_values(&mate_normals, lane, workspace)?;
                         Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
                             |component| (primary[component] + mate[component]) * 0.5,
                         ))
@@ -873,10 +875,12 @@ impl SimulationPlan {
                     self.aad_tile_policy.resolved_capacity(),
                     AAD_WORKSPACE_SLOTS,
                     |point, lane, workspace| {
-                        let normal = self.rqmc_normal(&qmc, scramble, point)?;
-                        let primary = self.pathwise_values(normal, lane, workspace)?;
+                        let normals = self.rqmc_normals(&qmc, scramble, point)?;
+                        let primary = self.pathwise_values(&normals, lane, workspace)?;
                         if antithetic {
-                            let mate = self.pathwise_values(-normal, lane, workspace)?;
+                            let mate_normals =
+                                normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                            let mate = self.pathwise_values(&mate_normals, lane, workspace)?;
                             Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
                                 |component| (primary[component] + mate[component]) * 0.5,
                             ))
@@ -1807,18 +1811,6 @@ impl SimulationPlan {
         })
     }
 
-    fn normal(&self, generator: &Philox4x32, sampling_unit: u64) -> f64 {
-        if self.total_variance == 0.0 {
-            0.0
-        } else {
-            generator.standard_normal(RandomCoordinate::new(
-                sampling_unit,
-                0,
-                RandomDomain::Valuation,
-            ))
-        }
-    }
-
     fn normals(&self, generator: &Philox4x32, sampling_unit: u64) -> Vec<f64> {
         (0..self.observation_times.len())
             .map(|dimension| {
@@ -1833,22 +1825,6 @@ impl SimulationPlan {
                 }
             })
             .collect()
-    }
-
-    fn rqmc_normal(
-        &self,
-        plan: &RqmcPlan,
-        scramble: u32,
-        point: u64,
-    ) -> Result<f64, MonteCarloError> {
-        if self.total_variance == 0.0 {
-            return Ok(0.0);
-        }
-        let probability = plan
-            .uniform(scramble, point, 0)
-            .expect("scramble, point, and dimension originate from the compiled plan");
-        Ok(inverse_standard_normal(probability)
-            .expect("the Sobol midpoint mapping is strictly inside the unit interval"))
     }
 
     fn rqmc_normals(
@@ -1897,6 +1873,17 @@ impl SimulationPlan {
     }
 
     fn spots_from_normals(&self, normals: &[f64]) -> Vec<f64> {
+        self.spots_and_brownians_from_normals(normals, self.volatility)
+            .into_iter()
+            .map(|(spot, _)| spot)
+            .collect()
+    }
+
+    fn spots_and_brownians_from_normals(
+        &self,
+        normals: &[f64],
+        volatility: f64,
+    ) -> Vec<(f64, f64)> {
         let mut previous_time = 0.0;
         let mut brownian = 0.0;
         self.observation_times
@@ -1907,34 +1894,37 @@ impl SimulationPlan {
                 let step = (time - previous_time).max(0.0);
                 brownian += step.sqrt() * normal;
                 previous_time = time;
-                let total_variance = self.volatility * self.volatility * time;
-                forward * (-0.5 * total_variance + self.volatility * brownian).exp()
+                let total_variance = volatility * volatility * time;
+                (
+                    forward * (-0.5 * total_variance + volatility * brownian).exp(),
+                    brownian,
+                )
             })
             .collect()
     }
 
     fn pathwise_values(
         &self,
-        normal: f64,
+        normals: &[f64],
         lane: usize,
         workspace: &mut SoaWorkspace,
     ) -> Result<[f64; PATHWISE_COMPONENTS], MonteCarloError> {
-        let base = self.pathwise_aad(normal, self.spot, self.volatility)?;
+        let base = self.pathwise_aad(normals, self.spot, self.volatility)?;
         let gamma = if let Some(gamma) = self.request_gamma {
             let bump = resolve_spot_bump(gamma, self.spot);
             let delta_down = self
-                .pathwise_aad(normal, self.spot - bump, self.volatility)?
+                .pathwise_aad(normals, self.spot - bump, self.volatility)?
                 .delta;
             let delta_up = self
-                .pathwise_aad(normal, self.spot + bump, self.volatility)?
+                .pathwise_aad(normals, self.spot + bump, self.volatility)?
                 .delta;
             (delta_up - delta_down) / (2.0 * bump)
         } else {
             0.0
         };
         let spot_bump = self.validation_spot_bump;
-        let down_spot = self.pathwise_aad(normal, self.spot - spot_bump, self.volatility)?;
-        let up_spot = self.pathwise_aad(normal, self.spot + spot_bump, self.volatility)?;
+        let down_spot = self.pathwise_aad(normals, self.spot - spot_bump, self.volatility)?;
+        let up_spot = self.pathwise_aad(normals, self.spot + spot_bump, self.volatility)?;
         let bump_delta = (up_spot.price - down_spot.price) / (2.0 * spot_bump);
         let bump_gamma = (up_spot.price - 2.0 * base.price + down_spot.price) / spot_bump.powi(2);
         let bump_vega = if self.validation_volatility_bump == 0.0 {
@@ -1942,24 +1932,22 @@ impl SimulationPlan {
         } else {
             let bump = self.validation_volatility_bump;
             let down = self
-                .pathwise_aad(normal, self.spot, self.volatility - bump)?
+                .pathwise_aad(normals, self.spot, self.volatility - bump)?
                 .price;
             let up = self
-                .pathwise_aad(normal, self.spot, self.volatility + bump)?
+                .pathwise_aad(normals, self.spot, self.volatility + bump)?
                 .price;
             (up - down) / (2.0 * bump)
         };
-        workspace.primal_mut(0)?.set(lane, base.terminal)?;
-        workspace.adjoint_mut(0)?.set(lane, base.terminal_adjoint)?;
-        workspace.primal_mut(1)?.set(lane, base.price)?;
-        workspace.primal_mut(2)?.set(lane, base.delta)?;
-        workspace.primal_mut(3)?.set(lane, base.vega)?;
-        workspace.primal_mut(4)?.set(lane, gamma)?;
+        workspace.primal_mut(0)?.set(lane, base.price)?;
+        workspace.primal_mut(1)?.set(lane, base.delta)?;
+        workspace.primal_mut(2)?.set(lane, base.vega)?;
+        workspace.primal_mut(3)?.set(lane, gamma)?;
         Ok([
+            workspace.primal(0)?.get(lane)?,
             workspace.primal(1)?.get(lane)?,
             workspace.primal(2)?.get(lane)?,
             workspace.primal(3)?.get(lane)?,
-            workspace.primal(4)?.get(lane)?,
             bump_delta,
             bump_delta - base.delta,
             bump_vega,
@@ -1971,37 +1959,50 @@ impl SimulationPlan {
 
     fn pathwise_aad(
         &self,
-        normal: f64,
+        normals: &[f64],
         spot: f64,
         volatility: f64,
     ) -> Result<PathwiseAad, pricing_product::GraphError> {
-        let total_variance = volatility * volatility * self.time;
-        let standard_deviation = total_variance.sqrt();
-        let log_return = -0.5 * total_variance + standard_deviation * normal;
-        let bumped_forward = self.forward * (spot / self.spot);
-        let terminal = bumped_forward * log_return.exp();
+        let spot_scale = spot / self.spot;
+        let spots = self
+            .spots_and_brownians_from_normals(normals, volatility)
+            .into_iter()
+            .map(|(path_spot, brownian)| (path_spot * spot_scale, brownian))
+            .collect::<Vec<_>>();
         let payoff = self
             .payoff
             .evaluate_single_with_terminal_adjoint(|underlying, date| {
-                (underlying == self.underlying && date == self.expiry).then_some(terminal)
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .map(|index| spots[index].0)
             })?;
-        let terminal_adjoint = payoff
-            .terminal_adjoints
-            .iter()
-            .filter(|adjoint| {
-                adjoint.underlying == self.underlying && adjoint.observation_date == self.expiry
-            })
-            .fold(0.0, |total, adjoint| total + adjoint.value);
         let price = self.discount * payoff.value;
-        let delta = self.discount * terminal_adjoint * terminal / spot;
-        let terminal_vega = terminal * (-volatility * self.time + self.time.sqrt() * normal);
-        let vega = self.discount * terminal_adjoint * terminal_vega;
+        let mut delta = 0.0;
+        let mut vega = 0.0;
+        for adjoint in &payoff.terminal_adjoints {
+            if adjoint.underlying != self.underlying {
+                continue;
+            }
+            if let Some(index) = self
+                .observation_dates
+                .iter()
+                .position(|observation_date| *observation_date == adjoint.observation_date)
+            {
+                let (observation_spot, brownian) = spots[index];
+                delta += adjoint.value * observation_spot / spot;
+                vega += adjoint.value
+                    * observation_spot
+                    * (-volatility * self.observation_times[index] + brownian);
+            }
+        }
         Ok(PathwiseAad {
             price,
-            delta,
-            vega,
-            terminal,
-            terminal_adjoint,
+            delta: self.discount * delta,
+            vega: self.discount * vega,
         })
     }
 
@@ -2170,8 +2171,6 @@ struct PathwiseAad {
     price: f64,
     delta: f64,
     vega: f64,
-    terminal: f64,
-    terminal_adjoint: f64,
 }
 
 fn resolve_spot_bump(gamma: GammaConfig, spot: f64) -> f64 {
@@ -2741,6 +2740,105 @@ mod tests {
         .expect("request")
     }
 
+    fn asian_risk_request(risk: RiskRequest) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                underlying,
+                currency,
+                100.0,
+                1.5,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown("2027-03-05".parse().expect("first"), 0.25)
+                        .expect("first"),
+                    AsianObservation::unknown("2027-09-04".parse().expect("second"), 0.75)
+                        .expect("second"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.25).expect("model"));
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x0123_4567_89ab_cdef,
+                16_384,
+                VarianceReduction::new(true, false),
+            )
+            .expect("engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            risk,
+        )
+        .expect("request")
+    }
+
+    fn asian_rqmc_risk_request() -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                underlying,
+                currency,
+                100.0,
+                1.5,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown("2027-03-05".parse().expect("first"), 0.25)
+                        .expect("first"),
+                    AsianObservation::unknown("2027-09-04".parse().expect("second"), 0.75)
+                        .expect("second"),
+                ],
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.25).expect("model"));
+        let engine = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                256,
+                8,
+                0xfedc_ba98_7654_3210,
+                VarianceReduction::new(true, true),
+            )
+            .expect("RQMC engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            all_risks(),
+        )
+        .expect("request")
+    }
+
     fn lookback_zero_vol_request() -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
@@ -2785,6 +2883,54 @@ mod tests {
             model,
             engine,
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn lookback_risk_request() -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                underlying,
+                currency,
+                100.0,
+                1.5,
+                OptionSide::Call,
+                vec![
+                    "2027-03-05".parse().expect("first"),
+                    "2027-09-04".parse().expect("second"),
+                ],
+                None,
+                "2027-09-04".parse().expect("payment"),
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.02),
+            ),
+        ));
+        let model = ModelSpec::BlackScholes(BlackScholesSpec::new(0.25).expect("model"));
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x0123_4567_89ab_cdef,
+                16_384,
+                VarianceReduction::new(true, false),
+            )
+            .expect("engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            all_risks(),
         )
         .expect("request")
     }
@@ -3529,6 +3675,89 @@ mod tests {
             price.pricing_result.value.standard_error().get().to_bits(),
             risk.pricing_result.value.standard_error().get().to_bits()
         );
+    }
+
+    #[test]
+    fn asian_risks_do_not_change_seeded_price_bits() {
+        let price_only =
+            asian_risk_request(RiskRequest::price_only(SmileDynamics::StickyLogMoneyness));
+        let with_risks = asian_risk_request(all_risks());
+        let price = price_pseudo_monte_carlo(&price_only, policy(3)).expect("price");
+        let risk = price_pseudo_monte_carlo(&with_risks, policy(3)).expect("risk");
+        assert_eq!(
+            price.pricing_result.value.value().to_bits(),
+            risk.pricing_result.value.value().to_bits()
+        );
+        assert_eq!(
+            price.pricing_result.value.standard_error().get().to_bits(),
+            risk.pricing_result.value.standard_error().get().to_bits()
+        );
+    }
+
+    #[test]
+    fn asian_and_lookback_pathwise_risks_are_reported() {
+        for request in [asian_risk_request(all_risks()), lookback_risk_request()] {
+            let result = price_pseudo_monte_carlo(&request, policy(4)).expect("risk");
+            let risks = &result.pricing_result.risks;
+            for estimate in [
+                risks.delta.expect("delta").raw(),
+                risks.gamma.expect("gamma").raw(),
+                risks.vega.expect("vega").raw(),
+            ] {
+                assert!(estimate.value().get().is_finite());
+                assert!(estimate.standard_error().get().is_finite());
+            }
+            let diagnostics = &result.risk_diagnostics;
+            assert_eq!(diagnostics.methods.delta, Some(RiskMethod::AadReverse));
+            assert_eq!(
+                diagnostics.methods.gamma,
+                Some(RiskMethod::CentralBumpOfAadDelta)
+            );
+            assert_eq!(diagnostics.methods.vega, Some(RiskMethod::AadReverse));
+            assert!(
+                diagnostics
+                    .delta_validation
+                    .expect("delta validation")
+                    .bump_minus_primary
+                    .value()
+                    .get()
+                    .abs()
+                    < 2.0e-3
+            );
+            assert!(
+                diagnostics
+                    .vega_validation
+                    .expect("vega validation")
+                    .bump_minus_primary
+                    .value()
+                    .get()
+                    .abs()
+                    < 2.0e-2
+            );
+        }
+    }
+
+    #[test]
+    fn asian_pathwise_risks_work_under_rqmc() {
+        let result = price_monte_carlo(&asian_rqmc_risk_request(), policy(4)).expect("RQMC risk");
+        assert_eq!(
+            result.pricing_result.value.estimator(),
+            EstimatorKind::RandomizedQuasiMonteCarlo
+        );
+        assert_eq!(result.independent_sampling_units, 8);
+        let risks = &result.pricing_result.risks;
+        for estimate in [
+            risks.delta.expect("delta").raw(),
+            risks.gamma.expect("gamma").raw(),
+            risks.vega.expect("vega").raw(),
+        ] {
+            assert!(estimate.value().get().is_finite());
+            assert!(estimate.standard_error().get().is_finite());
+            assert_eq!(
+                estimate.estimator(),
+                EstimatorKind::RandomizedQuasiMonteCarlo
+            );
+        }
     }
 
     #[test]

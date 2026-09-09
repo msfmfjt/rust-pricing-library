@@ -261,7 +261,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
             rust_pricing.Model.black_scholes(0.2),
             rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
-            rust_pricing.RiskRequest(),
+            rust_pricing.RiskRequest(delta=True, vega=True),
         )
         payload = json.loads(request.to_json())
         self.assertEqual(payload["product"]["type"], "arithmetic_asian")
@@ -273,6 +273,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         ).evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
+        self.assertTrue(math.isfinite(result.delta_raw))
+        self.assertTrue(math.isfinite(result.vega_raw))
 
     def test_native_fully_fixed_arithmetic_asian_discounts_known_payoff(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
