@@ -15,6 +15,7 @@ LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 def main() -> int:
     missing = []
+    anchor_cache: dict[Path, set[str]] = {}
     for path in markdown_files():
         text = path.read_text(encoding="utf-8")
         for target in LINK_PATTERN.findall(text):
@@ -30,7 +31,11 @@ def main() -> int:
             if not resolved.exists():
                 missing.append((path, target, "target does not exist"))
                 continue
-            if anchor is not None and anchor not in markdown_anchors(resolved):
+            anchors = anchor_cache.get(resolved)
+            if anchors is None:
+                anchors = markdown_anchors(resolved)
+                anchor_cache[resolved] = anchors
+            if anchor is not None and anchor not in anchors:
                 missing.append((path, target, "anchor does not exist"))
 
     if missing:
