@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use pricing::PricingRequest;
-use pricing::core::{CurrencyId, CurveId, Date, PositiveF64, UnderlyingId};
-use pricing::market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
+use pricing::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, UnderlyingId};
+use pricing::market::{
+    DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
+    MarketContext,
+};
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing::models::{BlackScholesSpec, ModelSpec};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
@@ -44,6 +47,114 @@ impl PyDiscountCurve {
 
     fn __repr__(&self) -> String {
         format!("DiscountCurve(curve_id={})", self.curve_id())
+    }
+}
+
+/// Immutable discrete dividend event.
+#[pyclass(frozen, name = "DividendEvent", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyDividendEvent {
+    pub(crate) inner: DividendEvent,
+}
+
+#[pymethods]
+impl PyDividendEvent {
+    /// Build a fixed-cash dividend event.
+    #[staticmethod]
+    fn fixed_cash(py: Python<'_>, event_id: u32, ex_time: f64, amount: f64) -> PyResult<Self> {
+        let event = EventId::new(event_id);
+        let quote = DividendQuote::fixed_cash(amount, event).map_err(|error| {
+            domain_error(
+                py,
+                "invalid_dividend_cash",
+                "/market/discrete_dividends",
+                error,
+            )
+        })?;
+        DividendEvent::new(event, ex_time, quote)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            })
+    }
+
+    /// Build a proportional dividend event.
+    #[staticmethod]
+    fn proportional(py: Python<'_>, event_id: u32, ex_time: f64, beta: f64) -> PyResult<Self> {
+        let event = EventId::new(event_id);
+        let quote = DividendQuote::proportional(beta, event).map_err(|error| {
+            domain_error(
+                py,
+                "invalid_dividend_proportion",
+                "/market/discrete_dividends",
+                error,
+            )
+        })?;
+        DividendEvent::new(event, ex_time, quote)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            })
+    }
+
+    /// Build a fixed-cash plus proportional dividend event.
+    #[staticmethod]
+    fn fixed_cash_and_proportional(
+        py: Python<'_>,
+        event_id: u32,
+        ex_time: f64,
+        fixed_cash: f64,
+        beta: f64,
+    ) -> PyResult<Self> {
+        let event = EventId::new(event_id);
+        let quote = DividendQuote::fixed_cash_and_proportional(fixed_cash, beta, event).map_err(
+            |error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_quote",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            },
+        )?;
+        DividendEvent::new(event, ex_time, quote)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            })
+    }
+
+    #[getter]
+    fn event_id(&self) -> u32 {
+        self.inner.event().get()
+    }
+
+    #[getter]
+    fn ex_time(&self) -> f64 {
+        self.inner.ex_time()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DividendEvent(event_id={}, ex_time={})",
+            self.event_id(),
+            self.ex_time()
+        )
     }
 }
 
@@ -99,6 +210,7 @@ pub struct PyMarket {
 impl PyMarket {
     /// Build a single-currency equity market with deterministic carry curves.
     #[staticmethod]
+    #[pyo3(signature = (currency_id, underlying_id, spot, discount_curve, dividend_curve, *, discrete_dividends=None))]
     fn equity(
         py: Python<'_>,
         currency_id: u16,
@@ -106,15 +218,27 @@ impl PyMarket {
         spot: f64,
         discount_curve: &PyDiscountCurve,
         dividend_curve: &PyDiscountCurve,
+        discrete_dividends: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let spot = PositiveF64::new(spot, "spot")
             .map_err(|error| domain_error(py, "invalid_spot", "/market/spot", error))?;
-        let forward = EquityForward::new(
-            UnderlyingId::new(underlying_id),
-            spot,
-            Arc::clone(&discount_curve.inner),
-            Arc::clone(&dividend_curve.inner),
-        );
+        let underlying = UnderlyingId::new(underlying_id);
+        let discount = Arc::clone(&discount_curve.inner);
+        let dividend = Arc::clone(&dividend_curve.inner);
+        let forward = if let Some(discrete_dividends) = discrete_dividends {
+            let dividends = dividend_events_from_python(py, discrete_dividends)?;
+            EquityForward::with_discrete_dividends(underlying, spot, discount, dividend, dividends)
+                .map_err(|error| {
+                    domain_error(
+                        py,
+                        "invalid_discrete_dividends",
+                        "/market/discrete_dividends",
+                        error,
+                    )
+                })?
+        } else {
+            EquityForward::new(underlying, spot, discount, dividend)
+        };
         Ok(Self {
             inner: MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward)),
         })
@@ -296,6 +420,36 @@ fn copied_f64_array(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> 
             format!("expected a one-dimensional numeric sequence: {error}"),
         )
     })
+}
+
+fn dividend_events_from_python(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<Vec<DividendEvent>> {
+    let mut events = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_dividend_event_sequence",
+            "/market/discrete_dividends",
+            format!("expected a sequence of DividendEvent objects: {error}"),
+        )
+    })?;
+    for item in iter {
+        let item = item?;
+        let dividend = item
+            .extract::<PyRef<'_, PyDividendEvent>>()
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    format!("expected DividendEvent: {error}"),
+                )
+            })?;
+        events.push(dividend.inner);
+    }
+    Ok(events)
 }
 
 fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Date> {

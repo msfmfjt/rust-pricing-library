@@ -45,8 +45,24 @@
       "properties": {
         "type": {"const": "equity"}, "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535},
         "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "spot": {"type": "number", "exclusiveMinimum": 0},
-        "discount_curve": {"$ref": "#/$defs/curve"}, "dividend_curve": {"$ref": "#/$defs/curve"}
+        "discount_curve": {"$ref": "#/$defs/curve"}, "dividend_curve": {"$ref": "#/$defs/curve"},
+        "discrete_dividends": {"type": "array", "items": {"$ref": "#/$defs/dividend_event"}}
       }
+    },
+    "dividend_event": {
+      "type": "object", "additionalProperties": false, "required": ["event_id", "ex_time", "quote"],
+      "properties": {
+        "event_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "ex_time": {"type": "number", "minimum": 0},
+        "quote": {"$ref": "#/$defs/dividend_quote"}
+      }
+    },
+    "dividend_quote": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "amount"], "properties": {"type": {"const": "fixed_cash"}, "amount": {"type": "number", "minimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "beta"], "properties": {"type": {"const": "proportional"}, "beta": {"type": "number", "minimum": 0, "exclusiveMaximum": 1}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "fixed_cash", "beta"], "properties": {"type": {"const": "fixed_cash_and_proportional"}, "fixed_cash": {"type": "number", "minimum": 0}, "beta": {"type": "number", "minimum": 0, "exclusiveMaximum": 1}}}
+      ]
     },
     "model": {
       "type": "object", "additionalProperties": false, "required": ["type", "volatility"],

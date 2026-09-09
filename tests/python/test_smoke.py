@@ -83,6 +83,40 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         json_result = json_plan.evaluate()
         self.assertEqual(native_result.to_json(), json_result.to_json())
 
+    def test_native_discrete_dividends_match_json_request(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        product = rust_pricing.Product.european_vanilla(
+            1, 2, "2027-09-04", 95.0, 1.0, "call"
+        )
+        dividend_event = rust_pricing.DividendEvent.fixed_cash_and_proportional(
+            77, 0.25, 1.5, 0.02
+        )
+        market = rust_pricing.Market.equity(
+            2,
+            1,
+            100.0,
+            discount,
+            dividend,
+            discrete_dividends=[dividend_event],
+        )
+        request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(),
+        )
+        payload = json.loads(request.to_json())
+        self.assertEqual(
+            payload["market"]["discrete_dividends"][0]["quote"]["type"],
+            "fixed_cash_and_proportional",
+        )
+        parsed = rust_pricing.PricingRequest.from_json(request.to_json())
+        self.assertEqual(parsed.fingerprint, request.fingerprint)
+        self.assertEqual(parsed.to_json(), request.to_json())
+
     def test_runtime_docstrings_are_available(self):
         self.assertIn("discount-factor curve", rust_pricing.DiscountCurve.__doc__)
         self.assertIn("Python GIL", rust_pricing.PricingPlan.compile.__doc__)

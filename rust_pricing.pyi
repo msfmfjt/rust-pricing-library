@@ -89,6 +89,21 @@ class DiscountCurve:
     def curve_id(self) -> int: ...
 
 
+class DividendEvent:
+    @staticmethod
+    def fixed_cash(event_id: int, ex_time: float, amount: float) -> DividendEvent: ...
+    @staticmethod
+    def proportional(event_id: int, ex_time: float, beta: float) -> DividendEvent: ...
+    @staticmethod
+    def fixed_cash_and_proportional(
+        event_id: int, ex_time: float, fixed_cash: float, beta: float
+    ) -> DividendEvent: ...
+    @property
+    def event_id(self) -> int: ...
+    @property
+    def ex_time(self) -> float: ...
+
+
 class Product:
     @staticmethod
     def european_vanilla(
@@ -109,6 +124,8 @@ class Market:
         spot: float,
         discount_curve: DiscountCurve,
         dividend_curve: DiscountCurve,
+        *,
+        discrete_dividends: Sequence[DividendEvent] | None = None,
     ) -> Market: ...
 
 
@@ -222,4 +239,3 @@ class PricingResult:
 
 
 def version() -> str: ...
-

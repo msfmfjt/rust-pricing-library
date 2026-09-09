@@ -2,8 +2,11 @@ use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 
-use pricing_core::{CurrencyId, CurveId, Date, PositiveF64, SchemaVersion, UnderlyingId};
-use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
+use pricing_core::{CurrencyId, CurveId, Date, EventId, PositiveF64, SchemaVersion, UnderlyingId};
+use pricing_market::{
+    DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
+    MarketContext,
+};
 use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
 use pricing_models::{BlackScholesSpec, ModelSpec};
 use pricing_product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
@@ -227,7 +230,25 @@ enum MarketV1 {
         spot: f64,
         discount_curve: CurveV1,
         dividend_curve: CurveV1,
+        #[serde(skip_serializing_if = "Vec::is_empty", default)]
+        discrete_dividends: Vec<DividendEventV1>,
     },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DividendEventV1 {
+    event_id: u32,
+    ex_time: f64,
+    quote: DividendQuoteV1,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum DividendQuoteV1 {
+    FixedCash { amount: f64 },
+    Proportional { beta: f64 },
+    FixedCashAndProportional { fixed_cash: f64, beta: f64 },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -370,6 +391,30 @@ impl From<&MarketContext> for MarketV1 {
             spot: forward.spot().get(),
             discount_curve: CurveV1::from(forward.discount_curve()),
             dividend_curve: CurveV1::from(forward.dividend_curve()),
+            discrete_dividends: forward
+                .discrete_dividends()
+                .map(|dividends| {
+                    dividends
+                        .events()
+                        .iter()
+                        .map(|event| DividendEventV1 {
+                            event_id: event.event().get(),
+                            ex_time: event.ex_time(),
+                            quote: DividendQuoteV1::from(*event),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+        }
+    }
+}
+
+impl From<pricing_market::CompiledDividendEvent> for DividendQuoteV1 {
+    fn from(event: pricing_market::CompiledDividendEvent) -> Self {
+        match (event.fixed_cash(), event.beta()) {
+            (fixed_cash, 0.0) => Self::FixedCash { amount: fixed_cash },
+            (0.0, beta) => Self::Proportional { beta },
+            (fixed_cash, beta) => Self::FixedCashAndProportional { fixed_cash, beta },
         }
     }
 }
@@ -510,15 +555,27 @@ impl TryFrom<RequestV1> for PricingRequest {
                 spot,
                 discount_curve,
                 dividend_curve,
+                discrete_dividends,
             } => {
                 let discount = Arc::new(curve_from_wire(discount_curve)?);
                 let dividend = Arc::new(curve_from_wire(dividend_curve)?);
-                let forward = EquityForward::new(
-                    UnderlyingId::new(underlying_id),
-                    PositiveF64::new(spot, "spot").map_err(domain)?,
-                    discount,
-                    dividend,
-                );
+                let underlying = UnderlyingId::new(underlying_id);
+                let spot = PositiveF64::new(spot, "spot").map_err(domain)?;
+                let forward = if discrete_dividends.is_empty() {
+                    EquityForward::new(underlying, spot, discount, dividend)
+                } else {
+                    EquityForward::with_discrete_dividends(
+                        underlying,
+                        spot,
+                        discount,
+                        dividend,
+                        discrete_dividends
+                            .into_iter()
+                            .map(dividend_event_from_wire)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )
+                    .map_err(domain)?
+                };
                 MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
             }
         };
@@ -558,6 +615,22 @@ impl TryFrom<RequestV1> for PricingRequest {
         let risk = risk_from_wire(value.risk)?;
         PricingRequest::new(valuation_date, product, market, model, engine, risk).map_err(domain)
     }
+}
+
+fn dividend_event_from_wire(value: DividendEventV1) -> Result<DividendEvent, WireError> {
+    let event = EventId::new(value.event_id);
+    let quote = match value.quote {
+        DividendQuoteV1::FixedCash { amount } => {
+            DividendQuote::fixed_cash(amount, event).map_err(domain)?
+        }
+        DividendQuoteV1::Proportional { beta } => {
+            DividendQuote::proportional(beta, event).map_err(domain)?
+        }
+        DividendQuoteV1::FixedCashAndProportional { fixed_cash, beta } => {
+            DividendQuote::fixed_cash_and_proportional(fixed_cash, beta, event).map_err(domain)?
+        }
+    };
+    DividendEvent::new(event, value.ex_time, quote).map_err(domain)
 }
 
 impl From<VarianceReductionV1> for VarianceReduction {
@@ -1143,6 +1216,53 @@ mod tests {
         .expect("request")
     }
 
+    fn dividend_request() -> PricingRequest {
+        let curve = |id, discount| {
+            Arc::new(
+                LogLinearDiscountCurve::new(CurveId::new(id), vec![0.0, 1.0], vec![1.0, discount])
+                    .expect("curve"),
+            )
+        };
+        let product = ProductSpec::EuropeanVanilla(
+            EuropeanVanillaSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                "2027-09-04".parse().expect("date"),
+                95.0,
+                1.0,
+                OptionSide::Call,
+            )
+            .expect("product"),
+        );
+        let event = EventId::new(77);
+        let forward = EquityForward::with_discrete_dividends(
+            UnderlyingId::new(1),
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(10, 0.95),
+            curve(11, 0.98),
+            vec![
+                DividendEvent::new(
+                    event,
+                    0.25,
+                    DividendQuote::fixed_cash_and_proportional(1.5, 0.02, event).expect("quote"),
+                )
+                .expect("event"),
+            ],
+        )
+        .expect("forward");
+        PricingRequest::new(
+            "2026-09-04".parse().expect("date"),
+            product,
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(2), forward)),
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 1024, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
     #[test]
     fn request_round_trip_and_noncanonical_input_have_same_fingerprint() {
         let request = request();
@@ -1164,6 +1284,28 @@ mod tests {
             fingerprint_request(&parsed).expect("fingerprint"),
             fingerprint_request(&reparsed).expect("fingerprint")
         );
+    }
+
+    #[test]
+    fn request_json_round_trips_discrete_dividends() {
+        let request = dividend_request();
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"discrete_dividends\""));
+        assert!(json.contains("\"fixed_cash_and_proportional\""));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            fingerprint_request(&request).expect("fingerprint"),
+            fingerprint_request(&parsed).expect("fingerprint")
+        );
+        let dividends = parsed
+            .market()
+            .equity()
+            .forward()
+            .discrete_dividends()
+            .expect("dividends");
+        assert_eq!(dividends.events()[0].event(), EventId::new(77));
+        assert_eq!(dividends.events()[0].fixed_cash(), 1.5);
+        assert_eq!(dividends.events()[0].beta(), 0.02);
     }
 
     #[test]
