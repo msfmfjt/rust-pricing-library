@@ -297,6 +297,11 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
         raise SystemExit(f"{archive}: pyproject project.requires-python mismatch")
     if project.get("authors") != [{"name": "Masafumi Fujita"}]:
         raise SystemExit(f"{archive}: pyproject project.authors mismatch")
+    for key in ["license", "license-files"]:
+        if key in project:
+            raise SystemExit(
+                f"{archive}: pyproject project.{key} must stay absent until licensing is decided"
+            )
     if project.get("dynamic") != ["version"]:
         raise SystemExit(f"{archive}: pyproject must derive version dynamically")
 

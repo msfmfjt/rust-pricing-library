@@ -128,6 +128,9 @@ def verify_wheel_metadata(
         and "charset=UTF-8" in content_type
     ):
         raise RuntimeError(f"unexpected wheel Description-Content-Type: {content_type}")
+    for field in ["License", "License-Expression", "License-File"]:
+        if metadata.get_all(field):
+            raise RuntimeError(f"wheel metadata must not declare {field}")
     if "Rust Pricing Library" not in metadata.get_payload():
         raise RuntimeError("wheel metadata does not include the README payload")
     if wheel_metadata["Root-Is-Purelib"] != "false":
@@ -157,6 +160,11 @@ def expected_project_metadata() -> dict[str, str]:
     authors = project.get("authors")
     if authors != [{"name": "Masafumi Fujita"}]:
         raise RuntimeError("pyproject.toml project.authors mismatch")
+    for key in ["license", "license-files"]:
+        if key in project:
+            raise RuntimeError(
+                f"pyproject.toml project.{key} must stay absent until licensing is decided"
+            )
     version = required_string(workspace_package, "version", "Cargo.toml workspace.package")
     requires_python = required_string(
         project,
