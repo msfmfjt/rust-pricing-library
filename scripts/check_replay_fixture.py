@@ -67,6 +67,19 @@ def replay_identity(path: Path, document: dict[str, object]) -> tuple[str, str]:
         raise SystemExit(f"{path}: replay evidence has no string fixture_kind field")
     if fixture_kind not in FIXTURE_PREFIXES:
         raise SystemExit(f"{path}: unsupported replay fixture_kind: {fixture_kind!r}")
+    cases = document.get("cases")
+    if not isinstance(cases, list) or not cases:
+        raise SystemExit(f"{path}: replay evidence cases must be a non-empty array")
+    case_names = set()
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            raise SystemExit(f"{path}: cases[{index}] must be an object")
+        name = case.get("name")
+        if not isinstance(name, str) or not name:
+            raise SystemExit(f"{path}: cases[{index}].name must be a non-empty string")
+        if name in case_names:
+            raise SystemExit(f"{path}: duplicate replay case name: {name}")
+        case_names.add(name)
     return fixture_kind, platform
 
 
