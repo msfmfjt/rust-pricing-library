@@ -12,11 +12,16 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".gitattributes",
+    ".gitignore",
     "Cargo.lock",
     "Cargo.toml",
+    "CONTRIBUTING.md",
     "rust-toolchain.toml",
+    "rustfmt.toml",
     "pyproject.toml",
     ".github/workflows/ci.yml",
+    "docs/adr/0000-template.md",
     "docs/architecture-v0.1.md",
     "docs/benchmarking-v0.1.md",
     "docs/european-bs-conformance-v0.1.md",
@@ -27,6 +32,7 @@ REQUIRED_FILES = {
     "docs/local-vol-vegakt-numerical-contracts-v0.1.md",
     "docs/local-vol-vegakt-roadmap-v0.1.md",
     "docs/release-readiness-v0.1.md",
+    "docs/requirements-change-template.md",
     "docs/requirements-v1.0.md",
     "docs/wire-schema-compatibility.md",
     "crates/pricing-aad/Cargo.toml",
