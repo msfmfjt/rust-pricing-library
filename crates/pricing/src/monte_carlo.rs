@@ -4,9 +4,10 @@ use pricing_market::{
     AffineDividendTransform, CurveRegion, DiscountCurve, EquityForward, LocalVarianceGrid,
 };
 use pricing_mc::{
-    DeterministicExecutor, DeterministicStatistics, EngineConfig, ExecutionPolicy,
-    LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolTimeGrid, Philox4x32,
-    PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan, inverse_standard_normal,
+    BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
+    ExecutionPolicy, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolTimeGrid,
+    Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan,
+    RqmcPlanError, inverse_standard_normal,
 };
 use pricing_models::ModelSpec;
 use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy, ProductSpec};
@@ -444,8 +445,8 @@ impl SimulationPlan {
     }
 
     fn execute_rqmc(&self, engine: RqmcConfig) -> Result<MonteCarloPrice, MonteCarloError> {
-        if self.local_volatility.is_some() {
-            return Err(MonteCarloError::UnsupportedEngine);
+        if let Some(local_volatility) = &self.local_volatility {
+            return self.execute_local_vol_rqmc(engine, local_volatility);
         }
         let executor = DeterministicExecutor::new(self.execution_policy)?;
         let qmc = RqmcPlan::compile(engine, 1)?;
@@ -725,6 +726,126 @@ impl SimulationPlan {
                 .first()
                 .copied()
                 .ok_or(pricing_product::GraphError::NoOutputs)?)
+    }
+
+    fn execute_local_vol_rqmc(
+        &self,
+        engine: RqmcConfig,
+        local_volatility: &LocalVolRuntime,
+    ) -> Result<MonteCarloPrice, MonteCarloError> {
+        let step_count = u32::try_from(local_volatility.plan.time_grid().step_count())
+            .map_err(|_| MonteCarloError::RqmcPlan(RqmcPlanError::TableSizeOverflow))?;
+        let qmc = RqmcPlan::compile(engine, step_count)?;
+        let bridge = if engine.variance_reduction().brownian_bridge() {
+            Some(
+                BrownianBridgePlan::compile(local_volatility.plan.time_grid().nodes().to_vec(), 1)
+                    .map_err(|error| MonteCarloError::LocalVol(error.into()))?,
+            )
+        } else {
+            None
+        };
+        let executor = DeterministicExecutor::new(self.execution_policy)?;
+        let antithetic = engine.variance_reduction().antithetic();
+        let points = engine.points_per_scramble().get();
+        let mut replicate_prices = Vec::with_capacity(
+            usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
+        );
+        for scramble in 0..engine.scramble_count().get() {
+            let within = executor.try_map_reduce_statistics(points, |point| {
+                let path_index = PathIndex::new(u64::from(scramble).saturating_mul(points) + point);
+                let shocks = local_vol_rqmc_shocks(&qmc, bridge.as_ref(), scramble, point)?;
+                let primary =
+                    self.local_vol_discounted_payoff(local_volatility, &shocks, path_index)?;
+                if antithetic {
+                    let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                    let mate = self.local_vol_discounted_payoff(
+                        local_volatility,
+                        &mate_shocks,
+                        path_index,
+                    )?;
+                    Ok::<f64, MonteCarloError>((primary + mate) * 0.5)
+                } else {
+                    Ok::<f64, MonteCarloError>(primary)
+                }
+            })?;
+            replicate_prices.push(within.sum().total() / points as f64);
+        }
+
+        let price = DeterministicStatistics::from_ordered_values_two_pass(&replicate_prices);
+        let independent_units = u64::from(engine.scramble_count().get());
+        let estimate = estimate_from_statistics(
+            price,
+            independent_units,
+            1.0,
+            EstimatorKind::RandomizedQuasiMonteCarlo,
+        )?;
+        let sampling_variance = price.moments().sample_variance().ok_or(
+            MonteCarloError::InsufficientSamplingUnits {
+                count: independent_units,
+            },
+        )?;
+        let estimator_variance = sampling_variance / independent_units as f64;
+        let pricing_result = PricingResult {
+            value: estimate,
+            risks: RiskReport {
+                delta: None,
+                gamma: None,
+                vega: None,
+            },
+            diagnostics: Diagnostics::new(extrapolation_warnings(
+                self.discount_region,
+                self.dividend_region,
+            )),
+            replay: ReplayMetadata::new(
+                SchemaVersion::CURRENT,
+                self.request_fingerprint,
+                crate::version(),
+                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
+            ),
+        };
+        let multiplier = if antithetic { 2_u128 } else { 1_u128 };
+        Ok(MonteCarloPrice {
+            pricing_result,
+            sampling_variance,
+            estimator_variance,
+            risk_diagnostics: RiskDiagnostics {
+                methods: RiskMethodMetadata {
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    smile_dynamics: self.smile_dynamics,
+                    gamma_spot_bump: None,
+                    validation_spot_bump: None,
+                    validation_volatility_bump: None,
+                    bump_policy_version: BumpValidationPolicy::VERSION,
+                },
+                delta_validation: None,
+                gamma_validation: None,
+                vega_validation: None,
+            },
+            independent_sampling_units: independent_units,
+            evaluated_paths: u128::from(points)
+                * u128::from(engine.scramble_count().get())
+                * multiplier,
+            diagnostics: MonteCarloDiagnostics {
+                master_seed: engine.master_scramble_seed(),
+                estimator: EstimatorKind::RandomizedQuasiMonteCarlo,
+                scramble_count: Some(engine.scramble_count().get()),
+                direction_checksum: Some(qmc.direction_checksum()),
+                scramble_checksum: Some(qmc.scramble_checksum()),
+                policy_version: self.execution_policy.version(),
+                worker_threads: self.execution_policy.worker_threads().get(),
+                reduction_block_size: self.execution_policy.reduction_block_size().get(),
+                aad_tile_policy_version: self.aad_tile_policy.version(),
+                aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
+                checkpoint_policy_version: self.checkpoint_policy.version(),
+                checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
+                antithetic,
+                discount_region: self.discount_region,
+                dividend_region: self.dividend_region,
+                payoff_fingerprint: self.payoff.tape_fingerprint(),
+            },
+        })
     }
 
     fn normal(&self, generator: &Philox4x32, sampling_unit: u64) -> f64 {
@@ -1063,6 +1184,32 @@ fn risk_validation(
     })
 }
 
+fn local_vol_rqmc_shocks(
+    qmc: &RqmcPlan,
+    bridge: Option<&BrownianBridgePlan>,
+    scramble: u32,
+    point: u64,
+) -> Result<Vec<f64>, MonteCarloError> {
+    let mut shocks =
+        Vec::with_capacity(usize::try_from(qmc.effective_dimension()).expect("u32 fits usize"));
+    for dimension in 0..qmc.effective_dimension() {
+        let probability = qmc
+            .uniform(scramble, point, dimension)
+            .expect("scramble, point, and dimension originate from the compiled plan");
+        shocks.push(
+            inverse_standard_normal(probability)
+                .expect("the Sobol midpoint mapping is strictly inside the unit interval"),
+        );
+    }
+    if let Some(bridge) = bridge {
+        bridge
+            .apply_one_factor(&shocks)
+            .map_err(|error| MonteCarloError::LocalVol(error.into()))
+    } else {
+        Ok(shocks)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RiskMethod {
     AadReverse,
@@ -1364,6 +1511,62 @@ mod tests {
         )
     }
 
+    fn zero_carry_rqmc_request(model: ModelSpec) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let product = ProductSpec::EuropeanVanilla(
+            EuropeanVanillaSpec::new(
+                underlying,
+                currency,
+                "2027-09-04".parse().expect("expiry"),
+                100.0,
+                1.0,
+                OptionSide::Call,
+            )
+            .expect("product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.0),
+                curve(2, 0.0),
+            ),
+        ));
+        let engine = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                256,
+                16,
+                0xfedc_ba98_7654_3210,
+                VarianceReduction::new(true, true),
+            )
+            .expect("RQMC engine"),
+        );
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn constant_local_vol_model() -> ModelSpec {
+        ModelSpec::LocalVolatility(
+            LocalVolatilitySpec::from_explicit_grid(
+                vec![0.0, 1.0],
+                vec![-1.0, 1.0],
+                vec![0.04, 0.04, 0.04, 0.04],
+                1.0e-8,
+                1.0,
+            )
+            .expect("local volatility"),
+        )
+    }
+
     fn price_only_request_with_model(
         model: ModelSpec,
         sampling_units: u64,
@@ -1453,6 +1656,32 @@ mod tests {
                 .to_bits()
         );
         assert_eq!(local_result.evaluated_paths, 8192);
+    }
+
+    #[test]
+    fn local_vol_rqmc_price_only_matches_constant_variance_black_scholes_limit() {
+        let local_vol = zero_carry_rqmc_request(constant_local_vol_model());
+        let black_scholes = zero_carry_rqmc_request(ModelSpec::BlackScholes(
+            BlackScholesSpec::new(0.2).expect("model"),
+        ));
+        let local_result = price_monte_carlo(&local_vol, policy(2)).expect("local vol");
+        let bs_result = price_monte_carlo(&black_scholes, policy(2)).expect("black scholes");
+        assert!(
+            (local_result.pricing_result.value.value().get()
+                - bs_result.pricing_result.value.value().get())
+            .abs()
+                < 1.0e-12
+        );
+        assert!(
+            (local_result.pricing_result.value.standard_error().get()
+                - bs_result.pricing_result.value.standard_error().get())
+            .abs()
+                < 1.0e-12
+        );
+        assert_eq!(local_result.independent_sampling_units, 16);
+        assert_eq!(local_result.evaluated_paths, 8192);
+        assert!(local_result.diagnostics.direction_checksum.is_some());
+        assert!(local_result.diagnostics.scramble_checksum.is_some());
     }
 
     #[test]

@@ -23,7 +23,7 @@ European Black-Scholes baseline.
 |---|---|---|
 | Equation fixtures | `fixtures/local-vol/reference-cases-v0.1.json` checked by `scripts/check_local_vol_reference_fixture.py` | Standard SSVI, eSSVI, Dupire, equation (11), hat projection, and transition-cell references pass independent checks |
 | Market surfaces | Unit and reference tests in `pricing-market` | SSVI/eSSVI values, analytic derivatives, density factors, Local-variance repairs, node helpers, and affine dividends pass |
-| Path engine | Unit tests in `pricing-mc` and the public `pricing` facade | Non-uniform Brownian bridge, Local Volatility Log-Euler, Price-only Pseudo-MC evaluation, event substeps, boundary diagnostics, reverse interpolation, and dividend reverse caches pass |
+| Path engine | Unit tests in `pricing-mc` and the public `pricing` facade | Non-uniform Brownian bridge, Local Volatility Log-Euler, Price-only MC/RQMC evaluation, event substeps, boundary diagnostics, reverse interpolation, and dividend reverse caches pass |
 | VegaKT | Unit tests in `pricing-risk` | Active domain, equation (11), transition operator, reporting-IV basis, projection residuals, bucket estimates, and covariance layouts pass |
 | Public API | Rust wire tests, Python smoke tests, and Python examples | Discrete dividends, explicit Local Volatility grids, eSSVI helpers, standard SSVI helpers, and VegaKT requests serialize through public facades |
 | CI | Latest pull request CI for this report's commit | Formatting, Clippy, Rust tests, statistical acceptance, supported wheels, Python smoke tests, dependency checks, and benchmark harness pass |
@@ -32,7 +32,7 @@ European Black-Scholes baseline.
 
 | Criterion | Current status |
 |---|---|
-| Local Vega calculated by Monte Carlo and AD | Covered by Local Volatility reverse tests and risk orchestration tests; public Local Volatility evaluation is currently Price-only and full same-platform replay fixture still pending |
+| Local Vega calculated by Monte Carlo and AD | Covered by Local Volatility reverse tests and risk orchestration tests; public Local Volatility evaluation is currently Price-only for MC/RQMC and full same-platform replay fixture still pending |
 | Paper-defined VegaKT decomposition | Covered by projection, equation (11), transition, reporting-basis, and bucket tests |
 | Coordinates, units, and bucket ordering | Covered by `VegaKtBucketCoordinate`, unit accessors, row-major shape checks, and report tests |
 | CRN bump-and-revalue agreement | Scalar and basis-bump validation paths exist; complete Local Volatility replay fixture remains pending |
@@ -58,8 +58,8 @@ diagnostics.
 - Freeze Local Volatility Price, Greek, and VegaKT replay fixtures for Apple
   Silicon macOS and Windows x86-64 under the same same-platform byte-comparison
   contract used by the European baseline.
-- Extend the public Local Volatility entry point from Price-only Pseudo-MC to
-  Greeks, RQMC, and VegaKT output.
+- Extend the public Local Volatility entry point from Price-only MC/RQMC to
+  Greeks and VegaKT output.
 - Retain benchmark artifacts that separately identify the AD/decomposition
   workload and its selected and aggregate CRN bump validations.
 - Update the Python Local Volatility/VegaKT example once the public entry point
