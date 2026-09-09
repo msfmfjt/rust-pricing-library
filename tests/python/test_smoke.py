@@ -1044,15 +1044,29 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         issue = issues[0]
         self.assertEqual(issue.phase, "declared_schema")
         self.assertEqual(issue.code, "unsupported_schema_version")
-        self.assertEqual(issue.to_dict()["pointer"], "")
-        self.assertEqual(issue.to_dict()["instance_path"], "")
-        self.assertEqual(issue.to_dict()["schema_version"], 99)
-        self.assertEqual(issue.to_dict()["document_kind"], "pricing_request")
+        payload = issue.to_dict()
+        self.assertEqual(
+            list(payload),
+            [
+                "pointer",
+                "instance_path",
+                "phase",
+                "schema_version",
+                "document_kind",
+                "code",
+                "message",
+            ],
+        )
+        self.assertEqual(payload["pointer"], "")
+        self.assertEqual(payload["instance_path"], "")
+        self.assertEqual(payload["schema_version"], 99)
+        self.assertEqual(payload["document_kind"], "pricing_request")
+        self.assertEqual(payload["phase"], "declared_schema")
+        self.assertEqual(payload["code"], "unsupported_schema_version")
         with self.assertRaises(AttributeError):
             issue.code = "changed"
         with self.assertRaises(AttributeError):
             issue.__dict__["code"] = "changed"
-        payload = issue.to_dict()
         payload["code"] = "changed"
         self.assertEqual(issue.to_dict()["code"], "unsupported_schema_version")
 
