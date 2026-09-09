@@ -229,6 +229,26 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
         )
 
 
+def check_vega_kt_result_arrays(schema: dict[str, Any], path: Path) -> None:
+    defs = schema.get("$defs", {})
+    if not isinstance(defs, dict):
+        return
+    report = defs.get("vega_kt_report")
+    if not isinstance(report, dict):
+        return
+    properties = report.get("properties")
+    require(isinstance(properties, dict), f"{path}: vega_kt_report properties must be an object")
+    for field in ["coordinates", "estimates", "raw_buckets", "full_bucket_covariance"]:
+        definition = properties.get(field)
+        require(
+            isinstance(definition, dict)
+            and definition.get("type") == "array"
+            and definition.get("minItems") == 1
+            and "items" in definition,
+            f"{path}: vega_kt_report.{field} must be a non-empty typed array",
+        )
+
+
 def check_no_unstructured_objects(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict) or value.get("type") != "object":
@@ -323,6 +343,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
+    check_vega_kt_result_arrays(schema, path)
     check_no_unstructured_objects(schema, path)
     check_strict_objects(schema, path)
     check_tagged_union_discriminators(schema, path)
