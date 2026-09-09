@@ -39,6 +39,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIsNone(result.diagnostics.direction_checksum)
         self.assertIsNone(result.diagnostics.scramble_checksum)
         self.assertEqual(result.diagnostics.worker_threads, 2)
+        self.assertIsNone(result.diagnostics.gamma_spot_bump)
+        self.assertIsNone(result.diagnostics.validation_spot_bump)
+        self.assertIsNone(result.diagnostics.validation_volatility_bump)
+        self.assertEqual(result.diagnostics.bump_policy_version, 1)
         self.assertEqual(
             [warning.code for warning in result.diagnostics.warnings],
             [warning.code for warning in result.warnings],
@@ -444,6 +448,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIsNone(result.vega_raw)
         self.assertEqual(result.diagnostics.delta_method, "central_bump")
         self.assertEqual(result.diagnostics.gamma_method, "central_bump")
+        self.assertEqual(result.diagnostics.gamma_spot_bump, 1.0)
+        self.assertEqual(result.diagnostics.validation_spot_bump, 1.0)
+        self.assertIsNone(result.diagnostics.validation_volatility_bump)
+        self.assertEqual(result.diagnostics.bump_policy_version, 1)
 
         rqmc_request = rust_pricing.PricingRequest(
             "2026-09-04",

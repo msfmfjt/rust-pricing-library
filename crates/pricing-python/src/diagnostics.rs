@@ -55,6 +55,10 @@ pub struct PyDiagnostics {
     delta_method: Option<&'static str>,
     gamma_method: Option<&'static str>,
     vega_method: Option<&'static str>,
+    gamma_spot_bump: Option<f64>,
+    validation_spot_bump: Option<f64>,
+    validation_volatility_bump: Option<f64>,
+    bump_policy_version: u32,
     warnings: Vec<PyPricingWarning>,
 }
 
@@ -82,6 +86,10 @@ impl PyDiagnostics {
             delta_method: methods.delta.map(risk_method_name),
             gamma_method: methods.gamma.map(risk_method_name),
             vega_method: methods.vega.map(risk_method_name),
+            gamma_spot_bump: methods.gamma_spot_bump,
+            validation_spot_bump: methods.validation_spot_bump,
+            validation_volatility_bump: methods.validation_volatility_bump,
+            bump_policy_version: methods.bump_policy_version,
             warnings: price
                 .pricing_result
                 .diagnostics
@@ -191,6 +199,26 @@ impl PyDiagnostics {
     #[getter]
     fn vega_method(&self) -> Option<&str> {
         self.vega_method
+    }
+
+    #[getter]
+    fn gamma_spot_bump(&self) -> Option<f64> {
+        self.gamma_spot_bump
+    }
+
+    #[getter]
+    fn validation_spot_bump(&self) -> Option<f64> {
+        self.validation_spot_bump
+    }
+
+    #[getter]
+    fn validation_volatility_bump(&self) -> Option<f64> {
+        self.validation_volatility_bump
+    }
+
+    #[getter]
+    fn bump_policy_version(&self) -> u32 {
+        self.bump_policy_version
     }
 
     /// Warnings in deterministic emission order.
