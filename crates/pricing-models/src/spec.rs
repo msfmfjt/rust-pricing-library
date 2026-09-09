@@ -138,8 +138,10 @@ impl LocalVolatilityReportingBasis {
         maturity_nodes: Vec<f64>,
         log_forward_moneyness_nodes: Vec<f64>,
     ) -> Result<Self, MarketError> {
-        let mut implied_volatilities =
-            Vec::with_capacity(maturity_nodes.len() * log_forward_moneyness_nodes.len());
+        let capacity =
+            reporting_iv_value_count(maturity_nodes.len(), log_forward_moneyness_nodes.len())
+                .map_err(core_error_to_market)?;
+        let mut implied_volatilities = Vec::with_capacity(capacity);
         for maturity in maturity_nodes.iter().copied() {
             let maturity = PositiveF64::new(maturity, "reporting_iv_maturity")
                 .map_err(core_error_to_market)?
@@ -172,7 +174,8 @@ impl LocalVolatilityReportingBasis {
             &log_forward_moneyness_nodes,
             "reporting_iv_log_forward_moneyness",
         )?;
-        let expected = maturity_nodes.len() * log_forward_moneyness_nodes.len();
+        let expected =
+            reporting_iv_value_count(maturity_nodes.len(), log_forward_moneyness_nodes.len())?;
         if implied_volatilities.len() != expected {
             return Err(CoreError::NumberNotPositive {
                 field: "reporting_iv_implied_volatility_count",
@@ -227,6 +230,18 @@ fn validate_reporting_nodes(values: &[f64], name: &'static str) -> Result<(), Co
         }
     }
     Ok(())
+}
+
+fn reporting_iv_value_count(
+    maturity_count: usize,
+    log_forward_moneyness_count: usize,
+) -> Result<usize, CoreError> {
+    maturity_count
+        .checked_mul(log_forward_moneyness_count)
+        .ok_or(CoreError::NumberNotPositive {
+            field: "reporting_iv_implied_volatility_count",
+            bits: (usize::MAX as f64).to_bits(),
+        })
 }
 
 fn core_error_to_market(error: CoreError) -> MarketError {
@@ -334,6 +349,18 @@ mod tests {
         assert_eq!(basis.maturity_nodes(), [0.25, 1.0]);
         assert_eq!(basis.log_forward_moneyness_nodes(), [-0.2, 0.0, 0.2]);
         assert_eq!(basis.implied_volatilities()[4], 0.22);
+    }
+
+    #[test]
+    fn reporting_iv_value_count_rejects_overflow() {
+        assert_eq!(reporting_iv_value_count(2, 3).expect("count"), 6);
+        assert!(matches!(
+            reporting_iv_value_count(usize::MAX, 2),
+            Err(CoreError::NumberNotPositive {
+                field: "reporting_iv_implied_volatility_count",
+                ..
+            })
+        ));
     }
 
     #[test]

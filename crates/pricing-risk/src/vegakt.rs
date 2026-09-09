@@ -581,8 +581,8 @@ impl ReportingIvBasis {
         validate_reporting_maturity_nodes(&maturity_nodes)?;
         validate_reporting_log_moneyness_nodes(&log_moneyness_nodes)?;
 
-        let mut implied_volatilities =
-            Vec::with_capacity(maturity_nodes.len() * log_moneyness_nodes.len());
+        let capacity = reporting_iv_value_count(maturity_nodes.len(), log_moneyness_nodes.len())?;
+        let mut implied_volatilities = Vec::with_capacity(capacity);
         for maturity in maturity_nodes.iter().copied() {
             let maturity = PositiveF64::new(maturity, "vega_kt_reporting_surface_maturity")?.get();
             for log_moneyness in log_moneyness_nodes.iter().copied() {
@@ -607,7 +607,7 @@ impl ReportingIvBasis {
     ) -> Result<Self, RiskConfigError> {
         validate_reporting_maturity_nodes(&maturity_nodes)?;
         validate_reporting_log_moneyness_nodes(&log_moneyness_nodes)?;
-        let expected = maturity_nodes.len() * log_moneyness_nodes.len();
+        let expected = reporting_iv_value_count(maturity_nodes.len(), log_moneyness_nodes.len())?;
         if implied_volatilities.len() != expected {
             return Err(RiskConfigError::ReportingIvValueLengthMismatch {
                 expected,
@@ -1425,6 +1425,18 @@ fn validate_reporting_log_moneyness_nodes(nodes: &[f64]) -> Result<(), RiskConfi
     Ok(())
 }
 
+fn reporting_iv_value_count(
+    maturity_count: usize,
+    log_moneyness_count: usize,
+) -> Result<usize, RiskConfigError> {
+    maturity_count.checked_mul(log_moneyness_count).ok_or(
+        RiskConfigError::ReportingIvValueLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
+}
+
 fn excluded_density_probability_mass(
     forward: f64,
     log_moneyness_nodes: &[f64],
@@ -1996,6 +2008,13 @@ mod tests {
             Err(RiskConfigError::ReportingIvValueLengthMismatch {
                 expected: 4,
                 actual: 1
+            })
+        ));
+        assert!(matches!(
+            reporting_iv_value_count(usize::MAX, 2),
+            Err(RiskConfigError::ReportingIvValueLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
             })
         ));
         let basis =

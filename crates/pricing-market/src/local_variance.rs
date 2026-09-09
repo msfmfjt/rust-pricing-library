@@ -157,7 +157,8 @@ impl LocalVarianceGrid {
         validate_nodes("log_moneyness", &log_moneyness_nodes, false)?;
         validate_floor_cap(floor, cap)?;
 
-        let mut values = Vec::with_capacity(time_nodes.len() * log_moneyness_nodes.len());
+        let capacity = local_variance_value_count(time_nodes.len(), log_moneyness_nodes.len())?;
+        let mut values = Vec::with_capacity(capacity);
         let mut repairs = Vec::new();
         for (time_index, time) in time_nodes.iter().copied().enumerate() {
             let surface_time = if time == 0.0 { time_nodes[1] } else { time };
@@ -214,7 +215,7 @@ impl LocalVarianceGrid {
         validate_nodes("time", &time_nodes, true)?;
         validate_nodes("log_moneyness", &log_moneyness_nodes, false)?;
         validate_floor_cap(floor, cap)?;
-        let expected = time_nodes.len() * log_moneyness_nodes.len();
+        let expected = local_variance_value_count(time_nodes.len(), log_moneyness_nodes.len())?;
         if values.len() != expected {
             return Err(MarketError::LocalVarianceValueLengthMismatch {
                 expected,
@@ -524,6 +525,18 @@ fn validate_floor_cap(floor: f64, cap: f64) -> Result<(), MarketError> {
     Ok(())
 }
 
+fn local_variance_value_count(
+    time_count: usize,
+    log_moneyness_count: usize,
+) -> Result<usize, MarketError> {
+    time_count.checked_mul(log_moneyness_count).ok_or(
+        MarketError::LocalVarianceValueLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
+}
+
 fn validate_tail_probability(parameter: &'static str, value: f64) -> Result<(), MarketError> {
     if !value.is_finite() || value <= 0.0 || value >= 0.5 {
         return Err(MarketError::InvalidSurfaceParameter {
@@ -748,6 +761,18 @@ mod tests {
                 theta_region: ThetaRegion::Interpolated,
             })
         }
+    }
+
+    #[test]
+    fn local_variance_value_count_rejects_overflow() {
+        assert_eq!(local_variance_value_count(2, 3).expect("count"), 6);
+        assert!(matches!(
+            local_variance_value_count(usize::MAX, 2),
+            Err(MarketError::LocalVarianceValueLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
+            })
+        ));
     }
 
     #[test]
