@@ -704,6 +704,11 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.to_dict()["document_kind"], "pricing_request")
         with self.assertRaises(AttributeError):
             issue.code = "changed"
+        with self.assertRaises(AttributeError):
+            issue.__dict__["code"] = "changed"
+        payload = issue.to_dict()
+        payload["code"] = "changed"
+        self.assertEqual(issue.to_dict()["code"], "unsupported_schema_version")
 
     def test_validation_issue_equality_compares_payload(self):
         invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
