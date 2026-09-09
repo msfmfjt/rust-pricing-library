@@ -38,15 +38,15 @@ Price-only CRN bump case, labelled
 new execution mode and remains a documented limitation rather than silently
 changing the frozen request/result contract.
 
-## Local Volatility/VegaKT candidate workload
+## Local Volatility/VegaKT workload
 
-The suite also emits `local-volatility-rust.json` as candidate L8 evidence for
-the Local Volatility/VegaKT slice. It records Rust compile and evaluate timings
-for Price-only, AAD Local Vega, VegaKT decomposition with full bucket
-covariance, and selected common-random-number bump workloads. The standalone
-bump case evaluates five Price-only Plans: base, Spot-down/up, and uniform
-Local-variance-down/up. It uses the same two-worker, Reduction block 256
-execution policy as the replay fixture and records grid sizes, checkpoint
+The suite also emits `local-volatility-rust.json` as the accepted L8 benchmark
+baseline for the Local Volatility/VegaKT slice. It records Rust compile and
+evaluate timings for Price-only, AAD Local Vega, VegaKT decomposition with full
+bucket covariance, and selected common-random-number bump workloads. The
+standalone bump case evaluates five Price-only Plans: base, Spot-down/up, and
+uniform Local-variance-down/up. It uses the same two-worker, Reduction block
+256 execution policy as the replay fixture and records grid sizes, checkpoint
 policy, AAD tile capacity, and covariance layout.
 
 On supported platforms, the same CI step also generates

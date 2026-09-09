@@ -1,6 +1,6 @@
 # Local Volatility and VegaKT diagnostics catalogue v0.1
 
-Status: candidate catalogue for the Local Volatility/VegaKT slice
+Status: accepted catalogue for the Local Volatility/VegaKT slice
 
 This catalogue covers diagnostic and warning surfaces introduced by the
 Local Volatility/VegaKT roadmap. It complements the frozen European

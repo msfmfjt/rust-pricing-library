@@ -1,6 +1,6 @@
 # Rust Pricing Library
 
-An extensible derivatives-pricing library for model validation and quantitative research. The calculation core is written in Rust and will expose a Python interface for interactive single-trade analysis.
+An extensible derivatives-pricing library for model validation and quantitative research. The calculation core is written in Rust and exposes a typed Python interface for interactive single-trade analysis.
 
 The first vertical slice is a European vanilla option under Black-Scholes, with
 analytical reference values, Pseudo-Monte Carlo, randomized Sobol QMC, AAD
