@@ -32,6 +32,7 @@ SUPPORTED_PLATFORMS = {
     "windows-x86_64",
 }
 FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
+FLOAT_BITS = re.compile(r"^[0-9a-f]{16}$")
 REPLAY_DOCUMENT_KEYS = {"cases", "fixture_kind", "platform", "schema_version"}
 REPLAY_CASE_KEYS = {"execution", "name", "plan", "request", "result"}
 REPLAY_PLAN_KEYS = {
@@ -66,6 +67,30 @@ REPLAY_MONTE_CARLO_KEYS = {
     "scramble_checksum",
     "scramble_count",
     "worker_threads",
+}
+REPLAY_RISK_METHOD_KEYS = {
+    "bump_policy_version",
+    "delta",
+    "gamma",
+    "gamma_spot_bump_bits",
+    "smile_dynamics",
+    "validation_spot_bump_bits",
+    "validation_volatility_bump_bits",
+    "vega",
+}
+REPLAY_RISK_METHOD_VALUES = {
+    "aad_reverse",
+    "central_bump",
+    "central_bump_of_aad_delta",
+}
+REPLAY_RISK_VALIDATION_KEYS = {"delta", "gamma", "vega"}
+REPLAY_RISK_VALIDATION_REPORT_KEYS = {"bump_and_revalue", "bump_minus_primary"}
+REPLAY_ESTIMATE_BITS_KEYS = {
+    "confidence_lower_bits",
+    "confidence_upper_bits",
+    "effective_sampling_units",
+    "standard_error_bits",
+    "value_bits",
 }
 
 
@@ -191,6 +216,22 @@ def validate_case(
         REPLAY_MONTE_CARLO_KEYS,
         f"{case_path}.execution.monte_carlo",
     )
+    risk_methods = require_object(
+        path,
+        execution.get("risk_methods"),
+        f"{case_path}.execution.risk_methods",
+    )
+    validate_risk_methods(path, f"{case_path}.execution.risk_methods", risk_methods)
+    risk_validation = require_object(
+        path,
+        execution.get("risk_validation"),
+        f"{case_path}.execution.risk_validation",
+    )
+    validate_risk_validation(
+        path,
+        f"{case_path}.execution.risk_validation",
+        risk_validation,
+    )
 
     require_fingerprint(path, plan.get("plan_fingerprint"), f"{case_path}.plan.plan_fingerprint")
     request_fingerprint = require_fingerprint(
@@ -227,6 +268,74 @@ def validate_case(
         )
     if fixture_kind == "local_volatility_replay":
         validate_local_vol_case(path, case_path, case["name"], request, result)
+
+
+def validate_risk_methods(path: Path, field: str, methods: dict[str, object]) -> None:
+    require_exact_keys(path, methods, REPLAY_RISK_METHOD_KEYS, field)
+    if methods.get("bump_policy_version") != 1:
+        raise SystemExit(f"{path}: {field}.bump_policy_version must be 1")
+    if methods.get("smile_dynamics") != "sticky_log_moneyness":
+        raise SystemExit(f"{path}: {field}.smile_dynamics must be sticky_log_moneyness")
+    for key in ["delta", "gamma", "vega"]:
+        value = methods.get(key)
+        if value is None:
+            continue
+        if value not in REPLAY_RISK_METHOD_VALUES:
+            raise SystemExit(f"{path}: {field}.{key} has unsupported method {value!r}")
+    for key in [
+        "gamma_spot_bump_bits",
+        "validation_spot_bump_bits",
+        "validation_volatility_bump_bits",
+    ]:
+        require_optional_float_bits(path, methods.get(key), f"{field}.{key}")
+
+
+def validate_risk_validation(
+    path: Path,
+    field: str,
+    validation: dict[str, object],
+) -> None:
+    require_exact_keys(path, validation, REPLAY_RISK_VALIDATION_KEYS, field)
+    for risk_name in sorted(REPLAY_RISK_VALIDATION_KEYS):
+        risk_report = validation.get(risk_name)
+        if risk_report is None:
+            continue
+        risk_report = require_object(path, risk_report, f"{field}.{risk_name}")
+        require_exact_keys(
+            path,
+            risk_report,
+            REPLAY_RISK_VALIDATION_REPORT_KEYS,
+            f"{field}.{risk_name}",
+        )
+        for estimate_name in sorted(REPLAY_RISK_VALIDATION_REPORT_KEYS):
+            estimate = require_object(
+                path,
+                risk_report.get(estimate_name),
+                f"{field}.{risk_name}.{estimate_name}",
+            )
+            require_exact_keys(
+                path,
+                estimate,
+                REPLAY_ESTIMATE_BITS_KEYS,
+                f"{field}.{risk_name}.{estimate_name}",
+            )
+            units = estimate.get("effective_sampling_units")
+            if not isinstance(units, int) or units < 1:
+                raise SystemExit(
+                    f"{path}: {field}.{risk_name}.{estimate_name}.effective_sampling_units "
+                    "must be a positive integer"
+                )
+            for key in [
+                "confidence_lower_bits",
+                "confidence_upper_bits",
+                "standard_error_bits",
+                "value_bits",
+            ]:
+                require_float_bits(
+                    path,
+                    estimate.get(key),
+                    f"{field}.{risk_name}.{estimate_name}.{key}",
+                )
 
 
 def validate_local_vol_case(
@@ -295,6 +404,18 @@ def require_fingerprint(path: Path, value: object, field: str) -> str:
     if not isinstance(value, str) or FINGERPRINT.fullmatch(value) is None:
         raise SystemExit(f"{path}: {field} must be a BLAKE3-256 fingerprint")
     return value
+
+
+def require_float_bits(path: Path, value: object, field: str) -> str:
+    if not isinstance(value, str) or FLOAT_BITS.fullmatch(value) is None:
+        raise SystemExit(f"{path}: {field} must be 16 lowercase hex float bits")
+    return value
+
+
+def require_optional_float_bits(path: Path, value: object, field: str) -> str | None:
+    if value is None:
+        return None
+    return require_float_bits(path, value, field)
 
 
 def load_object(path: Path) -> tuple[str, dict[str, object]]:
