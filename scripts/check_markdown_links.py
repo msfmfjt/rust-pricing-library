@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html.parser import HTMLParser
 from pathlib import Path
 import re
 import sys
@@ -13,10 +14,27 @@ MARKDOWN_ROOTS = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "docs", R
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
+class MarkdownAnchorParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.anchors: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        del tag
+        for name, value in attrs:
+            if name.lower() in {"id", "name"} and value:
+                self.anchors.append(value)
+
+
 def main() -> int:
     missing = []
-    anchor_cache: dict[Path, set[str]] = {}
-    for path in markdown_files():
+    files = markdown_files()
+    anchor_cache = {path: markdown_anchors(path) for path in files}
+    for path, (_, duplicates) in anchor_cache.items():
+        for anchor in duplicates:
+            missing.append((path, f"#{anchor}", "duplicate anchor"))
+
+    for path in files:
         text = path.read_text(encoding="utf-8")
         for target in LINK_PATTERN.findall(text):
             normalized = local_target(path, target)
@@ -31,10 +49,11 @@ def main() -> int:
             if not resolved.exists():
                 missing.append((path, target, "target does not exist"))
                 continue
-            anchors = anchor_cache.get(resolved)
-            if anchors is None:
-                anchors = markdown_anchors(resolved)
-                anchor_cache[resolved] = anchors
+            indexed = anchor_cache.get(resolved)
+            if indexed is None:
+                indexed = markdown_anchors(resolved)
+                anchor_cache[resolved] = indexed
+            anchors, _ = indexed
             if anchor is not None and anchor not in anchors:
                 missing.append((path, target, "anchor does not exist"))
 
@@ -70,20 +89,33 @@ def local_target(path: Path, target: str) -> tuple[Path, str | None] | None:
     return resolved, anchor
 
 
-def markdown_anchors(path: Path) -> set[str]:
+def markdown_anchors(path: Path) -> tuple[set[str], list[str]]:
     if path.suffix.lower() != ".md":
-        return set()
+        return set(), []
     anchors: set[str] = set()
+    duplicates: list[str] = []
     heading_counts: dict[str, int] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
+    text = path.read_text(encoding="utf-8")
+    for line in text.splitlines():
         match = re.match(r"^(#{1,6})\s+(.+?)\s*#*$", line)
         if match is None:
             continue
         base = github_heading_slug(match.group(2))
         count = heading_counts.get(base, 0)
         heading_counts[base] = count + 1
-        anchors.add(base if count == 0 else f"{base}-{count}")
-    return anchors
+        add_anchor(anchors, duplicates, base if count == 0 else f"{base}-{count}")
+
+    parser = MarkdownAnchorParser()
+    parser.feed(text)
+    for anchor in parser.anchors:
+        add_anchor(anchors, duplicates, anchor)
+    return anchors, duplicates
+
+
+def add_anchor(anchors: set[str], duplicates: list[str], anchor: str) -> None:
+    if anchor in anchors:
+        duplicates.append(anchor)
+    anchors.add(anchor)
 
 
 def github_heading_slug(heading: str) -> str:

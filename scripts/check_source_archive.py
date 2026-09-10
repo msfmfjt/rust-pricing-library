@@ -333,6 +333,8 @@ REQUIRED_MARKDOWN_LINK_CHECK_SNIPPETS = {
     "escapes repository root",
     "target does not exist",
     "anchor does not exist",
+    "duplicate anchor",
+    "class MarkdownAnchorParser(HTMLParser):",
     "markdown_anchors(resolved)",
     "github_heading_slug",
     "re.match(r\"^[a-zA-Z][a-zA-Z0-9+.-]*:\", target)",
