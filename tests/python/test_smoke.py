@@ -288,7 +288,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
 
-        with self.assertRaises(rust_pricing.ValidationError):
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
             rust_pricing.PricingRequest(
                 "2026-09-04",
                 product,
@@ -297,6 +297,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 rust_pricing.Engine.pseudo_monte_carlo(7, 1024),
                 rust_pricing.RiskRequest(delta=True),
             )
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.code, "invalid_pricing_request")
+        self.assertEqual(issue.phase, "domain")
+        self.assertIn("smooth product payoff", issue.message)
 
     def test_native_barrier_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
@@ -315,10 +319,11 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             "2027-09-04",
             rebate=3.0,
         )
+        market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
         request = rust_pricing.PricingRequest(
             "2026-09-04",
             product,
-            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            market,
             rust_pricing.Model.black_scholes(0.2),
             rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
             rust_pricing.RiskRequest(),
@@ -335,6 +340,20 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         ).evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
+
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingRequest(
+                "2026-09-04",
+                product,
+                market,
+                rust_pricing.Model.black_scholes(0.2),
+                rust_pricing.Engine.pseudo_monte_carlo(7, 1024),
+                rust_pricing.RiskRequest(delta=True),
+            )
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.code, "invalid_pricing_request")
+        self.assertEqual(issue.phase, "domain")
+        self.assertIn("smooth product payoff", issue.message)
 
         with self.assertRaises(rust_pricing.ValidationError):
             rust_pricing.PricingRequest(
