@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
@@ -17,7 +18,8 @@ use pricing_product::{
     ProductSpec,
 };
 use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
-use serde::{Deserialize, Serialize};
+use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::{
@@ -1916,9 +1918,109 @@ fn validate_and_decode(input: &[u8], limits: JsonLimits) -> Result<&str, WireErr
     enforce("input_bytes", input.len(), limits.max_input_bytes)?;
     let text = std::str::from_utf8(input).map_err(|e| WireError::Json(e.to_string()))?;
     lexical_limits(text, limits)?;
+    reject_duplicate_members(text)?;
     let value: Value = serde_json::from_str(text).map_err(json)?;
     structural_limits(&value, limits)?;
     Ok(text)
+}
+
+fn reject_duplicate_members(text: &str) -> Result<(), WireError> {
+    let mut deserializer = serde_json::Deserializer::from_str(text);
+    DuplicateRejectingValue
+        .deserialize(&mut deserializer)
+        .map_err(json)?;
+    deserializer.end().map_err(json)?;
+    Ok(())
+}
+
+struct DuplicateRejectingValue;
+
+impl<'de> DeserializeSeed<'de> for DuplicateRejectingValue {
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> Result<(), D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(DuplicateRejectingVisitor)
+    }
+}
+
+struct DuplicateRejectingVisitor;
+
+impl<'de> Visitor<'de> for DuplicateRejectingVisitor {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("any JSON value")
+    }
+
+    fn visit_bool<E>(self, _value: bool) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_i64<E>(self, _value: i64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_u64<E>(self, _value: u64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_f64<E>(self, _value: f64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_str<E>(self, _value: &str) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_borrowed_str<E>(self, _value: &'de str) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_string<E>(self, _value: String) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_none<E>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_some<D>(self, deserializer: D) -> Result<(), D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        DuplicateRejectingValue.deserialize(deserializer)
+    }
+
+    fn visit_unit<E>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while seq.next_element_seed(DuplicateRejectingValue)?.is_some() {}
+        Ok(())
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<(), A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut seen = HashSet::new();
+        while let Some(key) = map.next_key::<String>()? {
+            if !seen.insert(key.clone()) {
+                return Err(de::Error::custom(format!(
+                    "duplicate object member {key:?}"
+                )));
+            }
+            map.next_value_seed(DuplicateRejectingValue)?;
+        }
+        Ok(())
+    }
 }
 
 fn lexical_limits(text: &str, limits: JsonLimits) -> Result<(), WireError> {
@@ -2716,6 +2818,45 @@ mod tests {
             assert!(
                 parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
                 "request JSON accepted {constant}"
+            );
+        }
+    }
+
+    #[test]
+    fn strict_reader_rejects_duplicate_object_members_recursively() {
+        let request_json = request_to_json(&request()).expect("request json");
+        let duplicate_request_root = request_json.replacen(
+            "\"valuation_date\"",
+            "\"schema_version\":1,\"valuation_date\"",
+            1,
+        );
+        let duplicate_request_nested =
+            request_json.replacen("\"spot\":100.0", "\"spot\":100.0,\"spot\":101.0", 1);
+        for invalid in [duplicate_request_root, duplicate_request_nested] {
+            assert!(
+                matches!(
+                    parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+                    Err(WireError::Json(message)) if message.contains("duplicate object member")
+                ),
+                "request JSON accepted a duplicate object member"
+            );
+        }
+
+        let result_json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let duplicate_result_root =
+            result_json.replacen("\"value\"", "\"schema_version\":1,\"value\"", 1);
+        let duplicate_result_nested = result_json.replacen(
+            "\"standard_error\":0.5",
+            "\"standard_error\":0.5,\"standard_error\":0.6",
+            1,
+        );
+        for invalid in [duplicate_result_root, duplicate_result_nested] {
+            assert!(
+                matches!(
+                    parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+                    Err(WireError::Json(message)) if message.contains("duplicate object member")
+                ),
+                "result JSON accepted a duplicate object member"
             );
         }
     }
