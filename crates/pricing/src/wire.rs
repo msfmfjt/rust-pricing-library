@@ -2730,6 +2730,8 @@ mod tests {
                     ..JsonLimits::DEFAULT
                 },
                 "string_bytes",
+                13,
+                8,
             ),
             (
                 b"1234".as_slice(),
@@ -2738,6 +2740,8 @@ mod tests {
                     ..JsonLimits::DEFAULT
                 },
                 "number_token_bytes",
+                4,
+                3,
             ),
             (
                 b"[[[]]]".as_slice(),
@@ -2746,6 +2750,8 @@ mod tests {
                     ..JsonLimits::DEFAULT
                 },
                 "nesting_depth",
+                3,
+                2,
             ),
             (
                 b"[1,2]".as_slice(),
@@ -2754,6 +2760,8 @@ mod tests {
                     ..JsonLimits::DEFAULT
                 },
                 "array_elements",
+                2,
+                1,
             ),
             (
                 br#"{"a":1,"b":2}"#.as_slice(),
@@ -2762,6 +2770,8 @@ mod tests {
                     ..JsonLimits::DEFAULT
                 },
                 "object_members",
+                2,
+                1,
             ),
             (
                 b"[1]".as_slice(),
@@ -2770,21 +2780,29 @@ mod tests {
                     ..JsonLimits::DEFAULT
                 },
                 "total_values",
+                2,
+                1,
             ),
         ];
 
-        for (input, limits, expected_name) in cases {
+        for (input, limits, expected_name, expected_observed, expected_limit) in cases {
             assert!(
                 matches!(
                     parse_request_json(input, limits),
-                    Err(WireError::ResourceLimit { name, .. }) if name == expected_name
+                    Err(WireError::ResourceLimit { name, observed, limit })
+                        if name == expected_name
+                            && observed == expected_observed
+                            && limit == expected_limit
                 ),
                 "expected request resource limit {expected_name}"
             );
             assert!(
                 matches!(
                     parse_result_json(input, limits),
-                    Err(WireError::ResourceLimit { name, .. }) if name == expected_name
+                    Err(WireError::ResourceLimit { name, observed, limit })
+                        if name == expected_name
+                            && observed == expected_observed
+                            && limit == expected_limit
                 ),
                 "expected result resource limit {expected_name}"
             );
