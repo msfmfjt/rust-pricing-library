@@ -2779,7 +2779,14 @@ mod tests {
                     parse_request_json(input, limits),
                     Err(WireError::ResourceLimit { name, .. }) if name == expected_name
                 ),
-                "expected resource limit {expected_name}"
+                "expected request resource limit {expected_name}"
+            );
+            assert!(
+                matches!(
+                    parse_result_json(input, limits),
+                    Err(WireError::ResourceLimit { name, .. }) if name == expected_name
+                ),
+                "expected result resource limit {expected_name}"
             );
         }
     }
