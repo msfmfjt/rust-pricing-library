@@ -2934,6 +2934,79 @@ mod tests {
     }
 
     #[test]
+    fn strict_reader_rejects_malformed_tagged_union_types() {
+        let request_json = request_to_json(&request()).expect("request json");
+        for (name, invalid) in [
+            (
+                "missing product type",
+                request_json.replacen("\"type\":\"european_vanilla\",", "", 1),
+            ),
+            (
+                "numeric product type",
+                request_json.replacen("\"type\":\"european_vanilla\"", "\"type\":1", 1),
+            ),
+            (
+                "unknown product type",
+                request_json.replacen(
+                    "\"type\":\"european_vanilla\"",
+                    "\"type\":\"EuropeanVanilla\"",
+                    1,
+                ),
+            ),
+            (
+                "bare side variant",
+                request_json.replacen("\"side\":{\"type\":\"call\"}", "\"side\":\"call\"", 1),
+            ),
+        ] {
+            assert!(
+                parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "request JSON accepted {name}"
+            );
+        }
+
+        let result_json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        for (name, invalid) in [
+            (
+                "missing estimator type",
+                result_json.replacen(
+                    "\"estimator\":{\"type\":\"pseudo_monte_carlo\"}",
+                    "\"estimator\":{}",
+                    1,
+                ),
+            ),
+            (
+                "numeric estimator type",
+                result_json.replacen(
+                    "\"estimator\":{\"type\":\"pseudo_monte_carlo\"}",
+                    "\"estimator\":{\"type\":1}",
+                    1,
+                ),
+            ),
+            (
+                "unknown estimator type",
+                result_json.replacen(
+                    "\"estimator\":{\"type\":\"pseudo_monte_carlo\"}",
+                    "\"estimator\":{\"type\":\"PseudoMonteCarlo\"}",
+                    1,
+                ),
+            ),
+            (
+                "bare estimator variant",
+                result_json.replacen(
+                    "\"estimator\":{\"type\":\"pseudo_monte_carlo\"}",
+                    "\"estimator\":\"pseudo_monte_carlo\"",
+                    1,
+                ),
+            ),
+        ] {
+            assert!(
+                parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "result JSON accepted {name}"
+            );
+        }
+    }
+
+    #[test]
     fn strict_reader_rejects_duplicate_object_members_recursively() {
         let request_json = request_to_json(&request()).expect("request json");
         let duplicate_request_root = request_json.replacen(

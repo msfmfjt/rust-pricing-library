@@ -1536,6 +1536,91 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
+    def test_json_tagged_union_type_field_is_required_and_string(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        result_json = result.to_json()
+        cases = [
+            (
+                "request missing product type",
+                self.request_json.replace('"type":"european_vanilla",', "", 1),
+                rust_pricing.PricingRequest.from_json,
+                "pricing_request",
+            ),
+            (
+                "request numeric product type",
+                self.request_json.replace('"type":"european_vanilla"', '"type":1', 1),
+                rust_pricing.PricingRequest.from_json,
+                "pricing_request",
+            ),
+            (
+                "request unknown product type",
+                self.request_json.replace(
+                    '"type":"european_vanilla"', '"type":"EuropeanVanilla"', 1
+                ),
+                rust_pricing.PricingRequest.from_json,
+                "pricing_request",
+            ),
+            (
+                "request bare side variant",
+                self.request_json.replace('"side":{"type":"call"}', '"side":"call"', 1),
+                rust_pricing.PricingRequest.from_json,
+                "pricing_request",
+            ),
+            (
+                "result missing estimator type",
+                result_json.replace(
+                    '"estimator":{"type":"pseudo_monte_carlo"}', '"estimator":{}', 1
+                ),
+                rust_pricing.PricingResult.from_json,
+                "pricing_result",
+            ),
+            (
+                "result numeric estimator type",
+                result_json.replace(
+                    '"estimator":{"type":"pseudo_monte_carlo"}',
+                    '"estimator":{"type":1}',
+                    1,
+                ),
+                rust_pricing.PricingResult.from_json,
+                "pricing_result",
+            ),
+            (
+                "result unknown estimator type",
+                result_json.replace(
+                    '"estimator":{"type":"pseudo_monte_carlo"}',
+                    '"estimator":{"type":"PseudoMonteCarlo"}',
+                    1,
+                ),
+                rust_pricing.PricingResult.from_json,
+                "pricing_result",
+            ),
+            (
+                "result bare estimator variant",
+                result_json.replace(
+                    '"estimator":{"type":"pseudo_monte_carlo"}',
+                    '"estimator":"pseudo_monte_carlo"',
+                    1,
+                ),
+                rust_pricing.PricingResult.from_json,
+                "pricing_result",
+            ),
+        ]
+
+        for name, invalid, parser, document_kind in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    parser(invalid)
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "syntax_and_limits")
+                self.assertEqual(issue.code, "invalid_json")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, document_kind)
+                self.assertEqual(issue.instance_path, "")
+
     def test_validation_issue_equality_compares_payload(self):
         invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as first:
