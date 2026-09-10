@@ -662,6 +662,7 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
     verify_stub_static_shape(tree)
     symbols = []
     class_members: dict[str, list[str]] = {}
+    class_methods: dict[str, dict[str, ast.FunctionDef]] = {}
     for node in tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
             symbols.append(node.name)
@@ -671,9 +672,19 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
                     for member in node.body
                     if isinstance(member, ast.FunctionDef)
                 ]
+                class_methods[node.name] = {
+                    member.name: member
+                    for member in node.body
+                    if isinstance(member, ast.FunctionDef)
+                }
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             symbols.append(node.target.id)
-    return {"symbols": symbols, "class_members": class_members}
+    return {
+        "symbols": symbols,
+        "class_members": class_members,
+        "static_methods": sorted(decorated_members(class_methods, "staticmethod")),
+        "properties": sorted(decorated_members(class_methods, "property")),
+    }
 
 
 def verify_stub_static_shape(tree: ast.Module) -> None:
@@ -1827,6 +1838,15 @@ for cls_name, members in api["class_members"].items():
                 f"unexpected runtime members on {cls_name}: "
                 + ", ".join(extra_members)
             )
+for cls_name, member in api["static_methods"]:
+    cls = getattr(rust_pricing, cls_name, None)
+    if cls is not None and not isinstance(cls.__dict__.get(member), staticmethod):
+        missing.append(f"runtime member must be staticmethod: {cls_name}.{member}")
+for cls_name, member in api["properties"]:
+    cls = getattr(rust_pricing, cls_name, None)
+    descriptor = cls.__dict__.get(member) if cls is not None else None
+    if descriptor is not None and callable(descriptor):
+        missing.append(f"runtime property member must not be callable: {cls_name}.{member}")
 if rust_pricing.__version__ != api["version"]:
     missing.append("__version__")
 if rust_pricing.version() != api["version"]:

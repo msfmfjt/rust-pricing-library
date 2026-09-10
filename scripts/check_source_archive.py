@@ -175,6 +175,8 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel text member has a UTF-8 BOM",
     "unexpected runtime symbols",
     "unexpected runtime members on",
+    "runtime member must be staticmethod",
+    "runtime property member must not be callable",
     "expected_class_members",
     "decorator_names",
     "decorated_members",
