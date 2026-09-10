@@ -197,6 +197,20 @@ REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
     "must contain 36 row-major entries",
 }
 
+REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
+    "EXPECTED_ARTIFACTS = {",
+    "OPTIONAL_ARTIFACTS = {\"local-volatility-replay.json\"}",
+    "unexpected benchmark artifacts",
+    "missing measurements",
+    "unexpected measurements",
+    "evaluated_paths_per_sample mismatch",
+    "evaluated_paths must match sampling_units and antithetic",
+    "cargo_lock_sha256 must match Cargo.lock",
+    "peak_memory_bytes must match the maximum command peak",
+    "check_replay_report(root / \"replay.json\"",
+    "validate_local_vol_case",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -325,6 +339,7 @@ def main() -> int:
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
+        check_benchmark_validation_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -507,6 +522,19 @@ def check_replay_fixture_gate(package: tarfile.TarFile, archive: str) -> None:
     if missing:
         raise SystemExit(
             f"{archive}: replay fixture validation is missing required gates: {missing}"
+        )
+
+
+def check_benchmark_validation_gate(package: tarfile.TarFile, archive: str) -> None:
+    benchmark_check = read_text(package, "scripts/check_benchmark_reports.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_BENCHMARK_CHECK_SNIPPETS
+        if snippet not in benchmark_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: benchmark validation is missing required gates: {missing}"
         )
 
 
