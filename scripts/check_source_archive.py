@@ -230,6 +230,9 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "verify_registry_sbom_component(",
     "registry component {name} checksum mismatch",
     "Cargo.lock must use lockfile format version 4",
+    "locked_dependency_graph()",
+    "workspace_dev_dependency_names(key[0])",
+    "wheel CycloneDX SBOM dependency graph mismatch for",
 }
 
 REQUIRED_SCHEMA_CHECK_SNIPPETS = {

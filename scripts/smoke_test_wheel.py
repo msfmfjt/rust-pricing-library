@@ -85,6 +85,7 @@ def main() -> None:
     expected_metadata = expected_project_metadata()
     expected_readme_payload = Path("README.md").read_text("utf-8") + "\n"
     locked_packages = locked_registry_packages()
+    locked_dependencies = locked_dependency_graph()
 
     with ZipFile(wheel) as archive:
         verify_wheel_archive_members(archive.infolist())
@@ -114,6 +115,7 @@ def main() -> None:
         expected_metadata,
         expected_readme_payload,
         locked_packages,
+        locked_dependencies,
     )
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
@@ -301,6 +303,7 @@ def verify_wheel_metadata(
     expected_metadata: dict[str, str],
     expected_readme_payload: str,
     locked_packages: dict[tuple[str, str], str],
+    locked_dependencies: dict[tuple[str, str], set[tuple[str, str]]],
 ) -> None:
     verify_message_fields(metadata, EXPECTED_METADATA_FIELDS, "METADATA")
     verify_message_fields(wheel_metadata, EXPECTED_WHEEL_FIELDS, "WHEEL")
@@ -356,6 +359,7 @@ def verify_wheel_metadata(
         member_bytes,
         expected_metadata["Version"],
         locked_packages,
+        locked_dependencies,
     )
     record_members = verify_wheel_record(record, member_order, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
@@ -433,6 +437,7 @@ def verify_cyclonedx_sbom(
     member_bytes: dict[str, bytes],
     version: str,
     locked_packages: dict[tuple[str, str], str],
+    locked_dependencies: dict[tuple[str, str], set[tuple[str, str]]],
 ) -> None:
     matches = [
         member
@@ -488,6 +493,7 @@ def verify_cyclonedx_sbom(
         raise RuntimeError("wheel CycloneDX SBOM components must be an array")
     known_refs = {root_ref}
     names_by_ref = {root_ref: "pricing-python"}
+    packages_by_ref = {root_ref: ("pricing-python", version)}
     workspace_refs = {"pricing-python": root_ref}
     required_workspace_components = set(EXPECTED_WORKSPACE_SBOM_DEPENDENCIES) - {
         "pricing-python"
@@ -506,7 +512,11 @@ def verify_cyclonedx_sbom(
         name = component.get("name")
         if not isinstance(name, str) or not name:
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no name")
+        component_version = component.get("version")
+        if not isinstance(component_version, str) or not component_version:
+            raise RuntimeError(f"wheel CycloneDX SBOM component {name} has no version")
         names_by_ref[bom_ref] = name
+        packages_by_ref[bom_ref] = (name, component_version)
         if name in required_workspace_components:
             if name in component_names:
                 raise RuntimeError(f"wheel CycloneDX SBOM workspace component duplicated: {name}")
@@ -514,11 +524,6 @@ def verify_cyclonedx_sbom(
             workspace_refs[name] = bom_ref
             verify_workspace_sbom_component(component, name, version)
         else:
-            component_version = component.get("version")
-            if not isinstance(component_version, str) or not component_version:
-                raise RuntimeError(
-                    f"wheel CycloneDX SBOM component {name} has no version"
-                )
             key = (name, component_version)
             if key in registry_components:
                 raise RuntimeError(
@@ -593,6 +598,19 @@ def verify_cyclonedx_sbom(
                 f"wheel CycloneDX SBOM workspace dependencies for {name} mismatch: "
                 f"{sorted(actual_dependencies)} != {sorted(expected_dependencies)}"
             )
+    if set(packages_by_ref.values()) != set(locked_dependencies):
+        raise RuntimeError("wheel CycloneDX SBOM dependency graph packages mismatch")
+    for ref, package in packages_by_ref.items():
+        actual_dependencies = {
+            packages_by_ref[dependency_ref] for dependency_ref in dependency_edges[ref]
+        }
+        expected_dependencies = locked_dependencies[package]
+        if actual_dependencies != expected_dependencies:
+            raise RuntimeError(
+                "wheel CycloneDX SBOM dependency graph mismatch for "
+                f"{package[0]} {package[1]}: "
+                f"{sorted(actual_dependencies)} != {sorted(expected_dependencies)}"
+            )
 
 
 def verify_workspace_sbom_component(
@@ -652,19 +670,10 @@ def verify_registry_sbom_component(
 
 
 def locked_registry_packages() -> dict[tuple[str, str], str]:
-    lock = tomllib.loads(Path("Cargo.lock").read_text("utf-8"))
-    if lock.get("version") != 4:
-        raise RuntimeError("Cargo.lock must use lockfile format version 4")
-    packages = lock.get("package")
-    if not isinstance(packages, list) or not all(
-        isinstance(package, dict) for package in packages
-    ):
-        raise RuntimeError("Cargo.lock package entries must be tables")
-
     workspace_names = set(EXPECTED_WORKSPACE_SBOM_DEPENDENCIES)
     registry_packages: dict[tuple[str, str], str] = {}
     expected_source = "registry+https://github.com/rust-lang/crates.io-index"
-    for package in packages:
+    for package in locked_package_entries():
         name = package.get("name")
         version = package.get("version")
         if not isinstance(name, str) or not name:
@@ -689,6 +698,101 @@ def locked_registry_packages() -> dict[tuple[str, str], str]:
             raise RuntimeError(f"Cargo.lock package duplicated: {name} {version}")
         registry_packages[key] = checksum
     return registry_packages
+
+
+def locked_dependency_graph() -> dict[tuple[str, str], set[tuple[str, str]]]:
+    packages = locked_package_entries()
+    packages_by_key: dict[tuple[str, str], dict[str, object]] = {}
+    versions_by_name: dict[str, set[str]] = {}
+    for package in packages:
+        name = package.get("name")
+        version = package.get("version")
+        if not isinstance(name, str) or not isinstance(version, str):
+            raise RuntimeError("Cargo.lock package identity must contain strings")
+        key = (name, version)
+        if key in packages_by_key:
+            raise RuntimeError(f"Cargo.lock package duplicated: {name} {version}")
+        packages_by_key[key] = package
+        versions_by_name.setdefault(name, set()).add(version)
+
+    graph: dict[tuple[str, str], set[tuple[str, str]]] = {}
+    workspace_names = set(EXPECTED_WORKSPACE_SBOM_DEPENDENCIES)
+    for key, package in packages_by_key.items():
+        dependencies = package.get("dependencies", [])
+        if not isinstance(dependencies, list) or not all(
+            isinstance(dependency, str) for dependency in dependencies
+        ):
+            raise RuntimeError(
+                f"Cargo.lock package {key[0]} dependencies must be strings"
+            )
+        resolved = {
+            resolve_locked_dependency(dependency, packages_by_key, versions_by_name)
+            for dependency in dependencies
+        }
+        if key[0] in workspace_names:
+            dev_names = workspace_dev_dependency_names(key[0])
+            resolved = {
+                dependency for dependency in resolved if dependency[0] not in dev_names
+            }
+        graph[key] = resolved
+    return graph
+
+
+def resolve_locked_dependency(
+    dependency: str,
+    packages_by_key: dict[tuple[str, str], dict[str, object]],
+    versions_by_name: dict[str, set[str]],
+) -> tuple[str, str]:
+    parts = dependency.split()
+    if len(parts) == 1:
+        versions = versions_by_name.get(parts[0], set())
+        if len(versions) != 1:
+            raise RuntimeError(f"Cargo.lock dependency is ambiguous: {dependency}")
+        key = (parts[0], next(iter(versions)))
+    elif len(parts) == 2:
+        key = (parts[0], parts[1])
+    else:
+        raise RuntimeError(f"Cargo.lock dependency format is unsupported: {dependency}")
+    if key not in packages_by_key:
+        raise RuntimeError(f"Cargo.lock dependency is missing a package: {dependency}")
+    return key
+
+
+def workspace_dev_dependency_names(crate_name: str) -> set[str]:
+    manifest = tomllib.loads(
+        Path(f"crates/{crate_name}/Cargo.toml").read_text("utf-8")
+    )
+    dev_dependencies = manifest.get("dev-dependencies", {})
+    if not isinstance(dev_dependencies, dict):
+        raise RuntimeError(
+            f"crates/{crate_name}/Cargo.toml dev-dependencies must be a table"
+        )
+    names = set()
+    for dependency_name, specification in dev_dependencies.items():
+        if not isinstance(dependency_name, str):
+            raise RuntimeError(f"{crate_name} dev-dependency name must be a string")
+        if isinstance(specification, dict):
+            package_name = specification.get("package", dependency_name)
+            if not isinstance(package_name, str) or not package_name:
+                raise RuntimeError(
+                    f"{crate_name} dev-dependency package must be a string"
+                )
+            names.add(package_name)
+        else:
+            names.add(dependency_name)
+    return names
+
+
+def locked_package_entries() -> list[dict[str, object]]:
+    lock = tomllib.loads(Path("Cargo.lock").read_text("utf-8"))
+    if lock.get("version") != 4:
+        raise RuntimeError("Cargo.lock must use lockfile format version 4")
+    packages = lock.get("package")
+    if not isinstance(packages, list) or not all(
+        isinstance(package, dict) for package in packages
+    ):
+        raise RuntimeError("Cargo.lock package entries must be tables")
+    return packages
 
 
 def expected_project_metadata() -> dict[str, str]:
