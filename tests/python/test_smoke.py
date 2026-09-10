@@ -1013,9 +1013,18 @@ class PricingFacadeSmokeTest(unittest.TestCase):
 
         request_schema = json.loads(request_schema_text)
         result_schema = json.loads(result_schema_text)
+        schema_version_contract = {
+            "type": "integer",
+            "const": 1,
+            "minimum": 1,
+            "maximum": 4294967295,
+        }
 
         self.assertEqual(
             request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
+        )
+        self.assertEqual(
+            request_schema["properties"]["schema_version"], schema_version_contract
         )
         self.assertEqual(
             request_schema["properties"]["document_kind"]["const"], "pricing_request"
@@ -1024,7 +1033,14 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             result_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
         )
         self.assertEqual(
+            result_schema["properties"]["schema_version"], schema_version_contract
+        )
+        self.assertEqual(
             result_schema["properties"]["document_kind"]["const"], "pricing_result"
+        )
+        self.assertEqual(
+            result_schema["properties"]["replay"]["properties"]["schema_version"],
+            schema_version_contract,
         )
         for schema in [request_schema, result_schema]:
             for path, node in walk_schema(schema):
