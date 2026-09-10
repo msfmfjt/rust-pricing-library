@@ -201,6 +201,24 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(parsed.fingerprint, request.fingerprint)
         self.assertEqual(parsed.to_json(), request.to_json())
 
+    def test_native_market_rejects_coincident_discrete_dividend_events(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        dividends = [
+            rust_pricing.DividendEvent.fixed_cash(1, 0.25, 1.0),
+            rust_pricing.DividendEvent.proportional(2, 0.25, 0.1),
+        ]
+
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.Market.equity(
+                2, 1, 100.0, discount, dividend, discrete_dividends=dividends
+            )
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.code, "invalid_discrete_dividends")
+        self.assertEqual(issue.pointer, "/market/discrete_dividends")
+        self.assertEqual(issue.instance_path, "/market/discrete_dividends")
+        self.assertIn("not strictly increasing", issue.message)
+
     def test_native_black_76_model_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.95])

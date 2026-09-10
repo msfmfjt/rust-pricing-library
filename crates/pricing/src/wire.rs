@@ -2667,6 +2667,27 @@ mod tests {
     }
 
     #[test]
+    fn request_json_rejects_coincident_discrete_dividend_events() {
+        let json = request_to_json(&dividend_request()).expect("json");
+        let mut value: Value = serde_json::from_str(&json).expect("json value");
+        let dividends = value
+            .pointer_mut("/market/discrete_dividends")
+            .and_then(Value::as_array_mut)
+            .expect("dividends");
+        let mut duplicate_time_event = dividends[0].clone();
+        duplicate_time_event["event_id"] = Value::from(78);
+        dividends.push(duplicate_time_event);
+        let invalid = serde_json::to_string(&value).expect("invalid json");
+
+        assert!(matches!(
+            parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/market/discrete_dividends"
+                    && message.contains("not strictly increasing")
+        ));
+    }
+
+    #[test]
     fn request_json_round_trips_local_volatility_grid_shape() {
         let request = local_vol_request();
         let json = request_to_json(&request).expect("json");
