@@ -285,8 +285,9 @@ def check_schema_version_fields(schema: dict[str, Any], path: Path) -> None:
         if definition is None:
             continue
         require(
-            definition == {"const": 1},
-            f"{path}:{pointer((*location, 'properties', 'schema_version'))}: schema_version must be const 1",
+            definition
+            == {"type": "integer", "const": 1, "minimum": 1, "maximum": 4_294_967_295},
+            f"{path}:{pointer((*location, 'properties', 'schema_version'))}: schema_version must match its Rust integer width",
         )
 
 
@@ -593,8 +594,9 @@ def check_result_replay_metadata(schema: dict[str, Any], path: Path) -> None:
     replay_properties = replay.get("properties")
     require(isinstance(replay_properties, dict), f"{path}: replay properties must be an object")
     require(
-        replay_properties.get("schema_version") == {"const": 1},
-        f"{path}:/properties/replay/properties/schema_version: replay schema_version must be const 1",
+        replay_properties.get("schema_version")
+        == {"type": "integer", "const": 1, "minimum": 1, "maximum": 4_294_967_295},
+        f"{path}:/properties/replay/properties/schema_version: replay schema_version must match its Rust integer width",
     )
     require(
         replay_properties.get("request_fingerprint")
@@ -705,7 +707,11 @@ def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> N
         properties.get("document_kind") == {"type": "string", "const": document_kind},
         f"{path}: document_kind const mismatch",
     )
-    require(properties.get("schema_version") == {"const": 1}, f"{path}: schema_version const mismatch")
+    require(
+        properties.get("schema_version")
+        == {"type": "integer", "const": 1, "minimum": 1, "maximum": 4_294_967_295},
+        f"{path}: schema_version const mismatch",
+    )
     defs = schema.get("$defs")
     require(isinstance(defs, dict), f"{path}: $defs must be an object")
     require(
