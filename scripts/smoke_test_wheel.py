@@ -965,6 +965,16 @@ import rust_pricing
 
 api = json.loads(input())
 missing = [name for name in api["symbols"] if not hasattr(rust_pricing, name)]
+expected_runtime_symbols = set(api["symbols"])
+actual_runtime_symbols = {
+    name for name in dir(rust_pricing) if not name.startswith("_")
+}
+actual_runtime_symbols.discard("rust_pricing")
+if hasattr(rust_pricing, "__version__"):
+    actual_runtime_symbols.add("__version__")
+unexpected = sorted(actual_runtime_symbols.difference(expected_runtime_symbols))
+if unexpected:
+    missing.append("unexpected runtime symbols: " + ", ".join(unexpected))
 for cls_name, members in api["class_members"].items():
     cls = getattr(rust_pricing, cls_name, None)
     if cls is not None:
@@ -973,6 +983,18 @@ for cls_name, members in api["class_members"].items():
             for member in members
             if not hasattr(cls, member)
         )
+        expected_members = {
+            member for member in members if not member.startswith("__")
+        }
+        actual_members = {
+            member for member in cls.__dict__ if not member.startswith("_")
+        }
+        extra_members = sorted(actual_members.difference(expected_members))
+        if extra_members:
+            missing.append(
+                f"unexpected runtime members on {cls_name}: "
+                + ", ".join(extra_members)
+            )
 if rust_pricing.__version__ != api["version"]:
     missing.append("__version__")
 if rust_pricing.version() != api["version"]:
