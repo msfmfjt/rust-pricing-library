@@ -96,6 +96,14 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             [warning.code for warning in warnings],
             ["discount_curve_extrapolation", "dividend_curve_extrapolation"],
         )
+        self.assertIn(
+            'PricingWarning(code="discount_curve_extrapolation"',
+            repr(warnings[0]),
+        )
+        self.assertIn(
+            'PricingWarning(code="dividend_curve_extrapolation"',
+            repr(warnings[1]),
+        )
         with self.assertRaises(AttributeError):
             warnings[0].code = "changed"
         warnings.clear()
@@ -440,6 +448,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             result.diagnostics.vega_validation,
         ):
             self.assertIsNotNone(validation)
+            self.assertIn("RiskValidation(bump_and_revalue=", repr(validation))
+            self.assertIn(", bump_minus_primary=", repr(validation))
             self.assertTrue(math.isfinite(validation.bump_and_revalue.value))
             self.assertGreaterEqual(
                 validation.bump_and_revalue.standard_error, 0.0
@@ -1264,6 +1274,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         issue = issues[0]
         self.assertEqual(issue.phase, "declared_schema")
         self.assertEqual(issue.code, "unsupported_schema_version")
+        self.assertIn(
+            'ValidationIssue(pointer="", phase="declared_schema", schema_version=99',
+            repr(issue),
+        )
+        self.assertIn('document_kind="pricing_request"', repr(issue))
+        self.assertIn('code="unsupported_schema_version"', repr(issue))
         payload = issue.to_dict()
         self.assertEqual(
             list(payload),
