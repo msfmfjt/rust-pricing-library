@@ -1020,11 +1020,22 @@ for cls_name, members in api["class_members"].items():
             for member in members
             if not hasattr(cls, member)
         )
+        runtime_declared_members = set(cls.__dict__)
+        expected_special_members = {
+            member
+            for member in members
+            if member in {"__eq__", "__ne__", "__repr__"}
+        }
+        missing.extend(
+            f"missing runtime special member {cls_name}.{member}"
+            for member in sorted(expected_special_members)
+            if member not in runtime_declared_members
+        )
         expected_members = {
             member for member in members if not member.startswith("__")
         }
         actual_members = {
-            member for member in cls.__dict__ if not member.startswith("_")
+            member for member in runtime_declared_members if not member.startswith("_")
         }
         extra_members = sorted(actual_members.difference(expected_members))
         if extra_members:

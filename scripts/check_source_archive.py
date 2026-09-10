@@ -165,6 +165,7 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "unexpected runtime members on",
     "expected_class_members",
     "\"__repr__\"",
+    "missing runtime special member",
     "is missing a return annotation",
     "is missing an argument annotation",
     "wheel type stub has unresolved names",
