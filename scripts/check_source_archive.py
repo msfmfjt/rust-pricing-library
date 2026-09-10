@@ -159,6 +159,18 @@ REQUIRED_README_SNIPPETS = {
 
 REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 
+REQUIRED_WHEEL_SMOKE_SNIPPETS = {
+    "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",
+    "unexpected runtime symbols",
+    "unexpected runtime members on",
+    "is missing a return annotation",
+    "is missing an argument annotation",
+    "wheel type stub has unresolved names",
+    "wheel type stub has duplicate top-level definitions",
+    "wheel RECORD row {index} must use a sha256 digest",
+    "wheel CycloneDX SBOM must use CycloneDX 1.5",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -284,6 +296,7 @@ def main() -> int:
         check_cargo_manifests(package, archive)
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
+        check_wheel_smoke_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -430,6 +443,17 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                 f"{archive}: CI workflow must contain {snippet!r} "
                 f"{expected_count} times, found {actual_count}"
             )
+
+
+def check_wheel_smoke_gate(package: tarfile.TarFile, archive: str) -> None:
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    missing = sorted(
+        snippet for snippet in REQUIRED_WHEEL_SMOKE_SNIPPETS if snippet not in smoke
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: wheel smoke test is missing required gates: {missing}"
+        )
 
 
 def check_readme_release_gates(package: tarfile.TarFile, archive: str) -> None:
