@@ -438,23 +438,25 @@ def verify_cyclonedx_sbom(
         "pricing-product",
         "pricing-risk",
     }
+    component_refs = set()
     component_names = set()
     for index, component in enumerate(components, start=1):
         if not isinstance(component, dict):
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} must be an object")
+        bom_ref = component.get("bom-ref")
+        if not isinstance(bom_ref, str) or not bom_ref:
+            raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no bom-ref")
+        if bom_ref in component_refs:
+            raise RuntimeError(f"wheel CycloneDX SBOM component bom-ref duplicated: {bom_ref}")
+        component_refs.add(bom_ref)
         name = component.get("name")
         if not isinstance(name, str) or not name:
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no name")
-        component_names.add(name)
         if name in required_workspace_components:
-            if component.get("type") != "library":
-                raise RuntimeError(
-                    f"wheel CycloneDX SBOM component {name} must be a library"
-                )
-            if component.get("version") != version:
-                raise RuntimeError(
-                    f"wheel CycloneDX SBOM component {name} version mismatch"
-                )
+            if name in component_names:
+                raise RuntimeError(f"wheel CycloneDX SBOM workspace component duplicated: {name}")
+            component_names.add(name)
+            verify_workspace_sbom_component(component, name, version)
     missing = sorted(required_workspace_components.difference(component_names))
     if missing:
         raise RuntimeError(f"wheel CycloneDX SBOM is missing components: {missing}")
@@ -474,6 +476,30 @@ def verify_cyclonedx_sbom(
             raise RuntimeError(
                 f"wheel CycloneDX SBOM dependency {index} must list string dependsOn refs"
             )
+
+
+def verify_workspace_sbom_component(
+    component: dict[str, object],
+    name: str,
+    version: str,
+) -> None:
+    if component.get("type") != "library":
+        raise RuntimeError(f"wheel CycloneDX SBOM component {name} must be a library")
+    if component.get("scope") != "required":
+        raise RuntimeError(f"wheel CycloneDX SBOM component {name} scope mismatch")
+    if component.get("author") != "Masafumi Fujita":
+        raise RuntimeError(f"wheel CycloneDX SBOM component {name} author mismatch")
+    if component.get("version") != version:
+        raise RuntimeError(f"wheel CycloneDX SBOM component {name} version mismatch")
+    purl = component.get("purl")
+    if not isinstance(purl, str) or not purl.startswith(f"pkg:cargo/{name}@{version}"):
+        raise RuntimeError(f"wheel CycloneDX SBOM component {name} purl mismatch")
+    external_references = component.get("externalReferences")
+    if not isinstance(external_references, list) or {
+        "type": "vcs",
+        "url": "https://github.com/msfmfjt/rust-pricing-library",
+    } not in external_references:
+        raise RuntimeError(f"wheel CycloneDX SBOM component {name} must reference the VCS URL")
 
 
 def expected_project_metadata() -> dict[str, str]:

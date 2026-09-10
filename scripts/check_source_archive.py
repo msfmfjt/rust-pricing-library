@@ -205,6 +205,12 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel CycloneDX SBOM serialNumber must be a UUID URN",
     "wheel CycloneDX SBOM root component purl mismatch",
     "wheel CycloneDX SBOM root component must reference the VCS URL",
+    "wheel CycloneDX SBOM component bom-ref duplicated",
+    "wheel CycloneDX SBOM workspace component duplicated",
+    "verify_workspace_sbom_component(component, name, version)",
+    "wheel CycloneDX SBOM component {name} scope mismatch",
+    "wheel CycloneDX SBOM component {name} author mismatch",
+    "wheel CycloneDX SBOM component {name} purl mismatch",
 }
 
 REQUIRED_SCHEMA_CHECK_SNIPPETS = {
