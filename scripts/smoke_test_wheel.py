@@ -21,6 +21,22 @@ import venv
 from zipfile import ZipFile
 from zipfile import ZipInfo
 
+EXPECTED_METADATA_FIELDS = (
+    "Metadata-Version",
+    "Name",
+    "Version",
+    "Summary",
+    "Author",
+    "Requires-Python",
+    "Description-Content-Type",
+)
+EXPECTED_WHEEL_FIELDS = (
+    "Wheel-Version",
+    "Generator",
+    "Root-Is-Purelib",
+    "Tag",
+)
+
 
 def main() -> None:
     wheel = selected_wheel()
@@ -238,6 +254,8 @@ def verify_wheel_metadata(
     member_bytes: dict[str, bytes],
     expected_metadata: dict[str, str],
 ) -> None:
+    verify_message_fields(metadata, EXPECTED_METADATA_FIELDS, "METADATA")
+    verify_message_fields(wheel_metadata, EXPECTED_WHEEL_FIELDS, "WHEEL")
     for field, expected_value in expected_metadata.items():
         if metadata[field] != expected_value:
             raise RuntimeError(
@@ -287,6 +305,15 @@ def verify_wheel_metadata(
     record_members = verify_wheel_record(record, member_order, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
+
+
+def verify_message_fields(message: Message, expected_fields: tuple[str, ...], name: str) -> None:
+    actual_fields = [field for field, _ in message.items()]
+    if actual_fields != list(expected_fields):
+        raise RuntimeError(f"wheel {name} fields changed: {actual_fields}")
+    for field in expected_fields:
+        if len(message.get_all(field) or []) != 1:
+            raise RuntimeError(f"wheel {name} field {field} must appear exactly once")
 
 
 def parse_wheel_filename(filename: str) -> tuple[str, str, set[str]]:
