@@ -244,6 +244,7 @@ REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "unexpected benchmark artifacts",
     "missing measurements",
     "unexpected measurements",
+    "measurement order changed",
     "evaluated_paths_per_sample mismatch",
     "evaluated_paths must match sampling_units and antithetic",
     "cargo_lock_sha256 must match Cargo.lock",

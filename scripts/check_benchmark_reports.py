@@ -31,16 +31,16 @@ from check_replay_fixture import validate_risk_validation
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EUROPEAN_MEASUREMENTS = {
+EUROPEAN_MEASUREMENTS = (
     "compile_price_only",
     "evaluate_price_only",
     "compile_full_risk",
     "evaluate_aad_with_crn_bump_validation",
     "compile_crn_bump_validation",
     "evaluate_crn_bump_validation_price_only",
-}
+)
 
-LOCAL_VOL_MEASUREMENTS = {
+LOCAL_VOL_MEASUREMENTS = (
     "compile_price_only",
     "evaluate_price_only",
     "compile_aad_local_vega",
@@ -49,15 +49,15 @@ LOCAL_VOL_MEASUREMENTS = {
     "evaluate_vega_kt_decomposition",
     "compile_selected_crn_bump_validation",
     "evaluate_selected_crn_bump_validation_price_only",
-}
+)
 
-PYTHON_MEASUREMENTS = {
+PYTHON_MEASUREMENTS = (
     "compile_full_risk_from_python",
     "evaluate_full_risk_from_python",
     "compile_crn_bump_validation_from_python",
     "evaluate_crn_bump_validation_from_python",
     "result_value_getter",
-}
+)
 
 EXPECTED_ARTIFACTS = {
     "rust.json",
@@ -141,7 +141,7 @@ def workspace_package_version() -> str:
 def check_report(
     path: Path,
     benchmark_kind: str,
-    required_measurements: set[str],
+    required_measurements: Sequence[str],
     library_version: str,
     *,
     local_volatility: bool = False,
@@ -224,11 +224,17 @@ def check_report(
         )
 
     measurements = require_object(document.get("measurements"), path, "measurements")
-    missing = sorted(required_measurements.difference(measurements))
+    required_measurement_set = set(required_measurements)
+    missing = sorted(required_measurement_set.difference(measurements))
     require(not missing, path, f"missing measurements: {missing}")
-    unexpected = sorted(set(measurements).difference(required_measurements))
+    unexpected = sorted(set(measurements).difference(required_measurement_set))
     require(not unexpected, path, f"unexpected measurements: {unexpected}")
-    for name in sorted(required_measurements):
+    require(
+        list(measurements) == list(required_measurements),
+        path,
+        "measurement order changed",
+    )
+    for name in required_measurements:
         check_measurement(
             require_object(measurements.get(name), path, name),
             path,
@@ -514,11 +520,17 @@ def check_python_report(path: Path, library_version: str) -> None:
     )
 
     measurements = require_object(document.get("measurements"), path, "measurements")
-    missing = sorted(PYTHON_MEASUREMENTS.difference(measurements))
+    python_measurement_set = set(PYTHON_MEASUREMENTS)
+    missing = sorted(python_measurement_set.difference(measurements))
     require(not missing, path, f"missing measurements: {missing}")
-    unexpected = sorted(set(measurements).difference(PYTHON_MEASUREMENTS))
+    unexpected = sorted(set(measurements).difference(python_measurement_set))
     require(not unexpected, path, f"unexpected measurements: {unexpected}")
-    for name in sorted(PYTHON_MEASUREMENTS):
+    require(
+        list(measurements) == list(PYTHON_MEASUREMENTS),
+        path,
+        "measurement order changed",
+    )
+    for name in PYTHON_MEASUREMENTS:
         check_measurement(
             require_object(measurements.get(name), path, name),
             path,
