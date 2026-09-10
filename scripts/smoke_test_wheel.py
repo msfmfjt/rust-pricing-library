@@ -977,6 +977,10 @@ if rust_pricing.__version__ != api["version"]:
     missing.append("__version__")
 if rust_pricing.version() != api["version"]:
     missing.append("version()")
+if not isinstance(rust_pricing.__version__, str):
+    missing.append("__version__ type")
+if not isinstance(rust_pricing.version(), str):
+    missing.append("version() type")
 raise SystemExit("missing runtime symbols: " + ", ".join(missing) if missing else 0)
 """
     subprocess.run(
