@@ -725,6 +725,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
 
     expected_class_members = {
         "AsianObservation": {
+            "__repr__",
             "date",
             "fixing",
             "known",
@@ -733,9 +734,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         },
         "DiscountCurve": {
             "__init__",
+            "__repr__",
             "curve_id",
         },
         "DiagnosticEstimate": {
+            "__repr__",
             "value",
             "standard_error",
             "confidence_interval",
@@ -743,6 +746,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "effective_sampling_units",
         },
         "Diagnostics": {
+            "__repr__",
             "master_seed",
             "estimator",
             "scramble_count",
@@ -772,6 +776,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "warnings",
         },
         "DividendEvent": {
+            "__repr__",
             "event_id",
             "ex_time",
             "fixed_cash",
@@ -779,20 +784,24 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "proportional",
         },
         "Engine": {
+            "__repr__",
             "pseudo_monte_carlo",
             "randomized_quasi_monte_carlo",
         },
         "EssviSlice": {
             "__init__",
+            "__repr__",
             "psi",
             "rho_psi",
             "theta",
             "time",
         },
         "Market": {
+            "__repr__",
             "equity",
         },
         "Model": {
+            "__repr__",
             "black_76",
             "black_scholes",
             "local_volatility_from_essvi",
@@ -803,6 +812,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         },
         "PricingError": set(),
         "PricingPlan": {
+            "__repr__",
             "compile",
             "evaluate",
             "request_fingerprint",
@@ -812,12 +822,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         },
         "PricingRequest": {
             "__init__",
+            "__repr__",
             "from_json",
             "to_json",
             "to_pretty_json",
             "fingerprint",
         },
         "PricingResult": {
+            "__repr__",
             "from_json",
             "value",
             "standard_error",
@@ -847,10 +859,12 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "to_pretty_json",
         },
         "PricingWarning": {
+            "__repr__",
             "code",
             "message",
         },
         "Product": {
+            "__repr__",
             "arithmetic_asian",
             "barrier",
             "digital",
@@ -858,6 +872,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "fixed_lookback",
         },
         "RiskEstimate": {
+            "__repr__",
             "raw",
             "market_scaled",
             "raw_unit",
@@ -865,13 +880,16 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         },
         "RiskRequest": {
             "__init__",
+            "__repr__",
         },
         "RiskValidation": {
+            "__repr__",
             "bump_and_revalue",
             "bump_minus_primary",
         },
         "ValidationError": set(),
         "ValidationIssue": {
+            "__repr__",
             "pointer",
             "instance_path",
             "phase",
