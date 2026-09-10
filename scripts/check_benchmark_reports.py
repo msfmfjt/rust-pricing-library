@@ -124,12 +124,33 @@ EXPECTED_ARTIFACTS = {
     "metadata.json",
 }
 OPTIONAL_ARTIFACTS = {"local-volatility-replay.json"}
-EXPECTED_COMMAND_PEAKS = {
+METADATA_KEYS = (
+    "allocation_count",
+    "cargo",
+    "cargo_lock_sha256",
+    "command_peak_memory_bytes",
+    "enabled_features",
+    "git_sha",
+    "machine",
+    "peak_memory_bytes",
+    "platform",
+    "processor",
+    "python",
+    "python_abi",
+    "runner_arch",
+    "runner_os",
+    "rustc",
+    "schema_version",
+    "target_triple",
+    "unavailable_metrics",
+)
+ENABLED_FEATURE_KEYS = ("python_wheel", "rust_benchmarks")
+COMMAND_PEAK_KEYS = (
+    "python_european_black_scholes",
+    "replay_european_black_scholes",
     "rust_european_black_scholes",
     "rust_local_volatility_vegakt",
-    "replay_european_black_scholes",
-    "python_european_black_scholes",
-}
+)
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
 }
@@ -620,31 +641,7 @@ def check_antithetic_path_count(configuration: dict[str, Any], path: Path) -> No
 
 def check_metadata(path: Path, artifacts: set[str]) -> None:
     document = load_object(path)
-    require_exact_keys(
-        document,
-        {
-            "allocation_count",
-            "cargo",
-            "cargo_lock_sha256",
-            "command_peak_memory_bytes",
-            "enabled_features",
-            "git_sha",
-            "machine",
-            "peak_memory_bytes",
-            "platform",
-            "processor",
-            "python",
-            "python_abi",
-            "runner_arch",
-            "runner_os",
-            "rustc",
-            "schema_version",
-            "target_triple",
-            "unavailable_metrics",
-        },
-        path,
-        "metadata",
-    )
+    require_exact_keys(document, METADATA_KEYS, path, "metadata")
     require(document.get("schema_version") == 1, path, "schema_version must be 1")
     for key in [
         "platform",
@@ -682,9 +679,10 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
         "cargo_lock_sha256 must match Cargo.lock",
     )
     enabled_features = require_object(document.get("enabled_features"), path, "enabled_features")
+    require_exact_keys(enabled_features, ENABLED_FEATURE_KEYS, path, "enabled_features")
     expected_features = {
-        "rust_benchmarks": [],
         "python_wheel": ["pricing-python/extension-module"],
+        "rust_benchmarks": [],
     }
     missing_feature_sets = sorted(set(expected_features).difference(enabled_features))
     require(
@@ -706,14 +704,13 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
     command_peaks = require_object(
         document.get("command_peak_memory_bytes"), path, "command_peak_memory_bytes"
     )
-    expected_command_peaks = set(EXPECTED_COMMAND_PEAKS)
-    for artifact, command_name in OPTIONAL_COMMAND_PEAKS.items():
-        if artifact in artifacts:
-            expected_command_peaks.add(command_name)
-    missing = sorted(expected_command_peaks.difference(command_peaks))
-    require(not missing, path, f"missing command_peak_memory_bytes entries: {missing}")
-    unexpected = sorted(set(command_peaks).difference(expected_command_peaks))
-    require(not unexpected, path, f"unexpected command_peak_memory_bytes entries: {unexpected}")
+    expected_command_peaks = expected_command_peak_keys(artifacts)
+    require_exact_keys(
+        command_peaks,
+        expected_command_peaks,
+        path,
+        "command_peak_memory_bytes",
+    )
     for name, peak in command_peaks.items():
         require(isinstance(name, str) and name, path, "command peak name must be non-empty")
         require_positive_int(peak, path, f"command_peak_memory_bytes.{name}")
@@ -724,6 +721,14 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
     )
     require(document.get("allocation_count") is None, path, "allocation_count must be null")
     require_string_array(document.get("unavailable_metrics"), path, "unavailable_metrics")
+
+
+def expected_command_peak_keys(artifacts: set[str]) -> tuple[str, ...]:
+    expected_command_peaks = set(COMMAND_PEAK_KEYS)
+    for artifact, command_name in OPTIONAL_COMMAND_PEAKS.items():
+        if artifact in artifacts:
+            expected_command_peaks.add(command_name)
+    return tuple(sorted(expected_command_peaks))
 
 
 def load_object(path: Path) -> dict[str, Any]:
