@@ -570,6 +570,7 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
+    top_level_functions: dict[str, ast.FunctionDef] = {}
     class_bases: dict[str, list[str]] = {}
     class_members: dict[str, list[str]] = {}
     class_methods: dict[str, dict[str, ast.FunctionDef]] = {}
@@ -601,6 +602,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                     for member in node.body
                     if isinstance(member, ast.FunctionDef)
                 }
+            else:
+                top_level_functions[node.name] = node
 
     duplicates = sorted(duplicates_in(top_level_names))
     if duplicates:
@@ -775,6 +778,48 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("AsianObservation", "known"): {
+            "positional": ["date", "weight", "fixing"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("AsianObservation", "unknown"): {
+            "positional": ["date", "weight"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("DiscountCurve", "__init__"): {
+            "positional": ["self", "curve_id", "times", "discount_factors"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("DividendEvent", "fixed_cash"): {
+            "positional": ["event_id", "ex_time", "amount"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("DividendEvent", "fixed_cash_and_proportional"): {
+            "positional": ["event_id", "ex_time", "fixed_cash", "beta"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("DividendEvent", "proportional"): {
+            "positional": ["event_id", "ex_time", "beta"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
         ("Engine", "pseudo_monte_carlo"): {
             "positional": ["master_seed", "independent_sampling_units"],
             "positional_defaults": {},
@@ -796,6 +841,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "brownian_bridge": True,
             },
         },
+        ("EssviSlice", "__init__"): {
+            "positional": ["self", "time", "theta", "psi", "rho_psi"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
         ("Market", "equity"): {
             "positional": [
                 "currency_id",
@@ -809,12 +861,148 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "required_keyword_only": [],
             "keyword_only_defaults": {"discrete_dividends": None},
         },
+        ("Model", "black_76"): {
+            "positional": ["volatility"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Model", "black_scholes"): {
+            "positional": ["volatility"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Model", "local_volatility_from_essvi"): {
+            "positional": [
+                "slices",
+                "terminal_theta_slope",
+                "time_nodes",
+                "log_forward_moneyness_nodes",
+                "floor",
+                "cap",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Model", "local_volatility_from_grid"): {
+            "positional": [
+                "time_nodes",
+                "log_forward_moneyness_nodes",
+                "local_variances",
+                "floor",
+                "cap",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Model", "local_volatility_from_grid_with_reporting_basis"): {
+            "positional": [
+                "time_nodes",
+                "log_forward_moneyness_nodes",
+                "local_variances",
+                "floor",
+                "cap",
+                "reporting_maturity_nodes",
+                "reporting_log_forward_moneyness_nodes",
+                "reporting_implied_volatilities",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Model", "local_volatility_from_standard_ssvi_heston_like"): {
+            "positional": [
+                "theta_times",
+                "theta_values",
+                "terminal_theta_slope",
+                "rho",
+                "lambda_",
+                "time_nodes",
+                "log_forward_moneyness_nodes",
+                "floor",
+                "cap",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Model", "local_volatility_from_standard_ssvi_power_law"): {
+            "positional": [
+                "theta_times",
+                "theta_values",
+                "terminal_theta_slope",
+                "rho",
+                "eta",
+                "gamma",
+                "time_nodes",
+                "log_forward_moneyness_nodes",
+                "floor",
+                "cap",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
         ("PricingPlan", "compile"): {
             "positional": ["request"],
             "positional_defaults": {},
             "keyword_only": ["worker_threads", "reduction_block_size"],
             "required_keyword_only": ["worker_threads"],
             "keyword_only_defaults": {"reduction_block_size": None},
+        },
+        ("PricingRequest", "__init__"): {
+            "positional": [
+                "self",
+                "valuation_date",
+                "product",
+                "market",
+                "model",
+                "engine",
+                "risk",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("PricingRequest", "from_json"): {
+            "positional": ["json"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("PricingResult", "from_json"): {
+            "positional": ["json"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("Product", "arithmetic_asian"): {
+            "positional": [
+                "underlying_id",
+                "currency_id",
+                "strike",
+                "notional",
+                "side",
+                "observations",
+                "payment_date",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
         },
         ("Product", "barrier"): {
             "positional": [
@@ -849,6 +1037,20 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "keyword_only": ["payment_date"],
             "required_keyword_only": [],
             "keyword_only_defaults": {"payment_date": None},
+        },
+        ("Product", "european_vanilla"): {
+            "positional": [
+                "underlying_id",
+                "currency_id",
+                "expiry",
+                "strike",
+                "notional",
+                "side",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
         },
         ("Product", "fixed_lookback"): {
             "positional": [
@@ -902,6 +1104,37 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         if actual != expected:
             raise RuntimeError(
                 f"wheel type stub {class_name}.{method_name} signature changed: "
+                f"{actual} != {expected}"
+            )
+
+    expected_top_level_signature_shapes = {
+        "request_json_schema": {
+            "positional": [],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        "result_json_schema": {
+            "positional": [],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        "version": {
+            "positional": [],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+    }
+    for function_name, expected in sorted(expected_top_level_signature_shapes.items()):
+        actual = function_signature_shape(top_level_functions[function_name])
+        if actual != expected:
+            raise RuntimeError(
+                f"wheel type stub {function_name} signature changed: "
                 f"{actual} != {expected}"
             )
 

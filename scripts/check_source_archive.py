@@ -177,6 +177,8 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "PricingError base",
     "function_signature_shape",
     "wheel type stub {class_name}.{method_name} signature changed",
+    "expected_top_level_signature_shapes",
+    "wheel type stub {function_name} signature changed",
     "must be a staticmethod",
     "must be a property",
     "\"__repr__\"",
