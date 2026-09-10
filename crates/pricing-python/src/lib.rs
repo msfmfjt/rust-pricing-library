@@ -955,8 +955,89 @@ mod tests {
 
     #[test]
     fn wire_errors_have_stable_issue_codes() {
-        let issue = PyValidationIssue::request_wire(&WireError::UnsupportedSchemaVersion(99));
-        assert_eq!(issue.phase, "declared_schema");
-        assert_eq!(issue.code, "unsupported_schema_version");
+        let cases = [
+            (
+                WireError::Json("expected value".to_owned()),
+                "syntax_and_limits",
+                "invalid_json",
+                "",
+                1,
+            ),
+            (
+                WireError::Utf8Bom,
+                "syntax_and_limits",
+                "invalid_json",
+                "",
+                1,
+            ),
+            (
+                WireError::ResourceLimit {
+                    name: "input_bytes",
+                    observed: 2,
+                    limit: 1,
+                },
+                "syntax_and_limits",
+                "resource_limit",
+                "",
+                1,
+            ),
+            (
+                WireError::LimitOverrideExceedsHardCap,
+                "syntax_and_limits",
+                "resource_limit",
+                "",
+                1,
+            ),
+            (
+                WireError::UnsupportedSchemaVersion(99),
+                "declared_schema",
+                "unsupported_schema_version",
+                "",
+                99,
+            ),
+            (
+                WireError::WrongDocumentKind {
+                    expected: "pricing_request",
+                    actual: "pricing_result".to_owned(),
+                },
+                "declared_schema",
+                "wrong_document_kind",
+                "",
+                1,
+            ),
+            (
+                WireError::InvalidFingerprint("not-a-fingerprint".to_owned()),
+                "declared_schema",
+                "invalid_fingerprint",
+                "",
+                1,
+            ),
+            (
+                WireError::Domain("invalid domain".to_owned()),
+                "domain",
+                "invalid_domain_value",
+                "",
+                1,
+            ),
+            (
+                WireError::DomainAt {
+                    pointer: "/market/spot".to_owned(),
+                    message: "spot must be positive".to_owned(),
+                },
+                "domain",
+                "invalid_domain_value",
+                "/market/spot",
+                1,
+            ),
+        ];
+
+        for (error, phase, code, pointer, schema_version) in cases {
+            let issue = PyValidationIssue::request_wire(&error);
+            assert_eq!(issue.phase, phase);
+            assert_eq!(issue.code, code);
+            assert_eq!(issue.pointer, pointer);
+            assert_eq!(issue.schema_version, schema_version);
+            assert_eq!(issue.document_kind, "pricing_request");
+        }
     }
 }
