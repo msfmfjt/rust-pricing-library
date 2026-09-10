@@ -201,6 +201,8 @@ REQUIRED_SCHEMA_CHECK_SNIPPETS = {
     "check_array_schemas_are_typed_and_sized(schema, path)",
     "EXPECTED_REQUIRED_PROPERTIES = {",
     "required field contracts changed",
+    "EXPECTED_OPTIONAL_PROPERTIES = {",
+    "optional field contracts changed",
     "check_tagged_union_discriminators(document_kind, schema, path)",
     "EXPECTED_TAGGED_UNIONS = {",
     "tagged union variant order changed",

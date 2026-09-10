@@ -312,6 +312,35 @@ EXPECTED_REQUIRED_PROPERTIES = {
         ],
     },
 }
+EXPECTED_OPTIONAL_PROPERTIES = {
+    "pricing_request": {
+        ("$defs", "product", "oneOf", 1): ["payment_date"],
+        ("$defs", "product", "oneOf", 2): ["rebate"],
+        ("$defs", "product", "oneOf", 4): ["historical_extremum"],
+        ("$defs", "market"): ["discrete_dividends"],
+        ("$defs", "model", "oneOf", 2): ["reporting_iv_basis"],
+        ("$defs", "risk"): [
+            "gamma",
+            "vega_kt",
+            "checkpoint_interval",
+            "aad_tile_capacity",
+        ],
+    },
+    "pricing_result": {
+        ("$defs", "risk_report"): ["delta", "gamma", "vega", "vega_kt"],
+        ("$defs", "vega_kt_report"): ["full_bucket_covariance"],
+        ("$defs", "vega_kt_report", "allOf", 0, "if", "properties", "covariance_layout"): [
+            "type"
+        ],
+        ("$defs", "vega_kt_report", "allOf", 1, "if", "properties", "covariance_layout"): [
+            "type"
+        ],
+        ("$defs", "vega_kt_bucket_estimate"): [
+            "sample_variance",
+            "price_covariance",
+        ],
+    },
+}
 WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 DATE_STRING_FIELDS = {"date", "expiry", "payment_date", "valuation_date"}
@@ -566,6 +595,28 @@ def check_required_properties(document_kind: str, schema: dict[str, Any], path: 
     require(
         actual_required == EXPECTED_REQUIRED_PROPERTIES[document_kind],
         f"{path}: required field contracts changed",
+    )
+
+
+def check_optional_properties(document_kind: str, schema: dict[str, Any], path: Path) -> None:
+    actual_optional: dict[tuple[str | int, ...], list[str]] = {}
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        properties = value.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        required = value.get("required", [])
+        require(
+            isinstance(required, list),
+            f"{path}:{pointer((*location, 'required'))}: required must be an array",
+        )
+        optional_fields = [field for field in properties if field not in required]
+        if optional_fields:
+            actual_optional[location] = optional_fields
+    require(
+        actual_optional == EXPECTED_OPTIONAL_PROPERTIES[document_kind],
+        f"{path}: optional field contracts changed",
     )
 
 
@@ -1118,6 +1169,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_refs(schema, path)
     check_wire_names(schema, path)
     check_required_properties(document_kind, schema, path)
+    check_optional_properties(document_kind, schema, path)
     check_schema_version_fields(schema, path)
     check_const_schemas_are_typed(schema, path)
     check_date_fields(schema, path)
