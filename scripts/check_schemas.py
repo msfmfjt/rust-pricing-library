@@ -92,6 +92,226 @@ EXPECTED_GOLDEN_KEYS = {
     "pricing_request": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_request"]),
     "pricing_result": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_result"]),
 }
+EXPECTED_REQUIRED_PROPERTIES = {
+    "pricing_request": {
+        (): EXPECTED_TOP_LEVEL_REQUIRED["pricing_request"],
+        ("$defs", "side", "oneOf", 0): ["type"],
+        ("$defs", "side", "oneOf", 1): ["type"],
+        ("$defs", "product", "oneOf", 0): [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "notional",
+            "side",
+        ],
+        ("$defs", "product", "oneOf", 1): [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "payout",
+            "side",
+            "payout_kind",
+        ],
+        ("$defs", "product", "oneOf", 2): [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "barrier",
+            "notional",
+            "side",
+            "direction",
+            "style",
+            "monitoring_dates",
+            "payment_date",
+        ],
+        ("$defs", "product", "oneOf", 3): [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "strike",
+            "notional",
+            "side",
+            "observations",
+            "payment_date",
+        ],
+        ("$defs", "product", "oneOf", 4): [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "strike",
+            "notional",
+            "side",
+            "monitoring_dates",
+            "payment_date",
+        ],
+        ("$defs", "asian_observation"): ["date", "weight", "value"],
+        ("$defs", "asian_observation_value", "oneOf", 0): ["type", "fixing"],
+        ("$defs", "asian_observation_value", "oneOf", 1): ["type"],
+        ("$defs", "digital_payout", "oneOf", 0): ["type"],
+        ("$defs", "digital_payout", "oneOf", 1): ["type"],
+        ("$defs", "barrier_direction", "oneOf", 0): ["type"],
+        ("$defs", "barrier_direction", "oneOf", 1): ["type"],
+        ("$defs", "barrier_style", "oneOf", 0): ["type"],
+        ("$defs", "barrier_style", "oneOf", 1): ["type"],
+        ("$defs", "curve"): ["curve_id", "times", "discount_factors"],
+        ("$defs", "market"): [
+            "type",
+            "currency_id",
+            "underlying_id",
+            "spot",
+            "discount_curve",
+            "dividend_curve",
+        ],
+        ("$defs", "dividend_event"): ["event_id", "ex_time", "quote"],
+        ("$defs", "dividend_quote", "oneOf", 0): ["type", "amount"],
+        ("$defs", "dividend_quote", "oneOf", 1): ["type", "beta"],
+        ("$defs", "dividend_quote", "oneOf", 2): [
+            "type",
+            "fixed_cash",
+            "beta",
+        ],
+        ("$defs", "model", "oneOf", 0): ["type", "volatility"],
+        ("$defs", "model", "oneOf", 1): ["type", "volatility"],
+        ("$defs", "model", "oneOf", 2): ["type", "local_variance_grid"],
+        ("$defs", "local_variance_grid"): [
+            "time_nodes",
+            "log_forward_moneyness_nodes",
+            "shape",
+            "values",
+            "floor",
+            "cap",
+        ],
+        ("$defs", "reporting_iv_basis"): [
+            "maturity_nodes",
+            "log_forward_moneyness_nodes",
+            "shape",
+            "implied_volatilities",
+        ],
+        ("$defs", "variance_reduction"): ["antithetic", "brownian_bridge"],
+        ("$defs", "engine", "oneOf", 0): [
+            "type",
+            "master_seed",
+            "independent_sampling_units",
+            "variance_reduction",
+        ],
+        ("$defs", "engine", "oneOf", 1): [
+            "type",
+            "points_per_scramble",
+            "scramble_count",
+            "master_scramble_seed",
+            "variance_reduction",
+        ],
+        ("$defs", "risk"): ["delta", "vega", "smile_dynamics"],
+        ("$defs", "gamma"): ["bump"],
+        ("$defs", "spot_bump", "oneOf", 0): ["type", "value"],
+        ("$defs", "spot_bump", "oneOf", 1): ["type", "value"],
+        ("$defs", "vega_kt"): [
+            "maturity_nodes",
+            "log_forward_moneyness_nodes",
+            "relative_density_threshold",
+            "full_bucket_covariance",
+        ],
+        ("$defs", "smile_dynamics", "oneOf", 0): ["type"],
+        ("$defs", "smile_dynamics", "oneOf", 1): ["type"],
+        ("$defs", "smile_dynamics", "oneOf", 2): ["type"],
+    },
+    "pricing_result": {
+        (): EXPECTED_TOP_LEVEL_REQUIRED["pricing_result"],
+        ("properties", "replay"): [
+            "schema_version",
+            "request_fingerprint",
+            "library_version",
+            "platform",
+        ],
+        ("$defs", "estimate"): [
+            "value",
+            "standard_error",
+            "confidence_lower",
+            "confidence_upper",
+            "estimator",
+            "effective_sampling_units",
+        ],
+        ("$defs", "risk_estimate"): [
+            "raw",
+            "market_scaled",
+            "raw_unit",
+            "market_scaled_unit",
+        ],
+        ("$defs", "vega_kt_report"): [
+            "coordinates",
+            "estimates",
+            "raw_buckets",
+            "covariance_layout",
+            "projection",
+            "residual_diagnostics",
+            "raw_unit",
+            "market_scaled_unit",
+            "policy_label",
+            "truncation_order",
+        ],
+        ("$defs", "vega_kt_report", "allOf", 0, "if"): ["covariance_layout"],
+        ("$defs", "vega_kt_report", "allOf", 0, "then"): [
+            "full_bucket_covariance"
+        ],
+        ("$defs", "vega_kt_report", "allOf", 1, "if"): ["covariance_layout"],
+        ("$defs", "vega_kt_report", "allOf", 1, "then", "not"): [
+            "full_bucket_covariance"
+        ],
+        ("$defs", "diagnostics"): ["warnings"],
+        ("$defs", "warning"): ["code", "message"],
+        ("$defs", "estimator", "oneOf", 0): ["type"],
+        ("$defs", "estimator", "oneOf", 1): ["type"],
+        ("$defs", "estimator", "oneOf", 2): ["type"],
+        ("$defs", "risk_unit", "oneOf", 0): ["type"],
+        ("$defs", "risk_unit", "oneOf", 1): ["type"],
+        ("$defs", "risk_unit", "oneOf", 2): ["type"],
+        ("$defs", "risk_unit", "oneOf", 3): ["type"],
+        ("$defs", "risk_unit", "oneOf", 4): ["type"],
+        ("$defs", "risk_unit", "oneOf", 5): ["type"],
+        ("$defs", "vega_kt_covariance_layout", "oneOf", 0): ["type"],
+        ("$defs", "vega_kt_covariance_layout", "oneOf", 1): ["type"],
+        ("$defs", "vega_kt_bucket_unit", "oneOf", 0): ["type"],
+        ("$defs", "vega_kt_bucket_unit", "oneOf", 1): ["type"],
+        ("$defs", "vega_kt_coordinate"): [
+            "maturity",
+            "log_moneyness",
+            "implied_volatility",
+        ],
+        ("$defs", "vega_kt_bucket_estimate"): [
+            "raw_mean",
+            "market_scaled_mean",
+        ],
+        ("$defs", "vega_kt_covariance_entry", "oneOf", 0): ["type", "value"],
+        ("$defs", "vega_kt_covariance_entry", "oneOf", 1): ["type"],
+        ("$defs", "vega_kt_projection"): [
+            "scalar_vega",
+            "signed_residual",
+            "pre_projection",
+            "reporting_stats",
+        ],
+        ("$defs", "vega_kt_residual_diagnostics"): [
+            "active_domain_start_index",
+            "active_domain_end_index",
+            "active_domain_forward_index",
+            "excluded_probability_mass",
+            "signed_residual",
+            "pre_projection",
+            "reporting_stats",
+        ],
+        ("$defs", "reporting_iv_projection_stats"): [
+            "left_edge_count",
+            "right_edge_count",
+            "left_edge_sensitivity",
+            "right_edge_sensitivity",
+        ],
+    },
+}
 WIRE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 DATE_STRING_FIELDS = {"date", "expiry", "payment_date", "valuation_date"}
@@ -320,7 +540,8 @@ def check_wire_names(schema: dict[str, Any], path: Path) -> None:
                         require(WIRE_NAME.fullmatch(field) is not None, f"{path}:{pointer((*location, 'properties', field))}: invalid field name")
 
 
-def check_required_properties(schema: dict[str, Any], path: Path) -> None:
+def check_required_properties(document_kind: str, schema: dict[str, Any], path: Path) -> None:
+    actual_required: dict[tuple[str | int, ...], list[str]] = {}
     for location, value in walk(schema):
         if not isinstance(value, dict):
             continue
@@ -329,6 +550,7 @@ def check_required_properties(schema: dict[str, Any], path: Path) -> None:
         if required is None:
             continue
         require(isinstance(required, list), f"{path}:{pointer((*location, 'required'))}: required must be an array")
+        actual_required[location] = required
         require(isinstance(properties, dict), f"{path}:{pointer(location)}: object with required must define properties")
         seen_required: set[str] = set()
         for field in required:
@@ -341,6 +563,10 @@ def check_required_properties(schema: dict[str, Any], path: Path) -> None:
             property_names[: len(required)] == required,
             f"{path}:{pointer(location)}: required fields must lead properties in order",
         )
+    require(
+        actual_required == EXPECTED_REQUIRED_PROPERTIES[document_kind],
+        f"{path}: required field contracts changed",
+    )
 
 
 def check_schema_version_fields(schema: dict[str, Any], path: Path) -> None:
@@ -891,7 +1117,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_no_json_null(schema, path)
     check_refs(schema, path)
     check_wire_names(schema, path)
-    check_required_properties(schema, path)
+    check_required_properties(document_kind, schema, path)
     check_schema_version_fields(schema, path)
     check_const_schemas_are_typed(schema, path)
     check_date_fields(schema, path)
