@@ -36,6 +36,12 @@ EXPECTED_WHEEL_FIELDS = (
     "Root-Is-Purelib",
     "Tag",
 )
+EXPECTED_INIT_PY = (
+    "from .rust_pricing import *\n\n"
+    "__doc__ = rust_pricing.__doc__\n"
+    "if hasattr(rust_pricing, \"__all__\"):\n"
+    "    __all__ = rust_pricing.__all__"
+)
 
 
 def main() -> None:
@@ -273,8 +279,10 @@ def verify_wheel_metadata(
     if actual_dist_info != expected_dist_info:
         raise RuntimeError(f"unexpected wheel dist-info directory: {actual_dist_info}")
     init_py = member_bytes["rust_pricing/__init__.py"].decode("utf-8")
-    if "from .rust_pricing import *" not in init_py:
-        raise RuntimeError("wheel __init__.py must re-export the extension module")
+    if init_py != EXPECTED_INIT_PY:
+        raise RuntimeError("wheel __init__.py content changed")
+    if member_bytes["rust_pricing/py.typed"] != b"":
+        raise RuntimeError("wheel py.typed marker must be empty")
     content_type = metadata["Description-Content-Type"]
     if not (
         isinstance(content_type, str)
