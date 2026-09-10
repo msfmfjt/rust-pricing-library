@@ -134,6 +134,9 @@ PYTHON_CONFIGURATION = {
     "sampling_units": 16_384,
     "worker_threads": 2,
 }
+PYTHON_COMPILE_SAMPLES = 20
+PYTHON_EVALUATION_SAMPLES = 5
+PYTHON_GETTER_SAMPLES = 100_000
 BASE_CAPABILITY_KEYS = (
     "aad_and_bump_timing_separable",
     "allocation_count_available",
@@ -361,6 +364,7 @@ def check_report(
             path,
             name,
             expected_paths_for_measurement(name, configuration["evaluated_paths"]),
+            expected_samples_for_measurement(name, configuration),
         )
     require_positive_int(
         document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
@@ -615,6 +619,7 @@ def check_python_report(path: Path, library_version: str) -> None:
             path,
             name,
             expected_paths_for_measurement(name, configuration["evaluated_paths"]),
+            expected_python_samples_for_measurement(name),
         )
     require_positive_int(
         document.get("process_peak_memory_bytes"), path, "process_peak_memory_bytes"
@@ -637,6 +642,7 @@ def check_measurement(
     path: Path,
     name: str,
     expected_paths_per_sample: int | None,
+    expected_samples: int,
 ) -> None:
     require_exact_keys(
         document,
@@ -652,6 +658,7 @@ def check_measurement(
         name,
     )
     require_positive_int(document.get("samples"), path, f"{name}.samples")
+    require(document["samples"] == expected_samples, path, f"{name}.samples mismatch")
     require_positive_float(document.get("median_seconds"), path, f"{name}.median_seconds")
     require_non_negative_float(document.get("minimum_seconds"), path, f"{name}.minimum_seconds")
     require_positive_float(document.get("maximum_seconds"), path, f"{name}.maximum_seconds")
@@ -683,6 +690,20 @@ def expected_paths_for_measurement(name: str, evaluated_paths: int) -> int | Non
     if name == "evaluate_crn_bump_validation_from_python":
         return evaluated_paths * 5
     return evaluated_paths
+
+
+def expected_samples_for_measurement(name: str, configuration: dict[str, Any]) -> int:
+    if name.startswith("compile_"):
+        return configuration["compile_samples"]
+    return configuration["evaluation_samples"]
+
+
+def expected_python_samples_for_measurement(name: str) -> int:
+    if name == "result_value_getter":
+        return PYTHON_GETTER_SAMPLES
+    if name.startswith("compile_"):
+        return PYTHON_COMPILE_SAMPLES
+    return PYTHON_EVALUATION_SAMPLES
 
 
 def check_antithetic_path_count(configuration: dict[str, Any], path: Path) -> None:
