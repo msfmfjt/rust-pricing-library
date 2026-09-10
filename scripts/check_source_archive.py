@@ -241,6 +241,9 @@ REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
 REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "EXPECTED_ARTIFACTS = {",
     "OPTIONAL_ARTIFACTS = {\"local-volatility-replay.json\"}",
+    "REPORT_KEYS = (",
+    "BASE_CONFIGURATION_KEYS = (",
+    "LOCAL_VOL_CAPABILITY_KEYS = (",
     "unexpected benchmark artifacts",
     "missing measurements",
     "unexpected measurements",

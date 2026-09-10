@@ -58,6 +58,63 @@ PYTHON_MEASUREMENTS = (
     "evaluate_crn_bump_validation_from_python",
     "result_value_getter",
 )
+REPORT_KEYS = (
+    "benchmark_kind",
+    "capabilities",
+    "configuration",
+    "library_version",
+    "measurements",
+    "notes",
+    "process_peak_memory_bytes",
+    "schema_version",
+)
+BASE_CONFIGURATION_KEYS = (
+    "antithetic",
+    "compile_samples",
+    "engine",
+    "evaluated_paths",
+    "evaluation_samples",
+    "reduction_block_size",
+    "sampling_units",
+    "worker_threads",
+)
+LOCAL_VOL_CONFIGURATION_KEYS = (
+    "aad_tile_capacity",
+    "antithetic",
+    "checkpoint_interval",
+    "compile_samples",
+    "engine",
+    "evaluated_paths",
+    "evaluation_samples",
+    "local_variance_grid_shape",
+    "reduction_block_size",
+    "reporting_iv_basis_shape",
+    "sampling_units",
+    "vega_kt_covariance_layout",
+    "worker_threads",
+)
+PYTHON_CONFIGURATION_KEYS = (
+    "antithetic",
+    "engine",
+    "evaluated_paths",
+    "reduction_block_size",
+    "sampling_units",
+    "worker_threads",
+)
+BASE_CAPABILITY_KEYS = (
+    "aad_and_bump_timing_separable",
+    "allocation_count_available",
+    "peak_memory_available_in_process",
+    "standalone_bump_timing_available",
+)
+LOCAL_VOL_CAPABILITY_KEYS = (
+    "aad_local_vega_timing_available",
+    "allocation_count_available",
+    "peak_memory_available_in_process",
+    "standalone_spot_and_local_variance_bump_timing_available",
+    "vega_kt_decomposition_timing_available",
+)
+PYTHON_CAPABILITY_KEYS = ("peak_memory_available_in_process",)
 
 EXPECTED_ARTIFACTS = {
     "rust.json",
@@ -149,16 +206,7 @@ def check_report(
     document = load_object(path)
     require_exact_keys(
         document,
-        {
-            "benchmark_kind",
-            "capabilities",
-            "configuration",
-            "library_version",
-            "measurements",
-            "notes",
-            "process_peak_memory_bytes",
-            "schema_version",
-        },
+        REPORT_KEYS,
         path,
         "report",
     )
@@ -170,26 +218,9 @@ def check_report(
         "library_version must match Cargo workspace version",
     )
     configuration = require_object(document.get("configuration"), path, "configuration")
-    expected_configuration_keys = {
-        "antithetic",
-        "compile_samples",
-        "engine",
-        "evaluated_paths",
-        "evaluation_samples",
-        "reduction_block_size",
-        "sampling_units",
-        "worker_threads",
-    }
-    if local_volatility:
-        expected_configuration_keys.update(
-            {
-                "aad_tile_capacity",
-                "checkpoint_interval",
-                "local_variance_grid_shape",
-                "reporting_iv_basis_shape",
-                "vega_kt_covariance_layout",
-            }
-        )
+    expected_configuration_keys = (
+        LOCAL_VOL_CONFIGURATION_KEYS if local_volatility else BASE_CONFIGURATION_KEYS
+    )
     require_exact_keys(configuration, expected_configuration_keys, path, "configuration")
     require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
@@ -246,25 +277,9 @@ def check_report(
     )
 
     capabilities = require_object(document.get("capabilities"), path, "capabilities")
-    expected_capability_keys = {
-        "allocation_count_available",
-        "peak_memory_available_in_process",
-    }
-    if local_volatility:
-        expected_capability_keys.update(
-            {
-                "aad_local_vega_timing_available",
-                "standalone_spot_and_local_variance_bump_timing_available",
-                "vega_kt_decomposition_timing_available",
-            }
-        )
-    else:
-        expected_capability_keys.update(
-            {
-                "aad_and_bump_timing_separable",
-                "standalone_bump_timing_available",
-            }
-        )
+    expected_capability_keys = (
+        LOCAL_VOL_CAPABILITY_KEYS if local_volatility else BASE_CAPABILITY_KEYS
+    )
     require_exact_keys(capabilities, expected_capability_keys, path, "capabilities")
     require(
         capabilities.get("peak_memory_available_in_process") is True,
@@ -471,16 +486,7 @@ def check_python_report(path: Path, library_version: str) -> None:
     document = load_object(path)
     require_exact_keys(
         document,
-        {
-            "benchmark_kind",
-            "capabilities",
-            "configuration",
-            "library_version",
-            "measurements",
-            "notes",
-            "process_peak_memory_bytes",
-            "schema_version",
-        },
+        REPORT_KEYS,
         path,
         "python report",
     )
@@ -498,14 +504,7 @@ def check_python_report(path: Path, library_version: str) -> None:
     configuration = require_object(document.get("configuration"), path, "configuration")
     require_exact_keys(
         configuration,
-        {
-            "antithetic",
-            "engine",
-            "evaluated_paths",
-            "reduction_block_size",
-            "sampling_units",
-            "worker_threads",
-        },
+        PYTHON_CONFIGURATION_KEYS,
         path,
         "configuration",
     )
@@ -543,7 +542,7 @@ def check_python_report(path: Path, library_version: str) -> None:
     capabilities = require_object(document.get("capabilities"), path, "capabilities")
     require_exact_keys(
         capabilities,
-        {"peak_memory_available_in_process"},
+        PYTHON_CAPABILITY_KEYS,
         path,
         "capabilities",
     )
