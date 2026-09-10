@@ -151,6 +151,9 @@ COMMAND_PEAK_KEYS = (
     "rust_european_black_scholes",
     "rust_local_volatility_vegakt",
 )
+UNAVAILABLE_METRICS = (
+    "Allocation counting requires an instrumented allocator.",
+)
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
 }
@@ -721,6 +724,11 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
     )
     require(document.get("allocation_count") is None, path, "allocation_count must be null")
     require_string_array(document.get("unavailable_metrics"), path, "unavailable_metrics")
+    require(
+        document["unavailable_metrics"] == list(UNAVAILABLE_METRICS),
+        path,
+        "unavailable_metrics mismatch",
+    )
 
 
 def expected_command_peak_keys(artifacts: set[str]) -> tuple[str, ...]:
