@@ -145,6 +145,12 @@ EXPECTED_GOLDEN_KEYS = {
     "pricing_request": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_request"]),
     "pricing_result": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_result"]),
 }
+EXPECTED_REPLAY_KEYS = [
+    "schema_version",
+    "request_fingerprint",
+    "library_version",
+    "platform",
+]
 EXPECTED_REQUIRED_PROPERTIES = {
     "pricing_request": {
         (): EXPECTED_TOP_LEVEL_REQUIRED["pricing_request"],
@@ -1196,6 +1202,10 @@ def check_golden(document_kind: str, path: Path) -> None:
         f"{path}: top-level golden fields changed",
     )
     require(
+        list(document) == EXPECTED_TOP_LEVEL_REQUIRED[document_kind],
+        f"{path}: top-level golden field order changed",
+    )
+    require(
         document.get("document_kind") == document_kind,
         f"{path}: document_kind must be {document_kind!r}",
     )
@@ -1205,6 +1215,7 @@ def check_golden(document_kind: str, path: Path) -> None:
     if document_kind == "pricing_result":
         replay = document.get("replay")
         require(isinstance(replay, dict), f"{path}: replay must be an object")
+        require(list(replay) == EXPECTED_REPLAY_KEYS, f"{path}: replay field order changed")
         require(replay.get("schema_version") == 1, f"{path}: replay.schema_version must be 1")
         require(
             isinstance(replay.get("request_fingerprint"), str)
