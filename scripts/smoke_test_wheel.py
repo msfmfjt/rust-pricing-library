@@ -42,6 +42,42 @@ EXPECTED_INIT_PY = (
     "if hasattr(rust_pricing, \"__all__\"):\n"
     "    __all__ = rust_pricing.__all__"
 )
+EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {
+    "pricing-core": set(),
+    "pricing-numerics": {"pricing-core"},
+    "pricing-aad": {"pricing-core", "pricing-numerics"},
+    "pricing-market": {"pricing-core", "pricing-numerics"},
+    "pricing-product": {"pricing-core"},
+    "pricing-models": {"pricing-core", "pricing-market", "pricing-numerics"},
+    "pricing-mc": {
+        "pricing-aad",
+        "pricing-core",
+        "pricing-market",
+        "pricing-models",
+        "pricing-numerics",
+        "pricing-product",
+    },
+    "pricing-risk": {
+        "pricing-aad",
+        "pricing-core",
+        "pricing-market",
+        "pricing-mc",
+        "pricing-models",
+        "pricing-numerics",
+        "pricing-product",
+    },
+    "pricing": {
+        "pricing-aad",
+        "pricing-core",
+        "pricing-market",
+        "pricing-mc",
+        "pricing-models",
+        "pricing-numerics",
+        "pricing-product",
+        "pricing-risk",
+    },
+    "pricing-python": {"pricing"},
+}
 
 
 def main() -> None:
@@ -429,7 +465,7 @@ def verify_cyclonedx_sbom(
     if component.get("author") != "Masafumi Fujita":
         raise RuntimeError("wheel CycloneDX SBOM root component author mismatch")
     purl = component.get("purl")
-    if not isinstance(purl, str) or not purl.startswith(f"pkg:cargo/pricing-python@{version}"):
+    if purl != f"pkg:cargo/pricing-python@{version}?download_url=file://.":
         raise RuntimeError("wheel CycloneDX SBOM root component purl mismatch")
     external_references = component.get("externalReferences")
     if not isinstance(external_references, list) or {
@@ -442,16 +478,10 @@ def verify_cyclonedx_sbom(
     if not isinstance(components, list):
         raise RuntimeError("wheel CycloneDX SBOM components must be an array")
     known_refs = {root_ref}
-    required_workspace_components = {
-        "pricing",
-        "pricing-aad",
-        "pricing-core",
-        "pricing-market",
-        "pricing-mc",
-        "pricing-models",
-        "pricing-numerics",
-        "pricing-product",
-        "pricing-risk",
+    names_by_ref = {root_ref: "pricing-python"}
+    workspace_refs = {"pricing-python": root_ref}
+    required_workspace_components = set(EXPECTED_WORKSPACE_SBOM_DEPENDENCIES) - {
+        "pricing-python"
     }
     component_refs = set()
     component_names = set()
@@ -461,17 +491,19 @@ def verify_cyclonedx_sbom(
         bom_ref = component.get("bom-ref")
         if not isinstance(bom_ref, str) or not bom_ref:
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no bom-ref")
-        if bom_ref in component_refs:
+        if bom_ref in known_refs:
             raise RuntimeError(f"wheel CycloneDX SBOM component bom-ref duplicated: {bom_ref}")
         component_refs.add(bom_ref)
         known_refs.add(bom_ref)
         name = component.get("name")
         if not isinstance(name, str) or not name:
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no name")
+        names_by_ref[bom_ref] = name
         if name in required_workspace_components:
             if name in component_names:
                 raise RuntimeError(f"wheel CycloneDX SBOM workspace component duplicated: {name}")
             component_names.add(name)
+            workspace_refs[name] = bom_ref
             verify_workspace_sbom_component(component, name, version)
     missing = sorted(required_workspace_components.difference(component_names))
     if missing:
@@ -481,6 +513,7 @@ def verify_cyclonedx_sbom(
     if not isinstance(dependencies, list) or not dependencies:
         raise RuntimeError("wheel CycloneDX SBOM dependencies must be a non-empty array")
     dependency_refs = set()
+    dependency_edges: dict[str, set[str]] = {}
     for index, dependency in enumerate(dependencies, start=1):
         if not isinstance(dependency, dict):
             raise RuntimeError(f"wheel CycloneDX SBOM dependency {index} must be an object")
@@ -499,6 +532,11 @@ def verify_cyclonedx_sbom(
             raise RuntimeError(
                 f"wheel CycloneDX SBOM dependency {index} must list string dependsOn refs"
             )
+        if len(depends_on or []) != len(set(depends_on or [])):
+            raise RuntimeError(
+                f"wheel CycloneDX SBOM dependency {index} has duplicate dependsOn refs"
+            )
+        dependency_edges[ref] = set(depends_on or [])
         for dependency_ref in depends_on or []:
             if dependency_ref not in known_refs:
                 raise RuntimeError(
@@ -507,6 +545,18 @@ def verify_cyclonedx_sbom(
     if dependency_refs != known_refs:
         missing = sorted(known_refs.difference(dependency_refs))
         raise RuntimeError(f"wheel CycloneDX SBOM dependencies missing refs: {missing}")
+    for name, expected_dependencies in EXPECTED_WORKSPACE_SBOM_DEPENDENCIES.items():
+        ref = workspace_refs[name]
+        actual_dependencies = {
+            names_by_ref[dependency_ref]
+            for dependency_ref in dependency_edges[ref]
+            if names_by_ref[dependency_ref] in EXPECTED_WORKSPACE_SBOM_DEPENDENCIES
+        }
+        if actual_dependencies != expected_dependencies:
+            raise RuntimeError(
+                f"wheel CycloneDX SBOM workspace dependencies for {name} mismatch: "
+                f"{sorted(actual_dependencies)} != {sorted(expected_dependencies)}"
+            )
 
 
 def verify_workspace_sbom_component(
@@ -523,7 +573,8 @@ def verify_workspace_sbom_component(
     if component.get("version") != version:
         raise RuntimeError(f"wheel CycloneDX SBOM component {name} version mismatch")
     purl = component.get("purl")
-    if not isinstance(purl, str) or not purl.startswith(f"pkg:cargo/{name}@{version}"):
+    expected_purl = f"pkg:cargo/{name}@{version}?download_url=file://../{name}"
+    if purl != expected_purl:
         raise RuntimeError(f"wheel CycloneDX SBOM component {name} purl mismatch")
     external_references = component.get("externalReferences")
     if not isinstance(external_references, list) or {

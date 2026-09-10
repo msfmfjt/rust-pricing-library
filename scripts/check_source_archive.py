@@ -221,7 +221,10 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel CycloneDX SBOM dependency ref duplicated",
     "wheel CycloneDX SBOM dependency ref is unknown",
     "wheel CycloneDX SBOM dependency dependsOn ref is unknown",
+    "has duplicate dependsOn refs",
     "wheel CycloneDX SBOM dependencies missing refs",
+    "EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {",
+    "wheel CycloneDX SBOM workspace dependencies for {name} mismatch",
 }
 
 REQUIRED_SCHEMA_CHECK_SNIPPETS = {
