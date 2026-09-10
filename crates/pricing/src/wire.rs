@@ -2792,6 +2792,35 @@ mod tests {
     }
 
     #[test]
+    fn json_limits_have_stable_default_and_hard_cap_values() {
+        assert_eq!(
+            JsonLimits::DEFAULT,
+            JsonLimits {
+                max_input_bytes: 4 * 1024 * 1024,
+                max_nesting_depth: 64,
+                max_string_bytes: 1024 * 1024,
+                max_number_token_bytes: 128,
+                max_array_elements: 100_000,
+                max_object_members: 10_000,
+                max_total_values: 250_000,
+            }
+        );
+        assert_eq!(
+            JsonLimits::HARD_CAP,
+            JsonLimits {
+                max_input_bytes: 64 * 1024 * 1024,
+                max_nesting_depth: 256,
+                max_string_bytes: 16 * 1024 * 1024,
+                max_number_token_bytes: 1024,
+                max_array_elements: 2_000_000,
+                max_object_members: 250_000,
+                max_total_values: 4_000_000,
+            }
+        );
+        assert_eq!(JsonLimits::default(), JsonLimits::DEFAULT);
+    }
+
+    #[test]
     fn json_limit_overrides_reject_each_hard_cap_excess() {
         let hard = JsonLimits::HARD_CAP;
         assert_eq!(hard.checked(), Ok(hard));
