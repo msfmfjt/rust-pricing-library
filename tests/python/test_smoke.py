@@ -101,6 +101,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         warnings.clear()
         self.assertEqual(len(result.warnings), 2)
         self.assertEqual(len(result.diagnostics.warnings), 2)
+        diagnostics_warnings = result.diagnostics.warnings
+        diagnostics_warnings.clear()
+        self.assertEqual(len(result.diagnostics.warnings), 2)
+        self.assertEqual(len(result.warnings), 2)
 
     def test_native_builders_match_json_request_and_result(self):
         discount = rust_pricing.DiscountCurve(
