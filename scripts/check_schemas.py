@@ -667,10 +667,18 @@ def check_tagged_union_discriminators(schema: dict[str, Any], path: Path) -> Non
                 isinstance(required, list) and "type" in required,
                 f"{path}:{pointer(variant_path)}: union variant must require its type discriminator",
             )
+            require(
+                required[0] == "type",
+                f"{path}:{pointer((*variant_path, 'required'))}: union variant must list its type discriminator first",
+            )
             properties = variant.get("properties")
             require(
                 isinstance(properties, dict),
                 f"{path}:{pointer(variant_path)}: union variant must define properties",
+            )
+            require(
+                next(iter(properties), None) == "type",
+                f"{path}:{pointer((*variant_path, 'properties'))}: union variant must declare its type discriminator first",
             )
             discriminator = properties.get("type")
             require(
