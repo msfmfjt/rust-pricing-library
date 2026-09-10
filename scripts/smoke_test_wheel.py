@@ -1039,6 +1039,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Diagnostics", "discount_region"),
         ("Diagnostics", "direction_checksum"),
         ("Diagnostics", "dividend_region"),
+        ("Diagnostics", "estimator"),
         ("Diagnostics", "gamma_method"),
         ("Diagnostics", "gamma_spot_bump"),
         ("Diagnostics", "gamma_validation"),
@@ -1150,6 +1151,20 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             raise RuntimeError(
                 f"wheel type stub {class_name}.{method_name} must be a property"
             )
+    actual_static_methods = decorated_members(class_methods, "staticmethod")
+    if actual_static_methods != expected_static_methods:
+        raise RuntimeError(
+            "wheel type stub staticmethod set changed: "
+            f"missing={sorted(expected_static_methods - actual_static_methods)}, "
+            f"unexpected={sorted(actual_static_methods - expected_static_methods)}"
+        )
+    actual_properties = decorated_members(class_methods, "property")
+    if actual_properties != expected_properties:
+        raise RuntimeError(
+            "wheel type stub property set changed: "
+            f"missing={sorted(expected_properties - actual_properties)}, "
+            f"unexpected={sorted(actual_properties - expected_properties)}"
+        )
 
 
 def duplicates_in(values: list[str]) -> set[str]:
@@ -1190,6 +1205,18 @@ def decorator_names(node: ast.FunctionDef) -> set[str]:
         decorator.id
         for decorator in node.decorator_list
         if isinstance(decorator, ast.Name)
+    }
+
+
+def decorated_members(
+    class_methods: dict[str, dict[str, ast.FunctionDef]],
+    decorator_name: str,
+) -> set[tuple[str, str]]:
+    return {
+        (class_name, method_name)
+        for class_name, methods in class_methods.items()
+        for method_name, method in methods.items()
+        if decorator_name in decorator_names(method)
     }
 
 
