@@ -32,30 +32,30 @@ from check_replay_fixture import validate_risk_validation
 
 ROOT = Path(__file__).resolve().parents[1]
 EUROPEAN_MEASUREMENTS = (
-    "compile_price_only",
-    "evaluate_price_only",
-    "compile_full_risk",
-    "evaluate_aad_with_crn_bump_validation",
     "compile_crn_bump_validation",
+    "compile_full_risk",
+    "compile_price_only",
+    "evaluate_aad_with_crn_bump_validation",
     "evaluate_crn_bump_validation_price_only",
+    "evaluate_price_only",
 )
 
 LOCAL_VOL_MEASUREMENTS = (
-    "compile_price_only",
-    "evaluate_price_only",
     "compile_aad_local_vega",
-    "evaluate_aad_local_vega",
-    "compile_vega_kt_decomposition",
-    "evaluate_vega_kt_decomposition",
+    "compile_price_only",
     "compile_selected_crn_bump_validation",
+    "compile_vega_kt_decomposition",
+    "evaluate_aad_local_vega",
+    "evaluate_price_only",
     "evaluate_selected_crn_bump_validation_price_only",
+    "evaluate_vega_kt_decomposition",
 )
 
 PYTHON_MEASUREMENTS = (
-    "compile_full_risk_from_python",
-    "evaluate_full_risk_from_python",
     "compile_crn_bump_validation_from_python",
+    "compile_full_risk_from_python",
     "evaluate_crn_bump_validation_from_python",
+    "evaluate_full_risk_from_python",
     "result_value_getter",
 )
 REPORT_KEYS = (
