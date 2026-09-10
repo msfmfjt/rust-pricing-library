@@ -256,20 +256,37 @@ mod tests {
     }
 
     #[test]
-    fn request_rejects_pathwise_risk_for_digital_products() {
+    fn request_rejects_pathwise_risk_for_discontinuous_products() {
         let currency = CurrencyId::new(1);
-        let (product, market, model, engine, _) = components(currency, currency);
+        let (base, market, model, engine, _) = components(currency, currency);
         let digital = ProductSpec::Digital(
             DigitalSpec::new(
-                product.underlying(),
+                base.underlying(),
                 currency,
-                product.expiry(),
+                base.expiry(),
                 100.0,
                 10.0,
                 OptionSide::Call,
                 DigitalPayout::Cash,
             )
             .expect("digital"),
+        );
+        let barrier = ProductSpec::Barrier(
+            BarrierSpec::new(
+                base.underlying(),
+                currency,
+                base.expiry(),
+                100.0,
+                120.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                vec!["2027-03-04".parse().expect("monitoring"), base.expiry()],
+                None,
+                base.expiry(),
+            )
+            .expect("barrier"),
         );
         let risk = RiskRequest::new(
             true,
@@ -281,17 +298,19 @@ mod tests {
             None,
         )
         .expect("risk");
-        assert!(matches!(
-            PricingRequest::new(
-                "2026-09-04".parse().expect("valuation date"),
-                digital,
-                market,
-                model,
-                engine,
-                risk,
-            ),
-            Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
-        ));
+        for product in [digital, barrier] {
+            assert!(matches!(
+                PricingRequest::new(
+                    "2026-09-04".parse().expect("valuation date"),
+                    product,
+                    market.clone(),
+                    model.clone(),
+                    engine,
+                    risk.clone(),
+                ),
+                Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
+            ));
+        }
     }
 
     #[test]
