@@ -1151,6 +1151,60 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.instance_path, "")
                 self.assertIn("duplicate object member", issue.message)
 
+    def test_json_bom_comments_and_trailing_tokens_are_rejected(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        cases = [
+            (
+                "request BOM",
+                lambda: rust_pricing.PricingRequest.from_json("\ufeff" + self.request_json),
+                "pricing_request",
+            ),
+            (
+                "request comment",
+                lambda: rust_pricing.PricingRequest.from_json(
+                    self.request_json.replace("{", "{// comment\n", 1)
+                ),
+                "pricing_request",
+            ),
+            (
+                "request trailing token",
+                lambda: rust_pricing.PricingRequest.from_json(self.request_json + "{}"),
+                "pricing_request",
+            ),
+            (
+                "result BOM",
+                lambda: rust_pricing.PricingResult.from_json("\ufeff" + result.to_json()),
+                "pricing_result",
+            ),
+            (
+                "result comment",
+                lambda: rust_pricing.PricingResult.from_json(
+                    result.to_json().replace("{", "{// comment\n", 1)
+                ),
+                "pricing_result",
+            ),
+            (
+                "result trailing token",
+                lambda: rust_pricing.PricingResult.from_json(result.to_json() + "{}"),
+                "pricing_result",
+            ),
+        ]
+
+        for name, parser, document_kind in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    parser()
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "syntax_and_limits")
+                self.assertEqual(issue.code, "invalid_json")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, document_kind)
+                self.assertEqual(issue.instance_path, "")
+
     def test_json_resource_limit_error_reports_syntax_and_limits_phase(self):
         oversized_number = "1" * 129
         cases = [

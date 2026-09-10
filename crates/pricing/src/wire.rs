@@ -2862,6 +2862,35 @@ mod tests {
     }
 
     #[test]
+    fn strict_reader_rejects_bom_comments_and_trailing_tokens() {
+        let request_json = request_to_json(&request()).expect("request json");
+        let result_json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let cases = [
+            ("\u{feff}".to_owned() + &request_json, "request BOM"),
+            (
+                request_json.replacen("{", "{// comment\n", 1),
+                "request comment",
+            ),
+            (request_json.clone() + "{}", "request trailing token"),
+            ("\u{feff}".to_owned() + result_json, "result BOM"),
+            (
+                result_json.replacen("{", "{// comment\n", 1),
+                "result comment",
+            ),
+            (result_json.to_owned() + "{}", "result trailing token"),
+        ];
+
+        for (invalid, name) in cases {
+            let rejected = if name.starts_with("request") {
+                parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err()
+            } else {
+                parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err()
+            };
+            assert!(rejected, "{name} was accepted");
+        }
+    }
+
+    #[test]
     fn json_limits_report_stable_resource_names() {
         let cases = [
             (
