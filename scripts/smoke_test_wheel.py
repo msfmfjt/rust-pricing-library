@@ -615,6 +615,25 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 f"wheel type stub has duplicate members in {class_name}: {duplicate_members}"
             )
 
+    for function in [
+        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    ]:
+        if function.returns is None:
+            raise RuntimeError(
+                f"wheel type stub {function.name} is missing a return annotation"
+            )
+        arguments = (
+            function.args.posonlyargs + function.args.args + function.args.kwonlyargs
+        )
+        for argument in arguments:
+            if argument.arg in {"self", "cls"}:
+                continue
+            if argument.annotation is None:
+                raise RuntimeError(
+                    f"wheel type stub {function.name}.{argument.arg} "
+                    "is missing an argument annotation"
+                )
+
     known_names = {
         "None",
         "RuntimeError",
