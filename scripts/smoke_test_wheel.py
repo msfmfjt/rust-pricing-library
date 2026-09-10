@@ -28,6 +28,7 @@ def main() -> None:
         verify_wheel_archive_members(archive.namelist())
         members = {member for member in archive.namelist() if not member.endswith("/")}
         member_bytes = {member: archive.read(member) for member in members}
+        verify_wheel_text_members(member_bytes)
         verify_wheel_member_layout(members)
         if "rust_pricing/__init__.pyi" not in members:
             raise RuntimeError("wheel does not contain the rust_pricing.pyi type stub")
@@ -174,6 +175,31 @@ def verify_wheel_member_layout(members: set[str]) -> None:
     unexpected = sorted(member for member in members if not member.startswith(allowed_prefixes))
     if unexpected:
         raise RuntimeError(f"wheel contains unexpected top-level members: {unexpected}")
+
+
+def verify_wheel_text_members(member_bytes: dict[str, bytes]) -> None:
+    for member, data in sorted(member_bytes.items()):
+        if not is_wheel_text_member(member):
+            continue
+        if data.startswith(b"\xef\xbb\xbf"):
+            raise RuntimeError(f"wheel text member has a UTF-8 BOM: {member}")
+        if b"\r" in data:
+            raise RuntimeError(f"wheel text member must use LF newlines: {member}")
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RuntimeError(f"wheel text member must be valid UTF-8: {member}") from exc
+
+
+def is_wheel_text_member(member: str) -> bool:
+    if member in {"rust_pricing/__init__.py", "rust_pricing/__init__.pyi", "rust_pricing/py.typed"}:
+        return True
+    return (
+        member.endswith(".dist-info/METADATA")
+        or member.endswith(".dist-info/WHEEL")
+        or member.endswith(".dist-info/RECORD")
+        or member.endswith(".dist-info/sboms/pricing-python.cyclonedx.json")
+    )
 
 
 def verify_wheel_metadata(
