@@ -126,62 +126,62 @@ OPTIONAL_EMPTY_ARRAY_PATHS = {
 }
 EXPECTED_TAGGED_UNIONS = {
     "pricing_request": {
-        ("$defs", "asian_observation_value"): {"known", "unknown"},
-        ("$defs", "barrier_direction"): {"down", "up"},
-        ("$defs", "barrier_style"): {"knock_in", "knock_out"},
-        ("$defs", "digital_payout"): {"asset", "cash"},
-        ("$defs", "dividend_quote"): {
+        ("$defs", "asian_observation_value"): ("known", "unknown"),
+        ("$defs", "barrier_direction"): ("up", "down"),
+        ("$defs", "barrier_style"): ("knock_in", "knock_out"),
+        ("$defs", "digital_payout"): ("cash", "asset"),
+        ("$defs", "dividend_quote"): (
             "fixed_cash",
-            "fixed_cash_and_proportional",
             "proportional",
-        },
-        ("$defs", "engine"): {
+            "fixed_cash_and_proportional",
+        ),
+        ("$defs", "engine"): (
             "pseudo_monte_carlo",
             "randomized_quasi_monte_carlo",
-        },
-        ("$defs", "model"): {
-            "black_76",
+        ),
+        ("$defs", "model"): (
             "black_scholes",
+            "black_76",
             "local_volatility",
-        },
-        ("$defs", "product"): {
-            "arithmetic_asian",
-            "barrier",
-            "digital",
+        ),
+        ("$defs", "product"): (
             "european_vanilla",
+            "digital",
+            "barrier",
+            "arithmetic_asian",
             "fixed_lookback",
-        },
-        ("$defs", "side"): {"call", "put"},
-        ("$defs", "smile_dynamics"): {
-            "sticky_delta",
+        ),
+        ("$defs", "side"): ("call", "put"),
+        ("$defs", "smile_dynamics"): (
             "sticky_log_moneyness",
             "sticky_strike",
-        },
-        ("$defs", "spot_bump"): {"absolute", "relative"},
+            "sticky_delta",
+        ),
+        ("$defs", "spot_bump"): ("absolute", "relative"),
     },
     "pricing_result": {
-        ("$defs", "estimator"): {
+        ("$defs", "estimator"): (
             "analytical",
             "pseudo_monte_carlo",
             "randomized_quasi_monte_carlo",
-        },
-        ("$defs", "risk_unit"): {
-            "delta_one_percent_spot",
+        ),
+        ("$defs", "risk_unit"): (
             "delta_raw",
-            "gamma_one_percent_spot_squared",
+            "delta_one_percent_spot",
             "gamma_raw",
-            "vega_one_vol_point",
+            "gamma_one_percent_spot_squared",
             "vega_raw",
-        },
-        ("$defs", "vega_kt_bucket_unit"): {
+            "vega_one_vol_point",
+        ),
+        ("$defs", "vega_kt_bucket_unit"): (
             "currency_per_unit_absolute_volatility",
             "currency_per_volatility_point",
-        },
-        ("$defs", "vega_kt_covariance_entry"): {"unavailable", "value"},
-        ("$defs", "vega_kt_covariance_layout"): {
-            "full_bucket_matrix_row_major",
+        ),
+        ("$defs", "vega_kt_covariance_entry"): ("value", "unavailable"),
+        ("$defs", "vega_kt_covariance_layout"): (
             "price_and_bucket_variance_only",
-        },
+            "full_bucket_matrix_row_major",
+        ),
     },
 }
 
@@ -803,8 +803,8 @@ def check_tagged_union_discriminators(
         expected_tags = EXPECTED_TAGGED_UNIONS[document_kind].get(location)
         if expected_tags is not None:
             require(
-                set(tags) == expected_tags,
-                f"{path}:{pointer(location)}: tagged union variants changed",
+                tuple(tags) == expected_tags,
+                f"{path}:{pointer(location)}: tagged union variant order changed",
             )
     expected_union_locations = set(EXPECTED_TAGGED_UNIONS[document_kind])
     require(
