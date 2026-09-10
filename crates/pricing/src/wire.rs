@@ -2536,13 +2536,14 @@ mod tests {
             compact,
             include_str!("../../../fixtures/v1/pricing_request.golden.json")
         );
-        assert!(compact.ends_with('\n'));
+        assert_json_text_contract(&compact);
         let parsed = parse_request_json(compact.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")
         );
         let pretty = request_to_pretty_json(&parsed).expect("pretty");
+        assert_json_text_contract(&pretty);
         let reparsed =
             parse_request_json(pretty.as_bytes(), JsonLimits::DEFAULT).expect("parse pretty");
         assert_eq!(
@@ -2880,6 +2881,9 @@ mod tests {
             (result_json.to_owned() + "{}", "result trailing token"),
         ];
 
+        assert!(parse_request_json(&[0xff], JsonLimits::DEFAULT).is_err());
+        assert!(parse_result_json(&[0xff], JsonLimits::DEFAULT).is_err());
+
         for (invalid, name) in cases {
             let rejected = if name.starts_with("request") {
                 parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err()
@@ -3086,10 +3090,19 @@ mod tests {
             json,
             include_str!("../../../fixtures/v1/pricing_result.golden.json")
         );
+        assert_json_text_contract(&json);
+        assert_json_text_contract(&result_to_pretty_json(&result).expect("pretty json"));
         assert_eq!(
             parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("round trip"),
             result
         );
+    }
+
+    fn assert_json_text_contract(json: &str) {
+        let without_final_lf = json.strip_suffix('\n').expect("final newline");
+        assert!(!without_final_lf.ends_with('\n'));
+        assert!(!json.as_bytes().starts_with(&[0xef, 0xbb, 0xbf]));
+        assert!(!json.contains("\r\n"));
     }
 
     #[test]

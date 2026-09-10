@@ -15,6 +15,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             "fixtures/v1/pricing_request.golden.json"
         ).read_text(encoding="utf-8")
 
+    def assert_json_text_contract(self, text):
+        self.assertTrue(text.endswith("\n"))
+        self.assertFalse(text[:-1].endswith("\n"))
+        self.assertFalse(text.startswith("\ufeff"))
+        self.assertNotIn("\r\n", text)
+
     def test_compile_evaluate_and_serialize(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
         self.assertTrue(request.fingerprint.startswith("blake3-256:"))
@@ -815,7 +821,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
 
     def test_pretty_json_helpers_round_trip(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
+        self.assert_json_text_contract(request.to_json())
         pretty_request = request.to_pretty_json()
+        self.assert_json_text_contract(pretty_request)
         self.assertIn("\n  ", pretty_request)
         self.assertEqual(
             rust_pricing.PricingRequest.from_json(pretty_request).to_json(),
@@ -825,7 +833,9 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         result = rust_pricing.PricingPlan.compile(
             request, worker_threads=2, reduction_block_size=256
         ).evaluate()
+        self.assert_json_text_contract(result.to_json())
         pretty_result = result.to_pretty_json()
+        self.assert_json_text_contract(pretty_result)
         self.assertIn("\n  ", pretty_result)
         self.assertEqual(
             rust_pricing.PricingResult.from_json(pretty_result).to_json(),
