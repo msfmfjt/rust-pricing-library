@@ -987,17 +987,26 @@ class PricingFacadeSmokeTest(unittest.TestCase):
     def test_runtime_reprs_expose_stable_debug_context(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        dividend_event = rust_pricing.DividendEvent.fixed_cash(77, 0.25, 1.5)
+        unknown_observation = rust_pricing.AsianObservation.unknown("2026-12-04", 1.0)
+        known_observation = rust_pricing.AsianObservation.known(
+            "2026-09-04", 0.5, 101.0
+        )
+        essvi_slice = rust_pricing.EssviSlice(1.0, 0.04, 0.2, -0.08)
         product = rust_pricing.Product.european_vanilla(
             1, 2, "2027-09-04", 100.0, 1.0, "call"
         )
         market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
+        model = rust_pricing.Model.black_scholes(0.2)
+        engine = rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True)
+        risk = rust_pricing.RiskRequest(delta=True, gamma_relative_bump=0.01, vega=True)
         request = rust_pricing.PricingRequest(
             "2026-09-04",
             product,
             market,
-            rust_pricing.Model.black_scholes(0.2),
-            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
-            rust_pricing.RiskRequest(delta=True, gamma_relative_bump=0.01, vega=True),
+            model,
+            engine,
+            risk,
         )
         plan = rust_pricing.PricingPlan.compile(
             request, worker_threads=1, reduction_block_size=256
@@ -1006,8 +1015,15 @@ class PricingFacadeSmokeTest(unittest.TestCase):
 
         reprs = {
             "curve": repr(discount),
+            "dividend_event": repr(dividend_event),
+            "unknown_observation": repr(unknown_observation),
+            "known_observation": repr(known_observation),
+            "essvi_slice": repr(essvi_slice),
             "product": repr(product),
             "market": repr(market),
+            "model": repr(model),
+            "engine": repr(engine),
+            "risk": repr(risk),
             "request": repr(request),
             "plan": repr(plan),
             "result": repr(result),
@@ -1016,8 +1032,25 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             "diagnostics": repr(result.diagnostics),
         }
         self.assertEqual(reprs["curve"], "DiscountCurve(curve_id=10)")
+        self.assertEqual(
+            reprs["dividend_event"], "DividendEvent(event_id=77, ex_time=0.25)"
+        )
+        self.assertEqual(
+            reprs["unknown_observation"],
+            "AsianObservation(date='2026-12-04', weight=1, fixing=None)",
+        )
+        self.assertEqual(
+            reprs["known_observation"],
+            "AsianObservation(date='2026-09-04', weight=0.5, fixing=101)",
+        )
+        self.assertEqual(
+            reprs["essvi_slice"], "EssviSlice(time=1, theta=0.04, psi=0.2, rho_psi=-0.08)"
+        )
         self.assertEqual(reprs["product"], 'Product(type="european_vanilla")')
         self.assertEqual(reprs["market"], "Market(type='equity')")
+        self.assertEqual(reprs["model"], 'Model(type="black_scholes")')
+        self.assertEqual(reprs["engine"], 'Engine(type="pseudo_monte_carlo")')
+        self.assertEqual(reprs["risk"], "RiskRequest()")
         self.assertRegex(
             reprs["request"], r'^PricingRequest\(fingerprint="blake3-256:[0-9a-f]{64}"\)$'
         )
