@@ -239,6 +239,8 @@ REQUIRED_SCHEMA_CHECK_SNIPPETS = {
     "EXPECTED_TAGGED_UNIONS = {",
     "tagged union variant order changed",
     "tagged union locations changed",
+    "collect_local_ref_targets",
+    "unreferenced $defs entries",
     "required fields must lead properties in order",
     "const schema must declare its JSON type",
     "array schema must declare object items",

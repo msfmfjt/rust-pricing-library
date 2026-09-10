@@ -599,8 +599,8 @@ def collect_defs(schema: dict[str, Any]) -> set[str]:
     return set(defs)
 
 
-def check_refs(schema: dict[str, Any], path: Path) -> None:
-    defs = collect_defs(schema)
+def collect_local_ref_targets(schema: dict[str, Any], path: Path, defs: set[str]) -> set[str]:
+    targets = set()
     for location, value in walk(schema):
         if isinstance(value, dict) and "$ref" in value:
             ref = value["$ref"]
@@ -608,6 +608,15 @@ def check_refs(schema: dict[str, Any], path: Path) -> None:
             require(ref.startswith("#/$defs/"), f"{path}:{pointer(location)}: $ref must be local to $defs")
             target = ref.removeprefix("#/$defs/")
             require(target in defs, f"{path}:{pointer(location)}: unresolved $ref {ref}")
+            targets.add(target)
+    return targets
+
+
+def check_refs(schema: dict[str, Any], path: Path) -> None:
+    defs = collect_defs(schema)
+    targets = collect_local_ref_targets(schema, path, defs)
+    unused = sorted(defs - targets)
+    require(not unused, f"{path}: unreferenced $defs entries: {unused}")
 
 
 def check_no_json_null(schema: dict[str, Any], path: Path) -> None:
