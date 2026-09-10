@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import difflib
 import json
 from pathlib import Path
@@ -33,9 +34,9 @@ SUPPORTED_PLATFORMS = {
 }
 FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 FLOAT_BITS = re.compile(r"^[0-9a-f]{16}$")
-REPLAY_DOCUMENT_KEYS = {"cases", "fixture_kind", "platform", "schema_version"}
-REPLAY_CASE_KEYS = {"execution", "name", "plan", "request", "result"}
-REPLAY_REQUEST_KEYS = {
+REPLAY_DOCUMENT_KEYS = ("cases", "fixture_kind", "platform", "schema_version")
+REPLAY_CASE_KEYS = ("execution", "name", "plan", "request", "result")
+REPLAY_REQUEST_KEYS = (
     "document_kind",
     "engine",
     "market",
@@ -44,28 +45,28 @@ REPLAY_REQUEST_KEYS = {
     "risk",
     "schema_version",
     "valuation_date",
-}
-REPLAY_RESULT_KEYS = {
+)
+REPLAY_RESULT_KEYS = (
     "diagnostics",
     "document_kind",
     "replay",
     "risks",
     "schema_version",
     "value",
-}
-REPLAY_METADATA_KEYS = {
+)
+REPLAY_METADATA_KEYS = (
     "library_version",
     "platform",
     "request_fingerprint",
     "schema_version",
-}
-REPLAY_PLAN_KEYS = {
+)
+REPLAY_PLAN_KEYS = (
     "plan_fingerprint",
     "reduction_block_size",
     "request_fingerprint",
     "worker_threads",
-}
-REPLAY_EXECUTION_KEYS = {
+)
+REPLAY_EXECUTION_KEYS = (
     "estimator_variance_bits",
     "evaluated_paths",
     "independent_sampling_units",
@@ -73,8 +74,8 @@ REPLAY_EXECUTION_KEYS = {
     "risk_methods",
     "risk_validation",
     "sampling_variance_bits",
-}
-REPLAY_MONTE_CARLO_KEYS = {
+)
+REPLAY_MONTE_CARLO_KEYS = (
     "aad_tile_capacity",
     "aad_tile_policy_version",
     "antithetic",
@@ -91,8 +92,8 @@ REPLAY_MONTE_CARLO_KEYS = {
     "scramble_checksum",
     "scramble_count",
     "worker_threads",
-}
-REPLAY_RISK_METHOD_KEYS = {
+)
+REPLAY_RISK_METHOD_KEYS = (
     "bump_policy_version",
     "delta",
     "gamma",
@@ -101,21 +102,21 @@ REPLAY_RISK_METHOD_KEYS = {
     "validation_spot_bump_bits",
     "validation_volatility_bump_bits",
     "vega",
-}
+)
 REPLAY_RISK_METHOD_VALUES = {
     "aad_reverse",
     "central_bump",
     "central_bump_of_aad_delta",
 }
-REPLAY_RISK_VALIDATION_KEYS = {"delta", "gamma", "vega"}
-REPLAY_RISK_VALIDATION_REPORT_KEYS = {"bump_and_revalue", "bump_minus_primary"}
-REPLAY_ESTIMATE_BITS_KEYS = {
+REPLAY_RISK_VALIDATION_KEYS = ("delta", "gamma", "vega")
+REPLAY_RISK_VALIDATION_REPORT_KEYS = ("bump_and_revalue", "bump_minus_primary")
+REPLAY_ESTIMATE_BITS_KEYS = (
     "confidence_lower_bits",
     "confidence_upper_bits",
     "effective_sampling_units",
     "standard_error_bits",
     "value_bits",
-}
+)
 
 
 def main() -> None:
@@ -415,16 +416,19 @@ def require_object(path: Path, value: object, field: str) -> dict[str, object]:
 def require_exact_keys(
     path: Path,
     document: dict[str, object],
-    expected_keys: set[str],
+    expected_keys: Sequence[str],
     field: str,
 ) -> None:
+    expected_key_set = set(expected_keys)
     actual_keys = set(document)
-    missing = sorted(expected_keys.difference(actual_keys))
+    missing = sorted(expected_key_set.difference(actual_keys))
     if missing:
         raise SystemExit(f"{path}: {field} missing keys: {missing}")
-    unexpected = sorted(actual_keys.difference(expected_keys))
+    unexpected = sorted(actual_keys.difference(expected_key_set))
     if unexpected:
         raise SystemExit(f"{path}: {field} unexpected keys: {unexpected}")
+    if list(document) != list(expected_keys):
+        raise SystemExit(f"{path}: {field} key order changed")
 
 
 def require_fingerprint(path: Path, value: object, field: str) -> str:

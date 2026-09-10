@@ -227,6 +227,7 @@ REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
     "if generated_text != expected_text:",
     "difflib.unified_diff",
     "require_exact_keys(path, document, REPLAY_DOCUMENT_KEYS, \"replay document\")",
+    "key order changed",
     "case_names != expected_case_names",
     "plan/result request fingerprints do not match",
     "result.replay.library_version must match Cargo workspace version",
