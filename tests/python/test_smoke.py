@@ -961,6 +961,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.PricingResult.replay_request_fingerprint.__doc__,
         )
 
+    def test_runtime_version_matches_module_version(self):
+        self.assertEqual(rust_pricing.version(), rust_pricing.__version__)
+        self.assertEqual(rust_pricing.__version__, "0.1.0")
+
     def test_bundled_json_schemas_are_exported(self):
         request_schema_text = rust_pricing.request_json_schema()
         result_schema_text = rust_pricing.result_json_schema()
