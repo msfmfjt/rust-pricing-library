@@ -825,6 +825,20 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(len(vega_kt.raw_buckets), 6)
         self.assertEqual(len(vega_kt.full_bucket_covariance), 36)
         self.assertTrue(math.isfinite(vega_kt.projection.scalar_vega))
+        self.assertIn("VegaKtResult(buckets=6, covariance_layout=", repr(vega_kt))
+        self.assertIn("VegaKtCoordinate(maturity=", repr(vega_kt.coordinates[0]))
+        self.assertIn(
+            "VegaKtBucketEstimate(raw_mean=", repr(vega_kt.estimates[0])
+        )
+        self.assertIn("VegaKtProjection(scalar_vega=", repr(vega_kt.projection))
+        self.assertIn(
+            "VegaKtReportingStats(left_edge_count=",
+            repr(vega_kt.projection.reporting_stats),
+        )
+        self.assertIn(
+            "VegaKtResidualDiagnostics(active_domain_start_index=",
+            repr(vega_kt.residual_diagnostics),
+        )
         result_json = result.to_json()
         self.assertNotIn("null", result_json)
         payload = json.loads(result_json)

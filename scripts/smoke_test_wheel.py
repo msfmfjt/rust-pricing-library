@@ -902,29 +902,34 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "__ne__",
         },
         "VegaKtBucketEstimate": {
+            "__repr__",
             "raw_mean",
             "market_scaled_mean",
             "sample_variance",
             "price_covariance",
         },
         "VegaKtCoordinate": {
+            "__repr__",
             "maturity",
             "log_moneyness",
             "implied_volatility",
         },
         "VegaKtProjection": {
+            "__repr__",
             "scalar_vega",
             "signed_residual",
             "pre_projection",
             "reporting_stats",
         },
         "VegaKtReportingStats": {
+            "__repr__",
             "left_edge_count",
             "right_edge_count",
             "left_edge_sensitivity",
             "right_edge_sensitivity",
         },
         "VegaKtResidualDiagnostics": {
+            "__repr__",
             "active_domain_start_index",
             "active_domain_end_index",
             "active_domain_forward_index",
@@ -934,6 +939,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "reporting_stats",
         },
         "VegaKtResult": {
+            "__repr__",
             "coordinates",
             "estimates",
             "raw_buckets",

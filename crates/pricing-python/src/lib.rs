@@ -374,6 +374,15 @@ impl PyVegaKtCoordinate {
     fn implied_volatility(&self) -> f64 {
         self.inner.implied_volatility().get()
     }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtCoordinate(maturity={:?}, log_moneyness={:?}, implied_volatility={:?})",
+            self.maturity(),
+            self.log_moneyness(),
+            self.implied_volatility()
+        )
+    }
 }
 
 /// One VegaKT bucket estimate with raw and market-scaled units.
@@ -404,6 +413,14 @@ impl PyVegaKtBucketEstimate {
     fn price_covariance(&self) -> Option<f64> {
         self.inner.price_covariance().map(|value| value.get())
     }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtBucketEstimate(raw_mean={:?}, market_scaled_mean={:?})",
+            self.raw_mean(),
+            self.market_scaled_mean()
+        )
+    }
 }
 
 /// Reporting-edge sensitivity diagnostics for VegaKT projection.
@@ -433,6 +450,14 @@ impl PyVegaKtReportingStats {
     #[getter]
     fn right_edge_sensitivity(&self) -> f64 {
         self.inner.right_edge_sensitivity().get()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtReportingStats(left_edge_count={}, right_edge_count={})",
+            self.left_edge_count(),
+            self.right_edge_count()
+        )
     }
 }
 
@@ -465,6 +490,14 @@ impl PyVegaKtProjection {
         PyVegaKtReportingStats {
             inner: self.inner.reporting_stats(),
         }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtProjection(scalar_vega={:?}, signed_residual={:?})",
+            self.scalar_vega(),
+            self.signed_residual()
+        )
     }
 }
 
@@ -512,6 +545,15 @@ impl PyVegaKtResidualDiagnostics {
         PyVegaKtReportingStats {
             inner: self.inner.reporting_stats(),
         }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtResidualDiagnostics(active_domain_start_index={}, active_domain_end_index={}, active_domain_forward_index={})",
+            self.active_domain_start_index(),
+            self.active_domain_end_index(),
+            self.active_domain_forward_index()
+        )
     }
 }
 
@@ -600,6 +642,14 @@ impl PyVegaKtResult {
     #[getter]
     fn truncation_order(&self) -> &str {
         self.inner.truncation_order()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtResult(buckets={}, covariance_layout={:?})",
+            self.inner.coordinates().len(),
+            self.covariance_layout()
+        )
     }
 }
 
