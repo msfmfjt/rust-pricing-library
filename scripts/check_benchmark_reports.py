@@ -107,6 +107,12 @@ BASE_CAPABILITY_KEYS = (
     "peak_memory_available_in_process",
     "standalone_bump_timing_available",
 )
+BASE_CAPABILITIES = {
+    "aad_and_bump_timing_separable": False,
+    "allocation_count_available": False,
+    "peak_memory_available_in_process": True,
+    "standalone_bump_timing_available": True,
+}
 LOCAL_VOL_CAPABILITY_KEYS = (
     "aad_local_vega_timing_available",
     "allocation_count_available",
@@ -114,7 +120,32 @@ LOCAL_VOL_CAPABILITY_KEYS = (
     "standalone_spot_and_local_variance_bump_timing_available",
     "vega_kt_decomposition_timing_available",
 )
+LOCAL_VOL_CAPABILITIES = {
+    "aad_local_vega_timing_available": True,
+    "allocation_count_available": False,
+    "peak_memory_available_in_process": True,
+    "standalone_spot_and_local_variance_bump_timing_available": True,
+    "vega_kt_decomposition_timing_available": True,
+}
 PYTHON_CAPABILITY_KEYS = ("peak_memory_available_in_process",)
+PYTHON_CAPABILITIES = {"peak_memory_available_in_process": True}
+BASE_NOTES = (
+    "The full-risk kernel computes AAD Delta/Vega, central-bumped AAD Delta Gamma, and CRN bump validations in one execution.",
+    "The standalone bump case evaluates base, Spot-down/up, and volatility-down/up Price-only plans with common random numbers.",
+    "Results are an optimization baseline and not a latency SLA.",
+)
+LOCAL_VOL_NOTES = (
+    "The AAD Local Vega workload computes scalar Local Volatility Vega without VegaKT reporting projection.",
+    "The VegaKT workload computes Delta, bumped Gamma, scalar Vega, VegaKT buckets, and full bucket covariance.",
+    "The standalone bump case evaluates base, Spot-down/up, and uniform local-variance-down/up Price-only plans with common random numbers.",
+    "Results are an optimization baseline and not a latency SLA.",
+)
+PYTHON_NOTES = (
+    "Compile/evaluate release the GIL; timings include the Python-to-Rust call boundary.",
+    "The full-risk kernel includes AAD and its CRN bump validations.",
+    "The standalone bump case evaluates base, Spot-down/up, and volatility-down/up Price-only plans with common random numbers.",
+    "Results are an optimization baseline and not a latency SLA.",
+)
 
 EXPECTED_ARTIFACTS = {
     "rust.json",
@@ -305,23 +336,12 @@ def check_report(
         LOCAL_VOL_CAPABILITY_KEYS if local_volatility else BASE_CAPABILITY_KEYS
     )
     require_exact_keys(capabilities, expected_capability_keys, path, "capabilities")
-    require(
-        capabilities.get("peak_memory_available_in_process") is True,
-        path,
-        "peak memory capability must be true",
-    )
-    if local_volatility:
-        require(
-            capabilities.get("aad_local_vega_timing_available") is True,
-            path,
-            "AAD Local Vega timing capability must be true",
-        )
-        require(
-            capabilities.get("vega_kt_decomposition_timing_available") is True,
-            path,
-            "VegaKT timing capability must be true",
-        )
-    require_string_array(document.get("notes"), path, "notes")
+    expected_capabilities = LOCAL_VOL_CAPABILITIES if local_volatility else BASE_CAPABILITIES
+    require(capabilities == expected_capabilities, path, "capabilities mismatch")
+    notes = document.get("notes")
+    require_string_array(notes, path, "notes")
+    expected_notes = LOCAL_VOL_NOTES if local_volatility else BASE_NOTES
+    require(notes == list(expected_notes), path, "notes mismatch")
 
 
 def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> None:
@@ -570,12 +590,10 @@ def check_python_report(path: Path, library_version: str) -> None:
         path,
         "capabilities",
     )
-    require(
-        capabilities.get("peak_memory_available_in_process") is True,
-        path,
-        "peak memory capability must be true",
-    )
-    require_string_array(document.get("notes"), path, "notes")
+    require(capabilities == PYTHON_CAPABILITIES, path, "capabilities mismatch")
+    notes = document.get("notes")
+    require_string_array(notes, path, "notes")
+    require(notes == list(PYTHON_NOTES), path, "notes mismatch")
 
 
 def check_measurement(
