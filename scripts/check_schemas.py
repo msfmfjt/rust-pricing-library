@@ -371,6 +371,18 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
         )
 
 
+def check_integer_fields_are_bounded(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict) or value.get("type") != "integer":
+            continue
+        require(
+            isinstance(value.get("minimum"), int)
+            and isinstance(value.get("maximum"), int)
+            and value["minimum"] <= value["maximum"],
+            f"{path}:{pointer(location)}: integer schema must declare finite minimum and maximum",
+        )
+
+
 def check_request_integer_limits(schema: dict[str, Any], path: Path) -> None:
     if path != EXPECTED_SCHEMAS["pricing_request"]:
         return
@@ -738,6 +750,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
+    check_integer_fields_are_bounded(schema, path)
     check_request_integer_limits(schema, path)
     check_result_integer_limits(schema, path)
     check_request_digital_payment_date_contract(schema, path)
