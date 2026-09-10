@@ -162,7 +162,7 @@
       "properties": {
         "time_nodes": {"type": "array", "minItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}},
         "log_forward_moneyness_nodes": {"type": "array", "minItems": 2, "items": {"type": "number"}},
-        "shape": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 2}},
+        "shape": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 2, "maximum": 18446744073709551615}},
         "values": {"type": "array", "minItems": 4, "items": {"type": "number", "exclusiveMinimum": 0}},
         "floor": {"type": "number", "minimum": 0},
         "cap": {"type": "number", "exclusiveMinimum": 0}
@@ -174,7 +174,7 @@
       "properties": {
         "maturity_nodes": {"type": "array", "minItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}},
         "log_forward_moneyness_nodes": {"type": "array", "minItems": 2, "items": {"type": "number"}},
-        "shape": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 2}},
+        "shape": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 2, "maximum": 18446744073709551615}},
         "implied_volatilities": {"type": "array", "minItems": 4, "items": {"type": "number", "exclusiveMinimum": 0}}
       }
     },

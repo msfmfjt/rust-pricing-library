@@ -119,6 +119,7 @@ RESULT_INTEGER_LIMITS = {
     "left_edge_count": (0, 18_446_744_073_709_551_615),
     "right_edge_count": (0, 18_446_744_073_709_551_615),
 }
+SHAPE_DIMENSION_MAXIMUM = 18_446_744_073_709_551_615
 
 
 class SchemaError(Exception):
@@ -364,8 +365,9 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
             and definition.get("maxItems") == 2
             and isinstance(items, dict)
             and items.get("type") == "integer"
-            and items.get("minimum") == 2,
-            f"{path}:{pointer(field_location)}: shape must be a two-dimensional integer array",
+            and items.get("minimum") == 2
+            and items.get("maximum") == SHAPE_DIMENSION_MAXIMUM,
+            f"{path}:{pointer(field_location)}: shape must be a two-dimensional bounded integer array",
         )
 
 
