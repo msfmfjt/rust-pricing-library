@@ -184,6 +184,19 @@ REQUIRED_SCHEMA_CHECK_SNIPPETS = {
     "schema_version must match its Rust integer width",
 }
 
+REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
+    "if generated_text != expected_text:",
+    "difflib.unified_diff",
+    "require_exact_keys(path, document, REPLAY_DOCUMENT_KEYS, \"replay document\")",
+    "case_names != expected_case_names",
+    "plan/result request fingerprints do not match",
+    "result.replay.library_version must match Cargo workspace version",
+    "result.replay.platform must match artifact platform",
+    "price-only case must not carry VegaKT",
+    "full_bucket_matrix_row_major",
+    "must contain 36 row-major entries",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -311,6 +324,7 @@ def main() -> int:
         check_ci_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
+        check_replay_fixture_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -480,6 +494,19 @@ def check_schema_validation_gate(package: tarfile.TarFile, archive: str) -> None
     if missing:
         raise SystemExit(
             f"{archive}: schema validation is missing required gates: {missing}"
+        )
+
+
+def check_replay_fixture_gate(package: tarfile.TarFile, archive: str) -> None:
+    replay_check = read_text(package, "scripts/check_replay_fixture.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS
+        if snippet not in replay_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: replay fixture validation is missing required gates: {missing}"
         )
 
 
