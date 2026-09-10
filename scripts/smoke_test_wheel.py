@@ -408,6 +408,9 @@ def verify_cyclonedx_sbom(
     component = metadata.get("component")
     if not isinstance(component, dict):
         raise RuntimeError("wheel CycloneDX SBOM metadata.component must be an object")
+    root_ref = component.get("bom-ref")
+    if not isinstance(root_ref, str) or not root_ref:
+        raise RuntimeError("wheel CycloneDX SBOM root component has no bom-ref")
     if component.get("name") != "pricing-python" or component.get("version") != version:
         raise RuntimeError("wheel CycloneDX SBOM root component metadata mismatch")
     if component.get("type") != "library" or component.get("scope") != "required":
@@ -427,6 +430,7 @@ def verify_cyclonedx_sbom(
     components = sbom.get("components")
     if not isinstance(components, list):
         raise RuntimeError("wheel CycloneDX SBOM components must be an array")
+    known_refs = {root_ref}
     required_workspace_components = {
         "pricing",
         "pricing-aad",
@@ -449,6 +453,7 @@ def verify_cyclonedx_sbom(
         if bom_ref in component_refs:
             raise RuntimeError(f"wheel CycloneDX SBOM component bom-ref duplicated: {bom_ref}")
         component_refs.add(bom_ref)
+        known_refs.add(bom_ref)
         name = component.get("name")
         if not isinstance(name, str) or not name:
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no name")
@@ -464,11 +469,18 @@ def verify_cyclonedx_sbom(
     dependencies = sbom.get("dependencies")
     if not isinstance(dependencies, list) or not dependencies:
         raise RuntimeError("wheel CycloneDX SBOM dependencies must be a non-empty array")
+    dependency_refs = set()
     for index, dependency in enumerate(dependencies, start=1):
         if not isinstance(dependency, dict):
             raise RuntimeError(f"wheel CycloneDX SBOM dependency {index} must be an object")
-        if not isinstance(dependency.get("ref"), str) or not dependency["ref"]:
+        ref = dependency.get("ref")
+        if not isinstance(ref, str) or not ref:
             raise RuntimeError(f"wheel CycloneDX SBOM dependency {index} has no ref")
+        if ref in dependency_refs:
+            raise RuntimeError(f"wheel CycloneDX SBOM dependency ref duplicated: {ref}")
+        dependency_refs.add(ref)
+        if ref not in known_refs:
+            raise RuntimeError(f"wheel CycloneDX SBOM dependency ref is unknown: {ref}")
         depends_on = dependency.get("dependsOn")
         if depends_on is not None and (not isinstance(depends_on, list) or not all(
             isinstance(item, str) and item for item in depends_on
@@ -476,6 +488,14 @@ def verify_cyclonedx_sbom(
             raise RuntimeError(
                 f"wheel CycloneDX SBOM dependency {index} must list string dependsOn refs"
             )
+        for dependency_ref in depends_on or []:
+            if dependency_ref not in known_refs:
+                raise RuntimeError(
+                    f"wheel CycloneDX SBOM dependency dependsOn ref is unknown: {dependency_ref}"
+                )
+    if dependency_refs != known_refs:
+        missing = sorted(known_refs.difference(dependency_refs))
+        raise RuntimeError(f"wheel CycloneDX SBOM dependencies missing refs: {missing}")
 
 
 def verify_workspace_sbom_component(
