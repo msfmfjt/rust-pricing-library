@@ -2721,6 +2721,70 @@ mod tests {
     }
 
     #[test]
+    fn json_limits_report_stable_resource_names() {
+        let cases = [
+            (
+                br#"{"document_kind":"pricing_request"}"#.as_slice(),
+                JsonLimits {
+                    max_string_bytes: 8,
+                    ..JsonLimits::DEFAULT
+                },
+                "string_bytes",
+            ),
+            (
+                b"1234".as_slice(),
+                JsonLimits {
+                    max_number_token_bytes: 3,
+                    ..JsonLimits::DEFAULT
+                },
+                "number_token_bytes",
+            ),
+            (
+                b"[[[]]]".as_slice(),
+                JsonLimits {
+                    max_nesting_depth: 2,
+                    ..JsonLimits::DEFAULT
+                },
+                "nesting_depth",
+            ),
+            (
+                b"[1,2]".as_slice(),
+                JsonLimits {
+                    max_array_elements: 1,
+                    ..JsonLimits::DEFAULT
+                },
+                "array_elements",
+            ),
+            (
+                br#"{"a":1,"b":2}"#.as_slice(),
+                JsonLimits {
+                    max_object_members: 1,
+                    ..JsonLimits::DEFAULT
+                },
+                "object_members",
+            ),
+            (
+                b"[1]".as_slice(),
+                JsonLimits {
+                    max_total_values: 1,
+                    ..JsonLimits::DEFAULT
+                },
+                "total_values",
+            ),
+        ];
+
+        for (input, limits, expected_name) in cases {
+            assert!(
+                matches!(
+                    parse_request_json(input, limits),
+                    Err(WireError::ResourceLimit { name, .. }) if name == expected_name
+                ),
+                "expected resource limit {expected_name}"
+            );
+        }
+    }
+
+    #[test]
     fn bundled_schemas_are_draft_2020_12_json() {
         for schema in [current_request_schema(), current_result_schema()] {
             let value: Value = serde_json::from_str(schema).expect("schema JSON");
