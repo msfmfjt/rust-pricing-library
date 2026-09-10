@@ -163,6 +163,8 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",
     "unexpected runtime symbols",
     "unexpected runtime members on",
+    "expected_class_members",
+    "\"__repr__\"",
     "is missing a return annotation",
     "is missing an argument annotation",
     "wheel type stub has unresolved names",
