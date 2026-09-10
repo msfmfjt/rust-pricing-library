@@ -2853,6 +2853,23 @@ mod tests {
                 "request JSON accepted schema_version {schema_version}"
             );
         }
+        for (field, original) in [
+            ("underlying_id", "\"underlying_id\":1"),
+            ("curve_id", "\"curve_id\":10"),
+            ("master_seed", "\"master_seed\":7"),
+            (
+                "independent_sampling_units",
+                "\"independent_sampling_units\":1024",
+            ),
+        ] {
+            for value in ["1.0", "1e0", "-0", "\"1\""] {
+                let invalid = json.replacen(original, &format!("\"{field}\":{value}"), 1);
+                assert!(
+                    parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                    "request JSON accepted {field} {value}"
+                );
+            }
+        }
     }
 
     #[test]
