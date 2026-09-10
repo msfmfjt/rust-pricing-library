@@ -17,16 +17,16 @@ FIXTURE_PREFIXES = {
     "local_volatility_replay": "local_volatility",
 }
 EXPECTED_CASE_NAMES = {
-    "european_black_scholes_replay": {
+    "european_black_scholes_replay": (
         "pseudo_mc_full_risk",
         "rqmc_full_risk",
-    },
-    "local_volatility_replay": {
+    ),
+    "local_volatility_replay": (
         "pseudo_mc_price_only",
         "rqmc_price_only",
         "pseudo_mc_delta_gamma_vega_vegakt",
         "rqmc_delta_gamma_vega_vegakt",
-    },
+    ),
 }
 SUPPORTED_PLATFORMS = {
     "macos-aarch64",
@@ -195,7 +195,7 @@ def replay_identity(
     cases = document.get("cases")
     if not isinstance(cases, list) or not cases:
         raise SystemExit(f"{path}: replay evidence cases must be a non-empty array")
-    case_names = set()
+    case_names = []
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             raise SystemExit(f"{path}: cases[{index}] must be an object")
@@ -205,15 +205,18 @@ def replay_identity(
             raise SystemExit(f"{path}: cases[{index}].name must be a non-empty string")
         if name in case_names:
             raise SystemExit(f"{path}: duplicate replay case name: {name}")
-        case_names.add(name)
+        case_names.append(name)
         validate_case(path, index, case, fixture_kind, platform, library_version)
-    expected_case_names = EXPECTED_CASE_NAMES[fixture_kind]
-    if case_names != expected_case_names:
+    expected_case_names = set(EXPECTED_CASE_NAMES[fixture_kind])
+    actual_case_names = set(case_names)
+    if actual_case_names != expected_case_names:
         raise SystemExit(
             f"{path}: replay case set mismatch; "
-            f"missing={sorted(expected_case_names - case_names)}, "
-            f"unexpected={sorted(case_names - expected_case_names)}"
+            f"missing={sorted(expected_case_names - actual_case_names)}, "
+            f"unexpected={sorted(actual_case_names - expected_case_names)}"
         )
+    if tuple(case_names) != EXPECTED_CASE_NAMES[fixture_kind]:
+        raise SystemExit(f"{path}: replay case order changed")
     return fixture_kind, platform
 
 

@@ -229,6 +229,7 @@ REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
     "require_exact_keys(path, document, REPLAY_DOCUMENT_KEYS, \"replay document\")",
     "key order changed",
     "case_names != expected_case_names",
+    "replay case order changed",
     "plan/result request fingerprints do not match",
     "result.replay.library_version must match Cargo workspace version",
     "result.replay.platform must match artifact platform",
