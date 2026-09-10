@@ -993,6 +993,164 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 f"missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}"
             )
 
+    expected_static_methods = {
+        ("AsianObservation", "known"),
+        ("AsianObservation", "unknown"),
+        ("DividendEvent", "fixed_cash"),
+        ("DividendEvent", "fixed_cash_and_proportional"),
+        ("DividendEvent", "proportional"),
+        ("Engine", "pseudo_monte_carlo"),
+        ("Engine", "randomized_quasi_monte_carlo"),
+        ("Market", "equity"),
+        ("Model", "black_76"),
+        ("Model", "black_scholes"),
+        ("Model", "local_volatility_from_essvi"),
+        ("Model", "local_volatility_from_grid"),
+        ("Model", "local_volatility_from_grid_with_reporting_basis"),
+        ("Model", "local_volatility_from_standard_ssvi_heston_like"),
+        ("Model", "local_volatility_from_standard_ssvi_power_law"),
+        ("PricingPlan", "compile"),
+        ("PricingRequest", "from_json"),
+        ("PricingResult", "from_json"),
+        ("Product", "arithmetic_asian"),
+        ("Product", "barrier"),
+        ("Product", "digital"),
+        ("Product", "european_vanilla"),
+        ("Product", "fixed_lookback"),
+    }
+    expected_properties = {
+        ("AsianObservation", "date"),
+        ("AsianObservation", "fixing"),
+        ("AsianObservation", "weight"),
+        ("DiscountCurve", "curve_id"),
+        ("DiagnosticEstimate", "confidence_interval"),
+        ("DiagnosticEstimate", "effective_sampling_units"),
+        ("DiagnosticEstimate", "estimator"),
+        ("DiagnosticEstimate", "standard_error"),
+        ("DiagnosticEstimate", "value"),
+        ("Diagnostics", "aad_tile_capacity"),
+        ("Diagnostics", "aad_tile_policy_version"),
+        ("Diagnostics", "antithetic"),
+        ("Diagnostics", "bump_policy_version"),
+        ("Diagnostics", "checkpoint_interval"),
+        ("Diagnostics", "checkpoint_policy_version"),
+        ("Diagnostics", "delta_method"),
+        ("Diagnostics", "delta_validation"),
+        ("Diagnostics", "discount_region"),
+        ("Diagnostics", "direction_checksum"),
+        ("Diagnostics", "dividend_region"),
+        ("Diagnostics", "gamma_method"),
+        ("Diagnostics", "gamma_spot_bump"),
+        ("Diagnostics", "gamma_validation"),
+        ("Diagnostics", "master_seed"),
+        ("Diagnostics", "payoff_fingerprint"),
+        ("Diagnostics", "policy_version"),
+        ("Diagnostics", "reduction_block_size"),
+        ("Diagnostics", "scramble_checksum"),
+        ("Diagnostics", "scramble_count"),
+        ("Diagnostics", "validation_spot_bump"),
+        ("Diagnostics", "validation_volatility_bump"),
+        ("Diagnostics", "vega_method"),
+        ("Diagnostics", "vega_validation"),
+        ("Diagnostics", "warnings"),
+        ("Diagnostics", "worker_threads"),
+        ("DividendEvent", "event_id"),
+        ("DividendEvent", "ex_time"),
+        ("EssviSlice", "psi"),
+        ("EssviSlice", "rho_psi"),
+        ("EssviSlice", "theta"),
+        ("EssviSlice", "time"),
+        ("PricingPlan", "plan_fingerprint"),
+        ("PricingPlan", "reduction_block_size"),
+        ("PricingPlan", "request_fingerprint"),
+        ("PricingPlan", "worker_threads"),
+        ("PricingRequest", "fingerprint"),
+        ("PricingResult", "confidence_interval"),
+        ("PricingResult", "delta"),
+        ("PricingResult", "delta_market_scaled"),
+        ("PricingResult", "delta_raw"),
+        ("PricingResult", "diagnostics"),
+        ("PricingResult", "estimator_variance"),
+        ("PricingResult", "estimate"),
+        ("PricingResult", "evaluated_paths"),
+        ("PricingResult", "gamma"),
+        ("PricingResult", "gamma_market_scaled"),
+        ("PricingResult", "gamma_raw"),
+        ("PricingResult", "independent_sampling_units"),
+        ("PricingResult", "replay_library_version"),
+        ("PricingResult", "replay_platform"),
+        ("PricingResult", "replay_request_fingerprint"),
+        ("PricingResult", "replay_schema_version"),
+        ("PricingResult", "sampling_variance"),
+        ("PricingResult", "standard_error"),
+        ("PricingResult", "value"),
+        ("PricingResult", "vega"),
+        ("PricingResult", "vega_kt"),
+        ("PricingResult", "vega_market_scaled"),
+        ("PricingResult", "vega_raw"),
+        ("PricingResult", "warnings"),
+        ("PricingWarning", "code"),
+        ("PricingWarning", "message"),
+        ("RiskEstimate", "market_scaled"),
+        ("RiskEstimate", "market_scaled_unit"),
+        ("RiskEstimate", "raw"),
+        ("RiskEstimate", "raw_unit"),
+        ("RiskValidation", "bump_and_revalue"),
+        ("RiskValidation", "bump_minus_primary"),
+        ("ValidationIssue", "code"),
+        ("ValidationIssue", "document_kind"),
+        ("ValidationIssue", "instance_path"),
+        ("ValidationIssue", "message"),
+        ("ValidationIssue", "phase"),
+        ("ValidationIssue", "pointer"),
+        ("ValidationIssue", "schema_version"),
+        ("VegaKtBucketEstimate", "market_scaled_mean"),
+        ("VegaKtBucketEstimate", "price_covariance"),
+        ("VegaKtBucketEstimate", "raw_mean"),
+        ("VegaKtBucketEstimate", "sample_variance"),
+        ("VegaKtCoordinate", "implied_volatility"),
+        ("VegaKtCoordinate", "log_moneyness"),
+        ("VegaKtCoordinate", "maturity"),
+        ("VegaKtProjection", "pre_projection"),
+        ("VegaKtProjection", "reporting_stats"),
+        ("VegaKtProjection", "scalar_vega"),
+        ("VegaKtProjection", "signed_residual"),
+        ("VegaKtReportingStats", "left_edge_count"),
+        ("VegaKtReportingStats", "left_edge_sensitivity"),
+        ("VegaKtReportingStats", "right_edge_count"),
+        ("VegaKtReportingStats", "right_edge_sensitivity"),
+        ("VegaKtResidualDiagnostics", "active_domain_end_index"),
+        ("VegaKtResidualDiagnostics", "active_domain_forward_index"),
+        ("VegaKtResidualDiagnostics", "active_domain_start_index"),
+        ("VegaKtResidualDiagnostics", "excluded_probability_mass"),
+        ("VegaKtResidualDiagnostics", "pre_projection"),
+        ("VegaKtResidualDiagnostics", "reporting_stats"),
+        ("VegaKtResidualDiagnostics", "signed_residual"),
+        ("VegaKtResult", "coordinates"),
+        ("VegaKtResult", "covariance_layout"),
+        ("VegaKtResult", "estimates"),
+        ("VegaKtResult", "full_bucket_covariance"),
+        ("VegaKtResult", "market_scaled_unit"),
+        ("VegaKtResult", "policy_label"),
+        ("VegaKtResult", "projection"),
+        ("VegaKtResult", "raw_buckets"),
+        ("VegaKtResult", "raw_unit"),
+        ("VegaKtResult", "residual_diagnostics"),
+        ("VegaKtResult", "truncation_order"),
+    }
+    for class_name, method_name in sorted(expected_static_methods):
+        decorators = decorator_names(class_methods[class_name][method_name])
+        if "staticmethod" not in decorators:
+            raise RuntimeError(
+                f"wheel type stub {class_name}.{method_name} must be a staticmethod"
+            )
+    for class_name, method_name in sorted(expected_properties):
+        decorators = decorator_names(class_methods[class_name][method_name])
+        if "property" not in decorators:
+            raise RuntimeError(
+                f"wheel type stub {class_name}.{method_name} must be a property"
+            )
+
 
 def duplicates_in(values: list[str]) -> set[str]:
     seen: set[str] = set()
@@ -1025,6 +1183,14 @@ def function_return_name(node: ast.FunctionDef | None) -> str | None:
     if isinstance(annotation, ast.Name):
         return annotation.id
     return None
+
+
+def decorator_names(node: ast.FunctionDef) -> set[str]:
+    return {
+        decorator.id
+        for decorator in node.decorator_list
+        if isinstance(decorator, ast.Name)
+    }
 
 
 def verify_runtime_symbols(python: Path, stub_api: dict[str, object], version: str) -> None:
