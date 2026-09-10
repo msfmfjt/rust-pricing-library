@@ -291,6 +291,16 @@ def check_schema_version_fields(schema: dict[str, Any], path: Path) -> None:
         )
 
 
+def check_const_schemas_are_typed(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict) or "const" not in value:
+            continue
+        require(
+            "type" in value,
+            f"{path}:{pointer(location)}: const schema must declare its JSON type",
+        )
+
+
 def check_date_fields(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict):
@@ -760,6 +770,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_wire_names(schema, path)
     check_required_properties(schema, path)
     check_schema_version_fields(schema, path)
+    check_const_schemas_are_typed(schema, path)
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
