@@ -316,6 +316,12 @@ REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
     "\"..\" in PurePosixPath(name).parts",
     "duplicate archive member path",
     "unsupported archive member type",
+    "check_file_member_mode(archive, member)",
+    "check_directory_member_mode(archive, member)",
+    "source file must not be executable",
+    "source file must not be world-writable",
+    "directory must not be world-writable",
+    "directory must be searchable",
     "archive contains generated/private files",
     "archive contains unexpected source files",
     "REQUIRED_FILES.union(repository_source_files())",
@@ -457,11 +463,14 @@ def main() -> int:
                 raise SystemExit(f"{archive}: duplicate archive member path: {name}")
             seen_members.add(name)
             if member.isfile():
+                check_file_member_mode(archive, member)
                 names.add(name)
             elif not member.isdir():
                 raise SystemExit(
                     f"{archive}: unsupported archive member type for {name}: {member.type!r}"
                 )
+            else:
+                check_directory_member_mode(archive, member)
 
         forbidden = sorted(name for name in names if has_forbidden_part(name))
         if forbidden:
@@ -511,6 +520,20 @@ def has_forbidden_part(name: str) -> bool:
         or path.name in FORBIDDEN_NAMES
         or any(path.name.endswith(suffix) for suffix in FORBIDDEN_SUFFIXES)
     )
+
+
+def check_file_member_mode(archive: str, member: tarfile.TarInfo) -> None:
+    if member.mode & 0o111:
+        raise SystemExit(f"{archive}: source file must not be executable: {member.name}")
+    if member.mode & 0o002:
+        raise SystemExit(f"{archive}: source file must not be world-writable: {member.name}")
+
+
+def check_directory_member_mode(archive: str, member: tarfile.TarInfo) -> None:
+    if member.mode & 0o002:
+        raise SystemExit(f"{archive}: directory must not be world-writable: {member.name}")
+    if member.mode & 0o111 != 0o111:
+        raise SystemExit(f"{archive}: directory must be searchable: {member.name}")
 
 
 def is_text_source(name: str) -> bool:
