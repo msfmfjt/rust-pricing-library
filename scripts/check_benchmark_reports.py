@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_replay_fixture import EXPECTED_CASE_NAMES
 from check_replay_fixture import FINGERPRINT
 from check_replay_fixture import REPLAY_CASE_KEYS
+from check_replay_fixture import REPLAY_DOCUMENT_KEYS
 from check_replay_fixture import REPLAY_EXECUTION_KEYS
 from check_replay_fixture import REPLAY_METADATA_KEYS
 from check_replay_fixture import REPLAY_MONTE_CARLO_KEYS
@@ -282,7 +283,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
     document = load_object(path)
     require_exact_keys(
         document,
-        {"cases", "fixture_kind", "platform", "schema_version"},
+        REPLAY_DOCUMENT_KEYS,
         path,
         "replay report",
     )
