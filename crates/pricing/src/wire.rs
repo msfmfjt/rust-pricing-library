@@ -2890,6 +2890,47 @@ mod tests {
                 );
             }
         }
+
+        let rqmc_request = PricingRequest::new(
+            request().valuation_date(),
+            request().product().clone(),
+            request().market().clone(),
+            request().model().clone(),
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(256, 4, 11, VarianceReduction::new(true, false))
+                    .expect("rqmc engine"),
+            ),
+            request().risk().clone(),
+        )
+        .expect("rqmc request");
+        let rqmc_json = request_to_json(&rqmc_request).expect("rqmc json");
+        for (field, original) in [
+            ("points_per_scramble", "\"points_per_scramble\":256"),
+            ("scramble_count", "\"scramble_count\":4"),
+            ("master_scramble_seed", "\"master_scramble_seed\":11"),
+        ] {
+            for value in ["1.0", "1e0", "-0", "\"1\""] {
+                let invalid = rqmc_json.replacen(original, &format!("\"{field}\":{value}"), 1);
+                assert!(
+                    parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                    "request JSON accepted {field} {value}"
+                );
+            }
+        }
+
+        let risk_json = request_to_json(&local_vol_vega_kt_request()).expect("risk json");
+        for (field, original) in [
+            ("checkpoint_interval", "\"checkpoint_interval\":16"),
+            ("aad_tile_capacity", "\"aad_tile_capacity\":256"),
+        ] {
+            for value in ["1.0", "1e0", "-0", "\"1\""] {
+                let invalid = risk_json.replacen(original, &format!("\"{field}\":{value}"), 1);
+                assert!(
+                    parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                    "request JSON accepted {field} {value}"
+                );
+            }
+        }
     }
 
     #[test]

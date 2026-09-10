@@ -1213,6 +1213,30 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
             rust_pricing.RiskRequest(),
         ).to_json()
+        rqmc_request_json = rust_pricing.PricingRequest(
+            "2026-09-04",
+            rust_pricing.Product.european_vanilla(
+                1, 2, "2027-09-04", 100.0, 1.0, "call"
+            ),
+            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.randomized_quasi_monte_carlo(
+                256, 11, scramble_count=4, antithetic=True
+            ),
+            rust_pricing.RiskRequest(),
+        ).to_json()
+        risk_request_json = rust_pricing.PricingRequest(
+            "2026-09-04",
+            rust_pricing.Product.european_vanilla(
+                1, 2, "2027-09-04", 100.0, 1.0, "call"
+            ),
+            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(
+                delta=True, checkpoint_interval=16, aad_tile_capacity=256
+            ),
+        ).to_json()
         cases = [
             (
                 "request fractional schema version",
@@ -1292,6 +1316,21 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                     )
                 )
         for value in ["1.0", "1e0", "-0", '"1"']:
+            for field, original, source in [
+                ("points_per_scramble", '"points_per_scramble":256', rqmc_request_json),
+                ("scramble_count", '"scramble_count":4', rqmc_request_json),
+                ("master_scramble_seed", '"master_scramble_seed":11', rqmc_request_json),
+                ("checkpoint_interval", '"checkpoint_interval":16', risk_request_json),
+                ("aad_tile_capacity", '"aad_tile_capacity":256', risk_request_json),
+            ]:
+                cases.append(
+                    (
+                        f"request {field} {value}",
+                        "pricing_request",
+                        source.replace(original, f'"{field}":{value}', 1),
+                        rust_pricing.PricingRequest.from_json,
+                    )
+                )
             cases.append(
                 (
                     f"request local variance shape {value}",
