@@ -742,12 +742,14 @@ def check_tagged_union_discriminators(
     schema: dict[str, Any],
     path: Path,
 ) -> None:
+    actual_union_locations: set[tuple[str | int, ...]] = set()
     for location, value in walk(schema):
         if not isinstance(value, dict):
             continue
         one_of = value.get("oneOf")
         if not isinstance(one_of, list):
             continue
+        actual_union_locations.add(location)
         tags: dict[str, int] = {}
         for index, variant in enumerate(one_of):
             variant_path = (*location, "oneOf", index)
@@ -804,6 +806,11 @@ def check_tagged_union_discriminators(
                 set(tags) == expected_tags,
                 f"{path}:{pointer(location)}: tagged union variants changed",
             )
+    expected_union_locations = set(EXPECTED_TAGGED_UNIONS[document_kind])
+    require(
+        actual_union_locations == expected_union_locations,
+        f"{path}: tagged union locations changed",
+    )
 
 
 def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> None:

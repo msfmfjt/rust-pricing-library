@@ -202,6 +202,7 @@ REQUIRED_SCHEMA_CHECK_SNIPPETS = {
     "check_tagged_union_discriminators(document_kind, schema, path)",
     "EXPECTED_TAGGED_UNIONS = {",
     "tagged union variants changed",
+    "tagged union locations changed",
     "const schema must declare its JSON type",
     "array schema must declare object items",
     "non-empty array schema must declare positive minItems",
