@@ -774,6 +774,137 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 f"found {actual}"
             )
 
+    expected_signature_shapes = {
+        ("Engine", "pseudo_monte_carlo"): {
+            "positional": ["master_seed", "independent_sampling_units"],
+            "positional_defaults": {},
+            "keyword_only": ["antithetic", "brownian_bridge"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {
+                "antithetic": False,
+                "brownian_bridge": False,
+            },
+        },
+        ("Engine", "randomized_quasi_monte_carlo"): {
+            "positional": ["points_per_scramble", "master_scramble_seed"],
+            "positional_defaults": {},
+            "keyword_only": ["scramble_count", "antithetic", "brownian_bridge"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {
+                "scramble_count": 16,
+                "antithetic": False,
+                "brownian_bridge": True,
+            },
+        },
+        ("Market", "equity"): {
+            "positional": [
+                "currency_id",
+                "underlying_id",
+                "spot",
+                "discount_curve",
+                "dividend_curve",
+            ],
+            "positional_defaults": {},
+            "keyword_only": ["discrete_dividends"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"discrete_dividends": None},
+        },
+        ("PricingPlan", "compile"): {
+            "positional": ["request"],
+            "positional_defaults": {},
+            "keyword_only": ["worker_threads", "reduction_block_size"],
+            "required_keyword_only": ["worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
+        ("Product", "barrier"): {
+            "positional": [
+                "underlying_id",
+                "currency_id",
+                "expiry",
+                "strike",
+                "barrier",
+                "notional",
+                "side",
+                "direction",
+                "style",
+                "monitoring_dates",
+                "payment_date",
+            ],
+            "positional_defaults": {},
+            "keyword_only": ["rebate"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"rebate": None},
+        },
+        ("Product", "digital"): {
+            "positional": [
+                "underlying_id",
+                "currency_id",
+                "expiry",
+                "strike",
+                "payout",
+                "side",
+                "payout_kind",
+            ],
+            "positional_defaults": {},
+            "keyword_only": ["payment_date"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"payment_date": None},
+        },
+        ("Product", "fixed_lookback"): {
+            "positional": [
+                "underlying_id",
+                "currency_id",
+                "strike",
+                "notional",
+                "side",
+                "monitoring_dates",
+                "payment_date",
+            ],
+            "positional_defaults": {},
+            "keyword_only": ["historical_extremum"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"historical_extremum": None},
+        },
+        ("RiskRequest", "__init__"): {
+            "positional": ["self"],
+            "positional_defaults": {},
+            "keyword_only": [
+                "delta",
+                "gamma_relative_bump",
+                "gamma_absolute_bump",
+                "vega",
+                "vega_kt_maturity_nodes",
+                "vega_kt_log_forward_moneyness_nodes",
+                "vega_kt_relative_density_threshold",
+                "vega_kt_full_bucket_covariance",
+                "smile_dynamics",
+                "checkpoint_interval",
+                "aad_tile_capacity",
+            ],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {
+                "delta": False,
+                "gamma_relative_bump": None,
+                "gamma_absolute_bump": None,
+                "vega": False,
+                "vega_kt_maturity_nodes": None,
+                "vega_kt_log_forward_moneyness_nodes": None,
+                "vega_kt_relative_density_threshold": None,
+                "vega_kt_full_bucket_covariance": False,
+                "smile_dynamics": "sticky_log_moneyness",
+                "checkpoint_interval": None,
+                "aad_tile_capacity": None,
+            },
+        },
+    }
+    for (class_name, method_name), expected in sorted(expected_signature_shapes.items()):
+        actual = function_signature_shape(class_methods[class_name][method_name])
+        if actual != expected:
+            raise RuntimeError(
+                f"wheel type stub {class_name}.{method_name} signature changed: "
+                f"{actual} != {expected}"
+            )
+
     expected_class_members = {
         "AsianObservation": {
             "__repr__",
@@ -1235,6 +1366,46 @@ def function_return_name(node: ast.FunctionDef | None) -> str | None:
     if isinstance(annotation, ast.Name):
         return annotation.id
     return None
+
+
+def function_signature_shape(node: ast.FunctionDef) -> dict[str, object]:
+    arguments = node.args
+    if arguments.vararg is not None or arguments.kwarg is not None:
+        raise RuntimeError(f"wheel type stub {node.name} uses variadic arguments")
+    positional_names = [
+        argument.arg for argument in arguments.posonlyargs + arguments.args
+    ]
+    positional_default_names = (
+        positional_names[-len(arguments.defaults) :] if arguments.defaults else []
+    )
+    positional_defaults = {
+        name: stub_default_value(default)
+        for name, default in zip(positional_default_names, arguments.defaults)
+    }
+    keyword_only_names = [argument.arg for argument in arguments.kwonlyargs]
+    required_keyword_only = [
+        name
+        for name, default in zip(keyword_only_names, arguments.kw_defaults)
+        if default is None
+    ]
+    keyword_only_defaults = {
+        name: stub_default_value(default)
+        for name, default in zip(keyword_only_names, arguments.kw_defaults)
+        if default is not None
+    }
+    return {
+        "positional": positional_names,
+        "positional_defaults": positional_defaults,
+        "keyword_only": keyword_only_names,
+        "required_keyword_only": required_keyword_only,
+        "keyword_only_defaults": keyword_only_defaults,
+    }
+
+
+def stub_default_value(node: ast.expr) -> object:
+    if isinstance(node, ast.Constant):
+        return node.value
+    raise RuntimeError(f"wheel type stub uses unsupported default {ast.unparse(node)}")
 
 
 def decorator_names(node: ast.FunctionDef) -> set[str]:
