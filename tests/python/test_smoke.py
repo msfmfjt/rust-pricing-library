@@ -1345,6 +1345,29 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.instance_path, "/market/spot")
         self.assertEqual(issue.code, "invalid_domain_value")
 
+    def test_json_coincident_dividends_report_market_instance_path(self):
+        payload = json.loads(self.request_json)
+        payload["market"]["discrete_dividends"] = [
+            {
+                "event_id": 1,
+                "ex_time": 0.25,
+                "quote": {"type": "fixed_cash", "amount": 1.0},
+            },
+            {
+                "event_id": 2,
+                "ex_time": 0.25,
+                "quote": {"type": "proportional", "beta": 0.1},
+            },
+        ]
+        with self.assertRaises(rust_pricing.ValidationError) as captured:
+            rust_pricing.PricingRequest.from_json(json.dumps(payload))
+
+        issue = captured.exception.issues[0]
+        self.assertEqual(issue.phase, "domain")
+        self.assertEqual(issue.instance_path, "/market/discrete_dividends")
+        self.assertEqual(issue.code, "invalid_domain_value")
+        self.assertIn("not strictly increasing", issue.message)
+
 
 if __name__ == "__main__":
     unittest.main()
