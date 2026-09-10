@@ -411,6 +411,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(result.vega.raw.value, result.vega_raw)
         with self.assertRaises(AttributeError):
             result.delta.raw = result.gamma.raw
+        with self.assertRaises(AttributeError):
+            result.delta.raw.value = 0.0
+        with self.assertRaises(AttributeError):
+            result.delta.market_scaled.value = 0.0
         for validation in (
             result.diagnostics.delta_validation,
             result.diagnostics.gamma_validation,
