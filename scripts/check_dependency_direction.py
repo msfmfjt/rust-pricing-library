@@ -56,6 +56,18 @@ def main() -> int:
             seen_dependencies.add(dependency_name)
             if dependency_name not in LEVEL:
                 continue
+            if dependency_name not in packages:
+                errors.append(
+                    f"{crate_name} depends on missing workspace crate {dependency_name}"
+                )
+                continue
+            check_workspace_dependency(
+                crate_name,
+                dependency,
+                packages[dependency_name],
+                workspace_root,
+                errors,
+            )
             if LEVEL[dependency_name] >= LEVEL[crate_name]:
                 errors.append(
                     f"{crate_name} (level {LEVEL[crate_name]}) depends upward on "
@@ -178,12 +190,61 @@ def workspace_packages(
     return selected
 
 
+def check_workspace_dependency(
+    crate_name: str,
+    dependency: dict[str, Any],
+    target_package: dict[str, Any],
+    workspace_root: Path,
+    errors: list[str],
+) -> None:
+    dependency_name = dependency["name"]
+    if dependency.get("source") is not None:
+        errors.append(
+            f"{crate_name} dependency {dependency_name} must use a local workspace source"
+        )
+
+    dependency_path = dependency.get("path")
+    if not isinstance(dependency_path, str) or not dependency_path:
+        errors.append(
+            f"{crate_name} dependency {dependency_name} must declare a local path"
+        )
+    else:
+        actual_path = relative_dependency_path(dependency_path, workspace_root)
+        expected_path = f"crates/{dependency_name}"
+        if actual_path != expected_path:
+            errors.append(
+                f"{crate_name} dependency {dependency_name} path mismatch: "
+                f"{actual_path} != {expected_path}"
+            )
+
+    target_version = target_package.get("version")
+    if not isinstance(target_version, str) or not target_version:
+        errors.append(f"workspace crate {dependency_name} has an invalid version")
+        return
+    expected_requirement = f"^{target_version}"
+    if dependency.get("req") != expected_requirement:
+        errors.append(
+            f"{crate_name} dependency {dependency_name} version requirement mismatch: "
+            f"{dependency.get('req')!r} != {expected_requirement!r}"
+        )
+
+
 def relative_manifest_path(manifest_path: str, workspace_root: Path) -> str:
     try:
         return Path(manifest_path).resolve().relative_to(workspace_root.resolve()).as_posix()
     except ValueError as exc:
         raise SystemExit(
             f"dependency-direction error: manifest_path escapes workspace_root: {manifest_path}"
+        ) from exc
+
+
+def relative_dependency_path(dependency_path: str, workspace_root: Path) -> str:
+    try:
+        return Path(dependency_path).resolve().relative_to(workspace_root.resolve()).as_posix()
+    except ValueError as exc:
+        raise SystemExit(
+            "dependency-direction error: dependency path escapes workspace_root: "
+            f"{dependency_path}"
         ) from exc
 
 

@@ -323,6 +323,11 @@ REQUIRED_DEPENDENCY_DIRECTION_SNIPPETS = {
     "workspace_root must be a string",
     "manifest_path mismatch",
     "manifest_path escapes workspace_root",
+    "must use a local workspace source",
+    "must declare a local path",
+    "dependency path escapes workspace_root",
+    "version requirement mismatch",
+    "depends on missing workspace crate",
     "workspace_members references missing packages",
     "multiple workspace packages share crate names",
 }
