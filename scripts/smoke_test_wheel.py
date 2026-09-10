@@ -570,6 +570,7 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
+    class_bases: dict[str, list[str]] = {}
     class_members: dict[str, list[str]] = {}
     class_methods: dict[str, dict[str, ast.FunctionDef]] = {}
     assignments: dict[str, ast.expr] = {}
@@ -589,6 +590,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         elif isinstance(node, (ast.ClassDef, ast.FunctionDef)):
             top_level_names.append(node.name)
             if isinstance(node, ast.ClassDef):
+                class_bases[node.name] = class_base_names(node)
                 class_members[node.name] = [
                     member.name
                     for member in node.body
@@ -1016,6 +1018,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 f"missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}"
             )
 
+    expected_class_bases = {
+        "ValidationError": ["ValueError"],
+        "PricingError": ["RuntimeError"],
+    }
+    for class_name in sorted(expected_class_members):
+        expected = expected_class_bases.get(class_name, [])
+        actual = class_bases.get(class_name, [])
+        if actual != expected:
+            raise RuntimeError(
+                f"wheel type stub {class_name} bases changed: {actual} != {expected}"
+            )
+
     expected_static_methods = {
         ("AsianObservation", "known"),
         ("AsianObservation", "unknown"),
@@ -1243,6 +1257,15 @@ def decorated_members(
     }
 
 
+def class_base_names(node: ast.ClassDef) -> list[str]:
+    bases: list[str] = []
+    for base in node.bases:
+        if not isinstance(base, ast.Name):
+            raise RuntimeError(f"wheel type stub {node.name} uses an unsupported base")
+        bases.append(base.id)
+    return bases
+
+
 def verify_runtime_symbols(python: Path, stub_api: dict[str, object], version: str) -> None:
     code = """
 import json
@@ -1299,6 +1322,10 @@ if not isinstance(rust_pricing.__version__, str):
     missing.append("__version__ type")
 if not isinstance(rust_pricing.version(), str):
     missing.append("version() type")
+if not issubclass(rust_pricing.ValidationError, ValueError):
+    missing.append("ValidationError base")
+if not issubclass(rust_pricing.PricingError, RuntimeError):
+    missing.append("PricingError base")
 raise SystemExit("missing runtime symbols: " + ", ".join(missing) if missing else 0)
 """
     subprocess.run(
