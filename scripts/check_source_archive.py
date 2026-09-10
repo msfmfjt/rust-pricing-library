@@ -250,6 +250,7 @@ REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
     "duplicate archive member path",
     "unsupported archive member type",
     "archive contains generated/private files",
+    "archive contains unexpected source files",
     "REQUIRED_FILES.union(repository_source_files())",
     "\"target\"",
     "\"dist\"",
@@ -381,6 +382,11 @@ def main() -> int:
         missing = sorted(expected.difference(names))
         if missing:
             raise SystemExit(f"{archive}: missing required source files: {missing}")
+        unexpected = sorted(names.difference(expected))
+        if unexpected:
+            raise SystemExit(
+                f"{archive}: archive contains unexpected source files: {unexpected[:10]}"
+            )
 
         check_cargo_manifests(package, archive)
         check_pyproject(package, archive)
