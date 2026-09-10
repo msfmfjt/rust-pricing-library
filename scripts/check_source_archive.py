@@ -264,6 +264,7 @@ REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "measurement order changed",
     "samples mismatch",
     "evaluated_paths_per_sample mismatch",
+    "median_paths_per_second mismatch",
     "evaluated_paths must match sampling_units and antithetic",
     "configuration mismatch",
     "capabilities mismatch",

@@ -680,6 +680,12 @@ def check_measurement(
             f"{name}.evaluated_paths_per_sample mismatch",
         )
         require_positive_float(paths_per_second, path, f"{name}.median_paths_per_second")
+        expected_paths_per_second = expected_paths_per_sample / document["median_seconds"]
+        require(
+            math.isclose(paths_per_second, expected_paths_per_second, rel_tol=1.0e-12),
+            path,
+            f"{name}.median_paths_per_second mismatch",
+        )
 
 
 def expected_paths_for_measurement(name: str, evaluated_paths: int) -> int | None:
