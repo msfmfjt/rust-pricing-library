@@ -1019,6 +1019,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             "minimum": 1,
             "maximum": 4294967295,
         }
+        optional_empty_array_paths = {
+            "/$defs/market/properties/discrete_dividends",
+            "/$defs/diagnostics/properties/warnings",
+        }
 
         self.assertEqual(
             request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
@@ -1051,6 +1055,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 if node.get("type") == "integer":
                     self.assertIn("minimum", node, path)
                     self.assertIn("maximum", node, path)
+                if node.get("type") == "array":
+                    self.assertIsInstance(node.get("items"), dict, path)
+                    if path in optional_empty_array_paths:
+                        self.assertNotIn("minItems", node, path)
+                    else:
+                        self.assertGreaterEqual(node.get("minItems", 0), 1, path)
 
     def test_vega_kt_result_api_is_exported(self):
         exported = [

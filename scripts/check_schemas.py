@@ -120,6 +120,10 @@ RESULT_INTEGER_LIMITS = {
     "right_edge_count": (0, 18_446_744_073_709_551_615),
 }
 SHAPE_DIMENSION_MAXIMUM = 18_446_744_073_709_551_615
+OPTIONAL_EMPTY_ARRAY_PATHS = {
+    ("$defs", "market", "properties", "discrete_dividends"),
+    ("$defs", "diagnostics", "properties", "warnings"),
+}
 
 
 class SchemaError(Exception):
@@ -380,6 +384,35 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
             and items.get("maximum") == SHAPE_DIMENSION_MAXIMUM,
             f"{path}:{pointer(field_location)}: shape must be a two-dimensional bounded integer array",
         )
+
+
+def check_array_schemas_are_typed_and_sized(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict) or value.get("type") != "array":
+            continue
+        require(
+            isinstance(value.get("items"), dict),
+            f"{path}:{pointer(location)}: array schema must declare object items",
+        )
+        min_items = value.get("minItems")
+        if location in OPTIONAL_EMPTY_ARRAY_PATHS:
+            require(
+                min_items is None,
+                f"{path}:{pointer(location)}: optional empty array must not declare minItems",
+            )
+        else:
+            require(
+                isinstance(min_items, int) and min_items >= 1,
+                f"{path}:{pointer(location)}: non-empty array schema must declare positive minItems",
+            )
+        max_items = value.get("maxItems")
+        if max_items is not None:
+            require(
+                isinstance(max_items, int)
+                and isinstance(min_items, int)
+                and max_items >= min_items,
+                f"{path}:{pointer(location)}: maxItems must be an integer no smaller than minItems",
+            )
 
 
 def check_integer_fields_are_bounded(schema: dict[str, Any], path: Path) -> None:
@@ -782,6 +815,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
+    check_array_schemas_are_typed_and_sized(schema, path)
     check_integer_fields_are_bounded(schema, path)
     check_request_integer_limits(schema, path)
     check_result_integer_limits(schema, path)
