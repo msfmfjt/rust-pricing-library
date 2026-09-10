@@ -984,6 +984,54 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             rust_pricing.PricingResult.replay_request_fingerprint.__doc__,
         )
 
+    def test_runtime_reprs_expose_stable_debug_context(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        product = rust_pricing.Product.european_vanilla(
+            1, 2, "2027-09-04", 100.0, 1.0, "call"
+        )
+        market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
+        request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(delta=True, gamma_relative_bump=0.01, vega=True),
+        )
+        plan = rust_pricing.PricingPlan.compile(
+            request, worker_threads=1, reduction_block_size=256
+        )
+        result = plan.evaluate()
+
+        reprs = {
+            "curve": repr(discount),
+            "product": repr(product),
+            "market": repr(market),
+            "request": repr(request),
+            "plan": repr(plan),
+            "result": repr(result),
+            "estimate": repr(result.estimate),
+            "delta": repr(result.delta),
+            "diagnostics": repr(result.diagnostics),
+        }
+        self.assertEqual(reprs["curve"], "DiscountCurve(curve_id=10)")
+        self.assertEqual(reprs["product"], 'Product(type="european_vanilla")')
+        self.assertEqual(reprs["market"], "Market(type='equity')")
+        self.assertRegex(
+            reprs["request"], r'^PricingRequest\(fingerprint="blake3-256:[0-9a-f]{64}"\)$'
+        )
+        self.assertRegex(
+            reprs["plan"], r'^PricingPlan\(fingerprint="blake3-256:[0-9a-f]{64}"\)$'
+        )
+        self.assertIn("PricingResult(value=", reprs["result"])
+        self.assertIn("DiagnosticEstimate(value=", reprs["estimate"])
+        self.assertIn("RiskEstimate(raw=", reprs["delta"])
+        self.assertEqual(
+            reprs["diagnostics"],
+            'Diagnostics(estimator="pseudo_monte_carlo", master_seed=7, warnings=0)',
+        )
+
     def test_runtime_version_matches_module_version(self):
         self.assertEqual(rust_pricing.version(), rust_pricing.__version__)
         self.assertEqual(rust_pricing.__version__, "0.1.0")
