@@ -171,6 +171,19 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel CycloneDX SBOM must use CycloneDX 1.5",
 }
 
+REQUIRED_SCHEMA_CHECK_SNIPPETS = {
+    "check_schema_version_fields(schema, path)",
+    "check_const_schemas_are_typed(schema, path)",
+    "check_array_schemas_are_typed_and_sized(schema, path)",
+    "check_tagged_union_discriminators(schema, path)",
+    "const schema must declare its JSON type",
+    "array schema must declare object items",
+    "non-empty array schema must declare positive minItems",
+    "union variant must list its type discriminator first",
+    "union variant must declare its type discriminator first",
+    "schema_version must match its Rust integer width",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -297,6 +310,7 @@ def main() -> int:
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
+        check_schema_validation_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -453,6 +467,19 @@ def check_wheel_smoke_gate(package: tarfile.TarFile, archive: str) -> None:
     if missing:
         raise SystemExit(
             f"{archive}: wheel smoke test is missing required gates: {missing}"
+        )
+
+
+def check_schema_validation_gate(package: tarfile.TarFile, archive: str) -> None:
+    schema_check = read_text(package, "scripts/check_schemas.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_SCHEMA_CHECK_SNIPPETS
+        if snippet not in schema_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: schema validation is missing required gates: {missing}"
         )
 
 
