@@ -336,6 +336,11 @@ def check_required_properties(schema: dict[str, Any], path: Path) -> None:
             require(field not in seen_required, f"{path}:{pointer((*location, 'required'))}: duplicate required field {field!r}")
             seen_required.add(field)
             require(field in properties, f"{path}:{pointer((*location, 'required'))}: required field {field!r} missing from properties")
+        property_names = list(properties)
+        require(
+            property_names[: len(required)] == required,
+            f"{path}:{pointer(location)}: required fields must lead properties in order",
+        )
 
 
 def check_schema_version_fields(schema: dict[str, Any], path: Path) -> None:

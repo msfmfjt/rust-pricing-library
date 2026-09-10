@@ -203,6 +203,7 @@ REQUIRED_SCHEMA_CHECK_SNIPPETS = {
     "EXPECTED_TAGGED_UNIONS = {",
     "tagged union variant order changed",
     "tagged union locations changed",
+    "required fields must lead properties in order",
     "const schema must declare its JSON type",
     "array schema must declare object items",
     "non-empty array schema must declare positive minItems",
