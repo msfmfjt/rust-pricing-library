@@ -2938,6 +2938,22 @@ mod tests {
         let request_json = request_to_json(&request()).expect("request json");
         for (name, invalid) in [
             (
+                "numeric document kind",
+                request_json.replacen(
+                    "\"document_kind\":\"pricing_request\"",
+                    "\"document_kind\":1",
+                    1,
+                ),
+            ),
+            (
+                "unknown document kind",
+                request_json.replacen(
+                    "\"document_kind\":\"pricing_request\"",
+                    "\"document_kind\":\"PricingRequest\"",
+                    1,
+                ),
+            ),
+            (
                 "missing product type",
                 request_json.replacen("\"type\":\"european_vanilla\",", "", 1),
             ),
@@ -2966,6 +2982,22 @@ mod tests {
 
         let result_json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
         for (name, invalid) in [
+            (
+                "numeric document kind",
+                result_json.replacen(
+                    "\"document_kind\":\"pricing_result\"",
+                    "\"document_kind\":1",
+                    1,
+                ),
+            ),
+            (
+                "unknown document kind",
+                result_json.replacen(
+                    "\"document_kind\":\"pricing_result\"",
+                    "\"document_kind\":\"PricingResult\"",
+                    1,
+                ),
+            ),
             (
                 "missing estimator type",
                 result_json.replacen(

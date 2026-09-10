@@ -1544,16 +1544,38 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         result_json = result.to_json()
         cases = [
             (
+                "request numeric document kind",
+                self.request_json.replace('"document_kind":"pricing_request"', '"document_kind":1', 1),
+                rust_pricing.PricingRequest.from_json,
+                "pricing_request",
+                "syntax_and_limits",
+                "invalid_json",
+            ),
+            (
+                "request unknown document kind",
+                self.request_json.replace(
+                    '"document_kind":"pricing_request"', '"document_kind":"PricingRequest"', 1
+                ),
+                rust_pricing.PricingRequest.from_json,
+                "pricing_request",
+                "declared_schema",
+                "wrong_document_kind",
+            ),
+            (
                 "request missing product type",
                 self.request_json.replace('"type":"european_vanilla",', "", 1),
                 rust_pricing.PricingRequest.from_json,
                 "pricing_request",
+                "syntax_and_limits",
+                "invalid_json",
             ),
             (
                 "request numeric product type",
                 self.request_json.replace('"type":"european_vanilla"', '"type":1', 1),
                 rust_pricing.PricingRequest.from_json,
                 "pricing_request",
+                "syntax_and_limits",
+                "invalid_json",
             ),
             (
                 "request unknown product type",
@@ -1562,12 +1584,34 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 ),
                 rust_pricing.PricingRequest.from_json,
                 "pricing_request",
+                "syntax_and_limits",
+                "invalid_json",
             ),
             (
                 "request bare side variant",
                 self.request_json.replace('"side":{"type":"call"}', '"side":"call"', 1),
                 rust_pricing.PricingRequest.from_json,
                 "pricing_request",
+                "syntax_and_limits",
+                "invalid_json",
+            ),
+            (
+                "result numeric document kind",
+                result_json.replace('"document_kind":"pricing_result"', '"document_kind":1', 1),
+                rust_pricing.PricingResult.from_json,
+                "pricing_result",
+                "syntax_and_limits",
+                "invalid_json",
+            ),
+            (
+                "result unknown document kind",
+                result_json.replace(
+                    '"document_kind":"pricing_result"', '"document_kind":"PricingResult"', 1
+                ),
+                rust_pricing.PricingResult.from_json,
+                "pricing_result",
+                "declared_schema",
+                "wrong_document_kind",
             ),
             (
                 "result missing estimator type",
@@ -1576,6 +1620,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 ),
                 rust_pricing.PricingResult.from_json,
                 "pricing_result",
+                "syntax_and_limits",
+                "invalid_json",
             ),
             (
                 "result numeric estimator type",
@@ -1586,6 +1632,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 ),
                 rust_pricing.PricingResult.from_json,
                 "pricing_result",
+                "syntax_and_limits",
+                "invalid_json",
             ),
             (
                 "result unknown estimator type",
@@ -1596,6 +1644,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 ),
                 rust_pricing.PricingResult.from_json,
                 "pricing_result",
+                "syntax_and_limits",
+                "invalid_json",
             ),
             (
                 "result bare estimator variant",
@@ -1606,17 +1656,19 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 ),
                 rust_pricing.PricingResult.from_json,
                 "pricing_result",
+                "syntax_and_limits",
+                "invalid_json",
             ),
         ]
 
-        for name, invalid, parser, document_kind in cases:
+        for name, invalid, parser, document_kind, phase, code in cases:
             with self.subTest(name=name):
                 with self.assertRaises(rust_pricing.ValidationError) as captured:
                     parser(invalid)
 
                 issue = captured.exception.issues[0]
-                self.assertEqual(issue.phase, "syntax_and_limits")
-                self.assertEqual(issue.code, "invalid_json")
+                self.assertEqual(issue.phase, phase)
+                self.assertEqual(issue.code, code)
                 self.assertEqual(issue.schema_version, 1)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
