@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["document_kind", "schema_version", "valuation_date", "product", "market", "model", "engine", "risk"],
   "properties": {
-    "document_kind": {"const": "pricing_request"},
+    "document_kind": {"type": "string", "const": "pricing_request"},
     "schema_version": {"const": 1},
     "valuation_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
     "product": {"$ref": "#/$defs/product"},

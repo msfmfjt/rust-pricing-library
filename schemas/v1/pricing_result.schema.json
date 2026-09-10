@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["document_kind", "schema_version", "value", "risks", "diagnostics", "replay"],
   "properties": {
-    "document_kind": {"const": "pricing_result"},
+    "document_kind": {"type": "string", "const": "pricing_result"},
     "schema_version": {"const": 1},
     "value": {"$ref": "#/$defs/estimate"},
     "risks": {"$ref": "#/$defs/risk_report"},
