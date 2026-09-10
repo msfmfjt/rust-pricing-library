@@ -84,6 +84,7 @@ def main() -> None:
     wheel = selected_wheel()
     expected_metadata = expected_project_metadata()
     expected_readme_payload = Path("README.md").read_text("utf-8") + "\n"
+    locked_packages = locked_registry_packages()
 
     with ZipFile(wheel) as archive:
         verify_wheel_archive_members(archive.infolist())
@@ -112,6 +113,7 @@ def main() -> None:
         member_bytes,
         expected_metadata,
         expected_readme_payload,
+        locked_packages,
     )
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
@@ -298,6 +300,7 @@ def verify_wheel_metadata(
     member_bytes: dict[str, bytes],
     expected_metadata: dict[str, str],
     expected_readme_payload: str,
+    locked_packages: dict[tuple[str, str], str],
 ) -> None:
     verify_message_fields(metadata, EXPECTED_METADATA_FIELDS, "METADATA")
     verify_message_fields(wheel_metadata, EXPECTED_WHEEL_FIELDS, "WHEEL")
@@ -348,7 +351,12 @@ def verify_wheel_metadata(
         raise RuntimeError(
             f"wheel filename tags {sorted(filename_tags)} do not match WHEEL tags {sorted(tags)}"
         )
-    verify_cyclonedx_sbom(members, member_bytes, expected_metadata["Version"])
+    verify_cyclonedx_sbom(
+        members,
+        member_bytes,
+        expected_metadata["Version"],
+        locked_packages,
+    )
     record_members = verify_wheel_record(record, member_order, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
@@ -424,6 +432,7 @@ def verify_cyclonedx_sbom(
     members: set[str],
     member_bytes: dict[str, bytes],
     version: str,
+    locked_packages: dict[tuple[str, str], str],
 ) -> None:
     matches = [
         member
@@ -483,8 +492,8 @@ def verify_cyclonedx_sbom(
     required_workspace_components = set(EXPECTED_WORKSPACE_SBOM_DEPENDENCIES) - {
         "pricing-python"
     }
-    component_refs = set()
     component_names = set()
+    registry_components: dict[tuple[str, str], dict[str, object]] = {}
     for index, component in enumerate(components, start=1):
         if not isinstance(component, dict):
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} must be an object")
@@ -493,7 +502,6 @@ def verify_cyclonedx_sbom(
             raise RuntimeError(f"wheel CycloneDX SBOM component {index} has no bom-ref")
         if bom_ref in known_refs:
             raise RuntimeError(f"wheel CycloneDX SBOM component bom-ref duplicated: {bom_ref}")
-        component_refs.add(bom_ref)
         known_refs.add(bom_ref)
         name = component.get("name")
         if not isinstance(name, str) or not name:
@@ -505,9 +513,37 @@ def verify_cyclonedx_sbom(
             component_names.add(name)
             workspace_refs[name] = bom_ref
             verify_workspace_sbom_component(component, name, version)
+        else:
+            component_version = component.get("version")
+            if not isinstance(component_version, str) or not component_version:
+                raise RuntimeError(
+                    f"wheel CycloneDX SBOM component {name} has no version"
+                )
+            key = (name, component_version)
+            if key in registry_components:
+                raise RuntimeError(
+                    f"wheel CycloneDX SBOM registry component duplicated: {name} {component_version}"
+                )
+            registry_components[key] = component
     missing = sorted(required_workspace_components.difference(component_names))
     if missing:
         raise RuntimeError(f"wheel CycloneDX SBOM is missing components: {missing}")
+    actual_registry_packages = set(registry_components)
+    expected_registry_packages = set(locked_packages)
+    if actual_registry_packages != expected_registry_packages:
+        missing = sorted(expected_registry_packages - actual_registry_packages)
+        unexpected = sorted(actual_registry_packages - expected_registry_packages)
+        raise RuntimeError(
+            "wheel CycloneDX SBOM registry components do not match Cargo.lock: "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+    for (name, component_version), component in registry_components.items():
+        verify_registry_sbom_component(
+            component,
+            name,
+            component_version,
+            locked_packages[(name, component_version)],
+        )
 
     dependencies = sbom.get("dependencies")
     if not isinstance(dependencies, list) or not dependencies:
@@ -582,6 +618,77 @@ def verify_workspace_sbom_component(
         "url": "https://github.com/msfmfjt/rust-pricing-library",
     } not in external_references:
         raise RuntimeError(f"wheel CycloneDX SBOM component {name} must reference the VCS URL")
+
+
+def verify_registry_sbom_component(
+    component: dict[str, object],
+    name: str,
+    version: str,
+    checksum: str,
+) -> None:
+    if component.get("type") != "library" or component.get("scope") not in {
+        "required",
+        "excluded",
+    }:
+        raise RuntimeError(
+            f"wheel CycloneDX SBOM registry component {name} type/scope mismatch"
+        )
+    if component.get("purl") != f"pkg:cargo/{name}@{version}":
+        raise RuntimeError(
+            f"wheel CycloneDX SBOM registry component {name} purl mismatch"
+        )
+    expected_ref = (
+        "registry+https://github.com/rust-lang/crates.io-index#"
+        f"{name}@{version}"
+    )
+    if component.get("bom-ref") != expected_ref:
+        raise RuntimeError(
+            f"wheel CycloneDX SBOM registry component {name} bom-ref mismatch"
+        )
+    if component.get("hashes") != [{"alg": "SHA-256", "content": checksum}]:
+        raise RuntimeError(
+            f"wheel CycloneDX SBOM registry component {name} checksum mismatch"
+        )
+
+
+def locked_registry_packages() -> dict[tuple[str, str], str]:
+    lock = tomllib.loads(Path("Cargo.lock").read_text("utf-8"))
+    if lock.get("version") != 4:
+        raise RuntimeError("Cargo.lock must use lockfile format version 4")
+    packages = lock.get("package")
+    if not isinstance(packages, list) or not all(
+        isinstance(package, dict) for package in packages
+    ):
+        raise RuntimeError("Cargo.lock package entries must be tables")
+
+    workspace_names = set(EXPECTED_WORKSPACE_SBOM_DEPENDENCIES)
+    registry_packages: dict[tuple[str, str], str] = {}
+    expected_source = "registry+https://github.com/rust-lang/crates.io-index"
+    for package in packages:
+        name = package.get("name")
+        version = package.get("version")
+        if not isinstance(name, str) or not name:
+            raise RuntimeError("Cargo.lock package name must be a non-empty string")
+        if not isinstance(version, str) or not version:
+            raise RuntimeError(f"Cargo.lock package {name} version must be a string")
+        if name in workspace_names:
+            continue
+        if package.get("source") != expected_source:
+            raise RuntimeError(f"Cargo.lock package {name} must use crates.io")
+        checksum = package.get("checksum")
+        if not isinstance(checksum, str) or len(checksum) != 64:
+            raise RuntimeError(f"Cargo.lock package {name} checksum must be SHA-256")
+        try:
+            int(checksum, 16)
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Cargo.lock package {name} checksum must be SHA-256"
+            ) from exc
+        key = (name, version)
+        if key in registry_packages:
+            raise RuntimeError(f"Cargo.lock package duplicated: {name} {version}")
+        registry_packages[key] = checksum
+    return registry_packages
 
 
 def expected_project_metadata() -> dict[str, str]:

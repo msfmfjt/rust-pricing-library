@@ -225,6 +225,11 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel CycloneDX SBOM dependencies missing refs",
     "EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {",
     "wheel CycloneDX SBOM workspace dependencies for {name} mismatch",
+    "locked_registry_packages()",
+    "registry components do not match Cargo.lock",
+    "verify_registry_sbom_component(",
+    "registry component {name} checksum mismatch",
+    "Cargo.lock must use lockfile format version 4",
 }
 
 REQUIRED_SCHEMA_CHECK_SNIPPETS = {
