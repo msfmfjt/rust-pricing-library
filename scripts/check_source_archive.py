@@ -233,6 +233,17 @@ REQUIRED_LOCAL_VOL_REFERENCE_CHECK_SNIPPETS = {
     "duplicate object key",
 }
 
+REQUIRED_MARKDOWN_LINK_CHECK_SNIPPETS = {
+    "MARKDOWN_ROOTS = [ROOT / \"README.md\", ROOT / \"CONTRIBUTING.md\", ROOT / \"docs\", ROOT / \"fixtures\"]",
+    "LINK_PATTERN = re.compile",
+    "escapes repository root",
+    "target does not exist",
+    "anchor does not exist",
+    "markdown_anchors(resolved)",
+    "github_heading_slug",
+    "re.match(r\"^[a-zA-Z][a-zA-Z0-9+.-]*:\", target)",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -364,6 +375,7 @@ def main() -> int:
         check_benchmark_validation_gate(package, archive)
         check_dependency_direction_gate(package, archive)
         check_local_vol_reference_gate(package, archive)
+        check_markdown_link_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -585,6 +597,19 @@ def check_local_vol_reference_gate(package: tarfile.TarFile, archive: str) -> No
     if missing:
         raise SystemExit(
             f"{archive}: Local Volatility reference validation is missing required gates: {missing}"
+        )
+
+
+def check_markdown_link_gate(package: tarfile.TarFile, archive: str) -> None:
+    markdown_check = read_text(package, "scripts/check_markdown_links.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_MARKDOWN_LINK_CHECK_SNIPPETS
+        if snippet not in markdown_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: Markdown link validation is missing required gates: {missing}"
         )
 
 
