@@ -1096,6 +1096,61 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
+    def test_json_duplicate_object_members_are_rejected(self):
+        request = rust_pricing.PricingRequest.from_json(self.request_json)
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        cases = [
+            (
+                "request root",
+                lambda: rust_pricing.PricingRequest.from_json(
+                    self.request_json.replace(
+                        '"valuation_date"', '"schema_version":1,"valuation_date"', 1
+                    )
+                ),
+                "pricing_request",
+            ),
+            (
+                "request nested",
+                lambda: rust_pricing.PricingRequest.from_json(
+                    self.request_json.replace('"spot":100.0', '"spot":100.0,"spot":101.0', 1)
+                ),
+                "pricing_request",
+            ),
+            (
+                "result root",
+                lambda: rust_pricing.PricingResult.from_json(
+                    result.to_json().replace('"value"', '"schema_version":1,"value"', 1)
+                ),
+                "pricing_result",
+            ),
+            (
+                "result nested",
+                lambda: rust_pricing.PricingResult.from_json(
+                    result.to_json().replace(
+                        '"standard_error":',
+                        '"standard_error":0.0,"standard_error":',
+                        1,
+                    )
+                ),
+                "pricing_result",
+            ),
+        ]
+
+        for name, parser, document_kind in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    parser()
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "syntax_and_limits")
+                self.assertEqual(issue.code, "invalid_json")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, document_kind)
+                self.assertEqual(issue.instance_path, "")
+                self.assertIn("duplicate object member", issue.message)
+
     def test_json_resource_limit_error_reports_syntax_and_limits_phase(self):
         oversized_number = "1" * 129
         cases = [
