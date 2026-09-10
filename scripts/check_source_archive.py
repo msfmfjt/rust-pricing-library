@@ -258,6 +258,13 @@ REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
     "\"benchmark-results\"",
     "\"uv.lock\"",
     "\".pyc\"",
+    "TEXT_SOURCE_SUFFIXES = {",
+    "TEXT_SOURCE_NAMES = {",
+    "check_text_member(package, archive, name)",
+    "must not start with a UTF-8 BOM",
+    "must use LF line endings",
+    "must end with LF",
+    "must be valid UTF-8",
     "(ROOT / root).rglob(pattern)",
 }
 
@@ -318,6 +325,21 @@ FORBIDDEN_SUFFIXES = {
     ".egg-info",
     ".pyc",
     ".pyo",
+}
+TEXT_SOURCE_SUFFIXES = {
+    ".csv",
+    ".json",
+    ".md",
+    ".py",
+    ".rs",
+    ".toml",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
+TEXT_SOURCE_NAMES = {
+    ".gitattributes",
+    ".gitignore",
 }
 
 JOE_KUO_DIRECTION_DATA = "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin"
@@ -387,6 +409,9 @@ def main() -> int:
             raise SystemExit(
                 f"{archive}: archive contains unexpected source files: {unexpected[:10]}"
             )
+        for name in sorted(names):
+            if is_text_source(name):
+                check_text_member(package, archive, name)
 
         check_cargo_manifests(package, archive)
         check_pyproject(package, archive)
@@ -419,6 +444,25 @@ def has_forbidden_part(name: str) -> bool:
         or path.name in FORBIDDEN_NAMES
         or any(path.name.endswith(suffix) for suffix in FORBIDDEN_SUFFIXES)
     )
+
+
+def is_text_source(name: str) -> bool:
+    path = PurePosixPath(name)
+    return path.suffix in TEXT_SOURCE_SUFFIXES or path.name in TEXT_SOURCE_NAMES
+
+
+def check_text_member(package: tarfile.TarFile, archive: str, name: str) -> None:
+    raw = read_bytes(package, name)
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise SystemExit(f"{archive}: {name} must not start with a UTF-8 BOM")
+    if b"\r" in raw:
+        raise SystemExit(f"{archive}: {name} must use LF line endings")
+    if not raw.endswith(b"\n"):
+        raise SystemExit(f"{archive}: {name} must end with LF")
+    try:
+        raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SystemExit(f"{archive}: {name} must be valid UTF-8: {exc}") from exc
 
 
 def repository_source_files() -> set[str]:
