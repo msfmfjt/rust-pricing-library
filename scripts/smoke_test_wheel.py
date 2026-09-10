@@ -19,6 +19,7 @@ import tomllib
 import uuid
 import venv
 from zipfile import ZipFile
+from zipfile import ZipInfo
 
 
 def main() -> None:
@@ -26,7 +27,7 @@ def main() -> None:
     expected_metadata = expected_project_metadata()
 
     with ZipFile(wheel) as archive:
-        verify_wheel_archive_members(archive.namelist())
+        verify_wheel_archive_members(archive.infolist())
         members = {member for member in archive.namelist() if not member.endswith("/")}
         member_bytes = {member: archive.read(member) for member in members}
         verify_wheel_text_members(member_bytes)
@@ -116,20 +117,43 @@ def read_dist_info_text(archive: ZipFile, members: set[str], filename: str) -> s
     return archive.read(matches[0]).decode("utf-8")
 
 
-def verify_wheel_archive_members(member_names: list[str]) -> None:
+def verify_wheel_archive_members(member_infos: list[ZipInfo]) -> None:
     seen: set[str] = set()
     duplicates: set[str] = set()
-    for name in member_names:
+    for info in member_infos:
+        name = info.filename
         if not name:
             raise RuntimeError("wheel contains an empty member path")
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts:
             raise RuntimeError(f"wheel contains an unsafe member path: {name}")
+        mode = (info.external_attr >> 16) & 0o777
+        if name.endswith("/"):
+            if mode & 0o002:
+                raise RuntimeError(f"wheel directory must not be world-writable: {name}")
+            if mode & 0o111 != 0o111:
+                raise RuntimeError(f"wheel directory must be searchable: {name}")
+        elif is_wheel_extension_member(name):
+            if mode & 0o111 == 0:
+                raise RuntimeError(f"wheel extension member must be executable: {name}")
+            if mode & 0o002:
+                raise RuntimeError(f"wheel extension member must not be world-writable: {name}")
+        else:
+            if mode & 0o111:
+                raise RuntimeError(f"wheel data member must not be executable: {name}")
+            if mode & 0o002:
+                raise RuntimeError(f"wheel data member must not be world-writable: {name}")
         if name in seen:
             duplicates.add(name)
         seen.add(name)
     if duplicates:
         raise RuntimeError(f"wheel contains duplicate member paths: {sorted(duplicates)}")
+
+
+def is_wheel_extension_member(name: str) -> bool:
+    return name.startswith("rust_pricing/") and (
+        name.endswith(".so") or name.endswith(".pyd") or name.endswith(".dll")
+    )
 
 
 def verify_wheel_member_layout(members: set[str]) -> None:
@@ -156,8 +180,7 @@ def verify_wheel_member_layout(members: set[str]) -> None:
     extensions = [
         member
         for member in members
-        if member.startswith("rust_pricing/")
-        and (member.endswith(".so") or member.endswith(".pyd") or member.endswith(".dll"))
+        if is_wheel_extension_member(member)
     ]
     if len(extensions) != 1:
         raise RuntimeError(f"wheel must contain exactly one extension module, found {extensions}")

@@ -162,6 +162,10 @@ REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",
     "verify_wheel_text_members(member_bytes)",
+    "verify_wheel_archive_members(archive.infolist())",
+    "wheel extension member must be executable",
+    "wheel data member must not be executable",
+    "wheel data member must not be world-writable",
     "wheel text member must be valid UTF-8",
     "wheel text member has a UTF-8 BOM",
     "unexpected runtime symbols",
