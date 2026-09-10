@@ -1032,12 +1032,19 @@ mod tests {
         ];
 
         for (error, phase, code, pointer, schema_version) in cases {
-            let issue = PyValidationIssue::request_wire(&error);
-            assert_eq!(issue.phase, phase);
-            assert_eq!(issue.code, code);
-            assert_eq!(issue.pointer, pointer);
-            assert_eq!(issue.schema_version, schema_version);
-            assert_eq!(issue.document_kind, "pricing_request");
+            let request_issue = PyValidationIssue::request_wire(&error);
+            assert_eq!(request_issue.phase, phase);
+            assert_eq!(request_issue.code, code);
+            assert_eq!(request_issue.pointer, pointer);
+            assert_eq!(request_issue.schema_version, schema_version);
+            assert_eq!(request_issue.document_kind, "pricing_request");
+
+            let result_issue = PyValidationIssue::result_wire(&error);
+            assert_eq!(result_issue.phase, phase);
+            assert_eq!(result_issue.code, code);
+            assert_eq!(result_issue.pointer, pointer);
+            assert_eq!(result_issue.schema_version, schema_version);
+            assert_eq!(result_issue.document_kind, "pricing_result");
         }
     }
 }
