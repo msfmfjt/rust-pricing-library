@@ -3218,6 +3218,18 @@ mod tests {
             );
         }
 
+        for effective_sampling_units in ["1.0", "1e0", "-0", "\"1\""] {
+            let invalid = json.replacen(
+                "\"effective_sampling_units\":1024",
+                &format!("\"effective_sampling_units\":{effective_sampling_units}"),
+                1,
+            );
+            assert!(
+                parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "result JSON accepted effective_sampling_units {effective_sampling_units}"
+            );
+        }
+
         for (field, original, pointer) in [
             ("library_version", "0.1.0", "/replay/library_version"),
             ("platform", "acceptance-test", "/replay/platform"),
@@ -3282,6 +3294,27 @@ mod tests {
         assert!(json.contains("\"vega_kt\""));
         assert!(json.contains("\"unavailable\""));
         assert!(!json.contains("null"));
+
+        for (field, original) in [
+            ("active_domain_start_index", "1"),
+            ("active_domain_end_index", "2"),
+            ("active_domain_forward_index", "1"),
+            ("left_edge_count", "1"),
+            ("right_edge_count", "2"),
+        ] {
+            for value in ["1.0", "1e0", "-0", "\"1\""] {
+                let invalid = json.replacen(
+                    &format!("\"{field}\":{original}"),
+                    &format!("\"{field}\":{value}"),
+                    1,
+                );
+                assert!(
+                    parse_result_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                    "result JSON accepted {field} {value}"
+                );
+            }
+        }
+
         let parsed = parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
         let parsed_vega_kt = parsed.risks.vega_kt.expect("vega kt");
         assert_eq!(parsed_vega_kt.coordinates().len(), 2);

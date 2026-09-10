@@ -1242,6 +1242,18 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                     rust_pricing.PricingResult.from_json,
                 )
             )
+            cases.append(
+                (
+                    f"result effective sampling units {schema_version}",
+                    "pricing_result",
+                    result_json.replace(
+                        '"effective_sampling_units":1024',
+                        f'"effective_sampling_units":{schema_version}',
+                        1,
+                    ),
+                    rust_pricing.PricingResult.from_json,
+                )
+            )
         for field, original in [
             ("underlying_id", '"underlying_id":1'),
             ("curve_id", '"curve_id":10'),
