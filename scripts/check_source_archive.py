@@ -211,6 +211,28 @@ REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "validate_local_vol_case",
 }
 
+REQUIRED_DEPENDENCY_DIRECTION_SNIPPETS = {
+    "\"pricing-core\": 0",
+    "\"pricing-python\": 7",
+    "missing workspace crates",
+    "unclassified workspace crates",
+    "depends upward on",
+    "workspace_members references missing packages",
+    "multiple workspace packages share crate names",
+}
+
+REQUIRED_LOCAL_VOL_REFERENCE_CHECK_SNIPPETS = {
+    "getcontext().prec = 70",
+    "STANDARD_SSVI_CASE_IDS = {",
+    "\"power_regular\"",
+    "\"heston_like_regular\"",
+    "\"heston_like_small_theta\"",
+    "essvi_interpolation.id must be midpoint_regular",
+    "JSON artifact must end with LF",
+    "non-standard JSON constant",
+    "duplicate object key",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -340,6 +362,8 @@ def main() -> int:
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
         check_benchmark_validation_gate(package, archive)
+        check_dependency_direction_gate(package, archive)
+        check_local_vol_reference_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -535,6 +559,32 @@ def check_benchmark_validation_gate(package: tarfile.TarFile, archive: str) -> N
     if missing:
         raise SystemExit(
             f"{archive}: benchmark validation is missing required gates: {missing}"
+        )
+
+
+def check_dependency_direction_gate(package: tarfile.TarFile, archive: str) -> None:
+    dependency_check = read_text(package, "scripts/check_dependency_direction.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_DEPENDENCY_DIRECTION_SNIPPETS
+        if snippet not in dependency_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: dependency-direction validation is missing required gates: {missing}"
+        )
+
+
+def check_local_vol_reference_gate(package: tarfile.TarFile, archive: str) -> None:
+    local_vol_check = read_text(package, "scripts/check_local_vol_reference_fixture.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_LOCAL_VOL_REFERENCE_CHECK_SNIPPETS
+        if snippet not in local_vol_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: Local Volatility reference validation is missing required gates: {missing}"
         )
 
 
