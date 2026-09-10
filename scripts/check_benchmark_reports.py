@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import hashlib
 import json
 import math
@@ -299,7 +300,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
     )
     cases = document.get("cases")
     require(isinstance(cases, list) and len(cases) > 0, path, "cases must be a non-empty array")
-    seen_case_names: set[str] = set()
+    seen_case_names: list[str] = []
     for index, case in enumerate(cases):
         case_path = f"cases[{index}]"
         case_object = require_object(case, path, case_path)
@@ -315,7 +316,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             path,
             f"duplicate replay case name: {case_name!r}",
         )
-        seen_case_names.add(case_name)
+        seen_case_names.append(case_name)
         plan = require_object(case_object.get("plan"), path, f"{case_path}.plan")
         require_exact_keys(plan, REPLAY_PLAN_KEYS, path, f"{case_path}.plan")
         require_fingerprint(
@@ -444,13 +445,19 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
                 request,
                 result,
             )
-    expected_case_names = EXPECTED_CASE_NAMES[fixture_kind]
+    expected_case_names = set(EXPECTED_CASE_NAMES[fixture_kind])
+    actual_case_names = set(seen_case_names)
     require(
-        seen_case_names == expected_case_names,
+        actual_case_names == expected_case_names,
         path,
         "replay case set mismatch: "
-        f"missing={sorted(expected_case_names - seen_case_names)}, "
-        f"unexpected={sorted(seen_case_names - expected_case_names)}",
+        f"missing={sorted(expected_case_names - actual_case_names)}, "
+        f"unexpected={sorted(actual_case_names - expected_case_names)}",
+    )
+    require(
+        tuple(seen_case_names) == EXPECTED_CASE_NAMES[fixture_kind],
+        path,
+        "replay case order changed",
     )
 
 def check_python_report(path: Path, library_version: str) -> None:
@@ -747,13 +754,19 @@ def require_object(value: Any, path: Path, name: str) -> dict[str, Any]:
 
 
 def require_exact_keys(
-    document: dict[str, Any], expected_keys: set[str], path: Path, name: str
+    document: dict[str, Any],
+    expected_keys: set[str] | Sequence[str],
+    path: Path,
+    name: str,
 ) -> None:
+    expected_key_set = set(expected_keys)
     actual_keys = set(document)
-    missing = sorted(expected_keys.difference(actual_keys))
+    missing = sorted(expected_key_set.difference(actual_keys))
     require(not missing, path, f"{name} missing keys: {missing}")
-    unexpected = sorted(actual_keys.difference(expected_keys))
+    unexpected = sorted(actual_keys.difference(expected_key_set))
     require(not unexpected, path, f"{name} unexpected keys: {unexpected}")
+    if not isinstance(expected_keys, set):
+        require(list(document) == list(expected_keys), path, f"{name} key order changed")
 
 
 def require_non_empty_string(value: Any, path: Path, name: str) -> None:

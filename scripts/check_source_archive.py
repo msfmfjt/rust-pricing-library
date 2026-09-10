@@ -249,6 +249,8 @@ REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "cargo_lock_sha256 must match Cargo.lock",
     "peak_memory_bytes must match the maximum command peak",
     "check_replay_report(root / \"replay.json\"",
+    "replay case order changed",
+    "key order changed",
     "validate_local_vol_case",
 }
 
