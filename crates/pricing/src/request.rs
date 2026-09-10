@@ -169,12 +169,12 @@ mod tests {
     use pricing_core::{CurrencyId, CurveId, PositiveF64, UnderlyingId};
     use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve};
     use pricing_mc::{PseudoMcConfig, VarianceReduction};
-    use pricing_models::BlackScholesSpec;
+    use pricing_models::{Black76Spec, BlackScholesSpec};
     use pricing_product::{
         ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
         DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
     };
-    use pricing_risk::{GammaConfig, SmileDynamics, SpotBump};
+    use pricing_risk::{GammaConfig, SmileDynamics, SpotBump, VegaKtConfig};
 
     use super::*;
 
@@ -381,6 +381,49 @@ mod tests {
             risk,
         )
         .expect("lookback risk");
+    }
+
+    #[test]
+    fn request_rejects_vega_kt_for_constant_volatility_models() {
+        let currency = CurrencyId::new(1);
+        let (product, market, _, engine, _) = components(currency, currency);
+        let vega_kt = VegaKtConfig::new(
+            vec![
+                "2027-03-04".parse().expect("first maturity"),
+                "2027-09-04".parse().expect("second maturity"),
+            ],
+            vec![-0.2, 0.0, 0.2],
+            1.0e-8,
+            false,
+        )
+        .expect("vega kt");
+        let risk = RiskRequest::new(
+            false,
+            None,
+            true,
+            Some(vega_kt),
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk");
+
+        for model in [
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("black scholes")),
+            ModelSpec::Black76(Black76Spec::new(0.2).expect("black 76")),
+        ] {
+            assert!(matches!(
+                PricingRequest::new(
+                    "2026-09-04".parse().expect("valuation date"),
+                    product.clone(),
+                    market.clone(),
+                    model,
+                    engine,
+                    risk.clone(),
+                ),
+                Err(RequestValidationError::VegaKtUnsupportedForConstantVolatility)
+            ));
+        }
     }
 
     #[test]
