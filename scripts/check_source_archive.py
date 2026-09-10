@@ -181,6 +181,10 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel type stub has duplicate top-level definitions",
     "wheel RECORD row {index} must use a sha256 digest",
     "wheel CycloneDX SBOM must use CycloneDX 1.5",
+    "wheel CycloneDX SBOM version must be 1",
+    "wheel CycloneDX SBOM serialNumber must be a UUID URN",
+    "wheel CycloneDX SBOM root component purl mismatch",
+    "wheel CycloneDX SBOM root component must reference the VCS URL",
 }
 
 REQUIRED_SCHEMA_CHECK_SNIPPETS = {

@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import uuid
 import venv
 from zipfile import ZipFile
 
@@ -339,6 +340,15 @@ def verify_cyclonedx_sbom(
         raise RuntimeError("wheel CycloneDX SBOM root must be an object")
     if sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
         raise RuntimeError("wheel CycloneDX SBOM must use CycloneDX 1.5")
+    if sbom.get("version") != 1:
+        raise RuntimeError("wheel CycloneDX SBOM version must be 1")
+    serial_number = sbom.get("serialNumber")
+    if not isinstance(serial_number, str) or not serial_number.startswith("urn:uuid:"):
+        raise RuntimeError("wheel CycloneDX SBOM serialNumber must be a UUID URN")
+    try:
+        uuid.UUID(serial_number.removeprefix("urn:uuid:"))
+    except ValueError as exc:
+        raise RuntimeError("wheel CycloneDX SBOM serialNumber must be a valid UUID") from exc
     metadata = sbom.get("metadata")
     if not isinstance(metadata, dict):
         raise RuntimeError("wheel CycloneDX SBOM metadata must be an object")
@@ -347,6 +357,19 @@ def verify_cyclonedx_sbom(
         raise RuntimeError("wheel CycloneDX SBOM metadata.component must be an object")
     if component.get("name") != "pricing-python" or component.get("version") != version:
         raise RuntimeError("wheel CycloneDX SBOM root component metadata mismatch")
+    if component.get("type") != "library" or component.get("scope") != "required":
+        raise RuntimeError("wheel CycloneDX SBOM root component type/scope mismatch")
+    if component.get("author") != "Masafumi Fujita":
+        raise RuntimeError("wheel CycloneDX SBOM root component author mismatch")
+    purl = component.get("purl")
+    if not isinstance(purl, str) or not purl.startswith(f"pkg:cargo/pricing-python@{version}"):
+        raise RuntimeError("wheel CycloneDX SBOM root component purl mismatch")
+    external_references = component.get("externalReferences")
+    if not isinstance(external_references, list) or {
+        "type": "vcs",
+        "url": "https://github.com/msfmfjt/rust-pricing-library",
+    } not in external_references:
+        raise RuntimeError("wheel CycloneDX SBOM root component must reference the VCS URL")
 
     components = sbom.get("components")
     if not isinstance(components, list):
