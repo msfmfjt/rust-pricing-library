@@ -3180,6 +3180,27 @@ mod tests {
                     && message.contains("unsupported replay schema_version 2")
         ));
 
+        for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
+            let invalid_top_level = json.replacen(
+                "\"schema_version\":1",
+                &format!("\"schema_version\":{schema_version}"),
+                1,
+            );
+            assert!(
+                parse_result_json(invalid_top_level.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "result JSON accepted schema_version {schema_version}"
+            );
+            let invalid_replay = json.replacen(
+                "\"replay\":{\"schema_version\":1",
+                &format!("\"replay\":{{\"schema_version\":{schema_version}"),
+                1,
+            );
+            assert!(
+                parse_result_json(invalid_replay.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "result JSON accepted replay schema_version {schema_version}"
+            );
+        }
+
         for (field, original, pointer) in [
             ("library_version", "0.1.0", "/replay/library_version"),
             ("platform", "acceptance-test", "/replay/platform"),
