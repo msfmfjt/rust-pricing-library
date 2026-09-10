@@ -18,8 +18,8 @@
   "$defs": {
     "side": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "call"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "put"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "call"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "put"}}}
       ]
     },
     "product": {
@@ -28,7 +28,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "notional", "side"],
           "properties": {
-            "type": {"const": "european_vanilla"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "type": {"type": "string", "const": "european_vanilla"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
             "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"}
           }
@@ -37,7 +37,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "payout", "side", "payout_kind"],
           "properties": {
-            "type": {"const": "digital"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "type": {"type": "string", "const": "digital"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
             "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "payout": {"type": "number", "exclusiveMinimum": 0},
             "side": {"$ref": "#/$defs/side"}, "payout_kind": {"$ref": "#/$defs/digital_payout"},
@@ -48,7 +48,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "barrier", "notional", "side", "direction", "style", "monitoring_dates", "payment_date"],
           "properties": {
-            "type": {"const": "barrier"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "type": {"type": "string", "const": "barrier"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
             "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "barrier": {"type": "number", "exclusiveMinimum": 0},
             "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"},
@@ -62,7 +62,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["type", "underlying_id", "currency_id", "strike", "notional", "side", "observations", "payment_date"],
           "properties": {
-            "type": {"const": "arithmetic_asian"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "type": {"type": "string", "const": "arithmetic_asian"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
             "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0},
             "side": {"$ref": "#/$defs/side"}, "observations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/asian_observation"}},
@@ -73,7 +73,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["type", "underlying_id", "currency_id", "strike", "notional", "side", "monitoring_dates", "payment_date"],
           "properties": {
-            "type": {"const": "fixed_lookback"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "type": {"type": "string", "const": "fixed_lookback"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
             "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "notional": {"type": "number", "exclusiveMinimum": 0},
             "side": {"$ref": "#/$defs/side"}, "monitoring_dates": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}},
@@ -94,26 +94,26 @@
     },
     "asian_observation_value": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "fixing"], "properties": {"type": {"const": "known"}, "fixing": {"type": "number", "exclusiveMinimum": 0}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "unknown"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "fixing"], "properties": {"type": {"type": "string", "const": "known"}, "fixing": {"type": "number", "exclusiveMinimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "unknown"}}}
       ]
     },
     "digital_payout": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "cash"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "asset"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "cash"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "asset"}}}
       ]
     },
     "barrier_direction": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "up"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "down"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "up"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "down"}}}
       ]
     },
     "barrier_style": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "knock_in"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "knock_out"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "knock_in"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "knock_out"}}}
       ]
     },
     "curve": {
@@ -128,7 +128,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["type", "currency_id", "underlying_id", "spot", "discount_curve", "dividend_curve"],
       "properties": {
-        "type": {"const": "equity"}, "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535},
+        "type": {"type": "string", "const": "equity"}, "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535},
         "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "spot": {"type": "number", "exclusiveMinimum": 0},
         "discount_curve": {"$ref": "#/$defs/curve"}, "dividend_curve": {"$ref": "#/$defs/curve"},
         "discrete_dividends": {"type": "array", "items": {"$ref": "#/$defs/dividend_event"}}
@@ -144,16 +144,16 @@
     },
     "dividend_quote": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "amount"], "properties": {"type": {"const": "fixed_cash"}, "amount": {"type": "number", "minimum": 0}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "beta"], "properties": {"type": {"const": "proportional"}, "beta": {"type": "number", "minimum": 0, "exclusiveMaximum": 1}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "fixed_cash", "beta"], "properties": {"type": {"const": "fixed_cash_and_proportional"}, "fixed_cash": {"type": "number", "minimum": 0}, "beta": {"type": "number", "minimum": 0, "exclusiveMaximum": 1}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "amount"], "properties": {"type": {"type": "string", "const": "fixed_cash"}, "amount": {"type": "number", "minimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "beta"], "properties": {"type": {"type": "string", "const": "proportional"}, "beta": {"type": "number", "minimum": 0, "exclusiveMaximum": 1}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "fixed_cash", "beta"], "properties": {"type": {"type": "string", "const": "fixed_cash_and_proportional"}, "fixed_cash": {"type": "number", "minimum": 0}, "beta": {"type": "number", "minimum": 0, "exclusiveMaximum": 1}}}
       ]
     },
     "model": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"const": "black_scholes"}, "volatility": {"type": "number", "minimum": 0}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"const": "black_76"}, "volatility": {"type": "number", "minimum": 0}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "local_variance_grid"], "properties": {"type": {"const": "local_volatility"}, "local_variance_grid": {"$ref": "#/$defs/local_variance_grid"}, "reporting_iv_basis": {"$ref": "#/$defs/reporting_iv_basis"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"type": "string", "const": "black_scholes"}, "volatility": {"type": "number", "minimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"type": "string", "const": "black_76"}, "volatility": {"type": "number", "minimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "local_variance_grid"], "properties": {"type": {"type": "string", "const": "local_volatility"}, "local_variance_grid": {"$ref": "#/$defs/local_variance_grid"}, "reporting_iv_basis": {"$ref": "#/$defs/reporting_iv_basis"}}}
       ]
     },
     "local_variance_grid": {
@@ -184,8 +184,8 @@
     },
     "engine": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "master_seed", "independent_sampling_units", "variance_reduction"], "properties": {"type": {"const": "pseudo_monte_carlo"}, "master_seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}, "independent_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "points_per_scramble", "scramble_count", "master_scramble_seed", "variance_reduction"], "properties": {"type": {"const": "randomized_quasi_monte_carlo"}, "points_per_scramble": {"type": "integer", "minimum": 1, "maximum": 4294967296}, "scramble_count": {"type": "integer", "minimum": 1, "maximum": 4294967295}, "master_scramble_seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "master_seed", "independent_sampling_units", "variance_reduction"], "properties": {"type": {"type": "string", "const": "pseudo_monte_carlo"}, "master_seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}, "independent_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "points_per_scramble", "scramble_count", "master_scramble_seed", "variance_reduction"], "properties": {"type": {"type": "string", "const": "randomized_quasi_monte_carlo"}, "points_per_scramble": {"type": "integer", "minimum": 1, "maximum": 4294967296}, "scramble_count": {"type": "integer", "minimum": 1, "maximum": 4294967295}, "master_scramble_seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}}
       ]
     },
     "risk": {
@@ -204,8 +204,8 @@
     },
     "spot_bump": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"const": "absolute"}, "value": {"type": "number", "exclusiveMinimum": 0}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"const": "relative"}, "value": {"type": "number", "exclusiveMinimum": 0}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"type": "string", "const": "absolute"}, "value": {"type": "number", "exclusiveMinimum": 0}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"type": "string", "const": "relative"}, "value": {"type": "number", "exclusiveMinimum": 0}}}
       ]
     },
     "vega_kt": {
@@ -220,9 +220,9 @@
     },
     "smile_dynamics": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "sticky_log_moneyness"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "sticky_strike"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "sticky_delta"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "sticky_log_moneyness"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "sticky_strike"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "sticky_delta"}}}
       ]
     }
   }

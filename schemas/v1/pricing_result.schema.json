@@ -71,7 +71,7 @@
         {
           "if": {
             "required": ["covariance_layout"],
-            "properties": {"covariance_layout": {"properties": {"type": {"const": "full_bucket_matrix_row_major"}}}}
+            "properties": {"covariance_layout": {"properties": {"type": {"type": "string", "const": "full_bucket_matrix_row_major"}}}}
           },
           "then": {
             "required": ["full_bucket_covariance"],
@@ -81,7 +81,7 @@
         {
           "if": {
             "required": ["covariance_layout"],
-            "properties": {"covariance_layout": {"properties": {"type": {"const": "price_and_bucket_variance_only"}}}}
+            "properties": {"covariance_layout": {"properties": {"type": {"type": "string", "const": "price_and_bucket_variance_only"}}}}
           },
           "then": {
             "not": {
@@ -109,31 +109,31 @@
     },
     "estimator": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "analytical"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "pseudo_monte_carlo"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "randomized_quasi_monte_carlo"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "analytical"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "pseudo_monte_carlo"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "randomized_quasi_monte_carlo"}}}
       ]
     },
     "risk_unit": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "delta_raw"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "delta_one_percent_spot"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "gamma_raw"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "gamma_one_percent_spot_squared"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "vega_raw"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "vega_one_vol_point"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "delta_raw"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "delta_one_percent_spot"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "gamma_raw"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "gamma_one_percent_spot_squared"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "vega_raw"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "vega_one_vol_point"}}}
       ]
     },
     "vega_kt_covariance_layout": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "price_and_bucket_variance_only"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "full_bucket_matrix_row_major"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "price_and_bucket_variance_only"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "full_bucket_matrix_row_major"}}}
       ]
     },
     "vega_kt_bucket_unit": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "currency_per_unit_absolute_volatility"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "currency_per_volatility_point"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "currency_per_unit_absolute_volatility"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "currency_per_volatility_point"}}}
       ]
     },
     "vega_kt_coordinate": {
@@ -157,8 +157,8 @@
     },
     "vega_kt_covariance_entry": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"const": "value"}, "value": {"type": "number"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "unavailable"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"type": "string", "const": "value"}, "value": {"type": "number"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "unavailable"}}}
       ]
     },
     "vega_kt_projection": {

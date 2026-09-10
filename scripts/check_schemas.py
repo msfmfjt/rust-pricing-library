@@ -665,6 +665,10 @@ def check_tagged_union_discriminators(schema: dict[str, Any], path: Path) -> Non
                 isinstance(discriminator, dict),
                 f"{path}:{pointer((*variant_path, 'properties', 'type'))}: union discriminator must be an object",
             )
+            require(
+                discriminator.get("type") == "string",
+                f"{path}:{pointer((*variant_path, 'properties', 'type'))}: union discriminator must be a string",
+            )
             tag = discriminator.get("const")
             require(
                 isinstance(tag, str),
