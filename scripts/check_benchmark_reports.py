@@ -224,6 +224,11 @@ UNAVAILABLE_METRICS = (
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
 }
+COMMAND_PEAK_REPORTS = {
+    "python_european_black_scholes": "python.json",
+    "rust_european_black_scholes": "rust.json",
+    "rust_local_volatility_vegakt": "local-volatility-rust.json",
+}
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -798,6 +803,13 @@ def check_metadata(path: Path, artifacts: set[str]) -> None:
     for name, peak in command_peaks.items():
         require(isinstance(name, str) and name, path, "command peak name must be non-empty")
         require_positive_int(peak, path, f"command_peak_memory_bytes.{name}")
+    for name, report_name in COMMAND_PEAK_REPORTS.items():
+        report = load_object(path.parent / report_name)
+        require(
+            command_peaks[name] == report.get("process_peak_memory_bytes"),
+            path,
+            f"command_peak_memory_bytes.{name} must match {report_name}",
+        )
     require(
         document["peak_memory_bytes"] == max(command_peaks.values()),
         path,
