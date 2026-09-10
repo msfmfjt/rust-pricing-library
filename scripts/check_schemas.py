@@ -98,6 +98,32 @@ EXPECTED_SCHEMA_TOP_LEVEL_KEYS = [
     "properties",
     "$defs",
 ]
+ALLOWED_SCHEMA_KEYWORDS = {
+    "$defs",
+    "$id",
+    "$ref",
+    "$schema",
+    "additionalProperties",
+    "allOf",
+    "const",
+    "exclusiveMaximum",
+    "exclusiveMinimum",
+    "if",
+    "items",
+    "maxItems",
+    "maximum",
+    "minItems",
+    "minLength",
+    "minimum",
+    "not",
+    "oneOf",
+    "pattern",
+    "properties",
+    "required",
+    "then",
+    "title",
+    "type",
+}
 EXPECTED_SCHEMA_DEF_ORDER = {
     "pricing_request": [
         "side",
@@ -622,6 +648,17 @@ def check_refs(schema: dict[str, Any], path: Path) -> None:
 def check_no_json_null(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
         require(value is not None, f"{path}:{pointer(location)}: JSON null is not part of schema v1")
+
+
+def check_schema_keywords(schema: dict[str, Any], path: Path) -> None:
+    for location, value in walk(schema):
+        if not isinstance(value, dict) or (location and location[-1] in {"properties", "$defs"}):
+            continue
+        unexpected = sorted(set(value) - ALLOWED_SCHEMA_KEYWORDS)
+        require(
+            not unexpected,
+            f"{path}:{pointer(location)}: unexpected schema keywords: {unexpected}",
+        )
 
 
 def check_wire_names(schema: dict[str, Any], path: Path) -> None:
@@ -1244,6 +1281,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     schema = load_schema(path)
     check_top_level(document_kind, path, schema)
     check_no_json_null(schema, path)
+    check_schema_keywords(schema, path)
     check_refs(schema, path)
     check_wire_names(schema, path)
     check_required_properties(document_kind, schema, path)
