@@ -244,6 +244,22 @@ REQUIRED_MARKDOWN_LINK_CHECK_SNIPPETS = {
     "re.match(r\"^[a-zA-Z][a-zA-Z0-9+.-]*:\", target)",
 }
 
+REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
+    "PurePosixPath(name).is_absolute()",
+    "\"..\" in PurePosixPath(name).parts",
+    "duplicate archive member path",
+    "unsupported archive member type",
+    "archive contains generated/private files",
+    "REQUIRED_FILES.union(repository_source_files())",
+    "\"target\"",
+    "\"dist\"",
+    "\".wheel-smoke-venv\"",
+    "\"benchmark-results\"",
+    "\"uv.lock\"",
+    "\".pyc\"",
+    "(ROOT / root).rglob(pattern)",
+}
+
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Status: code and private artifact gates ready; external publication decisions open",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
@@ -376,6 +392,7 @@ def main() -> int:
         check_dependency_direction_gate(package, archive)
         check_local_vol_reference_gate(package, archive)
         check_markdown_link_gate(package, archive)
+        check_source_archive_gate(package, archive)
         check_readme_release_gates(package, archive)
         check_contributing_release_gates(package, archive)
         check_architecture_contract(package, archive)
@@ -610,6 +627,19 @@ def check_markdown_link_gate(package: tarfile.TarFile, archive: str) -> None:
     if missing:
         raise SystemExit(
             f"{archive}: Markdown link validation is missing required gates: {missing}"
+        )
+
+
+def check_source_archive_gate(package: tarfile.TarFile, archive: str) -> None:
+    source_archive_check = read_text(package, "scripts/check_source_archive.py")
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS
+        if snippet not in source_archive_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: source archive validation is missing required gates: {missing}"
         )
 
 
