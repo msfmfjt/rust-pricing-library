@@ -78,6 +78,16 @@ BASE_CONFIGURATION_KEYS = (
     "sampling_units",
     "worker_threads",
 )
+BASE_CONFIGURATION = {
+    "antithetic": True,
+    "compile_samples": 20,
+    "engine": "pseudo_monte_carlo",
+    "evaluated_paths": 32_768,
+    "evaluation_samples": 5,
+    "reduction_block_size": 256,
+    "sampling_units": 16_384,
+    "worker_threads": 2,
+}
 LOCAL_VOL_CONFIGURATION_KEYS = (
     "aad_tile_capacity",
     "antithetic",
@@ -93,6 +103,21 @@ LOCAL_VOL_CONFIGURATION_KEYS = (
     "vega_kt_covariance_layout",
     "worker_threads",
 )
+LOCAL_VOL_CONFIGURATION = {
+    "aad_tile_capacity": 256,
+    "antithetic": True,
+    "checkpoint_interval": 16,
+    "compile_samples": 20,
+    "engine": "pseudo_monte_carlo",
+    "evaluated_paths": 16_384,
+    "evaluation_samples": 5,
+    "local_variance_grid_shape": [3, 5],
+    "reduction_block_size": 256,
+    "reporting_iv_basis_shape": [2, 3],
+    "sampling_units": 8_192,
+    "vega_kt_covariance_layout": "full_bucket_matrix_row_major",
+    "worker_threads": 2,
+}
 PYTHON_CONFIGURATION_KEYS = (
     "antithetic",
     "engine",
@@ -101,6 +126,14 @@ PYTHON_CONFIGURATION_KEYS = (
     "sampling_units",
     "worker_threads",
 )
+PYTHON_CONFIGURATION = {
+    "antithetic": True,
+    "engine": "pseudo_monte_carlo",
+    "evaluated_paths": 32_768,
+    "reduction_block_size": 256,
+    "sampling_units": 16_384,
+    "worker_threads": 2,
+}
 BASE_CAPABILITY_KEYS = (
     "aad_and_bump_timing_separable",
     "allocation_count_available",
@@ -308,6 +341,8 @@ def check_report(
             path,
             "unexpected vega_kt_covariance_layout",
         )
+    expected_configuration = LOCAL_VOL_CONFIGURATION if local_volatility else BASE_CONFIGURATION
+    require(configuration == expected_configuration, path, "configuration mismatch")
 
     measurements = require_object(document.get("measurements"), path, "measurements")
     required_measurement_set = set(required_measurements)
@@ -561,6 +596,7 @@ def check_python_report(path: Path, library_version: str) -> None:
     require_positive_int(
         configuration.get("reduction_block_size"), path, "reduction_block_size"
     )
+    require(configuration == PYTHON_CONFIGURATION, path, "configuration mismatch")
 
     measurements = require_object(document.get("measurements"), path, "measurements")
     python_measurement_set = set(PYTHON_MEASUREMENTS)
