@@ -808,6 +808,24 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             ],
         )
 
+        compact_covariance = json.loads(result_json)
+        compact_covariance["risks"]["vega_kt"]["covariance_layout"] = {
+            "type": "price_and_bucket_variance_only"
+        }
+        del compact_covariance["risks"]["vega_kt"]["full_bucket_covariance"]
+        parsed_compact_covariance = rust_pricing.PricingResult.from_json(
+            json.dumps(compact_covariance, separators=(",", ":"))
+        )
+        self.assertIsNone(parsed_compact_covariance.vega_kt.full_bucket_covariance)
+        compact_vega_kt_payload = json.loads(parsed_compact_covariance.to_json())["risks"][
+            "vega_kt"
+        ]
+        self.assertNotIn("full_bucket_covariance", compact_vega_kt_payload)
+        self.assertEqual(
+            compact_vega_kt_payload["covariance_layout"]["type"],
+            "price_and_bucket_variance_only",
+        )
+
         missing_covariance = json.loads(result_json)
         del missing_covariance["risks"]["vega_kt"]["full_bucket_covariance"]
         with self.assertRaises(rust_pricing.ValidationError) as captured:
