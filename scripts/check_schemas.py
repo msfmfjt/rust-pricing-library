@@ -102,6 +102,15 @@ ID_FIELD_MAXIMUMS = {
     "event_id": 4_294_967_295,
     "underlying_id": 4_294_967_295,
 }
+REQUEST_INTEGER_LIMITS = {
+    "aad_tile_capacity": (1, 4_294_967_295),
+    "checkpoint_interval": (1, 4_294_967_295),
+    "independent_sampling_units": (1, 18_446_744_073_709_551_615),
+    "master_scramble_seed": (0, 18_446_744_073_709_551_615),
+    "master_seed": (0, 18_446_744_073_709_551_615),
+    "points_per_scramble": (1, 4_294_967_296),
+    "scramble_count": (1, 4_294_967_295),
+}
 
 
 class SchemaError(Exception):
@@ -350,6 +359,29 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
             and items.get("minimum") == 2,
             f"{path}:{pointer(field_location)}: shape must be a two-dimensional integer array",
         )
+
+
+def check_request_integer_limits(schema: dict[str, Any], path: Path) -> None:
+    if path != EXPECTED_SCHEMAS["pricing_request"]:
+        return
+    for location, value in walk(schema):
+        if not isinstance(value, dict):
+            continue
+        properties = value.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        for field, (minimum, maximum) in REQUEST_INTEGER_LIMITS.items():
+            definition = properties.get(field)
+            if definition is None:
+                continue
+            field_location = (*location, "properties", field)
+            require(
+                isinstance(definition, dict)
+                and definition.get("type") == "integer"
+                and definition.get("minimum") == minimum
+                and definition.get("maximum") == maximum,
+                f"{path}:{pointer(field_location)}: {field} must match its Rust integer width",
+            )
 
 
 def check_request_digital_payment_date_contract(schema: dict[str, Any], path: Path) -> None:
@@ -682,6 +714,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_date_fields(schema, path)
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
+    check_request_integer_limits(schema, path)
     check_request_digital_payment_date_contract(schema, path)
     check_vega_kt_result_arrays(schema, path)
     check_result_replay_metadata(schema, path)

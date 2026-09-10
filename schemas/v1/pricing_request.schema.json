@@ -184,8 +184,8 @@
     },
     "engine": {
       "oneOf": [
-        {"type": "object", "additionalProperties": false, "required": ["type", "master_seed", "independent_sampling_units", "variance_reduction"], "properties": {"type": {"const": "pseudo_monte_carlo"}, "master_seed": {"type": "integer", "minimum": 0}, "independent_sampling_units": {"type": "integer", "minimum": 1}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}},
-        {"type": "object", "additionalProperties": false, "required": ["type", "points_per_scramble", "scramble_count", "master_scramble_seed", "variance_reduction"], "properties": {"type": {"const": "randomized_quasi_monte_carlo"}, "points_per_scramble": {"type": "integer", "minimum": 1}, "scramble_count": {"type": "integer", "minimum": 1}, "master_scramble_seed": {"type": "integer", "minimum": 0}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}}
+        {"type": "object", "additionalProperties": false, "required": ["type", "master_seed", "independent_sampling_units", "variance_reduction"], "properties": {"type": {"const": "pseudo_monte_carlo"}, "master_seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}, "independent_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "points_per_scramble", "scramble_count", "master_scramble_seed", "variance_reduction"], "properties": {"type": {"const": "randomized_quasi_monte_carlo"}, "points_per_scramble": {"type": "integer", "minimum": 1, "maximum": 4294967296}, "scramble_count": {"type": "integer", "minimum": 1, "maximum": 4294967295}, "master_scramble_seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}, "variance_reduction": {"$ref": "#/$defs/variance_reduction"}}}
       ]
     },
     "risk": {
@@ -195,7 +195,7 @@
         "gamma": {"$ref": "#/$defs/gamma"},
         "vega_kt": {"$ref": "#/$defs/vega_kt"},
         "smile_dynamics": {"$ref": "#/$defs/smile_dynamics"},
-        "checkpoint_interval": {"type": "integer", "minimum": 1}, "aad_tile_capacity": {"type": "integer", "minimum": 1}
+        "checkpoint_interval": {"type": "integer", "minimum": 1, "maximum": 4294967295}, "aad_tile_capacity": {"type": "integer", "minimum": 1, "maximum": 4294967295}
       }
     },
     "gamma": {
