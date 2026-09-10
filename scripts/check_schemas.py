@@ -88,6 +88,59 @@ EXPECTED_TOP_LEVEL_REQUIRED = {
         "replay",
     ],
 }
+EXPECTED_SCHEMA_TOP_LEVEL_KEYS = [
+    "$schema",
+    "$id",
+    "title",
+    "type",
+    "additionalProperties",
+    "required",
+    "properties",
+    "$defs",
+]
+EXPECTED_SCHEMA_DEF_ORDER = {
+    "pricing_request": [
+        "side",
+        "product",
+        "asian_observation",
+        "asian_observation_value",
+        "digital_payout",
+        "barrier_direction",
+        "barrier_style",
+        "curve",
+        "market",
+        "dividend_event",
+        "dividend_quote",
+        "model",
+        "local_variance_grid",
+        "reporting_iv_basis",
+        "variance_reduction",
+        "engine",
+        "risk",
+        "gamma",
+        "spot_bump",
+        "vega_kt",
+        "smile_dynamics",
+    ],
+    "pricing_result": [
+        "estimate",
+        "risk_report",
+        "risk_estimate",
+        "vega_kt_report",
+        "diagnostics",
+        "warning",
+        "estimator",
+        "risk_unit",
+        "vega_kt_covariance_layout",
+        "vega_kt_bucket_unit",
+        "vega_kt_coordinate",
+        "vega_kt_bucket_estimate",
+        "vega_kt_covariance_entry",
+        "vega_kt_projection",
+        "vega_kt_residual_diagnostics",
+        "reporting_iv_projection_stats",
+    ],
+}
 EXPECTED_GOLDEN_KEYS = {
     "pricing_request": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_request"]),
     "pricing_result": set(EXPECTED_TOP_LEVEL_REQUIRED["pricing_result"]),
@@ -1098,6 +1151,7 @@ def check_tagged_union_discriminators(
 def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> None:
     expected_id = f"urn:rust-pricing-library:schema:v1:{document_kind}"
     expected_title = "".join(part.title() for part in document_kind.split("_")) + " schema v1"
+    require(list(schema) == EXPECTED_SCHEMA_TOP_LEVEL_KEYS, f"{path}: top-level key order changed")
     require(schema.get("$schema") == DRAFT_2020_12, f"{path}: $schema must be Draft 2020-12")
     require(schema.get("$id") == expected_id, f"{path}: $id must be {expected_id}")
     require(schema.get("title") == expected_title, f"{path}: title must be {expected_title!r}")
@@ -1124,6 +1178,10 @@ def check_top_level(document_kind: str, path: Path, schema: dict[str, Any]) -> N
     )
     defs = schema.get("$defs")
     require(isinstance(defs, dict), f"{path}: $defs must be an object")
+    require(
+        list(defs) == EXPECTED_SCHEMA_DEF_ORDER[document_kind],
+        f"{path}: $defs order changed",
+    )
     require(
         set(defs) == EXPECTED_SCHEMA_DEFS[document_kind],
         f"{path}: $defs names changed",
