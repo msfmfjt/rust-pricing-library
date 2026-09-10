@@ -989,6 +989,17 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(rust_pricing.__version__, "0.1.0")
 
     def test_bundled_json_schemas_are_exported(self):
+        def walk_schema(value, path=""):
+            yield path, value
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    child_path = f"{path}/{key}" if path else f"/{key}"
+                    yield from walk_schema(child, child_path)
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    child_path = f"{path}/{index}" if path else f"/{index}"
+                    yield from walk_schema(child, child_path)
+
         request_schema_text = rust_pricing.request_json_schema()
         result_schema_text = rust_pricing.result_json_schema()
         self.assertEqual(
@@ -1006,11 +1017,24 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(
             request_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
         )
-        self.assertEqual(request_schema["properties"]["document_kind"]["const"], "pricing_request")
+        self.assertEqual(
+            request_schema["properties"]["document_kind"]["const"], "pricing_request"
+        )
         self.assertEqual(
             result_schema["$schema"], "https://json-schema.org/draft/2020-12/schema"
         )
-        self.assertEqual(result_schema["properties"]["document_kind"]["const"], "pricing_result")
+        self.assertEqual(
+            result_schema["properties"]["document_kind"]["const"], "pricing_result"
+        )
+        for schema in [request_schema, result_schema]:
+            for path, node in walk_schema(schema):
+                if not isinstance(node, dict):
+                    continue
+                if "const" in node:
+                    self.assertIn("type", node, path)
+                if node.get("type") == "integer":
+                    self.assertIn("minimum", node, path)
+                    self.assertIn("maximum", node, path)
 
     def test_vega_kt_result_api_is_exported(self):
         exported = [
