@@ -28,7 +28,8 @@ def main() -> None:
 
     with ZipFile(wheel) as archive:
         verify_wheel_archive_members(archive.infolist())
-        members = {member for member in archive.namelist() if not member.endswith("/")}
+        member_order = [member for member in archive.namelist() if not member.endswith("/")]
+        members = set(member_order)
         member_bytes = {member: archive.read(member) for member in members}
         verify_wheel_text_members(member_bytes)
         verify_wheel_member_layout(members)
@@ -44,6 +45,7 @@ def main() -> None:
     verify_wheel_python_abi_matches_interpreter(wheel, filename_tags)
     verify_wheel_metadata(
         wheel,
+        member_order,
         members,
         metadata,
         wheel_metadata,
@@ -228,6 +230,7 @@ def is_wheel_text_member(member: str) -> bool:
 
 def verify_wheel_metadata(
     wheel: Path,
+    member_order: list[str],
     members: set[str],
     metadata: Message,
     wheel_metadata: Message,
@@ -281,7 +284,7 @@ def verify_wheel_metadata(
             f"wheel filename tags {sorted(filename_tags)} do not match WHEEL tags {sorted(tags)}"
         )
     verify_cyclonedx_sbom(members, member_bytes, expected_metadata["Version"])
-    record_members = verify_wheel_record(record, members, member_bytes)
+    record_members = verify_wheel_record(record, member_order, members, member_bytes)
     if "rust_pricing/__init__.pyi" not in record_members or "rust_pricing/py.typed" not in record_members:
         raise RuntimeError("wheel RECORD does not list stub and py.typed entries")
 
@@ -515,9 +518,14 @@ def required_string(document: dict[str, object], key: str, label: str) -> str:
 
 def verify_wheel_record(
     record: str,
+    wheel_member_order: list[str],
     wheel_members: set[str],
     member_bytes: dict[str, bytes],
 ) -> set[str]:
+    if not record.endswith("\n"):
+        raise RuntimeError("wheel RECORD must end with LF")
+    if record.endswith("\n\n"):
+        raise RuntimeError("wheel RECORD must end with exactly one LF")
     rows = list(csv.reader(record.splitlines()))
     entries: list[tuple[int, str, str, str]] = []
     members: set[str] = set()
@@ -533,6 +541,11 @@ def verify_wheel_record(
         entries.append((index, path, digest, size))
     if not any(member.endswith(".dist-info/RECORD") for member in members):
         raise RuntimeError("wheel RECORD does not list itself")
+    record_order = [path for _, path, _, _ in entries]
+    if record_order != wheel_member_order:
+        raise RuntimeError("wheel RECORD row order must match archive member order")
+    if not record_order[-1].endswith(".dist-info/RECORD"):
+        raise RuntimeError("wheel RECORD entry must be last")
 
     missing_from_record = sorted(wheel_members.difference(members))
     if missing_from_record:
