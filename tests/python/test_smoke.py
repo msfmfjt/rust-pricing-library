@@ -1185,6 +1185,38 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
+    def test_json_integer_fields_reject_non_integer_tokens(self):
+        cases = [
+            (
+                "fractional schema version",
+                self.request_json.replace('"schema_version":1', '"schema_version":1.0', 1),
+            ),
+            (
+                "exponent schema version",
+                self.request_json.replace('"schema_version":1', '"schema_version":1e0', 1),
+            ),
+            (
+                "negative zero schema version",
+                self.request_json.replace('"schema_version":1', '"schema_version":-0', 1),
+            ),
+            (
+                "quoted schema version",
+                self.request_json.replace('"schema_version":1', '"schema_version":"1"', 1),
+            ),
+        ]
+
+        for name, invalid in cases:
+            with self.subTest(name=name):
+                with self.assertRaises(rust_pricing.ValidationError) as captured:
+                    rust_pricing.PricingRequest.from_json(invalid)
+
+                issue = captured.exception.issues[0]
+                self.assertEqual(issue.phase, "syntax_and_limits")
+                self.assertEqual(issue.code, "invalid_json")
+                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.document_kind, "pricing_request")
+                self.assertEqual(issue.instance_path, "")
+
     def test_json_duplicate_object_members_are_rejected(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
         result = rust_pricing.PricingPlan.compile(

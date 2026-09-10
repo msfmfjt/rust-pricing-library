@@ -2842,6 +2842,17 @@ mod tests {
                 "request JSON accepted {constant}"
             );
         }
+        for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
+            let invalid = json.replacen(
+                "\"schema_version\":1",
+                &format!("\"schema_version\":{schema_version}"),
+                1,
+            );
+            assert!(
+                parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "request JSON accepted schema_version {schema_version}"
+            );
+        }
     }
 
     #[test]
