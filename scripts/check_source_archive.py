@@ -176,6 +176,7 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel text member has a UTF-8 BOM",
     "wheel __init__.py content changed",
     "wheel py.typed marker must be empty",
+    "wheel metadata README payload does not match README.md",
     "unexpected runtime symbols",
     "unexpected runtime members on",
     "runtime member must be staticmethod",

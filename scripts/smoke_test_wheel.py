@@ -47,6 +47,7 @@ EXPECTED_INIT_PY = (
 def main() -> None:
     wheel = selected_wheel()
     expected_metadata = expected_project_metadata()
+    expected_readme_payload = Path("README.md").read_text("utf-8") + "\n"
 
     with ZipFile(wheel) as archive:
         verify_wheel_archive_members(archive.infolist())
@@ -74,6 +75,7 @@ def main() -> None:
         record,
         member_bytes,
         expected_metadata,
+        expected_readme_payload,
     )
     expected_stub = Path("rust_pricing.pyi").read_bytes()
     if stub != expected_stub:
@@ -259,6 +261,7 @@ def verify_wheel_metadata(
     record: str,
     member_bytes: dict[str, bytes],
     expected_metadata: dict[str, str],
+    expected_readme_payload: str,
 ) -> None:
     verify_message_fields(metadata, EXPECTED_METADATA_FIELDS, "METADATA")
     verify_message_fields(wheel_metadata, EXPECTED_WHEEL_FIELDS, "WHEEL")
@@ -293,8 +296,8 @@ def verify_wheel_metadata(
     for field in ["License", "License-Expression", "License-File"]:
         if metadata.get_all(field):
             raise RuntimeError(f"wheel metadata must not declare {field}")
-    if "Rust Pricing Library" not in metadata.get_payload():
-        raise RuntimeError("wheel metadata does not include the README payload")
+    if metadata.get_payload() != expected_readme_payload:
+        raise RuntimeError("wheel metadata README payload does not match README.md")
     if wheel_metadata["Wheel-Version"] != "1.0":
         raise RuntimeError(f"unexpected wheel metadata version: {wheel_metadata['Wheel-Version']}")
     generator = wheel_metadata["Generator"]
