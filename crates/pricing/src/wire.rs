@@ -2768,6 +2768,18 @@ mod tests {
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/model/reporting_iv_basis" && message.contains("reporting_iv_basis shape")
         ));
+
+        for value in ["1.0", "1e0", "-0", "\"1\""] {
+            let invalid = json.replacen(
+                "\"reporting_iv_basis\":{\"maturity_nodes\":[0.25,1.0],\"log_forward_moneyness_nodes\":[-0.2,0.0,0.2],\"shape\":[2,3]",
+                &format!("\"reporting_iv_basis\":{{\"maturity_nodes\":[0.25,1.0],\"log_forward_moneyness_nodes\":[-0.2,0.0,0.2],\"shape\":[{value},3]"),
+                1,
+            );
+            assert!(
+                parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "request JSON accepted reporting_iv_basis shape value {value}"
+            );
+        }
     }
 
     #[test]
@@ -2779,6 +2791,14 @@ mod tests {
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/model/local_variance_grid" && message.contains("shape")
         ));
+
+        for value in ["1.0", "1e0", "-0", "\"1\""] {
+            let invalid = json.replacen("\"shape\":[2,3]", &format!("\"shape\":[{value},3]"), 1);
+            assert!(
+                parse_request_json(invalid.as_bytes(), JsonLimits::DEFAULT).is_err(),
+                "request JSON accepted local_variance_grid shape value {value}"
+            );
+        }
     }
 
     #[test]

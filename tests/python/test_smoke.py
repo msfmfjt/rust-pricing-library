@@ -1191,6 +1191,28 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             request, worker_threads=2, reduction_block_size=256
         ).evaluate()
         result_json = result.to_json()
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        local_vol_request_json = rust_pricing.PricingRequest(
+            "2026-09-04",
+            rust_pricing.Product.european_vanilla(
+                1, 2, "2027-09-04", 100.0, 1.0, "call"
+            ),
+            rust_pricing.Market.equity(2, 1, 100.0, discount, dividend),
+            rust_pricing.Model.local_volatility_from_essvi(
+                [
+                    rust_pricing.EssviSlice(0.25, 0.02, 0.1, -0.03),
+                    rust_pricing.EssviSlice(1.0, 0.04, 0.2, -0.06),
+                ],
+                0.02,
+                [0.0, 0.25, 1.0],
+                [-0.1, 0.0, 0.2],
+                1.0e-8,
+                4.0,
+            ),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(),
+        ).to_json()
         cases = [
             (
                 "request fractional schema version",
@@ -1269,6 +1291,29 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                         rust_pricing.PricingRequest.from_json,
                     )
                 )
+        for value in ["1.0", "1e0", "-0", '"1"']:
+            cases.append(
+                (
+                    f"request local variance shape {value}",
+                    "pricing_request",
+                    local_vol_request_json.replace(
+                        '"shape":[3,3]', f'"shape":[{value},3]', 1
+                    ),
+                    rust_pricing.PricingRequest.from_json,
+                )
+            )
+            cases.append(
+                (
+                    f"request reporting iv basis shape {value}",
+                    "pricing_request",
+                    local_vol_request_json.replace(
+                        '"reporting_iv_basis":{"maturity_nodes":[0.25,1.0],"log_forward_moneyness_nodes":[-0.1,0.0,0.2],"shape":[2,3]',
+                        f'"reporting_iv_basis":{{"maturity_nodes":[0.25,1.0],"log_forward_moneyness_nodes":[-0.1,0.0,0.2],"shape":[{value},3]',
+                        1,
+                    ),
+                    rust_pricing.PricingRequest.from_json,
+                )
+            )
 
         for name, document_kind, invalid, parser in cases:
             with self.subTest(name=name):
