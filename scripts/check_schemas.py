@@ -111,6 +111,14 @@ REQUEST_INTEGER_LIMITS = {
     "points_per_scramble": (1, 4_294_967_296),
     "scramble_count": (1, 4_294_967_295),
 }
+RESULT_INTEGER_LIMITS = {
+    "active_domain_end_index": (0, 18_446_744_073_709_551_615),
+    "active_domain_forward_index": (0, 18_446_744_073_709_551_615),
+    "active_domain_start_index": (0, 18_446_744_073_709_551_615),
+    "effective_sampling_units": (1, 18_446_744_073_709_551_615),
+    "left_edge_count": (0, 18_446_744_073_709_551_615),
+    "right_edge_count": (0, 18_446_744_073_709_551_615),
+}
 
 
 class SchemaError(Exception):
@@ -364,13 +372,27 @@ def check_shape_fields(schema: dict[str, Any], path: Path) -> None:
 def check_request_integer_limits(schema: dict[str, Any], path: Path) -> None:
     if path != EXPECTED_SCHEMAS["pricing_request"]:
         return
+    check_integer_limits(schema, path, REQUEST_INTEGER_LIMITS)
+
+
+def check_result_integer_limits(schema: dict[str, Any], path: Path) -> None:
+    if path != EXPECTED_SCHEMAS["pricing_result"]:
+        return
+    check_integer_limits(schema, path, RESULT_INTEGER_LIMITS)
+
+
+def check_integer_limits(
+    schema: dict[str, Any],
+    path: Path,
+    expected_limits: dict[str, tuple[int, int]],
+) -> None:
     for location, value in walk(schema):
         if not isinstance(value, dict):
             continue
         properties = value.get("properties")
         if not isinstance(properties, dict):
             continue
-        for field, (minimum, maximum) in REQUEST_INTEGER_LIMITS.items():
+        for field, (minimum, maximum) in expected_limits.items():
             definition = properties.get(field)
             if definition is None:
                 continue
@@ -715,6 +737,7 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_id_fields(schema, path)
     check_shape_fields(schema, path)
     check_request_integer_limits(schema, path)
+    check_result_integer_limits(schema, path)
     check_request_digital_payment_date_contract(schema, path)
     check_vega_kt_result_arrays(schema, path)
     check_result_replay_metadata(schema, path)

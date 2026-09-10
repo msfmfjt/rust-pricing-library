@@ -29,7 +29,7 @@
       "properties": {
         "value": {"type": "number"}, "standard_error": {"type": "number", "minimum": 0},
         "confidence_lower": {"type": "number"}, "confidence_upper": {"type": "number"},
-        "estimator": {"$ref": "#/$defs/estimator"}, "effective_sampling_units": {"type": "integer", "minimum": 1}
+        "estimator": {"$ref": "#/$defs/estimator"}, "effective_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}
       }
     },
     "risk_report": {
@@ -175,9 +175,9 @@
       "type": "object", "additionalProperties": false,
       "required": ["active_domain_start_index", "active_domain_end_index", "active_domain_forward_index", "excluded_probability_mass", "signed_residual", "pre_projection", "reporting_stats"],
       "properties": {
-        "active_domain_start_index": {"type": "integer", "minimum": 0},
-        "active_domain_end_index": {"type": "integer", "minimum": 0},
-        "active_domain_forward_index": {"type": "integer", "minimum": 0},
+        "active_domain_start_index": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "active_domain_end_index": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "active_domain_forward_index": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
         "excluded_probability_mass": {"type": "number", "minimum": 0},
         "signed_residual": {"type": "number"},
         "pre_projection": {"type": "number"},
@@ -188,8 +188,8 @@
       "type": "object", "additionalProperties": false,
       "required": ["left_edge_count", "right_edge_count", "left_edge_sensitivity", "right_edge_sensitivity"],
       "properties": {
-        "left_edge_count": {"type": "integer", "minimum": 0},
-        "right_edge_count": {"type": "integer", "minimum": 0},
+        "left_edge_count": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "right_edge_count": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
         "left_edge_sensitivity": {"type": "number"},
         "right_edge_sensitivity": {"type": "number"}
       }
