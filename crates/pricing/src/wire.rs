@@ -2785,6 +2785,50 @@ mod tests {
     }
 
     #[test]
+    fn json_limit_overrides_reject_each_hard_cap_excess() {
+        let hard = JsonLimits::HARD_CAP;
+        assert_eq!(hard.checked(), Ok(hard));
+
+        let cases = [
+            JsonLimits {
+                max_input_bytes: hard.max_input_bytes + 1,
+                ..hard
+            },
+            JsonLimits {
+                max_nesting_depth: hard.max_nesting_depth + 1,
+                ..hard
+            },
+            JsonLimits {
+                max_string_bytes: hard.max_string_bytes + 1,
+                ..hard
+            },
+            JsonLimits {
+                max_number_token_bytes: hard.max_number_token_bytes + 1,
+                ..hard
+            },
+            JsonLimits {
+                max_array_elements: hard.max_array_elements + 1,
+                ..hard
+            },
+            JsonLimits {
+                max_object_members: hard.max_object_members + 1,
+                ..hard
+            },
+            JsonLimits {
+                max_total_values: hard.max_total_values + 1,
+                ..hard
+            },
+        ];
+
+        for limits in cases {
+            assert_eq!(
+                limits.checked(),
+                Err(WireError::LimitOverrideExceedsHardCap)
+            );
+        }
+    }
+
+    #[test]
     fn bundled_schemas_are_draft_2020_12_json() {
         for schema in [current_request_schema(), current_result_schema()] {
             let value: Value = serde_json::from_str(schema).expect("schema JSON");
