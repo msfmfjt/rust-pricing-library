@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import sys
 from typing import Any
 
@@ -21,11 +22,16 @@ LEVEL = {
     "pricing-python": 7,
 }
 
+EXPECTED_MANIFEST_PATHS = {
+    name: f"crates/{name}/Cargo.toml" for name in LEVEL
+}
+
 
 def main() -> int:
     metadata = load_metadata()
     workspace_ids = metadata["workspace_members"]
-    packages = workspace_packages(metadata["packages"], workspace_ids)
+    workspace_root = Path(metadata["workspace_root"])
+    packages = workspace_packages(metadata["packages"], workspace_ids, workspace_root)
 
     missing = sorted(set(LEVEL) - set(packages))
     unexpected = sorted(set(packages) - set(LEVEL))
@@ -90,12 +96,16 @@ def load_metadata() -> dict[str, Any]:
         isinstance(package, dict) for package in packages
     ):
         raise SystemExit("dependency-direction error: packages must be an object array")
+    workspace_root = metadata.get("workspace_root")
+    if not isinstance(workspace_root, str) or not workspace_root:
+        raise SystemExit("dependency-direction error: workspace_root must be a string")
     return metadata
 
 
 def workspace_packages(
     metadata_packages: list[dict[str, Any]],
     workspace_ids: list[str],
+    workspace_root: Path,
 ) -> dict[str, dict[str, Any]]:
     workspace_id_set = set(workspace_ids)
     packages_by_id = {}
@@ -136,6 +146,20 @@ def workspace_packages(
             )
         if name in selected:
             duplicate_names.add(name)
+        expected_manifest = EXPECTED_MANIFEST_PATHS.get(name)
+        if expected_manifest is not None:
+            manifest_path = package.get("manifest_path")
+            if not isinstance(manifest_path, str) or not manifest_path:
+                raise SystemExit(
+                    f"dependency-direction error: {name}: "
+                    "manifest_path must be a non-empty string"
+                )
+            actual_manifest = relative_manifest_path(manifest_path, workspace_root)
+            if actual_manifest != expected_manifest:
+                raise SystemExit(
+                    f"dependency-direction error: {name}: manifest_path mismatch: "
+                    f"{actual_manifest} != {expected_manifest}"
+                )
         selected[name] = package
     if missing_ids:
         raise SystemExit(
@@ -152,6 +176,15 @@ def workspace_packages(
             "dependency-direction error: workspace package selection is inconsistent"
         )
     return selected
+
+
+def relative_manifest_path(manifest_path: str, workspace_root: Path) -> str:
+    try:
+        return Path(manifest_path).resolve().relative_to(workspace_root.resolve()).as_posix()
+    except ValueError as exc:
+        raise SystemExit(
+            f"dependency-direction error: manifest_path escapes workspace_root: {manifest_path}"
+        ) from exc
 
 
 if __name__ == "__main__":

@@ -311,6 +311,10 @@ REQUIRED_DEPENDENCY_DIRECTION_SNIPPETS = {
     "missing workspace crates",
     "unclassified workspace crates",
     "depends upward on",
+    "EXPECTED_MANIFEST_PATHS",
+    "workspace_root must be a string",
+    "manifest_path mismatch",
+    "manifest_path escapes workspace_root",
     "workspace_members references missing packages",
     "multiple workspace packages share crate names",
 }
