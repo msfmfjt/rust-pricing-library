@@ -1170,6 +1170,22 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(first.exception.issues[0], second.exception.issues[0])
         self.assertNotEqual(first.exception.issues[0], third.exception.issues[0])
 
+    def test_validation_error_issues_lists_are_freshly_owned(self):
+        invalid = self.request_json.replace('"schema_version":1', '"schema_version":99')
+        with self.assertRaises(rust_pricing.ValidationError) as first:
+            rust_pricing.PricingRequest.from_json(invalid)
+        with self.assertRaises(rust_pricing.ValidationError) as second:
+            rust_pricing.PricingRequest.from_json(invalid)
+
+        first_issues = first.exception.issues
+        second_issues = second.exception.issues
+        self.assertIsNot(first_issues, second_issues)
+        self.assertEqual(len(first_issues), 1)
+        self.assertEqual(len(second_issues), 1)
+        first_issues.clear()
+        self.assertEqual(len(first.exception.issues), 0)
+        self.assertEqual(len(second.exception.issues), 1)
+
     def test_json_domain_error_reports_instance_path(self):
         invalid = self.request_json.replace(
             '"valuation_date":"2026-09-04"', '"valuation_date":"2026-02-31"'
