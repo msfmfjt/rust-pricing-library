@@ -46,7 +46,9 @@ pub use barrier_bridge::{
     BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeError, BarrierBridgeInterval,
     BarrierBridgeIntervalAdjoints, BarrierBridgeIntervalInput, BarrierBridgePath,
     BarrierBridgePathDiagnostics, BarrierBridgeStatus, SmoothedBarrierBridgeEndpoint,
-    SmoothedBarrierBridgeEndpointAdjoints, SmoothedBarrierBridgeEndpointInput, transformed_barrier,
+    SmoothedBarrierBridgeEndpointAdjoints, SmoothedBarrierBridgeEndpointInput,
+    SmoothedBarrierBridgeInterval, SmoothedBarrierBridgeIntervalAdjoints,
+    SmoothedBarrierBridgeIntervalInput, transformed_barrier,
 };
 pub use bridge::{
     BROWNIAN_BRIDGE_ABI, BrownianBridgeError, BrownianBridgeInstruction, BrownianBridgePlan,

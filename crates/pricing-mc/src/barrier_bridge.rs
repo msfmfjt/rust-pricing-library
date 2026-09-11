@@ -51,6 +51,7 @@ pub enum BarrierBridgeError {
         safe_distance_bits: u64,
         transformed_spot_barrier_bits: u64,
     },
+    MismatchedEndpointDirections,
 }
 
 impl fmt::Display for BarrierBridgeError {
@@ -86,6 +87,10 @@ impl fmt::Display for BarrierBridgeError {
             } => write!(
                 formatter,
                 "Smoothed up-barrier safe distance 0x{safe_distance_bits:016x} must be smaller than transformed Spot barrier 0x{transformed_spot_barrier_bits:016x}"
+            ),
+            Self::MismatchedEndpointDirections => write!(
+                formatter,
+                "Smoothed Barrier bridge interval endpoints must use the same direction"
             ),
         }
     }
@@ -239,6 +244,178 @@ impl SmoothedBarrierBridgeEndpoint {
             affine_scale: hit_weight_adjoint * self.hit_weight_derivatives.affine_scale
                 + effective_log_distance_adjoint
                     * self.effective_log_distance_derivatives.affine_scale,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SmoothedBarrierBridgeIntervalInput {
+    pub left_endpoint: SmoothedBarrierBridgeEndpointInput,
+    pub right_endpoint: SmoothedBarrierBridgeEndpointInput,
+    pub left_local_variance: f64,
+    pub right_local_variance: f64,
+    pub dt: f64,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SmoothedBarrierBridgeIntervalAdjoints {
+    pub left_endpoint: SmoothedBarrierBridgeEndpointAdjoints,
+    pub right_endpoint: SmoothedBarrierBridgeEndpointAdjoints,
+    pub left_local_variance: f64,
+    pub right_local_variance: f64,
+    pub dt: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SmoothedBarrierBridgeInterval {
+    status: BarrierBridgeStatus,
+    log_survival: f64,
+    left_endpoint: SmoothedBarrierBridgeEndpoint,
+    right_endpoint: SmoothedBarrierBridgeEndpoint,
+    log_survival_left_distance_derivative: f64,
+    log_survival_right_distance_derivative: f64,
+    log_survival_left_variance_derivative: f64,
+    log_survival_right_variance_derivative: f64,
+    log_survival_dt_derivative: f64,
+}
+
+impl SmoothedBarrierBridgeInterval {
+    pub fn evaluate(input: SmoothedBarrierBridgeIntervalInput) -> Result<Self, BarrierBridgeError> {
+        if input.left_endpoint.direction != input.right_endpoint.direction {
+            return Err(BarrierBridgeError::MismatchedEndpointDirections);
+        }
+        let left_endpoint = SmoothedBarrierBridgeEndpoint::evaluate(input.left_endpoint)?;
+        let right_endpoint = SmoothedBarrierBridgeEndpoint::evaluate(input.right_endpoint)?;
+        validate_variance("left", input.left_local_variance)?;
+        validate_variance("right", input.right_local_variance)?;
+        if !input.dt.is_finite() || input.dt <= 0.0 {
+            return Err(BarrierBridgeError::InvalidIntervalLength {
+                bits: input.dt.to_bits(),
+            });
+        }
+
+        let left_distance = left_endpoint.effective_log_distance();
+        let right_distance = right_endpoint.effective_log_distance();
+        if left_distance == 0.0 || right_distance == 0.0 {
+            return Ok(Self::deterministic(
+                BarrierBridgeStatus::TouchedEndpoint,
+                f64::NEG_INFINITY,
+                left_endpoint,
+                right_endpoint,
+            ));
+        }
+
+        let average_variance = 0.5 * input.left_local_variance + 0.5 * input.right_local_variance;
+        let integrated_variance = average_variance * input.dt;
+        if !integrated_variance.is_finite() {
+            return Err(BarrierBridgeError::NonFiniteIntegratedVariance {
+                bits: integrated_variance.to_bits(),
+            });
+        }
+        if integrated_variance == 0.0 {
+            return Ok(Self::deterministic(
+                BarrierBridgeStatus::ZeroVariance,
+                0.0,
+                left_endpoint,
+                right_endpoint,
+            ));
+        }
+
+        let log_exponent = std::f64::consts::LN_2 + left_distance.ln() + right_distance.ln()
+            - integrated_variance.ln();
+        if log_exponent >= LOG_MAX_EXP_ARGUMENT {
+            return Ok(Self::deterministic(
+                BarrierBridgeStatus::CertainSurvival,
+                0.0,
+                left_endpoint,
+                right_endpoint,
+            ));
+        }
+        let (status, log_survival, log_exponent_derivative) = if log_exponent <= LOG_MIN_POSITIVE {
+            (BarrierBridgeStatus::SurvivalUnderflow, log_exponent, 1.0)
+        } else {
+            let exponent = log_exponent.exp();
+            let survival = -(-exponent).exp_m1();
+            (
+                BarrierBridgeStatus::FiniteCorrection,
+                survival.ln(),
+                exponent / exponent.exp_m1(),
+            )
+        };
+        let integrated_variance_derivative = -log_exponent_derivative / integrated_variance;
+        let average_variance_derivative = integrated_variance_derivative * input.dt;
+        Ok(Self {
+            status,
+            log_survival,
+            left_endpoint,
+            right_endpoint,
+            log_survival_left_distance_derivative: log_exponent_derivative / left_distance,
+            log_survival_right_distance_derivative: log_exponent_derivative / right_distance,
+            log_survival_left_variance_derivative: 0.5 * average_variance_derivative,
+            log_survival_right_variance_derivative: 0.5 * average_variance_derivative,
+            log_survival_dt_derivative: integrated_variance_derivative * average_variance,
+        })
+    }
+
+    const fn deterministic(
+        status: BarrierBridgeStatus,
+        log_survival: f64,
+        left_endpoint: SmoothedBarrierBridgeEndpoint,
+        right_endpoint: SmoothedBarrierBridgeEndpoint,
+    ) -> Self {
+        Self {
+            status,
+            log_survival,
+            left_endpoint,
+            right_endpoint,
+            log_survival_left_distance_derivative: 0.0,
+            log_survival_right_distance_derivative: 0.0,
+            log_survival_left_variance_derivative: 0.0,
+            log_survival_right_variance_derivative: 0.0,
+            log_survival_dt_derivative: 0.0,
+        }
+    }
+
+    #[must_use]
+    pub const fn status(self) -> BarrierBridgeStatus {
+        self.status
+    }
+
+    #[must_use]
+    pub const fn left_endpoint(self) -> SmoothedBarrierBridgeEndpoint {
+        self.left_endpoint
+    }
+
+    #[must_use]
+    pub const fn right_endpoint(self) -> SmoothedBarrierBridgeEndpoint {
+        self.right_endpoint
+    }
+
+    #[must_use]
+    pub const fn log_survival(self) -> f64 {
+        self.log_survival
+    }
+
+    #[must_use]
+    pub fn survival(self) -> f64 {
+        self.log_survival.exp()
+    }
+
+    #[must_use]
+    pub fn reverse(self, log_survival_adjoint: f64) -> SmoothedBarrierBridgeIntervalAdjoints {
+        SmoothedBarrierBridgeIntervalAdjoints {
+            left_endpoint: self.left_endpoint.reverse(
+                0.0,
+                log_survival_adjoint * self.log_survival_left_distance_derivative,
+            ),
+            right_endpoint: self.right_endpoint.reverse(
+                0.0,
+                log_survival_adjoint * self.log_survival_right_distance_derivative,
+            ),
+            left_local_variance: log_survival_adjoint * self.log_survival_left_variance_derivative,
+            right_local_variance: log_survival_adjoint
+                * self.log_survival_right_variance_derivative,
+            dt: log_survival_adjoint * self.log_survival_dt_derivative,
         }
     }
 }
@@ -520,6 +697,37 @@ mod tests {
         }
     }
 
+    fn smoothed_interval_input(
+        direction: BarrierBridgeDirection,
+    ) -> SmoothedBarrierBridgeIntervalInput {
+        let smoothing = CompactC2Smoothing::new(2.0).expect("smoothing");
+        SmoothedBarrierBridgeIntervalInput {
+            left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                direction,
+                state: match direction {
+                    BarrierBridgeDirection::Up => 99.25,
+                    BarrierBridgeDirection::Down => 100.75,
+                },
+                transformed_barrier: 100.0,
+                affine_scale: 0.9,
+                smoothing,
+            },
+            right_endpoint: SmoothedBarrierBridgeEndpointInput {
+                direction,
+                state: match direction {
+                    BarrierBridgeDirection::Up => 98.75,
+                    BarrierBridgeDirection::Down => 101.25,
+                },
+                transformed_barrier: 100.0,
+                affine_scale: 1.1,
+                smoothing,
+            },
+            left_local_variance: 0.04,
+            right_local_variance: 0.06,
+            dt: 0.25,
+        }
+    }
+
     #[test]
     fn interval_matches_log_brownian_bridge_formula() {
         let input = input(BarrierBridgeDirection::Up);
@@ -649,6 +857,158 @@ mod tests {
             error,
             BarrierBridgeError::InvalidSmoothedSafeDistance { .. }
         ));
+    }
+
+    #[test]
+    fn smoothed_interval_matches_exact_bridge_outside_the_band() {
+        let smoothing = CompactC2Smoothing::new(2.0).expect("smoothing");
+        let smoothed =
+            SmoothedBarrierBridgeInterval::evaluate(SmoothedBarrierBridgeIntervalInput {
+                left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    direction: BarrierBridgeDirection::Up,
+                    state: 95.0,
+                    transformed_barrier: 100.0,
+                    affine_scale: 1.0,
+                    smoothing,
+                },
+                right_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    direction: BarrierBridgeDirection::Up,
+                    state: 96.0,
+                    transformed_barrier: 100.0,
+                    affine_scale: 1.0,
+                    smoothing,
+                },
+                left_local_variance: 0.04,
+                right_local_variance: 0.04,
+                dt: 1.0,
+            })
+            .expect("smoothed");
+        let exact = BarrierBridgeInterval::evaluate(BarrierBridgeIntervalInput {
+            direction: BarrierBridgeDirection::Up,
+            left_state: 95.0,
+            right_state: 96.0,
+            left_barrier: 100.0,
+            right_barrier: 100.0,
+            left_local_variance: 0.04,
+            right_local_variance: 0.04,
+            dt: 1.0,
+        })
+        .expect("exact");
+        assert_eq!(smoothed.left_endpoint().hit_weight(), 0.0);
+        assert_eq!(smoothed.right_endpoint().hit_weight(), 0.0);
+        assert!(
+            (smoothed.survival() - exact.survival()).abs() < 5.0e-15,
+            "smoothed={}, exact={}",
+            smoothed.survival(),
+            exact.survival()
+        );
+        assert!((smoothed.survival() - 0.099_400_592_600_058_41).abs() < 2.0e-15);
+    }
+
+    #[test]
+    fn smoothed_interval_reverse_matches_central_differences() {
+        let base = smoothed_interval_input(BarrierBridgeDirection::Up);
+        let evaluation = SmoothedBarrierBridgeInterval::evaluate(base).expect("base");
+        let reverse = evaluation.reverse(1.0);
+        let objective = |input| {
+            SmoothedBarrierBridgeInterval::evaluate(input)
+                .expect("evaluation")
+                .log_survival()
+        };
+        let bump = 1.0e-5;
+        let central = |down, up| (objective(up) - objective(down)) / (2.0 * bump);
+        let left_state = central(
+            SmoothedBarrierBridgeIntervalInput {
+                left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    state: base.left_endpoint.state - bump,
+                    ..base.left_endpoint
+                },
+                ..base
+            },
+            SmoothedBarrierBridgeIntervalInput {
+                left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    state: base.left_endpoint.state + bump,
+                    ..base.left_endpoint
+                },
+                ..base
+            },
+        );
+        let right_barrier = central(
+            SmoothedBarrierBridgeIntervalInput {
+                right_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    transformed_barrier: base.right_endpoint.transformed_barrier - bump,
+                    ..base.right_endpoint
+                },
+                ..base
+            },
+            SmoothedBarrierBridgeIntervalInput {
+                right_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    transformed_barrier: base.right_endpoint.transformed_barrier + bump,
+                    ..base.right_endpoint
+                },
+                ..base
+            },
+        );
+        let left_scale = central(
+            SmoothedBarrierBridgeIntervalInput {
+                left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    affine_scale: base.left_endpoint.affine_scale - bump,
+                    ..base.left_endpoint
+                },
+                ..base
+            },
+            SmoothedBarrierBridgeIntervalInput {
+                left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                    affine_scale: base.left_endpoint.affine_scale + bump,
+                    ..base.left_endpoint
+                },
+                ..base
+            },
+        );
+        let left_variance = central(
+            SmoothedBarrierBridgeIntervalInput {
+                left_local_variance: base.left_local_variance - bump,
+                ..base
+            },
+            SmoothedBarrierBridgeIntervalInput {
+                left_local_variance: base.left_local_variance + bump,
+                ..base
+            },
+        );
+        let right_variance = central(
+            SmoothedBarrierBridgeIntervalInput {
+                right_local_variance: base.right_local_variance - bump,
+                ..base
+            },
+            SmoothedBarrierBridgeIntervalInput {
+                right_local_variance: base.right_local_variance + bump,
+                ..base
+            },
+        );
+        let dt = central(
+            SmoothedBarrierBridgeIntervalInput {
+                dt: base.dt - bump,
+                ..base
+            },
+            SmoothedBarrierBridgeIntervalInput {
+                dt: base.dt + bump,
+                ..base
+            },
+        );
+        assert!((reverse.left_endpoint.state - left_state).abs() < 2.0e-8);
+        assert!((reverse.right_endpoint.transformed_barrier - right_barrier).abs() < 2.0e-8);
+        assert!((reverse.left_endpoint.affine_scale - left_scale).abs() < 2.0e-8);
+        assert!(
+            (reverse.left_local_variance - left_variance).abs() < 5.0e-8,
+            "left analytic={}, finite_difference={left_variance}",
+            reverse.left_local_variance
+        );
+        assert!(
+            (reverse.right_local_variance - right_variance).abs() < 5.0e-8,
+            "right analytic={}, finite_difference={right_variance}",
+            reverse.right_local_variance
+        );
+        assert!((reverse.dt - dt).abs() < 2.0e-8);
     }
 
     #[test]
