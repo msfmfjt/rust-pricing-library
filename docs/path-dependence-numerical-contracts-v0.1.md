@@ -1,6 +1,6 @@
 # Path Dependence Numerical Contracts v0.1
 
-Status: Frozen for roadmap Gate P0
+Status: Frozen for roadmap Gate P0; continuous smoothing amendment candidate
 
 Requirements: `requirements-v1.0.md` Sections 6 and 7.3
 
@@ -8,7 +8,7 @@ Roadmap: `path-dependence-roadmap-v0.1.md`
 
 ## 1. Policy Identity
 
-The policy identifier is `path_dependence_v1`. It fixes the scalar formulas,
+The policy identifier is `path_dependence_v2`. It fixes the scalar formulas,
 branches, and boundary conventions below. A formula or branch change requires a
 new policy identifier and new reference fixtures.
 
@@ -100,6 +100,67 @@ continuous-martingale barrier and trapezoidal interval Local variance. Products
 of interval survival probabilities are accumulated in the log domain. The
 analytic probability consumes no pseudo-random or Sobol coordinate.
 
+### 5.1 Smoothed continuous endpoints
+
+Smoothed continuous monitoring uses the same Spot-unit signed hit distance `x`
+and compact-C2 kernel as discrete monitoring. For a transformed barrier `H_f`,
+continuous state `f`, and positive affine scale `B`,
+
+```text
+up:   x = B * (f - H_f)
+down: x = B * (H_f - f)
+```
+
+The endpoint hit weight is `w = I_h(x)`. A C2 safe-side Spot distance is
+
+```text
+y = P_h(-x)
+```
+
+and the effective non-negative log distance supplied to the conditional bridge
+formula is
+
+```text
+C = B * H_f
+up:   d_h = -log(1 - y / C)
+down: d_h =  log(1 + y / C)
+```
+
+An up-barrier smoothing width shall be smaller than every positive transformed
+Spot-barrier numerator `C = H_S - A*S0` used by the monitored plan. This makes
+the logarithm valid for every positive simulated state. Failure is a typed
+compile error rather than a runtime clamp.
+
+Outside the safe edge of the band, `d_h` is the exact bridge log distance.
+Outside the hit edge, it is zero. Inside the band it provides a C2 continuation
+of the safe-side distance. The conditional bridge survival for positive
+integrated variance is
+
+```text
+q_h = 1 - exp(-2 * d_h(left) * d_h(right) / v)
+```
+
+and is one at zero variance. Each unique deterministic location contributes one
+hit predicate to the monotone state. The initial endpoint contributes
+`I_h(x_initial)`. A non-dividend interval endpoint contributes `I_h(x_post)`.
+At a dividend endpoint, the ordinary endpoint predicate is replaced by the
+Section 4 pre/post jump predicate, so it is not counted twice.
+
+For endpoint weights `w_i`, jump weights `j_k`, and interval bridge survivals
+`q_l`, total smoothed path survival is
+
+```text
+survival_h = product_i(1 - w_i)
+           * product_k(1 - j_k)
+           * product_l(q_l)
+```
+
+Products are accumulated in the log domain. A zero factor has zero reverse
+contribution at its closed C2 exterior branch. Otherwise, the reverse rule
+differentiates every factor through the Indicator, positive part, transformed
+barrier, affine scale, both path endpoints, both Local-variance endpoints, and
+the interval length. This surrogate consumes no additional random coordinate.
+
 ## 6. Reference Artifact
 
 `../fixtures/path-dependence/reference-cases-v0.1.json` freezes boundary,
@@ -110,4 +171,3 @@ arithmetic and does not import production Rust or Python bindings.
 The fixture stores decimal strings to avoid JSON binary64 parsing becoming the
 reference. Absolute comparison tolerance is `1e-45` at 70-digit Decimal
 precision.
-
