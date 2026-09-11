@@ -1354,7 +1354,7 @@ impl SimulationPlan {
                 self.aad_tile_policy.resolved_capacity(),
                 AAD_WORKSPACE_SLOTS,
                 |sampling_unit, lane, workspace| {
-                    let normals = self.normals(&generator, sampling_unit);
+                    let normals = self.normals(&generator, sampling_unit, RandomDomain::Valuation);
                     let primary = self.pathwise_values(&normals, lane, workspace)?;
                     if antithetic {
                         let mate_normals =
@@ -1373,7 +1373,7 @@ impl SimulationPlan {
                 engine.independent_sampling_units().get(),
                 self.aad_tile_policy.resolved_capacity(),
                 |sampling_unit| {
-                    let normals = self.normals(&generator, sampling_unit);
+                    let normals = self.normals(&generator, sampling_unit, RandomDomain::Valuation);
                     let primary = self.continuous_barrier_path_values_from_normals(&normals)?;
                     if antithetic {
                         let mate_normals =
@@ -1392,7 +1392,7 @@ impl SimulationPlan {
             let price = executor.try_map_reduce_statistics(
                 engine.independent_sampling_units().get(),
                 |sampling_unit| {
-                    let normals = self.normals(&generator, sampling_unit);
+                    let normals = self.normals(&generator, sampling_unit, RandomDomain::Valuation);
                     let primary = self.discounted_payoff_from_normals(&normals)?;
                     if antithetic {
                         let mate_normals =
@@ -2831,7 +2831,12 @@ impl SimulationPlan {
         })
     }
 
-    fn normals(&self, generator: &Philox4x32, sampling_unit: u64) -> Vec<f64> {
+    fn normals(
+        &self,
+        generator: &Philox4x32,
+        sampling_unit: u64,
+        domain: RandomDomain,
+    ) -> Vec<f64> {
         (0..self.observation_times.len())
             .map(|dimension| {
                 if self.total_variance == 0.0 {
@@ -2840,7 +2845,7 @@ impl SimulationPlan {
                     generator.standard_normal(RandomCoordinate::new(
                         sampling_unit,
                         u32::try_from(dimension).expect("observation dimension fits u32"),
-                        RandomDomain::Valuation,
+                        domain,
                     ))
                 }
             })
@@ -4141,6 +4146,25 @@ mod tests {
             100.0,
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
         )
+    }
+
+    #[test]
+    fn constant_vol_paths_separate_training_and_valuation_domains() {
+        let plan =
+            SimulationPlan::compile(&request(OptionSide::Put, 100.0, 0.2, 2, false), policy(1))
+                .expect("plan");
+        let generator = Philox4x32::from_seed(0x0123_4567_89ab_cdef);
+        let valuation = plan.normals(&generator, 0, RandomDomain::Valuation);
+        let training = plan.normals(&generator, 0, RandomDomain::LsmTrain);
+        assert_ne!(valuation, training);
+        assert_eq!(
+            valuation,
+            plan.normals(&generator, 0, RandomDomain::Valuation)
+        );
+        assert_eq!(
+            training,
+            plan.normals(&generator, 0, RandomDomain::LsmTrain)
+        );
     }
 
     #[allow(clippy::too_many_arguments)]
