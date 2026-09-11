@@ -5,7 +5,8 @@ use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
 use pricing_mc::{
-    ExecutionError, ExecutorBuildError, LocalVolError, RqmcPlanError, TryExecutionError,
+    BarrierBridgeError, ExecutionError, ExecutorBuildError, LocalVolError, RqmcPlanError,
+    TryExecutionError,
 };
 use pricing_product::GraphError;
 use pricing_risk::RiskConfigError;
@@ -229,6 +230,7 @@ pub enum MonteCarloError {
     NonFiniteTotalVariance {
         bits: u64,
     },
+    BarrierBridge(BarrierBridgeError),
     UnsupportedObservationUnderlying {
         product: UnderlyingId,
         market: UnderlyingId,
@@ -254,6 +256,12 @@ impl From<MarketError> for MonteCarloError {
 impl From<LocalVolError> for MonteCarloError {
     fn from(error: LocalVolError) -> Self {
         Self::LocalVol(error)
+    }
+}
+
+impl From<BarrierBridgeError> for MonteCarloError {
+    fn from(error: BarrierBridgeError) -> Self {
+        Self::BarrierBridge(error)
     }
 }
 
@@ -371,6 +379,7 @@ impl fmt::Display for MonteCarloError {
                     "Black-Scholes total variance is non-finite: 0x{bits:016x}"
                 )
             }
+            Self::BarrierBridge(error) => error.fmt(formatter),
             Self::UnsupportedObservationUnderlying { product, market } => write!(
                 formatter,
                 "product observation underlying {product} does not match market underlying {market}"
@@ -394,6 +403,7 @@ impl Error for MonteCarloError {
         match self {
             Self::Market(error) => Some(error),
             Self::LocalVol(error) => Some(error),
+            Self::BarrierBridge(error) => Some(error),
             Self::Graph(error) => Some(error),
             Self::ExecutorBuild(error) => Some(error),
             Self::Execution(error) => Some(error),
