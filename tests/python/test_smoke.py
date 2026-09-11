@@ -73,6 +73,87 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             result.diagnostics.master_seed = 99
 
+    def test_american_lsm_builders_evaluate_fixed_strategy_risks(self):
+        discount = rust_pricing.DiscountCurve(
+            10, [0.0, 1.0], [1.0, math.exp(-0.05)]
+        )
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 1.0])
+        product = rust_pricing.Product.american_vanilla(
+            1,
+            2,
+            "2027-09-04",
+            100.0,
+            1.0,
+            "put",
+            ["2026-12-04", "2027-03-04", "2027-06-04", "2027-09-04"],
+        )
+        market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
+        model = rust_pricing.Model.black_scholes(0.2)
+        training_engine = rust_pricing.Engine.pseudo_monte_carlo(
+            0x1020304050607080, 128, antithetic=True
+        )
+        valuation_engine = rust_pricing.Engine.pseudo_monte_carlo(
+            0x0123456789ABCDEF, 256, antithetic=True
+        )
+        lsm = rust_pricing.LsmConfig(training_engine)
+        risk = rust_pricing.RiskRequest(
+            delta=True, gamma_relative_bump=0.01, vega=True
+        )
+        request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            model,
+            valuation_engine,
+            risk,
+            lsm=lsm,
+        )
+        result = rust_pricing.PricingPlan.compile(
+            request, worker_threads=2, reduction_block_size=64
+        ).evaluate()
+
+        self.assertTrue(math.isfinite(result.value))
+        self.assertEqual(lsm.state_variables, ["spot"])
+        self.assertEqual(lsm.max_degree, 3)
+        self.assertEqual(lsm.basis_exponents, [[0], [1], [2], [3]])
+        self.assertRegex(lsm.fingerprint, r"^blake3-256:[0-9a-f]{64}$")
+        self.assertEqual(
+            result.diagnostics.exercise_strategy_risk,
+            "fixed_exercise_strategy",
+        )
+        self.assertEqual(
+            result.diagnostics.stopping_index_risk,
+            "frozen_stopping_indices",
+        )
+        self.assertRegex(
+            result.diagnostics.exercise_policy_fingerprint,
+            r"^blake3-256:[0-9a-f]{64}$",
+        )
+        exercise = result.early_exercise_diagnostics
+        self.assertIsNotNone(exercise)
+        self.assertEqual(exercise.training_random_domain, "lsm_train")
+        self.assertEqual(exercise.valuation_random_domain, "valuation")
+        self.assertEqual(exercise.training_sampling_units, 128)
+        self.assertEqual(exercise.training_trajectories, 256)
+        self.assertEqual(exercise.valuation_sampling_units, 256)
+        self.assertEqual(exercise.valuation_trajectories, 512)
+        self.assertEqual(exercise.basis_feature_count, 1)
+        self.assertEqual(exercise.basis_max_degree, 3)
+        self.assertEqual(exercise.basis_exponents, [[0], [1], [2], [3]])
+        self.assertEqual(len(exercise.decisions), 3)
+        self.assertEqual(len(exercise.regressions), 3)
+        self.assertEqual(sum(exercise.exercise_counts), 512)
+        self.assertEqual(len(exercise.stopping_indices), 512)
+        self.assertEqual(
+            exercise.policy_fingerprint,
+            result.diagnostics.exercise_policy_fingerprint,
+        )
+        for decision in exercise.decisions:
+            self.assertIn(decision.kind, ("regression", "continue_all"))
+            if decision.kind == "regression":
+                self.assertEqual(len(decision.coefficients), 4)
+                self.assertEqual(len(decision.feature_scalings), 1)
+
     def test_pricing_warnings_are_immutable_and_freshly_owned(self):
         request = rust_pricing.PricingRequest.from_json(
             self.request_json.replace(

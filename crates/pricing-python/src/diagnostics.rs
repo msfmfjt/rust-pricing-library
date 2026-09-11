@@ -1,8 +1,12 @@
 use pricing::market::CurveRegion;
+use pricing::mc::{
+    ContinueAllReason, ExerciseDecisionModel, ExerciseRegressionDiagnostics, FeatureScaling,
+    LsmWarning, RandomDomain,
+};
 use pricing::{
-    BarrierHitIndicatorMode, Estimate, EstimatorKind, ExerciseStrategyRisk, MonteCarloPrice,
-    PathStateDiagnostics, PayoffSmoothingKernel, PayoffSmoothingWidthUnit, PayoffValuationKind,
-    RiskMethod, RiskValidation, StoppingIndexRisk,
+    BarrierHitIndicatorMode, EarlyExerciseDiagnostics, Estimate, EstimatorKind,
+    ExerciseStrategyRisk, MonteCarloPrice, PathStateDiagnostics, PayoffSmoothingKernel,
+    PayoffSmoothingWidthUnit, PayoffValuationKind, RiskMethod, RiskValidation, StoppingIndexRisk,
 };
 use pyo3::prelude::*;
 
@@ -99,6 +103,382 @@ pub struct PyRiskValidation {
 impl PyRiskValidation {
     fn from_validation(validation: RiskValidation) -> Self {
         Self { validation }
+    }
+}
+
+/// One structured warning emitted while fitting an exercise-date regression.
+#[pyclass(frozen, name = "LsmWarning", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyLsmWarning {
+    warning: LsmWarning,
+}
+
+#[pymethods]
+impl PyLsmWarning {
+    #[getter]
+    fn kind(&self) -> &'static str {
+        match self.warning {
+            LsmWarning::ZeroItmTrainingPaths => "zero_itm_training_paths",
+            LsmWarning::InactiveFeature { .. } => "inactive_feature",
+            LsmWarning::RankExcludedBasisColumn { .. } => "rank_excluded_basis_column",
+        }
+    }
+
+    #[getter]
+    fn index(&self) -> Option<usize> {
+        match self.warning {
+            LsmWarning::ZeroItmTrainingPaths => None,
+            LsmWarning::InactiveFeature { feature } => Some(feature),
+            LsmWarning::RankExcludedBasisColumn { column } => Some(column),
+        }
+    }
+}
+
+/// Fitted population scaling for one LSM state variable.
+#[pyclass(frozen, name = "LsmFeatureScaling", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyLsmFeatureScaling {
+    scaling: FeatureScaling,
+}
+
+#[pymethods]
+impl PyLsmFeatureScaling {
+    #[getter]
+    fn mean(&self) -> f64 {
+        self.scaling.mean()
+    }
+
+    #[getter]
+    fn population_variance(&self) -> f64 {
+        self.scaling.population_variance()
+    }
+
+    #[getter]
+    fn scale(&self) -> f64 {
+        self.scaling.scale()
+    }
+
+    #[getter]
+    fn zero_scale_threshold(&self) -> f64 {
+        self.scaling.zero_scale_threshold()
+    }
+
+    #[getter]
+    fn inactive(&self) -> bool {
+        self.scaling.inactive()
+    }
+}
+
+/// Immutable fitted decision model for one non-terminal exercise date.
+#[pyclass(frozen, name = "ExerciseDecisionDiagnostics", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyExerciseDecisionDiagnostics {
+    decision: ExerciseDecisionModel,
+}
+
+#[pymethods]
+impl PyExerciseDecisionDiagnostics {
+    #[getter]
+    fn kind(&self) -> &'static str {
+        match self.decision {
+            ExerciseDecisionModel::Regression(_) => "regression",
+            ExerciseDecisionModel::ContinueAll { .. } => "continue_all",
+        }
+    }
+
+    #[getter]
+    fn continue_all_reason(&self) -> Option<&'static str> {
+        match self.decision {
+            ExerciseDecisionModel::Regression(_) => None,
+            ExerciseDecisionModel::ContinueAll {
+                reason: ContinueAllReason::ZeroItmTrainingPaths,
+            } => Some("zero_itm_training_paths"),
+        }
+    }
+
+    #[getter]
+    fn feature_scalings(&self) -> Option<Vec<PyLsmFeatureScaling>> {
+        match &self.decision {
+            ExerciseDecisionModel::Regression(model) => Some(
+                model
+                    .feature_scalings()
+                    .iter()
+                    .copied()
+                    .map(|scaling| PyLsmFeatureScaling { scaling })
+                    .collect(),
+            ),
+            ExerciseDecisionModel::ContinueAll { .. } => None,
+        }
+    }
+
+    #[getter]
+    fn active_basis_columns(&self) -> Option<Vec<usize>> {
+        regression_slice(&self.decision, |model| model.active_basis_columns())
+    }
+
+    #[getter]
+    fn pre_excluded_basis_columns(&self) -> Option<Vec<usize>> {
+        regression_slice(&self.decision, |model| model.pre_excluded_basis_columns())
+    }
+
+    #[getter]
+    fn pivot_order(&self) -> Option<Vec<usize>> {
+        regression_slice(&self.decision, |model| model.pivot_order())
+    }
+
+    #[getter]
+    fn diagonal_abs(&self) -> Option<Vec<f64>> {
+        match &self.decision {
+            ExerciseDecisionModel::Regression(model) => Some(model.diagonal_abs().to_vec()),
+            ExerciseDecisionModel::ContinueAll { .. } => None,
+        }
+    }
+
+    #[getter]
+    fn rank_threshold(&self) -> Option<f64> {
+        match &self.decision {
+            ExerciseDecisionModel::Regression(model) => Some(model.rank_threshold()),
+            ExerciseDecisionModel::ContinueAll { .. } => None,
+        }
+    }
+
+    #[getter]
+    fn rank(&self) -> Option<usize> {
+        match &self.decision {
+            ExerciseDecisionModel::Regression(model) => Some(model.rank()),
+            ExerciseDecisionModel::ContinueAll { .. } => None,
+        }
+    }
+
+    #[getter]
+    fn rank_excluded_basis_columns(&self) -> Option<Vec<usize>> {
+        regression_slice(&self.decision, |model| model.rank_excluded_basis_columns())
+    }
+
+    #[getter]
+    fn coefficients(&self) -> Option<Vec<f64>> {
+        match &self.decision {
+            ExerciseDecisionModel::Regression(model) => Some(model.coefficients().to_vec()),
+            ExerciseDecisionModel::ContinueAll { .. } => None,
+        }
+    }
+
+    #[getter]
+    fn residual_sum_squares(&self) -> Option<f64> {
+        match &self.decision {
+            ExerciseDecisionModel::Regression(model) => Some(model.residual_sum_squares()),
+            ExerciseDecisionModel::ContinueAll { .. } => None,
+        }
+    }
+}
+
+fn regression_slice<T: Copy>(
+    decision: &ExerciseDecisionModel,
+    select: impl FnOnce(&pricing::mc::PolynomialRegressionModel) -> &[T],
+) -> Option<Vec<T>> {
+    match decision {
+        ExerciseDecisionModel::Regression(model) => Some(select(model).to_vec()),
+        ExerciseDecisionModel::ContinueAll { .. } => None,
+    }
+}
+
+/// Training diagnostics for one non-terminal exercise date.
+#[pyclass(frozen, name = "ExerciseRegressionDiagnostics", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyExerciseRegressionDiagnostics {
+    diagnostics: ExerciseRegressionDiagnostics,
+}
+
+#[pymethods]
+impl PyExerciseRegressionDiagnostics {
+    #[getter]
+    fn candidate_rows(&self) -> usize {
+        self.diagnostics.candidate_rows()
+    }
+
+    #[getter]
+    fn itm_rows(&self) -> usize {
+        self.diagnostics.itm_rows()
+    }
+
+    #[getter]
+    fn feature_count(&self) -> usize {
+        self.diagnostics.feature_count()
+    }
+
+    #[getter]
+    fn warnings(&self) -> Vec<PyLsmWarning> {
+        self.diagnostics
+            .warnings()
+            .iter()
+            .copied()
+            .map(|warning| PyLsmWarning { warning })
+            .collect()
+    }
+}
+
+/// Complete immutable LSM training and out-of-sample exercise diagnostics.
+#[pyclass(frozen, name = "EarlyExerciseDiagnostics", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyEarlyExerciseDiagnostics {
+    diagnostics: EarlyExerciseDiagnostics,
+}
+
+impl PyEarlyExerciseDiagnostics {
+    pub(crate) fn from_diagnostics(diagnostics: EarlyExerciseDiagnostics) -> Self {
+        Self { diagnostics }
+    }
+}
+
+#[pymethods]
+impl PyEarlyExerciseDiagnostics {
+    #[getter]
+    fn policy_fingerprint(&self) -> String {
+        format_fingerprint(self.diagnostics.policy_fingerprint.as_bytes())
+    }
+
+    #[getter]
+    fn training_random_domain(&self) -> &'static str {
+        random_domain_name(self.diagnostics.training_random_domain)
+    }
+
+    #[getter]
+    fn valuation_random_domain(&self) -> &'static str {
+        random_domain_name(self.diagnostics.valuation_random_domain)
+    }
+
+    #[getter]
+    fn training_direction_checksum(&self) -> Option<String> {
+        self.diagnostics.training_direction_checksum.map(hex_32)
+    }
+
+    #[getter]
+    fn training_scramble_checksum(&self) -> Option<String> {
+        self.diagnostics.training_scramble_checksum.map(hex_32)
+    }
+
+    #[getter]
+    fn valuation_direction_checksum(&self) -> Option<String> {
+        self.diagnostics.valuation_direction_checksum.map(hex_32)
+    }
+
+    #[getter]
+    fn valuation_scramble_checksum(&self) -> Option<String> {
+        self.diagnostics.valuation_scramble_checksum.map(hex_32)
+    }
+
+    #[getter]
+    fn training_sampling_units(&self) -> u64 {
+        self.diagnostics.training_sampling_units
+    }
+
+    #[getter]
+    fn training_trajectories(&self) -> u64 {
+        self.diagnostics.training_trajectories
+    }
+
+    #[getter]
+    fn valuation_sampling_units(&self) -> u64 {
+        self.diagnostics.valuation_sampling_units
+    }
+
+    #[getter]
+    fn valuation_trajectories(&self) -> u64 {
+        self.diagnostics.valuation_trajectories
+    }
+
+    #[getter]
+    fn in_sample_value(&self) -> f64 {
+        self.diagnostics.in_sample_value
+    }
+
+    #[getter]
+    fn exercise_dates(&self) -> Vec<String> {
+        self.diagnostics
+            .exercise_dates
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    #[getter]
+    fn exercise_counts(&self) -> Vec<usize> {
+        self.diagnostics.exercise_counts.to_vec()
+    }
+
+    #[getter]
+    fn exercise_probabilities(&self) -> Vec<f64> {
+        self.diagnostics.exercise_probabilities.to_vec()
+    }
+
+    #[getter]
+    fn stopping_indices(&self) -> Vec<usize> {
+        self.diagnostics.stopping_indices.to_vec()
+    }
+
+    #[getter]
+    fn dividend_collisions(&self) -> Vec<bool> {
+        self.diagnostics.dividend_collisions.to_vec()
+    }
+
+    #[getter]
+    fn basis_feature_count(&self) -> u32 {
+        self.diagnostics.policy_basis.feature_count()
+    }
+
+    #[getter]
+    fn basis_max_degree(&self) -> u32 {
+        self.diagnostics.policy_basis.max_degree()
+    }
+
+    #[getter]
+    fn basis_exponents(&self) -> Vec<Vec<u32>> {
+        self.diagnostics
+            .policy_basis
+            .exponents()
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+
+    #[getter]
+    fn itm_abs_tolerance(&self) -> f64 {
+        self.diagnostics.itm_abs_tolerance
+    }
+
+    #[getter]
+    fn abs_rank_tolerance(&self) -> f64 {
+        self.diagnostics.cpqr_config.abs_rank_tolerance()
+    }
+
+    #[getter]
+    fn rel_rank_tolerance(&self) -> f64 {
+        self.diagnostics.cpqr_config.rel_rank_tolerance()
+    }
+
+    #[getter]
+    fn max_matrix_elements(&self) -> usize {
+        self.diagnostics.max_matrix_elements
+    }
+
+    #[getter]
+    fn decisions(&self) -> Vec<PyExerciseDecisionDiagnostics> {
+        self.diagnostics
+            .decision_models
+            .iter()
+            .cloned()
+            .map(|decision| PyExerciseDecisionDiagnostics { decision })
+            .collect()
+    }
+
+    #[getter]
+    fn regressions(&self) -> Vec<PyExerciseRegressionDiagnostics> {
+        self.diagnostics
+            .regression_diagnostics
+            .iter()
+            .cloned()
+            .map(|diagnostics| PyExerciseRegressionDiagnostics { diagnostics })
+            .collect()
     }
 }
 
@@ -660,6 +1040,15 @@ const fn exercise_strategy_risk_name(risk: ExerciseStrategyRisk) -> &'static str
 const fn stopping_index_risk_name(risk: StoppingIndexRisk) -> &'static str {
     match risk {
         StoppingIndexRisk::FrozenStoppingIndices => "frozen_stopping_indices",
+    }
+}
+
+const fn random_domain_name(domain: RandomDomain) -> &'static str {
+    match domain {
+        RandomDomain::Valuation => "valuation",
+        RandomDomain::LsmTrain => "lsm_train",
+        RandomDomain::RqmcScramble => "rqmc_scramble",
+        RandomDomain::Diagnostics => "diagnostics",
     }
 }
 

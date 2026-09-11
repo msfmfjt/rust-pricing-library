@@ -24,10 +24,14 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use builders::{
-    PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket,
-    PyModel, PyProduct, PyRiskRequest, build_request,
+    PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyLsmConfig,
+    PyMarket, PyModel, PyProduct, PyRiskRequest, build_request,
 };
-use diagnostics::{PyDiagnosticEstimate, PyDiagnostics, PyPricingWarning, PyRiskValidation};
+use diagnostics::{
+    PyDiagnosticEstimate, PyDiagnostics, PyEarlyExerciseDiagnostics, PyExerciseDecisionDiagnostics,
+    PyExerciseRegressionDiagnostics, PyLsmFeatureScaling, PyLsmWarning, PyPricingWarning,
+    PyRiskValidation,
+};
 
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
@@ -208,6 +212,8 @@ pub struct PyPricingRequest {
 #[pymethods]
 impl PyPricingRequest {
     #[new]
+    #[pyo3(signature = (valuation_date, product, market, model, engine, risk, *, lsm=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -216,9 +222,19 @@ impl PyPricingRequest {
         model: &PyModel,
         engine: &PyEngine,
         risk: &PyRiskRequest,
+        lsm: Option<&PyLsmConfig>,
     ) -> PyResult<Self> {
-        build_request(py, valuation_date, product, market, model, engine, risk)
-            .map(|inner| Self { inner })
+        build_request(
+            py,
+            valuation_date,
+            product,
+            market,
+            model,
+            engine,
+            risk,
+            lsm,
+        )
+        .map(|inner| Self { inner })
     }
 
     /// Parse and validate a versioned pricing-request JSON document.
@@ -918,6 +934,15 @@ impl PyPricingResult {
         PyDiagnostics::from_price(&self.inner)
     }
 
+    /// LSM policy, regression, and realized stopping diagnostics when applicable.
+    #[getter]
+    fn early_exercise_diagnostics(&self) -> Option<PyEarlyExerciseDiagnostics> {
+        self.inner
+            .early_exercise_diagnostics
+            .clone()
+            .map(PyEarlyExerciseDiagnostics::from_diagnostics)
+    }
+
     /// Valuation warnings in deterministic emission order.
     #[getter]
     fn warnings(&self) -> Vec<PyPricingWarning> {
@@ -1162,6 +1187,11 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPricingWarning>()?;
     module.add_class::<PyDiagnosticEstimate>()?;
     module.add_class::<PyRiskValidation>()?;
+    module.add_class::<PyLsmWarning>()?;
+    module.add_class::<PyLsmFeatureScaling>()?;
+    module.add_class::<PyExerciseDecisionDiagnostics>()?;
+    module.add_class::<PyExerciseRegressionDiagnostics>()?;
+    module.add_class::<PyEarlyExerciseDiagnostics>()?;
     module.add_class::<PyDiagnostics>()?;
     module.add_class::<PyDiscountCurve>()?;
     module.add_class::<PyDividendEvent>()?;
@@ -1171,6 +1201,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyMarket>()?;
     module.add_class::<PyModel>()?;
     module.add_class::<PyEngine>()?;
+    module.add_class::<PyLsmConfig>()?;
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;

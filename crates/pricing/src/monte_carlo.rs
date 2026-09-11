@@ -8,14 +8,14 @@ use pricing_market::{
 use pricing_mc::{
     BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeError, BarrierBridgeIntervalInput,
     BarrierBridgePath, BarrierBridgeStatus, BrownianBridgePlan, DeterministicExecutor,
-    DeterministicStatistics, EngineConfig, ExecutionPolicy, ExercisePolicyFingerprint,
-    ExerciseRegressionDiagnostics, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan,
-    LocalVolPath, LocalVolTimeGrid, LsmConfig, LsmNumericalError, LsmStateVariable, Philox4x32,
-    PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan, RqmcPlanError,
-    SmoothedBarrierBridgeEndpoint, SmoothedBarrierBridgeEndpointInput,
-    SmoothedBarrierBridgeInterval, SmoothedBarrierBridgeIntervalAdjoints,
-    SmoothedBarrierBridgeIntervalInput, inverse_standard_normal, train_exercise_policy,
-    transformed_barrier, value_exercise_policy,
+    DeterministicStatistics, EngineConfig, ExecutionPolicy, ExerciseDecisionModel,
+    ExercisePolicyFingerprint, ExerciseRegressionDiagnostics, LocalVolDividendCheckpointSchedule,
+    LocalVolLogEulerPlan, LocalVolPath, LocalVolTimeGrid, LsmConfig, LsmNumericalError,
+    LsmStateVariable, Philox4x32, PolynomialBasisSpec, PseudoMcConfig, RandomCoordinate,
+    RandomDomain, RqmcConfig, RqmcPlan, RqmcPlanError, SmoothedBarrierBridgeEndpoint,
+    SmoothedBarrierBridgeEndpointInput, SmoothedBarrierBridgeInterval,
+    SmoothedBarrierBridgeIntervalAdjoints, SmoothedBarrierBridgeIntervalInput,
+    inverse_standard_normal, train_exercise_policy, transformed_barrier, value_exercise_policy,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
@@ -1434,6 +1434,11 @@ impl SimulationPlan {
             stopping_indices: valued.stopping_indices().into(),
             dividend_collisions: early_exercise.dividend_collisions.clone(),
             regression_diagnostics: fitted.policy().diagnostics().into(),
+            policy_basis: fitted.policy().basis().clone(),
+            itm_abs_tolerance: fitted.policy().itm_abs_tolerance(),
+            cpqr_config: fitted.policy().cpqr_config(),
+            max_matrix_elements: fitted.policy().max_matrix_elements(),
+            decision_models: fitted.policy().decisions().into(),
         };
         let pricing_result = PricingResult {
             value: estimate,
@@ -1630,6 +1635,11 @@ impl SimulationPlan {
             stopping_indices: valued.stopping_indices().into(),
             dividend_collisions: early_exercise.dividend_collisions.clone(),
             regression_diagnostics: fitted.policy().diagnostics().into(),
+            policy_basis: fitted.policy().basis().clone(),
+            itm_abs_tolerance: fitted.policy().itm_abs_tolerance(),
+            cpqr_config: fitted.policy().cpqr_config(),
+            max_matrix_elements: fitted.policy().max_matrix_elements(),
+            decision_models: fitted.policy().decisions().into(),
         };
         let pricing_result = PricingResult {
             value: estimate,
@@ -5865,6 +5875,11 @@ pub struct EarlyExerciseDiagnostics {
     pub stopping_indices: Box<[usize]>,
     pub dividend_collisions: Box<[bool]>,
     pub regression_diagnostics: Box<[ExerciseRegressionDiagnostics]>,
+    pub policy_basis: PolynomialBasisSpec,
+    pub itm_abs_tolerance: f64,
+    pub cpqr_config: pricing_mc::CpqrConfig,
+    pub max_matrix_elements: usize,
+    pub decision_models: Box<[ExerciseDecisionModel]>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
