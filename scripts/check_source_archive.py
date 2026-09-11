@@ -32,6 +32,7 @@ REQUIRED_FILES = {
     "docs/local-vol-vegakt-diagnostics-v0.1.md",
     "docs/local-vol-vegakt-numerical-contracts-v0.1.md",
     "docs/local-vol-vegakt-roadmap-v0.1.md",
+    "docs/path-dependence-roadmap-v0.1.md",
     "docs/release-readiness-v0.1.md",
     "docs/requirements-change-template.md",
     "docs/requirements-v1.0.md",
