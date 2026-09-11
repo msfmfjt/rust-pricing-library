@@ -2,7 +2,7 @@
   "cases": [
     {
       "execution": {
-        "estimator_variance_bits": "3f797257419a3e24",
+        "estimator_variance_bits": "3f7b512b15b3890c",
         "evaluated_paths": "16384",
         "independent_sampling_units": 8192,
         "monte_carlo": {
@@ -38,7 +38,7 @@
           "gamma": null,
           "vega": null
         },
-        "sampling_variance_bits": "40497257419a3e24"
+        "sampling_variance_bits": "404b512b15b3890c"
       },
       "name": "pseudo_mc_price_only",
       "plan": {
@@ -161,20 +161,20 @@
         "risks": {},
         "schema_version": 1,
         "value": {
-          "confidence_lower": 7.478431482053183,
-          "confidence_upper": 7.787399387765066,
+          "confidence_lower": 9.122797386446743,
+          "confidence_upper": 9.44291909059208,
           "effective_sampling_units": 8192,
           "estimator": {
             "type": "pseudo_monte_carlo"
           },
-          "standard_error": 0.07881979162601518,
-          "value": 7.632915434909124
+          "standard_error": 0.08166520065430172,
+          "value": 9.282858238519411
         }
       }
     },
     {
       "execution": {
-        "estimator_variance_bits": "3ef349835c9c1889",
+        "estimator_variance_bits": "3ef4349cd7e58b97",
         "evaluated_paths": "8192",
         "independent_sampling_units": 8,
         "monte_carlo": {
@@ -210,7 +210,7 @@
           "gamma": null,
           "vega": null
         },
-        "sampling_variance_bits": "3f2349835c9c1889"
+        "sampling_variance_bits": "3f24349cd7e58b97"
       },
       "name": "rqmc_price_only",
       "plan": {
@@ -334,20 +334,20 @@
         "risks": {},
         "schema_version": 1,
         "value": {
-          "confidence_lower": 7.635240735361161,
-          "confidence_upper": 7.65205246043359,
+          "confidence_lower": 9.284569629060083,
+          "confidence_upper": 9.301776944770964,
           "effective_sampling_units": 8,
           "estimator": {
             "type": "randomized_quasi_monte_carlo"
           },
-          "standard_error": 0.004288784183035579,
-          "value": 7.643646597897376
+          "standard_error": 0.004389702016620831,
+          "value": 9.293173286915524
         }
       }
     },
     {
       "execution": {
-        "estimator_variance_bits": "3f7972a3e58cddc0",
+        "estimator_variance_bits": "3f7b51644bf68c5b",
         "evaluated_paths": "16384",
         "independent_sampling_units": 8192,
         "monte_carlo": {
@@ -383,7 +383,7 @@
           "gamma": null,
           "vega": null
         },
-        "sampling_variance_bits": "404972a3e58cddc0"
+        "sampling_variance_bits": "404b51644bf68c5b"
       },
       "name": "pseudo_mc_delta_gamma_vega_vegakt",
       "plan": {
@@ -550,27 +550,27 @@
         "risks": {
           "delta": {
             "market_scaled": {
-              "confidence_lower": 0.5136478784684582,
-              "confidence_upper": 0.5201472896613555,
+              "confidence_lower": 0.5866151948372138,
+              "confidence_upper": 0.5905765387071604,
               "effective_sampling_units": 8192,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0016580435263514788,
-              "value": 0.5168975840649068
+              "standard_error": 0.0010105654749763722,
+              "value": 0.5885958667721871
             },
             "market_scaled_unit": {
               "type": "delta_one_percent_spot"
             },
             "raw": {
-              "confidence_lower": 0.5136478784684582,
-              "confidence_upper": 0.5201472896613555,
+              "confidence_lower": 0.5866151948372138,
+              "confidence_upper": 0.5905765387071604,
               "effective_sampling_units": 8192,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0016580435263514788,
-              "value": 0.5168975840649068
+              "standard_error": 0.0010105654749763722,
+              "value": 0.5885958667721871
             },
             "raw_unit": {
               "type": "delta_raw"
@@ -578,27 +578,27 @@
           },
           "gamma": {
             "market_scaled": {
-              "confidence_lower": 0.01952185898218717,
-              "confidence_upper": 0.022981599167191797,
+              "confidence_lower": 0.017152844056175114,
+              "confidence_upper": 0.020374942011707226,
               "effective_sampling_units": 8192,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0008826029999261766,
-              "value": 0.021251729074689484
+              "standard_error": 0.0008219788682209488,
+              "value": 0.01876389303394117
             },
             "market_scaled_unit": {
               "type": "gamma_one_percent_spot_squared"
             },
             "raw": {
-              "confidence_lower": 0.01952185898218717,
-              "confidence_upper": 0.022981599167191797,
+              "confidence_lower": 0.017152844056175114,
+              "confidence_upper": 0.020374942011707226,
               "effective_sampling_units": 8192,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0008826029999261766,
-              "value": 0.021251729074689484
+              "standard_error": 0.0008219788682209488,
+              "value": 0.01876389303394117
             },
             "raw_unit": {
               "type": "gamma_raw"
@@ -606,27 +606,27 @@
           },
           "vega": {
             "market_scaled": {
-              "confidence_lower": 0.3723789980237581,
-              "confidence_upper": 0.3911830859858318,
+              "confidence_lower": 0.3740738794110052,
+              "confidence_upper": 0.39391828631186937,
               "effective_sampling_units": 8192,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0047970493617224405,
-              "value": 0.38178104200479496
+              "standard_error": 0.005062441722754686,
+              "value": 0.38399608286143727
             },
             "market_scaled_unit": {
               "type": "vega_one_vol_point"
             },
             "raw": {
-              "confidence_lower": 37.237899802375814,
-              "confidence_upper": 39.11830859858318,
+              "confidence_lower": 37.40738794110052,
+              "confidence_upper": 39.39182863118693,
               "effective_sampling_units": 8192,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.4797049361722441,
-              "value": 38.178104200479495
+              "standard_error": 0.5062441722754686,
+              "value": 38.399608286143724
             },
             "raw_unit": {
               "type": "vega_raw"
@@ -670,16 +670,16 @@
             },
             "estimates": [
               {
-                "market_scaled_mean": 0.3368003634459197,
-                "price_covariance": -44.56719119420767,
-                "raw_mean": 33.68003634459197,
-                "sample_variance": 8838.389830064723
+                "market_scaled_mean": 0.33011018975220424,
+                "price_covariance": -77.61439630355676,
+                "raw_mean": 33.01101897522042,
+                "sample_variance": 8391.203162423228
               },
               {
-                "market_scaled_mean": 0.7877649349079222,
-                "price_covariance": 354.7510335012567,
-                "raw_mean": 78.77649349079222,
-                "sample_variance": 16154.780027682104
+                "market_scaled_mean": 0.7916815019320669,
+                "price_covariance": 336.1846776793819,
+                "raw_mean": 79.16815019320669,
+                "sample_variance": 17150.562882988037
               },
               {
                 "market_scaled_mean": 0.0,
@@ -709,15 +709,11 @@
             "full_bucket_covariance": [
               {
                 "type": "value",
-                "value": 8838.38983006473
+                "value": 8391.20316242323
               },
               {
                 "type": "value",
-                "value": 2830.6452574082746
-              },
-              {
-                "type": "value",
-                "value": 0.0
+                "value": 2622.6114400106926
               },
               {
                 "type": "value",
@@ -733,11 +729,15 @@
               },
               {
                 "type": "value",
-                "value": 2830.645257408275
+                "value": 0.0
               },
               {
                 "type": "value",
-                "value": 16154.780027682127
+                "value": 2622.6114400106926
+              },
+              {
+                "type": "value",
+                "value": 17150.562882988055
               },
               {
                 "type": "value",
@@ -857,19 +857,19 @@
             },
             "policy_label": "equation_11_first_order_v1",
             "projection": {
-              "pre_projection": 38.178104200479495,
+              "pre_projection": 38.399608286143724,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "scalar_vega": 112.4565298353842,
-              "signed_residual": -74.27842563490469
+              "scalar_vega": 112.17916916842712,
+              "signed_residual": -73.77956088228339
             },
             "raw_buckets": [
-              33.68003634459197,
-              78.77649349079222,
+              33.01101897522042,
+              79.16815019320669,
               0.0,
               0.0,
               0.0,
@@ -883,34 +883,34 @@
               "active_domain_forward_index": 1,
               "active_domain_start_index": 0,
               "excluded_probability_mass": 0.0,
-              "pre_projection": 38.178104200479495,
+              "pre_projection": 38.399608286143724,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "signed_residual": -74.27842563490469
+              "signed_residual": -73.77956088228339
             },
             "truncation_order": "O(delta_t_k)"
           }
         },
         "schema_version": 1,
         "value": {
-          "confidence_lower": 7.478751638277457,
-          "confidence_upper": 7.787726643457594,
+          "confidence_lower": 9.123121387667185,
+          "confidence_upper": 9.44324820691732,
           "effective_sampling_units": 8192,
           "estimator": {
             "type": "pseudo_monte_carlo"
           },
-          "standard_error": 0.0788216027481354,
-          "value": 7.633239140867525
+          "standard_error": 0.0816665055519522,
+          "value": 9.283184797292252
         }
       }
     },
     {
       "execution": {
-        "estimator_variance_bits": "3ef345b14bf7f358",
+        "estimator_variance_bits": "3ef436f827bb88d9",
         "evaluated_paths": "8192",
         "independent_sampling_units": 8,
         "monte_carlo": {
@@ -946,7 +946,7 @@
           "gamma": null,
           "vega": null
         },
-        "sampling_variance_bits": "3f2345b14bf7f358"
+        "sampling_variance_bits": "3f2436f827bb88d9"
       },
       "name": "rqmc_delta_gamma_vega_vegakt",
       "plan": {
@@ -1114,27 +1114,27 @@
         "risks": {
           "delta": {
             "market_scaled": {
-              "confidence_lower": 0.5165487268551666,
-              "confidence_upper": 0.5176190692172015,
+              "confidence_lower": 0.5891962114452246,
+              "confidence_upper": 0.5902515077167446,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00027305153831334584,
-              "value": 0.517083898036184
+              "standard_error": 0.0002692131793859709,
+              "value": 0.5897238595809846
             },
             "market_scaled_unit": {
               "type": "delta_one_percent_spot"
             },
             "raw": {
-              "confidence_lower": 0.5165487268551666,
-              "confidence_upper": 0.5176190692172015,
+              "confidence_lower": 0.5891962114452246,
+              "confidence_upper": 0.5902515077167446,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00027305153831334584,
-              "value": 0.517083898036184
+              "standard_error": 0.0002692131793859709,
+              "value": 0.5897238595809846
             },
             "raw_unit": {
               "type": "delta_raw"
@@ -1142,27 +1142,27 @@
           },
           "gamma": {
             "market_scaled": {
-              "confidence_lower": 0.018261810664769132,
-              "confidence_upper": 0.01982418371287913,
+              "confidence_lower": 0.0182037007797861,
+              "confidence_upper": 0.019698887065981795,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00039857187694105446,
-              "value": 0.01904299718882413
+              "standard_error": 0.00038143208191312024,
+              "value": 0.018951293922883947
             },
             "market_scaled_unit": {
               "type": "gamma_one_percent_spot_squared"
             },
             "raw": {
-              "confidence_lower": 0.018261810664769132,
-              "confidence_upper": 0.01982418371287913,
+              "confidence_lower": 0.0182037007797861,
+              "confidence_upper": 0.019698887065981795,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00039857187694105446,
-              "value": 0.01904299718882413
+              "standard_error": 0.00038143208191312024,
+              "value": 0.018951293922883947
             },
             "raw_unit": {
               "type": "gamma_raw"
@@ -1170,27 +1170,27 @@
           },
           "vega": {
             "market_scaled": {
-              "confidence_lower": 0.3819345458923016,
-              "confidence_upper": 0.3835559042819037,
+              "confidence_lower": 0.3833185773208167,
+              "confidence_upper": 0.3847594313070292,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00041361943443633266,
-              "value": 0.3827452250871027
+              "standard_error": 0.00036757154661457535,
+              "value": 0.38403900431392296
             },
             "market_scaled_unit": {
               "type": "vega_one_vol_point"
             },
             "raw": {
-              "confidence_lower": 38.19345458923016,
-              "confidence_upper": 38.355590428190375,
+              "confidence_lower": 38.331857732081666,
+              "confidence_upper": 38.47594313070292,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.04136194344363327,
-              "value": 38.27452250871027
+              "standard_error": 0.036757154661457535,
+              "value": 38.403900431392294
             },
             "raw_unit": {
               "type": "vega_raw"
@@ -1234,16 +1234,16 @@
             },
             "estimates": [
               {
-                "market_scaled_mean": 0.32936814218070704,
-                "price_covariance": 0.0006312508705357769,
-                "raw_mean": 32.9368142180707,
-                "sample_variance": 1.0951370180778106
+                "market_scaled_mean": 0.32722422507056487,
+                "price_covariance": 0.0016598445742386566,
+                "raw_mean": 32.722422507056486,
+                "sample_variance": 0.14836398164477063
               },
               {
-                "market_scaled_mean": 0.8015897547468489,
-                "price_covariance": -0.00170799983210568,
-                "raw_mean": 80.1589754746849,
-                "sample_variance": 0.2073409065641381
+                "market_scaled_mean": 0.804123745195171,
+                "price_covariance": -0.004109539455817589,
+                "raw_mean": 80.4123745195171,
+                "sample_variance": 0.24535526161264123
               },
               {
                 "market_scaled_mean": 0.0,
@@ -1273,15 +1273,11 @@
             "full_bucket_covariance": [
               {
                 "type": "value",
-                "value": 1.0951370180778108
+                "value": 0.14836398164477135
               },
               {
                 "type": "value",
-                "value": -0.27424616212916336
-              },
-              {
-                "type": "value",
-                "value": 0.0
+                "value": -0.1113899002118142
               },
               {
                 "type": "value",
@@ -1297,11 +1293,15 @@
               },
               {
                 "type": "value",
-                "value": -0.2742461621291671
+                "value": 0.0
               },
               {
                 "type": "value",
-                "value": 0.2073409065641361
+                "value": -0.1113899002118158
+              },
+              {
+                "type": "value",
+                "value": 0.24535526161264148
               },
               {
                 "type": "value",
@@ -1421,19 +1421,19 @@
             },
             "policy_label": "equation_11_first_order_v1",
             "projection": {
-              "pre_projection": 38.27452250871027,
+              "pre_projection": 38.403900431392294,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "scalar_vega": 113.0957896927556,
-              "signed_residual": -74.82126718404533
+              "scalar_vega": 113.13479702657358,
+              "signed_residual": -74.73089659518129
             },
             "raw_buckets": [
-              32.9368142180707,
-              80.1589754746849,
+              32.722422507056486,
+              80.4123745195171,
               0.0,
               0.0,
               0.0,
@@ -1447,28 +1447,28 @@
               "active_domain_forward_index": 1,
               "active_domain_start_index": 0,
               "excluded_probability_mass": 0.0,
-              "pre_projection": 38.27452250871027,
+              "pre_projection": 38.403900431392294,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "signed_residual": -74.82126718404533
+              "signed_residual": -74.73089659518129
             },
             "truncation_order": "O(delta_t_k)"
           }
         },
         "schema_version": 1,
         "value": {
-          "confidence_lower": 7.635641647921185,
-          "confidence_upper": 7.652446867416765,
+          "confidence_lower": 9.28496840282468,
+          "confidence_upper": 9.302179637989909,
           "effective_sampling_units": 8,
           "estimator": {
             "type": "randomized_quasi_monte_carlo"
           },
-          "standard_error": 0.004287124566608782,
-          "value": 7.644044257668975
+          "standard_error": 0.0043907018957967245,
+          "value": 9.293574020407291
         }
       }
     }

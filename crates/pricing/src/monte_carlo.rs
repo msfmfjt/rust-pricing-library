@@ -4080,7 +4080,101 @@ mod tests {
         .expect("request")
     }
 
+    fn partially_fixed_asian_request(fixing: f64, model: ModelSpec) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let product = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                underlying,
+                currency,
+                1.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::known("2026-06-04".parse().expect("known date"), 0.4, fixing)
+                        .expect("known fixing"),
+                    AsianObservation::unknown(expiry, 0.6).expect("unknown fixing"),
+                ],
+                expiry,
+            )
+            .expect("Asian"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.0),
+                curve(2, 0.0),
+            ),
+        ));
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 4_096, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            all_risks(),
+        )
+        .expect("partially fixed Asian request")
+    }
+
+    fn partially_fixed_lookback_request(
+        historical_extremum: f64,
+        model: ModelSpec,
+    ) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let product = ProductSpec::FixedLookback(
+            FixedLookbackSpec::new(
+                underlying,
+                currency,
+                200.0,
+                1.0,
+                OptionSide::Put,
+                vec!["2026-06-04".parse().expect("past date"), expiry],
+                Some(historical_extremum),
+                expiry,
+            )
+            .expect("Lookback"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.0),
+                curve(2, 0.0),
+            ),
+        ));
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 4_096, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            all_risks(),
+        )
+        .expect("partially fixed Lookback request")
+    }
+
     fn fully_fixed_asian_request(engine: EngineConfig) -> PricingRequest {
+        fully_fixed_asian_request_with_risk(
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+    }
+
+    fn fully_fixed_asian_request_with_risk(
+        engine: EngineConfig,
+        risk: RiskRequest,
+    ) -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
         let product = ProductSpec::ArithmeticAsian(
@@ -4116,12 +4210,22 @@ mod tests {
             market,
             model,
             engine,
-            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            risk,
         )
         .expect("request")
     }
 
     fn fully_fixed_lookback_request(engine: EngineConfig) -> PricingRequest {
+        fully_fixed_lookback_request_with_risk(
+            engine,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+    }
+
+    fn fully_fixed_lookback_request_with_risk(
+        engine: EngineConfig,
+        risk: RiskRequest,
+    ) -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
         let product = ProductSpec::FixedLookback(
@@ -4156,7 +4260,7 @@ mod tests {
             market,
             model,
             engine,
-            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            risk,
         )
         .expect("request")
     }
@@ -4235,11 +4339,16 @@ mod tests {
     }
 
     fn constant_local_vol_model() -> ModelSpec {
+        constant_local_vol_model_with_volatility(0.2)
+    }
+
+    fn constant_local_vol_model_with_volatility(volatility: f64) -> ModelSpec {
+        let variance = volatility * volatility;
         ModelSpec::LocalVolatility(
             LocalVolatilitySpec::from_explicit_grid(
                 vec![0.0, 1.0],
                 vec![-1.0, 1.0],
-                vec![0.04, 0.04, 0.04, 0.04],
+                vec![variance; 4],
                 1.0e-8,
                 1.0,
             )
@@ -5737,6 +5846,84 @@ mod tests {
     }
 
     #[test]
+    fn asian_and_lookback_dividend_collisions_observe_post_jump_spot() {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let valuation_date: Date = "2026-09-04".parse().expect("valuation");
+        let dividend_date: Date = "2027-03-05".parse().expect("dividend date");
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let event = EventId::new(1);
+        let ex_time = DayCountConvention::Act365F.year_fraction(valuation_date, dividend_date);
+        let forward = EquityForward::with_discrete_dividends(
+            underlying,
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(1, 0.0),
+            curve(2, 0.0),
+            vec![
+                DividendEvent::new(
+                    event,
+                    ex_time,
+                    DividendQuote::fixed_cash(15.0, event).expect("cash dividend"),
+                )
+                .expect("dividend"),
+            ],
+        )
+        .expect("forward");
+        let market = MarketContext::Equity(EquityMarket::new(currency, forward));
+        let products = [
+            ProductSpec::ArithmeticAsian(
+                ArithmeticAsianSpec::new(
+                    underlying,
+                    currency,
+                    80.0,
+                    1.0,
+                    OptionSide::Call,
+                    vec![
+                        AsianObservation::unknown(dividend_date, 0.5).expect("first"),
+                        AsianObservation::unknown(expiry, 0.5).expect("second"),
+                    ],
+                    expiry,
+                )
+                .expect("Asian"),
+            ),
+            ProductSpec::FixedLookback(
+                FixedLookbackSpec::new(
+                    underlying,
+                    currency,
+                    80.0,
+                    1.0,
+                    OptionSide::Call,
+                    vec![dividend_date, expiry],
+                    None,
+                    expiry,
+                )
+                .expect("Lookback"),
+            ),
+        ];
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(7, 1, VarianceReduction::new(false, false)).expect("engine"),
+        );
+        for product in products {
+            let request = PricingRequest::new(
+                valuation_date,
+                product,
+                market.clone(),
+                ModelSpec::BlackScholes(BlackScholesSpec::new(0.0).expect("model")),
+                engine,
+                RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            )
+            .expect("request");
+            let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+            let observations = plan.path_observations_from_normals(&[0.0, 0.0], 100.0, 0.0);
+            assert_eq!(observations.len(), 2);
+            assert!((observations[0].post_spot - 85.0).abs() <= 1.0e-12);
+            assert!(observations[0].pre_dividend_spot.is_none());
+            let result = plan.execute().expect("execution");
+            assert!((result.pricing_result.value.value().get() - 5.0).abs() <= 1.0e-12);
+        }
+    }
+
+    #[test]
     fn fully_fixed_arithmetic_asian_prices_as_discounted_cashflow() {
         for engine in [fixed_payoff_pseudo_engine(), fixed_payoff_rqmc_engine()] {
             let request = fully_fixed_asian_request(engine);
@@ -5783,6 +5970,80 @@ mod tests {
                 result.pricing_result.value.standard_error().get().to_bits(),
                 0.0_f64.to_bits()
             );
+        }
+    }
+
+    #[test]
+    fn fully_fixed_asian_and_lookback_report_exact_zero_market_risks() {
+        for engine in [fixed_payoff_pseudo_engine(), fixed_payoff_rqmc_engine()] {
+            for request in [
+                fully_fixed_asian_request_with_risk(engine, all_risks()),
+                fully_fixed_lookback_request_with_risk(engine, all_risks()),
+            ] {
+                let result = price_monte_carlo(&request, policy(2)).expect("execution");
+                assert_eq!(result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+                for estimate in [
+                    result.pricing_result.risks.delta.expect("Delta").raw(),
+                    result.pricing_result.risks.gamma.expect("Gamma").raw(),
+                    result.pricing_result.risks.vega.expect("Vega").raw(),
+                ] {
+                    assert_eq!(estimate.value().get().to_bits(), 0.0_f64.to_bits());
+                    assert_eq!(estimate.standard_error().get().to_bits(), 0.0_f64.to_bits());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn partially_fixed_history_is_invariant_under_all_market_risks() {
+        for model in [
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            constant_local_vol_model(),
+        ] {
+            let request_pairs = [
+                (
+                    partially_fixed_asian_request(90.0, model.clone()),
+                    partially_fixed_asian_request(110.0, model.clone()),
+                    8.0,
+                ),
+                (
+                    partially_fixed_lookback_request(1.0, model.clone()),
+                    partially_fixed_lookback_request(2.0, model.clone()),
+                    -1.0,
+                ),
+            ];
+            for (first_request, second_request, expected_price_difference) in request_pairs {
+                let first_plan =
+                    SimulationPlan::compile(&first_request, policy(2)).expect("first plan");
+                let second_plan =
+                    SimulationPlan::compile(&second_request, policy(2)).expect("second plan");
+                assert_eq!(first_plan.observation_dates.len(), 1);
+                assert_eq!(second_plan.observation_dates.len(), 1);
+                let first = first_plan.execute().expect("first execution");
+                let second = second_plan.execute().expect("second execution");
+                let price_difference = second.pricing_result.value.value().get()
+                    - first.pricing_result.value.value().get();
+                assert!((price_difference - expected_price_difference).abs() < 2.0e-12);
+
+                let first_risks = [
+                    first.pricing_result.risks.delta.expect("Delta").raw(),
+                    first.pricing_result.risks.gamma.expect("Gamma").raw(),
+                    first.pricing_result.risks.vega.expect("Vega").raw(),
+                ];
+                let second_risks = [
+                    second.pricing_result.risks.delta.expect("Delta").raw(),
+                    second.pricing_result.risks.gamma.expect("Gamma").raw(),
+                    second.pricing_result.risks.vega.expect("Vega").raw(),
+                ];
+                for (first_risk, second_risk) in first_risks.into_iter().zip(second_risks) {
+                    assert!((first_risk.value().get() - second_risk.value().get()).abs() < 2.0e-12);
+                    assert!(
+                        (first_risk.standard_error().get() - second_risk.standard_error().get())
+                            .abs()
+                            < 2.0e-14
+                    );
+                }
+            }
         }
     }
 
@@ -5937,6 +6198,89 @@ mod tests {
                     .abs()
                     < 2.0e-2
             );
+        }
+    }
+
+    #[test]
+    fn asian_and_lookback_local_vol_risks_match_constant_variance_limit() {
+        for black_scholes in [asian_risk_request(all_risks()), lookback_risk_request()] {
+            let local_vol = PricingRequest::new(
+                black_scholes.valuation_date(),
+                black_scholes.product().clone(),
+                black_scholes.market().clone(),
+                constant_local_vol_model_with_volatility(0.25),
+                black_scholes.engine(),
+                black_scholes.risk().clone(),
+            )
+            .expect("Local Volatility request");
+            let black_scholes_result =
+                price_monte_carlo(&black_scholes, policy(4)).expect("Black-Scholes execution");
+            let local_vol_result =
+                price_monte_carlo(&local_vol, policy(4)).expect("Local Volatility execution");
+            let black_scholes_values = [
+                black_scholes_result.pricing_result.value.value().get(),
+                black_scholes_result
+                    .pricing_result
+                    .risks
+                    .delta
+                    .expect("Delta")
+                    .raw()
+                    .value()
+                    .get(),
+                black_scholes_result
+                    .pricing_result
+                    .risks
+                    .gamma
+                    .expect("Gamma")
+                    .raw()
+                    .value()
+                    .get(),
+                black_scholes_result
+                    .pricing_result
+                    .risks
+                    .vega
+                    .expect("Vega")
+                    .raw()
+                    .value()
+                    .get(),
+            ];
+            let local_vol_values = [
+                local_vol_result.pricing_result.value.value().get(),
+                local_vol_result
+                    .pricing_result
+                    .risks
+                    .delta
+                    .expect("Delta")
+                    .raw()
+                    .value()
+                    .get(),
+                local_vol_result
+                    .pricing_result
+                    .risks
+                    .gamma
+                    .expect("Gamma")
+                    .raw()
+                    .value()
+                    .get(),
+                local_vol_result
+                    .pricing_result
+                    .risks
+                    .vega
+                    .expect("Vega")
+                    .raw()
+                    .value()
+                    .get(),
+            ];
+            for ((black_scholes_value, local_vol_value), tolerance) in black_scholes_values
+                .into_iter()
+                .zip(local_vol_values)
+                .zip([2.0e-10, 2.0e-3, 2.0e-3, 2.0e-8])
+            {
+                assert!(
+                    (local_vol_value - black_scholes_value).abs() < tolerance,
+                    "Black-Scholes={black_scholes_value}, Local Volatility={local_vol_value}, tolerance={tolerance}"
+                );
+            }
         }
     }
 

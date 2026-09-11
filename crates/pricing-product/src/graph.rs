@@ -2552,6 +2552,55 @@ mod tests {
     }
 
     #[test]
+    fn arithmetic_asian_is_invariant_to_weighted_observation_pair_permutation() {
+        let dates = [
+            "2027-03-04".parse().expect("first"),
+            "2027-06-04".parse().expect("second"),
+            "2027-09-04".parse().expect("third"),
+        ];
+        let compile = |weights: [f64; 3]| {
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                100.0,
+                2.0,
+                OptionSide::Call,
+                dates
+                    .into_iter()
+                    .zip(weights)
+                    .map(|(date, weight)| {
+                        crate::AsianObservation::unknown(date, weight).expect("observation")
+                    })
+                    .collect(),
+                dates[2],
+            )
+            .expect("Asian")
+            .source_graph()
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile")
+        };
+        let first = compile([0.2, 0.3, 0.5]);
+        let permuted = compile([0.5, 0.2, 0.3]);
+        let first_spots = [80.0, 110.0, 130.0];
+        let permuted_spots = [130.0, 80.0, 110.0];
+        let evaluate = |compiled: &CompiledPayoff, spots: [f64; 3]| {
+            compiled
+                .evaluate(|_, date| {
+                    dates
+                        .iter()
+                        .position(|candidate| *candidate == date)
+                        .map(|index| spots[index])
+                })
+                .expect("evaluate")[0]
+        };
+        assert_eq!(
+            evaluate(&first, first_spots),
+            evaluate(&permuted, permuted_spots)
+        );
+    }
+
+    #[test]
     fn fixed_lookback_builder_executes_running_extremum_payoff() {
         let product = FixedLookbackSpec::new(
             UnderlyingId::new(4),
@@ -2590,6 +2639,50 @@ mod tests {
                 (UnderlyingId::new(4), "2027-09-04".parse().expect("date")),
             ]
         );
+    }
+
+    #[test]
+    fn fixed_lookback_payoff_is_monotone_under_monitoring_refinement() {
+        let dates = [
+            "2027-03-04".parse().expect("first"),
+            "2027-06-04".parse().expect("second"),
+            "2027-09-04".parse().expect("third"),
+        ];
+        for (side, middle_spot) in [(OptionSide::Call, 150.0), (OptionSide::Put, 70.0)] {
+            let compile = |monitoring_dates: Vec<Date>| {
+                FixedLookbackSpec::new(
+                    UnderlyingId::new(4),
+                    CurrencyId::new(1),
+                    100.0,
+                    2.0,
+                    side,
+                    monitoring_dates,
+                    None,
+                    dates[2],
+                )
+                .expect("Lookback")
+                .source_graph("2026-09-04".parse().expect("valuation"))
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile")
+            };
+            let coarse = compile(vec![dates[0], dates[2]]);
+            let refined = compile(dates.to_vec());
+            let observe = |date| {
+                if date == dates[0] {
+                    Some(90.0)
+                } else if date == dates[1] {
+                    Some(middle_spot)
+                } else if date == dates[2] {
+                    Some(130.0)
+                } else {
+                    None
+                }
+            };
+            let coarse_value = coarse.evaluate(|_, date| observe(date)).expect("coarse")[0];
+            let refined_value = refined.evaluate(|_, date| observe(date)).expect("refined")[0];
+            assert!(refined_value >= coarse_value);
+        }
     }
 
     #[test]

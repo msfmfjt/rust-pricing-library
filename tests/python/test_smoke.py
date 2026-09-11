@@ -634,6 +634,62 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 rust_pricing.RiskRequest(),
             )
 
+    def test_native_asian_and_lookback_local_volatility_report_all_risks(self):
+        discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
+        dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])
+        market = rust_pricing.Market.equity(2, 1, 100.0, discount, dividend)
+        products = [
+            rust_pricing.Product.arithmetic_asian(
+                1,
+                2,
+                100.0,
+                1.0,
+                "call",
+                [
+                    rust_pricing.AsianObservation.unknown("2027-03-05", 0.4),
+                    rust_pricing.AsianObservation.unknown("2027-09-04", 0.6),
+                ],
+                "2027-09-04",
+            ),
+            rust_pricing.Product.fixed_lookback(
+                1,
+                2,
+                100.0,
+                1.0,
+                "put",
+                ["2027-03-05", "2027-09-04"],
+                "2027-09-04",
+            ),
+        ]
+        for product in products:
+            request = rust_pricing.PricingRequest(
+                "2026-09-04",
+                product,
+                market,
+                rust_pricing.Model.local_volatility_from_grid(
+                    [0.0, 1.0],
+                    [-1.0, 1.0],
+                    [0.0625, 0.0625, 0.0625, 0.0625],
+                    1.0e-8,
+                    1.0,
+                ),
+                rust_pricing.Engine.pseudo_monte_carlo(
+                    7, 1024, antithetic=True, brownian_bridge=True
+                ),
+                rust_pricing.RiskRequest(
+                    delta=True, gamma_relative_bump=0.01, vega=True
+                ),
+            )
+            parsed = rust_pricing.PricingRequest.from_json(request.to_json())
+            self.assertEqual(parsed.fingerprint, request.fingerprint)
+            result = rust_pricing.PricingPlan.compile(
+                parsed, worker_threads=2, reduction_block_size=256
+            ).evaluate()
+            self.assertTrue(math.isfinite(result.value))
+            self.assertTrue(math.isfinite(result.delta_raw))
+            self.assertTrue(math.isfinite(result.gamma_raw))
+            self.assertTrue(math.isfinite(result.vega_raw))
+
     def test_native_local_volatility_grid_matches_json_request(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])

@@ -251,6 +251,7 @@ enum ProductV1 {
         style: BarrierStyleV1,
         monitoring: BarrierMonitoringV1,
         monitoring_dates: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         rebate: Option<f64>,
         payment_date: String,
     },
@@ -270,6 +271,7 @@ enum ProductV1 {
         notional: f64,
         side: SideV1,
         monitoring_dates: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         historical_extremum: Option<f64>,
         payment_date: String,
     },
@@ -2737,6 +2739,39 @@ mod tests {
             fingerprint_request(&parsed).expect("fingerprint")
         );
         assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
+    fn absent_optional_product_values_are_omitted_instead_of_serialized_as_null() {
+        let barrier = ProductV1::Barrier {
+            underlying_id: 1,
+            currency_id: 2,
+            expiry: "2027-09-04".to_owned(),
+            strike: 100.0,
+            barrier: 120.0,
+            notional: 1.0,
+            side: SideV1::Call,
+            direction: BarrierDirectionV1::Up,
+            style: BarrierStyleV1::KnockOut,
+            monitoring: BarrierMonitoringV1::Discrete,
+            monitoring_dates: vec!["2027-09-04".to_owned()],
+            rebate: None,
+            payment_date: "2027-09-04".to_owned(),
+        };
+        let lookback = ProductV1::FixedLookback {
+            underlying_id: 1,
+            currency_id: 2,
+            strike: 100.0,
+            notional: 1.0,
+            side: SideV1::Put,
+            monitoring_dates: vec!["2027-09-04".to_owned()],
+            historical_extremum: None,
+            payment_date: "2027-09-04".to_owned(),
+        };
+        let barrier_json = serde_json::to_value(barrier).expect("Barrier JSON");
+        let lookback_json = serde_json::to_value(lookback).expect("Lookback JSON");
+        assert!(barrier_json.get("rebate").is_none());
+        assert!(lookback_json.get("historical_extremum").is_none());
     }
 
     #[test]

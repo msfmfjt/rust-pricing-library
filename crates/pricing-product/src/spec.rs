@@ -860,6 +860,71 @@ mod tests {
             )
             .is_err()
         );
+        assert!(matches!(
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                Vec::new(),
+                second,
+            ),
+            Err(CoreError::EmptyInput {
+                field: "asian_observations"
+            })
+        ));
+        assert!(matches!(
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown(first, 0.5).expect("first"),
+                    AsianObservation::known(first, 0.5, 105.0).expect("duplicate"),
+                ],
+                second,
+            ),
+            Err(CoreError::InvalidOrdering {
+                field: "asian_observations"
+            })
+        ));
+        assert!(matches!(
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown(first, 0.2).expect("first"),
+                    AsianObservation::unknown(second, 0.7).expect("second"),
+                ],
+                second,
+            ),
+            Err(CoreError::InvalidWeights {
+                field: "asian_observation_weights"
+            })
+        ));
+        assert!(
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![
+                    AsianObservation::unknown(first, 0.5).expect("first"),
+                    AsianObservation::unknown(second, 0.5).expect("second"),
+                ],
+                first,
+            )
+            .is_err()
+        );
+        assert!(AsianObservation::unknown(first, f64::NAN).is_err());
+        assert!(AsianObservation::known(first, 1.0, 0.0).is_err());
     }
 
     #[test]
@@ -902,6 +967,47 @@ mod tests {
                 vec![first, second],
                 None,
                 first,
+            )
+            .is_err()
+        );
+        assert!(matches!(
+            FixedLookbackSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                Vec::new(),
+                None,
+                second,
+            ),
+            Err(CoreError::EmptyInput {
+                field: "lookback_monitoring_dates"
+            })
+        ));
+        assert!(
+            FixedLookbackSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![first, first],
+                None,
+                second,
+            )
+            .is_err()
+        );
+        assert!(
+            FixedLookbackSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(2),
+                100.0,
+                1.0,
+                OptionSide::Call,
+                vec![first, second],
+                Some(0.0),
+                second,
             )
             .is_err()
         );
