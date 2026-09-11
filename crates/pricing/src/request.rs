@@ -177,7 +177,12 @@ impl PricingRequest {
         let smoothed_discontinuity =
             matches!(product, ProductSpec::Digital(_) | ProductSpec::Barrier(_))
                 && risk.payoff_smoothing().is_some();
-        if !product.supports_pathwise_risk() && requests_risk && !smoothed_discontinuity {
+        let fixed_strategy_american = matches!(product, ProductSpec::AmericanVanilla(_));
+        if !product.supports_pathwise_risk()
+            && requests_risk
+            && !smoothed_discontinuity
+            && !fixed_strategy_american
+        {
             return Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct);
         }
         Ok(Self {

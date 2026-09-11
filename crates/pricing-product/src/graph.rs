@@ -930,6 +930,31 @@ impl CompiledPayoff {
                 count: self.output_slots.len(),
             });
         }
+        self.evaluate_output_with_observation_adjoints(
+            0,
+            &mut observation,
+            &mut pre_dividend_observation,
+        )
+    }
+
+    pub fn evaluate_output_with_observation_adjoints<F, G>(
+        &self,
+        output_index: usize,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+    ) -> Result<PayoffEvaluation, GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        let output_slot =
+            self.output_slots
+                .get(output_index)
+                .copied()
+                .ok_or(GraphError::InvalidOutputIndex {
+                    index: output_index,
+                    count: self.output_slots.len(),
+                })?;
         let mut values = vec![0.0; self.opcodes.len()];
         for opcode in &self.opcodes {
             let (output, value) = execute_opcode(
@@ -947,7 +972,7 @@ impl CompiledPayoff {
             }
             values[output] = value;
         }
-        let output = checked_index(self.output_slots[0], values.len())?;
+        let output = checked_index(output_slot, values.len())?;
         let value = values[output];
         let mut adjoints = vec![0.0; self.opcodes.len()];
         adjoints[output] = 1.0;
@@ -1980,6 +2005,10 @@ pub enum GraphError {
     ReverseRequiresSingleOutput {
         count: usize,
     },
+    InvalidOutputIndex {
+        index: usize,
+        count: usize,
+    },
     NonFiniteRuntimeAdjoint {
         opcode: &'static str,
         bits: u64,
@@ -2062,6 +2091,10 @@ impl fmt::Display for GraphError {
             Self::ReverseRequiresSingleOutput { count } => write!(
                 formatter,
                 "payoff reverse requires exactly one output; received {count}"
+            ),
+            Self::InvalidOutputIndex { index, count } => write!(
+                formatter,
+                "payoff output index {index} is outside output count {count}"
             ),
             Self::NonFiniteRuntimeAdjoint { opcode, bits } => write!(
                 formatter,
@@ -2157,6 +2190,67 @@ mod tests {
         assert_ne!(
             compiled.source_fingerprint(),
             terminal_only.source_fingerprint()
+        );
+    }
+
+    #[test]
+    fn american_reverse_selects_one_exercise_output() {
+        let dates = [
+            "2027-03-04".parse().expect("first"),
+            "2027-09-04".parse().expect("expiry"),
+        ];
+        let compiled = AmericanVanillaSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            dates[1],
+            100.0,
+            2.0,
+            OptionSide::Put,
+            dates.to_vec(),
+        )
+        .expect("American option")
+        .source_graph()
+        .expect("graph")
+        .compile(GraphLimitPolicy::DEFAULT)
+        .expect("compile");
+        let spots = [90.0, 80.0];
+        for (output_index, expected_value) in [20.0, 40.0].into_iter().enumerate() {
+            let evaluation = compiled
+                .evaluate_output_with_observation_adjoints(
+                    output_index,
+                    |_, date| {
+                        dates
+                            .iter()
+                            .position(|candidate| *candidate == date)
+                            .map(|index| spots[index])
+                    },
+                    |_, _| None,
+                )
+                .expect("selected reverse");
+            assert_eq!(evaluation.value, expected_value);
+            assert_eq!(evaluation.terminal_adjoints.len(), 2);
+            for adjoint in &evaluation.terminal_adjoints {
+                let date_index = dates
+                    .iter()
+                    .position(|candidate| *candidate == adjoint.observation_date)
+                    .expect("American observation date");
+                assert_eq!(
+                    adjoint.value,
+                    if date_index == output_index {
+                        -2.0
+                    } else {
+                        0.0
+                    }
+                );
+            }
+        }
+        assert_eq!(
+            compiled.evaluate_output_with_observation_adjoints(2, |_, _| Some(90.0), |_, _| None),
+            Err(GraphError::InvalidOutputIndex { index: 2, count: 2 })
+        );
+        assert_eq!(
+            compiled.evaluate_single_with_terminal_adjoint(|_, _| Some(90.0)),
+            Err(GraphError::ReverseRequiresSingleOutput { count: 2 })
         );
     }
 

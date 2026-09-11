@@ -440,6 +440,12 @@ struct LocalVolPathwise {
 }
 
 #[derive(Clone, Copy, Debug)]
+struct ExerciseCashflowSelection {
+    output_index: usize,
+    discount: f64,
+}
+
+#[derive(Clone, Copy, Debug)]
 struct LocalVolObservation {
     post_spot: f64,
     pre_dividend_spot: Option<f64>,
@@ -1342,6 +1348,49 @@ impl SimulationPlan {
             .map(|count| *count as f64 / valuation.path_count as f64)
             .collect::<Vec<_>>()
             .into_boxed_slice();
+        let (risks, risk_diagnostics) = if self.risk_enabled() {
+            let risk_statistics = if let Some(local_volatility) = &self.local_volatility {
+                self.local_vol_fixed_policy_pseudo_statistics(
+                    valuation_engine,
+                    early_exercise,
+                    valued.stopping_indices(),
+                    local_volatility,
+                )?
+            } else {
+                self.constant_vol_fixed_policy_pseudo_statistics(
+                    valuation_engine,
+                    early_exercise,
+                    valued.stopping_indices(),
+                )?
+            };
+            (
+                self.build_risk_report(
+                    &risk_statistics,
+                    independent_units,
+                    EstimatorKind::PseudoMonteCarlo,
+                    None,
+                )?,
+                if self.local_volatility.is_some() {
+                    self.build_local_vol_risk_diagnostics()
+                } else {
+                    self.build_risk_diagnostics(
+                        &risk_statistics,
+                        independent_units,
+                        EstimatorKind::PseudoMonteCarlo,
+                    )?
+                },
+            )
+        } else {
+            (
+                RiskReport {
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    vega_kt: None,
+                },
+                empty_risk_diagnostics(self.smile_dynamics),
+            )
+        };
         let early_exercise_diagnostics = EarlyExerciseDiagnostics {
             policy_fingerprint: valued.policy_fingerprint(),
             training_random_domain: early_exercise.config.training_random_domain(),
@@ -1364,12 +1413,7 @@ impl SimulationPlan {
         };
         let pricing_result = PricingResult {
             value: estimate,
-            risks: RiskReport {
-                delta: None,
-                gamma: None,
-                vega: None,
-                vega_kt: None,
-            },
+            risks,
             diagnostics: Diagnostics::new(extrapolation_warnings(
                 self.discount_region,
                 self.dividend_region,
@@ -1380,7 +1424,7 @@ impl SimulationPlan {
             pricing_result,
             sampling_variance,
             estimator_variance,
-            risk_diagnostics: empty_risk_diagnostics(self.smile_dynamics),
+            risk_diagnostics,
             independent_sampling_units: independent_units,
             evaluated_paths: valuation_engine.evaluated_paths(),
             diagnostics: MonteCarloDiagnostics {
@@ -1473,6 +1517,51 @@ impl SimulationPlan {
             .map(|count| *count as f64 / valuation.path_count as f64)
             .collect::<Vec<_>>()
             .into_boxed_slice();
+        let (risks, risk_diagnostics) = if self.risk_enabled() {
+            let risk_statistics = if let Some(local_volatility) = &self.local_volatility {
+                self.local_vol_fixed_policy_rqmc_statistics(
+                    valuation_engine,
+                    early_exercise,
+                    valued.stopping_indices(),
+                    local_volatility,
+                    &valuation_qmc,
+                )?
+            } else {
+                self.constant_vol_fixed_policy_rqmc_statistics(
+                    valuation_engine,
+                    early_exercise,
+                    valued.stopping_indices(),
+                    &valuation_qmc,
+                )?
+            };
+            (
+                self.build_risk_report(
+                    &risk_statistics,
+                    independent_units,
+                    EstimatorKind::RandomizedQuasiMonteCarlo,
+                    None,
+                )?,
+                if self.local_volatility.is_some() {
+                    self.build_local_vol_risk_diagnostics()
+                } else {
+                    self.build_risk_diagnostics(
+                        &risk_statistics,
+                        independent_units,
+                        EstimatorKind::RandomizedQuasiMonteCarlo,
+                    )?
+                },
+            )
+        } else {
+            (
+                RiskReport {
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    vega_kt: None,
+                },
+                empty_risk_diagnostics(self.smile_dynamics),
+            )
+        };
         let early_exercise_diagnostics = EarlyExerciseDiagnostics {
             policy_fingerprint: valued.policy_fingerprint(),
             training_random_domain: RandomDomain::RqmcScramble,
@@ -1495,12 +1584,7 @@ impl SimulationPlan {
         };
         let pricing_result = PricingResult {
             value: estimate,
-            risks: RiskReport {
-                delta: None,
-                gamma: None,
-                vega: None,
-                vega_kt: None,
-            },
+            risks,
             diagnostics: Diagnostics::new(extrapolation_warnings(
                 self.discount_region,
                 self.dividend_region,
@@ -1516,7 +1600,7 @@ impl SimulationPlan {
             pricing_result,
             sampling_variance,
             estimator_variance,
-            risk_diagnostics: empty_risk_diagnostics(self.smile_dynamics),
+            risk_diagnostics,
             independent_sampling_units: independent_units,
             evaluated_paths: u128::from(valuation_engine.points_per_scramble().get())
                 * u128::from(valuation_engine.scramble_count().get())
@@ -1926,7 +2010,8 @@ impl SimulationPlan {
                 .plan
                 .evolve_path(&local_volatility.grid, self.spot, shocks)?
         };
-        let observations = self.local_vol_path_observations(&evolved)?;
+        let observations =
+            self.local_vol_path_observations(local_volatility, &evolved, self.spot)?;
         let outputs = self.payoff_outputs_from_local_vol_observations(&observations)?;
         if outputs.len() != early_exercise.exercise_dates.len() {
             return Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch {
@@ -2682,12 +2767,24 @@ impl SimulationPlan {
         })
     }
 
+    #[cfg(test)]
     fn local_vol_discounted_payoff_at_spot(
         &self,
         local_volatility: &LocalVolRuntime,
         spot: f64,
         shocks: &[f64],
         path: PathIndex,
+    ) -> Result<f64, MonteCarloError> {
+        self.local_vol_discounted_payoff_at_spot_inner(local_volatility, spot, shocks, path, None)
+    }
+
+    fn local_vol_discounted_payoff_at_spot_inner(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        spot: f64,
+        shocks: &[f64],
+        path: PathIndex,
+        selection: Option<ExerciseCashflowSelection>,
     ) -> Result<f64, MonteCarloError> {
         let path = if let (Some(dividends), Some(schedule)) = (
             local_volatility.dividends.as_ref(),
@@ -2706,7 +2803,7 @@ impl SimulationPlan {
                 .plan
                 .evolve_path(&local_volatility.grid, spot, shocks)?
         };
-        let observations = self.local_vol_path_observations(&path)?;
+        let observations = self.local_vol_path_observations(local_volatility, &path, spot)?;
         if let Some(barrier) = &self.continuous_barrier {
             let bridge =
                 self.local_vol_continuous_barrier_bridge(local_volatility, barrier, &path, spot)?;
@@ -2714,36 +2811,25 @@ impl SimulationPlan {
             let payoff = continuous_barrier_payoff_terms(barrier, terminal, bridge.survival());
             return Ok(self.discount * payoff.value);
         }
-        let outputs = self.payoff.evaluate_with_pre_dividend_spots(
-            |underlying, date| {
-                if underlying != self.underlying {
-                    return None;
-                }
-                self.observation_dates
-                    .iter()
-                    .position(|observation_date| *observation_date == Some(date))
-                    .map(|index| observations[index].post_spot)
-            },
-            |underlying, date| {
-                if underlying != self.underlying {
-                    return None;
-                }
-                self.observation_dates
-                    .iter()
-                    .position(|observation_date| *observation_date == Some(date))
-                    .and_then(|index| observations[index].pre_dividend_spot)
+        let outputs = self.payoff_outputs_from_local_vol_observations(&observations)?;
+        let selection = selection.unwrap_or(ExerciseCashflowSelection {
+            output_index: 0,
+            discount: self.discount,
+        });
+        let value = outputs.get(selection.output_index).copied().ok_or(
+            pricing_product::GraphError::InvalidOutputIndex {
+                index: selection.output_index,
+                count: outputs.len(),
             },
         )?;
-        Ok(self.discount
-            * outputs
-                .first()
-                .copied()
-                .ok_or(pricing_product::GraphError::NoOutputs)?)
+        Ok(selection.discount * value)
     }
 
     fn local_vol_path_observations(
         &self,
+        local_volatility: &LocalVolRuntime,
         path: &LocalVolPath,
+        spot: f64,
     ) -> Result<Vec<LocalVolObservation>, MonteCarloError> {
         let node_indices = self.observation_local_vol_node_indices.as_ref().ok_or(
             MonteCarloError::UnsupportedModel {
@@ -2752,13 +2838,12 @@ impl SimulationPlan {
         )?;
         Ok(node_indices
             .iter()
-            .enumerate()
-            .map(|(index, &node_index)| {
+            .map(|&node_index| {
                 let canonical_f = path.states()[node_index];
-                let post_coordinate = self.observation_affine_coordinates[index];
-                let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * canonical_f;
-                let pre_dividend_spot = self.observation_pre_dividend_coordinates[index]
-                    .map(|coordinate| coordinate.a() * self.spot + coordinate.b() * canonical_f);
+                let post_coordinate = local_volatility.node_affine_coordinates[node_index];
+                let post_spot = post_coordinate.a() * spot + post_coordinate.b() * canonical_f;
+                let pre_dividend_spot = local_volatility.node_pre_dividend_coordinates[node_index]
+                    .map(|coordinate| coordinate.a() * spot + coordinate.b() * canonical_f);
                 LocalVolObservation {
                     post_spot,
                     pre_dividend_spot,
@@ -3015,6 +3100,40 @@ impl SimulationPlan {
         shocks: &[f64],
         path: PathIndex,
     ) -> Result<LocalVolPathwise, MonteCarloError> {
+        self.local_vol_pathwise_values_and_buckets_inner(
+            local_volatility,
+            bump_runtimes,
+            shocks,
+            path,
+            None,
+        )
+    }
+
+    fn local_vol_fixed_policy_pathwise_values(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        bump_runtimes: Option<&LocalVolBumpRuntimes>,
+        shocks: &[f64],
+        path: PathIndex,
+        selection: ExerciseCashflowSelection,
+    ) -> Result<LocalVolPathwise, MonteCarloError> {
+        self.local_vol_pathwise_values_and_buckets_inner(
+            local_volatility,
+            bump_runtimes,
+            shocks,
+            path,
+            Some(selection),
+        )
+    }
+
+    fn local_vol_pathwise_values_and_buckets_inner(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        bump_runtimes: Option<&LocalVolBumpRuntimes>,
+        shocks: &[f64],
+        path: PathIndex,
+        selection: Option<ExerciseCashflowSelection>,
+    ) -> Result<LocalVolPathwise, MonteCarloError> {
         let path_state = if let (Some(dividends), Some(schedule)) = (
             local_volatility.dividends.as_ref(),
             local_volatility.dividend_schedule.as_ref(),
@@ -3032,7 +3151,8 @@ impl SimulationPlan {
                 .plan
                 .evolve_path(&local_volatility.grid, self.spot, shocks)?
         };
-        let observations = self.local_vol_path_observations(&path_state)?;
+        let observations =
+            self.local_vol_path_observations(local_volatility, &path_state, self.spot)?;
         let continuous = if let Some(barrier) = &self.continuous_barrier {
             let bridge = self.local_vol_continuous_barrier_bridge(
                 local_volatility,
@@ -3047,30 +3167,41 @@ impl SimulationPlan {
             None
         };
         let graph_payoff = if continuous.is_none() {
-            Some(self.payoff.evaluate_single_with_observation_adjoints(
-                |underlying, date| {
-                    if underlying != self.underlying {
-                        return None;
-                    }
-                    self.observation_dates
-                        .iter()
-                        .position(|observation_date| *observation_date == Some(date))
-                        .map(|index| observations[index].post_spot)
-                },
-                |underlying, date| {
-                    if underlying != self.underlying {
-                        return None;
-                    }
-                    self.observation_dates
-                        .iter()
-                        .position(|observation_date| *observation_date == Some(date))
-                        .and_then(|index| observations[index].pre_dividend_spot)
-                },
-            )?)
+            let observation = |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == Some(date))
+                    .map(|index| observations[index].post_spot)
+            };
+            let pre_dividend_observation = |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == Some(date))
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            };
+            Some(if let Some(selection) = selection {
+                self.payoff.evaluate_output_with_observation_adjoints(
+                    selection.output_index,
+                    observation,
+                    pre_dividend_observation,
+                )?
+            } else {
+                self.payoff.evaluate_single_with_observation_adjoints(
+                    observation,
+                    pre_dividend_observation,
+                )?
+            })
         } else {
             None
         };
-        let price = self.discount
+        let discount = selection.map_or(self.discount, |selected| selected.discount);
+        let price = discount
             * continuous.as_ref().map_or_else(
                 || graph_payoff.as_ref().expect("graph payoff").value,
                 |(_, payoff)| payoff.value,
@@ -3093,14 +3224,14 @@ impl SimulationPlan {
                 let terminal_coordinate =
                     self.observation_affine_coordinates[barrier.expiry_observation_index];
                 state_seeds[terminal_observation.node_index] +=
-                    self.discount * payoff.terminal_derivative * terminal_coordinate.b();
+                    discount * payoff.terminal_derivative * terminal_coordinate.b();
                 if let LocalVolContinuousBarrierBridgeEvaluation::Exact(bridge) = bridge
                     && !bridge.endpoint_touched
                     && !bridge.dividend_jump_touched
                 {
                     let interval_adjoints = bridge
                         .path
-                        .reverse(self.discount * payoff.survival_derivative * bridge.survival());
+                        .reverse(discount * payoff.survival_derivative * bridge.survival());
                     let mut variance_seeds = vec![0.0; bridge.node_interpolations.len()];
                     for ((left_node, right_node), adjoints) in bridge
                         .interval_node_indices
@@ -3129,7 +3260,7 @@ impl SimulationPlan {
                 } = bridge
                 {
                     let (interval_adjoints, hit_factor_adjoints) =
-                        path.reverse(self.discount * payoff.survival_derivative);
+                        path.reverse(discount * payoff.survival_derivative);
                     let mut variance_seeds = vec![0.0; node_interpolations.len()];
                     for ((left_node, right_node), adjoints) in
                         interval_node_indices.iter().copied().zip(interval_adjoints)
@@ -3167,7 +3298,7 @@ impl SimulationPlan {
                         let observation = observations[index];
                         let coordinate = self.observation_affine_coordinates[index];
                         state_seeds[observation.node_index] +=
-                            self.discount * adjoint.value * coordinate.b();
+                            discount * adjoint.value * coordinate.b();
                     }
                 }
                 for adjoint in &payoff.pre_dividend_adjoints {
@@ -3183,7 +3314,7 @@ impl SimulationPlan {
                         let coordinate = self.observation_pre_dividend_coordinates[index]
                             .expect("pre-dividend adjoints have a matching coordinate");
                         state_seeds[observation.node_index] +=
-                            self.discount * adjoint.value * coordinate.b();
+                            discount * adjoint.value * coordinate.b();
                     }
                 }
             }
@@ -3248,14 +3379,20 @@ impl SimulationPlan {
             }
         }
         if let Some(bumps) = bump_runtimes {
-            let down = self.local_vol_discounted_payoff_at_spot(
+            let down = self.local_vol_discounted_payoff_at_spot_inner(
                 &bumps.down,
                 bumps.down_spot,
                 shocks,
                 path,
+                selection,
             )?;
-            let up =
-                self.local_vol_discounted_payoff_at_spot(&bumps.up, bumps.up_spot, shocks, path)?;
+            let up = self.local_vol_discounted_payoff_at_spot_inner(
+                &bumps.up,
+                bumps.up_spot,
+                shocks,
+                path,
+                selection,
+            )?;
             let delta = (up - down) / (2.0 * bumps.spot_bump);
             values[DELTA] = delta;
             values[BUMP_DELTA] = delta;
@@ -3959,6 +4096,395 @@ impl SimulationPlan {
         }
     }
 
+    fn constant_vol_fixed_policy_pseudo_statistics(
+        &self,
+        engine: PseudoMcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_indices: &[usize],
+    ) -> Result<[DeterministicStatistics; PATHWISE_COMPONENTS], MonteCarloError> {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let expected = usize::try_from(engine.independent_sampling_units().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?
+            .checked_mul(multiplier)
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        if stopping_indices.len() != expected {
+            return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+                expected,
+                actual: stopping_indices.len(),
+            }
+            .into());
+        }
+        let executor = DeterministicExecutor::new(self.execution_policy)?;
+        let generator = Philox4x32::from_seed(engine.master_seed());
+        Ok(executor.try_map_reduce_statistics_array_with_aad_workspace(
+            engine.independent_sampling_units().get(),
+            self.aad_tile_policy.resolved_capacity(),
+            AAD_WORKSPACE_SLOTS,
+            |sampling_unit, lane, workspace| {
+                let unit = usize::try_from(sampling_unit)
+                    .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+                let base_path = unit
+                    .checked_mul(multiplier)
+                    .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+                let normals = self.normals(&generator, sampling_unit, RandomDomain::Valuation);
+                let primary = self.fixed_policy_pathwise_values(
+                    &normals,
+                    lane,
+                    workspace,
+                    stopping_indices[base_path],
+                    early_exercise,
+                )?;
+                if multiplier == 2 {
+                    let mate_normals = normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                    let mate = self.fixed_policy_pathwise_values(
+                        &mate_normals,
+                        lane,
+                        workspace,
+                        stopping_indices[base_path + 1],
+                        early_exercise,
+                    )?;
+                    Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                        |component| (primary[component] + mate[component]) * 0.5,
+                    ))
+                } else {
+                    Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
+                }
+            },
+        )?)
+    }
+
+    fn constant_vol_fixed_policy_rqmc_statistics(
+        &self,
+        engine: RqmcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_indices: &[usize],
+        qmc: &RqmcPlan,
+    ) -> Result<[DeterministicStatistics; PATHWISE_COMPONENTS], MonteCarloError> {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let points = usize::try_from(engine.points_per_scramble().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let expected = usize::try_from(engine.scramble_count().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?
+            .checked_mul(points)
+            .and_then(|count| count.checked_mul(multiplier))
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        if stopping_indices.len() != expected {
+            return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+                expected,
+                actual: stopping_indices.len(),
+            }
+            .into());
+        }
+        let executor = DeterministicExecutor::new(self.execution_policy)?;
+        let mut replicates: Vec<[f64; PATHWISE_COMPONENTS]> = Vec::with_capacity(
+            usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
+        );
+        for scramble in 0..engine.scramble_count().get() {
+            let scramble_index = usize::try_from(scramble).expect("u32 fits usize");
+            let within = executor.try_map_reduce_statistics_array_with_aad_workspace(
+                engine.points_per_scramble().get(),
+                self.aad_tile_policy.resolved_capacity(),
+                AAD_WORKSPACE_SLOTS,
+                |point, lane, workspace| {
+                    let point_index = usize::try_from(point)
+                        .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+                    let base_path = scramble_index
+                        .checked_mul(points)
+                        .and_then(|value| value.checked_add(point_index))
+                        .and_then(|value| value.checked_mul(multiplier))
+                        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+                    let normals = self.rqmc_normals(qmc, scramble, point)?;
+                    let primary = self.fixed_policy_pathwise_values(
+                        &normals,
+                        lane,
+                        workspace,
+                        stopping_indices[base_path],
+                        early_exercise,
+                    )?;
+                    if multiplier == 2 {
+                        let mate_normals =
+                            normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                        let mate = self.fixed_policy_pathwise_values(
+                            &mate_normals,
+                            lane,
+                            workspace,
+                            stopping_indices[base_path + 1],
+                            early_exercise,
+                        )?;
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                            |component| (primary[component] + mate[component]) * 0.5,
+                        ))
+                    } else {
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
+                    }
+                },
+            )?;
+            replicates.push(std::array::from_fn(|component| {
+                within[component].sum().total() / engine.points_per_scramble().get() as f64
+            }));
+        }
+        Ok(std::array::from_fn(|component| {
+            let values = replicates
+                .iter()
+                .map(|replicate| replicate[component])
+                .collect::<Vec<_>>();
+            DeterministicStatistics::from_ordered_values_two_pass(&values)
+        }))
+    }
+
+    fn local_vol_fixed_policy_pseudo_statistics(
+        &self,
+        engine: PseudoMcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_indices: &[usize],
+        local_volatility: &LocalVolRuntime,
+    ) -> Result<[DeterministicStatistics; PATHWISE_COMPONENTS], MonteCarloError> {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let expected = usize::try_from(engine.independent_sampling_units().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?
+            .checked_mul(multiplier)
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        if stopping_indices.len() != expected {
+            return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+                expected,
+                actual: stopping_indices.len(),
+            }
+            .into());
+        }
+        let executor = DeterministicExecutor::new(self.execution_policy)?;
+        let bump_runtimes = self.local_vol_bump_runtimes()?;
+        Ok(executor.try_map_reduce_statistics_array_tiled(
+            engine.independent_sampling_units().get(),
+            self.aad_tile_policy.resolved_capacity(),
+            |sampling_unit| {
+                let unit = usize::try_from(sampling_unit)
+                    .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+                let base_path = unit
+                    .checked_mul(multiplier)
+                    .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+                let shocks = local_volatility.plan.path_shocks(
+                    engine.master_seed(),
+                    sampling_unit,
+                    RandomDomain::Valuation,
+                    engine.variance_reduction().brownian_bridge(),
+                )?;
+                let path = PathIndex::new(sampling_unit);
+                let primary = self.local_vol_fixed_policy_pathwise_values(
+                    local_volatility,
+                    bump_runtimes.as_ref(),
+                    &shocks,
+                    path,
+                    self.exercise_cashflow_selection(early_exercise, stopping_indices[base_path])?,
+                )?;
+                if multiplier == 2 {
+                    let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                    let mate = self.local_vol_fixed_policy_pathwise_values(
+                        local_volatility,
+                        bump_runtimes.as_ref(),
+                        &mate_shocks,
+                        path,
+                        self.exercise_cashflow_selection(
+                            early_exercise,
+                            stopping_indices[base_path + 1],
+                        )?,
+                    )?;
+                    Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(
+                        average_local_vol_pathwise(primary, mate)?.values,
+                    )
+                } else {
+                    Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary.values)
+                }
+            },
+        )?)
+    }
+
+    fn local_vol_fixed_policy_rqmc_statistics(
+        &self,
+        engine: RqmcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_indices: &[usize],
+        local_volatility: &LocalVolRuntime,
+        qmc: &RqmcPlan,
+    ) -> Result<[DeterministicStatistics; PATHWISE_COMPONENTS], MonteCarloError> {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let points = usize::try_from(engine.points_per_scramble().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let expected = usize::try_from(engine.scramble_count().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?
+            .checked_mul(points)
+            .and_then(|count| count.checked_mul(multiplier))
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        if stopping_indices.len() != expected {
+            return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+                expected,
+                actual: stopping_indices.len(),
+            }
+            .into());
+        }
+        let bridge = if engine.variance_reduction().brownian_bridge() {
+            Some(
+                BrownianBridgePlan::compile(local_volatility.plan.time_grid().nodes().to_vec(), 1)
+                    .map_err(|error| MonteCarloError::LocalVol(error.into()))?,
+            )
+        } else {
+            None
+        };
+        let executor = DeterministicExecutor::new(self.execution_policy)?;
+        let bump_runtimes = self.local_vol_bump_runtimes()?;
+        let mut replicates: Vec<[f64; PATHWISE_COMPONENTS]> = Vec::with_capacity(
+            usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
+        );
+        for scramble in 0..engine.scramble_count().get() {
+            let scramble_index = usize::try_from(scramble).expect("u32 fits usize");
+            let within = executor.try_map_reduce_statistics_array_tiled(
+                engine.points_per_scramble().get(),
+                self.aad_tile_policy.resolved_capacity(),
+                |point| {
+                    let point_index = usize::try_from(point)
+                        .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+                    let base_path = scramble_index
+                        .checked_mul(points)
+                        .and_then(|value| value.checked_add(point_index))
+                        .and_then(|value| value.checked_mul(multiplier))
+                        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+                    let path = PathIndex::new(
+                        u64::from(scramble).saturating_mul(engine.points_per_scramble().get())
+                            + point,
+                    );
+                    let shocks = local_vol_rqmc_shocks(qmc, bridge.as_ref(), scramble, point)?;
+                    let primary = self.local_vol_fixed_policy_pathwise_values(
+                        local_volatility,
+                        bump_runtimes.as_ref(),
+                        &shocks,
+                        path,
+                        self.exercise_cashflow_selection(
+                            early_exercise,
+                            stopping_indices[base_path],
+                        )?,
+                    )?;
+                    if multiplier == 2 {
+                        let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                        let mate = self.local_vol_fixed_policy_pathwise_values(
+                            local_volatility,
+                            bump_runtimes.as_ref(),
+                            &mate_shocks,
+                            path,
+                            self.exercise_cashflow_selection(
+                                early_exercise,
+                                stopping_indices[base_path + 1],
+                            )?,
+                        )?;
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(
+                            average_local_vol_pathwise(primary, mate)?.values,
+                        )
+                    } else {
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary.values)
+                    }
+                },
+            )?;
+            replicates.push(std::array::from_fn(|component| {
+                within[component].sum().total() / engine.points_per_scramble().get() as f64
+            }));
+        }
+        Ok(std::array::from_fn(|component| {
+            let values = replicates
+                .iter()
+                .map(|replicate| replicate[component])
+                .collect::<Vec<_>>();
+            DeterministicStatistics::from_ordered_values_two_pass(&values)
+        }))
+    }
+
+    fn exercise_cashflow_selection(
+        &self,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_index: usize,
+    ) -> Result<ExerciseCashflowSelection, MonteCarloError> {
+        let discount = *early_exercise.discount_factors.get(stopping_index).ok_or(
+            pricing_product::GraphError::InvalidOutputIndex {
+                index: stopping_index,
+                count: early_exercise.exercise_dates.len(),
+            },
+        )?;
+        Ok(ExerciseCashflowSelection {
+            output_index: stopping_index,
+            discount,
+        })
+    }
+
+    fn fixed_policy_pathwise_values(
+        &self,
+        normals: &[f64],
+        lane: usize,
+        workspace: &mut SoaWorkspace,
+        stopping_index: usize,
+        early_exercise: &EarlyExerciseRuntime,
+    ) -> Result<[f64; PATHWISE_COMPONENTS], MonteCarloError> {
+        let discount = *early_exercise.discount_factors.get(stopping_index).ok_or(
+            pricing_product::GraphError::InvalidOutputIndex {
+                index: stopping_index,
+                count: early_exercise.exercise_dates.len(),
+            },
+        )?;
+        let evaluate = |spot, volatility| {
+            self.pathwise_aad_for_output(normals, spot, volatility, stopping_index, discount)
+        };
+        let base = evaluate(self.spot, self.volatility)?;
+        let gamma = if let Some(gamma) = self.request_gamma {
+            let bump = resolve_spot_bump(gamma, self.spot);
+            let delta_down = evaluate(self.spot - bump, self.volatility)?.delta;
+            let delta_up = evaluate(self.spot + bump, self.volatility)?.delta;
+            (delta_up - delta_down) / (2.0 * bump)
+        } else {
+            0.0
+        };
+        let spot_bump = self.validation_spot_bump;
+        let down_spot = evaluate(self.spot - spot_bump, self.volatility)?;
+        let up_spot = evaluate(self.spot + spot_bump, self.volatility)?;
+        let bump_delta = (up_spot.price - down_spot.price) / (2.0 * spot_bump);
+        let bump_gamma = (up_spot.price - 2.0 * base.price + down_spot.price) / spot_bump.powi(2);
+        let bump_vega = if self.validation_volatility_bump == 0.0 {
+            0.0
+        } else {
+            let bump = self.validation_volatility_bump;
+            let down = evaluate(self.spot, self.volatility - bump)?.price;
+            let up = evaluate(self.spot, self.volatility + bump)?.price;
+            (up - down) / (2.0 * bump)
+        };
+        workspace.primal_mut(0)?.set(lane, base.price)?;
+        workspace.primal_mut(1)?.set(lane, base.delta)?;
+        workspace.primal_mut(2)?.set(lane, base.vega)?;
+        workspace.primal_mut(3)?.set(lane, gamma)?;
+        let mut values = [0.0; PATHWISE_COMPONENTS];
+        values[PRICE] = workspace.primal(0)?.get(lane)?;
+        values[DELTA] = workspace.primal(1)?.get(lane)?;
+        values[VEGA] = workspace.primal(2)?.get(lane)?;
+        values[GAMMA] = workspace.primal(3)?.get(lane)?;
+        values[BUMP_DELTA] = bump_delta;
+        values[DELTA_DIFFERENCE] = bump_delta - base.delta;
+        values[BUMP_VEGA] = bump_vega;
+        values[VEGA_DIFFERENCE] = bump_vega - base.vega;
+        values[BUMP_GAMMA] = bump_gamma;
+        values[GAMMA_DIFFERENCE] = bump_gamma - gamma;
+        Ok(values)
+    }
+
     fn pathwise_values(
         &self,
         normals: &[f64],
@@ -4099,6 +4625,83 @@ impl SimulationPlan {
             price,
             delta: self.discount * delta,
             vega: self.discount * vega,
+            barrier_diagnostics: None,
+        })
+    }
+
+    fn pathwise_aad_for_output(
+        &self,
+        normals: &[f64],
+        spot: f64,
+        volatility: f64,
+        output_index: usize,
+        discount: f64,
+    ) -> Result<PathwiseAad, MonteCarloError> {
+        let observations = self.path_observations_from_normals(normals, spot, volatility);
+        let payoff = self.payoff.evaluate_output_with_observation_adjoints(
+            output_index,
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == Some(date))
+                    .map(|index| observations[index].post_spot)
+            },
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == Some(date))
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            },
+        )?;
+        let mut delta = 0.0;
+        let mut vega = 0.0;
+        for adjoint in &payoff.terminal_adjoints {
+            if adjoint.underlying != self.underlying {
+                continue;
+            }
+            if let Some(index) = self
+                .observation_dates
+                .iter()
+                .position(|observation_date| *observation_date == Some(adjoint.observation_date))
+            {
+                let observation = observations[index];
+                let coordinate = self.observation_affine_coordinates[index];
+                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                vega += adjoint.value
+                    * coordinate.b()
+                    * observation.canonical_f
+                    * (-volatility * self.observation_times[index] + observation.brownian);
+            }
+        }
+        for adjoint in &payoff.pre_dividend_adjoints {
+            if adjoint.underlying != self.underlying {
+                continue;
+            }
+            if let Some(index) = self
+                .observation_dates
+                .iter()
+                .position(|observation_date| *observation_date == Some(adjoint.observation_date))
+            {
+                let observation = observations[index];
+                let coordinate = self.observation_pre_dividend_coordinates[index]
+                    .expect("pre-dividend adjoints have a matching coordinate");
+                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                vega += adjoint.value
+                    * coordinate.b()
+                    * observation.canonical_f
+                    * (-volatility * self.observation_times[index] + observation.brownian);
+            }
+        }
+        Ok(PathwiseAad {
+            price: discount * payoff.value,
+            delta: discount * delta,
+            vega: discount * vega,
             barrier_diagnostics: None,
         })
     }
@@ -5230,6 +5833,19 @@ mod tests {
         .expect("Local Volatility American request")
     }
 
+    fn with_risk(request: &PricingRequest, risk: RiskRequest) -> PricingRequest {
+        PricingRequest::new_with_lsm(
+            request.valuation_date(),
+            request.product().clone(),
+            request.market().clone(),
+            request.model().clone(),
+            request.engine(),
+            risk,
+            request.lsm().cloned(),
+        )
+        .expect("request with risk")
+    }
+
     #[test]
     fn american_zero_volatility_exercises_at_deterministic_optimal_date() {
         let request = american_request(OptionSide::Put, 120.0, 0.0, 2, 2, true);
@@ -5444,6 +6060,236 @@ mod tests {
             diagnostics.valuation_scramble_checksum
         );
         assert_eq!(diagnostics.exercise_counts.iter().sum::<usize>(), 131_072);
+    }
+
+    #[test]
+    fn american_fixed_policy_risks_replay_and_preserve_stopping_indices() {
+        let price_request = american_request(OptionSide::Put, 100.0, 0.2, 4096, 8192, true);
+        let risk_request = with_risk(&price_request, all_risks());
+        let price_only = price_monte_carlo(&price_request, policy(4)).expect("price only");
+        let serial = price_monte_carlo(&risk_request, policy(1)).expect("serial fixed-policy risk");
+        let parallel =
+            price_monte_carlo(&risk_request, policy(4)).expect("parallel fixed-policy risk");
+        assert_eq!(price_only.pricing_result.value, serial.pricing_result.value);
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(serial.risk_diagnostics, parallel.risk_diagnostics);
+        assert_eq!(
+            price_only
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("price diagnostics")
+                .stopping_indices,
+            serial
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("risk diagnostics")
+                .stopping_indices
+        );
+        let risks = &serial.pricing_result.risks;
+        for estimate in [
+            risks.delta.expect("delta").raw(),
+            risks.gamma.expect("gamma").raw(),
+            risks.vega.expect("vega").raw(),
+        ] {
+            assert!(estimate.value().get().is_finite());
+            assert!(estimate.standard_error().get().is_finite());
+        }
+        assert_eq!(
+            serial.risk_diagnostics.methods.delta,
+            Some(RiskMethod::AadReverse)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.gamma,
+            Some(RiskMethod::CentralBumpOfAadDelta)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.vega,
+            Some(RiskMethod::AadReverse)
+        );
+        for validation in [
+            serial
+                .risk_diagnostics
+                .delta_validation
+                .expect("delta validation"),
+            serial
+                .risk_diagnostics
+                .gamma_validation
+                .expect("gamma validation"),
+            serial
+                .risk_diagnostics
+                .vega_validation
+                .expect("vega validation"),
+        ] {
+            assert!(validation.bump_and_revalue.value().get().is_finite());
+            assert!(validation.bump_minus_primary.value().get().is_finite());
+        }
+        assert!(
+            serial
+                .risk_diagnostics
+                .delta_validation
+                .expect("delta validation")
+                .bump_minus_primary
+                .value()
+                .get()
+                .abs()
+                < 5.0e-3
+        );
+        assert!(
+            serial
+                .risk_diagnostics
+                .vega_validation
+                .expect("vega validation")
+                .bump_minus_primary
+                .value()
+                .get()
+                .abs()
+                < 5.0e-2
+        );
+    }
+
+    #[test]
+    fn american_rqmc_fixed_policy_risks_use_between_scramble_uncertainty() {
+        let price_request = american_rqmc_request(OptionSide::Put, 100.0, 0x7777, 0x8888);
+        let risk_request = with_risk(&price_request, all_risks());
+        let price_only = price_monte_carlo(&price_request, policy(4)).expect("RQMC price only");
+        let serial = price_monte_carlo(&risk_request, policy(1)).expect("serial RQMC risk");
+        let parallel = price_monte_carlo(&risk_request, policy(4)).expect("parallel RQMC risk");
+        assert_eq!(price_only.pricing_result.value, serial.pricing_result.value);
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(serial.risk_diagnostics, parallel.risk_diagnostics);
+        assert_eq!(
+            price_only
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("price diagnostics")
+                .stopping_indices,
+            serial
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("risk diagnostics")
+                .stopping_indices
+        );
+        for estimate in [
+            serial.pricing_result.risks.delta.expect("delta").raw(),
+            serial.pricing_result.risks.gamma.expect("gamma").raw(),
+            serial.pricing_result.risks.vega.expect("vega").raw(),
+        ] {
+            assert_eq!(
+                estimate.estimator(),
+                EstimatorKind::RandomizedQuasiMonteCarlo
+            );
+            assert_eq!(estimate.effective_sampling_units().get(), 16);
+            assert!(estimate.standard_error().get().is_finite());
+        }
+    }
+
+    #[test]
+    fn local_vol_american_fixed_policy_risks_replay_and_match_constant_variance() {
+        let constant_price = american_request(OptionSide::Put, 100.0, 0.2, 4096, 8192, true);
+        let constant_risk = with_risk(&constant_price, all_risks());
+        let local_price = with_constant_local_volatility(&constant_price);
+        let local_risk = with_risk(&local_price, all_risks());
+        let price_only = price_monte_carlo(&local_price, policy(4)).expect("Local Vol price only");
+        let serial = price_monte_carlo(&local_risk, policy(1)).expect("serial Local Vol risk");
+        let parallel = price_monte_carlo(&local_risk, policy(4)).expect("parallel Local Vol risk");
+        let constant =
+            price_monte_carlo(&constant_risk, policy(4)).expect("constant-variance risk");
+        assert_eq!(price_only.pricing_result.value, serial.pricing_result.value);
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(serial.risk_diagnostics, parallel.risk_diagnostics);
+        assert_eq!(
+            price_only
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("price diagnostics")
+                .stopping_indices,
+            serial
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("risk diagnostics")
+                .stopping_indices
+        );
+        let local_risks = &serial.pricing_result.risks;
+        let constant_risks = &constant.pricing_result.risks;
+        for (local, constant) in [
+            (
+                local_risks.delta.expect("Local Vol delta").raw(),
+                constant_risks.delta.expect("constant delta").raw(),
+            ),
+            (
+                local_risks.gamma.expect("Local Vol gamma").raw(),
+                constant_risks.gamma.expect("constant gamma").raw(),
+            ),
+            (
+                local_risks.vega.expect("Local Vol vega").raw(),
+                constant_risks.vega.expect("constant vega").raw(),
+            ),
+        ] {
+            let combined_error = local
+                .standard_error()
+                .get()
+                .hypot(constant.standard_error().get());
+            assert!(
+                (local.value().get() - constant.value().get()).abs()
+                    <= 8.0 * combined_error + 5.0e-3,
+                "Local Vol={}, constant={}, combined_se={combined_error}",
+                local.value().get(),
+                constant.value().get(),
+            );
+        }
+        assert_eq!(
+            serial.risk_diagnostics.methods.delta,
+            Some(RiskMethod::CentralBump)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.gamma,
+            Some(RiskMethod::CentralBump)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.vega,
+            Some(RiskMethod::AadReverse)
+        );
+    }
+
+    #[test]
+    fn local_vol_american_rqmc_fixed_policy_risks_replay() {
+        let price_request = with_constant_local_volatility(&american_rqmc_request(
+            OptionSide::Put,
+            100.0,
+            0x9999,
+            0xaaaa,
+        ));
+        let risk_request = with_risk(&price_request, all_risks());
+        let price_only = price_monte_carlo(&price_request, policy(4)).expect("RQMC price only");
+        let serial = price_monte_carlo(&risk_request, policy(1)).expect("serial RQMC risk");
+        let parallel = price_monte_carlo(&risk_request, policy(4)).expect("parallel RQMC risk");
+        assert_eq!(price_only.pricing_result.value, serial.pricing_result.value);
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(serial.risk_diagnostics, parallel.risk_diagnostics);
+        assert_eq!(
+            price_only
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("price diagnostics")
+                .stopping_indices,
+            serial
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("risk diagnostics")
+                .stopping_indices
+        );
+        for estimate in [
+            serial.pricing_result.risks.delta.expect("delta").raw(),
+            serial.pricing_result.risks.gamma.expect("gamma").raw(),
+            serial.pricing_result.risks.vega.expect("vega").raw(),
+        ] {
+            assert_eq!(
+                estimate.estimator(),
+                EstimatorKind::RandomizedQuasiMonteCarlo
+            );
+            assert_eq!(estimate.effective_sampling_units().get(), 16);
+            assert!(estimate.standard_error().get().is_finite());
+        }
     }
 
     #[test]
@@ -8039,7 +8885,7 @@ mod tests {
             )
             .expect("path");
         let observations = knock_in
-            .local_vol_path_observations(&path)
+            .local_vol_path_observations(local_volatility, &path, knock_in.spot)
             .expect("observations");
         assert!(observations[0].pre_dividend_spot.expect("pre spot") >= 95.0);
         assert!(
