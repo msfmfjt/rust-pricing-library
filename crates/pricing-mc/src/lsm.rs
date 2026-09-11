@@ -899,6 +899,14 @@ impl LsmConfig {
             }
         }
     }
+
+    #[must_use]
+    pub const fn training_random_domain(&self) -> crate::RandomDomain {
+        match self.training_engine {
+            EngineConfig::PseudoMonteCarlo(_) => crate::RandomDomain::LsmTrain,
+            EngineConfig::RandomizedQuasiMonteCarlo(_) => crate::RandomDomain::RqmcScramble,
+        }
+    }
 }
 
 impl fmt::Display for ExercisePolicyFingerprint {
@@ -1567,7 +1575,7 @@ fn fingerprint_lsm_configuration(
             hash_variance_reduction(&mut hasher, engine.variance_reduction());
         }
     }
-    hasher.update(&crate::RandomDomain::LsmTrain.id().to_be_bytes());
+    hasher.update(&config.training_random_domain().id().to_be_bytes());
     hash_usize(&mut hasher, config.state_variables.len(), "state_variables")?;
     for state_variable in &config.state_variables {
         hasher.update(&[*state_variable as u8]);
@@ -2449,6 +2457,10 @@ mod tests {
         assert_eq!(pseudo.training_seed(), 7);
         assert_eq!(pseudo.training_effective_sampling_units(), 100);
         assert_eq!(pseudo.training_trajectory_count(), 200);
+        assert_eq!(
+            pseudo.training_random_domain(),
+            crate::RandomDomain::LsmTrain
+        );
 
         let rqmc = lsm_config(
             EngineConfig::RandomizedQuasiMonteCarlo(
@@ -2460,6 +2472,10 @@ mod tests {
         assert_eq!(rqmc.training_seed(), 11);
         assert_eq!(rqmc.training_effective_sampling_units(), 8);
         assert_eq!(rqmc.training_trajectory_count(), 16_384);
+        assert_eq!(
+            rqmc.training_random_domain(),
+            crate::RandomDomain::RqmcScramble
+        );
     }
 
     #[test]
