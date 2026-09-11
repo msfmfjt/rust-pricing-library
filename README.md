@@ -28,6 +28,7 @@ rejected until discontinuous-event AAD support is implemented.
 - [Local Volatility and VegaKT numerical contracts](docs/local-vol-vegakt-numerical-contracts-v0.1.md)
 - [Local Volatility and VegaKT diagnostics catalogue](docs/local-vol-vegakt-diagnostics-v0.1.md)
 - [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
+- [Path Dependence implementation roadmap](docs/path-dependence-roadmap-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
