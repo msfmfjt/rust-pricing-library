@@ -1,0 +1,221 @@
+{
+  "fixture_version": 1,
+  "policy_version": "path_dependence_v1",
+  "tolerances": {
+    "decimal_abs": "1e-45"
+  },
+  "smoothing_cases": [
+    {
+      "id": "below_band",
+      "half_width": "2",
+      "input": "-3",
+      "expected": {
+        "indicator": "0",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "0",
+        "positive_part_first": "0",
+        "positive_part_second": "0"
+      }
+    },
+    {
+      "id": "lower_boundary",
+      "half_width": "2",
+      "input": "-2",
+      "expected": {
+        "indicator": "0",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "0",
+        "positive_part_first": "0",
+        "positive_part_second": "0"
+      }
+    },
+    {
+      "id": "lower_interior",
+      "half_width": "2",
+      "input": "-1",
+      "expected": {
+        "indicator": "0.103515625",
+        "indicator_first": "0.263671875",
+        "indicator_second": "0.3515625",
+        "positive_part": "0.0283203125",
+        "positive_part_first": "0.103515625",
+        "positive_part_second": "0.263671875"
+      }
+    },
+    {
+      "id": "center",
+      "half_width": "2",
+      "input": "0",
+      "expected": {
+        "indicator": "0.5",
+        "indicator_first": "0.46875",
+        "indicator_second": "0",
+        "positive_part": "0.3125",
+        "positive_part_first": "0.5",
+        "positive_part_second": "0.46875"
+      }
+    },
+    {
+      "id": "upper_interior",
+      "half_width": "2",
+      "input": "1",
+      "expected": {
+        "indicator": "0.896484375",
+        "indicator_first": "0.263671875",
+        "indicator_second": "-0.3515625",
+        "positive_part": "1.0283203125",
+        "positive_part_first": "0.896484375",
+        "positive_part_second": "0.263671875"
+      }
+    },
+    {
+      "id": "upper_boundary",
+      "half_width": "2",
+      "input": "2",
+      "expected": {
+        "indicator": "1",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "2",
+        "positive_part_first": "1",
+        "positive_part_second": "0"
+      }
+    },
+    {
+      "id": "above_band",
+      "half_width": "2",
+      "input": "3",
+      "expected": {
+        "indicator": "1",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "3",
+        "positive_part_first": "1",
+        "positive_part_second": "0"
+      }
+    }
+  ],
+  "extrema_cases": [
+    {
+      "id": "interior_ordered",
+      "left": "101",
+      "right": "99",
+      "half_width": "4",
+      "expected": {
+        "maximum": "101.056640625",
+        "minimum": "98.943359375"
+      }
+    },
+    {
+      "id": "equal_operands",
+      "left": "100",
+      "right": "100",
+      "half_width": "4",
+      "expected": {
+        "maximum": "100.625",
+        "minimum": "99.375"
+      }
+    },
+    {
+      "id": "outside_band_reversed",
+      "left": "97",
+      "right": "101",
+      "half_width": "2",
+      "expected": {
+        "maximum": "101",
+        "minimum": "97"
+      }
+    }
+  ],
+  "bridge_cases": [
+    {
+      "id": "up_safe_endpoints",
+      "direction": "up",
+      "barrier": "120",
+      "start_spot": "100",
+      "end_spot": "110",
+      "integrated_variance": "0.04",
+      "expected": {
+        "hit_probability": "0.452393688685556570278176290283242218748487747282187491681904",
+        "survival_probability": "0.547606311314443429721823709716757781251512252717812508318096"
+      }
+    },
+    {
+      "id": "down_safe_endpoints",
+      "direction": "down",
+      "barrier": "80",
+      "start_spot": "100",
+      "end_spot": "90",
+      "integrated_variance": "0.04",
+      "expected": {
+        "hit_probability": "0.268709007059333795215179762024371739792253422533902853679384",
+        "survival_probability": "0.731290992940666204784820237975628260207746577466097146320616"
+      }
+    },
+    {
+      "id": "endpoint_touch",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "100",
+      "end_spot": "90",
+      "integrated_variance": "0.04",
+      "expected": {
+        "hit_probability": "1",
+        "survival_probability": "0"
+      }
+    },
+    {
+      "id": "zero_variance_safe",
+      "direction": "up",
+      "barrier": "120",
+      "start_spot": "100",
+      "end_spot": "110",
+      "integrated_variance": "0",
+      "expected": {
+        "hit_probability": "0",
+        "survival_probability": "1"
+      }
+    }
+  ],
+  "jump_cases": [
+    {
+      "id": "down_crossing",
+      "direction": "down",
+      "barrier": "90",
+      "pre_jump_spot": "100",
+      "post_jump_spot": "85",
+      "half_width": "2",
+      "expected": {
+        "signed_score": "5",
+        "hit_weight": "1"
+      }
+    },
+    {
+      "id": "down_safe",
+      "direction": "down",
+      "barrier": "90",
+      "pre_jump_spot": "100",
+      "post_jump_spot": "95",
+      "half_width": "2",
+      "expected": {
+        "signed_score": "-5",
+        "hit_weight": "0"
+      }
+    },
+    {
+      "id": "down_near_crossing",
+      "direction": "down",
+      "barrier": "90",
+      "pre_jump_spot": "91",
+      "post_jump_spot": "89.5",
+      "half_width": "2",
+      "expected": {
+        "signed_score": "0.5020904541015625",
+        "hit_weight": "0.72565324033767153404175604056172620303393868876860872685342"
+      }
+    }
+  ]
+}
+
