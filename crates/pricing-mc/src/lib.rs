@@ -45,7 +45,8 @@ pub const fn aad_enabled() -> bool {
 pub use barrier_bridge::{
     BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeError, BarrierBridgeInterval,
     BarrierBridgeIntervalAdjoints, BarrierBridgeIntervalInput, BarrierBridgePath,
-    BarrierBridgePathDiagnostics, BarrierBridgeStatus, transformed_barrier,
+    BarrierBridgePathDiagnostics, BarrierBridgeStatus, SmoothedBarrierBridgeEndpoint,
+    SmoothedBarrierBridgeEndpointAdjoints, SmoothedBarrierBridgeEndpointInput, transformed_barrier,
 };
 pub use bridge::{
     BROWNIAN_BRIDGE_ABI, BrownianBridgeError, BrownianBridgeInstruction, BrownianBridgePlan,

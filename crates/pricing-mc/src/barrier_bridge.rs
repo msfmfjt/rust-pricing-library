@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt;
 
 use pricing_market::AffineDividendCoordinate;
+use pricing_product::CompactC2Smoothing;
 
 pub const BARRIER_BRIDGE_ABI: &str = "continuous-barrier-bridge-log-survival-v1";
 
@@ -26,12 +27,30 @@ pub enum BarrierBridgeStatus {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum BarrierBridgeError {
-    InvalidPositiveInput { field: &'static str, bits: u64 },
-    InvalidAffineScale { bits: u64 },
-    InvalidTransformedBarrier { bits: u64 },
-    InvalidLocalVariance { endpoint: &'static str, bits: u64 },
-    InvalidIntervalLength { bits: u64 },
-    NonFiniteIntegratedVariance { bits: u64 },
+    InvalidPositiveInput {
+        field: &'static str,
+        bits: u64,
+    },
+    InvalidAffineScale {
+        bits: u64,
+    },
+    InvalidTransformedBarrier {
+        bits: u64,
+    },
+    InvalidLocalVariance {
+        endpoint: &'static str,
+        bits: u64,
+    },
+    InvalidIntervalLength {
+        bits: u64,
+    },
+    NonFiniteIntegratedVariance {
+        bits: u64,
+    },
+    InvalidSmoothedSafeDistance {
+        safe_distance_bits: u64,
+        transformed_spot_barrier_bits: u64,
+    },
 }
 
 impl fmt::Display for BarrierBridgeError {
@@ -60,6 +79,13 @@ impl fmt::Display for BarrierBridgeError {
             Self::NonFiniteIntegratedVariance { bits } => write!(
                 formatter,
                 "Barrier bridge trapezoidal integrated variance is non-finite: 0x{bits:016x}"
+            ),
+            Self::InvalidSmoothedSafeDistance {
+                safe_distance_bits,
+                transformed_spot_barrier_bits,
+            } => write!(
+                formatter,
+                "Smoothed up-barrier safe distance 0x{safe_distance_bits:016x} must be smaller than transformed Spot barrier 0x{transformed_spot_barrier_bits:016x}"
             ),
         }
     }
@@ -99,6 +125,122 @@ pub struct BarrierBridgeIntervalInput {
     pub left_local_variance: f64,
     pub right_local_variance: f64,
     pub dt: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SmoothedBarrierBridgeEndpointInput {
+    pub direction: BarrierBridgeDirection,
+    pub state: f64,
+    pub transformed_barrier: f64,
+    pub affine_scale: f64,
+    pub smoothing: CompactC2Smoothing,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SmoothedBarrierBridgeEndpointAdjoints {
+    pub state: f64,
+    pub transformed_barrier: f64,
+    pub affine_scale: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SmoothedBarrierBridgeEndpoint {
+    hit_weight: f64,
+    effective_log_distance: f64,
+    hit_weight_derivatives: SmoothedBarrierBridgeEndpointAdjoints,
+    effective_log_distance_derivatives: SmoothedBarrierBridgeEndpointAdjoints,
+}
+
+impl SmoothedBarrierBridgeEndpoint {
+    pub fn evaluate(input: SmoothedBarrierBridgeEndpointInput) -> Result<Self, BarrierBridgeError> {
+        validate_positive("state", input.state)?;
+        validate_positive("transformed barrier", input.transformed_barrier)?;
+        validate_positive("affine scale", input.affine_scale)?;
+
+        let direction_sign = match input.direction {
+            BarrierBridgeDirection::Up => 1.0,
+            BarrierBridgeDirection::Down => -1.0,
+        };
+        let state_difference = input.state - input.transformed_barrier;
+        let signed_hit_distance = input.affine_scale * direction_sign * state_difference;
+        let hit = input.smoothing.indicator(signed_hit_distance);
+        let safe = input.smoothing.positive_part(-signed_hit_distance);
+        let transformed_spot_barrier = input.affine_scale * input.transformed_barrier;
+        let denominator = match input.direction {
+            BarrierBridgeDirection::Up => transformed_spot_barrier - safe.value,
+            BarrierBridgeDirection::Down => transformed_spot_barrier + safe.value,
+        };
+        if !denominator.is_finite() || denominator <= 0.0 {
+            return Err(BarrierBridgeError::InvalidSmoothedSafeDistance {
+                safe_distance_bits: safe.value.to_bits(),
+                transformed_spot_barrier_bits: transformed_spot_barrier.to_bits(),
+            });
+        }
+        let effective_log_distance = match input.direction {
+            BarrierBridgeDirection::Up => -(-safe.value / transformed_spot_barrier).ln_1p(),
+            BarrierBridgeDirection::Down => (safe.value / transformed_spot_barrier).ln_1p(),
+        };
+
+        let hit_x = hit.first;
+        let safe_x = -safe.first;
+        let distance_safe = 1.0 / denominator;
+        let distance_barrier_product = -safe.value / (transformed_spot_barrier * denominator);
+        let distance_x = distance_safe * safe_x;
+        let x_state = input.affine_scale * direction_sign;
+        let x_barrier = -x_state;
+        let x_scale = direction_sign * state_difference;
+        let c_barrier = input.affine_scale;
+        let c_scale = input.transformed_barrier;
+
+        Ok(Self {
+            hit_weight: hit.value,
+            effective_log_distance,
+            hit_weight_derivatives: SmoothedBarrierBridgeEndpointAdjoints {
+                state: hit_x * x_state,
+                transformed_barrier: hit_x * x_barrier,
+                affine_scale: hit_x * x_scale,
+            },
+            effective_log_distance_derivatives: SmoothedBarrierBridgeEndpointAdjoints {
+                state: distance_x * x_state,
+                transformed_barrier: distance_x * x_barrier + distance_barrier_product * c_barrier,
+                affine_scale: distance_x * x_scale + distance_barrier_product * c_scale,
+            },
+        })
+    }
+
+    #[must_use]
+    pub const fn hit_weight(self) -> f64 {
+        self.hit_weight
+    }
+
+    #[must_use]
+    pub const fn safety_weight(self) -> f64 {
+        1.0 - self.hit_weight
+    }
+
+    #[must_use]
+    pub const fn effective_log_distance(self) -> f64 {
+        self.effective_log_distance
+    }
+
+    #[must_use]
+    pub fn reverse(
+        self,
+        hit_weight_adjoint: f64,
+        effective_log_distance_adjoint: f64,
+    ) -> SmoothedBarrierBridgeEndpointAdjoints {
+        SmoothedBarrierBridgeEndpointAdjoints {
+            state: hit_weight_adjoint * self.hit_weight_derivatives.state
+                + effective_log_distance_adjoint * self.effective_log_distance_derivatives.state,
+            transformed_barrier: hit_weight_adjoint
+                * self.hit_weight_derivatives.transformed_barrier
+                + effective_log_distance_adjoint
+                    * self.effective_log_distance_derivatives.transformed_barrier,
+            affine_scale: hit_weight_adjoint * self.hit_weight_derivatives.affine_scale
+                + effective_log_distance_adjoint
+                    * self.effective_log_distance_derivatives.affine_scale,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -405,6 +547,108 @@ mod tests {
         let up = BarrierBridgeInterval::evaluate(up_input).expect("up");
         let down = BarrierBridgeInterval::evaluate(down_input).expect("down");
         assert!((up.log_survival() - down.log_survival()).abs() < 1.0e-14);
+    }
+
+    #[test]
+    fn smoothed_endpoint_matches_p0_amendment_reference_points() {
+        let smoothing = CompactC2Smoothing::new(2.0).expect("smoothing");
+        let center = SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+            direction: BarrierBridgeDirection::Up,
+            state: 100.0,
+            transformed_barrier: 100.0,
+            affine_scale: 1.0,
+            smoothing,
+        })
+        .expect("center");
+        assert_eq!(center.hit_weight(), 0.5);
+        assert_eq!(center.safety_weight(), 0.5);
+        assert!((center.effective_log_distance() - 0.003_129_893_008_927_66).abs() < 1.0e-16);
+
+        let safe = SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+            direction: BarrierBridgeDirection::Up,
+            state: 95.0,
+            transformed_barrier: 100.0,
+            affine_scale: 1.0,
+            smoothing,
+        })
+        .expect("safe");
+        assert_eq!(safe.hit_weight(), 0.0);
+        assert!((safe.effective_log_distance() - (100.0_f64 / 95.0).ln()).abs() < 1.0e-15);
+
+        let hit = SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+            direction: BarrierBridgeDirection::Up,
+            state: 103.0,
+            transformed_barrier: 100.0,
+            affine_scale: 1.0,
+            smoothing,
+        })
+        .expect("hit");
+        assert_eq!(hit.hit_weight(), 1.0);
+        assert_eq!(hit.effective_log_distance(), 0.0);
+    }
+
+    #[test]
+    fn smoothed_endpoint_reverse_matches_central_differences() {
+        let smoothing = CompactC2Smoothing::new(2.0).expect("smoothing");
+        for direction in [BarrierBridgeDirection::Up, BarrierBridgeDirection::Down] {
+            let base = SmoothedBarrierBridgeEndpointInput {
+                direction,
+                state: match direction {
+                    BarrierBridgeDirection::Up => 99.25,
+                    BarrierBridgeDirection::Down => 100.75,
+                },
+                transformed_barrier: 100.0,
+                affine_scale: 0.9,
+                smoothing,
+            };
+            let evaluation = SmoothedBarrierBridgeEndpoint::evaluate(base).expect("base");
+            let reverse = evaluation.reverse(0.7, -1.3);
+            let objective = |input: SmoothedBarrierBridgeEndpointInput| {
+                let value = SmoothedBarrierBridgeEndpoint::evaluate(input).expect("evaluation");
+                0.7 * value.hit_weight() - 1.3 * value.effective_log_distance()
+            };
+            let bump = 1.0e-5;
+            let state_fd = (objective(SmoothedBarrierBridgeEndpointInput {
+                state: base.state + bump,
+                ..base
+            }) - objective(SmoothedBarrierBridgeEndpointInput {
+                state: base.state - bump,
+                ..base
+            })) / (2.0 * bump);
+            let barrier_fd = (objective(SmoothedBarrierBridgeEndpointInput {
+                transformed_barrier: base.transformed_barrier + bump,
+                ..base
+            }) - objective(SmoothedBarrierBridgeEndpointInput {
+                transformed_barrier: base.transformed_barrier - bump,
+                ..base
+            })) / (2.0 * bump);
+            let scale_fd = (objective(SmoothedBarrierBridgeEndpointInput {
+                affine_scale: base.affine_scale + bump,
+                ..base
+            }) - objective(SmoothedBarrierBridgeEndpointInput {
+                affine_scale: base.affine_scale - bump,
+                ..base
+            })) / (2.0 * bump);
+            assert!((reverse.state - state_fd).abs() < 2.0e-9);
+            assert!((reverse.transformed_barrier - barrier_fd).abs() < 2.0e-9);
+            assert!((reverse.affine_scale - scale_fd).abs() < 2.0e-9);
+        }
+    }
+
+    #[test]
+    fn smoothed_up_endpoint_rejects_an_invalid_log_domain() {
+        let error = SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+            direction: BarrierBridgeDirection::Up,
+            state: 0.1,
+            transformed_barrier: 1.0,
+            affine_scale: 1.0,
+            smoothing: CompactC2Smoothing::new(10.0).expect("smoothing"),
+        })
+        .expect_err("safe distance exceeds transformed Spot barrier");
+        assert!(matches!(
+            error,
+            BarrierBridgeError::InvalidSmoothedSafeDistance { .. }
+        ));
     }
 
     #[test]
