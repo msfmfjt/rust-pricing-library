@@ -130,6 +130,9 @@ pub enum LsmNumericalError {
         metadata: u64,
         actual: usize,
     },
+    InvalidTrainingRandomDomain {
+        domain: crate::RandomDomain,
+    },
     FingerprintCountOverflow {
         field: &'static str,
     },
@@ -282,6 +285,10 @@ impl fmt::Display for LsmNumericalError {
             Self::TrainingTrajectoryCountMismatch { metadata, actual } => write!(
                 formatter,
                 "LSM metadata declares {metadata} trajectories; received {actual} training paths"
+            ),
+            Self::InvalidTrainingRandomDomain { domain } => write!(
+                formatter,
+                "random domain {domain:?} is not valid for LSM policy training"
             ),
             Self::FingerprintCountOverflow { field } => {
                 write!(
@@ -907,6 +914,25 @@ impl LsmConfig {
             EngineConfig::RandomizedQuasiMonteCarlo(_) => crate::RandomDomain::RqmcScramble,
         }
     }
+
+    pub fn training_metadata(
+        &self,
+        product_fingerprint: [u8; 32],
+    ) -> Result<ExercisePolicyTrainingMetadata, LsmNumericalError> {
+        let trajectory_count = u64::try_from(self.training_trajectory_count()).map_err(|_| {
+            LsmNumericalError::FingerprintCountOverflow {
+                field: "training_trajectory_count",
+            }
+        })?;
+        ExercisePolicyTrainingMetadata::new_with_random_domain(
+            product_fingerprint,
+            *self.fingerprint.as_bytes(),
+            self.training_seed(),
+            self.training_effective_sampling_units(),
+            trajectory_count,
+            self.training_random_domain(),
+        )
+    }
 }
 
 impl fmt::Display for ExercisePolicyFingerprint {
@@ -926,6 +952,7 @@ pub struct ExercisePolicyTrainingMetadata {
     seed: u64,
     sampling_units: u64,
     trajectory_count: u64,
+    random_domain: crate::RandomDomain,
 }
 
 impl ExercisePolicyTrainingMetadata {
@@ -935,6 +962,24 @@ impl ExercisePolicyTrainingMetadata {
         seed: u64,
         sampling_units: u64,
         trajectory_count: u64,
+    ) -> Result<Self, LsmNumericalError> {
+        Self::new_with_random_domain(
+            product_fingerprint,
+            training_configuration_fingerprint,
+            seed,
+            sampling_units,
+            trajectory_count,
+            crate::RandomDomain::LsmTrain,
+        )
+    }
+
+    pub fn new_with_random_domain(
+        product_fingerprint: [u8; 32],
+        training_configuration_fingerprint: [u8; 32],
+        seed: u64,
+        sampling_units: u64,
+        trajectory_count: u64,
+        random_domain: crate::RandomDomain,
     ) -> Result<Self, LsmNumericalError> {
         if sampling_units == 0 {
             return Err(LsmNumericalError::ZeroTrainingCount {
@@ -946,12 +991,21 @@ impl ExercisePolicyTrainingMetadata {
                 field: "trajectory_count",
             });
         }
+        if !matches!(
+            random_domain,
+            crate::RandomDomain::LsmTrain | crate::RandomDomain::RqmcScramble
+        ) {
+            return Err(LsmNumericalError::InvalidTrainingRandomDomain {
+                domain: random_domain,
+            });
+        }
         Ok(Self {
             product_fingerprint,
             training_configuration_fingerprint,
             seed,
             sampling_units,
             trajectory_count,
+            random_domain,
         })
     }
 
@@ -982,7 +1036,7 @@ impl ExercisePolicyTrainingMetadata {
 
     #[must_use]
     pub const fn random_domain(self) -> crate::RandomDomain {
-        crate::RandomDomain::LsmTrain
+        self.random_domain
     }
 }
 
@@ -1475,7 +1529,7 @@ fn fingerprint_exercise_policy(
     hasher.update(&policy.training_metadata.seed.to_be_bytes());
     hasher.update(&policy.training_metadata.sampling_units.to_be_bytes());
     hasher.update(&policy.training_metadata.trajectory_count.to_be_bytes());
-    hasher.update(&crate::RandomDomain::LsmTrain.id().to_be_bytes());
+    hasher.update(&policy.training_metadata.random_domain.id().to_be_bytes());
     hash_usize(&mut hasher, policy.exercise_dates.len(), "exercise_dates")?;
     for date in &policy.exercise_dates {
         hasher.update(&date.year().to_be_bytes());
@@ -2476,6 +2530,11 @@ mod tests {
             rqmc.training_random_domain(),
             crate::RandomDomain::RqmcScramble
         );
+        let metadata = rqmc.training_metadata([0x42; 32]).expect("metadata");
+        assert_eq!(metadata.seed(), 11);
+        assert_eq!(metadata.sampling_units(), 8);
+        assert_eq!(metadata.trajectory_count(), 16_384);
+        assert_eq!(metadata.random_domain(), crate::RandomDomain::RqmcScramble);
     }
 
     #[test]
@@ -2506,6 +2565,23 @@ mod tests {
                 16,
             ),
             Err(LsmNumericalError::DuplicateStateVariable)
+        ));
+    }
+
+    #[test]
+    fn training_metadata_rejects_non_training_random_domains() {
+        assert!(matches!(
+            ExercisePolicyTrainingMetadata::new_with_random_domain(
+                [0x11; 32],
+                [0x22; 32],
+                7,
+                2,
+                2,
+                crate::RandomDomain::Valuation,
+            ),
+            Err(LsmNumericalError::InvalidTrainingRandomDomain {
+                domain: crate::RandomDomain::Valuation
+            })
         ));
     }
 
