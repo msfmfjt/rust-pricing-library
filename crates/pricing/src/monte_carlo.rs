@@ -118,6 +118,30 @@ struct ContinuousBarrierRuntime {
 }
 
 #[derive(Clone, Debug)]
+struct ContinuousBarrierBridgeEvaluation {
+    path: BarrierBridgePath,
+    interval_observation_indices: Box<[(Option<usize>, usize)]>,
+    initial_touched: bool,
+}
+
+impl ContinuousBarrierBridgeEvaluation {
+    fn survival(&self) -> f64 {
+        if self.initial_touched {
+            0.0
+        } else {
+            self.path.survival()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ContinuousBarrierPayoffTerms {
+    value: f64,
+    terminal_derivative: f64,
+    survival_derivative: f64,
+}
+
+#[derive(Clone, Debug)]
 struct LocalVolPathwise {
     values: [f64; PATHWISE_COMPONENTS],
     raw_buckets: Option<Vec<f64>>,
@@ -401,16 +425,6 @@ impl SimulationPlan {
         if continuous_barrier_spec.is_some() && request.risk().payoff_smoothing().is_some() {
             return Err(MonteCarloError::UnsupportedModel {
                 model: "continuous_barrier_payoff_smoothing",
-            });
-        }
-        if continuous_barrier_spec.is_some()
-            && (request.risk().delta()
-                || request.risk().gamma().is_some()
-                || request.risk().vega()
-                || request.risk().vega_kt().is_some())
-        {
-            return Err(MonteCarloError::UnsupportedRiskForModel {
-                model: "continuous_barrier_monitoring",
             });
         }
         let market_forward = request.market().equity().forward();
@@ -2105,11 +2119,28 @@ impl SimulationPlan {
         barrier: &ContinuousBarrierRuntime,
         observations: &[PathObservation],
     ) -> Result<f64, MonteCarloError> {
-        let mut previous_state = self.spot;
+        let bridge =
+            self.continuous_barrier_bridge(barrier, observations, self.spot, self.volatility)?;
+        let terminal = observations[barrier.expiry_observation_index].post_spot;
+        let payoff = continuous_barrier_payoff_terms(barrier, terminal, bridge.survival());
+        Ok(self.discount * payoff.value)
+    }
+
+    fn continuous_barrier_bridge(
+        &self,
+        barrier: &ContinuousBarrierRuntime,
+        observations: &[PathObservation],
+        spot: f64,
+        volatility: f64,
+    ) -> Result<ContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        let mut previous_state = spot;
         let mut previous_time = 0.0;
+        let mut previous_index = None;
         let mut intervals = Vec::with_capacity(barrier.monitoring_observation_indices.len());
-        let initial_touched = barrier_touched(barrier.direction, self.spot, barrier.barrier);
-        let variance = self.volatility * self.volatility;
+        let mut interval_observation_indices =
+            Vec::with_capacity(barrier.monitoring_observation_indices.len());
+        let initial_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        let variance = volatility * volatility;
         for &index in &barrier.monitoring_observation_indices {
             let time = self.observation_times[index];
             let state = observations[index].canonical_f;
@@ -2125,26 +2156,17 @@ impl SimulationPlan {
                     right_local_variance: variance,
                     dt,
                 });
+                interval_observation_indices.push((previous_index, index));
             }
             previous_state = state;
             previous_time = time;
+            previous_index = Some(index);
         }
-        let survival = if initial_touched {
-            0.0
-        } else {
-            BarrierBridgePath::evaluate(&intervals)?.survival()
-        };
-        let terminal = observations[barrier.expiry_observation_index].post_spot;
-        let signed_intrinsic = match barrier.side {
-            OptionSide::Call => terminal - barrier.strike,
-            OptionSide::Put => barrier.strike - terminal,
-        };
-        let vanilla = signed_intrinsic.max(0.0) * barrier.notional;
-        let payoff = match barrier.style {
-            BarrierStyle::KnockOut => barrier.rebate + survival * (vanilla - barrier.rebate),
-            BarrierStyle::KnockIn => vanilla + survival * (barrier.rebate - vanilla),
-        };
-        Ok(self.discount * payoff)
+        Ok(ContinuousBarrierBridgeEvaluation {
+            path: BarrierBridgePath::evaluate(&intervals)?,
+            interval_observation_indices: interval_observation_indices.into_boxed_slice(),
+            initial_touched,
+        })
     }
 
     fn path_observations_from_normals(
@@ -2255,7 +2277,10 @@ impl SimulationPlan {
         normals: &[f64],
         spot: f64,
         volatility: f64,
-    ) -> Result<PathwiseAad, pricing_product::GraphError> {
+    ) -> Result<PathwiseAad, MonteCarloError> {
+        if let Some(barrier) = &self.continuous_barrier {
+            return self.continuous_barrier_pathwise_aad(barrier, normals, spot, volatility);
+        }
         if self.observation_dates.len() == 1
             && self.observation_dates[0] == self.expiry
             && self
@@ -2333,12 +2358,70 @@ impl SimulationPlan {
         })
     }
 
+    fn continuous_barrier_pathwise_aad(
+        &self,
+        barrier: &ContinuousBarrierRuntime,
+        normals: &[f64],
+        spot: f64,
+        volatility: f64,
+    ) -> Result<PathwiseAad, MonteCarloError> {
+        let observations = self.path_observations_from_normals(normals, spot, volatility);
+        let bridge = self.continuous_barrier_bridge(barrier, &observations, spot, volatility)?;
+        let survival = bridge.survival();
+        let terminal = observations[barrier.expiry_observation_index].post_spot;
+        let payoff = continuous_barrier_payoff_terms(barrier, terminal, survival);
+        let mut state_adjoints = vec![0.0; observations.len()];
+        let terminal_coordinate =
+            self.observation_affine_coordinates[barrier.expiry_observation_index];
+        state_adjoints[barrier.expiry_observation_index] +=
+            payoff.terminal_derivative * terminal_coordinate.b();
+
+        let mut initial_state_adjoint = 0.0;
+        let mut variance_adjoint = 0.0;
+        if !bridge.initial_touched {
+            let interval_adjoints = bridge.path.reverse(payoff.survival_derivative * survival);
+            for ((left_index, right_index), adjoints) in bridge
+                .interval_observation_indices
+                .iter()
+                .copied()
+                .zip(interval_adjoints)
+            {
+                if let Some(left_index) = left_index {
+                    state_adjoints[left_index] += adjoints.left_state;
+                } else {
+                    initial_state_adjoint += adjoints.left_state;
+                }
+                state_adjoints[right_index] += adjoints.right_state;
+                variance_adjoint += adjoints.left_local_variance + adjoints.right_local_variance;
+            }
+        }
+
+        let mut delta = initial_state_adjoint;
+        let mut vega = 2.0 * volatility * variance_adjoint;
+        for (index, (state_adjoint, observation)) in state_adjoints
+            .iter()
+            .copied()
+            .zip(observations.iter().copied())
+            .enumerate()
+        {
+            delta += state_adjoint * observation.canonical_f / spot;
+            vega += state_adjoint
+                * observation.canonical_f
+                * (-volatility * self.observation_times[index] + observation.brownian);
+        }
+        Ok(PathwiseAad {
+            price: self.discount * payoff.value,
+            delta: self.discount * delta,
+            vega: self.discount * vega,
+        })
+    }
+
     fn pathwise_aad_single_terminal(
         &self,
         normal: f64,
         spot: f64,
         volatility: f64,
-    ) -> Result<PathwiseAad, pricing_product::GraphError> {
+    ) -> Result<PathwiseAad, MonteCarloError> {
         let total_variance = volatility * volatility * self.time;
         let standard_deviation = total_variance.sqrt();
         let log_return = -0.5 * total_variance + standard_deviation * normal;
@@ -2799,6 +2882,35 @@ fn barrier_touched(direction: BarrierDirection, state: f64, barrier: f64) -> boo
     match direction {
         BarrierDirection::Up => state >= barrier,
         BarrierDirection::Down => state <= barrier,
+    }
+}
+
+fn continuous_barrier_payoff_terms(
+    barrier: &ContinuousBarrierRuntime,
+    terminal: f64,
+    survival: f64,
+) -> ContinuousBarrierPayoffTerms {
+    let (signed_intrinsic, terminal_sign) = match barrier.side {
+        OptionSide::Call => (terminal - barrier.strike, 1.0),
+        OptionSide::Put => (barrier.strike - terminal, -1.0),
+    };
+    let vanilla = signed_intrinsic.max(0.0) * barrier.notional;
+    let vanilla_derivative = if signed_intrinsic >= 0.0 {
+        terminal_sign * barrier.notional
+    } else {
+        0.0
+    };
+    match barrier.style {
+        BarrierStyle::KnockOut => ContinuousBarrierPayoffTerms {
+            value: barrier.rebate + survival * (vanilla - barrier.rebate),
+            terminal_derivative: survival * vanilla_derivative,
+            survival_derivative: vanilla - barrier.rebate,
+        },
+        BarrierStyle::KnockIn => ContinuousBarrierPayoffTerms {
+            value: vanilla + survival * (barrier.rebate - vanilla),
+            terminal_derivative: (1.0 - survival) * vanilla_derivative,
+            survival_derivative: barrier.rebate - vanilla,
+        },
     }
 }
 
@@ -4149,6 +4261,15 @@ mod tests {
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
         )
         .expect("request");
+        let risk_request = PricingRequest::new(
+            request.valuation_date(),
+            request.product().clone(),
+            request.market().clone(),
+            request.model().clone(),
+            request.engine(),
+            all_risks(),
+        )
+        .expect("continuous Barrier risk request");
         let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
         assert_eq!(plan.observation_times.len(), 1);
         let knock_out = plan.continuous_barrier.clone().expect("continuous Barrier");
@@ -4167,6 +4288,34 @@ mod tests {
             let vanilla = plan.discount
                 * (observations[knock_out.expiry_observation_index].post_spot - 100.0).max(0.0);
             assert!((out + entered - vanilla).abs() < 1.0e-14);
+        }
+        for normal in [-1.0, -0.5, 0.0] {
+            let normals = [normal];
+            let analytic = plan
+                .continuous_barrier_pathwise_aad(&knock_out, &normals, 100.0, 0.2)
+                .expect("analytic");
+            let spot_bump = 1.0e-4;
+            let spot_down = plan
+                .continuous_barrier_pathwise_aad(&knock_out, &normals, 100.0 - spot_bump, 0.2)
+                .expect("spot down")
+                .price;
+            let spot_up = plan
+                .continuous_barrier_pathwise_aad(&knock_out, &normals, 100.0 + spot_bump, 0.2)
+                .expect("spot up")
+                .price;
+            let delta = (spot_up - spot_down) / (2.0 * spot_bump);
+            let volatility_bump = 1.0e-5;
+            let volatility_down = plan
+                .continuous_barrier_pathwise_aad(&knock_out, &normals, 100.0, 0.2 - volatility_bump)
+                .expect("volatility down")
+                .price;
+            let volatility_up = plan
+                .continuous_barrier_pathwise_aad(&knock_out, &normals, 100.0, 0.2 + volatility_bump)
+                .expect("volatility up")
+                .price;
+            let vega = (volatility_up - volatility_down) / (2.0 * volatility_bump);
+            assert!((analytic.delta - delta).abs() < 2.0e-8);
+            assert!((analytic.vega - vega).abs() < 2.0e-7);
         }
         let result = plan.execute().expect("execution");
 
@@ -4199,6 +4348,21 @@ mod tests {
             estimate.value().get(),
             estimate.standard_error().get()
         );
+
+        let risk_result = SimulationPlan::compile(&risk_request, policy(2))
+            .expect("risk plan")
+            .execute()
+            .expect("risk execution");
+        assert_eq!(
+            risk_result.pricing_result.value.value().get().to_bits(),
+            result.pricing_result.value.value().get().to_bits()
+        );
+        assert!(risk_result.pricing_result.risks.delta.is_some());
+        assert!(risk_result.pricing_result.risks.gamma.is_some());
+        assert!(risk_result.pricing_result.risks.vega.is_some());
+        assert!(risk_result.risk_diagnostics.delta_validation.is_some());
+        assert!(risk_result.risk_diagnostics.gamma_validation.is_some());
+        assert!(risk_result.risk_diagnostics.vega_validation.is_some());
     }
 
     #[test]

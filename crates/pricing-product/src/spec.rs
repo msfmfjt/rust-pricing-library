@@ -651,6 +651,10 @@ impl ProductSpec {
         matches!(
             self,
             Self::EuropeanVanilla(_) | Self::ArithmeticAsian(_) | Self::FixedLookback(_)
+        ) || matches!(
+            self,
+            Self::Barrier(spec)
+                if matches!(spec.monitoring(), BarrierMonitoring::Continuous)
         )
     }
 

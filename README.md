@@ -25,9 +25,9 @@ state for pre- and post-jump Spot observations without adding a random
 coordinate. Digital and Barrier risk without an explicit smoothing width
 remains rejected. Continuous Barrier Price requests without discrete dividends
 are evaluated under the constant-volatility models with a conditional
-Brownian-bridge survival estimator. Continuous Barrier risk, affine dividends,
-and Local Volatility remain rejected until the remaining P4 bridge stages are
-enabled.
+Brownian-bridge survival estimator, including pathwise Delta/Vega and bumped-AAD
+Gamma. Affine dividends and Local Volatility remain rejected until the
+remaining P4 bridge stages are enabled.
 
 ## Design baselines
 

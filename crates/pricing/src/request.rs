@@ -321,6 +321,35 @@ mod tests {
                 Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
             ));
         }
+        let continuous_barrier = ProductSpec::Barrier(
+            BarrierSpec::new(
+                base.underlying(),
+                currency,
+                base.expiry(),
+                100.0,
+                120.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                BarrierMonitoring::Continuous,
+                vec![base.expiry()],
+                None,
+                base.expiry(),
+            )
+            .expect("continuous barrier"),
+        );
+        assert!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                continuous_barrier,
+                market.clone(),
+                model.clone(),
+                engine,
+                risk.clone(),
+            )
+            .is_ok()
+        );
         let smoothing = PayoffSmoothing::compact_c2(2.0).expect("smoothing");
         let smoothed_risk = risk.clone().with_payoff_smoothing(smoothing);
         assert!(
