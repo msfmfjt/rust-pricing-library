@@ -305,6 +305,20 @@ impl EuropeanVanillaSpec {
 
 impl DigitalSpec {
     pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(None)
+    }
+
+    pub fn smoothed_source_graph(
+        &self,
+        smoothing: CompactC2Smoothing,
+    ) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(Some(smoothing))
+    }
+
+    fn build_source_graph(
+        &self,
+        smoothing: Option<CompactC2Smoothing>,
+    ) -> Result<SourceGraph, GraphError> {
         let mut builder = SourceGraphBuilder::new();
         let spot = builder.push(SourceOpcode::TerminalSpot {
             underlying: self.underlying(),
@@ -321,9 +335,16 @@ impl DigitalSpec {
                 right: spot,
             })?,
         };
-        let indicator = builder.push(SourceOpcode::Indicator {
-            input: signed_distance,
-        })?;
+        let indicator = if let Some(smoothing) = smoothing {
+            builder.push(SourceOpcode::SmoothIndicator {
+                input: signed_distance,
+                smoothing,
+            })?
+        } else {
+            builder.push(SourceOpcode::Indicator {
+                input: signed_distance,
+            })?
+        };
         let payout = builder.literal(self.payout().get())?;
         let payoff_base = match self.payout_kind() {
             DigitalPayout::Cash => payout,
@@ -1820,6 +1841,73 @@ mod tests {
                 vec![expected]
             );
         }
+    }
+
+    #[test]
+    fn digital_builder_executes_smoothed_cash_and_asset_payoffs_with_adjoints() {
+        let smoothing = CompactC2Smoothing::new(2.0).expect("smoothing");
+        for (side, payout_kind, expected_value, expected_adjoint) in [
+            (OptionSide::Call, DigitalPayout::Cash, 5.0, 4.6875),
+            (OptionSide::Put, DigitalPayout::Cash, 5.0, -4.6875),
+            (OptionSide::Call, DigitalPayout::Asset, 500.0, 473.75),
+            (OptionSide::Put, DigitalPayout::Asset, 500.0, -463.75),
+        ] {
+            let product = DigitalSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                "2027-09-04".parse().expect("date"),
+                100.0,
+                10.0,
+                side,
+                payout_kind,
+            )
+            .expect("digital");
+            let compiled = product
+                .smoothed_source_graph(smoothing)
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            let result = compiled
+                .evaluate_single_with_terminal_adjoint(|_, _| Some(100.0))
+                .expect("evaluate");
+            assert_eq!(result.value, expected_value);
+            assert_eq!(result.terminal_adjoints.len(), 1);
+            assert_eq!(result.terminal_adjoints[0].value, expected_adjoint);
+        }
+    }
+
+    #[test]
+    fn digital_exact_and_smoothed_graphs_remain_distinct() {
+        let product = DigitalSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            "2027-09-04".parse().expect("date"),
+            100.0,
+            10.0,
+            OptionSide::Call,
+            DigitalPayout::Cash,
+        )
+        .expect("digital");
+        let exact = product
+            .source_graph()
+            .expect("exact graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("exact compile");
+        let smoothed = product
+            .smoothed_source_graph(CompactC2Smoothing::new(2.0).expect("smoothing"))
+            .expect("smoothed graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("smoothed compile");
+        assert_ne!(exact.source_fingerprint(), smoothed.source_fingerprint());
+        assert_ne!(exact.tape_fingerprint(), smoothed.tape_fingerprint());
+        assert_eq!(
+            exact.evaluate(|_, _| Some(100.0)).expect("exact"),
+            vec![10.0]
+        );
+        assert_eq!(
+            smoothed.evaluate(|_, _| Some(100.0)).expect("smoothed"),
+            vec![5.0]
+        );
     }
 
     #[test]
