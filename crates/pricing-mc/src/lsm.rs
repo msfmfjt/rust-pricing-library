@@ -98,6 +98,10 @@ pub enum LsmNumericalError {
         expected: usize,
         actual: usize,
     },
+    ValuationFeatureMatrixLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
     DiscountFactorLengthMismatch {
         expected: usize,
         actual: usize,
@@ -230,6 +234,10 @@ impl fmt::Display for LsmNumericalError {
             Self::TrainingFeatureMatrixLengthMismatch { expected, actual } => write!(
                 formatter,
                 "LSM training-feature matrix needs {expected} values; received {actual}"
+            ),
+            Self::ValuationFeatureMatrixLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM valuation-feature matrix needs {expected} values; received {actual}"
             ),
             Self::DiscountFactorLengthMismatch { expected, actual } => write!(
                 formatter,
@@ -888,6 +896,180 @@ impl ExercisePolicyTrainingOutcome {
     pub fn into_policy(self) -> ExercisePolicy {
         self.policy
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExercisePolicyValuationOutcome {
+    policy_fingerprint: ExercisePolicyFingerprint,
+    realized_cashflows: Box<[f64]>,
+    discounted_cashflows: Box<[f64]>,
+    stopping_indices: Box<[usize]>,
+    exercise_counts: Box<[usize]>,
+}
+
+impl ExercisePolicyValuationOutcome {
+    #[must_use]
+    pub const fn policy_fingerprint(&self) -> ExercisePolicyFingerprint {
+        self.policy_fingerprint
+    }
+
+    #[must_use]
+    pub fn realized_cashflows(&self) -> &[f64] {
+        &self.realized_cashflows
+    }
+
+    #[must_use]
+    pub fn discounted_cashflows(&self) -> &[f64] {
+        &self.discounted_cashflows
+    }
+
+    #[must_use]
+    pub fn stopping_indices(&self) -> &[usize] {
+        &self.stopping_indices
+    }
+
+    #[must_use]
+    pub fn exercise_counts(&self) -> &[usize] {
+        &self.exercise_counts
+    }
+}
+
+/// Applies a frozen policy to independent, date-major valuation paths.
+pub fn value_exercise_policy(
+    policy: &ExercisePolicy,
+    valuation_features: &[f64],
+    valuation_paths: usize,
+    immediate_values: &[f64],
+    discount_factors: &[f64],
+) -> Result<ExercisePolicyValuationOutcome, LsmNumericalError> {
+    if valuation_paths == 0 {
+        return Err(LsmNumericalError::ZeroMatrixRows);
+    }
+    let date_count = policy.exercise_dates.len();
+    if discount_factors.len() != date_count {
+        return Err(LsmNumericalError::DiscountFactorLengthMismatch {
+            expected: date_count,
+            actual: discount_factors.len(),
+        });
+    }
+    for (date_index, &discount_factor) in discount_factors.iter().enumerate() {
+        if !discount_factor.is_finite() || discount_factor <= 0.0 {
+            return Err(LsmNumericalError::InvalidDiscountFactor {
+                date_index,
+                bits: discount_factor.to_bits(),
+            });
+        }
+    }
+    let immediate_count = date_count
+        .checked_mul(valuation_paths)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if immediate_values.len() != immediate_count {
+        return Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch {
+            expected: immediate_count,
+            actual: immediate_values.len(),
+        });
+    }
+    for date_index in 0..date_count {
+        for path in 0..valuation_paths {
+            let value = immediate_values[date_index * valuation_paths + path];
+            if !value.is_finite() {
+                return Err(LsmNumericalError::NonFiniteImmediateValue {
+                    row: date_index * valuation_paths + path,
+                    bits: value.to_bits(),
+                });
+            }
+            if value < 0.0 {
+                return Err(LsmNumericalError::NegativeImmediateValue {
+                    date_index,
+                    path,
+                    bits: value.to_bits(),
+                });
+            }
+        }
+    }
+    let feature_count = policy.basis.feature_count as usize;
+    let non_terminal_dates = date_count - 1;
+    let features_per_date = valuation_paths
+        .checked_mul(feature_count)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    let expected_features = non_terminal_dates
+        .checked_mul(features_per_date)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if valuation_features.len() != expected_features {
+        return Err(LsmNumericalError::ValuationFeatureMatrixLengthMismatch {
+            expected: expected_features,
+            actual: valuation_features.len(),
+        });
+    }
+    for (index, &feature) in valuation_features.iter().enumerate() {
+        if !feature.is_finite() {
+            return Err(LsmNumericalError::NonFiniteFeature {
+                index,
+                bits: feature.to_bits(),
+            });
+        }
+    }
+
+    let expiry_index = date_count - 1;
+    let expiry_start = expiry_index * valuation_paths;
+    let mut realized_cashflows = copied_values(
+        &immediate_values[expiry_start..expiry_start + valuation_paths],
+        "valuation realized cash flows",
+    )?;
+    let mut stopping_indices = Vec::new();
+    stopping_indices
+        .try_reserve_exact(valuation_paths)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "valuation stopping indices",
+            requested: valuation_paths,
+        })?;
+    stopping_indices.resize(valuation_paths, expiry_index);
+
+    for date_index in 0..non_terminal_dates {
+        let immediate_start = date_index * valuation_paths;
+        let date_feature_start = date_index * features_per_date;
+        for path in 0..valuation_paths {
+            if stopping_indices[path] != expiry_index {
+                continue;
+            }
+            let feature_start = date_feature_start + path * feature_count;
+            let immediate_value = immediate_values[immediate_start + path];
+            if policy.decisions[date_index].should_exercise(
+                immediate_value,
+                &valuation_features[feature_start..feature_start + feature_count],
+            )? {
+                realized_cashflows[path] = immediate_value;
+                stopping_indices[path] = date_index;
+            }
+        }
+    }
+
+    let mut discounted_cashflows = zeroed_values(valuation_paths, "discounted cash flows")?;
+    let mut exercise_counts = Vec::new();
+    exercise_counts.try_reserve_exact(date_count).map_err(|_| {
+        LsmNumericalError::AllocationFailed {
+            resource: "exercise counts",
+            requested: date_count,
+        }
+    })?;
+    exercise_counts.resize(date_count, 0_usize);
+    for path in 0..valuation_paths {
+        let stopping_index = stopping_indices[path];
+        exercise_counts[stopping_index] += 1;
+        discounted_cashflows[path] = realized_cashflows[path] * discount_factors[stopping_index];
+        if !discounted_cashflows[path].is_finite() {
+            return Err(LsmNumericalError::NonFiniteIntermediate {
+                stage: "discounted valuation cash flow",
+            });
+        }
+    }
+    Ok(ExercisePolicyValuationOutcome {
+        policy_fingerprint: policy.fingerprint,
+        realized_cashflows: realized_cashflows.into_boxed_slice(),
+        discounted_cashflows: discounted_cashflows.into_boxed_slice(),
+        stopping_indices: stopping_indices.into_boxed_slice(),
+        exercise_counts: exercise_counts.into_boxed_slice(),
+    })
 }
 
 /// Trains a policy from date-major immediate values and non-terminal features.
@@ -2527,5 +2709,76 @@ mod tests {
             ),
             Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn frozen_policy_values_independent_paths_and_records_stopping_indices() {
+        let dates = [
+            "2027-01-02".parse().expect("date"),
+            "2027-02-02".parse().expect("date"),
+            "2027-03-02".parse().expect("date"),
+        ];
+        let training = train_exercise_policy(
+            &dates,
+            PolynomialBasisSpec::new(1, 0, 1, 1).expect("basis"),
+            &[90.0, 110.0, 92.0, 112.0],
+            2,
+            &[10.0, 0.0, 8.0, 0.0, 0.0, 10.0],
+            &[1.0, 0.9, 0.8],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+            training_metadata(2),
+        )
+        .expect("policy");
+        let valuation = value_exercise_policy(
+            training.policy(),
+            &[91.0, 101.0, 111.0, 93.0, 103.0, 113.0],
+            3,
+            &[8.0, 0.0, 0.0, 9.0, 5.0, 0.0, 20.0, 20.0, 10.0],
+            &[1.0, 0.9, 0.8],
+        )
+        .expect("valuation");
+        assert_eq!(
+            valuation.policy_fingerprint(),
+            training.policy().fingerprint()
+        );
+        assert_eq!(valuation.realized_cashflows(), [8.0, 5.0, 10.0]);
+        assert_eq!(valuation.discounted_cashflows(), [8.0, 4.5, 8.0]);
+        assert_eq!(valuation.stopping_indices(), [0, 1, 2]);
+        assert_eq!(valuation.exercise_counts(), [1, 1, 1]);
+    }
+
+    #[test]
+    fn frozen_policy_honors_continue_all_on_out_of_sample_itm_path() {
+        let dates = [
+            "2027-01-02".parse().expect("date"),
+            "2027-02-02".parse().expect("date"),
+            "2027-03-02".parse().expect("date"),
+        ];
+        let training = train_exercise_policy(
+            &dates,
+            PolynomialBasisSpec::new(1, 0, 1, 1).expect("basis"),
+            &[90.0, 95.0],
+            1,
+            &[9.0, 0.0, 10.0],
+            &[1.0, 0.9, 0.8],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            8,
+            training_metadata(1),
+        )
+        .expect("policy");
+        let valuation = value_exercise_policy(
+            training.policy(),
+            &[90.0, 95.0],
+            1,
+            &[0.0, 100.0, 10.0],
+            &[1.0, 0.9, 0.8],
+        )
+        .expect("valuation");
+        assert_eq!(valuation.realized_cashflows(), [10.0]);
+        assert_eq!(valuation.stopping_indices(), [2]);
+        assert_eq!(valuation.exercise_counts(), [0, 0, 1]);
     }
 }
