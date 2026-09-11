@@ -133,6 +133,9 @@ pub enum LsmNumericalError {
     InvalidTrainingRandomDomain {
         domain: crate::RandomDomain,
     },
+    TrainingValuationPathOverlap {
+        master_scramble_seed: u64,
+    },
     FingerprintCountOverflow {
         field: &'static str,
     },
@@ -289,6 +292,12 @@ impl fmt::Display for LsmNumericalError {
             Self::InvalidTrainingRandomDomain { domain } => write!(
                 formatter,
                 "random domain {domain:?} is not valid for LSM policy training"
+            ),
+            Self::TrainingValuationPathOverlap {
+                master_scramble_seed,
+            } => write!(
+                formatter,
+                "LSM training and valuation RQMC plans share master scramble seed {master_scramble_seed}"
             ),
             Self::FingerprintCountOverflow { field } => {
                 write!(
@@ -932,6 +941,23 @@ impl LsmConfig {
             trajectory_count,
             self.training_random_domain(),
         )
+    }
+
+    pub fn validate_independent_from(
+        &self,
+        valuation_engine: EngineConfig,
+    ) -> Result<(), LsmNumericalError> {
+        if let (
+            EngineConfig::RandomizedQuasiMonteCarlo(training),
+            EngineConfig::RandomizedQuasiMonteCarlo(valuation),
+        ) = (self.training_engine, valuation_engine)
+            && training.master_scramble_seed() == valuation.master_scramble_seed()
+        {
+            return Err(LsmNumericalError::TrainingValuationPathOverlap {
+                master_scramble_seed: training.master_scramble_seed(),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -2583,6 +2609,46 @@ mod tests {
                 domain: crate::RandomDomain::Valuation
             })
         ));
+    }
+
+    #[test]
+    fn lsm_config_rejects_overlapping_rqmc_scrambles() {
+        let training = lsm_config(
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(1024, 8, 11, VarianceReduction::new(false, true))
+                    .expect("RQMC config"),
+            ),
+            2,
+        );
+        let overlapping = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(2048, 16, 11, VarianceReduction::new(true, true)).expect("RQMC config"),
+        );
+        let independent = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(2048, 16, 12, VarianceReduction::new(true, true)).expect("RQMC config"),
+        );
+        assert_eq!(
+            training.validate_independent_from(overlapping),
+            Err(LsmNumericalError::TrainingValuationPathOverlap {
+                master_scramble_seed: 11
+            })
+        );
+        assert_eq!(training.validate_independent_from(independent), Ok(()));
+
+        let pseudo_training = lsm_config(
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(11, 100, VarianceReduction::new(false, false))
+                    .expect("pseudo config"),
+            ),
+            2,
+        );
+        let pseudo_valuation = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(11, 200, VarianceReduction::new(false, false))
+                .expect("pseudo config"),
+        );
+        assert_eq!(
+            pseudo_training.validate_independent_from(pseudo_valuation),
+            Ok(())
+        );
     }
 
     #[test]
