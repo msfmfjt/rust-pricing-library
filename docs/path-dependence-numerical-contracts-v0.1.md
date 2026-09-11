@@ -1,6 +1,6 @@
 # Path Dependence Numerical Contracts v0.1
 
-Status: Frozen for roadmap Gate P0; continuous smoothing amendment candidate
+Status: Frozen for roadmap Gate P0, including the continuous smoothing amendment
 
 Requirements: `requirements-v1.0.md` Sections 6 and 7.3
 

@@ -43,8 +43,8 @@ fn main() {
             policy,
         ),
         capture(
-            "continuous_barrier_exact_full_risk",
-            request(continuous_barrier(), rqmc_engine(), full_risk()),
+            "continuous_barrier_smoothed_full_risk",
+            request(continuous_barrier(), rqmc_engine(), smoothed_risk(2.5)),
             policy,
         ),
         capture(
@@ -195,6 +195,7 @@ fn path_diagnostics(output: &MonteCarloPrice) -> Value {
             "policy_version": bridge.policy_version,
             "indicator_mode": match bridge.indicator_mode {
                 BarrierHitIndicatorMode::Exact => "exact",
+                BarrierHitIndicatorMode::CompactC2 => "compact_c2",
             },
             "endpoint_hit_fraction_bits": f64_bits(bridge.endpoint_hit_fraction),
             "dividend_jump_hit_fraction_bits": f64_bits(bridge.dividend_jump_hit_fraction),

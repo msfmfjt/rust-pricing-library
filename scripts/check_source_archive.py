@@ -385,7 +385,7 @@ REQUIRED_LOCAL_VOL_REFERENCE_CHECK_SNIPPETS = {
 
 REQUIRED_PATH_DEPENDENCE_REFERENCE_CHECK_SNIPPETS = {
     "getcontext().prec = 70",
-    '"path_dependence_v1"',
+    '"path_dependence_v2"',
     "SMOOTHING_IDS = {",
     "BRIDGE_IDS = {",
     "JUMP_IDS = {",

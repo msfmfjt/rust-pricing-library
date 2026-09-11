@@ -57,16 +57,13 @@ Continuous monitoring attaches `barrier_bridge` diagnostics:
 | `mean_survival_underflow_count` | Mean number of log-survival products that underflow at consumption |
 | `mean_certain_survival_count` | Mean number of intervals with certain survival |
 
-Endpoint contact is inclusive in exact mode. The bridge uses transformed
+Endpoint contact is inclusive in exact mode. Smoothed mode applies the common
+compact-C2 kernel to endpoint and affine-dividend-jump hit distances and uses
+the matched smoothed bridge survival formula. The bridge uses transformed
 continuous-martingale barrier coordinates, trapezoidal endpoint Local
 variance, linear log-barrier interpolation, and analytic conditional survival;
 it consumes no random coordinate. Affine-dividend jumps remain separate
 deterministic events and are never folded into a diffusion bridge probability.
-
-The current continuous bridge exposes only `BarrierHitIndicatorMode::Exact`.
-Gate P8 therefore remains open until explicitly smoothed endpoint and
-dividend-jump predicates are implemented for continuous monitoring, including
-matched reverse rules and corresponding diagnostics.
 
 ## Contractual path-state diagnostics
 
@@ -107,8 +104,8 @@ result. Important typed failures include:
 - past Barrier monitoring without an explicit supported state;
 - non-positive or undefined transformed continuous barriers;
 - negative or non-finite bridge variance and non-finite bridge inputs;
-- unsupported continuous-barrier payoff smoothing while the open P8 item
-  described above remains unresolved.
+- an up-barrier smoothing width outside the positive transformed-barrier log
+  domain.
 
 Python maps construction failures through `ValidationError` and evaluation
 failures through the existing runtime error surface. Successful diagnostics,

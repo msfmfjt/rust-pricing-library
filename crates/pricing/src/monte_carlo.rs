@@ -6,11 +6,14 @@ use pricing_market::{
     ThetaRegion, TotalVarianceDerivatives,
 };
 use pricing_mc::{
-    BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeIntervalInput, BarrierBridgePath,
-    BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
-    ExecutionPolicy, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolPath,
-    LocalVolTimeGrid, Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig,
-    RqmcPlan, RqmcPlanError, inverse_standard_normal, transformed_barrier,
+    BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeError, BarrierBridgeIntervalInput,
+    BarrierBridgePath, BarrierBridgeStatus, BrownianBridgePlan, DeterministicExecutor,
+    DeterministicStatistics, EngineConfig, ExecutionPolicy, LocalVolDividendCheckpointSchedule,
+    LocalVolLogEulerPlan, LocalVolPath, LocalVolTimeGrid, Philox4x32, PseudoMcConfig,
+    RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan, RqmcPlanError,
+    SmoothedBarrierBridgeEndpoint, SmoothedBarrierBridgeEndpointInput,
+    SmoothedBarrierBridgeInterval, SmoothedBarrierBridgeIntervalAdjoints,
+    SmoothedBarrierBridgeIntervalInput, inverse_standard_normal, transformed_barrier,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
@@ -55,6 +58,7 @@ const AAD_WORKSPACE_SLOTS: usize = 5;
 const DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP: f64 = 1.0e-4;
 const DEFAULT_VALIDATION_VOLATILITY_BUMP: f64 = 1.0e-4;
 const PLAN_FINGERPRINT_VERSION: u32 = 1;
+const SMOOTHED_BARRIER_BRIDGE_ABI: &str = "continuous-barrier-bridge-log-survival-v2";
 
 /// Immutable one-expiry plan for the European Black-Scholes MC/RQMC slice.
 #[derive(Clone, Debug)]
@@ -132,14 +136,14 @@ struct ContinuousBarrierRuntime {
 }
 
 #[derive(Clone, Debug)]
-struct ContinuousBarrierBridgeEvaluation {
+struct ExactContinuousBarrierBridgeEvaluation {
     path: BarrierBridgePath,
     interval_observation_indices: Box<[(Option<usize>, usize)]>,
     endpoint_touched: bool,
     dividend_jump_touched: bool,
 }
 
-impl ContinuousBarrierBridgeEvaluation {
+impl ExactContinuousBarrierBridgeEvaluation {
     fn survival(&self) -> f64 {
         if self.endpoint_touched || self.dividend_jump_touched {
             0.0
@@ -154,6 +158,159 @@ impl ContinuousBarrierBridgeEvaluation {
             self.endpoint_touched,
             self.dividend_jump_touched,
         )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SmoothedBarrierHitKind {
+    Endpoint,
+    DividendJump,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SmoothedBarrierHitFactor {
+    kind: SmoothedBarrierHitKind,
+    state_index: Option<usize>,
+    hit_weight: f64,
+    state_derivative: f64,
+}
+
+#[derive(Clone, Debug)]
+struct SmoothedContinuousBarrierPath {
+    intervals: Box<[SmoothedBarrierBridgeInterval]>,
+    hit_factors: Box<[SmoothedBarrierHitFactor]>,
+    log_bridge_survival: f64,
+    log_hit_survival: f64,
+    finite_correction_count: u32,
+    zero_variance_count: u32,
+    survival_underflow_count: u32,
+    certain_survival_count: u32,
+}
+
+impl SmoothedContinuousBarrierPath {
+    fn evaluate(
+        intervals: Vec<SmoothedBarrierBridgeInterval>,
+        hit_factors: Vec<SmoothedBarrierHitFactor>,
+    ) -> Self {
+        let mut log_bridge_survival = 0.0;
+        let mut finite_correction_count = 0_u32;
+        let mut zero_variance_count = 0_u32;
+        let mut survival_underflow_count = 0_u32;
+        let mut certain_survival_count = 0_u32;
+        for interval in &intervals {
+            log_bridge_survival += interval.log_survival();
+            match interval.status() {
+                BarrierBridgeStatus::FiniteCorrection => {
+                    finite_correction_count = finite_correction_count.saturating_add(1);
+                }
+                BarrierBridgeStatus::TouchedEndpoint => {}
+                BarrierBridgeStatus::ZeroVariance => {
+                    zero_variance_count = zero_variance_count.saturating_add(1);
+                }
+                BarrierBridgeStatus::SurvivalUnderflow => {
+                    survival_underflow_count = survival_underflow_count.saturating_add(1);
+                }
+                BarrierBridgeStatus::CertainSurvival => {
+                    certain_survival_count = certain_survival_count.saturating_add(1);
+                }
+            }
+        }
+        let log_hit_survival = hit_factors
+            .iter()
+            .fold(0.0, |total, factor| total + factor.safety_weight().ln());
+        Self {
+            intervals: intervals.into_boxed_slice(),
+            hit_factors: hit_factors.into_boxed_slice(),
+            log_bridge_survival,
+            log_hit_survival,
+            finite_correction_count,
+            zero_variance_count,
+            survival_underflow_count,
+            certain_survival_count,
+        }
+    }
+
+    fn survival(&self) -> f64 {
+        (self.log_bridge_survival + self.log_hit_survival).exp()
+    }
+
+    fn reverse(
+        &self,
+        survival_adjoint: f64,
+    ) -> (
+        Vec<SmoothedBarrierBridgeIntervalAdjoints>,
+        Vec<(Option<usize>, f64)>,
+    ) {
+        let log_survival_adjoint = survival_adjoint * self.survival();
+        let intervals = self
+            .intervals
+            .iter()
+            .map(|interval| interval.reverse(log_survival_adjoint))
+            .collect();
+        let hit_factors = self
+            .hit_factors
+            .iter()
+            .map(|factor| {
+                let derivative = if factor.safety_weight() == 0.0 {
+                    0.0
+                } else {
+                    -log_survival_adjoint * factor.state_derivative / factor.safety_weight()
+                };
+                (factor.state_index, derivative)
+            })
+            .collect();
+        (intervals, hit_factors)
+    }
+
+    fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
+        let component_hit = |kind| {
+            1.0 - self
+                .hit_factors
+                .iter()
+                .filter(|factor| factor.kind == kind)
+                .fold(1.0, |survival, factor| survival * factor.safety_weight())
+        };
+        BarrierPathDiagnosticValues {
+            endpoint_hit: component_hit(SmoothedBarrierHitKind::Endpoint),
+            dividend_jump_hit: component_hit(SmoothedBarrierHitKind::DividendJump),
+            bridge_hit_weight: 1.0 - self.log_bridge_survival.exp(),
+            interval_count: self.intervals.len() as f64,
+            finite_correction_count: f64::from(self.finite_correction_count),
+            zero_variance_count: f64::from(self.zero_variance_count),
+            survival_underflow_count: f64::from(self.survival_underflow_count),
+            certain_survival_count: f64::from(self.certain_survival_count),
+        }
+    }
+}
+
+impl SmoothedBarrierHitFactor {
+    fn safety_weight(self) -> f64 {
+        1.0 - self.hit_weight
+    }
+}
+
+#[derive(Clone, Debug)]
+enum ContinuousBarrierBridgeEvaluation {
+    Exact(ExactContinuousBarrierBridgeEvaluation),
+    Smoothed {
+        path: SmoothedContinuousBarrierPath,
+        interval_observation_indices: Box<[(Option<usize>, usize)]>,
+    },
+}
+
+impl ContinuousBarrierBridgeEvaluation {
+    fn survival(&self) -> f64 {
+        match self {
+            Self::Exact(evaluation) => evaluation.survival(),
+            Self::Smoothed { path, .. } => path.survival(),
+        }
+    }
+
+    fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
+        match self {
+            Self::Exact(evaluation) => evaluation.diagnostic_values(),
+            Self::Smoothed { path, .. } => path.diagnostic_values(),
+        }
     }
 }
 
@@ -165,7 +322,7 @@ struct ContinuousBarrierPayoffTerms {
 }
 
 #[derive(Clone, Debug)]
-struct LocalVolContinuousBarrierBridgeEvaluation {
+struct ExactLocalVolContinuousBarrierBridgeEvaluation {
     path: BarrierBridgePath,
     interval_node_indices: Box<[(usize, usize)]>,
     node_interpolations: Box<[LocalVarianceInterpolation]>,
@@ -173,7 +330,7 @@ struct LocalVolContinuousBarrierBridgeEvaluation {
     dividend_jump_touched: bool,
 }
 
-impl LocalVolContinuousBarrierBridgeEvaluation {
+impl ExactLocalVolContinuousBarrierBridgeEvaluation {
     fn survival(&self) -> f64 {
         if self.endpoint_touched || self.dividend_jump_touched {
             0.0
@@ -188,6 +345,32 @@ impl LocalVolContinuousBarrierBridgeEvaluation {
             self.endpoint_touched,
             self.dividend_jump_touched,
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+enum LocalVolContinuousBarrierBridgeEvaluation {
+    Exact(ExactLocalVolContinuousBarrierBridgeEvaluation),
+    Smoothed {
+        path: SmoothedContinuousBarrierPath,
+        interval_node_indices: Box<[(usize, usize)]>,
+        node_interpolations: Box<[LocalVarianceInterpolation]>,
+    },
+}
+
+impl LocalVolContinuousBarrierBridgeEvaluation {
+    fn survival(&self) -> f64 {
+        match self {
+            Self::Exact(evaluation) => evaluation.survival(),
+            Self::Smoothed { path, .. } => path.survival(),
+        }
+    }
+
+    fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
+        match self {
+            Self::Exact(evaluation) => evaluation.diagnostic_values(),
+            Self::Smoothed { path, .. } => path.diagnostic_values(),
+        }
     }
 }
 
@@ -538,11 +721,6 @@ impl SimulationPlan {
             }
             _ => None,
         };
-        if continuous_barrier_spec.is_some() && request.risk().payoff_smoothing().is_some() {
-            return Err(MonteCarloError::UnsupportedModel {
-                model: "continuous_barrier_payoff_smoothing",
-            });
-        }
         let market_forward = request.market().equity().forward();
         let dividend_timeline = market_forward
             .discrete_dividends()
@@ -708,6 +886,31 @@ impl SimulationPlan {
                     .map(|entry| entry.before()),
             );
         }
+        if let (Some(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) =
+            (continuous_barrier_spec, request.risk().payoff_smoothing())
+            && barrier.direction() == BarrierDirection::Up
+        {
+            let invalid_coordinate = std::iter::once(AffineDividendCoordinate::identity())
+                .chain(observation_affine_coordinates.iter().copied())
+                .chain(
+                    observation_pre_dividend_coordinates
+                        .iter()
+                        .flatten()
+                        .copied(),
+                )
+                .find_map(|coordinate| {
+                    let transformed_spot_barrier = barrier.barrier().get() - coordinate.a() * spot;
+                    (half_width.get() >= transformed_spot_barrier)
+                        .then_some(transformed_spot_barrier)
+                });
+            if let Some(transformed_spot_barrier) = invalid_coordinate {
+                return Err(BarrierBridgeError::InvalidSmoothedSafeDistance {
+                    safe_distance_bits: half_width.get().to_bits(),
+                    transformed_spot_barrier_bits: transformed_spot_barrier.to_bits(),
+                }
+                .into());
+            }
+        }
         let observation_local_vol_node_indices = local_volatility.as_ref().map(|runtime| {
             observation_times
                 .iter()
@@ -789,6 +992,52 @@ impl SimulationPlan {
         } else {
             DEFAULT_VALIDATION_VOLATILITY_BUMP.min(volatility * 0.5)
         };
+        let (payoff_smoothing_endpoint_count, payoff_smoothing_dividend_jump_count) =
+            match (&continuous_barrier, &local_volatility) {
+                (Some(barrier), Some(local_volatility)) => {
+                    let node_count = local_volatility
+                        .plan
+                        .time_grid()
+                        .nodes()
+                        .iter()
+                        .take_while(|time| **time <= barrier.monitoring_end_time)
+                        .count();
+                    let jump_count = local_volatility
+                        .node_pre_dividend_coordinates
+                        .iter()
+                        .take(node_count)
+                        .filter(|coordinate| coordinate.is_some())
+                        .count();
+                    (
+                        u32::try_from(node_count.saturating_sub(jump_count)).unwrap_or(u32::MAX),
+                        u32::try_from(jump_count).unwrap_or(u32::MAX),
+                    )
+                }
+                (Some(barrier), None) => {
+                    let jump_count = barrier
+                        .bridge_observation_indices
+                        .iter()
+                        .filter(|index| observation_pre_dividend_coordinates[**index].is_some())
+                        .count();
+                    (
+                        u32::try_from(
+                            1_usize
+                                .saturating_add(barrier.bridge_observation_indices.len())
+                                .saturating_sub(jump_count),
+                        )
+                        .unwrap_or(u32::MAX),
+                        u32::try_from(jump_count).unwrap_or(u32::MAX),
+                    )
+                }
+                (None, _) => match product {
+                    ProductSpec::Digital(_) => (1, 0),
+                    ProductSpec::Barrier(barrier) => (
+                        u32::try_from(barrier.monitoring_dates().len()).unwrap_or(u32::MAX),
+                        u32::try_from(jump_dates.len()).unwrap_or(u32::MAX),
+                    ),
+                    _ => (0, 0),
+                },
+            };
         Ok(Self {
             valuation_date: request.valuation_date(),
             expiry: product.expiry(),
@@ -815,15 +1064,8 @@ impl SimulationPlan {
             request_gamma: request.risk().gamma(),
             request_vega: request.risk().vega(),
             payoff_smoothing: request.risk().payoff_smoothing(),
-            payoff_smoothing_endpoint_count: match product {
-                ProductSpec::Digital(_) => 1,
-                ProductSpec::Barrier(barrier) => {
-                    u32::try_from(barrier.monitoring_dates().len()).unwrap_or(u32::MAX)
-                }
-                _ => 0,
-            },
-            payoff_smoothing_dividend_jump_count: u32::try_from(jump_dates.len())
-                .unwrap_or(u32::MAX),
+            payoff_smoothing_endpoint_count,
+            payoff_smoothing_dividend_jump_count,
             path_state_diagnostics,
             smile_dynamics: request.risk().smile_dynamics(),
             validation_spot_bump,
@@ -891,10 +1133,23 @@ impl SimulationPlan {
         self.continuous_barrier.as_ref()?;
         let mean =
             |component: usize| statistics[component].sum().total() / independent_units as f64;
+        let smoothed = self.payoff_smoothing.is_some();
         Some(BarrierBridgeDiagnostics {
-            abi: BARRIER_BRIDGE_ABI,
-            policy_version: BarrierBridgeDiagnostics::POLICY_VERSION,
-            indicator_mode: BarrierHitIndicatorMode::Exact,
+            abi: if smoothed {
+                SMOOTHED_BARRIER_BRIDGE_ABI
+            } else {
+                BARRIER_BRIDGE_ABI
+            },
+            policy_version: if smoothed {
+                BarrierBridgeDiagnostics::SMOOTHED_POLICY_VERSION
+            } else {
+                BarrierBridgeDiagnostics::EXACT_POLICY_VERSION
+            },
+            indicator_mode: if smoothed {
+                BarrierHitIndicatorMode::CompactC2
+            } else {
+                BarrierHitIndicatorMode::Exact
+            },
             endpoint_hit_fraction: mean(BARRIER_ENDPOINT_HIT),
             dividend_jump_hit_fraction: mean(BARRIER_DIVIDEND_JUMP_HIT),
             mean_conditional_bridge_hit_weight: mean(BARRIER_BRIDGE_HIT_WEIGHT),
@@ -1778,6 +2033,18 @@ impl SimulationPlan {
             );
         }
 
+        if let Some(PayoffSmoothing::CompactC2 { half_width }) = self.payoff_smoothing {
+            return self.smoothed_local_vol_continuous_barrier_bridge(
+                local_volatility,
+                barrier,
+                path,
+                spot,
+                end_node,
+                node_interpolations,
+                CompactC2Smoothing::from_positive(half_width),
+            );
+        }
+
         let mut intervals = Vec::with_capacity(end_node);
         let mut interval_node_indices = Vec::with_capacity(end_node);
         let initial_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
@@ -1820,12 +2087,104 @@ impl SimulationPlan {
         }
         let path = BarrierBridgePath::evaluate(&intervals)?;
         let endpoint_touched = initial_touched || path.diagnostics().touched_endpoint_count != 0;
-        Ok(LocalVolContinuousBarrierBridgeEvaluation {
-            path,
+        Ok(LocalVolContinuousBarrierBridgeEvaluation::Exact(
+            ExactLocalVolContinuousBarrierBridgeEvaluation {
+                path,
+                interval_node_indices: interval_node_indices.into_boxed_slice(),
+                node_interpolations: node_interpolations.into_boxed_slice(),
+                endpoint_touched,
+                dividend_jump_touched,
+            },
+        ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn smoothed_local_vol_continuous_barrier_bridge(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        barrier: &ContinuousBarrierRuntime,
+        path: &LocalVolPath,
+        spot: f64,
+        end_node: usize,
+        node_interpolations: Vec<LocalVarianceInterpolation>,
+        smoothing: CompactC2Smoothing,
+    ) -> Result<LocalVolContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        let direction = bridge_direction(barrier.direction);
+        let nodes = local_volatility.plan.time_grid().nodes();
+        let initial_coordinate = local_volatility.node_affine_coordinates[0];
+        let initial_barrier = transformed_barrier(barrier.barrier, spot, initial_coordinate)?;
+        let initial_endpoint =
+            SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+                direction,
+                state: path.states()[0],
+                transformed_barrier: initial_barrier,
+                affine_scale: initial_coordinate.b(),
+                smoothing,
+            })?;
+        let mut hit_factors = vec![smoothed_endpoint_hit_factor(
+            initial_endpoint,
+            Some(0),
+            SmoothedBarrierHitKind::Endpoint,
+        )];
+        let mut intervals = Vec::with_capacity(end_node);
+        let mut interval_node_indices = Vec::with_capacity(end_node);
+        for right_node in 1..=end_node {
+            let left_node = right_node - 1;
+            let left_coordinate = local_volatility.node_affine_coordinates[left_node];
+            let right_post_coordinate = local_volatility.node_affine_coordinates[right_node];
+            let right_pre_coordinate = local_volatility.node_pre_dividend_coordinates[right_node]
+                .unwrap_or(right_post_coordinate);
+            let left_barrier = transformed_barrier(barrier.barrier, spot, left_coordinate)?;
+            let right_barrier = transformed_barrier(barrier.barrier, spot, right_pre_coordinate)?;
+            let interval =
+                SmoothedBarrierBridgeInterval::evaluate(SmoothedBarrierBridgeIntervalInput {
+                    left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                        direction,
+                        state: path.states()[left_node],
+                        transformed_barrier: left_barrier,
+                        affine_scale: left_coordinate.b(),
+                        smoothing,
+                    },
+                    right_endpoint: SmoothedBarrierBridgeEndpointInput {
+                        direction,
+                        state: path.states()[right_node],
+                        transformed_barrier: right_barrier,
+                        affine_scale: right_pre_coordinate.b(),
+                        smoothing,
+                    },
+                    left_local_variance: node_interpolations[left_node].value,
+                    right_local_variance: node_interpolations[right_node].value,
+                    dt: nodes[right_node] - nodes[left_node],
+                })?;
+            if local_volatility.node_pre_dividend_coordinates[right_node].is_some() {
+                let state = path.states()[right_node];
+                let pre_spot = right_pre_coordinate.a() * spot + right_pre_coordinate.b() * state;
+                let post_spot =
+                    right_post_coordinate.a() * spot + right_post_coordinate.b() * state;
+                hit_factors.push(smoothed_jump_hit_factor(
+                    barrier.direction,
+                    pre_spot,
+                    post_spot,
+                    right_pre_coordinate.b(),
+                    right_post_coordinate.b(),
+                    barrier.barrier,
+                    smoothing,
+                    Some(right_node),
+                ));
+            } else {
+                hit_factors.push(smoothed_endpoint_hit_factor(
+                    interval.right_endpoint(),
+                    Some(right_node),
+                    SmoothedBarrierHitKind::Endpoint,
+                ));
+            }
+            intervals.push(interval);
+            interval_node_indices.push((left_node, right_node));
+        }
+        Ok(LocalVolContinuousBarrierBridgeEvaluation::Smoothed {
+            path: SmoothedContinuousBarrierPath::evaluate(intervals, hit_factors),
             interval_node_indices: interval_node_indices.into_boxed_slice(),
             node_interpolations: node_interpolations.into_boxed_slice(),
-            endpoint_touched,
-            dividend_jump_touched,
         })
     }
 
@@ -1973,7 +2332,10 @@ impl SimulationPlan {
                     self.observation_affine_coordinates[barrier.expiry_observation_index];
                 state_seeds[terminal_observation.node_index] +=
                     self.discount * payoff.terminal_derivative * terminal_coordinate.b();
-                if !bridge.endpoint_touched && !bridge.dividend_jump_touched {
+                if let LocalVolContinuousBarrierBridgeEvaluation::Exact(bridge) = bridge
+                    && !bridge.endpoint_touched
+                    && !bridge.dividend_jump_touched
+                {
                     let interval_adjoints = bridge
                         .path
                         .reverse(self.discount * payoff.survival_derivative * bridge.survival());
@@ -1989,26 +2351,45 @@ impl SimulationPlan {
                         variance_seeds[left_node] += adjoints.left_local_variance;
                         variance_seeds[right_node] += adjoints.right_local_variance;
                     }
-                    let x_count = local_volatility.grid.log_moneyness_nodes().len();
-                    for (node, (interpolation, variance_seed)) in bridge
-                        .node_interpolations
-                        .iter()
-                        .copied()
-                        .zip(variance_seeds)
-                        .enumerate()
+                    accumulate_bridge_local_variance_adjoints(
+                        local_volatility,
+                        path_state.states(),
+                        &bridge.node_interpolations,
+                        variance_seeds,
+                        &mut state_seeds,
+                        &mut bridge_grid_adjoints,
+                    );
+                }
+                if let LocalVolContinuousBarrierBridgeEvaluation::Smoothed {
+                    path,
+                    interval_node_indices,
+                    node_interpolations,
+                } = bridge
+                {
+                    let (interval_adjoints, hit_factor_adjoints) =
+                        path.reverse(self.discount * payoff.survival_derivative);
+                    let mut variance_seeds = vec![0.0; node_interpolations.len()];
+                    for ((left_node, right_node), adjoints) in
+                        interval_node_indices.iter().copied().zip(interval_adjoints)
                     {
-                        let state = path_state.states()[node];
-                        state_seeds[node] += variance_seed
-                            * local_volatility
-                                .grid
-                                .interpolation_log_moneyness_derivative(interpolation)
-                            / state;
-                        interpolation.transpose_accumulate(
-                            variance_seed,
-                            &mut bridge_grid_adjoints,
-                            x_count,
-                        );
+                        state_seeds[left_node] += adjoints.left_endpoint.state;
+                        state_seeds[right_node] += adjoints.right_endpoint.state;
+                        variance_seeds[left_node] += adjoints.left_local_variance;
+                        variance_seeds[right_node] += adjoints.right_local_variance;
                     }
+                    for (state_index, adjoint) in hit_factor_adjoints {
+                        state_seeds
+                            [state_index.expect("Local Vol hit factors use node indices")] +=
+                            adjoint;
+                    }
+                    accumulate_bridge_local_variance_adjoints(
+                        local_volatility,
+                        path_state.states(),
+                        node_interpolations,
+                        variance_seeds,
+                        &mut state_seeds,
+                        &mut bridge_grid_adjoints,
+                    );
                 }
             } else {
                 let payoff = graph_payoff.as_ref().expect("graph payoff");
@@ -2560,6 +2941,15 @@ impl SimulationPlan {
         spot: f64,
         volatility: f64,
     ) -> Result<ContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        if let Some(PayoffSmoothing::CompactC2 { half_width }) = self.payoff_smoothing {
+            return self.smoothed_continuous_barrier_bridge(
+                barrier,
+                observations,
+                spot,
+                volatility,
+                CompactC2Smoothing::from_positive(half_width),
+            );
+        }
         let mut previous_state = spot;
         let mut previous_time = 0.0;
         let mut previous_index = None;
@@ -2612,11 +3002,109 @@ impl SimulationPlan {
         }
         let path = BarrierBridgePath::evaluate(&intervals)?;
         let endpoint_touched = initial_touched || path.diagnostics().touched_endpoint_count != 0;
-        Ok(ContinuousBarrierBridgeEvaluation {
-            path,
+        Ok(ContinuousBarrierBridgeEvaluation::Exact(
+            ExactContinuousBarrierBridgeEvaluation {
+                path,
+                interval_observation_indices: interval_observation_indices.into_boxed_slice(),
+                endpoint_touched,
+                dividend_jump_touched,
+            },
+        ))
+    }
+
+    fn smoothed_continuous_barrier_bridge(
+        &self,
+        barrier: &ContinuousBarrierRuntime,
+        observations: &[PathObservation],
+        spot: f64,
+        volatility: f64,
+        smoothing: CompactC2Smoothing,
+    ) -> Result<ContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        let direction = bridge_direction(barrier.direction);
+        let initial_endpoint =
+            SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+                direction,
+                state: spot,
+                transformed_barrier: barrier.barrier,
+                affine_scale: 1.0,
+                smoothing,
+            })?;
+        let mut hit_factors = vec![smoothed_endpoint_hit_factor(
+            initial_endpoint,
+            None,
+            SmoothedBarrierHitKind::Endpoint,
+        )];
+        let mut intervals = Vec::with_capacity(barrier.bridge_observation_indices.len());
+        let mut interval_observation_indices =
+            Vec::with_capacity(barrier.bridge_observation_indices.len());
+        let mut previous_state = spot;
+        let mut previous_time = 0.0;
+        let mut previous_index = None;
+        let mut previous_barrier = barrier.barrier;
+        let mut previous_scale = 1.0;
+        let variance = volatility * volatility;
+        for &index in &barrier.bridge_observation_indices {
+            let time = self.observation_times[index];
+            let state = observations[index].canonical_f;
+            let post_coordinate = self.observation_affine_coordinates[index];
+            let pre_coordinate =
+                self.observation_pre_dividend_coordinates[index].unwrap_or(post_coordinate);
+            let pre_barrier = transformed_barrier(barrier.barrier, self.spot, pre_coordinate)?;
+            let post_barrier = transformed_barrier(barrier.barrier, self.spot, post_coordinate)?;
+            let dt = time - previous_time;
+            if dt > 0.0 {
+                let interval =
+                    SmoothedBarrierBridgeInterval::evaluate(SmoothedBarrierBridgeIntervalInput {
+                        left_endpoint: SmoothedBarrierBridgeEndpointInput {
+                            direction,
+                            state: previous_state,
+                            transformed_barrier: previous_barrier,
+                            affine_scale: previous_scale,
+                            smoothing,
+                        },
+                        right_endpoint: SmoothedBarrierBridgeEndpointInput {
+                            direction,
+                            state,
+                            transformed_barrier: pre_barrier,
+                            affine_scale: pre_coordinate.b(),
+                            smoothing,
+                        },
+                        left_local_variance: variance,
+                        right_local_variance: variance,
+                        dt,
+                    })?;
+                if self.observation_pre_dividend_coordinates[index].is_some() {
+                    let pre_spot = pre_coordinate.a() * self.spot + pre_coordinate.b() * state;
+                    let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * state;
+                    hit_factors.push(smoothed_jump_hit_factor(
+                        barrier.direction,
+                        pre_spot,
+                        post_spot,
+                        pre_coordinate.b(),
+                        post_coordinate.b(),
+                        barrier.barrier,
+                        smoothing,
+                        Some(index),
+                    ));
+                } else {
+                    hit_factors.push(smoothed_endpoint_hit_factor(
+                        interval.right_endpoint(),
+                        Some(index),
+                        SmoothedBarrierHitKind::Endpoint,
+                    ));
+                }
+                intervals.push(interval);
+                interval_observation_indices.push((previous_index, index));
+            }
+            previous_state = state;
+            previous_barrier = post_barrier;
+            previous_scale = post_coordinate.b();
+            previous_time = time;
+            previous_index = Some(index);
+        }
+        Ok(ContinuousBarrierBridgeEvaluation::Smoothed {
+            path: SmoothedContinuousBarrierPath::evaluate(intervals, hit_factors),
             interval_observation_indices: interval_observation_indices.into_boxed_slice(),
-            endpoint_touched,
-            dividend_jump_touched,
         })
     }
 
@@ -2833,22 +3321,56 @@ impl SimulationPlan {
 
         let mut initial_state_adjoint = 0.0;
         let mut variance_adjoint = 0.0;
-        if !bridge.endpoint_touched && !bridge.dividend_jump_touched {
-            let interval_adjoints = bridge.path.reverse(payoff.survival_derivative * survival);
-            for ((left_index, right_index), adjoints) in bridge
-                .interval_observation_indices
-                .iter()
-                .copied()
-                .zip(interval_adjoints)
+        match &bridge {
+            ContinuousBarrierBridgeEvaluation::Exact(bridge)
+                if !bridge.endpoint_touched && !bridge.dividend_jump_touched =>
             {
-                if let Some(left_index) = left_index {
-                    state_adjoints[left_index] += adjoints.left_state;
-                } else {
-                    initial_state_adjoint += adjoints.left_state;
+                let interval_adjoints = bridge.path.reverse(payoff.survival_derivative * survival);
+                for ((left_index, right_index), adjoints) in bridge
+                    .interval_observation_indices
+                    .iter()
+                    .copied()
+                    .zip(interval_adjoints)
+                {
+                    if let Some(left_index) = left_index {
+                        state_adjoints[left_index] += adjoints.left_state;
+                    } else {
+                        initial_state_adjoint += adjoints.left_state;
+                    }
+                    state_adjoints[right_index] += adjoints.right_state;
+                    variance_adjoint +=
+                        adjoints.left_local_variance + adjoints.right_local_variance;
                 }
-                state_adjoints[right_index] += adjoints.right_state;
-                variance_adjoint += adjoints.left_local_variance + adjoints.right_local_variance;
             }
+            ContinuousBarrierBridgeEvaluation::Smoothed {
+                path,
+                interval_observation_indices,
+            } => {
+                let (interval_adjoints, hit_factor_adjoints) =
+                    path.reverse(payoff.survival_derivative);
+                for ((left_index, right_index), adjoints) in interval_observation_indices
+                    .iter()
+                    .copied()
+                    .zip(interval_adjoints)
+                {
+                    if let Some(left_index) = left_index {
+                        state_adjoints[left_index] += adjoints.left_endpoint.state;
+                    } else {
+                        initial_state_adjoint += adjoints.left_endpoint.state;
+                    }
+                    state_adjoints[right_index] += adjoints.right_endpoint.state;
+                    variance_adjoint +=
+                        adjoints.left_local_variance + adjoints.right_local_variance;
+                }
+                for (state_index, adjoint) in hit_factor_adjoints {
+                    if let Some(index) = state_index {
+                        state_adjoints[index] += adjoint;
+                    } else {
+                        initial_state_adjoint += adjoint;
+                    }
+                }
+            }
+            ContinuousBarrierBridgeEvaluation::Exact(_) => {}
         }
 
         let mut delta = initial_state_adjoint;
@@ -3365,6 +3887,7 @@ impl PathStateDiagnostics {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BarrierHitIndicatorMode {
     Exact,
+    CompactC2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -3383,7 +3906,8 @@ pub struct BarrierBridgeDiagnostics {
 }
 
 impl BarrierBridgeDiagnostics {
-    pub const POLICY_VERSION: u32 = 1;
+    pub const EXACT_POLICY_VERSION: u32 = 1;
+    pub const SMOOTHED_POLICY_VERSION: u32 = 2;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -3469,6 +3993,72 @@ fn barrier_touched(direction: BarrierDirection, state: f64, barrier: f64) -> boo
     match direction {
         BarrierDirection::Up => state >= barrier,
         BarrierDirection::Down => state <= barrier,
+    }
+}
+
+fn smoothed_endpoint_hit_factor(
+    endpoint: SmoothedBarrierBridgeEndpoint,
+    state_index: Option<usize>,
+    kind: SmoothedBarrierHitKind,
+) -> SmoothedBarrierHitFactor {
+    SmoothedBarrierHitFactor {
+        kind,
+        state_index,
+        hit_weight: endpoint.hit_weight(),
+        state_derivative: endpoint.reverse(1.0, 0.0).state,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn smoothed_jump_hit_factor(
+    direction: BarrierDirection,
+    pre_spot: f64,
+    post_spot: f64,
+    pre_affine_scale: f64,
+    post_affine_scale: f64,
+    barrier: f64,
+    smoothing: CompactC2Smoothing,
+    state_index: Option<usize>,
+) -> SmoothedBarrierHitFactor {
+    let direction_sign = match direction {
+        BarrierDirection::Up => 1.0,
+        BarrierDirection::Down => -1.0,
+    };
+    let pre_distance = direction_sign * (pre_spot - barrier);
+    let post_distance = direction_sign * (post_spot - barrier);
+    let score = smoothing.maximum(pre_distance, post_distance);
+    let hit = smoothing.indicator(score.value);
+    let score_state_derivative = direction_sign
+        * (score.left_first * pre_affine_scale + score.right_first * post_affine_scale);
+    SmoothedBarrierHitFactor {
+        kind: SmoothedBarrierHitKind::DividendJump,
+        state_index,
+        hit_weight: hit.value,
+        state_derivative: hit.first * score_state_derivative,
+    }
+}
+
+fn accumulate_bridge_local_variance_adjoints(
+    local_volatility: &LocalVolRuntime,
+    states: &[f64],
+    node_interpolations: &[LocalVarianceInterpolation],
+    variance_seeds: Vec<f64>,
+    state_seeds: &mut [f64],
+    bridge_grid_adjoints: &mut [f64],
+) {
+    let x_count = local_volatility.grid.log_moneyness_nodes().len();
+    for (node, (interpolation, variance_seed)) in node_interpolations
+        .iter()
+        .copied()
+        .zip(variance_seeds)
+        .enumerate()
+    {
+        state_seeds[node] += variance_seed
+            * local_volatility
+                .grid
+                .interpolation_log_moneyness_derivative(interpolation)
+            / states[node];
+        interpolation.transpose_accumulate(variance_seed, bridge_grid_adjoints, x_count);
     }
 }
 
@@ -5250,6 +5840,165 @@ mod tests {
         assert!(diagnostics.endpoint_hit_fraction > 0.0);
         assert!(diagnostics.mean_conditional_bridge_hit_weight > 0.0);
         assert_eq!(risk_result.diagnostics.barrier_bridge, Some(diagnostics));
+    }
+
+    #[test]
+    fn smoothed_continuous_barrier_reports_matched_aad_and_diagnostics() {
+        let risk = all_risks().with_payoff_smoothing(
+            PayoffSmoothing::compact_c2(2.0).expect("continuous Barrier smoothing"),
+        );
+        let request = continuous_barrier_conformance_request(
+            BarrierDirection::Up,
+            BarrierStyle::KnockOut,
+            Some(7.5),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(29, 4_096, VarianceReduction::new(true, true)).expect("engine"),
+            ),
+            risk,
+        );
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("smoothed plan");
+        let barrier = plan
+            .continuous_barrier
+            .as_ref()
+            .expect("continuous Barrier");
+        let normals = [0.35, -0.2];
+        let analytic = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0, 0.2)
+            .expect("analytic");
+        let spot_bump = 1.0e-4;
+        let spot_down = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0 - spot_bump, 0.2)
+            .expect("spot down")
+            .price;
+        let spot_up = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0 + spot_bump, 0.2)
+            .expect("spot up")
+            .price;
+        let volatility_bump = 1.0e-5;
+        let volatility_down = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0, 0.2 - volatility_bump)
+            .expect("volatility down")
+            .price;
+        let volatility_up = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0, 0.2 + volatility_bump)
+            .expect("volatility up")
+            .price;
+        assert!((analytic.delta - (spot_up - spot_down) / (2.0 * spot_bump)).abs() < 2.0e-8);
+        assert!(
+            (analytic.vega - (volatility_up - volatility_down) / (2.0 * volatility_bump)).abs()
+                < 3.0e-7
+        );
+
+        let result = plan.execute().expect("execution");
+        assert_eq!(
+            result.diagnostics.valuation_kind,
+            PayoffValuationKind::SmoothedSurrogate
+        );
+        let smoothing = result
+            .diagnostics
+            .payoff_smoothing
+            .expect("smoothing diagnostics");
+        assert!(smoothing.price_and_greeks_share_payoff);
+        assert_eq!(smoothing.half_width.get(), 2.0);
+        assert_eq!(smoothing.endpoint_count, 2);
+        assert_eq!(smoothing.dividend_jump_count, 1);
+        let bridge = result
+            .diagnostics
+            .barrier_bridge
+            .expect("bridge diagnostics");
+        assert_eq!(bridge.abi, SMOOTHED_BARRIER_BRIDGE_ABI);
+        assert_eq!(
+            bridge.policy_version,
+            BarrierBridgeDiagnostics::SMOOTHED_POLICY_VERSION
+        );
+        assert_eq!(bridge.indicator_mode, BarrierHitIndicatorMode::CompactC2);
+        assert!(bridge.mean_conditional_bridge_hit_weight > 0.0);
+        assert!(result.pricing_result.risks.delta.is_some());
+        assert!(result.pricing_result.risks.gamma.is_some());
+        assert!(result.pricing_result.risks.vega.is_some());
+        assert!(result.risk_diagnostics.delta_validation.is_some());
+        assert!(result.risk_diagnostics.gamma_validation.is_some());
+        assert!(result.risk_diagnostics.vega_validation.is_some());
+    }
+
+    #[test]
+    fn smoothed_continuous_up_barrier_rejects_width_outside_log_domain() {
+        let request =
+            barrier_zero_vol_request_with_monitoring(120.0, BarrierMonitoring::Continuous)
+                .replace_risk(
+                    RiskRequest::price_only(SmileDynamics::StickyLogMoneyness)
+                        .with_payoff_smoothing(
+                            PayoffSmoothing::compact_c2(120.0).expect("smoothing"),
+                        ),
+                );
+        let error = SimulationPlan::compile(&request, policy(2)).expect_err("invalid width");
+        assert!(matches!(
+            error,
+            MonteCarloError::BarrierBridge(BarrierBridgeError::InvalidSmoothedSafeDistance { .. })
+        ));
+    }
+
+    #[test]
+    fn smoothed_continuous_barrier_local_vol_matches_constant_variance_limit() {
+        let risk = all_risks().with_payoff_smoothing(
+            PayoffSmoothing::compact_c2(2.0).expect("continuous Barrier smoothing"),
+        );
+        let black_scholes = barrier_dividend_jump_request_with_monitoring(
+            BarrierDirection::Down,
+            BarrierStyle::KnockOut,
+            0.2,
+            risk,
+            BarrierMonitoring::Continuous,
+            Some(70.0),
+        );
+        let local_vol = PricingRequest::new(
+            black_scholes.valuation_date(),
+            black_scholes.product().clone(),
+            black_scholes.market().clone(),
+            constant_local_vol_model(),
+            black_scholes.engine(),
+            black_scholes.risk().clone(),
+        )
+        .expect("Local Volatility smoothed continuous Barrier request");
+        let black_scholes_result = SimulationPlan::compile(&black_scholes, policy(2))
+            .expect("Black-Scholes plan")
+            .execute()
+            .expect("Black-Scholes execution");
+        let local_vol_result = SimulationPlan::compile(&local_vol, policy(2))
+            .expect("Local Volatility plan")
+            .execute()
+            .expect("Local Volatility execution");
+        assert!(
+            (local_vol_result.pricing_result.value.value().get()
+                - black_scholes_result.pricing_result.value.value().get())
+            .abs()
+                < 1.0e-12
+        );
+        let black_scholes_vega = black_scholes_result
+            .pricing_result
+            .risks
+            .vega
+            .expect("Black-Scholes Vega")
+            .raw()
+            .value()
+            .get();
+        let local_vol_vega = local_vol_result
+            .pricing_result
+            .risks
+            .vega
+            .expect("Local Volatility Vega")
+            .raw()
+            .value()
+            .get();
+        assert!((local_vol_vega - black_scholes_vega).abs() < 1.0e-10);
+        assert_eq!(
+            local_vol_result
+                .diagnostics
+                .barrier_bridge
+                .expect("bridge diagnostics")
+                .indicator_mode,
+            BarrierHitIndicatorMode::CompactC2
+        );
     }
 
     #[test]

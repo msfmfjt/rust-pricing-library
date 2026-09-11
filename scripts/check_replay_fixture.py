@@ -32,7 +32,7 @@ EXPECTED_CASE_NAMES = {
         "digital_exact_price_only",
         "digital_smoothed_full_risk",
         "discrete_barrier_smoothed_full_risk",
-        "continuous_barrier_exact_full_risk",
+        "continuous_barrier_smoothed_full_risk",
         "arithmetic_asian_full_risk",
         "fixed_lookback_full_risk",
     ),
@@ -409,6 +409,7 @@ def validate_path_dependence_case(
     expected_smoothed = name in {
         "digital_smoothed_full_risk",
         "discrete_barrier_smoothed_full_risk",
+        "continuous_barrier_smoothed_full_risk",
     }
     expected_kind = "smoothed_surrogate" if expected_smoothed else "exact_contractual"
     if valuation_kind != expected_kind:
@@ -453,6 +454,11 @@ def validate_path_dependence_case(
                 "4018000000000000",
                 2,
             ),
+            "continuous_barrier_smoothed_full_risk": (
+                "4004000000000000",
+                "4014000000000000",
+                3,
+            ),
         }[name]
         if (
             smoothing.get("half_width_bits") != expected_smoothing[0]
@@ -465,7 +471,7 @@ def validate_path_dependence_case(
         raise SystemExit(f"{path}: {case_path} exact valuation must not carry smoothing")
 
     bridge = diagnostics.get("barrier_bridge")
-    if name == "continuous_barrier_exact_full_risk":
+    if name == "continuous_barrier_smoothed_full_risk":
         bridge = require_object(
             path,
             bridge,
@@ -478,9 +484,9 @@ def validate_path_dependence_case(
             f"{case_path}.path_diagnostics.barrier_bridge",
         )
         if (
-            bridge.get("abi") != "continuous-barrier-bridge-log-survival-v1"
-            or bridge.get("indicator_mode") != "exact"
-            or bridge.get("policy_version") != 1
+            bridge.get("abi") != "continuous-barrier-bridge-log-survival-v2"
+            or bridge.get("indicator_mode") != "compact_c2"
+            or bridge.get("policy_version") != 2
         ):
             raise SystemExit(f"{path}: {case_path} has invalid bridge diagnostics")
         for field in BARRIER_BRIDGE_KEYS:
@@ -499,7 +505,7 @@ def validate_path_dependence_case(
         "digital_exact_price_only": "digital",
         "digital_smoothed_full_risk": "digital",
         "discrete_barrier_smoothed_full_risk": "barrier",
-        "continuous_barrier_exact_full_risk": "barrier",
+        "continuous_barrier_smoothed_full_risk": "barrier",
         "arithmetic_asian_full_risk": "arithmetic_asian",
         "fixed_lookback_full_risk": "fixed_lookback",
     }.get(name)

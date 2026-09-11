@@ -554,6 +554,14 @@ Expiry observations colliding with an ex-date are always compiled into the post-
 
 For continuous barrier correction, compilation transforms each Spot barrier to `H_f(t) = (H_S(t) - A(t)*S0) / B(t)` and validates positivity over every monitored interval. The path kernel applies its bridge formula in `log(f)` using a linearly interpolated `log(H_f)`, both transformed-barrier endpoints, and effective interval variance `0.5 * (local_var_start + local_var_end) * dt`. With two safe endpoints it carries the analytic conditional survival probability as a path weight; it consumes no extra uniform coordinate. Products of survival terms use stable log-domain accumulation. Dividend events bypass the diffusion bridge and consume no random variate.
 
+In smoothed continuous mode, each Spot-distance endpoint predicate is mapped to
+an effective log distance whose compact-C2 safety weight is preserved before
+the bridge formula is applied. Endpoint, dividend-jump, and interval safety
+factors are accumulated in fixed order in the log domain. The matched reverse
+rules propagate through the smoothing kernel, affine Spot reconstruction,
+transformed barrier, and interval variance. Exact mode retains the v1 bridge
+ABI; smoothed mode reports the separately versioned v2 bridge ABI.
+
 Barrier opcodes expose exact and smoothed hit modes. Exact mode preserves inclusive touch-is-hit semantics. Smoothed Price/AAD mode evaluates every discrete endpoint with the compact C2 quintic indicator at an explicit Spot-distance half-width. For a dividend event it computes pre- and post-jump signed hit distances and combines them with the same C2 smoothed `Maximum` opcode before applying the quintic indicator. This represents a deterministic jump crossing as a differentiable hit weight without reclassifying it as bridge crossing. Barrier diagnostics count endpoint, weighted bridge, and dividend-jump contributions separately and record the mode and half-width.
 
 The barrier opcode owns an explicit reverse rule through both endpoint states, both Local-variance lookups, the trapezoidal variance, the transformed barrier endpoints, and stable survival-probability branches. The validation bump recompiles these same quantities; it does not freeze the base crossing probability.

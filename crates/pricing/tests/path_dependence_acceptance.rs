@@ -89,6 +89,7 @@ fn smoothed_digital_and_barrier_aad_agree_with_crn_validation() {
     for (name, product, width) in [
         ("digital", digital(), 2.0),
         ("discrete_barrier", discrete_barrier(), 3.0),
+        ("continuous_barrier", continuous_barrier(), 2.5),
     ] {
         let result = price_monte_carlo(
             &request(

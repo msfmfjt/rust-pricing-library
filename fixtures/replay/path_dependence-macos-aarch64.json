@@ -776,7 +776,7 @@
     },
     {
       "execution": {
-        "estimator_variance_bits": "3ee360fdcd7255cd",
+        "estimator_variance_bits": "3ee1415f330fce47",
         "evaluated_paths": "8192",
         "independent_sampling_units": 8,
         "monte_carlo": {
@@ -790,7 +790,7 @@
           "dividend_region": "pillar",
           "estimator": "randomized_quasi_monte_carlo",
           "master_seed": "2817045651140218949",
-          "payoff_fingerprint": "blake3-256:10b8b07346b765b2c23b4b8ab93363dbf8206a7fceab52a27a4d923afc543183",
+          "payoff_fingerprint": "blake3-256:579110b3c7fb79ca61fdb6feaf1f2b98dabc7f59087c6208d1b10c78e1ace5a9",
           "policy_version": 1,
           "reduction_block_size": 256,
           "scramble_checksum": "eb922e69198be3809e72e4424c46007bf23938116e4175dee689b34ead0ac0fb",
@@ -810,78 +810,87 @@
         "risk_validation": {
           "delta": {
             "bump_and_revalue": {
-              "confidence_lower_bits": "3fa6ad7b3d2bc4d5",
-              "confidence_upper_bits": "3faa03bd451ec897",
+              "confidence_lower_bits": "3fa69db7280943f4",
+              "confidence_upper_bits": "3fa9c1caa53c25fa",
               "effective_sampling_units": 8,
-              "standard_error_bits": "3f5b3da98c3d1222",
-              "value_bits": "3fa8589c412546b6"
+              "standard_error_bits": "3f59a401e3e430e2",
+              "value_bits": "3fa82fc0e6a2b4f7"
             },
             "bump_minus_primary": {
-              "confidence_lower_bits": "bf75af0c099b9493",
-              "confidence_upper_bits": "3f69285d4532ae56",
+              "confidence_lower_bits": "bf5716fbfe77fbe5",
+              "confidence_upper_bits": "3f477d81e0d6ed32",
               "effective_sampling_units": 8,
-              "standard_error_bits": "3f617b32fc94f39e",
-              "value_bits": "bf5235bace047ad0"
+              "standard_error_bits": "3f41c5f32f7a6588",
+              "value_bits": "bf36b0761c190a99"
             }
           },
           "gamma": {
             "bump_and_revalue": {
-              "confidence_lower_bits": "bf9000d4e76f84a8",
-              "confidence_upper_bits": "bf6d5a48068cbfd2",
+              "confidence_lower_bits": "bf8dd546ba977b56",
+              "confidence_upper_bits": "bf6f44774b48cdaa",
               "effective_sampling_units": 8,
-              "standard_error_bits": "3f692c1740ff42f3",
-              "value_bits": "bf83ac1de8411ca2"
+              "standard_error_bits": "3f66774a04e0e416",
+              "value_bits": "bf82d33246b4d760"
             },
             "bump_minus_primary": {
-              "confidence_lower_bits": "bf717435056906a5",
-              "confidence_upper_bits": "3f61733065d81a82",
+              "confidence_lower_bits": "bf63c394477aac15",
+              "confidence_upper_bits": "3f5353add86d89d4",
               "effective_sampling_units": 8,
-              "standard_error_bits": "3f5ab6b2e24cd25a",
-              "value_bits": "bf517539a4f9f2c8"
+              "standard_error_bits": "3f4e074da2050ec3",
+              "value_bits": "bf44337ab687ce57"
             }
           },
           "vega": {
             "bump_and_revalue": {
-              "confidence_lower_bits": "c02f052be4285e9c",
-              "confidence_upper_bits": "c02d2ca6eb5961ea",
+              "confidence_lower_bits": "c02ecb1f4f1044b9",
+              "confidence_upper_bits": "c02dabaf2434b3cb",
               "effective_sampling_units": 8,
-              "standard_error_bits": "3fce22be9b84ad9c",
-              "value_bits": "c02e18e967c0e043"
+              "standard_error_bits": "3fc254f43cdf2076",
+              "value_bits": "c02e3b6739a27c42"
             },
             "bump_minus_primary": {
-              "confidence_lower_bits": "bfa8eb5197a4f6ec",
-              "confidence_upper_bits": "3f76903688ca2fb4",
+              "confidence_lower_bits": "bed76af89641fd9b",
+              "confidence_upper_bits": "3edb216bbe295f2f",
               "effective_sampling_units": 8,
-              "standard_error_bits": "3f8c4e676729c9e4",
-              "value_bits": "bf96194ac68bb0f5"
+              "standard_error_bits": "3ec9ca5cb20f0dea",
+              "value_bits": "3e9db3993f3b0c9d"
             }
           }
         },
-        "sampling_variance_bits": "3f1360fdcd7255cd"
+        "sampling_variance_bits": "3f11415f330fce47"
       },
-      "name": "continuous_barrier_exact_full_risk",
+      "name": "continuous_barrier_smoothed_full_risk",
       "path_diagnostics": {
         "barrier_bridge": {
-          "abi": "continuous-barrier-bridge-log-survival-v1",
+          "abi": "continuous-barrier-bridge-log-survival-v2",
           "dividend_jump_hit_fraction_bits": "0000000000000000",
-          "endpoint_hit_fraction_bits": "3fc4e00000000000",
-          "indicator_mode": "exact",
+          "endpoint_hit_fraction_bits": "3fc4eb4f04806708",
+          "indicator_mode": "compact_c2",
           "mean_certain_survival_count_bits": "0000000000000000",
-          "mean_conditional_bridge_hit_weight_bits": "3fbdc043cf32c9c6",
-          "mean_finite_correction_count_bits": "3ffc698000000000",
+          "mean_conditional_bridge_hit_weight_bits": "3fd1dabc95105672",
+          "mean_finite_correction_count_bits": "3ffd0d8000000000",
           "mean_interval_count_bits": "4000000000000000",
           "mean_survival_underflow_count_bits": "0000000000000000",
           "mean_zero_variance_count_bits": "0000000000000000",
-          "policy_version": 1
+          "policy_version": 2
         },
         "path_state": null,
-        "payoff_smoothing": null,
-        "valuation_kind": "exact_contractual"
+        "payoff_smoothing": {
+          "dividend_jump_count": 0,
+          "endpoint_count": 3,
+          "full_transition_width_bits": "4014000000000000",
+          "half_width_bits": "4004000000000000",
+          "kernel": "compact_c2",
+          "policy_version": 1,
+          "price_and_greeks_share_payoff": true,
+          "width_unit": "spot"
+        },
+        "valuation_kind": "smoothed_surrogate"
       },
       "plan": {
-        "plan_fingerprint": "blake3-256:c1b2451ee4bd99d8c672cd2dfdb2e8701891d3ad5e3704e646b7053b629898a7",
+        "plan_fingerprint": "blake3-256:99c8bf20c87ca332183d898013987bb655422c2089eebb9e39261bd2c9eee689",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:ea054980a0638b4749dae7ef87ac0d9010fe2f49f5d3583cd8782812a2fa3b2b",
+        "request_fingerprint": "blake3-256:b884580b561df28afe5c82e7f5c96588b9e76a41f0e0a6e65272b157b181450a",
         "worker_threads": 2
       },
       "request": {
@@ -965,6 +974,10 @@
               "value": 0.01
             }
           },
+          "payoff_smoothing": {
+            "half_width": 2.5,
+            "type": "compact_c2"
+          },
           "smile_dynamics": {
             "type": "sticky_log_moneyness"
           },
@@ -984,37 +997,37 @@
             "current_schema_version": 2,
             "migration_ids": [],
             "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:ea054980a0638b4749dae7ef87ac0d9010fe2f49f5d3583cd8782812a2fa3b2b",
-            "pre_migration_fingerprint": "blake3-256:ea054980a0638b4749dae7ef87ac0d9010fe2f49f5d3583cd8782812a2fa3b2b"
+            "post_migration_fingerprint": "blake3-256:b884580b561df28afe5c82e7f5c96588b9e76a41f0e0a6e65272b157b181450a",
+            "pre_migration_fingerprint": "blake3-256:b884580b561df28afe5c82e7f5c96588b9e76a41f0e0a6e65272b157b181450a"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:ea054980a0638b4749dae7ef87ac0d9010fe2f49f5d3583cd8782812a2fa3b2b",
+          "request_fingerprint": "blake3-256:b884580b561df28afe5c82e7f5c96588b9e76a41f0e0a6e65272b157b181450a",
           "schema_version": 2
         },
         "risks": {
           "delta": {
             "market_scaled": {
-              "confidence_lower": 0.042242379189894125,
-              "confidence_upper": 0.0550825936854423,
+              "confidence_lower": 0.043693091584695413,
+              "confidence_upper": 0.05147799184492053,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.003275625112713843,
-              "value": 0.04866248643766821
+              "standard_error": 0.001985980436791547,
+              "value": 0.04758554171480797
             },
             "market_scaled_unit": {
               "type": "delta_one_percent_spot"
             },
             "raw": {
-              "confidence_lower": 0.042242379189894125,
-              "confidence_upper": 0.0550825936854423,
+              "confidence_lower": 0.043693091584695413,
+              "confidence_upper": 0.05147799184492053,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.003275625112713843,
-              "value": 0.04866248643766821
+              "standard_error": 0.001985980436791547,
+              "value": 0.04758554171480797
             },
             "raw_unit": {
               "type": "delta_raw"
@@ -1022,27 +1035,27 @@
           },
           "gamma": {
             "market_scaled": {
-              "confidence_lower": -0.012490310080191936,
-              "confidence_upper": -0.0045898583710079575,
+              "confidence_lower": -0.012791956360773503,
+              "confidence_upper": -0.004358842178057536,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.0020154583889045244,
-              "value": -0.008540084225599947
+              "standard_error": 0.0021513441699019214,
+              "value": -0.00857539926941552
             },
             "market_scaled_unit": {
               "type": "gamma_one_percent_spot_squared"
             },
             "raw": {
-              "confidence_lower": -0.012490310080191936,
-              "confidence_upper": -0.0045898583710079575,
+              "confidence_lower": -0.012791956360773503,
+              "confidence_upper": -0.004358842178057536,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.0020154583889045244,
-              "value": -0.008540084225599947
+              "standard_error": 0.0021513441699019214,
+              "value": -0.00857539926941552
             },
             "raw_unit": {
               "type": "gamma_raw"
@@ -1050,27 +1063,27 @@
           },
           "vega": {
             "market_scaled": {
-              "confidence_lower": -0.15504425974282693,
-              "confidence_upper": -0.14549723794405833,
+              "confidence_lower": -0.15396728184111116,
+              "confidence_upper": -0.14835316541634033,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.0024355094976423715,
-              "value": -0.15027074884344263
+              "standard_error": 0.0014321988743298997,
+              "value": -0.15116022362872575
             },
             "market_scaled_unit": {
               "type": "vega_one_vol_point"
             },
             "raw": {
-              "confidence_lower": -15.504425974282691,
-              "confidence_upper": -14.549723794405834,
+              "confidence_lower": -15.396728184111115,
+              "confidence_upper": -14.835316541634032,
               "effective_sampling_units": 8,
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.2435509497642371,
-              "value": -15.027074884344264
+              "standard_error": 0.14321988743298994,
+              "value": -15.116022362872574
             },
             "raw_unit": {
               "type": "vega_raw"
@@ -1079,14 +1092,14 @@
         },
         "schema_version": 2,
         "value": {
-          "confidence_lower": 2.5874760948760125,
-          "confidence_upper": 2.5993920096223917,
+          "confidence_lower": 2.5875131347304383,
+          "confidence_upper": 2.598757245887874,
           "effective_sampling_units": 8,
           "estimator": {
             "type": "randomized_quasi_monte_carlo"
           },
-          "standard_error": 0.003039830027584786,
-          "value": 2.593434052249202
+          "standard_error": 0.0028684484118401813,
+          "value": 2.593135190309156
         }
       }
     },

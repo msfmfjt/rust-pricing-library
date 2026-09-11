@@ -689,6 +689,7 @@ const fn lookback_state(state: Option<PathStateDiagnostics>) -> Option<(u32, u32
 const fn barrier_hit_indicator_mode_name(mode: BarrierHitIndicatorMode) -> &'static str {
     match mode {
         BarrierHitIndicatorMode::Exact => "exact",
+        BarrierHitIndicatorMode::CompactC2 => "compact_c2",
     }
 }
 

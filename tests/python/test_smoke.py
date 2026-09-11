@@ -512,6 +512,49 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_endpoint_count, 2)
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_dividend_jump_count, 0)
 
+        continuous_product = rust_pricing.Product.barrier(
+            1,
+            2,
+            "2027-09-04",
+            100.0,
+            120.0,
+            1.0,
+            "call",
+            "up",
+            "knock_out",
+            "continuous",
+            ["2027-03-04", "2027-09-04"],
+            "2027-09-04",
+            rebate=3.0,
+        )
+        continuous_request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            continuous_product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 4096, antithetic=True),
+            rust_pricing.RiskRequest(
+                delta=True,
+                gamma_relative_bump=0.01,
+                vega=True,
+                payoff_smoothing_half_width=2.0,
+            ),
+        )
+        continuous_result = rust_pricing.PricingPlan.compile(
+            continuous_request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        self.assertEqual(continuous_result.diagnostics.valuation_kind, "smoothed_surrogate")
+        self.assertEqual(
+            continuous_result.diagnostics.barrier_hit_indicator_mode, "compact_c2"
+        )
+        self.assertEqual(
+            continuous_result.diagnostics.barrier_bridge_abi,
+            "continuous-barrier-bridge-log-survival-v2",
+        )
+        self.assertEqual(continuous_result.diagnostics.barrier_bridge_policy_version, 2)
+        self.assertEqual(continuous_result.diagnostics.payoff_smoothing_endpoint_count, 3)
+        self.assertEqual(continuous_result.diagnostics.payoff_smoothing_dividend_jump_count, 0)
+
         with self.assertRaises(rust_pricing.ValidationError):
             rust_pricing.PricingRequest(
                 "2026-09-04",
