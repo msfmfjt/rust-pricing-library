@@ -141,10 +141,7 @@ def main() -> None:
             "Allocation counting requires an instrumented allocator.",
         ],
     }
-    (output / "metadata.json").write_text(
-        json.dumps(metadata, allow_nan=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    write_json(output / "metadata.json", metadata)
     run([sys.executable, "scripts/check_benchmark_reports.py", str(output)])
 
 
@@ -286,10 +283,12 @@ def add_process_peak_memory(path: Path, peak_memory_bytes: int) -> None:
         raise RuntimeError(f"{path}: capabilities must be an object")
     capabilities["peak_memory_available_in_process"] = True
     document["process_peak_memory_bytes"] = peak_memory_bytes
-    path.write_text(
-        json.dumps(document, allow_nan=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    write_json(path, document)
+
+
+def write_json(path: Path, document: object) -> None:
+    serialized = json.dumps(document, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    path.write_bytes(serialized.encode("utf-8"))
 
 
 def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
