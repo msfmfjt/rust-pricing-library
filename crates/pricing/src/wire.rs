@@ -17,7 +17,9 @@ use pricing_product::{
     BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
     ProductSpec,
 };
-use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
+use pricing_risk::{
+    GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
+};
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
@@ -427,6 +429,14 @@ struct RiskV1 {
     checkpoint_interval: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     aad_tile_capacity: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payoff_smoothing: Option<PayoffSmoothingV1>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum PayoffSmoothingV1 {
+    CompactC2 { half_width: f64 },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -730,6 +740,17 @@ impl From<&RiskRequest> for RiskV1 {
             smile_dynamics: risk.smile_dynamics().into(),
             checkpoint_interval: risk.checkpoint_interval().map(std::num::NonZeroU32::get),
             aad_tile_capacity: risk.aad_tile_capacity().map(std::num::NonZeroU32::get),
+            payoff_smoothing: risk.payoff_smoothing().map(Into::into),
+        }
+    }
+}
+
+impl From<PayoffSmoothing> for PayoffSmoothingV1 {
+    fn from(value: PayoffSmoothing) -> Self {
+        match value {
+            PayoffSmoothing::CompactC2 { half_width } => Self::CompactC2 {
+                half_width: half_width.get(),
+            },
         }
     }
 }
@@ -1145,6 +1166,13 @@ fn curve_from_wire(
 }
 
 fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
+    let payoff_smoothing = value
+        .payoff_smoothing
+        .map(|smoothing| match smoothing {
+            PayoffSmoothingV1::CompactC2 { half_width } => PayoffSmoothing::compact_c2(half_width),
+        })
+        .transpose()
+        .map_err(|error| domain_at("/risk/payoff_smoothing/half_width", error))?;
     let gamma = value
         .gamma
         .map(|item| {
@@ -1181,7 +1209,7 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
         SmileDynamicsV1::Strike => SmileDynamics::StickyStrike,
         SmileDynamicsV1::Delta => SmileDynamics::StickyDelta,
     };
-    RiskRequest::new(
+    let request = RiskRequest::new(
         value.delta,
         gamma,
         value.vega,
@@ -1190,7 +1218,11 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
         value.checkpoint_interval,
         value.aad_tile_capacity,
     )
-    .map_err(|error| domain_at("/risk", error))
+    .map_err(|error| domain_at("/risk", error))?;
+    Ok(match payoff_smoothing {
+        Some(smoothing) => request.with_payoff_smoothing(smoothing),
+        None => request,
+    })
 }
 
 fn parse_date_at(value: &str, pointer: &'static str) -> Result<Date, WireError> {
@@ -2578,6 +2610,40 @@ mod tests {
             fingerprint_request(&parsed).expect("fingerprint")
         );
         assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
+    fn request_json_round_trips_digital_payoff_smoothing() {
+        let base = digital_request();
+        let risk = RiskRequest::new(
+            true,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(2.0).expect("smoothing"));
+        let request = PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            base.model().clone(),
+            base.engine(),
+            risk,
+        )
+        .expect("request");
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"payoff_smoothing\":{\"type\":\"compact_c2\",\"half_width\":2.0}"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            parsed.risk().payoff_smoothing(),
+            request.risk().payoff_smoothing()
+        );
+        assert_eq!(fingerprint_request(&parsed), fingerprint_request(&request));
     }
 
     #[test]

@@ -8,7 +8,8 @@ mod vegakt;
 
 pub use error::RiskConfigError;
 pub use request::{
-    GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig, gamma_bump_ladder,
+    GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
+    gamma_bump_ladder,
 };
 pub use vegakt::{
     ActiveDensityDomain, AnalyticCallDensityRow, EQUATION_11_FIRST_ORDER_LABEL,

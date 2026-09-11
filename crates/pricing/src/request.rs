@@ -116,9 +116,14 @@ impl PricingRequest {
         {
             return Err(RequestValidationError::VegaKtUnsupportedForConstantVolatility);
         }
-        if !product.supports_pathwise_risk()
-            && (risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some())
-        {
+        if risk.payoff_smoothing().is_some() && !matches!(product, ProductSpec::Digital(_)) {
+            return Err(RequestValidationError::PayoffSmoothingUnsupportedForProduct);
+        }
+        let requests_risk =
+            risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some();
+        let smoothed_digital =
+            matches!(product, ProductSpec::Digital(_)) && risk.payoff_smoothing().is_some();
+        if !product.supports_pathwise_risk() && requests_risk && !smoothed_digital {
             return Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct);
         }
         Ok(Self {
@@ -174,7 +179,7 @@ mod tests {
         ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
         DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
     };
-    use pricing_risk::{GammaConfig, SmileDynamics, SpotBump, VegaKtConfig};
+    use pricing_risk::{GammaConfig, PayoffSmoothing, SmileDynamics, SpotBump, VegaKtConfig};
 
     use super::*;
 
@@ -298,7 +303,7 @@ mod tests {
             None,
         )
         .expect("risk");
-        for product in [digital, barrier] {
+        for product in [digital.clone(), barrier.clone()] {
             assert!(matches!(
                 PricingRequest::new(
                     "2026-09-04".parse().expect("valuation date"),
@@ -311,6 +316,30 @@ mod tests {
                 Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct)
             ));
         }
+        let smoothing = PayoffSmoothing::compact_c2(2.0).expect("smoothing");
+        let smoothed_risk = risk.clone().with_payoff_smoothing(smoothing);
+        assert!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                digital,
+                market.clone(),
+                model.clone(),
+                engine,
+                smoothed_risk.clone(),
+            )
+            .is_ok()
+        );
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation date"),
+                barrier,
+                market,
+                model,
+                engine,
+                smoothed_risk,
+            ),
+            Err(RequestValidationError::PayoffSmoothingUnsupportedForProduct)
+        ));
     }
 
     #[test]

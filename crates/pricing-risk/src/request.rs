@@ -12,6 +12,28 @@ pub enum SmileDynamics {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PayoffSmoothing {
+    CompactC2 { half_width: PositiveF64 },
+}
+
+impl PayoffSmoothing {
+    pub const POLICY_VERSION: u32 = 1;
+
+    pub fn compact_c2(half_width: f64) -> Result<Self, RiskConfigError> {
+        Ok(Self::CompactC2 {
+            half_width: PositiveF64::new(half_width, "payoff_smoothing_half_width")?,
+        })
+    }
+
+    #[must_use]
+    pub const fn half_width(self) -> PositiveF64 {
+        match self {
+            Self::CompactC2 { half_width } => half_width,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SpotBump {
     Absolute(PositiveF64),
     Relative(PositiveF64),
@@ -150,6 +172,7 @@ pub struct RiskRequest {
     smile_dynamics: SmileDynamics,
     checkpoint_interval: Option<NonZeroU32>,
     aad_tile_capacity: Option<NonZeroU32>,
+    payoff_smoothing: Option<PayoffSmoothing>,
 }
 
 impl RiskRequest {
@@ -176,6 +199,7 @@ impl RiskRequest {
             smile_dynamics,
             checkpoint_interval,
             aad_tile_capacity,
+            payoff_smoothing: None,
         })
     }
 
@@ -189,7 +213,14 @@ impl RiskRequest {
             smile_dynamics,
             checkpoint_interval: None,
             aad_tile_capacity: None,
+            payoff_smoothing: None,
         }
+    }
+
+    #[must_use]
+    pub const fn with_payoff_smoothing(mut self, smoothing: PayoffSmoothing) -> Self {
+        self.payoff_smoothing = Some(smoothing);
+        self
     }
 
     #[must_use]
@@ -226,6 +257,11 @@ impl RiskRequest {
     pub const fn aad_tile_capacity(&self) -> Option<NonZeroU32> {
         self.aad_tile_capacity
     }
+
+    #[must_use]
+    pub const fn payoff_smoothing(&self) -> Option<PayoffSmoothing> {
+        self.payoff_smoothing
+    }
 }
 
 #[cfg(test)]
@@ -259,6 +295,19 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn payoff_smoothing_is_explicit_and_positive() {
+        let exact = RiskRequest::price_only(SmileDynamics::StickyLogMoneyness);
+        assert_eq!(exact.payoff_smoothing(), None);
+        let smoothing = PayoffSmoothing::compact_c2(2.0).expect("smoothing");
+        let smoothed = exact.with_payoff_smoothing(smoothing);
+        assert_eq!(smoothed.payoff_smoothing(), Some(smoothing));
+        assert_eq!(smoothing.half_width().get(), 2.0);
+        for invalid in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(PayoffSmoothing::compact_c2(invalid).is_err());
+        }
     }
 
     #[test]

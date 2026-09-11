@@ -141,6 +141,12 @@ class Diagnostics:
     @property
     def payoff_fingerprint(self) -> str: ...
     @property
+    def payoff_smoothing_kernel(self) -> str | None: ...
+    @property
+    def payoff_smoothing_policy_version(self) -> int | None: ...
+    @property
+    def payoff_smoothing_half_width(self) -> float | None: ...
+    @property
     def delta_method(self) -> str | None: ...
     @property
     def gamma_method(self) -> str | None: ...
@@ -391,6 +397,7 @@ class RiskRequest:
         vega_kt_log_forward_moneyness_nodes: Sequence[float] | None = None,
         vega_kt_relative_density_threshold: float | None = None,
         vega_kt_full_bucket_covariance: bool = False,
+        payoff_smoothing_half_width: float | None = None,
         smile_dynamics: SmileDynamics = "sticky_log_moneyness",
         checkpoint_interval: int | None = None,
         aad_tile_capacity: int | None = None,

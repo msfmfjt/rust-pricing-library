@@ -1,5 +1,7 @@
 use pricing::market::CurveRegion;
-use pricing::{Estimate, EstimatorKind, MonteCarloPrice, RiskMethod, RiskValidation};
+use pricing::{
+    Estimate, EstimatorKind, MonteCarloPrice, PayoffSmoothingKernel, RiskMethod, RiskValidation,
+};
 use pyo3::prelude::*;
 
 /// A deterministic warning emitted by a completed valuation.
@@ -139,6 +141,9 @@ pub struct PyDiagnostics {
     discount_region: &'static str,
     dividend_region: &'static str,
     payoff_fingerprint: String,
+    payoff_smoothing_kernel: Option<&'static str>,
+    payoff_smoothing_policy_version: Option<u32>,
+    payoff_smoothing_half_width: Option<f64>,
     delta_method: Option<&'static str>,
     gamma_method: Option<&'static str>,
     vega_method: Option<&'static str>,
@@ -173,6 +178,15 @@ impl PyDiagnostics {
             discount_region: curve_region_name(diagnostics.discount_region),
             dividend_region: curve_region_name(diagnostics.dividend_region),
             payoff_fingerprint: diagnostics.payoff_fingerprint.to_string(),
+            payoff_smoothing_kernel: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| payoff_smoothing_kernel_name(smoothing.kernel)),
+            payoff_smoothing_policy_version: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| smoothing.policy_version),
+            payoff_smoothing_half_width: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| smoothing.half_width.get()),
             delta_method: methods.delta.map(risk_method_name),
             gamma_method: methods.gamma.map(risk_method_name),
             vega_method: methods.vega.map(risk_method_name),
@@ -289,6 +303,21 @@ impl PyDiagnostics {
     }
 
     #[getter]
+    fn payoff_smoothing_kernel(&self) -> Option<&str> {
+        self.payoff_smoothing_kernel
+    }
+
+    #[getter]
+    fn payoff_smoothing_policy_version(&self) -> Option<u32> {
+        self.payoff_smoothing_policy_version
+    }
+
+    #[getter]
+    fn payoff_smoothing_half_width(&self) -> Option<f64> {
+        self.payoff_smoothing_half_width
+    }
+
+    #[getter]
     fn delta_method(&self) -> Option<&str> {
         self.delta_method
     }
@@ -375,6 +404,12 @@ const fn risk_method_name(method: RiskMethod) -> &'static str {
         RiskMethod::AadReverse => "aad_reverse",
         RiskMethod::CentralBump => "central_bump",
         RiskMethod::CentralBumpOfAadDelta => "central_bump_of_aad_delta",
+    }
+}
+
+const fn payoff_smoothing_kernel_name(kernel: PayoffSmoothingKernel) -> &'static str {
+    match kernel {
+        PayoffSmoothingKernel::CompactC2 => "compact_c2",
     }
 }
 

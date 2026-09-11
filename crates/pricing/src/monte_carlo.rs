@@ -11,12 +11,15 @@ use pricing_mc::{
     RqmcPlanError, inverse_standard_normal,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
-use pricing_product::{CompiledPayoff, GraphFingerprint, GraphLimitPolicy};
+use pricing_product::{
+    CompactC2Smoothing, CompiledPayoff, GraphFingerprint, GraphLimitPolicy, ProductSpec,
+};
 use pricing_risk::{
-    AnalyticCallDensityRow, GammaConfig, ReportingIvBasis, SmileDynamics, SpotBump, VegaKtConfig,
-    analytic_call_density_rows_from_surface, local_vega_density_from_node_adjoints,
-    project_local_vega_nodes_to_reporting_iv, vega_kt_bucket_estimates,
-    vega_kt_full_bucket_covariance, vega_kt_projection_from_parts, vega_kt_report,
+    AnalyticCallDensityRow, GammaConfig, PayoffSmoothing, ReportingIvBasis, SmileDynamics,
+    SpotBump, VegaKtConfig, analytic_call_density_rows_from_surface,
+    local_vega_density_from_node_adjoints, project_local_vega_nodes_to_reporting_iv,
+    vega_kt_bucket_estimates, vega_kt_full_bucket_covariance, vega_kt_projection_from_parts,
+    vega_kt_report,
 };
 
 use crate::{
@@ -65,6 +68,7 @@ pub struct SimulationPlan {
     request_delta: bool,
     request_gamma: Option<GammaConfig>,
     request_vega: bool,
+    payoff_smoothing: Option<PayoffSmoothing>,
     smile_dynamics: SmileDynamics,
     validation_spot_bump: f64,
     validation_volatility_bump: f64,
@@ -386,9 +390,13 @@ impl SimulationPlan {
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let product = request.product();
-        let payoff = product
-            .source_graph(request.valuation_date())?
-            .compile(GraphLimitPolicy::DEFAULT)?;
+        let payoff_graph = match (product, request.risk().payoff_smoothing()) {
+            (ProductSpec::Digital(digital), Some(PayoffSmoothing::CompactC2 { half_width })) => {
+                digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
+            }
+            _ => product.source_graph(request.valuation_date())?,
+        };
+        let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
         let observations = payoff.terminal_observations();
         let time = if observations.is_empty() {
             0.0
@@ -526,6 +534,7 @@ impl SimulationPlan {
             request_delta: request.risk().delta(),
             request_gamma: request.risk().gamma(),
             request_vega: request.risk().vega(),
+            payoff_smoothing: request.risk().payoff_smoothing(),
             smile_dynamics: request.risk().smile_dynamics(),
             validation_spot_bump,
             validation_volatility_bump,
@@ -675,6 +684,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -849,6 +859,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -988,6 +999,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -1100,6 +1112,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -1258,6 +1271,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -1633,6 +1647,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -1811,6 +1826,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                payoff_smoothing: self.payoff_smoothing.map(Into::into),
             },
         })
     }
@@ -2370,6 +2386,30 @@ impl BumpValidationPolicy {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PayoffSmoothingKernel {
+    CompactC2,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PayoffSmoothingDiagnostics {
+    pub kernel: PayoffSmoothingKernel,
+    pub policy_version: u32,
+    pub half_width: PositiveF64,
+}
+
+impl From<PayoffSmoothing> for PayoffSmoothingDiagnostics {
+    fn from(value: PayoffSmoothing) -> Self {
+        match value {
+            PayoffSmoothing::CompactC2 { half_width } => Self {
+                kernel: PayoffSmoothingKernel::CompactC2,
+                policy_version: PayoffSmoothing::POLICY_VERSION,
+                half_width,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MonteCarloDiagnostics {
     pub master_seed: u64,
     pub estimator: EstimatorKind,
@@ -2387,6 +2427,7 @@ pub struct MonteCarloDiagnostics {
     pub discount_region: CurveRegion,
     pub dividend_region: CurveRegion,
     pub payoff_fingerprint: GraphFingerprint,
+    pub payoff_smoothing: Option<PayoffSmoothingDiagnostics>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -3519,6 +3560,44 @@ mod tests {
         let out_result = price_pseudo_monte_carlo(&out_request, policy(2)).expect("out");
         assert_eq!(out_result.pricing_result.value.value().get(), 0.0);
         assert_eq!(out_result.sampling_variance.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
+    fn smoothed_digital_reports_aad_risk_and_crn_validation() {
+        let base = digital_zero_vol_request(OptionSide::Call, 100.0, DigitalPayout::Cash);
+        let smoothing = PayoffSmoothing::compact_c2(2.0).expect("smoothing");
+        let risk = RiskRequest::new(
+            true,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(smoothing);
+        let request = PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 4096, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            risk,
+        )
+        .expect("request");
+
+        let result = price_pseudo_monte_carlo(&request, policy(2)).expect("price");
+        assert!(result.pricing_result.risks.delta.is_some());
+        assert!(result.pricing_result.risks.vega.is_some());
+        assert!(result.risk_diagnostics.delta_validation.is_some());
+        assert!(result.risk_diagnostics.vega_validation.is_some());
+        let diagnostics = result.diagnostics.payoff_smoothing.expect("diagnostics");
+        assert_eq!(diagnostics.kernel, PayoffSmoothingKernel::CompactC2);
+        assert_eq!(diagnostics.policy_version, PayoffSmoothing::POLICY_VERSION);
+        assert_eq!(diagnostics.half_width.get(), 2.0);
     }
 
     #[test]
