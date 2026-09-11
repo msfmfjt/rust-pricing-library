@@ -23,11 +23,11 @@ discrete-monitoring Barrier products with a monotone hit state and
 KnockIn/KnockOut rebate parity. Dividend collisions reuse one normalized path
 state for pre- and post-jump Spot observations without adding a random
 coordinate. Digital and Barrier risk without an explicit smoothing width
-remains rejected. Continuous Barrier Price requests without discrete dividends
-are evaluated under the constant-volatility models with a conditional
-Brownian-bridge survival estimator, including pathwise Delta/Vega and bumped-AAD
-Gamma. Affine dividends and Local Volatility remain rejected until the
-remaining P4 bridge stages are enabled.
+remains rejected. Continuous Barrier requests are evaluated under the
+constant-volatility models with a conditional Brownian-bridge survival
+estimator, including affine-dividend jump boundaries, pathwise Delta/Vega, and
+bumped-AAD Gamma. Local Volatility remains rejected until the remaining P4
+bridge stages are enabled.
 
 ## Design baselines
 

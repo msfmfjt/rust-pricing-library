@@ -9,7 +9,7 @@ use pricing_mc::{
     DeterministicExecutor, DeterministicStatistics, EngineConfig, ExecutionPolicy,
     LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolPath, LocalVolTimeGrid,
     Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan,
-    RqmcPlanError, inverse_standard_normal,
+    RqmcPlanError, inverse_standard_normal, transformed_barrier,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
@@ -60,7 +60,7 @@ pub struct SimulationPlan {
     volatility: f64,
     total_variance: f64,
     payoff: CompiledPayoff,
-    observation_dates: Box<[Date]>,
+    observation_dates: Box<[Option<Date>]>,
     observation_times: Box<[f64]>,
     observation_forwards: Box<[f64]>,
     observation_affine_coordinates: Box<[AffineDividendCoordinate]>,
@@ -113,7 +113,7 @@ struct ContinuousBarrierRuntime {
     side: OptionSide,
     direction: BarrierDirection,
     style: BarrierStyle,
-    monitoring_observation_indices: Box<[usize]>,
+    bridge_observation_indices: Box<[usize]>,
     expiry_observation_index: usize,
 }
 
@@ -121,12 +121,12 @@ struct ContinuousBarrierRuntime {
 struct ContinuousBarrierBridgeEvaluation {
     path: BarrierBridgePath,
     interval_observation_indices: Box<[(Option<usize>, usize)]>,
-    initial_touched: bool,
+    endpoint_touched: bool,
 }
 
 impl ContinuousBarrierBridgeEvaluation {
     fn survival(&self) -> f64 {
-        if self.initial_touched {
+        if self.endpoint_touched {
             0.0
         } else {
             self.path.survival()
@@ -428,15 +428,6 @@ impl SimulationPlan {
             });
         }
         let market_forward = request.market().equity().forward();
-        if continuous_barrier_spec.is_some()
-            && market_forward
-                .discrete_dividends()
-                .is_some_and(|dividends| !dividends.events().is_empty())
-        {
-            return Err(MonteCarloError::UnsupportedModel {
-                model: "continuous_barrier_affine_dividends",
-            });
-        }
         let dividend_timeline = market_forward
             .discrete_dividends()
             .map(AffineDividendTransform::event_timeline)
@@ -482,13 +473,53 @@ impl SimulationPlan {
                 });
             }
         }
-        let observation_dates = observations
+        let contractual_observation_dates = observations
             .iter()
             .map(|(_, date)| *date)
             .collect::<Vec<_>>();
-        let observation_times = observation_dates
+        let mut observation_points = contractual_observation_dates
             .iter()
-            .map(|date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date))
+            .map(|date| {
+                (
+                    DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date),
+                    Some(*date),
+                )
+            })
+            .collect::<Vec<_>>();
+        if let Some(barrier) = continuous_barrier_spec {
+            let monitoring_end = DayCountConvention::Act365F.year_fraction(
+                request.valuation_date(),
+                *barrier
+                    .monitoring_dates()
+                    .last()
+                    .expect("Barrier monitoring dates are non-empty"),
+            );
+            observation_points
+                .retain(|(time, date)| *time > 0.0 || *date == Some(barrier.expiry()));
+            for entry in &dividend_timeline {
+                let time = entry.ex_time();
+                if time > 0.0
+                    && time <= monitoring_end
+                    && !observation_points
+                        .iter()
+                        .any(|(point_time, _)| point_time.to_bits() == time.to_bits())
+                {
+                    observation_points.push((time, None));
+                }
+            }
+            observation_points.sort_by(|left, right| {
+                left.0
+                    .partial_cmp(&right.0)
+                    .expect("observation times are finite")
+            });
+        }
+        let observation_times = observation_points
+            .iter()
+            .map(|(time, _)| *time)
+            .collect::<Vec<_>>();
+        let observation_dates = observation_points
+            .iter()
+            .map(|(_, date)| *date)
             .collect::<Vec<_>>();
         let time = if observations.is_empty() {
             0.0
@@ -554,15 +585,17 @@ impl SimulationPlan {
             let evaluation = market_forward.evaluate(observation_time)?;
             observation_forwards.push(evaluation.forward);
             observation_affine_coordinates.push(evaluation.affine_coordinate);
-            let needs_pre_dividend =
-                pre_dividend_observations.contains(&(product.underlying(), date));
-            observation_pre_dividend_coordinates.push(needs_pre_dividend.then(|| {
-                dividend_timeline
-                    .iter()
-                    .find(|entry| entry.ex_time().to_bits() == observation_time.to_bits())
-                    .expect("pre-dividend observations are compiled only for dividend dates")
-                    .before()
-            }));
+            let dividend_entry = dividend_timeline
+                .iter()
+                .find(|entry| entry.ex_time().to_bits() == observation_time.to_bits());
+            let needs_pre_dividend = date.is_some_and(|date| {
+                pre_dividend_observations.contains(&(product.underlying(), date))
+            });
+            observation_pre_dividend_coordinates.push(
+                dividend_entry
+                    .filter(|_| continuous_barrier_spec.is_some() || needs_pre_dividend)
+                    .map(|entry| entry.before()),
+            );
         }
         let observation_local_vol_node_indices = local_volatility.as_ref().map(|runtime| {
             observation_times
@@ -578,20 +611,22 @@ impl SimulationPlan {
                 .into_boxed_slice()
         });
         let continuous_barrier = continuous_barrier_spec.map(|barrier| {
-            let monitoring_observation_indices = barrier
-                .monitoring_dates()
+            let monitoring_end = DayCountConvention::Act365F.year_fraction(
+                request.valuation_date(),
+                *barrier
+                    .monitoring_dates()
+                    .last()
+                    .expect("Barrier monitoring dates are non-empty"),
+            );
+            let bridge_observation_indices = observation_times
                 .iter()
-                .map(|date| {
-                    observation_dates
-                        .iter()
-                        .position(|observation_date| observation_date == date)
-                        .expect("Barrier graph retains every monitoring date")
-                })
+                .enumerate()
+                .filter_map(|(index, time)| (*time <= monitoring_end).then_some(index))
                 .collect::<Vec<_>>()
                 .into_boxed_slice();
             let expiry_observation_index = observation_dates
                 .iter()
-                .position(|date| *date == barrier.expiry())
+                .position(|date| *date == Some(barrier.expiry()))
                 .expect("Barrier graph retains expiry");
             ContinuousBarrierRuntime {
                 strike: barrier.strike().get(),
@@ -601,7 +636,7 @@ impl SimulationPlan {
                 side: barrier.side(),
                 direction: barrier.direction(),
                 style: barrier.style(),
-                monitoring_observation_indices,
+                bridge_observation_indices,
                 expiry_observation_index,
             }
         });
@@ -1456,7 +1491,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .map(|index| observations[index].post_spot)
             },
             |underlying, date| {
@@ -1465,7 +1500,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .and_then(|index| observations[index].pre_dividend_spot)
             },
         )?;
@@ -1593,7 +1628,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .map(|index| observations[index].post_spot)
             },
             |underlying, date| {
@@ -1602,7 +1637,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .and_then(|index| observations[index].pre_dividend_spot)
             },
         )?;
@@ -1619,7 +1654,7 @@ impl SimulationPlan {
                 if let Some(index) = self
                     .observation_dates
                     .iter()
-                    .position(|date| *date == adjoint.observation_date)
+                    .position(|date| *date == Some(adjoint.observation_date))
                 {
                     let observation = observations[index];
                     let coordinate = self.observation_affine_coordinates[index];
@@ -1634,7 +1669,7 @@ impl SimulationPlan {
                 if let Some(index) = self
                     .observation_dates
                     .iter()
-                    .position(|date| *date == adjoint.observation_date)
+                    .position(|date| *date == Some(adjoint.observation_date))
                 {
                     let observation = observations[index];
                     let coordinate = self.observation_pre_dividend_coordinates[index]
@@ -2094,7 +2129,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .map(|index| observations[index].post_spot)
             },
             |underlying, date| {
@@ -2103,7 +2138,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .and_then(|index| observations[index].pre_dividend_spot)
             },
         )?;
@@ -2136,36 +2171,49 @@ impl SimulationPlan {
         let mut previous_state = spot;
         let mut previous_time = 0.0;
         let mut previous_index = None;
-        let mut intervals = Vec::with_capacity(barrier.monitoring_observation_indices.len());
+        let mut intervals = Vec::with_capacity(barrier.bridge_observation_indices.len());
         let mut interval_observation_indices =
-            Vec::with_capacity(barrier.monitoring_observation_indices.len());
-        let initial_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+            Vec::with_capacity(barrier.bridge_observation_indices.len());
+        let mut endpoint_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        let mut previous_barrier = barrier.barrier;
         let variance = volatility * volatility;
-        for &index in &barrier.monitoring_observation_indices {
+        for &index in &barrier.bridge_observation_indices {
             let time = self.observation_times[index];
             let state = observations[index].canonical_f;
+            let post_coordinate = self.observation_affine_coordinates[index];
+            let pre_coordinate =
+                self.observation_pre_dividend_coordinates[index].unwrap_or(post_coordinate);
+            let pre_barrier = transformed_barrier(barrier.barrier, self.spot, pre_coordinate)?;
+            let post_barrier = transformed_barrier(barrier.barrier, self.spot, post_coordinate)?;
             let dt = time - previous_time;
             if dt > 0.0 {
                 intervals.push(BarrierBridgeIntervalInput {
                     direction: bridge_direction(barrier.direction),
                     left_state: previous_state,
                     right_state: state,
-                    left_barrier: barrier.barrier,
-                    right_barrier: barrier.barrier,
+                    left_barrier: previous_barrier,
+                    right_barrier: pre_barrier,
                     left_local_variance: variance,
                     right_local_variance: variance,
                     dt,
                 });
                 interval_observation_indices.push((previous_index, index));
             }
+            if self.observation_pre_dividend_coordinates[index].is_some() {
+                let pre_spot = pre_coordinate.a() * self.spot + pre_coordinate.b() * state;
+                let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * state;
+                endpoint_touched |= barrier_touched(barrier.direction, pre_spot, barrier.barrier)
+                    || barrier_touched(barrier.direction, post_spot, barrier.barrier);
+            }
             previous_state = state;
+            previous_barrier = post_barrier;
             previous_time = time;
             previous_index = Some(index);
         }
         Ok(ContinuousBarrierBridgeEvaluation {
             path: BarrierBridgePath::evaluate(&intervals)?,
             interval_observation_indices: interval_observation_indices.into_boxed_slice(),
-            initial_touched,
+            endpoint_touched,
         })
     }
 
@@ -2282,7 +2330,7 @@ impl SimulationPlan {
             return self.continuous_barrier_pathwise_aad(barrier, normals, spot, volatility);
         }
         if self.observation_dates.len() == 1
-            && self.observation_dates[0] == self.expiry
+            && self.observation_dates[0] == Some(self.expiry)
             && self
                 .observation_pre_dividend_coordinates
                 .iter()
@@ -2298,7 +2346,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .map(|index| observations[index].post_spot)
             },
             |underlying, date| {
@@ -2307,7 +2355,7 @@ impl SimulationPlan {
                 }
                 self.observation_dates
                     .iter()
-                    .position(|observation_date| *observation_date == date)
+                    .position(|observation_date| *observation_date == Some(date))
                     .and_then(|index| observations[index].pre_dividend_spot)
             },
         )?;
@@ -2321,7 +2369,7 @@ impl SimulationPlan {
             if let Some(index) = self
                 .observation_dates
                 .iter()
-                .position(|observation_date| *observation_date == adjoint.observation_date)
+                .position(|observation_date| *observation_date == Some(adjoint.observation_date))
             {
                 let observation = observations[index];
                 let coordinate = self.observation_affine_coordinates[index];
@@ -2339,7 +2387,7 @@ impl SimulationPlan {
             if let Some(index) = self
                 .observation_dates
                 .iter()
-                .position(|observation_date| *observation_date == adjoint.observation_date)
+                .position(|observation_date| *observation_date == Some(adjoint.observation_date))
             {
                 let observation = observations[index];
                 let coordinate = self.observation_pre_dividend_coordinates[index]
@@ -2378,7 +2426,7 @@ impl SimulationPlan {
 
         let mut initial_state_adjoint = 0.0;
         let mut variance_adjoint = 0.0;
-        if !bridge.initial_touched {
+        if !bridge.endpoint_touched {
             let interval_adjoints = bridge.path.reverse(payoff.survival_derivative * survival);
             for ((left_index, right_index), adjoints) in bridge
                 .interval_observation_indices
@@ -3241,14 +3289,36 @@ mod tests {
         volatility: f64,
         risk: RiskRequest,
     ) -> PricingRequest {
+        barrier_dividend_jump_request_with_monitoring(
+            direction,
+            style,
+            volatility,
+            risk,
+            BarrierMonitoring::Discrete,
+            None,
+        )
+    }
+
+    fn barrier_dividend_jump_request_with_monitoring(
+        direction: BarrierDirection,
+        style: BarrierStyle,
+        volatility: f64,
+        risk: RiskRequest,
+        monitoring: BarrierMonitoring,
+        barrier_override: Option<f64>,
+    ) -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
         let valuation_date: Date = "2026-09-04".parse().expect("valuation");
         let dividend_date: Date = "2027-03-05".parse().expect("dividend date");
         let expiry: Date = "2027-09-04".parse().expect("expiry");
-        let barrier = match direction {
+        let barrier = barrier_override.unwrap_or(match direction {
             BarrierDirection::Up => 95.0,
             BarrierDirection::Down => 90.0,
+        });
+        let monitoring_dates = match monitoring {
+            BarrierMonitoring::Discrete => vec![dividend_date, expiry],
+            BarrierMonitoring::Continuous => vec![expiry],
         };
         let product = ProductSpec::Barrier(
             BarrierSpec::new(
@@ -3261,8 +3331,8 @@ mod tests {
                 OptionSide::Call,
                 direction,
                 style,
-                BarrierMonitoring::Discrete,
-                vec![dividend_date, expiry],
+                monitoring,
+                monitoring_dates,
                 None,
                 expiry,
             )
@@ -3270,19 +3340,21 @@ mod tests {
         );
         let ex_time = DayCountConvention::Act365F.year_fraction(valuation_date, dividend_date);
         let event = EventId::new(1);
+        let dividend_quote = match monitoring {
+            BarrierMonitoring::Discrete => {
+                DividendQuote::fixed_cash(15.0, event).expect("cash dividend")
+            }
+            BarrierMonitoring::Continuous => {
+                DividendQuote::fixed_cash_and_proportional(15.0, 0.1, event)
+                    .expect("affine dividend")
+            }
+        };
         let forward = EquityForward::with_discrete_dividends(
             underlying,
             PositiveF64::new(100.0, "spot").expect("spot"),
             curve(1, 0.0),
             curve(2, 0.0),
-            vec![
-                DividendEvent::new(
-                    event,
-                    ex_time,
-                    DividendQuote::fixed_cash(15.0, event).expect("cash dividend"),
-                )
-                .expect("dividend"),
-            ],
+            vec![DividendEvent::new(event, ex_time, dividend_quote).expect("dividend")],
         )
         .expect("forward");
         let market = MarketContext::Equity(EquityMarket::new(currency, forward));
@@ -4363,6 +4435,161 @@ mod tests {
         assert!(risk_result.risk_diagnostics.delta_validation.is_some());
         assert!(risk_result.risk_diagnostics.gamma_validation.is_some());
         assert!(risk_result.risk_diagnostics.vega_validation.is_some());
+    }
+
+    #[test]
+    fn continuous_barrier_splits_affine_dividend_jump_without_extra_coordinate() {
+        let deterministic = barrier_dividend_jump_request_with_monitoring(
+            BarrierDirection::Down,
+            BarrierStyle::KnockOut,
+            0.0,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            BarrierMonitoring::Continuous,
+            Some(90.0),
+        );
+        let deterministic_plan =
+            SimulationPlan::compile(&deterministic, policy(2)).expect("deterministic plan");
+        assert_eq!(
+            deterministic_plan.observation_dates.as_ref(),
+            [None, Some(deterministic.product().expiry())]
+        );
+        assert_eq!(deterministic_plan.observation_times.len(), 2);
+        assert_eq!(
+            deterministic_plan
+                .continuous_barrier
+                .as_ref()
+                .expect("continuous Barrier")
+                .bridge_observation_indices
+                .len(),
+            2
+        );
+        assert!(deterministic_plan.observation_pre_dividend_coordinates[0].is_some());
+        let deterministic_result = deterministic_plan
+            .execute()
+            .expect("deterministic execution");
+        assert_eq!(deterministic_result.pricing_result.value.value().get(), 0.0);
+
+        let source = match deterministic.product() {
+            ProductSpec::Barrier(source) => source,
+            _ => unreachable!("helper constructs a Barrier"),
+        };
+        let valuation_monitoring_product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                source.underlying(),
+                source.currency(),
+                source.expiry(),
+                source.strike().get(),
+                source.barrier().get(),
+                source.notional().get(),
+                source.side(),
+                source.direction(),
+                source.style(),
+                BarrierMonitoring::Continuous,
+                vec![deterministic.valuation_date(), source.expiry()],
+                source.rebate().map(PositiveF64::get),
+                source.payment_date(),
+            )
+            .expect("valuation-date monitoring product"),
+        );
+        let valuation_monitoring_request = PricingRequest::new(
+            deterministic.valuation_date(),
+            valuation_monitoring_product,
+            deterministic.market().clone(),
+            deterministic.model().clone(),
+            deterministic.engine(),
+            deterministic.risk().clone(),
+        )
+        .expect("valuation-date monitoring request");
+        let valuation_monitoring_plan =
+            SimulationPlan::compile(&valuation_monitoring_request, policy(2))
+                .expect("valuation-date monitoring plan");
+        assert_eq!(valuation_monitoring_plan.observation_times.len(), 2);
+        assert_eq!(
+            valuation_monitoring_plan
+                .execute()
+                .expect("valuation-date execution")
+                .pricing_result
+                .value
+                .value()
+                .get()
+                .to_bits(),
+            deterministic_result
+                .pricing_result
+                .value
+                .value()
+                .get()
+                .to_bits()
+        );
+
+        let request = barrier_dividend_jump_request_with_monitoring(
+            BarrierDirection::Down,
+            BarrierStyle::KnockOut,
+            0.2,
+            all_risks(),
+            BarrierMonitoring::Continuous,
+            Some(70.0),
+        );
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("stochastic plan");
+        let barrier = plan
+            .continuous_barrier
+            .as_ref()
+            .expect("continuous Barrier");
+        let normals = [0.75, 0.25];
+        let observations = plan.path_observations_from_normals(&normals, 100.0, 0.2);
+        let ex_time = plan.observation_times[0];
+        let first_state = observations[0].canonical_f;
+        let terminal_state = observations[1].canonical_f;
+        let transformed_post_dividend_barrier = 85.0 / 0.9;
+        let first_survival = 1.0
+            - (-2.0 * (100.0_f64 / 70.0).ln() * (first_state / 70.0).ln()
+                / (0.2_f64.powi(2) * ex_time))
+                .exp();
+        let second_survival = 1.0
+            - (-2.0
+                * (first_state / transformed_post_dividend_barrier).ln()
+                * (terminal_state / transformed_post_dividend_barrier).ln()
+                / (0.2_f64.powi(2) * (plan.time - ex_time)))
+                .exp();
+        let expected = plan.discount
+            * (observations[1].post_spot - 80.0).max(0.0)
+            * first_survival
+            * second_survival;
+        let actual = plan
+            .continuous_barrier_discounted_payoff(barrier, &observations)
+            .expect("payoff");
+        assert!((actual - expected).abs() < 1.0e-13);
+
+        let analytic = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0, 0.2)
+            .expect("analytic");
+        let spot_bump = 1.0e-4;
+        let spot_down = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0 - spot_bump, 0.2)
+            .expect("spot down")
+            .price;
+        let spot_up = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0 + spot_bump, 0.2)
+            .expect("spot up")
+            .price;
+        let volatility_bump = 1.0e-5;
+        let volatility_down = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0, 0.2 - volatility_bump)
+            .expect("volatility down")
+            .price;
+        let volatility_up = plan
+            .continuous_barrier_pathwise_aad(barrier, &normals, 100.0, 0.2 + volatility_bump)
+            .expect("volatility up")
+            .price;
+        assert!((analytic.delta - (spot_up - spot_down) / (2.0 * spot_bump)).abs() < 2.0e-8);
+        assert!(
+            (analytic.vega - (volatility_up - volatility_down) / (2.0 * volatility_bump)).abs()
+                < 2.0e-7
+        );
+
+        let result = plan.execute().expect("risk execution");
+        assert!(result.pricing_result.risks.delta.is_some());
+        assert!(result.pricing_result.risks.gamma.is_some());
+        assert!(result.pricing_result.risks.vega.is_some());
     }
 
     #[test]
