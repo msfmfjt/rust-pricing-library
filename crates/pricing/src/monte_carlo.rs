@@ -1260,11 +1260,6 @@ impl SimulationPlan {
         &self,
         early_exercise: &EarlyExerciseRuntime,
     ) -> Result<MonteCarloPrice, MonteCarloError> {
-        if self.local_volatility.is_some() {
-            return Err(MonteCarloError::UnsupportedModel {
-                model: "Local Volatility American LSM",
-            });
-        }
         if let (
             EngineConfig::RandomizedQuasiMonteCarlo(training_engine),
             EngineConfig::RandomizedQuasiMonteCarlo(valuation_engine),
@@ -1283,11 +1278,8 @@ impl SimulationPlan {
         else {
             return Err(MonteCarloError::UnsupportedEngine);
         };
-        let training = self.constant_vol_lsm_path_matrices(
-            training_engine,
-            RandomDomain::LsmTrain,
-            early_exercise,
-        )?;
+        let training =
+            self.pseudo_lsm_path_matrices(training_engine, RandomDomain::LsmTrain, early_exercise)?;
         let training_metadata = early_exercise
             .config
             .training_metadata(*self.payoff.source_fingerprint().as_bytes())?;
@@ -1303,7 +1295,7 @@ impl SimulationPlan {
             early_exercise.config.max_matrix_elements(),
             training_metadata,
         )?;
-        let valuation = self.constant_vol_lsm_path_matrices(
+        let valuation = self.pseudo_lsm_path_matrices(
             valuation_engine,
             RandomDomain::Valuation,
             early_exercise,
@@ -1555,12 +1547,20 @@ impl SimulationPlan {
         })
     }
 
-    fn constant_vol_lsm_path_matrices(
+    fn pseudo_lsm_path_matrices(
         &self,
         engine: PseudoMcConfig,
         domain: RandomDomain,
         early_exercise: &EarlyExerciseRuntime,
     ) -> Result<LsmPathMatrices, MonteCarloError> {
+        if let Some(local_volatility) = &self.local_volatility {
+            return self.local_vol_pseudo_lsm_path_matrices(
+                engine,
+                domain,
+                early_exercise,
+                local_volatility,
+            );
+        }
         let multiplier = if engine.variance_reduction().antithetic() {
             2_usize
         } else {
@@ -1622,6 +1622,9 @@ impl SimulationPlan {
         engine: RqmcConfig,
         early_exercise: &EarlyExerciseRuntime,
     ) -> Result<(LsmPathMatrices, RqmcPlan), MonteCarloError> {
+        if let Some(local_volatility) = &self.local_volatility {
+            return self.local_vol_rqmc_lsm_path_matrices(engine, early_exercise, local_volatility);
+        }
         let effective_dimension = u32::try_from(self.observation_times.len())
             .map_err(|_| RqmcPlanError::TableSizeOverflow)?;
         let qmc = RqmcPlan::compile(engine, effective_dimension)?;
@@ -1691,6 +1694,168 @@ impl SimulationPlan {
         ))
     }
 
+    fn local_vol_pseudo_lsm_path_matrices(
+        &self,
+        engine: PseudoMcConfig,
+        domain: RandomDomain,
+        early_exercise: &EarlyExerciseRuntime,
+        local_volatility: &LocalVolRuntime,
+    ) -> Result<LsmPathMatrices, MonteCarloError> {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let units = usize::try_from(engine.independent_sampling_units().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let path_count = units
+            .checked_mul(multiplier)
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        let date_count = early_exercise.exercise_dates.len();
+        let feature_count = early_exercise.config.state_variables().len();
+        let mut immediate_values = zeroed_lsm_values(
+            date_count
+                .checked_mul(path_count)
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "Local Volatility American immediate values",
+        )?;
+        let mut features = zeroed_lsm_values(
+            date_count
+                .saturating_sub(1)
+                .checked_mul(path_count)
+                .and_then(|count| count.checked_mul(feature_count))
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "Local Volatility American state features",
+        )?;
+        for unit in 0..units {
+            let shocks = local_volatility.plan.path_shocks(
+                engine.master_seed(),
+                unit as u64,
+                domain,
+                engine.variance_reduction().brownian_bridge(),
+            )?;
+            let path_index = PathIndex::new(unit as u64);
+            self.write_local_vol_lsm_trajectory(
+                local_volatility,
+                &shocks,
+                path_index,
+                unit * multiplier,
+                path_count,
+                early_exercise,
+                &mut immediate_values,
+                &mut features,
+            )?;
+            if multiplier == 2 {
+                let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                self.write_local_vol_lsm_trajectory(
+                    local_volatility,
+                    &mate_shocks,
+                    path_index,
+                    unit * multiplier + 1,
+                    path_count,
+                    early_exercise,
+                    &mut immediate_values,
+                    &mut features,
+                )?;
+            }
+        }
+        Ok(LsmPathMatrices {
+            path_count,
+            immediate_values: immediate_values.into_boxed_slice(),
+            features: features.into_boxed_slice(),
+        })
+    }
+
+    fn local_vol_rqmc_lsm_path_matrices(
+        &self,
+        engine: RqmcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        local_volatility: &LocalVolRuntime,
+    ) -> Result<(LsmPathMatrices, RqmcPlan), MonteCarloError> {
+        let step_count = u32::try_from(local_volatility.plan.time_grid().step_count())
+            .map_err(|_| RqmcPlanError::TableSizeOverflow)?;
+        let qmc = RqmcPlan::compile(engine, step_count)?;
+        let bridge = if engine.variance_reduction().brownian_bridge() {
+            Some(
+                BrownianBridgePlan::compile(local_volatility.plan.time_grid().nodes().to_vec(), 1)
+                    .map_err(|error| MonteCarloError::LocalVol(error.into()))?,
+            )
+        } else {
+            None
+        };
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let scrambles = usize::try_from(engine.scramble_count().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let points = usize::try_from(engine.points_per_scramble().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let path_count = scrambles
+            .checked_mul(points)
+            .and_then(|count| count.checked_mul(multiplier))
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        let date_count = early_exercise.exercise_dates.len();
+        let feature_count = early_exercise.config.state_variables().len();
+        let mut immediate_values = zeroed_lsm_values(
+            date_count
+                .checked_mul(path_count)
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "Local Volatility American RQMC immediate values",
+        )?;
+        let mut features = zeroed_lsm_values(
+            date_count
+                .saturating_sub(1)
+                .checked_mul(path_count)
+                .and_then(|count| count.checked_mul(feature_count))
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "Local Volatility American RQMC state features",
+        )?;
+        for scramble in 0..engine.scramble_count().get() {
+            for point in 0..engine.points_per_scramble().get() {
+                let point_index =
+                    u64::from(scramble).saturating_mul(engine.points_per_scramble().get()) + point;
+                let base_path = (usize::try_from(scramble).expect("u32 fits usize") * points
+                    + usize::try_from(point).expect("configured RQMC point count fits usize"))
+                    * multiplier;
+                let shocks = local_vol_rqmc_shocks(&qmc, bridge.as_ref(), scramble, point)?;
+                let path_index = PathIndex::new(point_index);
+                self.write_local_vol_lsm_trajectory(
+                    local_volatility,
+                    &shocks,
+                    path_index,
+                    base_path,
+                    path_count,
+                    early_exercise,
+                    &mut immediate_values,
+                    &mut features,
+                )?;
+                if multiplier == 2 {
+                    let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                    self.write_local_vol_lsm_trajectory(
+                        local_volatility,
+                        &mate_shocks,
+                        path_index,
+                        base_path + 1,
+                        path_count,
+                        early_exercise,
+                        &mut immediate_values,
+                        &mut features,
+                    )?;
+                }
+            }
+        }
+        Ok((
+            LsmPathMatrices {
+                path_count,
+                immediate_values: immediate_values.into_boxed_slice(),
+                features: features.into_boxed_slice(),
+            },
+            qmc,
+        ))
+    }
+
     fn write_lsm_trajectory(
         &self,
         normals: &[f64],
@@ -1702,6 +1867,67 @@ impl SimulationPlan {
     ) -> Result<(), MonteCarloError> {
         let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
         let outputs = self.payoff_outputs_from_observations(&observations)?;
+        if outputs.len() != early_exercise.exercise_dates.len() {
+            return Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch {
+                expected: early_exercise.exercise_dates.len(),
+                actual: outputs.len(),
+            }
+            .into());
+        }
+        let feature_count = early_exercise.config.state_variables().len();
+        for (date_index, (&immediate_value, &observation_index)) in outputs
+            .iter()
+            .zip(early_exercise.observation_indices.iter())
+            .enumerate()
+        {
+            immediate_values[date_index * path_count + path] = immediate_value;
+            if date_index + 1 == early_exercise.exercise_dates.len() {
+                continue;
+            }
+            for (feature_index, state_variable) in
+                early_exercise.config.state_variables().iter().enumerate()
+            {
+                let feature = match state_variable {
+                    LsmStateVariable::Spot => observations[observation_index].post_spot,
+                };
+                features[(date_index * path_count + path) * feature_count + feature_index] =
+                    feature;
+            }
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn write_local_vol_lsm_trajectory(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        shocks: &[f64],
+        path_index: PathIndex,
+        path: usize,
+        path_count: usize,
+        early_exercise: &EarlyExerciseRuntime,
+        immediate_values: &mut [f64],
+        features: &mut [f64],
+    ) -> Result<(), MonteCarloError> {
+        let evolved = if let (Some(dividends), Some(schedule)) = (
+            local_volatility.dividends.as_ref(),
+            local_volatility.dividend_schedule.as_ref(),
+        ) {
+            local_volatility.plan.evolve_path_with_dividend_checks(
+                &local_volatility.grid,
+                self.spot,
+                shocks,
+                dividends,
+                schedule,
+                path_index,
+            )?
+        } else {
+            local_volatility
+                .plan
+                .evolve_path(&local_volatility.grid, self.spot, shocks)?
+        };
+        let observations = self.local_vol_path_observations(&evolved)?;
+        let outputs = self.payoff_outputs_from_local_vol_observations(&observations)?;
         if outputs.len() != early_exercise.exercise_dates.len() {
             return Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch {
                 expected: early_exercise.exercise_dates.len(),
@@ -3440,6 +3666,32 @@ impl SimulationPlan {
         )?)
     }
 
+    fn payoff_outputs_from_local_vol_observations(
+        &self,
+        observations: &[LocalVolObservation],
+    ) -> Result<Vec<f64>, MonteCarloError> {
+        Ok(self.payoff.evaluate_with_pre_dividend_spots(
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == Some(date))
+                    .map(|index| observations[index].post_spot)
+            },
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == Some(date))
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            },
+        )?)
+    }
+
     fn discounted_payoff_from_normals(&self, normals: &[f64]) -> Result<f64, MonteCarloError> {
         let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
         if let Some(barrier) = &self.continuous_barrier {
@@ -4957,6 +5209,27 @@ mod tests {
         .expect("American RQMC request")
     }
 
+    fn with_constant_local_volatility(request: &PricingRequest) -> PricingRequest {
+        let local_volatility = LocalVolatilitySpec::from_explicit_grid(
+            vec![0.0, 1.0],
+            vec![-1.0, 1.0],
+            vec![0.04, 0.04, 0.04, 0.04],
+            1.0e-8,
+            1.0,
+        )
+        .expect("constant Local Volatility model");
+        PricingRequest::new_with_lsm(
+            request.valuation_date(),
+            request.product().clone(),
+            request.market().clone(),
+            ModelSpec::LocalVolatility(local_volatility),
+            request.engine(),
+            request.risk().clone(),
+            request.lsm().cloned(),
+        )
+        .expect("Local Volatility American request")
+    }
+
     #[test]
     fn american_zero_volatility_exercises_at_deterministic_optimal_date() {
         let request = american_request(OptionSide::Put, 120.0, 0.0, 2, 2, true);
@@ -5098,6 +5371,79 @@ mod tests {
                 .expect("changed diagnostics")
                 .policy_fingerprint
         );
+    }
+
+    #[test]
+    fn local_vol_american_pseudo_replays_and_matches_constant_volatility() {
+        let black_scholes = american_request(OptionSide::Put, 100.0, 0.2, 4096, 8192, true);
+        let local_volatility = with_constant_local_volatility(&black_scholes);
+        let serial =
+            price_monte_carlo(&local_volatility, policy(1)).expect("serial Local Vol American");
+        let parallel =
+            price_monte_carlo(&local_volatility, policy(4)).expect("parallel Local Vol American");
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(
+            serial.early_exercise_diagnostics,
+            parallel.early_exercise_diagnostics
+        );
+        let constant =
+            price_monte_carlo(&black_scholes, policy(4)).expect("constant-volatility American");
+        let local_estimate = serial.pricing_result.value;
+        let constant_estimate = constant.pricing_result.value;
+        let combined_error = local_estimate
+            .standard_error()
+            .get()
+            .hypot(constant_estimate.standard_error().get());
+        assert!(
+            (local_estimate.value().get() - constant_estimate.value().get()).abs()
+                <= 6.0 * combined_error,
+            "Local Vol={}, constant vol={}, combined_se={combined_error}",
+            local_estimate.value().get(),
+            constant_estimate.value().get(),
+        );
+        let diagnostics = serial
+            .early_exercise_diagnostics
+            .expect("early-exercise diagnostics");
+        assert_eq!(diagnostics.training_random_domain, RandomDomain::LsmTrain);
+        assert_eq!(diagnostics.valuation_random_domain, RandomDomain::Valuation);
+        assert_eq!(diagnostics.training_trajectories, 8192);
+        assert_eq!(diagnostics.valuation_trajectories, 16_384);
+        assert_eq!(diagnostics.exercise_counts.iter().sum::<usize>(), 16_384);
+    }
+
+    #[test]
+    fn local_vol_american_rqmc_replays_with_brownian_bridge() {
+        let request = with_constant_local_volatility(&american_rqmc_request(
+            OptionSide::Put,
+            100.0,
+            0x5555,
+            0x6666,
+        ));
+        let serial =
+            price_monte_carlo(&request, policy(1)).expect("serial Local Vol RQMC American");
+        let parallel =
+            price_monte_carlo(&request, policy(4)).expect("parallel Local Vol RQMC American");
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(
+            serial.early_exercise_diagnostics,
+            parallel.early_exercise_diagnostics
+        );
+        let diagnostics = serial
+            .early_exercise_diagnostics
+            .expect("early-exercise diagnostics");
+        assert_eq!(diagnostics.training_sampling_units, 8);
+        assert_eq!(diagnostics.training_trajectories, 32_768);
+        assert_eq!(diagnostics.valuation_sampling_units, 16);
+        assert_eq!(diagnostics.valuation_trajectories, 131_072);
+        assert_eq!(
+            diagnostics.training_direction_checksum,
+            diagnostics.valuation_direction_checksum
+        );
+        assert_ne!(
+            diagnostics.training_scramble_checksum,
+            diagnostics.valuation_scramble_checksum
+        );
+        assert_eq!(diagnostics.exercise_counts.iter().sum::<usize>(), 131_072);
     }
 
     #[test]
