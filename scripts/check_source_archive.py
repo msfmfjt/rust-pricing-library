@@ -217,6 +217,7 @@ REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     "wheel CycloneDX SBOM component {name} scope mismatch",
     "wheel CycloneDX SBOM component {name} author mismatch",
     "wheel CycloneDX SBOM component {name} purl mismatch",
+    "workspace_dependency_purl_matches(purl, name, version)",
     "wheel CycloneDX SBOM root component has no bom-ref",
     "wheel CycloneDX SBOM dependency ref duplicated",
     "wheel CycloneDX SBOM dependency ref is unknown",

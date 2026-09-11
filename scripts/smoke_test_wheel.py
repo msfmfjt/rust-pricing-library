@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from urllib.parse import unquote
 import uuid
 import venv
 from zipfile import ZipFile
@@ -627,8 +628,7 @@ def verify_workspace_sbom_component(
     if component.get("version") != version:
         raise RuntimeError(f"wheel CycloneDX SBOM component {name} version mismatch")
     purl = component.get("purl")
-    expected_purl = f"pkg:cargo/{name}@{version}?download_url=file://../{name}"
-    if purl != expected_purl:
+    if not workspace_dependency_purl_matches(purl, name, version):
         raise RuntimeError(f"wheel CycloneDX SBOM component {name} purl mismatch")
     external_references = component.get("externalReferences")
     if not isinstance(external_references, list) or {
@@ -636,6 +636,14 @@ def verify_workspace_sbom_component(
         "url": "https://github.com/msfmfjt/rust-pricing-library",
     } not in external_references:
         raise RuntimeError(f"wheel CycloneDX SBOM component {name} must reference the VCS URL")
+
+
+def workspace_dependency_purl_matches(purl: object, name: str, version: str) -> bool:
+    prefix = f"pkg:cargo/{name}@{version}?download_url=file://"
+    if not isinstance(purl, str) or not purl.startswith(prefix):
+        return False
+    relative_path = unquote(purl.removeprefix(prefix)).replace("\\", "/")
+    return relative_path == f"../{name}"
 
 
 def verify_registry_sbom_component(
