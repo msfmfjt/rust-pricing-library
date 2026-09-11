@@ -13,9 +13,10 @@ pub use graph::{
 };
 pub use smoothing::{CompactC2Smoothing, SmoothingBinaryDerivatives, SmoothingDerivatives};
 pub use spec::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection,
-    BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-    FixedLookbackSpec, OptionSide, ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, AsianObservationValue,
+    BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec,
+    EuropeanVanillaSpec, ExerciseObservationTiming, FixedLookbackSpec, NormalizedExerciseEvent,
+    OptionSide, ProductSpec, every_business_day_exercise_schedule,
 };
 
 /// Returns the domain foundation role.

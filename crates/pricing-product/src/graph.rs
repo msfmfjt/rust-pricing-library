@@ -6,9 +6,9 @@ use std::mem;
 use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
 use crate::{
-    ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec, BarrierStyle,
-    CompactC2Smoothing, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
-    OptionSide, ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, CompactC2Smoothing, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+    FixedLookbackSpec, OptionSide, ProductSpec,
 };
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
@@ -316,6 +316,41 @@ impl EuropeanVanillaSpec {
             right: notional,
         })?;
         Ok(builder.finish(vec![payoff]))
+    }
+}
+
+impl AmericanVanillaSpec {
+    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        let mut builder = SourceGraphBuilder::new();
+        let strike = builder.literal(self.strike().get())?;
+        let zero = builder.literal(0.0)?;
+        let notional = builder.literal(self.notional().get())?;
+        let mut outputs = Vec::with_capacity(self.exercise_dates().len());
+        for &observation_date in self.exercise_dates() {
+            let spot = builder.push(SourceOpcode::TerminalSpot {
+                underlying: self.underlying(),
+                observation_date,
+            })?;
+            let signed_intrinsic = match self.side() {
+                OptionSide::Call => builder.push(SourceOpcode::Subtract {
+                    left: spot,
+                    right: strike,
+                })?,
+                OptionSide::Put => builder.push(SourceOpcode::Subtract {
+                    left: strike,
+                    right: spot,
+                })?,
+            };
+            let positive_part = builder.push(SourceOpcode::Maximum {
+                left: signed_intrinsic,
+                right: zero,
+            })?;
+            outputs.push(builder.push(SourceOpcode::Multiply {
+                left: positive_part,
+                right: notional,
+            })?);
+        }
+        Ok(builder.finish(outputs))
     }
 }
 
@@ -2074,6 +2109,54 @@ mod tests {
                 vec![expected]
             );
         }
+    }
+
+    #[test]
+    fn american_builder_emits_intrinsic_values_in_exercise_order() {
+        let first: Date = "2027-03-04".parse().expect("first");
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let product = AmericanVanillaSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            expiry,
+            100.0,
+            2.0,
+            OptionSide::Put,
+            vec![first, expiry],
+        )
+        .expect("American option");
+        let compiled = product
+            .source_graph()
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile");
+        let values = compiled
+            .evaluate(|_, observation_date| match observation_date {
+                value if value == first => Some(90.0),
+                value if value == expiry => Some(80.0),
+                _ => None,
+            })
+            .expect("execute");
+        assert_eq!(values, [20.0, 40.0]);
+
+        let terminal_only = AmericanVanillaSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            expiry,
+            100.0,
+            2.0,
+            OptionSide::Put,
+            vec![expiry],
+        )
+        .expect("terminal-only option")
+        .source_graph()
+        .expect("terminal graph")
+        .compile(GraphLimitPolicy::DEFAULT)
+        .expect("compile terminal graph");
+        assert_ne!(
+            compiled.source_fingerprint(),
+            terminal_only.source_fingerprint()
+        );
     }
 
     #[test]
