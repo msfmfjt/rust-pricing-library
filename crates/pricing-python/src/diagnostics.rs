@@ -1,6 +1,7 @@
 use pricing::market::CurveRegion;
 use pricing::{
-    Estimate, EstimatorKind, MonteCarloPrice, PayoffSmoothingKernel, RiskMethod, RiskValidation,
+    BarrierHitIndicatorMode, Estimate, EstimatorKind, MonteCarloPrice, PayoffSmoothingKernel,
+    RiskMethod, RiskValidation,
 };
 use pyo3::prelude::*;
 
@@ -146,6 +147,17 @@ pub struct PyDiagnostics {
     payoff_smoothing_half_width: Option<f64>,
     payoff_smoothing_endpoint_count: Option<u32>,
     payoff_smoothing_dividend_jump_count: Option<u32>,
+    barrier_bridge_abi: Option<&'static str>,
+    barrier_bridge_policy_version: Option<u32>,
+    barrier_hit_indicator_mode: Option<&'static str>,
+    barrier_endpoint_hit_fraction: Option<f64>,
+    barrier_dividend_jump_hit_fraction: Option<f64>,
+    barrier_mean_conditional_bridge_hit_weight: Option<f64>,
+    barrier_mean_interval_count: Option<f64>,
+    barrier_mean_finite_correction_count: Option<f64>,
+    barrier_mean_zero_variance_count: Option<f64>,
+    barrier_mean_survival_underflow_count: Option<f64>,
+    barrier_mean_certain_survival_count: Option<f64>,
     delta_method: Option<&'static str>,
     gamma_method: Option<&'static str>,
     vega_method: Option<&'static str>,
@@ -195,6 +207,37 @@ impl PyDiagnostics {
             payoff_smoothing_dividend_jump_count: diagnostics
                 .payoff_smoothing
                 .map(|smoothing| smoothing.dividend_jump_count),
+            barrier_bridge_abi: diagnostics.barrier_bridge.map(|bridge| bridge.abi),
+            barrier_bridge_policy_version: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.policy_version),
+            barrier_hit_indicator_mode: diagnostics
+                .barrier_bridge
+                .map(|bridge| barrier_hit_indicator_mode_name(bridge.indicator_mode)),
+            barrier_endpoint_hit_fraction: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.endpoint_hit_fraction),
+            barrier_dividend_jump_hit_fraction: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.dividend_jump_hit_fraction),
+            barrier_mean_conditional_bridge_hit_weight: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.mean_conditional_bridge_hit_weight),
+            barrier_mean_interval_count: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.mean_interval_count),
+            barrier_mean_finite_correction_count: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.mean_finite_correction_count),
+            barrier_mean_zero_variance_count: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.mean_zero_variance_count),
+            barrier_mean_survival_underflow_count: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.mean_survival_underflow_count),
+            barrier_mean_certain_survival_count: diagnostics
+                .barrier_bridge
+                .map(|bridge| bridge.mean_certain_survival_count),
             delta_method: methods.delta.map(risk_method_name),
             gamma_method: methods.gamma.map(risk_method_name),
             vega_method: methods.vega.map(risk_method_name),
@@ -336,6 +379,61 @@ impl PyDiagnostics {
     }
 
     #[getter]
+    fn barrier_bridge_abi(&self) -> Option<&str> {
+        self.barrier_bridge_abi
+    }
+
+    #[getter]
+    fn barrier_bridge_policy_version(&self) -> Option<u32> {
+        self.barrier_bridge_policy_version
+    }
+
+    #[getter]
+    fn barrier_hit_indicator_mode(&self) -> Option<&str> {
+        self.barrier_hit_indicator_mode
+    }
+
+    #[getter]
+    fn barrier_endpoint_hit_fraction(&self) -> Option<f64> {
+        self.barrier_endpoint_hit_fraction
+    }
+
+    #[getter]
+    fn barrier_dividend_jump_hit_fraction(&self) -> Option<f64> {
+        self.barrier_dividend_jump_hit_fraction
+    }
+
+    #[getter]
+    fn barrier_mean_conditional_bridge_hit_weight(&self) -> Option<f64> {
+        self.barrier_mean_conditional_bridge_hit_weight
+    }
+
+    #[getter]
+    fn barrier_mean_interval_count(&self) -> Option<f64> {
+        self.barrier_mean_interval_count
+    }
+
+    #[getter]
+    fn barrier_mean_finite_correction_count(&self) -> Option<f64> {
+        self.barrier_mean_finite_correction_count
+    }
+
+    #[getter]
+    fn barrier_mean_zero_variance_count(&self) -> Option<f64> {
+        self.barrier_mean_zero_variance_count
+    }
+
+    #[getter]
+    fn barrier_mean_survival_underflow_count(&self) -> Option<f64> {
+        self.barrier_mean_survival_underflow_count
+    }
+
+    #[getter]
+    fn barrier_mean_certain_survival_count(&self) -> Option<f64> {
+        self.barrier_mean_certain_survival_count
+    }
+
+    #[getter]
     fn delta_method(&self) -> Option<&str> {
         self.delta_method
     }
@@ -428,6 +526,12 @@ const fn risk_method_name(method: RiskMethod) -> &'static str {
 const fn payoff_smoothing_kernel_name(kernel: PayoffSmoothingKernel) -> &'static str {
     match kernel {
         PayoffSmoothingKernel::CompactC2 => "compact_c2",
+    }
+}
+
+const fn barrier_hit_indicator_mode_name(mode: BarrierHitIndicatorMode) -> &'static str {
+    match mode {
+        BarrierHitIndicatorMode::Exact => "exact",
     }
 }
 

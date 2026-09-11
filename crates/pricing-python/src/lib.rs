@@ -896,6 +896,7 @@ fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> Mont
             dividend_region: CurveRegion::Pillar,
             payoff_fingerprint: pricing::product::GraphFingerprint::from_bytes([0; 32]),
             payoff_smoothing: None,
+            barrier_bridge: None,
         },
     }
 }

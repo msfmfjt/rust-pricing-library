@@ -6,11 +6,11 @@ use pricing_market::{
     ThetaRegion, TotalVarianceDerivatives,
 };
 use pricing_mc::{
-    BarrierBridgeDirection, BarrierBridgeIntervalInput, BarrierBridgePath, BrownianBridgePlan,
-    DeterministicExecutor, DeterministicStatistics, EngineConfig, ExecutionPolicy,
-    LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolPath, LocalVolTimeGrid,
-    Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan,
-    RqmcPlanError, inverse_standard_normal, transformed_barrier,
+    BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeIntervalInput, BarrierBridgePath,
+    BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
+    ExecutionPolicy, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolPath,
+    LocalVolTimeGrid, Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig,
+    RqmcPlan, RqmcPlanError, inverse_standard_normal, transformed_barrier,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
@@ -42,7 +42,15 @@ const BUMP_VEGA: usize = 6;
 const VEGA_DIFFERENCE: usize = 7;
 const BUMP_GAMMA: usize = 8;
 const GAMMA_DIFFERENCE: usize = 9;
-const PATHWISE_COMPONENTS: usize = 10;
+const BARRIER_ENDPOINT_HIT: usize = 10;
+const BARRIER_DIVIDEND_JUMP_HIT: usize = 11;
+const BARRIER_BRIDGE_HIT_WEIGHT: usize = 12;
+const BARRIER_INTERVAL_COUNT: usize = 13;
+const BARRIER_FINITE_CORRECTION_COUNT: usize = 14;
+const BARRIER_ZERO_VARIANCE_COUNT: usize = 15;
+const BARRIER_SURVIVAL_UNDERFLOW_COUNT: usize = 16;
+const BARRIER_CERTAIN_SURVIVAL_COUNT: usize = 17;
+const PATHWISE_COMPONENTS: usize = 18;
 const AAD_WORKSPACE_SLOTS: usize = 5;
 const DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP: f64 = 1.0e-4;
 const DEFAULT_VALIDATION_VOLATILITY_BUMP: f64 = 1.0e-4;
@@ -126,15 +134,24 @@ struct ContinuousBarrierBridgeEvaluation {
     path: BarrierBridgePath,
     interval_observation_indices: Box<[(Option<usize>, usize)]>,
     endpoint_touched: bool,
+    dividend_jump_touched: bool,
 }
 
 impl ContinuousBarrierBridgeEvaluation {
     fn survival(&self) -> f64 {
-        if self.endpoint_touched {
+        if self.endpoint_touched || self.dividend_jump_touched {
             0.0
         } else {
             self.path.survival()
         }
+    }
+
+    fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
+        BarrierPathDiagnosticValues::from_bridge(
+            &self.path,
+            self.endpoint_touched,
+            self.dividend_jump_touched,
+        )
     }
 }
 
@@ -151,15 +168,71 @@ struct LocalVolContinuousBarrierBridgeEvaluation {
     interval_node_indices: Box<[(usize, usize)]>,
     node_interpolations: Box<[LocalVarianceInterpolation]>,
     endpoint_touched: bool,
+    dividend_jump_touched: bool,
 }
 
 impl LocalVolContinuousBarrierBridgeEvaluation {
     fn survival(&self) -> f64 {
-        if self.endpoint_touched {
+        if self.endpoint_touched || self.dividend_jump_touched {
             0.0
         } else {
             self.path.survival()
         }
+    }
+
+    fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
+        BarrierPathDiagnosticValues::from_bridge(
+            &self.path,
+            self.endpoint_touched,
+            self.dividend_jump_touched,
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct BarrierPathDiagnosticValues {
+    endpoint_hit: f64,
+    dividend_jump_hit: f64,
+    bridge_hit_weight: f64,
+    interval_count: f64,
+    finite_correction_count: f64,
+    zero_variance_count: f64,
+    survival_underflow_count: f64,
+    certain_survival_count: f64,
+}
+
+impl BarrierPathDiagnosticValues {
+    fn from_bridge(
+        path: &BarrierBridgePath,
+        endpoint_touched: bool,
+        dividend_jump_touched: bool,
+    ) -> Self {
+        let diagnostics = path.diagnostics();
+        Self {
+            endpoint_hit: if endpoint_touched { 1.0 } else { 0.0 },
+            dividend_jump_hit: if dividend_jump_touched { 1.0 } else { 0.0 },
+            bridge_hit_weight: if endpoint_touched || dividend_jump_touched {
+                0.0
+            } else {
+                1.0 - path.survival()
+            },
+            interval_count: f64::from(diagnostics.interval_count),
+            finite_correction_count: f64::from(diagnostics.finite_correction_count),
+            zero_variance_count: f64::from(diagnostics.zero_variance_count),
+            survival_underflow_count: f64::from(diagnostics.survival_underflow_count),
+            certain_survival_count: f64::from(diagnostics.certain_survival_count),
+        }
+    }
+
+    fn write_to(self, values: &mut [f64; PATHWISE_COMPONENTS]) {
+        values[BARRIER_ENDPOINT_HIT] = self.endpoint_hit;
+        values[BARRIER_DIVIDEND_JUMP_HIT] = self.dividend_jump_hit;
+        values[BARRIER_BRIDGE_HIT_WEIGHT] = self.bridge_hit_weight;
+        values[BARRIER_INTERVAL_COUNT] = self.interval_count;
+        values[BARRIER_FINITE_CORRECTION_COUNT] = self.finite_correction_count;
+        values[BARRIER_ZERO_VARIANCE_COUNT] = self.zero_variance_count;
+        values[BARRIER_SURVIVAL_UNDERFLOW_COUNT] = self.survival_underflow_count;
+        values[BARRIER_CERTAIN_SURVIVAL_COUNT] = self.certain_survival_count;
     }
 }
 
@@ -800,6 +873,29 @@ impl SimulationPlan {
         })
     }
 
+    fn barrier_bridge_diagnostics(
+        &self,
+        statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
+        independent_units: u64,
+    ) -> Option<BarrierBridgeDiagnostics> {
+        self.continuous_barrier.as_ref()?;
+        let mean =
+            |component: usize| statistics[component].sum().total() / independent_units as f64;
+        Some(BarrierBridgeDiagnostics {
+            abi: BARRIER_BRIDGE_ABI,
+            policy_version: BarrierBridgeDiagnostics::POLICY_VERSION,
+            indicator_mode: BarrierHitIndicatorMode::Exact,
+            endpoint_hit_fraction: mean(BARRIER_ENDPOINT_HIT),
+            dividend_jump_hit_fraction: mean(BARRIER_DIVIDEND_JUMP_HIT),
+            mean_conditional_bridge_hit_weight: mean(BARRIER_BRIDGE_HIT_WEIGHT),
+            mean_interval_count: mean(BARRIER_INTERVAL_COUNT),
+            mean_finite_correction_count: mean(BARRIER_FINITE_CORRECTION_COUNT),
+            mean_zero_variance_count: mean(BARRIER_ZERO_VARIANCE_COUNT),
+            mean_survival_underflow_count: mean(BARRIER_SURVIVAL_UNDERFLOW_COUNT),
+            mean_certain_survival_count: mean(BARRIER_CERTAIN_SURVIVAL_COUNT),
+        })
+    }
+
     #[must_use]
     pub const fn execution_policy(&self) -> ExecutionPolicy {
         self.execution_policy
@@ -903,6 +999,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: None,
             },
         })
     }
@@ -982,6 +1079,26 @@ impl SimulationPlan {
                         let mate_normals =
                             normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
                         let mate = self.pathwise_values(&mate_normals, lane, workspace)?;
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                            |component| (primary[component] + mate[component]) * 0.5,
+                        ))
+                    } else {
+                        Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
+                    }
+                },
+            )?
+        } else if self.continuous_barrier.is_some() {
+            executor.try_map_reduce_statistics_array_tiled(
+                engine.independent_sampling_units().get(),
+                self.aad_tile_policy.resolved_capacity(),
+                |sampling_unit| {
+                    let normals = self.normals(&generator, sampling_unit);
+                    let primary = self.continuous_barrier_path_values_from_normals(&normals)?;
+                    if antithetic {
+                        let mate_normals =
+                            normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                        let mate =
+                            self.continuous_barrier_path_values_from_normals(&mate_normals)?;
                         Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
                             |component| (primary[component] + mate[component]) * 0.5,
                         ))
@@ -1078,6 +1195,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
     }
@@ -1110,6 +1228,26 @@ impl SimulationPlan {
                             let mate_normals =
                                 normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
                             let mate = self.pathwise_values(&mate_normals, lane, workspace)?;
+                            Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
+                                |component| (primary[component] + mate[component]) * 0.5,
+                            ))
+                        } else {
+                            Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(primary)
+                        }
+                    },
+                )?
+            } else if self.continuous_barrier.is_some() {
+                executor.try_map_reduce_statistics_array_tiled(
+                    points,
+                    self.aad_tile_policy.resolved_capacity(),
+                    |point| {
+                        let normals = self.rqmc_normals(&qmc, scramble, point)?;
+                        let primary = self.continuous_barrier_path_values_from_normals(&normals)?;
+                        if antithetic {
+                            let mate_normals =
+                                normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                            let mate =
+                                self.continuous_barrier_path_values_from_normals(&mate_normals)?;
                             Ok::<[f64; PATHWISE_COMPONENTS], MonteCarloError>(std::array::from_fn(
                                 |component| (primary[component] + mate[component]) * 0.5,
                             ))
@@ -1218,6 +1356,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
     }
@@ -1331,6 +1470,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
     }
@@ -1490,6 +1630,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
     }
@@ -1609,8 +1750,12 @@ impl SimulationPlan {
 
         let mut intervals = Vec::with_capacity(end_node);
         let mut interval_node_indices = Vec::with_capacity(end_node);
-        let mut endpoint_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        let initial_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        let mut dividend_jump_touched = false;
         for right_node in 1..=end_node {
+            if initial_touched {
+                break;
+            }
             let left_node = right_node - 1;
             let left_coordinate = local_volatility.node_affine_coordinates[left_node];
             let right_post_coordinate = local_volatility.node_affine_coordinates[right_node];
@@ -1635,15 +1780,22 @@ impl SimulationPlan {
                 let pre_spot = right_pre_coordinate.a() * spot + right_pre_coordinate.b() * state;
                 let post_spot =
                     right_post_coordinate.a() * spot + right_post_coordinate.b() * state;
-                endpoint_touched |= barrier_touched(barrier.direction, pre_spot, barrier.barrier)
-                    || barrier_touched(barrier.direction, post_spot, barrier.barrier);
+                let pre_touched = barrier_touched(barrier.direction, pre_spot, barrier.barrier);
+                let post_touched = barrier_touched(barrier.direction, post_spot, barrier.barrier);
+                if pre_touched || post_touched {
+                    dividend_jump_touched = !pre_touched && post_touched;
+                    break;
+                }
             }
         }
+        let path = BarrierBridgePath::evaluate(&intervals)?;
+        let endpoint_touched = initial_touched || path.diagnostics().touched_endpoint_count != 0;
         Ok(LocalVolContinuousBarrierBridgeEvaluation {
-            path: BarrierBridgePath::evaluate(&intervals)?,
+            path,
             interval_node_indices: interval_node_indices.into_boxed_slice(),
             node_interpolations: node_interpolations.into_boxed_slice(),
             endpoint_touched,
+            dividend_jump_touched,
         })
     }
 
@@ -1775,6 +1927,9 @@ impl SimulationPlan {
         let mut values = [0.0; PATHWISE_COMPONENTS];
         let mut raw_buckets = None;
         values[PRICE] = price;
+        if let Some((bridge, _)) = &continuous {
+            bridge.diagnostic_values().write_to(&mut values);
+        }
         if self.request_vega || local_volatility.vega_kt.is_some() {
             let mut state_seeds = vec![0.0; path_state.states().len()];
             let mut bridge_grid_adjoints = vec![0.0; local_volatility.grid.values().len()];
@@ -1788,7 +1943,7 @@ impl SimulationPlan {
                     self.observation_affine_coordinates[barrier.expiry_observation_index];
                 state_seeds[terminal_observation.node_index] +=
                     self.discount * payoff.terminal_derivative * terminal_coordinate.b();
-                if !bridge.endpoint_touched {
+                if !bridge.endpoint_touched && !bridge.dividend_jump_touched {
                     let interval_adjoints = bridge
                         .path
                         .reverse(self.discount * payoff.survival_derivative * bridge.survival());
@@ -2078,6 +2233,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
     }
@@ -2257,6 +2413,7 @@ impl SimulationPlan {
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
     }
@@ -2333,6 +2490,25 @@ impl SimulationPlan {
                 .ok_or(pricing_product::GraphError::NoOutputs)?)
     }
 
+    fn continuous_barrier_path_values_from_normals(
+        &self,
+        normals: &[f64],
+    ) -> Result<[f64; PATHWISE_COMPONENTS], MonteCarloError> {
+        let barrier = self
+            .continuous_barrier
+            .as_ref()
+            .expect("continuous Barrier path values require a compiled Barrier");
+        let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
+        let bridge =
+            self.continuous_barrier_bridge(barrier, &observations, self.spot, self.volatility)?;
+        let terminal = observations[barrier.expiry_observation_index].post_spot;
+        let payoff = continuous_barrier_payoff_terms(barrier, terminal, bridge.survival());
+        let mut values = [0.0; PATHWISE_COMPONENTS];
+        values[PRICE] = self.discount * payoff.value;
+        bridge.diagnostic_values().write_to(&mut values);
+        Ok(values)
+    }
+
     fn continuous_barrier_discounted_payoff(
         &self,
         barrier: &ContinuousBarrierRuntime,
@@ -2358,10 +2534,14 @@ impl SimulationPlan {
         let mut intervals = Vec::with_capacity(barrier.bridge_observation_indices.len());
         let mut interval_observation_indices =
             Vec::with_capacity(barrier.bridge_observation_indices.len());
-        let mut endpoint_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        let initial_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        let mut dividend_jump_touched = false;
         let mut previous_barrier = barrier.barrier;
         let variance = volatility * volatility;
         for &index in &barrier.bridge_observation_indices {
+            if initial_touched {
+                break;
+            }
             let time = self.observation_times[index];
             let state = observations[index].canonical_f;
             let post_coordinate = self.observation_affine_coordinates[index];
@@ -2386,18 +2566,25 @@ impl SimulationPlan {
             if self.observation_pre_dividend_coordinates[index].is_some() {
                 let pre_spot = pre_coordinate.a() * self.spot + pre_coordinate.b() * state;
                 let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * state;
-                endpoint_touched |= barrier_touched(barrier.direction, pre_spot, barrier.barrier)
-                    || barrier_touched(barrier.direction, post_spot, barrier.barrier);
+                let pre_touched = barrier_touched(barrier.direction, pre_spot, barrier.barrier);
+                let post_touched = barrier_touched(barrier.direction, post_spot, barrier.barrier);
+                if pre_touched || post_touched {
+                    dividend_jump_touched = !pre_touched && post_touched;
+                    break;
+                }
             }
             previous_state = state;
             previous_barrier = post_barrier;
             previous_time = time;
             previous_index = Some(index);
         }
+        let path = BarrierBridgePath::evaluate(&intervals)?;
+        let endpoint_touched = initial_touched || path.diagnostics().touched_endpoint_count != 0;
         Ok(ContinuousBarrierBridgeEvaluation {
-            path: BarrierBridgePath::evaluate(&intervals)?,
+            path,
             interval_observation_indices: interval_observation_indices.into_boxed_slice(),
             endpoint_touched,
+            dividend_jump_touched,
         })
     }
 
@@ -2490,18 +2677,21 @@ impl SimulationPlan {
         workspace.primal_mut(1)?.set(lane, base.delta)?;
         workspace.primal_mut(2)?.set(lane, base.vega)?;
         workspace.primal_mut(3)?.set(lane, gamma)?;
-        Ok([
-            workspace.primal(0)?.get(lane)?,
-            workspace.primal(1)?.get(lane)?,
-            workspace.primal(2)?.get(lane)?,
-            workspace.primal(3)?.get(lane)?,
-            bump_delta,
-            bump_delta - base.delta,
-            bump_vega,
-            bump_vega - base.vega,
-            bump_gamma,
-            bump_gamma - gamma,
-        ])
+        let mut values = [0.0; PATHWISE_COMPONENTS];
+        values[PRICE] = workspace.primal(0)?.get(lane)?;
+        values[DELTA] = workspace.primal(1)?.get(lane)?;
+        values[VEGA] = workspace.primal(2)?.get(lane)?;
+        values[GAMMA] = workspace.primal(3)?.get(lane)?;
+        values[BUMP_DELTA] = bump_delta;
+        values[DELTA_DIFFERENCE] = bump_delta - base.delta;
+        values[BUMP_VEGA] = bump_vega;
+        values[VEGA_DIFFERENCE] = bump_vega - base.vega;
+        values[BUMP_GAMMA] = bump_gamma;
+        values[GAMMA_DIFFERENCE] = bump_gamma - gamma;
+        if let Some(diagnostics) = base.barrier_diagnostics {
+            diagnostics.write_to(&mut values);
+        }
+        Ok(values)
     }
 
     fn pathwise_aad(
@@ -2587,6 +2777,7 @@ impl SimulationPlan {
             price,
             delta: self.discount * delta,
             vega: self.discount * vega,
+            barrier_diagnostics: None,
         })
     }
 
@@ -2610,7 +2801,7 @@ impl SimulationPlan {
 
         let mut initial_state_adjoint = 0.0;
         let mut variance_adjoint = 0.0;
-        if !bridge.endpoint_touched {
+        if !bridge.endpoint_touched && !bridge.dividend_jump_touched {
             let interval_adjoints = bridge.path.reverse(payoff.survival_derivative * survival);
             for ((left_index, right_index), adjoints) in bridge
                 .interval_observation_indices
@@ -2645,6 +2836,7 @@ impl SimulationPlan {
             price: self.discount * payoff.value,
             delta: self.discount * delta,
             vega: self.discount * vega,
+            barrier_diagnostics: Some(bridge.diagnostic_values()),
         })
     }
 
@@ -2678,7 +2870,12 @@ impl SimulationPlan {
         let terminal_vega =
             coordinate.b() * canonical_f * (-volatility * self.time + self.time.sqrt() * normal);
         let vega = self.discount * terminal_adjoint * terminal_vega;
-        Ok(PathwiseAad { price, delta, vega })
+        Ok(PathwiseAad {
+            price,
+            delta,
+            vega,
+            barrier_diagnostics: None,
+        })
     }
 
     fn build_risk_report(
@@ -2846,6 +3043,7 @@ struct PathwiseAad {
     price: f64,
     delta: f64,
     vega: f64,
+    barrier_diagnostics: Option<BarrierPathDiagnosticValues>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -3035,6 +3233,30 @@ impl From<PayoffSmoothing> for PayoffSmoothingDiagnostics {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BarrierHitIndicatorMode {
+    Exact,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BarrierBridgeDiagnostics {
+    pub abi: &'static str,
+    pub policy_version: u32,
+    pub indicator_mode: BarrierHitIndicatorMode,
+    pub endpoint_hit_fraction: f64,
+    pub dividend_jump_hit_fraction: f64,
+    pub mean_conditional_bridge_hit_weight: f64,
+    pub mean_interval_count: f64,
+    pub mean_finite_correction_count: f64,
+    pub mean_zero_variance_count: f64,
+    pub mean_survival_underflow_count: f64,
+    pub mean_certain_survival_count: f64,
+}
+
+impl BarrierBridgeDiagnostics {
+    pub const POLICY_VERSION: u32 = 1;
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MonteCarloDiagnostics {
     pub master_seed: u64,
     pub estimator: EstimatorKind,
@@ -3053,6 +3275,7 @@ pub struct MonteCarloDiagnostics {
     pub dividend_region: CurveRegion,
     pub payoff_fingerprint: GraphFingerprint,
     pub payoff_smoothing: Option<PayoffSmoothingDiagnostics>,
+    pub barrier_bridge: Option<BarrierBridgeDiagnostics>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -4537,6 +4760,14 @@ mod tests {
         let live_result = live.execute().expect("live execution");
         let expected = live.discount() * (live.observation_forwards[1] - 100.0) * 2.0;
         assert!((live_result.pricing_result.value.value().get() - expected).abs() <= 1.0e-12);
+        let live_diagnostics = live_result
+            .diagnostics
+            .barrier_bridge
+            .expect("bridge diagnostics");
+        assert_eq!(live_diagnostics.endpoint_hit_fraction, 0.0);
+        assert_eq!(live_diagnostics.dividend_jump_hit_fraction, 0.0);
+        assert_eq!(live_diagnostics.mean_interval_count, 2.0);
+        assert_eq!(live_diagnostics.mean_zero_variance_count, 2.0);
 
         let touched = SimulationPlan::compile(
             &barrier_zero_vol_request_with_monitoring(50.0, BarrierMonitoring::Continuous),
@@ -4545,6 +4776,12 @@ mod tests {
         .expect("touched plan");
         let touched_result = touched.execute().expect("touched execution");
         assert_eq!(touched_result.pricing_result.value.value().get(), 0.0);
+        let touched_diagnostics = touched_result
+            .diagnostics
+            .barrier_bridge
+            .expect("bridge diagnostics");
+        assert_eq!(touched_diagnostics.endpoint_hit_fraction, 1.0);
+        assert_eq!(touched_diagnostics.mean_interval_count, 0.0);
     }
 
     #[test]
@@ -4698,6 +4935,16 @@ mod tests {
         assert!(risk_result.risk_diagnostics.delta_validation.is_some());
         assert!(risk_result.risk_diagnostics.gamma_validation.is_some());
         assert!(risk_result.risk_diagnostics.vega_validation.is_some());
+        let diagnostics = result
+            .diagnostics
+            .barrier_bridge
+            .expect("bridge diagnostics");
+        assert_eq!(diagnostics.abi, BARRIER_BRIDGE_ABI);
+        assert_eq!(diagnostics.indicator_mode, BarrierHitIndicatorMode::Exact);
+        assert_eq!(diagnostics.mean_interval_count, 1.0);
+        assert!(diagnostics.endpoint_hit_fraction > 0.0);
+        assert!(diagnostics.mean_conditional_bridge_hit_weight > 0.0);
+        assert_eq!(risk_result.diagnostics.barrier_bridge, Some(diagnostics));
     }
 
     #[test]
@@ -4731,6 +4978,16 @@ mod tests {
             .execute()
             .expect("deterministic execution");
         assert_eq!(deterministic_result.pricing_result.value.value().get(), 0.0);
+        let deterministic_diagnostics = deterministic_result
+            .diagnostics
+            .barrier_bridge
+            .expect("bridge diagnostics");
+        assert_eq!(deterministic_diagnostics.endpoint_hit_fraction, 0.0);
+        assert_eq!(deterministic_diagnostics.dividend_jump_hit_fraction, 1.0);
+        assert_eq!(
+            deterministic_diagnostics.mean_conditional_bridge_hit_weight,
+            0.0
+        );
 
         let source = match deterministic.product() {
             ProductSpec::Barrier(source) => source,

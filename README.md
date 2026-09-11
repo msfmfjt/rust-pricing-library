@@ -29,6 +29,9 @@ estimator, including affine-dividend jump boundaries, pathwise Delta/Vega, and
 bumped-AAD Gamma. Local Volatility uses the same bridge over every Log-Euler
 sub-step with trapezoidal endpoint Local variance, CRN Delta/Gamma, and reverse
 Local-volatility Vega/VegaKT.
+Result diagnostics report endpoint and dividend-jump hit fractions separately
+from the mean conditional bridge hit weight, together with bridge interval and
+stable numerical-branch counts.
 
 ## Design baselines
 

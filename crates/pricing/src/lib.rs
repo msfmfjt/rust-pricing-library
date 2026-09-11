@@ -14,9 +14,10 @@ pub mod analytical;
 
 pub use error::{MonteCarloError, RequestValidationError, ResultBuildError};
 pub use monte_carlo::{
-    BumpValidationPolicy, MonteCarloDiagnostics, MonteCarloPrice, PayoffSmoothingDiagnostics,
-    PayoffSmoothingKernel, RiskDiagnostics, RiskMethod, RiskMethodMetadata, RiskValidation,
-    SimulationPlan, price_monte_carlo, price_pseudo_monte_carlo,
+    BarrierBridgeDiagnostics, BarrierHitIndicatorMode, BumpValidationPolicy, MonteCarloDiagnostics,
+    MonteCarloPrice, PayoffSmoothingDiagnostics, PayoffSmoothingKernel, RiskDiagnostics,
+    RiskMethod, RiskMethodMetadata, RiskValidation, SimulationPlan, price_monte_carlo,
+    price_pseudo_monte_carlo,
 };
 pub use plan::{PricingPlan, compile, evaluate};
 pub use pricing_core as core;

@@ -296,6 +296,44 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
 
+        continuous_product = rust_pricing.Product.barrier(
+            1,
+            2,
+            "2027-09-04",
+            100.0,
+            120.0,
+            1.0,
+            "call",
+            "up",
+            "knock_out",
+            "continuous",
+            ["2027-09-04"],
+            "2027-09-04",
+        )
+        continuous_request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            continuous_product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 1024, antithetic=True),
+            rust_pricing.RiskRequest(delta=True, vega=True),
+        )
+        continuous_result = rust_pricing.PricingPlan.compile(
+            continuous_request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        diagnostics = continuous_result.diagnostics
+        self.assertEqual(
+            diagnostics.barrier_bridge_abi,
+            "continuous-barrier-bridge-log-survival-v1",
+        )
+        self.assertEqual(diagnostics.barrier_bridge_policy_version, 1)
+        self.assertEqual(diagnostics.barrier_hit_indicator_mode, "exact")
+        self.assertGreaterEqual(diagnostics.barrier_endpoint_hit_fraction, 0.0)
+        self.assertGreater(
+            diagnostics.barrier_mean_conditional_bridge_hit_weight, 0.0
+        )
+        self.assertEqual(diagnostics.barrier_mean_interval_count, 1.0)
+
         with self.assertRaises(rust_pricing.ValidationError) as captured:
             rust_pricing.PricingRequest(
                 "2026-09-04",
