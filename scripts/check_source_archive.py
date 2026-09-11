@@ -161,6 +161,7 @@ REQUIRED_CI_SNIPPETS = {
     "target: aarch64-apple-darwin",
     "target: x86_64-pc-windows-msvc",
     "actions/upload-artifact@v4",
+    "name: replay-candidate-${{ matrix.target }}",
     "name: rust-pricing-${{ matrix.target }}-cp312",
     "name: rust-pricing-source-${{ matrix.target }}",
     "name: benchmark-${{ matrix.target }}",
@@ -171,8 +172,8 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 2,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 3,
-    "retention-days: 14": 3,
+    "actions/upload-artifact@v4": 4,
+    "retention-days: 14": 4,
 }
 
 REQUIRED_README_SNIPPETS = {

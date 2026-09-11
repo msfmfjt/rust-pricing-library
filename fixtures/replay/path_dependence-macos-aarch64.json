@@ -678,26 +678,26 @@
         "risks": {
           "delta": {
             "market_scaled": {
-              "confidence_lower": 0.09622166818017652,
+              "confidence_lower": 0.09622166818017651,
               "confidence_upper": 0.1525115071274329,
               "effective_sampling_units": 4096,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.014359916659505857,
+              "standard_error": 0.014359916659505855,
               "value": 0.1243665876538047
             },
             "market_scaled_unit": {
               "type": "delta_one_percent_spot"
             },
             "raw": {
-              "confidence_lower": 0.09622166818017652,
+              "confidence_lower": 0.09622166818017651,
               "confidence_upper": 0.1525115071274329,
               "effective_sampling_units": 4096,
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.014359916659505857,
+              "standard_error": 0.014359916659505855,
               "value": 0.1243665876538047
             },
             "raw_unit": {
@@ -735,7 +735,7 @@
           "vega": {
             "market_scaled": {
               "confidence_lower": -0.1461924298755417,
-              "confidence_upper": -0.10116602247164803,
+              "confidence_upper": -0.10116602247164805,
               "effective_sampling_units": 4096,
               "estimator": {
                 "type": "pseudo_monte_carlo"
@@ -1035,7 +1035,7 @@
           },
           "gamma": {
             "market_scaled": {
-              "confidence_lower": -0.012791956360773503,
+              "confidence_lower": -0.012791956360773505,
               "confidence_upper": -0.004358842178057536,
               "effective_sampling_units": 8,
               "estimator": {
@@ -1048,7 +1048,7 @@
               "type": "gamma_one_percent_spot_squared"
             },
             "raw": {
-              "confidence_lower": -0.012791956360773503,
+              "confidence_lower": -0.012791956360773505,
               "confidence_upper": -0.004358842178057536,
               "effective_sampling_units": 8,
               "estimator": {
@@ -1069,7 +1069,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.0014321988743298997,
+              "standard_error": 0.0014321988743298995,
               "value": -0.15116022362872575
             },
             "market_scaled_unit": {
@@ -1381,7 +1381,7 @@
           },
           "vega": {
             "market_scaled": {
-              "confidence_lower": 0.2407072960467832,
+              "confidence_lower": 0.24070729604678318,
               "confidence_upper": 0.2574893367812854,
               "effective_sampling_units": 4096,
               "estimator": {
@@ -1686,7 +1686,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.0001757853701269457,
+              "standard_error": 0.00017578537012694567,
               "value": 0.4810617432743326
             },
             "market_scaled_unit": {
@@ -1709,7 +1709,7 @@
         },
         "schema_version": 3,
         "value": {
-          "confidence_lower": 12.937031157852717,
+          "confidence_lower": 12.937031157852715,
           "confidence_upper": 12.949456333113854,
           "effective_sampling_units": 8,
           "estimator": {

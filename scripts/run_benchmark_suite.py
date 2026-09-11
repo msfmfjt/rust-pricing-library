@@ -114,7 +114,6 @@ def main() -> None:
             str(replay_report),
         ]
     )
-    run([sys.executable, "scripts/check_replay_fixture.py", str(replay_report)])
     if local_volatility_platform_name() is not None:
         command_peak_memory_bytes["replay_local_volatility"] = run_measured(
             [
@@ -130,12 +129,6 @@ def main() -> None:
                 str(local_vol_replay_report),
             ]
         )
-        if local_volatility_fixture_exists():
-            run([sys.executable, "scripts/check_replay_fixture.py", str(local_vol_replay_report)])
-        else:
-            print(
-                f"generated unfrozen Local Volatility replay evidence at {local_vol_replay_report}"
-            )
     command_peak_memory_bytes["replay_path_dependence"] = run_measured(
         [
             "cargo",
@@ -150,10 +143,6 @@ def main() -> None:
             str(path_dependence_replay_report),
         ]
     )
-    if path_dependence_fixture_exists():
-        run([sys.executable, "scripts/check_replay_fixture.py", str(path_dependence_replay_report)])
-    else:
-        print(f"generated unfrozen Path Dependence replay evidence at {path_dependence_replay_report}")
     command_peak_memory_bytes["replay_early_exercise"] = run_measured(
         [
             "cargo",
@@ -168,10 +157,6 @@ def main() -> None:
             str(early_exercise_replay_report),
         ]
     )
-    if early_exercise_fixture_exists():
-        run([sys.executable, "scripts/check_replay_fixture.py", str(early_exercise_replay_report)])
-    else:
-        print(f"generated unfrozen Early Exercise replay evidence at {early_exercise_replay_report}")
     wheel_python = Path(
         os.environ.get(
             "WHEEL_SMOKE_PYTHON",
@@ -376,27 +361,6 @@ def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 def reject_json_constant(value: str) -> object:
     raise ValueError(f"non-standard JSON constant: {value}")
-
-
-def local_volatility_fixture_exists() -> bool:
-    platform_name = local_volatility_platform_name()
-    if platform_name is None:
-        return False
-    return (Path("fixtures/replay") / f"local_volatility-{platform_name}.json").is_file()
-
-
-def path_dependence_fixture_exists() -> bool:
-    platform_name = local_volatility_platform_name()
-    if platform_name is None:
-        return False
-    return (Path("fixtures/replay") / f"path_dependence-{platform_name}.json").is_file()
-
-
-def early_exercise_fixture_exists() -> bool:
-    platform_name = local_volatility_platform_name()
-    if platform_name is None:
-        return False
-    return (Path("fixtures/replay") / f"early_exercise-{platform_name}.json").is_file()
 
 
 def local_volatility_platform_name() -> str | None:

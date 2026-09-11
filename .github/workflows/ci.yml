@@ -133,6 +133,14 @@ jobs:
       - name: Run baseline benchmarks
         run: python scripts/run_benchmark_suite.py
 
+      - name: Retain replay candidates for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: replay-candidate-${{ matrix.target }}
+          path: benchmark-results/*-replay.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Check replay fixtures
         run: |
           python scripts/check_replay_fixture.py benchmark-results/replay.json
