@@ -1265,12 +1265,22 @@ impl SimulationPlan {
                 model: "Local Volatility American LSM",
             });
         }
-        let EngineConfig::PseudoMonteCarlo(training_engine) =
-            early_exercise.config.training_engine()
+        if let (
+            EngineConfig::RandomizedQuasiMonteCarlo(training_engine),
+            EngineConfig::RandomizedQuasiMonteCarlo(valuation_engine),
+        ) = (early_exercise.config.training_engine(), self.engine)
+        {
+            return self.execute_early_exercise_rqmc(
+                early_exercise,
+                training_engine,
+                valuation_engine,
+            );
+        }
+        let (
+            EngineConfig::PseudoMonteCarlo(training_engine),
+            EngineConfig::PseudoMonteCarlo(valuation_engine),
+        ) = (early_exercise.config.training_engine(), self.engine)
         else {
-            return Err(MonteCarloError::UnsupportedEngine);
-        };
-        let EngineConfig::PseudoMonteCarlo(valuation_engine) = self.engine else {
             return Err(MonteCarloError::UnsupportedEngine);
         };
         let training = self.constant_vol_lsm_path_matrices(
@@ -1344,6 +1354,10 @@ impl SimulationPlan {
             policy_fingerprint: valued.policy_fingerprint(),
             training_random_domain: early_exercise.config.training_random_domain(),
             valuation_random_domain: RandomDomain::Valuation,
+            training_direction_checksum: None,
+            training_scramble_checksum: None,
+            valuation_direction_checksum: None,
+            valuation_scramble_checksum: None,
             training_sampling_units: training_engine.independent_sampling_units().get(),
             training_trajectories: training.path_count as u64,
             valuation_sampling_units: independent_units,
@@ -1391,6 +1405,144 @@ impl SimulationPlan {
                 checkpoint_policy_version: self.checkpoint_policy.version(),
                 checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
                 antithetic,
+                discount_region: self.discount_region,
+                dividend_region: self.dividend_region,
+                payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: PayoffValuationKind::ExactContractual,
+                payoff_smoothing: None,
+                path_state: None,
+                barrier_bridge: None,
+            },
+            early_exercise_diagnostics: Some(early_exercise_diagnostics),
+        })
+    }
+
+    fn execute_early_exercise_rqmc(
+        &self,
+        early_exercise: &EarlyExerciseRuntime,
+        training_engine: RqmcConfig,
+        valuation_engine: RqmcConfig,
+    ) -> Result<MonteCarloPrice, MonteCarloError> {
+        let (training, training_qmc) =
+            self.rqmc_lsm_path_matrices(training_engine, early_exercise)?;
+        let training_metadata = early_exercise
+            .config
+            .training_metadata(*self.payoff.source_fingerprint().as_bytes())?;
+        let fitted = train_exercise_policy(
+            &early_exercise.exercise_dates,
+            early_exercise.config.basis().clone(),
+            &training.features,
+            training.path_count,
+            &training.immediate_values,
+            &early_exercise.discount_factors,
+            early_exercise.config.itm_abs_tolerance(),
+            early_exercise.config.cpqr_config(),
+            early_exercise.config.max_matrix_elements(),
+            training_metadata,
+        )?;
+        let (valuation, valuation_qmc) =
+            self.rqmc_lsm_path_matrices(valuation_engine, early_exercise)?;
+        let valued = value_exercise_policy(
+            fitted.policy(),
+            &valuation.features,
+            valuation.path_count,
+            &valuation.immediate_values,
+            &early_exercise.discount_factors,
+        )?;
+        let replicate_values =
+            rqmc_replicate_values(valued.discounted_cashflows(), valuation_engine)?;
+        let statistics = DeterministicStatistics::from_ordered_values_two_pass(&replicate_values);
+        let independent_units = u64::from(valuation_engine.scramble_count().get());
+        let estimate = estimate_from_statistics(
+            statistics,
+            independent_units,
+            1.0,
+            EstimatorKind::RandomizedQuasiMonteCarlo,
+        )?;
+        let sampling_variance = statistics.moments().sample_variance().unwrap_or(0.0);
+        let estimator_variance = sampling_variance / independent_units as f64;
+        let in_sample_discounted = fitted
+            .realized_cashflows()
+            .iter()
+            .zip(fitted.stopping_indices())
+            .map(|(cashflow, stopping_index)| {
+                cashflow * early_exercise.discount_factors[*stopping_index]
+            })
+            .collect::<Vec<_>>();
+        let in_sample_replicates = rqmc_replicate_values(&in_sample_discounted, training_engine)?;
+        let in_sample_value =
+            DeterministicStatistics::from_ordered_values_two_pass(&in_sample_replicates)
+                .sum()
+                .total()
+                / in_sample_replicates.len() as f64;
+        let exercise_probabilities = valued
+            .exercise_counts()
+            .iter()
+            .map(|count| *count as f64 / valuation.path_count as f64)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let early_exercise_diagnostics = EarlyExerciseDiagnostics {
+            policy_fingerprint: valued.policy_fingerprint(),
+            training_random_domain: RandomDomain::RqmcScramble,
+            valuation_random_domain: RandomDomain::RqmcScramble,
+            training_direction_checksum: Some(training_qmc.direction_checksum()),
+            training_scramble_checksum: Some(training_qmc.scramble_checksum()),
+            valuation_direction_checksum: Some(valuation_qmc.direction_checksum()),
+            valuation_scramble_checksum: Some(valuation_qmc.scramble_checksum()),
+            training_sampling_units: u64::from(training_engine.scramble_count().get()),
+            training_trajectories: training.path_count as u64,
+            valuation_sampling_units: independent_units,
+            valuation_trajectories: valuation.path_count as u64,
+            in_sample_value,
+            exercise_dates: early_exercise.exercise_dates.clone(),
+            exercise_counts: valued.exercise_counts().into(),
+            exercise_probabilities,
+            stopping_indices: valued.stopping_indices().into(),
+            dividend_collisions: early_exercise.dividend_collisions.clone(),
+            regression_diagnostics: fitted.policy().diagnostics().into(),
+        };
+        let pricing_result = PricingResult {
+            value: estimate,
+            risks: RiskReport {
+                delta: None,
+                gamma: None,
+                vega: None,
+                vega_kt: None,
+            },
+            diagnostics: Diagnostics::new(extrapolation_warnings(
+                self.discount_region,
+                self.dividend_region,
+            )),
+            replay: self.replay_metadata(),
+        };
+        let multiplier = if valuation_engine.variance_reduction().antithetic() {
+            2_u128
+        } else {
+            1_u128
+        };
+        Ok(MonteCarloPrice {
+            pricing_result,
+            sampling_variance,
+            estimator_variance,
+            risk_diagnostics: empty_risk_diagnostics(self.smile_dynamics),
+            independent_sampling_units: independent_units,
+            evaluated_paths: u128::from(valuation_engine.points_per_scramble().get())
+                * u128::from(valuation_engine.scramble_count().get())
+                * multiplier,
+            diagnostics: MonteCarloDiagnostics {
+                master_seed: valuation_engine.master_scramble_seed(),
+                estimator: EstimatorKind::RandomizedQuasiMonteCarlo,
+                scramble_count: Some(valuation_engine.scramble_count().get()),
+                direction_checksum: Some(valuation_qmc.direction_checksum()),
+                scramble_checksum: Some(valuation_qmc.scramble_checksum()),
+                policy_version: self.execution_policy.version(),
+                worker_threads: self.execution_policy.worker_threads().get(),
+                reduction_block_size: self.execution_policy.reduction_block_size().get(),
+                aad_tile_policy_version: self.aad_tile_policy.version(),
+                aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
+                checkpoint_policy_version: self.checkpoint_policy.version(),
+                checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
+                antithetic: valuation_engine.variance_reduction().antithetic(),
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
@@ -1463,6 +1615,80 @@ impl SimulationPlan {
             immediate_values: immediate_values.into_boxed_slice(),
             features: features.into_boxed_slice(),
         })
+    }
+
+    fn rqmc_lsm_path_matrices(
+        &self,
+        engine: RqmcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+    ) -> Result<(LsmPathMatrices, RqmcPlan), MonteCarloError> {
+        let effective_dimension = u32::try_from(self.observation_times.len())
+            .map_err(|_| RqmcPlanError::TableSizeOverflow)?;
+        let qmc = RqmcPlan::compile(engine, effective_dimension)?;
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let scrambles = usize::try_from(engine.scramble_count().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let points = usize::try_from(engine.points_per_scramble().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let path_count = scrambles
+            .checked_mul(points)
+            .and_then(|count| count.checked_mul(multiplier))
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        let date_count = early_exercise.exercise_dates.len();
+        let feature_count = early_exercise.config.state_variables().len();
+        let mut immediate_values = zeroed_lsm_values(
+            date_count
+                .checked_mul(path_count)
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "American RQMC immediate values",
+        )?;
+        let mut features = zeroed_lsm_values(
+            date_count
+                .saturating_sub(1)
+                .checked_mul(path_count)
+                .and_then(|count| count.checked_mul(feature_count))
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "American RQMC state features",
+        )?;
+        for scramble in 0..engine.scramble_count().get() {
+            for point in 0..engine.points_per_scramble().get() {
+                let base_path = (usize::try_from(scramble).expect("u32 fits usize") * points
+                    + usize::try_from(point).expect("configured RQMC point count fits usize"))
+                    * multiplier;
+                let normals = self.rqmc_normals(&qmc, scramble, point)?;
+                self.write_lsm_trajectory(
+                    &normals,
+                    base_path,
+                    path_count,
+                    early_exercise,
+                    &mut immediate_values,
+                    &mut features,
+                )?;
+                if multiplier == 2 {
+                    let mate_normals = normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                    self.write_lsm_trajectory(
+                        &mate_normals,
+                        base_path + 1,
+                        path_count,
+                        early_exercise,
+                        &mut immediate_values,
+                        &mut features,
+                    )?;
+                }
+            }
+        }
+        Ok((
+            LsmPathMatrices {
+                path_count,
+                immediate_values: immediate_values.into_boxed_slice(),
+                features: features.into_boxed_slice(),
+            },
+            qmc,
+        ))
     }
 
     fn write_lsm_trajectory(
@@ -3988,6 +4214,66 @@ fn collapse_antithetic_values(
     Ok(values)
 }
 
+fn rqmc_replicate_values(
+    path_values: &[f64],
+    engine: RqmcConfig,
+) -> Result<Vec<f64>, LsmNumericalError> {
+    let multiplier = if engine.variance_reduction().antithetic() {
+        2_usize
+    } else {
+        1_usize
+    };
+    let points = usize::try_from(engine.points_per_scramble().get())
+        .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+    let paths_per_scramble = points
+        .checked_mul(multiplier)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    let scramble_count = usize::try_from(engine.scramble_count().get())
+        .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+    let expected = scramble_count
+        .checked_mul(paths_per_scramble)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if path_values.len() != expected {
+        return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+            expected,
+            actual: path_values.len(),
+        });
+    }
+    let mut replicates = Vec::new();
+    replicates.try_reserve_exact(scramble_count).map_err(|_| {
+        LsmNumericalError::AllocationFailed {
+            resource: "LSM RQMC replicate values",
+            requested: scramble_count,
+        }
+    })?;
+    for scramble_values in path_values.chunks_exact(paths_per_scramble) {
+        let mut sum = pricing_numerics::NeumaierSum::new();
+        if multiplier == 2 {
+            for pair in scramble_values.as_chunks::<2>().0 {
+                let value = (pair[0] + pair[1]) * 0.5;
+                if !value.is_finite() {
+                    return Err(LsmNumericalError::NonFiniteIntermediate {
+                        stage: "RQMC antithetic point average",
+                    });
+                }
+                sum.add(value);
+            }
+        } else {
+            for &value in scramble_values {
+                sum.add(value);
+            }
+        }
+        let replicate = sum.total() / points as f64;
+        if !replicate.is_finite() {
+            return Err(LsmNumericalError::NonFiniteIntermediate {
+                stage: "RQMC replicate average",
+            });
+        }
+        replicates.push(replicate);
+    }
+    Ok(replicates)
+}
+
 fn empty_risk_diagnostics(smile_dynamics: SmileDynamics) -> RiskDiagnostics {
     RiskDiagnostics {
         methods: RiskMethodMetadata {
@@ -4338,6 +4624,10 @@ pub struct EarlyExerciseDiagnostics {
     pub policy_fingerprint: ExercisePolicyFingerprint,
     pub training_random_domain: RandomDomain,
     pub valuation_random_domain: RandomDomain,
+    pub training_direction_checksum: Option<[u8; 32]>,
+    pub training_scramble_checksum: Option<[u8; 32]>,
+    pub valuation_direction_checksum: Option<[u8; 32]>,
+    pub valuation_scramble_checksum: Option<[u8; 32]>,
     pub training_sampling_units: u64,
     pub training_trajectories: u64,
     pub valuation_sampling_units: u64,
@@ -4632,6 +4922,41 @@ mod tests {
         .expect("American request")
     }
 
+    fn american_rqmc_request(
+        side: OptionSide,
+        strike: f64,
+        training_seed: u64,
+        valuation_seed: u64,
+    ) -> PricingRequest {
+        let base = american_request(side, strike, 0.2, 2, 2, true);
+        let training_engine = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(2048, 8, training_seed, VarianceReduction::new(true, true))
+                .expect("training RQMC engine"),
+        );
+        let lsm = LsmConfig::new(
+            training_engine,
+            vec![LsmStateVariable::Spot],
+            PolynomialBasisSpec::new(1, 3, 8, 8).expect("basis"),
+            0.0,
+            CpqrConfig::new(1.0e-14, 1.0e-12).expect("CPQR config"),
+            1_000_000,
+        )
+        .expect("LSM config");
+        PricingRequest::new_with_lsm(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            base.model().clone(),
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(4096, 16, valuation_seed, VarianceReduction::new(true, true))
+                    .expect("valuation RQMC engine"),
+            ),
+            base.risk().clone(),
+            Some(lsm),
+        )
+        .expect("American RQMC request")
+    }
+
     #[test]
     fn american_zero_volatility_exercises_at_deterministic_optimal_date() {
         let request = american_request(OptionSide::Put, 120.0, 0.0, 2, 2, true);
@@ -4701,6 +5026,78 @@ mod tests {
         assert_eq!(diagnostics.valuation_trajectories, 4096);
         assert_eq!(diagnostics.exercise_counts.iter().sum::<usize>(), 4096);
         assert_eq!(diagnostics.regression_diagnostics.len(), 3);
+    }
+
+    #[test]
+    fn american_rqmc_uses_between_scramble_uncertainty_and_replays() {
+        let request = american_rqmc_request(OptionSide::Put, 100.0, 0x1111, 0x2222);
+        let serial = price_monte_carlo(&request, policy(1)).expect("serial American RQMC price");
+        let parallel =
+            price_monte_carlo(&request, policy(4)).expect("parallel American RQMC price");
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(
+            serial.early_exercise_diagnostics,
+            parallel.early_exercise_diagnostics
+        );
+        assert_eq!(serial.independent_sampling_units, 16);
+        assert_eq!(serial.evaluated_paths, 131_072);
+        assert_eq!(serial.diagnostics.scramble_count, Some(16));
+        assert_eq!(
+            serial.estimator_variance.sqrt().to_bits(),
+            serial.pricing_result.value.standard_error().get().to_bits()
+        );
+        let diagnostics = serial
+            .early_exercise_diagnostics
+            .expect("early-exercise diagnostics");
+        assert_eq!(
+            diagnostics.training_random_domain,
+            RandomDomain::RqmcScramble
+        );
+        assert_eq!(
+            diagnostics.valuation_random_domain,
+            RandomDomain::RqmcScramble
+        );
+        assert_eq!(diagnostics.training_sampling_units, 8);
+        assert_eq!(diagnostics.training_trajectories, 32_768);
+        assert_eq!(diagnostics.valuation_sampling_units, 16);
+        assert_eq!(diagnostics.valuation_trajectories, 131_072);
+        assert_eq!(
+            diagnostics.training_direction_checksum,
+            diagnostics.valuation_direction_checksum
+        );
+        assert_ne!(
+            diagnostics.training_scramble_checksum,
+            diagnostics.valuation_scramble_checksum
+        );
+        assert_eq!(diagnostics.exercise_counts.iter().sum::<usize>(), 131_072);
+    }
+
+    #[test]
+    fn american_rqmc_seed_changes_policy_and_valuation_replicates() {
+        let first = price_monte_carlo(
+            &american_rqmc_request(OptionSide::Put, 100.0, 0x1111, 0x2222),
+            policy(2),
+        )
+        .expect("first American RQMC price");
+        let changed = price_monte_carlo(
+            &american_rqmc_request(OptionSide::Put, 100.0, 0x3333, 0x4444),
+            policy(2),
+        )
+        .expect("changed American RQMC price");
+        assert_ne!(
+            first.pricing_result.value.value().get().to_bits(),
+            changed.pricing_result.value.value().get().to_bits()
+        );
+        assert_ne!(
+            first
+                .early_exercise_diagnostics
+                .expect("first diagnostics")
+                .policy_fingerprint,
+            changed
+                .early_exercise_diagnostics
+                .expect("changed diagnostics")
+                .policy_fingerprint
+        );
     }
 
     #[test]
