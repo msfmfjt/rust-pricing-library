@@ -50,6 +50,7 @@ stable numerical-branch counts.
 - [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
+- [Early Exercise implementation roadmap](docs/early-exercise-roadmap-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
