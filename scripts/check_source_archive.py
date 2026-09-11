@@ -52,6 +52,8 @@ REQUIRED_FILES = {
     "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin",
     "schemas/v1/pricing_request.schema.json",
     "schemas/v1/pricing_result.schema.json",
+    "schemas/v2/pricing_request.schema.json",
+    "schemas/v2/pricing_result.schema.json",
     "fixtures/acceptance/README.md",
     "fixtures/acceptance/european_bs_analytical.csv",
     "fixtures/local-vol/README.md",
@@ -65,6 +67,9 @@ REQUIRED_FILES = {
     "fixtures/replay/local_volatility-windows-x86_64.json",
     "fixtures/v1/pricing_request.golden.json",
     "fixtures/v1/pricing_result.golden.json",
+    "fixtures/v2/pricing_request.golden.json",
+    "fixtures/v2/pricing_result.golden.json",
+    "fixtures/v2/pricing_result_v1_migrated.golden.json",
     "rust_pricing.pyi",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
@@ -81,6 +86,7 @@ REQUIRED_FILES = {
     "benchmarks/python_european_bs.py",
     "examples/python/european_bs.py",
     "examples/python/local_vol_vegakt.py",
+    "examples/python/path_dependence.py",
     "tests/python/test_smoke.py",
 }
 

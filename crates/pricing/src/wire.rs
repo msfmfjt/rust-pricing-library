@@ -18,21 +18,25 @@ use pricing_product::{
     FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing_risk::{
-    GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
+    GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
+    VegaKtConfig,
 };
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::{
-    Diagnostics, Estimate, EstimatorKind, PricingRequest, PricingResult, PricingWarning,
-    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult, VegaKtResultBucketEstimate,
-    VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
-    VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit,
+    Diagnostics, Estimate, EstimatorKind, MigrationProvenance, PricingRequest, PricingResult,
+    PricingWarning, ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult,
+    VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
+    VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
+    VegaKtResultUnit,
 };
 
 const DOCUMENT_REQUEST: &str = "pricing_request";
 const DOCUMENT_RESULT: &str = "pricing_result";
+const MIGRATION_REQUEST_V1_TO_V2: &str = "pricing_request/v1-to-v2";
+const MIGRATION_RESULT_V1_TO_V2: &str = "pricing_result/v1-to-v2";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct JsonLimits {
@@ -187,11 +191,11 @@ impl MigrationRegistry {
 
     #[must_use]
     pub const fn accepted_source_versions(self) -> &'static [u32] {
-        &[1]
+        &[1, 2]
     }
 
     pub fn validate_source(self, version: u32) -> Result<(), WireError> {
-        if version == SchemaVersion::CURRENT.get() {
+        if self.accepted_source_versions().contains(&version) {
             Ok(())
         } else {
             Err(WireError::UnsupportedSchemaVersion(version))
@@ -206,6 +210,19 @@ struct Envelope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RequestV2 {
+    document_kind: String,
+    schema_version: u32,
+    valuation_date: String,
+    product: ProductV1,
+    market: MarketV1,
+    model: ModelV1,
+    engine: EngineV1,
+    risk: RiskV2,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RequestV1 {
     document_kind: String,
@@ -427,7 +444,7 @@ struct VarianceReductionV1 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RiskV1 {
+struct RiskV2 {
     delta: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     gamma: Option<GammaV1>,
@@ -440,6 +457,21 @@ struct RiskV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     aad_tile_capacity: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    payoff_smoothing: Option<PayoffSmoothingV1>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payoff_smoothing_width_ladder: Option<Vec<f64>>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RiskV1 {
+    delta: bool,
+    gamma: Option<GammaV1>,
+    vega: bool,
+    vega_kt: Option<VegaKtV1>,
+    smile_dynamics: SmileDynamicsV1,
+    checkpoint_interval: Option<u32>,
+    aad_tile_capacity: Option<u32>,
     payoff_smoothing: Option<PayoffSmoothingV1>,
 }
 
@@ -487,7 +519,7 @@ enum SmileDynamicsV1 {
     Delta,
 }
 
-impl From<&PricingRequest> for RequestV1 {
+impl From<&PricingRequest> for RequestV2 {
     fn from(request: &PricingRequest) -> Self {
         Self {
             document_kind: DOCUMENT_REQUEST.to_owned(),
@@ -497,7 +529,7 @@ impl From<&PricingRequest> for RequestV1 {
             market: MarketV1::from(request.market()),
             model: ModelV1::from(request.model()),
             engine: EngineV1::from(request.engine()),
-            risk: RiskV1::from(request.risk()),
+            risk: RiskV2::from(request.risk()),
         }
     }
 }
@@ -748,7 +780,7 @@ impl From<VarianceReduction> for VarianceReductionV1 {
     }
 }
 
-impl From<&RiskRequest> for RiskV1 {
+impl From<&RiskRequest> for RiskV2 {
     fn from(risk: &RiskRequest) -> Self {
         Self {
             delta: risk.delta(),
@@ -761,6 +793,45 @@ impl From<&RiskRequest> for RiskV1 {
             checkpoint_interval: risk.checkpoint_interval().map(std::num::NonZeroU32::get),
             aad_tile_capacity: risk.aad_tile_capacity().map(std::num::NonZeroU32::get),
             payoff_smoothing: risk.payoff_smoothing().map(Into::into),
+            payoff_smoothing_width_ladder: risk.payoff_smoothing_width_ladder().map(|ladder| {
+                ladder
+                    .half_widths()
+                    .iter()
+                    .map(|value| value.get())
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl From<RequestV1> for RequestV2 {
+    fn from(value: RequestV1) -> Self {
+        debug_assert_eq!(value.schema_version, 1);
+        Self {
+            document_kind: value.document_kind,
+            schema_version: SchemaVersion::CURRENT.get(),
+            valuation_date: value.valuation_date,
+            product: value.product,
+            market: value.market,
+            model: value.model,
+            engine: value.engine,
+            risk: value.risk.into(),
+        }
+    }
+}
+
+impl From<RiskV1> for RiskV2 {
+    fn from(value: RiskV1) -> Self {
+        Self {
+            delta: value.delta,
+            gamma: value.gamma,
+            vega: value.vega,
+            vega_kt: value.vega_kt,
+            smile_dynamics: value.smile_dynamics,
+            checkpoint_interval: value.checkpoint_interval,
+            aad_tile_capacity: value.aad_tile_capacity,
+            payoff_smoothing: value.payoff_smoothing,
+            payoff_smoothing_width_ladder: None,
         }
     }
 }
@@ -813,9 +884,9 @@ impl From<SmileDynamics> for SmileDynamicsV1 {
     }
 }
 
-impl TryFrom<RequestV1> for PricingRequest {
+impl TryFrom<RequestV2> for PricingRequest {
     type Error = WireError;
-    fn try_from(value: RequestV1) -> Result<Self, Self::Error> {
+    fn try_from(value: RequestV2) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_REQUEST)?;
         let valuation_date = parse_date_at(&value.valuation_date, "/valuation_date")?;
         let product = match value.product {
@@ -1190,7 +1261,12 @@ fn curve_from_wire(
     .map_err(|error| domain_at(pointer, error))
 }
 
-fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
+fn risk_from_wire(value: RiskV2) -> Result<RiskRequest, WireError> {
+    let payoff_smoothing_width_ladder = value
+        .payoff_smoothing_width_ladder
+        .map(PayoffSmoothingWidthLadder::new)
+        .transpose()
+        .map_err(|error| domain_at("/risk/payoff_smoothing_width_ladder", error))?;
     let payoff_smoothing = value
         .payoff_smoothing
         .map(|smoothing| match smoothing {
@@ -1244,8 +1320,12 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
         value.aad_tile_capacity,
     )
     .map_err(|error| domain_at("/risk", error))?;
-    Ok(match payoff_smoothing {
+    let request = match payoff_smoothing {
         Some(smoothing) => request.with_payoff_smoothing(smoothing),
+        None => request,
+    };
+    Ok(match payoff_smoothing_width_ladder {
+        Some(ladder) => request.with_payoff_smoothing_width_ladder(ladder),
         None => request,
     })
 }
@@ -1279,6 +1359,17 @@ struct ResultV1 {
     risks: RiskReportV1,
     diagnostics: DiagnosticsV1,
     replay: ReplayV1,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResultV2 {
+    document_kind: String,
+    schema_version: u32,
+    value: EstimateV1,
+    risks: RiskReportV1,
+    diagnostics: DiagnosticsV1,
+    replay: ReplayV2,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -1442,7 +1533,27 @@ struct ReplayV1 {
     platform: String,
 }
 
-impl From<&PricingResult> for ResultV1 {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplayV2 {
+    schema_version: u32,
+    request_fingerprint: String,
+    library_version: String,
+    platform: String,
+    migration: MigrationProvenanceV2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MigrationProvenanceV2 {
+    original_schema_version: u32,
+    current_schema_version: u32,
+    migration_ids: Vec<String>,
+    pre_migration_fingerprint: String,
+    post_migration_fingerprint: String,
+}
+
+impl From<&PricingResult> for ResultV2 {
     fn from(result: &PricingResult) -> Self {
         Self {
             document_kind: DOCUMENT_RESULT.to_owned(),
@@ -1460,11 +1571,51 @@ impl From<&PricingResult> for ResultV1 {
                     })
                     .collect(),
             },
-            replay: ReplayV1 {
+            replay: ReplayV2 {
                 schema_version: result.replay.schema_version().get(),
                 request_fingerprint: Fingerprint(*result.replay.request_fingerprint()).to_string(),
                 library_version: result.replay.library_version().to_owned(),
                 platform: result.replay.platform().to_owned(),
+                migration: MigrationProvenanceV2::from(result.replay.migration()),
+            },
+        }
+    }
+}
+
+impl From<&MigrationProvenance> for MigrationProvenanceV2 {
+    fn from(value: &MigrationProvenance) -> Self {
+        Self {
+            original_schema_version: value.original_schema_version().get(),
+            current_schema_version: value.current_schema_version().get(),
+            migration_ids: value.migration_ids().to_vec(),
+            pre_migration_fingerprint: Fingerprint(*value.pre_migration_fingerprint()).to_string(),
+            post_migration_fingerprint: Fingerprint(*value.post_migration_fingerprint())
+                .to_string(),
+        }
+    }
+}
+
+impl From<ResultV1> for ResultV2 {
+    fn from(value: ResultV1) -> Self {
+        let request_fingerprint = value.replay.request_fingerprint;
+        Self {
+            document_kind: value.document_kind,
+            schema_version: SchemaVersion::CURRENT.get(),
+            value: value.value,
+            risks: value.risks,
+            diagnostics: value.diagnostics,
+            replay: ReplayV2 {
+                schema_version: SchemaVersion::CURRENT.get(),
+                migration: MigrationProvenanceV2 {
+                    original_schema_version: 1,
+                    current_schema_version: SchemaVersion::CURRENT.get(),
+                    migration_ids: vec![MIGRATION_RESULT_V1_TO_V2.to_owned()],
+                    pre_migration_fingerprint: request_fingerprint.clone(),
+                    post_migration_fingerprint: request_fingerprint.clone(),
+                },
+                request_fingerprint,
+                library_version: value.replay.library_version,
+                platform: value.replay.platform,
             },
         }
     }
@@ -1642,9 +1793,9 @@ impl From<VegaKtResultUnit> for VegaKtBucketUnitV1 {
     }
 }
 
-impl TryFrom<ResultV1> for PricingResult {
+impl TryFrom<ResultV2> for PricingResult {
     type Error = WireError;
-    fn try_from(value: ResultV1) -> Result<Self, Self::Error> {
+    fn try_from(value: ResultV2) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_RESULT)?;
         let replay_version = SchemaVersion::new(value.replay.schema_version)
             .map_err(|error| domain_at("/replay/schema_version", error))?;
@@ -1658,6 +1809,12 @@ impl TryFrom<ResultV1> for PricingResult {
                 ),
             ));
         }
+        let request_fingerprint = parse_fingerprint_at(
+            &value.replay.request_fingerprint,
+            "/replay/request_fingerprint",
+        )?;
+        let migration =
+            migration_provenance_from_wire(value.replay.migration, request_fingerprint)?;
         Ok(Self {
             value: estimate_from_wire(value.value, "/value")?,
             risks: RiskReport {
@@ -1690,17 +1847,92 @@ impl TryFrom<ResultV1> for PricingResult {
                     .map(|w| PricingWarning::new(w.code, w.message))
                     .collect(),
             ),
-            replay: ReplayMetadata::new(
+            replay: ReplayMetadata::with_migration(
                 replay_version,
-                parse_fingerprint_at(
-                    &value.replay.request_fingerprint,
-                    "/replay/request_fingerprint",
-                )?,
+                request_fingerprint,
                 non_empty_string_at(value.replay.library_version, "/replay/library_version")?,
                 non_empty_string_at(value.replay.platform, "/replay/platform")?,
+                migration,
             ),
         })
     }
+}
+
+fn migration_provenance_from_wire(
+    value: MigrationProvenanceV2,
+    request_fingerprint: [u8; 32],
+) -> Result<MigrationProvenance, WireError> {
+    let original_schema_version = SchemaVersion::new(value.original_schema_version)
+        .map_err(|error| domain_at("/replay/migration/original_schema_version", error))?;
+    let current_schema_version = SchemaVersion::new(value.current_schema_version)
+        .map_err(|error| domain_at("/replay/migration/current_schema_version", error))?;
+    if current_schema_version != SchemaVersion::CURRENT {
+        return Err(domain_at(
+            "/replay/migration/current_schema_version",
+            format!(
+                "unsupported current_schema_version {}; expected {}",
+                current_schema_version.get(),
+                SchemaVersion::CURRENT.get()
+            ),
+        ));
+    }
+    if !MigrationRegistry
+        .accepted_source_versions()
+        .contains(&original_schema_version.get())
+    {
+        return Err(domain_at(
+            "/replay/migration/original_schema_version",
+            "original_schema_version is not accepted by the migration registry",
+        ));
+    }
+    let expected_ids: &[&str] = match original_schema_version.get() {
+        1 => &[MIGRATION_REQUEST_V1_TO_V2, MIGRATION_RESULT_V1_TO_V2],
+        2 => &[],
+        _ => unreachable!("accepted versions are checked above"),
+    };
+    let identifiers_valid = match expected_ids {
+        [] => value.migration_ids.is_empty(),
+        [request_id, result_id] => {
+            value.migration_ids.len() == 1
+                && matches!(value.migration_ids[0].as_str(), id if id == *request_id || id == *result_id)
+        }
+        _ => unreachable!("v1 has two document-specific alternatives"),
+    };
+    if !identifiers_valid {
+        return Err(domain_at(
+            "/replay/migration/migration_ids",
+            "migration identifiers do not match the registered schema path",
+        ));
+    }
+    let pre_migration_fingerprint = parse_fingerprint_at(
+        &value.pre_migration_fingerprint,
+        "/replay/migration/pre_migration_fingerprint",
+    )?;
+    let post_migration_fingerprint = parse_fingerprint_at(
+        &value.post_migration_fingerprint,
+        "/replay/migration/post_migration_fingerprint",
+    )?;
+    if post_migration_fingerprint != request_fingerprint {
+        return Err(domain_at(
+            "/replay/migration/post_migration_fingerprint",
+            "post_migration_fingerprint must equal replay.request_fingerprint",
+        ));
+    }
+    if original_schema_version == current_schema_version
+        && pre_migration_fingerprint != post_migration_fingerprint
+    {
+        return Err(domain_at(
+            "/replay/migration/pre_migration_fingerprint",
+            "an unmigrated result must have identical pre/post fingerprints",
+        ));
+    }
+    Ok(MigrationProvenance::new(
+        original_schema_version,
+        current_schema_version,
+        value.migration_ids,
+        pre_migration_fingerprint,
+        post_migration_fingerprint,
+    ))
 }
 
 fn estimate_from_wire(
@@ -1871,16 +2103,16 @@ fn vega_kt_unit_from_wire(value: VegaKtBucketUnitV1) -> VegaKtResultUnit {
 }
 
 pub fn request_to_json(request: &PricingRequest) -> Result<String, WireError> {
-    serialize(&RequestV1::from(request), false)
+    serialize(&RequestV2::from(request), false)
 }
 pub fn request_to_pretty_json(request: &PricingRequest) -> Result<String, WireError> {
-    serialize(&RequestV1::from(request), true)
+    serialize(&RequestV2::from(request), true)
 }
 pub fn result_to_json(result: &PricingResult) -> Result<String, WireError> {
-    serialize(&ResultV1::from(result), false)
+    serialize(&ResultV2::from(result), false)
 }
 pub fn result_to_pretty_json(result: &PricingResult) -> Result<String, WireError> {
-    serialize(&ResultV1::from(result), true)
+    serialize(&ResultV2::from(result), true)
 }
 
 fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> {
@@ -1896,25 +2128,57 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
     let text = validate_and_decode(input, limits)?;
-    validate_envelope(text, DOCUMENT_REQUEST)?;
-    serde_json::from_str::<RequestV1>(text)
-        .map_err(json)?
-        .try_into()
+    let version = validate_envelope(text, DOCUMENT_REQUEST)?;
+    let source_fingerprint = (version == 1)
+        .then(|| {
+            serde_json::from_str::<Value>(text)
+                .map_err(json)
+                .and_then(|value| fingerprint_request_value(&value, version))
+        })
+        .transpose()?;
+    let current = match version {
+        1 => RequestV2::from(serde_json::from_str::<RequestV1>(text).map_err(json)?),
+        2 => serde_json::from_str::<RequestV2>(text).map_err(json)?,
+        _ => return Err(WireError::UnsupportedSchemaVersion(version)),
+    };
+    let request = PricingRequest::try_from(current)?;
+    let current_fingerprint = *fingerprint_request(&request)?.as_bytes();
+    let original_schema_version =
+        SchemaVersion::new(version).map_err(|error| WireError::Domain(error.to_string()))?;
+    let migration_ids = if version == SchemaVersion::CURRENT.get() {
+        Vec::new()
+    } else {
+        vec![MIGRATION_REQUEST_V1_TO_V2.to_owned()]
+    };
+    Ok(request.with_wire_migration(MigrationProvenance::new(
+        original_schema_version,
+        SchemaVersion::CURRENT,
+        migration_ids,
+        source_fingerprint.map_or(current_fingerprint, |fingerprint| *fingerprint.as_bytes()),
+        current_fingerprint,
+    )))
 }
 
 pub fn parse_result_json(input: &[u8], limits: JsonLimits) -> Result<PricingResult, WireError> {
     let text = validate_and_decode(input, limits)?;
-    validate_envelope(text, DOCUMENT_RESULT)?;
-    serde_json::from_str::<ResultV1>(text)
-        .map_err(json)?
-        .try_into()
+    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    let current = match version {
+        1 => ResultV2::from(serde_json::from_str::<ResultV1>(text).map_err(json)?),
+        2 => serde_json::from_str::<ResultV2>(text).map_err(json)?,
+        _ => return Err(WireError::UnsupportedSchemaVersion(version)),
+    };
+    current.try_into()
 }
 
 pub fn fingerprint_request(request: &PricingRequest) -> Result<Fingerprint, WireError> {
-    let value = serde_json::to_value(RequestV1::from(request)).map_err(json)?;
+    let value = serde_json::to_value(RequestV2::from(request)).map_err(json)?;
+    fingerprint_request_value(&value, SchemaVersion::CURRENT.get())
+}
+
+fn fingerprint_request_value(value: &Value, schema_version: u32) -> Result<Fingerprint, WireError> {
     let mut bytes = b"pricing/request\0".to_vec();
-    bytes.extend_from_slice(&SchemaVersion::CURRENT.get().to_be_bytes());
-    encode_value(&value, &mut bytes)?;
+    bytes.extend_from_slice(&schema_version.to_be_bytes());
+    encode_value(value, &mut bytes)?;
     Ok(Fingerprint(*blake3::hash(&bytes).as_bytes()))
 }
 
@@ -2141,7 +2405,7 @@ fn structural_limits(root: &Value, limits: JsonLimits) -> Result<(), WireError> 
         match value {
             Value::Null => {
                 return Err(WireError::Json(
-                    "JSON null is not permitted by schema v1".to_owned(),
+                    "JSON null is not permitted by the pricing schema".to_owned(),
                 ));
             }
             Value::Array(values) => {
@@ -2173,9 +2437,10 @@ fn json(error: serde_json::Error) -> WireError {
     WireError::Json(error.to_string())
 }
 
-fn validate_envelope(text: &str, expected: &'static str) -> Result<(), WireError> {
+fn validate_envelope(text: &str, expected: &'static str) -> Result<u32, WireError> {
     let envelope: Envelope = serde_json::from_str(text).map_err(json)?;
-    check_header(&envelope.document_kind, envelope.schema_version, expected)
+    check_header(&envelope.document_kind, envelope.schema_version, expected)?;
+    Ok(envelope.schema_version)
 }
 
 fn check_header(kind: &str, version: u32, expected: &'static str) -> Result<(), WireError> {
@@ -2224,15 +2489,17 @@ fn non_empty_string_at(value: String, pointer: &'static str) -> Result<String, W
 
 #[must_use]
 pub const fn current_request_schema() -> &'static str {
-    include_str!("../../../schemas/v1/pricing_request.schema.json")
+    include_str!("../../../schemas/v2/pricing_request.schema.json")
 }
 #[must_use]
 pub const fn current_result_schema() -> &'static str {
-    include_str!("../../../schemas/v1/pricing_result.schema.json")
+    include_str!("../../../schemas/v2/pricing_result.schema.json")
 }
 
 #[cfg(test)]
 mod tests {
+    use pricing_mc::ExecutionPolicy;
+
     use super::*;
 
     fn request() -> PricingRequest {
@@ -2592,10 +2859,11 @@ mod tests {
         let compact = request_to_json(&request).expect("json");
         assert_eq!(
             compact,
-            include_str!("../../../fixtures/v1/pricing_request.golden.json")
+            include_str!("../../../fixtures/v2/pricing_request.golden.json")
         );
         assert_json_text_contract(&compact);
         let parsed = parse_request_json(compact.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(request, parsed);
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")
@@ -2607,6 +2875,59 @@ mod tests {
         assert_eq!(
             fingerprint_request(&parsed).expect("fingerprint"),
             fingerprint_request(&reparsed).expect("fingerprint")
+        );
+    }
+
+    #[test]
+    fn schema_v1_documents_migrate_forward_and_remain_strict() {
+        assert_eq!(MigrationRegistry.accepted_source_versions(), &[1, 2]);
+        let request_v1 = include_str!("../../../fixtures/v1/pricing_request.golden.json");
+        let request = parse_request_json(request_v1.as_bytes(), JsonLimits::DEFAULT)
+            .expect("migrate request");
+        let request_migration = request.wire_migration().expect("request migration");
+        assert_eq!(request_migration.original_schema_version().get(), 1);
+        assert_eq!(request_migration.current_schema_version().get(), 2);
+        assert_eq!(
+            request_migration.migration_ids(),
+            &[MIGRATION_REQUEST_V1_TO_V2.to_owned()]
+        );
+        assert_ne!(
+            request_migration.pre_migration_fingerprint(),
+            request_migration.post_migration_fingerprint()
+        );
+        let migrated_request_result = crate::SimulationPlan::compile(
+            &request,
+            ExecutionPolicy::new(1, Some(256)).expect("policy"),
+        )
+        .expect("plan")
+        .execute()
+        .expect("result");
+        assert_eq!(
+            migrated_request_result.pricing_result.replay.migration(),
+            request_migration
+        );
+        assert_eq!(
+            request_to_json(&request).expect("current request"),
+            include_str!("../../../fixtures/v2/pricing_request.golden.json")
+        );
+        let invalid_v1 = request_v1.replacen(
+            "\"smile_dynamics\"",
+            "\"payoff_smoothing_width_ladder\":[2.0,1.0],\"smile_dynamics\"",
+            1,
+        );
+        assert!(parse_request_json(invalid_v1.as_bytes(), JsonLimits::DEFAULT).is_err());
+
+        let result_v1 = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let result =
+            parse_result_json(result_v1.as_bytes(), JsonLimits::DEFAULT).expect("migrate result");
+        assert_eq!(
+            result_to_json(&result).expect("current result"),
+            include_str!("../../../fixtures/v2/pricing_result_v1_migrated.golden.json")
+        );
+        assert_eq!(result.replay.schema_version(), SchemaVersion::CURRENT);
+        assert_eq!(
+            result.replay.migration().migration_ids(),
+            &[MIGRATION_RESULT_V1_TO_V2.to_owned()]
         );
     }
 
@@ -2669,6 +2990,52 @@ mod tests {
             parsed.risk().payoff_smoothing(),
             request.risk().payoff_smoothing()
         );
+        assert_eq!(fingerprint_request(&parsed), fingerprint_request(&request));
+    }
+
+    #[test]
+    fn request_json_round_trips_payoff_smoothing_width_ladder() {
+        let base = digital_request();
+        let risk = RiskRequest::new(
+            true,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(3.0).expect("primary"))
+        .with_payoff_smoothing_width_ladder(
+            PayoffSmoothingWidthLadder::new(vec![4.0, 2.0, 1.0]).expect("ladder"),
+        );
+        let request = PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            base.model().clone(),
+            base.engine(),
+            risk,
+        )
+        .expect("request");
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"payoff_smoothing_width_ladder\":[4.0,2.0,1.0]"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            parsed
+                .risk()
+                .payoff_smoothing_width_ladder()
+                .expect("ladder")
+                .half_widths(),
+            request
+                .risk()
+                .payoff_smoothing_width_ladder()
+                .expect("ladder")
+                .half_widths()
+        );
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
         assert_eq!(fingerprint_request(&parsed), fingerprint_request(&request));
     }
 
@@ -2969,10 +3336,10 @@ mod tests {
         assert!(parse_request_json(unknown.as_bytes(), JsonLimits::DEFAULT).is_err());
         let null = json.replacen("\"risk\":{", "\"risk\":{\"aad_tile_capacity\":null,", 1);
         assert!(parse_request_json(null.as_bytes(), JsonLimits::DEFAULT).is_err());
-        let future = json.replacen("\"schema_version\":1", "\"schema_version\":2", 1);
+        let future = json.replacen("\"schema_version\":2", "\"schema_version\":3", 1);
         assert!(matches!(
             parse_request_json(future.as_bytes(), JsonLimits::DEFAULT),
-            Err(WireError::UnsupportedSchemaVersion(2))
+            Err(WireError::UnsupportedSchemaVersion(3))
         ));
         let limits = JsonLimits {
             max_input_bytes: 8,
@@ -2994,7 +3361,7 @@ mod tests {
         }
         for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
             let invalid = json.replacen(
-                "\"schema_version\":1",
+                "\"schema_version\":2",
                 &format!("\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3173,7 +3540,7 @@ mod tests {
         let request_json = request_to_json(&request()).expect("request json");
         let duplicate_request_root = request_json.replacen(
             "\"valuation_date\"",
-            "\"schema_version\":1,\"valuation_date\"",
+            "\"schema_version\":2,\"valuation_date\"",
             1,
         );
         let duplicate_request_nested =
@@ -3433,7 +3800,7 @@ mod tests {
         let json = result_to_json(&result).expect("json");
         assert_eq!(
             json,
-            include_str!("../../../fixtures/v1/pricing_result.golden.json")
+            include_str!("../../../fixtures/v2/pricing_result.golden.json")
         );
         assert_json_text_contract(&json);
         assert_json_text_contract(&result_to_pretty_json(&result).expect("pretty json"));
@@ -3452,7 +3819,7 @@ mod tests {
 
     #[test]
     fn result_json_domain_errors_include_instance_paths() {
-        let json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let json = include_str!("../../../fixtures/v2/pricing_result.golden.json");
         let invalid_estimate =
             json.replacen("\"standard_error\":0.5", "\"standard_error\":-0.5", 1);
         assert!(matches!(
@@ -3483,19 +3850,19 @@ mod tests {
         ));
 
         let future_replay_schema = json.replace(
-            "\"replay\":{\"schema_version\":1",
             "\"replay\":{\"schema_version\":2",
+            "\"replay\":{\"schema_version\":3",
         );
         assert!(matches!(
             parse_result_json(future_replay_schema.as_bytes(), JsonLimits::DEFAULT),
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/schema_version"
-                    && message.contains("unsupported replay schema_version 2")
+                    && message.contains("unsupported replay schema_version 3")
         ));
 
         for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
             let invalid_top_level = json.replacen(
-                "\"schema_version\":1",
+                "\"schema_version\":2",
                 &format!("\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3504,7 +3871,7 @@ mod tests {
                 "result JSON accepted schema_version {schema_version}"
             );
             let invalid_replay = json.replacen(
-                "\"replay\":{\"schema_version\":1",
+                "\"replay\":{\"schema_version\":2",
                 &format!("\"replay\":{{\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3549,6 +3916,49 @@ mod tests {
                 "result JSON accepted {constant}"
             );
         }
+    }
+
+    #[test]
+    fn result_json_rejects_inconsistent_migration_provenance() {
+        let json = include_str!("../../../fixtures/v2/pricing_result.golden.json");
+
+        let mut wrong_ids: serde_json::Value = serde_json::from_str(json).expect("fixture");
+        wrong_ids["replay"]["migration"]["original_schema_version"] = 1.into();
+        assert!(matches!(
+            parse_result_json(
+                serde_json::to_string(&wrong_ids).expect("json").as_bytes(),
+                JsonLimits::DEFAULT
+            ),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/migration/migration_ids"
+                    && message.contains("schema path")
+        ));
+
+        let mut wrong_post: serde_json::Value = serde_json::from_str(json).expect("fixture");
+        wrong_post["replay"]["migration"]["post_migration_fingerprint"] =
+            "blake3-256:1111111111111111111111111111111111111111111111111111111111111111".into();
+        assert!(matches!(
+            parse_result_json(
+                serde_json::to_string(&wrong_post).expect("json").as_bytes(),
+                JsonLimits::DEFAULT
+            ),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/migration/post_migration_fingerprint"
+                    && message.contains("request_fingerprint")
+        ));
+
+        let mut wrong_pre: serde_json::Value = serde_json::from_str(json).expect("fixture");
+        wrong_pre["replay"]["migration"]["pre_migration_fingerprint"] =
+            "blake3-256:1111111111111111111111111111111111111111111111111111111111111111".into();
+        assert!(matches!(
+            parse_result_json(
+                serde_json::to_string(&wrong_pre).expect("json").as_bytes(),
+                JsonLimits::DEFAULT
+            ),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/migration/pre_migration_fingerprint"
+                    && message.contains("identical")
+        ));
     }
 
     #[test]

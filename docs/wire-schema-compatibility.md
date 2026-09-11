@@ -4,19 +4,30 @@ Status: Frozen for library `0.x`
 
 | Library major | Current schema | Accepted request versions | Accepted result versions | Writer output |
 |---|---:|---:|---:|---:|
-| `0` | `1` | `1` | `1` | `1` |
+| `0` | `2` | `1, 2` | `1, 2` | `2` |
 
-Schema v1 is the first public wire contract, so its forward-only migration
-registry is intentionally empty. The registry is nevertheless exercised by
-every read: version 1 is accepted and zero, missing, or future versions are
-rejected before domain construction. When schema v2 is introduced, v1-to-v2
-migration must preserve the complete financial and execution meaning.
+Schema v2 adds the optional `risk.payoff_smoothing_width_ladder` field. The
+forward-only v1-to-v2 migration preserves all v1 financial and execution
+meaning and leaves that new field absent. Version 1 remains readable, while
+zero, missing, and versions newer than 2 are rejected before domain
+construction. A v1 document that includes the v2 field is rejected rather than
+interpreted as an extension.
 
-The committed files under `schemas/v1/` are the Draft 2020-12 interoperability
-contract. The committed files under `fixtures/v1/` freeze the deterministic
-compact writer, including field order, tagged-enum representation, numeric
-spelling, UTF-8/LF policy, and the final newline. Pretty JSON is an inspection
-view and normalizes back to the same typed-data fingerprint.
+Successful reads retain migration provenance separately from normalized
+financial identity. Compiled plans and results expose the original and current
+schema versions, ordered stable migration identifiers, and BLAKE3-256
+fingerprints before and after request migration. Version 2 result replay data
+serializes the same immutable provenance; v1 result migration is labelled
+`pricing_result/v1-to-v2` and preserves its only available request fingerprint
+at both endpoints because the historical result document does not contain the
+request body needed to recompute a v2 request fingerprint.
+
+The committed files under `schemas/v1/` and `schemas/v2/` are the Draft 2020-12
+interoperability contracts. The corresponding `fixtures/v1/` and
+`fixtures/v2/` files freeze deterministic compact output, including field
+order, tagged-enum representation, numeric spelling, UTF-8/LF policy, and the
+final newline. Pretty JSON is an inspection view and normalizes back to the
+same typed-data fingerprint.
 
 Optional result fields use omission only. In particular, a VegaKT result with
 `covariance_layout.type = "full_bucket_matrix_row_major"` must include

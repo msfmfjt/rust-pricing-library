@@ -118,6 +118,12 @@ It builds Local variance and reporting-IV grids from calibrated eSSVI slices,
 requests VegaKT reporting buckets, round-trips the canonical JSON payload, and
 evaluates Price, Greeks, and the VegaKT result report.
 
+The path-dependence example at
+[`examples/python/path_dependence.py`](examples/python/path_dependence.py)
+keeps exact contractual Digital Price separate from an explicitly smoothed
+Price/Greek calculation and evaluates a caller-ordered, non-adaptive smoothing
+width ladder with adjacent-width differences.
+
 The Python facade exposes the same versioned JSON boundary as Rust:
 `PricingRequest.to_json()`, `PricingRequest.to_pretty_json()`,
 `PricingRequest.from_json()`, `PricingResult.to_json()`,
@@ -127,7 +133,8 @@ Draft 2020-12 schemas are available through `request_json_schema()` and
 results expose Price and Greek estimates with standard errors, confidence
 intervals, estimator labels, effective sample counts, raw/market-scaled risk
 units, and replay metadata for the schema version, request fingerprint, library
-version, and producing platform. Result diagnostics expose replay-critical
+version, producing platform, and any ordered schema migration provenance.
+Result diagnostics expose replay-critical
 seeds, execution policy fields, curve regions, Payoff fingerprints, QMC
 direction/scramble checksums, bump validation policy fields, and CRN bump
 validation estimates for requested Greeks.

@@ -14,8 +14,8 @@ use pricing_mc::{
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
-    BarrierDirection, BarrierMonitoring, BarrierStyle, CompactC2Smoothing, CompiledPayoff,
-    GraphFingerprint, GraphLimitPolicy, OptionSide, ProductSpec,
+    AsianObservationValue, BarrierDirection, BarrierMonitoring, BarrierStyle, CompactC2Smoothing,
+    CompiledPayoff, GraphFingerprint, GraphLimitPolicy, OptionSide, ProductSpec,
 };
 use pricing_risk::{
     AnalyticCallDensityRow, GammaConfig, PayoffSmoothing, ReportingIvBasis, SmileDynamics,
@@ -26,9 +26,9 @@ use pricing_risk::{
 };
 
 use crate::{
-    Diagnostics, Estimate, EstimatorKind, Fingerprint, MonteCarloError, PricingRequest,
-    PricingResult, PricingWarning, ReplayMetadata, ResultBuildError, RiskEstimate, RiskReport,
-    RiskUnit, VegaKtResult, fingerprint_request,
+    Diagnostics, Estimate, EstimatorKind, Fingerprint, MigrationProvenance, MonteCarloError,
+    PricingRequest, PricingResult, PricingWarning, ReplayMetadata, ResultBuildError, RiskEstimate,
+    RiskReport, RiskUnit, VegaKtResult, fingerprint_request,
 };
 
 const NORMAL_95: f64 = 1.959_963_984_540_054;
@@ -85,10 +85,12 @@ pub struct SimulationPlan {
     payoff_smoothing: Option<PayoffSmoothing>,
     payoff_smoothing_endpoint_count: u32,
     payoff_smoothing_dividend_jump_count: u32,
+    path_state_diagnostics: Option<PathStateDiagnostics>,
     smile_dynamics: SmileDynamics,
     validation_spot_bump: f64,
     validation_volatility_bump: f64,
     request_fingerprint: [u8; 32],
+    request_migration: MigrationProvenance,
     plan_fingerprint: Fingerprint,
     discount_region: CurveRegion,
     dividend_region: CurveRegion,
@@ -526,6 +528,8 @@ impl SimulationPlan {
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let product = request.product();
+        let path_state_diagnostics =
+            PathStateDiagnostics::from_product(product, request.valuation_date());
         let continuous_barrier_spec = match product {
             ProductSpec::Barrier(barrier)
                 if barrier.monitoring() == BarrierMonitoring::Continuous =>
@@ -749,6 +753,10 @@ impl SimulationPlan {
             }
         });
         let request_fingerprint = *fingerprint_request(request)?.as_bytes();
+        let request_migration = request
+            .wire_migration()
+            .cloned()
+            .unwrap_or_else(|| MigrationProvenance::current(request_fingerprint));
         let aad_tile_policy = AadTilePolicy::resolve(
             execution_policy.reduction_block_size().get(),
             request.risk().aad_tile_capacity(),
@@ -816,10 +824,12 @@ impl SimulationPlan {
             },
             payoff_smoothing_dividend_jump_count: u32::try_from(jump_dates.len())
                 .unwrap_or(u32::MAX),
+            path_state_diagnostics,
             smile_dynamics: request.risk().smile_dynamics(),
             validation_spot_bump,
             validation_volatility_bump,
             request_fingerprint,
+            request_migration,
             plan_fingerprint,
             discount_region: discount_evaluation.region,
             dividend_region: forward_evaluation.dividend_region,
@@ -911,6 +921,21 @@ impl SimulationPlan {
         self.plan_fingerprint
     }
 
+    #[must_use]
+    pub const fn request_migration(&self) -> &MigrationProvenance {
+        &self.request_migration
+    }
+
+    fn replay_metadata(&self) -> ReplayMetadata {
+        ReplayMetadata::with_migration(
+            SchemaVersion::CURRENT,
+            self.request_fingerprint,
+            crate::version(),
+            format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
+            self.request_migration.clone(),
+        )
+    }
+
     pub fn execute(&self) -> Result<MonteCarloPrice, MonteCarloError> {
         if self.observation_dates.is_empty() {
             return self.execute_fixed_payoff();
@@ -967,12 +992,7 @@ impl SimulationPlan {
                 self.discount_region,
                 self.dividend_region,
             )),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         Ok(MonteCarloPrice {
             pricing_result,
@@ -998,7 +1018,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: None,
             },
         })
@@ -1163,12 +1189,7 @@ impl SimulationPlan {
             value: estimate,
             risks,
             diagnostics: Diagnostics::new(warnings),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         Ok(MonteCarloPrice {
             pricing_result,
@@ -1194,7 +1215,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
@@ -1321,12 +1348,7 @@ impl SimulationPlan {
                 self.discount_region,
                 self.dividend_region,
             )),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         let multiplier = if antithetic { 2_u128 } else { 1_u128 };
         Ok(MonteCarloPrice {
@@ -1355,7 +1377,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
@@ -1438,12 +1466,7 @@ impl SimulationPlan {
                 self.discount_region,
                 self.dividend_region,
             )),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         Ok(MonteCarloPrice {
             pricing_result,
@@ -1469,7 +1492,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
@@ -1598,12 +1627,7 @@ impl SimulationPlan {
                 self.discount_region,
                 self.dividend_region,
             )),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         Ok(MonteCarloPrice {
             pricing_result,
@@ -1629,7 +1653,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
@@ -2198,12 +2228,7 @@ impl SimulationPlan {
                 self.discount_region,
                 self.dividend_region,
             )),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         let multiplier = if antithetic { 2_u128 } else { 1_u128 };
         Ok(MonteCarloPrice {
@@ -2232,7 +2257,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
@@ -2378,12 +2409,7 @@ impl SimulationPlan {
                 self.discount_region,
                 self.dividend_region,
             )),
-            replay: ReplayMetadata::new(
-                SchemaVersion::CURRENT,
-                self.request_fingerprint,
-                crate::version(),
-                format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-            ),
+            replay: self.replay_metadata(),
         };
         let multiplier = if antithetic { 2_u128 } else { 1_u128 };
         Ok(MonteCarloPrice {
@@ -2412,7 +2438,13 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: if self.payoff_smoothing.is_some() {
+                    PayoffValuationKind::SmoothedSurrogate
+                } else {
+                    PayoffValuationKind::ExactContractual
+                },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
+                path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
         })
@@ -3210,10 +3242,24 @@ pub enum PayoffSmoothingKernel {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PayoffValuationKind {
+    ExactContractual,
+    SmoothedSurrogate,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PayoffSmoothingWidthUnit {
+    Spot,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PayoffSmoothingDiagnostics {
     pub kernel: PayoffSmoothingKernel,
     pub policy_version: u32,
     pub half_width: PositiveF64,
+    pub full_transition_width: PositiveF64,
+    pub width_unit: PayoffSmoothingWidthUnit,
+    pub price_and_greeks_share_payoff: bool,
     pub endpoint_count: u32,
     pub dividend_jump_count: u32,
 }
@@ -3225,9 +3271,93 @@ impl From<PayoffSmoothing> for PayoffSmoothingDiagnostics {
                 kernel: PayoffSmoothingKernel::CompactC2,
                 policy_version: PayoffSmoothing::POLICY_VERSION,
                 half_width,
+                full_transition_width: PositiveF64::new(
+                    half_width.get() * 2.0,
+                    "payoff_smoothing_full_transition_width",
+                )
+                .expect("validated smoothing width has a finite double"),
+                width_unit: PayoffSmoothingWidthUnit::Spot,
+                price_and_greeks_share_payoff: true,
                 endpoint_count: 0,
                 dividend_jump_count: 0,
             },
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PathStateDiagnostics {
+    ArithmeticAsian {
+        known_observation_count: u32,
+        unknown_observation_count: u32,
+        known_weight_sum: f64,
+        unknown_weight_sum: f64,
+        weighted_known_fixing_sum: f64,
+    },
+    FixedLookback {
+        past_monitoring_count: u32,
+        future_monitoring_count: u32,
+        historical_extremum: Option<f64>,
+    },
+}
+
+impl PathStateDiagnostics {
+    fn from_product(product: &ProductSpec, valuation_date: Date) -> Option<Self> {
+        match product {
+            ProductSpec::ArithmeticAsian(asian) => {
+                let mut known_observation_count = 0_u32;
+                let mut unknown_observation_count = 0_u32;
+                let mut known_weight_sum = 0.0;
+                let mut unknown_weight_sum = 0.0;
+                let mut weighted_known_fixing_sum = 0.0;
+                for observation in asian.observations() {
+                    let weight = observation.weight().get();
+                    match observation.value() {
+                        AsianObservationValue::Known(fixing) => {
+                            known_observation_count = known_observation_count.saturating_add(1);
+                            known_weight_sum += weight;
+                            weighted_known_fixing_sum += weight * fixing.get();
+                        }
+                        AsianObservationValue::Unknown => {
+                            unknown_observation_count = unknown_observation_count.saturating_add(1);
+                            unknown_weight_sum += weight;
+                        }
+                    }
+                }
+                Some(Self::ArithmeticAsian {
+                    known_observation_count,
+                    unknown_observation_count,
+                    known_weight_sum,
+                    unknown_weight_sum,
+                    weighted_known_fixing_sum,
+                })
+            }
+            ProductSpec::FixedLookback(lookback) => {
+                let past_monitoring_count = u32::try_from(
+                    lookback
+                        .monitoring_dates()
+                        .iter()
+                        .filter(|date| **date < valuation_date)
+                        .count(),
+                )
+                .unwrap_or(u32::MAX);
+                let future_monitoring_count = u32::try_from(
+                    lookback
+                        .monitoring_dates()
+                        .iter()
+                        .filter(|date| **date >= valuation_date)
+                        .count(),
+                )
+                .unwrap_or(u32::MAX);
+                Some(Self::FixedLookback {
+                    past_monitoring_count,
+                    future_monitoring_count,
+                    historical_extremum: lookback.historical_extremum().map(PositiveF64::get),
+                })
+            }
+            ProductSpec::EuropeanVanilla(_) | ProductSpec::Digital(_) | ProductSpec::Barrier(_) => {
+                None
+            }
         }
     }
 }
@@ -3274,7 +3404,9 @@ pub struct MonteCarloDiagnostics {
     pub discount_region: CurveRegion,
     pub dividend_region: CurveRegion,
     pub payoff_fingerprint: GraphFingerprint,
+    pub valuation_kind: PayoffValuationKind,
     pub payoff_smoothing: Option<PayoffSmoothingDiagnostics>,
+    pub path_state: Option<PathStateDiagnostics>,
     pub barrier_bridge: Option<BarrierBridgeDiagnostics>,
 }
 
@@ -4794,6 +4926,11 @@ mod tests {
         let cash_expected = cash_plan.discount() * 10.0;
         let cash_result = cash_plan.execute().expect("cash execution");
         assert_eq!(
+            cash_result.diagnostics.valuation_kind,
+            PayoffValuationKind::ExactContractual
+        );
+        assert!(cash_result.diagnostics.payoff_smoothing.is_none());
+        assert_eq!(
             cash_result.pricing_result.value.value().get(),
             cash_expected
         );
@@ -4846,10 +4983,17 @@ mod tests {
         assert!(result.pricing_result.risks.vega.is_some());
         assert!(result.risk_diagnostics.delta_validation.is_some());
         assert!(result.risk_diagnostics.vega_validation.is_some());
+        assert_eq!(
+            result.diagnostics.valuation_kind,
+            PayoffValuationKind::SmoothedSurrogate
+        );
         let diagnostics = result.diagnostics.payoff_smoothing.expect("diagnostics");
         assert_eq!(diagnostics.kernel, PayoffSmoothingKernel::CompactC2);
         assert_eq!(diagnostics.policy_version, PayoffSmoothing::POLICY_VERSION);
         assert_eq!(diagnostics.half_width.get(), 2.0);
+        assert_eq!(diagnostics.full_transition_width.get(), 4.0);
+        assert_eq!(diagnostics.width_unit, PayoffSmoothingWidthUnit::Spot);
+        assert!(diagnostics.price_and_greeks_share_payoff);
         assert_eq!(diagnostics.endpoint_count, 1);
         assert_eq!(diagnostics.dividend_jump_count, 0);
     }
@@ -5846,6 +5990,72 @@ mod tests {
     }
 
     #[test]
+    fn arithmetic_asian_price_respects_geometric_lower_and_convexity_upper_bounds() {
+        let request =
+            asian_risk_request(RiskRequest::price_only(SmileDynamics::StickyLogMoneyness));
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+        let weights = [0.25, 0.75];
+        let weighted_log_mean = weights
+            .iter()
+            .zip(plan.observation_forwards.iter())
+            .zip(plan.observation_times.iter())
+            .map(|((&weight, &forward), &time)| {
+                weight * (forward.ln() - 0.5 * plan.volatility.powi(2) * time)
+            })
+            .sum::<f64>();
+        let mut weighted_minimum_time = 0.0;
+        for (left, &left_weight) in weights.iter().enumerate() {
+            for (right, &right_weight) in weights.iter().enumerate() {
+                weighted_minimum_time += left_weight
+                    * right_weight
+                    * plan.observation_times[left].min(plan.observation_times[right]);
+            }
+        }
+        let geometric_variance = plan.volatility.powi(2) * weighted_minimum_time;
+        let geometric_forward = (weighted_log_mean + 0.5 * geometric_variance).exp();
+        let geometric_lower = crate::analytical::evaluate_black_forward(
+            crate::analytical::BlackForwardOracleInputs {
+                side: OptionSide::Call,
+                forward: geometric_forward,
+                strike: 100.0,
+                notional: 1.5,
+                discount: plan.discount,
+                volatility: geometric_variance.sqrt(),
+                time: 1.0,
+            },
+        )
+        .expect("geometric Asian lower bound")
+        .price;
+        let convexity_upper = weights
+            .iter()
+            .zip(plan.observation_forwards.iter())
+            .zip(plan.observation_times.iter())
+            .map(|((&weight, &forward), &time)| {
+                weight
+                    * crate::analytical::evaluate_black_forward(
+                        crate::analytical::BlackForwardOracleInputs {
+                            side: OptionSide::Call,
+                            forward,
+                            strike: 100.0,
+                            notional: 1.5,
+                            discount: plan.discount,
+                            volatility: plan.volatility,
+                            time,
+                        },
+                    )
+                    .expect("European convexity upper bound")
+                    .price
+            })
+            .sum::<f64>();
+
+        let result = plan.execute().expect("Asian result");
+        let estimate = result.pricing_result.value;
+        let tolerance = 6.0 * estimate.standard_error().get() + 1.0e-12;
+        assert!(estimate.value().get() + tolerance >= geometric_lower);
+        assert!(estimate.value().get() - tolerance <= convexity_upper);
+    }
+
+    #[test]
     fn asian_and_lookback_dividend_collisions_observe_post_jump_spot() {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
@@ -5992,6 +6202,45 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn path_state_diagnostics_retain_fixed_asian_and_lookback_state() {
+        let asian = price_monte_carlo(
+            &partially_fixed_asian_request(
+                90.0,
+                ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            ),
+            policy(1),
+        )
+        .expect("Asian");
+        assert_eq!(
+            asian.diagnostics.path_state,
+            Some(PathStateDiagnostics::ArithmeticAsian {
+                known_observation_count: 1,
+                unknown_observation_count: 1,
+                known_weight_sum: 0.4,
+                unknown_weight_sum: 0.6,
+                weighted_known_fixing_sum: 36.0,
+            })
+        );
+
+        let lookback = price_monte_carlo(
+            &partially_fixed_lookback_request(
+                92.0,
+                ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            ),
+            policy(1),
+        )
+        .expect("Lookback");
+        assert_eq!(
+            lookback.diagnostics.path_state,
+            Some(PathStateDiagnostics::FixedLookback {
+                past_monitoring_count: 1,
+                future_monitoring_count: 1,
+                historical_extremum: Some(92.0),
+            })
+        );
     }
 
     #[test]

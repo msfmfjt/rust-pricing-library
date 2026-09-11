@@ -710,11 +710,76 @@ impl Diagnostics {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MigrationProvenance {
+    original_schema_version: SchemaVersion,
+    current_schema_version: SchemaVersion,
+    migration_ids: Box<[String]>,
+    pre_migration_fingerprint: [u8; 32],
+    post_migration_fingerprint: [u8; 32],
+}
+
+impl MigrationProvenance {
+    #[must_use]
+    pub(crate) fn new(
+        original_schema_version: SchemaVersion,
+        current_schema_version: SchemaVersion,
+        migration_ids: Vec<String>,
+        pre_migration_fingerprint: [u8; 32],
+        post_migration_fingerprint: [u8; 32],
+    ) -> Self {
+        Self {
+            original_schema_version,
+            current_schema_version,
+            migration_ids: migration_ids.into_boxed_slice(),
+            pre_migration_fingerprint,
+            post_migration_fingerprint,
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn current(request_fingerprint: [u8; 32]) -> Self {
+        Self::new(
+            SchemaVersion::CURRENT,
+            SchemaVersion::CURRENT,
+            Vec::new(),
+            request_fingerprint,
+            request_fingerprint,
+        )
+    }
+
+    #[must_use]
+    pub const fn original_schema_version(&self) -> SchemaVersion {
+        self.original_schema_version
+    }
+
+    #[must_use]
+    pub const fn current_schema_version(&self) -> SchemaVersion {
+        self.current_schema_version
+    }
+
+    #[must_use]
+    pub fn migration_ids(&self) -> &[String] {
+        &self.migration_ids
+    }
+
+    #[must_use]
+    pub const fn pre_migration_fingerprint(&self) -> &[u8; 32] {
+        &self.pre_migration_fingerprint
+    }
+
+    #[must_use]
+    pub const fn post_migration_fingerprint(&self) -> &[u8; 32] {
+        &self.post_migration_fingerprint
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayMetadata {
     schema_version: SchemaVersion,
     request_fingerprint: [u8; 32],
     library_version: String,
     platform: String,
+    migration: MigrationProvenance,
 }
 
 impl ReplayMetadata {
@@ -730,6 +795,24 @@ impl ReplayMetadata {
             request_fingerprint,
             library_version: library_version.into(),
             platform: platform.into(),
+            migration: MigrationProvenance::current(request_fingerprint),
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn with_migration(
+        schema_version: SchemaVersion,
+        request_fingerprint: [u8; 32],
+        library_version: impl Into<String>,
+        platform: impl Into<String>,
+        migration: MigrationProvenance,
+    ) -> Self {
+        Self {
+            schema_version,
+            request_fingerprint,
+            library_version: library_version.into(),
+            platform: platform.into(),
+            migration,
         }
     }
 
@@ -751,6 +834,11 @@ impl ReplayMetadata {
     #[must_use]
     pub fn platform(&self) -> &str {
         &self.platform
+    }
+
+    #[must_use]
+    pub const fn migration(&self) -> &MigrationProvenance {
+        &self.migration
     }
 }
 

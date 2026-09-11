@@ -12,7 +12,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.request_json = Path(
-            "fixtures/v1/pricing_request.golden.json"
+            "fixtures/v2/pricing_request.golden.json"
         ).read_text(encoding="utf-8")
 
     def assert_json_text_contract(self, text):
@@ -253,6 +253,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         ).evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
+        self.assertEqual(result.diagnostics.valuation_kind, "exact_contractual")
 
     def test_native_digital_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
@@ -370,13 +371,69 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertIsNotNone(smoothed_result.vega)
         self.assertIsNotNone(smoothed_result.diagnostics.delta_validation)
         self.assertIsNotNone(smoothed_result.diagnostics.vega_validation)
+        self.assertEqual(smoothed_result.diagnostics.valuation_kind, "smoothed_surrogate")
         self.assertEqual(
             smoothed_result.diagnostics.payoff_smoothing_kernel, "compact_c2"
         )
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_policy_version, 1)
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_half_width, 2.0)
+        self.assertEqual(
+            smoothed_result.diagnostics.payoff_smoothing_full_transition_width, 4.0
+        )
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_width_unit, "spot")
+        self.assertTrue(
+            smoothed_result.diagnostics.payoff_smoothing_price_and_greeks_share_payoff
+        )
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_endpoint_count, 1)
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_dividend_jump_count, 0)
+
+        ladder_request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 4096, antithetic=True),
+            rust_pricing.RiskRequest(
+                delta=True,
+                vega=True,
+                payoff_smoothing_half_width=3.0,
+                payoff_smoothing_width_ladder=[4.0, 2.0, 1.0],
+            ),
+        )
+        ladder_payload = json.loads(ladder_request.to_json())
+        self.assertEqual(
+            ladder_payload["risk"]["payoff_smoothing_width_ladder"],
+            [4.0, 2.0, 1.0],
+        )
+        ladder_request = rust_pricing.PricingRequest.from_json(ladder_request.to_json())
+        ladder = rust_pricing.PricingPlan.compile(
+            ladder_request, worker_threads=2, reduction_block_size=256
+        ).evaluate_width_ladder()
+        self.assertEqual(ladder.primary.diagnostics.payoff_smoothing_half_width, 3.0)
+        self.assertEqual([entry.half_width for entry in ladder.entries], [4.0, 2.0, 1.0])
+        self.assertIsNone(ladder.entries[0].adjacent_difference)
+        for previous, current in zip(ladder.entries, ladder.entries[1:]):
+            difference = current.adjacent_difference
+            self.assertIsNotNone(difference)
+            self.assertEqual(difference.price, current.result.value - previous.result.value)
+            self.assertEqual(
+                difference.delta,
+                current.result.delta_raw - previous.result.delta_raw,
+            )
+            self.assertEqual(
+                difference.vega,
+                current.result.vega_raw - previous.result.vega_raw,
+            )
+
+        with self.assertRaises(rust_pricing.ValidationError):
+            rust_pricing.PricingRequest(
+                "2026-09-04",
+                product,
+                market,
+                rust_pricing.Model.black_scholes(0.2),
+                rust_pricing.Engine.pseudo_monte_carlo(7, 1024),
+                rust_pricing.RiskRequest(payoff_smoothing_width_ladder=[2.0, 1.0]),
+            )
 
     def test_native_barrier_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
@@ -583,6 +640,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         ).evaluate()
         self.assertAlmostEqual(result.value, 19.0, places=12)
         self.assertEqual(result.standard_error, 0.0)
+        self.assertEqual(result.diagnostics.path_state_kind, "arithmetic_asian")
+        self.assertEqual(result.diagnostics.asian_known_observation_count, 2)
+        self.assertEqual(result.diagnostics.asian_unknown_observation_count, 0)
+        self.assertEqual(result.diagnostics.asian_known_weight_sum, 1.0)
+        self.assertEqual(result.diagnostics.asian_unknown_weight_sum, 0.0)
+        self.assertEqual(result.diagnostics.asian_weighted_known_fixing_sum, 110.0)
 
     def test_native_fixed_lookback_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
@@ -615,6 +678,10 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         ).evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreaterEqual(result.standard_error, 0.0)
+        self.assertEqual(result.diagnostics.path_state_kind, "fixed_lookback")
+        self.assertEqual(result.diagnostics.lookback_past_monitoring_count, 1)
+        self.assertEqual(result.diagnostics.lookback_future_monitoring_count, 1)
+        self.assertEqual(result.diagnostics.lookback_historical_extremum, 92.0)
 
         with self.assertRaises(rust_pricing.ValidationError):
             rust_pricing.PricingRequest(
@@ -1090,6 +1157,49 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             result.to_json(),
         )
 
+    def test_schema_v1_documents_migrate_to_v2(self):
+        request_v1 = Path("fixtures/v1/pricing_request.golden.json").read_text(
+            encoding="utf-8"
+        )
+        request = rust_pricing.PricingRequest.from_json(request_v1)
+        self.assertEqual(json.loads(request.to_json())["schema_version"], 2)
+        plan = rust_pricing.PricingPlan.compile(
+            request, worker_threads=1, reduction_block_size=256
+        )
+        self.assertEqual(plan.request_original_schema_version, 1)
+        self.assertEqual(plan.request_current_schema_version, 2)
+        self.assertEqual(plan.request_migration_ids, ["pricing_request/v1-to-v2"])
+        self.assertNotEqual(
+            plan.request_pre_migration_fingerprint,
+            plan.request_post_migration_fingerprint,
+        )
+        migrated_request_result = plan.evaluate()
+        self.assertEqual(migrated_request_result.replay_original_schema_version, 1)
+        self.assertEqual(migrated_request_result.replay_current_schema_version, 2)
+        self.assertEqual(
+            migrated_request_result.replay_migration_ids,
+            ["pricing_request/v1-to-v2"],
+        )
+        self.assertEqual(
+            migrated_request_result.replay_pre_migration_fingerprint,
+            plan.request_pre_migration_fingerprint,
+        )
+        self.assertEqual(
+            migrated_request_result.replay_post_migration_fingerprint,
+            plan.request_post_migration_fingerprint,
+        )
+
+        result_v1 = Path("fixtures/v1/pricing_result.golden.json").read_text(
+            encoding="utf-8"
+        )
+        result = rust_pricing.PricingResult.from_json(result_v1)
+        payload = json.loads(result.to_json())
+        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["replay"]["schema_version"], 2)
+        self.assertEqual(result.replay_original_schema_version, 1)
+        self.assertEqual(result.replay_current_schema_version, 2)
+        self.assertEqual(result.replay_migration_ids, ["pricing_result/v1-to-v2"])
+
     def test_pricing_result_from_json_error_is_structured(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
         result = rust_pricing.PricingPlan.compile(
@@ -1117,14 +1227,14 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.instance_path, f"/replay/{field}")
 
         payload = json.loads(result.to_json())
-        payload["replay"]["schema_version"] = 2
+        payload["replay"]["schema_version"] = 3
         invalid = json.dumps(payload, separators=(",", ":"))
         with self.assertRaises(rust_pricing.ValidationError) as captured:
             rust_pricing.PricingResult.from_json(invalid)
         issue = captured.exception.issues[0]
         self.assertEqual(issue.document_kind, "pricing_result")
         self.assertEqual(issue.instance_path, "/replay/schema_version")
-        self.assertEqual(issue.schema_version, 1)
+        self.assertEqual(issue.schema_version, 2)
         self.assertEqual(issue.code, "invalid_domain_value")
 
         payload = json.loads(result.to_json())
@@ -1258,24 +1368,25 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         result_schema_text = rust_pricing.result_json_schema()
         self.assertEqual(
             request_schema_text,
-            Path("schemas/v1/pricing_request.schema.json").read_text(encoding="utf-8"),
+            Path("schemas/v2/pricing_request.schema.json").read_text(encoding="utf-8"),
         )
         self.assertEqual(
             result_schema_text,
-            Path("schemas/v1/pricing_result.schema.json").read_text(encoding="utf-8"),
+            Path("schemas/v2/pricing_result.schema.json").read_text(encoding="utf-8"),
         )
 
         request_schema = json.loads(request_schema_text)
         result_schema = json.loads(result_schema_text)
         schema_version_contract = {
             "type": "integer",
-            "const": 1,
+            "const": 2,
             "minimum": 1,
             "maximum": 4294967295,
         }
         optional_empty_array_paths = {
             "/$defs/market/properties/discrete_dividends",
             "/$defs/diagnostics/properties/warnings",
+            "/$defs/migration_provenance/properties/migration_ids",
         }
 
         self.assertEqual(
@@ -1350,7 +1461,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         issue = captured.exception.issues[0]
         self.assertEqual(issue.pointer, "/market/spot")
         self.assertEqual(issue.instance_path, "/market/spot")
-        self.assertEqual(issue.schema_version, 1)
+        self.assertEqual(issue.schema_version, 2)
         self.assertEqual(issue.document_kind, "pricing_request")
         self.assertEqual(issue.code, "invalid_spot")
 
@@ -1428,7 +1539,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 self.assertEqual(issue.instance_path, "/market/discrete_dividends")
 
     def test_validation_error_has_immutable_structured_issues(self):
-        invalid = self.request_json.replace('"schema_version":1', '"schema_version":99')
+        invalid = self.request_json.replace('"schema_version":2', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as captured:
             rust_pricing.PricingRequest.from_json(invalid)
 
@@ -1473,12 +1584,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         cases = [
             (
                 "request",
-                lambda: rust_pricing.PricingRequest.from_json('{"schema_version":1'),
+                lambda: rust_pricing.PricingRequest.from_json('{"schema_version":2'),
                 "pricing_request",
             ),
             (
                 "result",
-                lambda: rust_pricing.PricingResult.from_json('{"schema_version":1'),
+                lambda: rust_pricing.PricingResult.from_json('{"schema_version":2'),
                 "pricing_result",
             ),
         ]
@@ -1491,7 +1602,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, "syntax_and_limits")
                 self.assertEqual(issue.code, "invalid_json")
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
@@ -1551,35 +1662,35 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             (
                 "request fractional schema version",
                 "pricing_request",
-                self.request_json.replace('"schema_version":1', '"schema_version":1.0', 1),
+                self.request_json.replace('"schema_version":2', '"schema_version":2.0', 1),
                 rust_pricing.PricingRequest.from_json,
             ),
             (
                 "request exponent schema version",
                 "pricing_request",
-                self.request_json.replace('"schema_version":1', '"schema_version":1e0', 1),
+                self.request_json.replace('"schema_version":2', '"schema_version":2e0', 1),
                 rust_pricing.PricingRequest.from_json,
             ),
             (
                 "request negative zero schema version",
                 "pricing_request",
-                self.request_json.replace('"schema_version":1', '"schema_version":-0', 1),
+                self.request_json.replace('"schema_version":2', '"schema_version":-0', 1),
                 rust_pricing.PricingRequest.from_json,
             ),
             (
                 "request quoted schema version",
                 "pricing_request",
-                self.request_json.replace('"schema_version":1', '"schema_version":"1"', 1),
+                self.request_json.replace('"schema_version":2', '"schema_version":"2"', 1),
                 rust_pricing.PricingRequest.from_json,
             ),
         ]
-        for schema_version in ["1.0", "1e0", "-0", '"1"']:
+        for schema_version in ["2.0", "2e0", "-0", '"2"']:
             cases.append(
                 (
                     f"result top-level schema version {schema_version}",
                     "pricing_result",
                     result_json.replace(
-                        '"schema_version":1',
+                        '"schema_version":2',
                         f'"schema_version":{schema_version}',
                         1,
                     ),
@@ -1591,7 +1702,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                     f"result replay schema version {schema_version}",
                     "pricing_result",
                     result_json.replace(
-                        '"replay":{"schema_version":1',
+                        '"replay":{"schema_version":2',
                         f'"replay":{{"schema_version":{schema_version}',
                         1,
                     ),
@@ -1672,7 +1783,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, "syntax_and_limits")
                 self.assertEqual(issue.code, "invalid_json")
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
@@ -1686,7 +1797,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 "request root",
                 lambda: rust_pricing.PricingRequest.from_json(
                     self.request_json.replace(
-                        '"valuation_date"', '"schema_version":1,"valuation_date"', 1
+                        '"valuation_date"', '"schema_version":2,"valuation_date"', 1
                     )
                 ),
                 "pricing_request",
@@ -1701,7 +1812,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             (
                 "result root",
                 lambda: rust_pricing.PricingResult.from_json(
-                    result.to_json().replace('"value"', '"schema_version":1,"value"', 1)
+                    result.to_json().replace('"value"', '"schema_version":2,"value"', 1)
                 ),
                 "pricing_result",
             ),
@@ -1726,7 +1837,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, "syntax_and_limits")
                 self.assertEqual(issue.code, "invalid_json")
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
                 self.assertIn("duplicate object member", issue.message)
@@ -1781,7 +1892,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, "syntax_and_limits")
                 self.assertEqual(issue.code, "invalid_json")
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
@@ -1812,7 +1923,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, "syntax_and_limits")
                 self.assertEqual(issue.code, "resource_limit")
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
@@ -1842,7 +1953,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, "declared_schema")
                 self.assertEqual(issue.code, "wrong_document_kind")
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
@@ -1979,12 +2090,12 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 issue = captured.exception.issues[0]
                 self.assertEqual(issue.phase, phase)
                 self.assertEqual(issue.code, code)
-                self.assertEqual(issue.schema_version, 1)
+                self.assertEqual(issue.schema_version, 2)
                 self.assertEqual(issue.document_kind, document_kind)
                 self.assertEqual(issue.instance_path, "")
 
     def test_validation_issue_equality_compares_payload(self):
-        invalid_schema = self.request_json.replace('"schema_version":1', '"schema_version":99')
+        invalid_schema = self.request_json.replace('"schema_version":2', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as first:
             rust_pricing.PricingRequest.from_json(invalid_schema)
         with self.assertRaises(rust_pricing.ValidationError) as second:
@@ -1997,7 +2108,7 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertNotEqual(first.exception.issues[0], third.exception.issues[0])
 
     def test_validation_error_issues_lists_are_freshly_owned(self):
-        invalid = self.request_json.replace('"schema_version":1', '"schema_version":99')
+        invalid = self.request_json.replace('"schema_version":2', '"schema_version":99')
         with self.assertRaises(rust_pricing.ValidationError) as first:
             rust_pricing.PricingRequest.from_json(invalid)
         with self.assertRaises(rust_pricing.ValidationError) as second:

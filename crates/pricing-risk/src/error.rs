@@ -125,6 +125,13 @@ pub enum RiskConfigError {
     InvalidDensityThreshold {
         bits: u64,
     },
+    EmptyPayoffSmoothingWidthLadder,
+    NonMonotonePayoffSmoothingWidthLadder {
+        left_index: usize,
+    },
+    PayoffSmoothingWidthTooLarge {
+        bits: u64,
+    },
     ZeroCheckpointInterval,
     ZeroAadTileCapacity,
 }
@@ -310,6 +317,17 @@ impl fmt::Display for RiskConfigError {
             Self::InvalidDensityThreshold { bits } => write!(
                 formatter,
                 "VegaKT relative density threshold must be in (0, 1]; received 0x{bits:016x}"
+            ),
+            Self::EmptyPayoffSmoothingWidthLadder => {
+                write!(formatter, "payoff smoothing width ladder must not be empty")
+            }
+            Self::NonMonotonePayoffSmoothingWidthLadder { left_index } => write!(
+                formatter,
+                "payoff smoothing width ladder must be strictly monotone; direction changes or repeats at {left_index}"
+            ),
+            Self::PayoffSmoothingWidthTooLarge { bits } => write!(
+                formatter,
+                "payoff smoothing half-width must have a finite doubled transition width; received 0x{bits:016x}"
             ),
             Self::ZeroCheckpointInterval => {
                 write!(formatter, "AAD checkpoint interval must be positive")

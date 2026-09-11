@@ -62,7 +62,7 @@ define_id!(PathIndex, u64, "path_index");
 pub struct SchemaVersion(NonZeroU32);
 
 impl SchemaVersion {
-    pub const CURRENT: Self = Self(NonZeroU32::MIN);
+    pub const CURRENT: Self = Self(NonZeroU32::new(2).expect("schema version is non-zero"));
 
     pub fn new(value: u32) -> Result<Self, CoreError> {
         NonZeroU32::new(value)
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn schema_version_is_strictly_positive() {
-        assert_eq!(SchemaVersion::CURRENT.get(), 1);
+        assert_eq!(SchemaVersion::CURRENT.get(), 2);
         assert_eq!(SchemaVersion::new(9).expect("valid version").get(), 9);
         assert_eq!(
             SchemaVersion::new(0),

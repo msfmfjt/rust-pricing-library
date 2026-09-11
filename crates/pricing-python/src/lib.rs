@@ -12,9 +12,10 @@ use pricing::{
     RiskDiagnostics, RiskEstimate, RiskMethodMetadata, RiskUnit, VegaKtResult,
     VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
     VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
-    VegaKtResultUnit, WireError, current_request_schema, current_result_schema,
-    fingerprint_request, parse_request_json, parse_result_json, request_to_json,
-    request_to_pretty_json, result_to_json, result_to_pretty_json,
+    VegaKtResultUnit, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, WireError,
+    current_request_schema, current_result_schema, fingerprint_request, parse_request_json,
+    parse_result_json, request_to_json, request_to_pretty_json, result_to_json,
+    result_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -281,6 +282,13 @@ impl PyPricingPlan {
             .map_err(pricing_exception)
     }
 
+    /// Evaluate the primary smoothing width and every explicitly ordered ladder width.
+    fn evaluate_width_ladder(&self, py: Python<'_>) -> PyResult<PyWidthLadderResult> {
+        py.detach(|| self.inner.evaluate_width_ladder())
+            .map(|inner| PyWidthLadderResult { inner })
+            .map_err(pricing_exception)
+    }
+
     #[getter]
     fn request_fingerprint(&self) -> String {
         self.inner.request_fingerprint().to_string()
@@ -301,8 +309,137 @@ impl PyPricingPlan {
         self.inner.execution_policy().reduction_block_size().get()
     }
 
+    #[getter]
+    fn request_original_schema_version(&self) -> u32 {
+        self.inner
+            .request_migration()
+            .original_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn request_current_schema_version(&self) -> u32 {
+        self.inner
+            .request_migration()
+            .current_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn request_migration_ids(&self) -> Vec<String> {
+        self.inner.request_migration().migration_ids().to_vec()
+    }
+
+    #[getter]
+    fn request_pre_migration_fingerprint(&self) -> String {
+        format_fingerprint(self.inner.request_migration().pre_migration_fingerprint())
+    }
+
+    #[getter]
+    fn request_post_migration_fingerprint(&self) -> String {
+        format_fingerprint(self.inner.request_migration().post_migration_fingerprint())
+    }
+
     fn __repr__(&self) -> String {
         format!("PricingPlan(fingerprint={:?})", self.plan_fingerprint())
+    }
+}
+
+/// Adjacent current-minus-previous differences in raw mathematical units.
+#[pyclass(frozen, name = "WidthLadderDifference", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyWidthLadderDifference {
+    inner: WidthLadderDifference,
+}
+
+#[pymethods]
+impl PyWidthLadderDifference {
+    #[getter]
+    fn price(&self) -> f64 {
+        self.inner.price
+    }
+
+    #[getter]
+    fn delta(&self) -> Option<f64> {
+        self.inner.delta
+    }
+
+    #[getter]
+    fn gamma(&self) -> Option<f64> {
+        self.inner.gamma
+    }
+
+    #[getter]
+    fn vega(&self) -> Option<f64> {
+        self.inner.vega
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WidthLadderDifference(price={:?})", self.inner.price)
+    }
+}
+
+/// One complete, labelled smoothing-width valuation.
+#[pyclass(frozen, name = "WidthLadderEntry", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyWidthLadderEntry {
+    inner: WidthLadderEntry,
+}
+
+#[pymethods]
+impl PyWidthLadderEntry {
+    #[getter]
+    fn half_width(&self) -> f64 {
+        self.inner.half_width.get()
+    }
+
+    #[getter]
+    fn result(&self) -> PyPricingResult {
+        PyPricingResult {
+            inner: self.inner.result.clone(),
+        }
+    }
+
+    #[getter]
+    fn adjacent_difference(&self) -> Option<PyWidthLadderDifference> {
+        self.inner
+            .adjacent_difference
+            .map(|inner| PyWidthLadderDifference { inner })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WidthLadderEntry(half_width={:?})", self.half_width())
+    }
+}
+
+/// Primary result plus complete results at every requested ladder width.
+#[pyclass(frozen, name = "WidthLadderResult", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyWidthLadderResult {
+    inner: WidthLadderResult,
+}
+
+#[pymethods]
+impl PyWidthLadderResult {
+    #[getter]
+    fn primary(&self) -> PyPricingResult {
+        PyPricingResult {
+            inner: self.inner.primary.clone(),
+        }
+    }
+
+    #[getter]
+    fn entries(&self) -> Vec<PyWidthLadderEntry> {
+        self.inner
+            .entries
+            .iter()
+            .cloned()
+            .map(|inner| PyWidthLadderEntry { inner })
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WidthLadderResult(entries={})", self.inner.entries.len())
     }
 }
 
@@ -808,6 +945,58 @@ impl PyPricingResult {
         self.inner.pricing_result.replay.platform()
     }
 
+    #[getter]
+    fn replay_original_schema_version(&self) -> u32 {
+        self.inner
+            .pricing_result
+            .replay
+            .migration()
+            .original_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn replay_current_schema_version(&self) -> u32 {
+        self.inner
+            .pricing_result
+            .replay
+            .migration()
+            .current_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn replay_migration_ids(&self) -> Vec<String> {
+        self.inner
+            .pricing_result
+            .replay
+            .migration()
+            .migration_ids()
+            .to_vec()
+    }
+
+    #[getter]
+    fn replay_pre_migration_fingerprint(&self) -> String {
+        format_fingerprint(
+            self.inner
+                .pricing_result
+                .replay
+                .migration()
+                .pre_migration_fingerprint(),
+        )
+    }
+
+    #[getter]
+    fn replay_post_migration_fingerprint(&self) -> String {
+        format_fingerprint(
+            self.inner
+                .pricing_result
+                .replay
+                .migration()
+                .post_migration_fingerprint(),
+        )
+    }
+
     fn to_json(&self) -> PyResult<String> {
         result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
     }
@@ -895,7 +1084,9 @@ fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> Mont
             discount_region: CurveRegion::Pillar,
             dividend_region: CurveRegion::Pillar,
             payoff_fingerprint: pricing::product::GraphFingerprint::from_bytes([0; 32]),
+            valuation_kind: pricing::PayoffValuationKind::ExactContractual,
             payoff_smoothing: None,
+            path_state: None,
             barrier_bridge: None,
         },
     }
@@ -976,6 +1167,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<PyWidthLadderDifference>()?;
+    module.add_class::<PyWidthLadderEntry>()?;
+    module.add_class::<PyWidthLadderResult>()?;
     module.add_class::<PyRiskEstimate>()?;
     module.add_class::<PyPricingResult>()?;
     module.add_class::<PyVegaKtCoordinate>()?;

@@ -5,9 +5,9 @@ use pricing_models::ModelSpec;
 use pricing_product::{AsianObservationValue, ProductSpec};
 use pricing_risk::RiskRequest;
 
-use crate::RequestValidationError;
+use crate::{MigrationProvenance, RequestValidationError};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct PricingRequest {
     valuation_date: Date,
     product: ProductSpec,
@@ -15,6 +15,18 @@ pub struct PricingRequest {
     model: ModelSpec,
     engine: EngineConfig,
     risk: RiskRequest,
+    wire_migration: Option<MigrationProvenance>,
+}
+
+impl PartialEq for PricingRequest {
+    fn eq(&self, other: &Self) -> bool {
+        self.valuation_date == other.valuation_date
+            && self.product == other.product
+            && self.market == other.market
+            && self.model == other.model
+            && self.engine == other.engine
+            && self.risk == other.risk
+    }
 }
 
 impl PricingRequest {
@@ -121,6 +133,9 @@ impl PricingRequest {
         {
             return Err(RequestValidationError::PayoffSmoothingUnsupportedForProduct);
         }
+        if risk.payoff_smoothing_width_ladder().is_some() && risk.payoff_smoothing().is_none() {
+            return Err(RequestValidationError::PayoffSmoothingWidthLadderRequiresPrimary);
+        }
         let requests_risk =
             risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some();
         let smoothed_discontinuity =
@@ -136,6 +151,7 @@ impl PricingRequest {
             model,
             engine,
             risk,
+            wire_migration: None,
         })
     }
 
@@ -168,6 +184,33 @@ impl PricingRequest {
     pub const fn risk(&self) -> &RiskRequest {
         &self.risk
     }
+
+    #[must_use]
+    pub const fn wire_migration(&self) -> Option<&MigrationProvenance> {
+        self.wire_migration.as_ref()
+    }
+
+    pub(crate) fn with_wire_migration(mut self, migration: MigrationProvenance) -> Self {
+        self.wire_migration = Some(migration);
+        self
+    }
+
+    pub fn with_risk(self, risk: RiskRequest) -> Result<Self, RequestValidationError> {
+        Self::new(
+            self.valuation_date,
+            self.product,
+            self.market,
+            self.model,
+            self.engine,
+            risk,
+        )
+    }
+
+    pub(crate) fn replace_risk(mut self, risk: RiskRequest) -> Self {
+        self.risk = risk;
+        self.wire_migration = None;
+        self
+    }
 }
 
 #[cfg(test)]
@@ -183,7 +226,10 @@ mod tests {
         BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
         OptionSide,
     };
-    use pricing_risk::{GammaConfig, PayoffSmoothing, SmileDynamics, SpotBump, VegaKtConfig};
+    use pricing_risk::{
+        GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, SmileDynamics, SpotBump,
+        VegaKtConfig,
+    };
 
     use super::*;
 
@@ -444,6 +490,27 @@ mod tests {
             risk,
         )
         .expect("lookback risk");
+    }
+
+    #[test]
+    fn request_requires_primary_smoothing_for_width_ladder() {
+        let currency = CurrencyId::new(1);
+        let (digital, market, model, engine, _) = components(currency, currency);
+        let risk = RiskRequest::price_only(SmileDynamics::StickyLogMoneyness)
+            .with_payoff_smoothing_width_ladder(
+                PayoffSmoothingWidthLadder::new(vec![4.0, 2.0, 1.0]).expect("ladder"),
+            );
+        assert!(matches!(
+            PricingRequest::new(
+                "2026-09-04".parse().expect("valuation"),
+                digital,
+                market,
+                model,
+                engine,
+                risk,
+            ),
+            Err(RequestValidationError::PayoffSmoothingWidthLadderRequiresPrimary)
+        ));
     }
 
     #[test]

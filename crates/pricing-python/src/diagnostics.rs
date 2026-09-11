@@ -1,7 +1,8 @@
 use pricing::market::CurveRegion;
 use pricing::{
-    BarrierHitIndicatorMode, Estimate, EstimatorKind, MonteCarloPrice, PayoffSmoothingKernel,
-    RiskMethod, RiskValidation,
+    BarrierHitIndicatorMode, Estimate, EstimatorKind, MonteCarloPrice, PathStateDiagnostics,
+    PayoffSmoothingKernel, PayoffSmoothingWidthUnit, PayoffValuationKind, RiskMethod,
+    RiskValidation,
 };
 use pyo3::prelude::*;
 
@@ -142,11 +143,24 @@ pub struct PyDiagnostics {
     discount_region: &'static str,
     dividend_region: &'static str,
     payoff_fingerprint: String,
+    valuation_kind: &'static str,
     payoff_smoothing_kernel: Option<&'static str>,
     payoff_smoothing_policy_version: Option<u32>,
     payoff_smoothing_half_width: Option<f64>,
+    payoff_smoothing_full_transition_width: Option<f64>,
+    payoff_smoothing_width_unit: Option<&'static str>,
+    payoff_smoothing_price_and_greeks_share_payoff: Option<bool>,
     payoff_smoothing_endpoint_count: Option<u32>,
     payoff_smoothing_dividend_jump_count: Option<u32>,
+    path_state_kind: Option<&'static str>,
+    asian_known_observation_count: Option<u32>,
+    asian_unknown_observation_count: Option<u32>,
+    asian_known_weight_sum: Option<f64>,
+    asian_unknown_weight_sum: Option<f64>,
+    asian_weighted_known_fixing_sum: Option<f64>,
+    lookback_past_monitoring_count: Option<u32>,
+    lookback_future_monitoring_count: Option<u32>,
+    lookback_historical_extremum: Option<f64>,
     barrier_bridge_abi: Option<&'static str>,
     barrier_bridge_policy_version: Option<u32>,
     barrier_hit_indicator_mode: Option<&'static str>,
@@ -192,6 +206,7 @@ impl PyDiagnostics {
             discount_region: curve_region_name(diagnostics.discount_region),
             dividend_region: curve_region_name(diagnostics.dividend_region),
             payoff_fingerprint: diagnostics.payoff_fingerprint.to_string(),
+            valuation_kind: payoff_valuation_kind_name(diagnostics.valuation_kind),
             payoff_smoothing_kernel: diagnostics
                 .payoff_smoothing
                 .map(|smoothing| payoff_smoothing_kernel_name(smoothing.kernel)),
@@ -201,12 +216,35 @@ impl PyDiagnostics {
             payoff_smoothing_half_width: diagnostics
                 .payoff_smoothing
                 .map(|smoothing| smoothing.half_width.get()),
+            payoff_smoothing_full_transition_width: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| smoothing.full_transition_width.get()),
+            payoff_smoothing_width_unit: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| payoff_smoothing_width_unit_name(smoothing.width_unit)),
+            payoff_smoothing_price_and_greeks_share_payoff: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| smoothing.price_and_greeks_share_payoff),
             payoff_smoothing_endpoint_count: diagnostics
                 .payoff_smoothing
                 .map(|smoothing| smoothing.endpoint_count),
             payoff_smoothing_dividend_jump_count: diagnostics
                 .payoff_smoothing
                 .map(|smoothing| smoothing.dividend_jump_count),
+            path_state_kind: diagnostics.path_state.map(path_state_kind_name),
+            asian_known_observation_count: asian_state(diagnostics.path_state).map(|state| state.0),
+            asian_unknown_observation_count: asian_state(diagnostics.path_state)
+                .map(|state| state.1),
+            asian_known_weight_sum: asian_state(diagnostics.path_state).map(|state| state.2),
+            asian_unknown_weight_sum: asian_state(diagnostics.path_state).map(|state| state.3),
+            asian_weighted_known_fixing_sum: asian_state(diagnostics.path_state)
+                .map(|state| state.4),
+            lookback_past_monitoring_count: lookback_state(diagnostics.path_state)
+                .map(|state| state.0),
+            lookback_future_monitoring_count: lookback_state(diagnostics.path_state)
+                .map(|state| state.1),
+            lookback_historical_extremum: lookback_state(diagnostics.path_state)
+                .and_then(|state| state.2),
             barrier_bridge_abi: diagnostics.barrier_bridge.map(|bridge| bridge.abi),
             barrier_bridge_policy_version: diagnostics
                 .barrier_bridge
@@ -354,6 +392,11 @@ impl PyDiagnostics {
     }
 
     #[getter]
+    fn valuation_kind(&self) -> &str {
+        self.valuation_kind
+    }
+
+    #[getter]
     fn payoff_smoothing_kernel(&self) -> Option<&str> {
         self.payoff_smoothing_kernel
     }
@@ -369,6 +412,21 @@ impl PyDiagnostics {
     }
 
     #[getter]
+    fn payoff_smoothing_full_transition_width(&self) -> Option<f64> {
+        self.payoff_smoothing_full_transition_width
+    }
+
+    #[getter]
+    fn payoff_smoothing_width_unit(&self) -> Option<&str> {
+        self.payoff_smoothing_width_unit
+    }
+
+    #[getter]
+    fn payoff_smoothing_price_and_greeks_share_payoff(&self) -> Option<bool> {
+        self.payoff_smoothing_price_and_greeks_share_payoff
+    }
+
+    #[getter]
     fn payoff_smoothing_endpoint_count(&self) -> Option<u32> {
         self.payoff_smoothing_endpoint_count
     }
@@ -376,6 +434,51 @@ impl PyDiagnostics {
     #[getter]
     fn payoff_smoothing_dividend_jump_count(&self) -> Option<u32> {
         self.payoff_smoothing_dividend_jump_count
+    }
+
+    #[getter]
+    fn path_state_kind(&self) -> Option<&str> {
+        self.path_state_kind
+    }
+
+    #[getter]
+    fn asian_known_observation_count(&self) -> Option<u32> {
+        self.asian_known_observation_count
+    }
+
+    #[getter]
+    fn asian_unknown_observation_count(&self) -> Option<u32> {
+        self.asian_unknown_observation_count
+    }
+
+    #[getter]
+    fn asian_known_weight_sum(&self) -> Option<f64> {
+        self.asian_known_weight_sum
+    }
+
+    #[getter]
+    fn asian_unknown_weight_sum(&self) -> Option<f64> {
+        self.asian_unknown_weight_sum
+    }
+
+    #[getter]
+    fn asian_weighted_known_fixing_sum(&self) -> Option<f64> {
+        self.asian_weighted_known_fixing_sum
+    }
+
+    #[getter]
+    fn lookback_past_monitoring_count(&self) -> Option<u32> {
+        self.lookback_past_monitoring_count
+    }
+
+    #[getter]
+    fn lookback_future_monitoring_count(&self) -> Option<u32> {
+        self.lookback_future_monitoring_count
+    }
+
+    #[getter]
+    fn lookback_historical_extremum(&self) -> Option<f64> {
+        self.lookback_historical_extremum
     }
 
     #[getter]
@@ -526,6 +629,60 @@ const fn risk_method_name(method: RiskMethod) -> &'static str {
 const fn payoff_smoothing_kernel_name(kernel: PayoffSmoothingKernel) -> &'static str {
     match kernel {
         PayoffSmoothingKernel::CompactC2 => "compact_c2",
+    }
+}
+
+const fn payoff_valuation_kind_name(kind: PayoffValuationKind) -> &'static str {
+    match kind {
+        PayoffValuationKind::ExactContractual => "exact_contractual",
+        PayoffValuationKind::SmoothedSurrogate => "smoothed_surrogate",
+    }
+}
+
+const fn payoff_smoothing_width_unit_name(unit: PayoffSmoothingWidthUnit) -> &'static str {
+    match unit {
+        PayoffSmoothingWidthUnit::Spot => "spot",
+    }
+}
+
+const fn path_state_kind_name(state: PathStateDiagnostics) -> &'static str {
+    match state {
+        PathStateDiagnostics::ArithmeticAsian { .. } => "arithmetic_asian",
+        PathStateDiagnostics::FixedLookback { .. } => "fixed_lookback",
+    }
+}
+
+const fn asian_state(state: Option<PathStateDiagnostics>) -> Option<(u32, u32, f64, f64, f64)> {
+    match state {
+        Some(PathStateDiagnostics::ArithmeticAsian {
+            known_observation_count,
+            unknown_observation_count,
+            known_weight_sum,
+            unknown_weight_sum,
+            weighted_known_fixing_sum,
+        }) => Some((
+            known_observation_count,
+            unknown_observation_count,
+            known_weight_sum,
+            unknown_weight_sum,
+            weighted_known_fixing_sum,
+        )),
+        Some(PathStateDiagnostics::FixedLookback { .. }) | None => None,
+    }
+}
+
+const fn lookback_state(state: Option<PathStateDiagnostics>) -> Option<(u32, u32, Option<f64>)> {
+    match state {
+        Some(PathStateDiagnostics::FixedLookback {
+            past_monitoring_count,
+            future_monitoring_count,
+            historical_extremum,
+        }) => Some((
+            past_monitoring_count,
+            future_monitoring_count,
+            historical_extremum,
+        )),
+        Some(PathStateDiagnostics::ArithmeticAsian { .. }) | None => None,
     }
 }
 

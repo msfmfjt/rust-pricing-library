@@ -53,6 +53,7 @@ pub enum RequestValidationError {
     VegaKtUnsupportedForConstantVolatility,
     RiskUnsupportedForDiscontinuousProduct,
     PayoffSmoothingUnsupportedForProduct,
+    PayoffSmoothingWidthLadderRequiresPrimary,
 }
 
 impl fmt::Display for RequestValidationError {
@@ -119,6 +120,10 @@ impl fmt::Display for RequestValidationError {
             Self::PayoffSmoothingUnsupportedForProduct => write!(
                 formatter,
                 "payoff smoothing is unsupported for the selected product"
+            ),
+            Self::PayoffSmoothingWidthLadderRequiresPrimary => write!(
+                formatter,
+                "payoff smoothing width ladder requires a separately declared primary smoothing width"
             ),
         }
     }

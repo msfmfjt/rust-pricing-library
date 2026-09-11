@@ -17,7 +17,8 @@ use pricing::product::{
     FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing::risk::{
-    GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
+    GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
+    VegaKtConfig,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyString;
@@ -852,7 +853,7 @@ pub struct PyRiskRequest {
 #[pymethods]
 impl PyRiskRequest {
     #[new]
-    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, payoff_smoothing_half_width=None, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
+    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, payoff_smoothing_half_width=None, payoff_smoothing_width_ladder=None, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -865,6 +866,7 @@ impl PyRiskRequest {
         vega_kt_relative_density_threshold: Option<f64>,
         vega_kt_full_bucket_covariance: bool,
         payoff_smoothing_half_width: Option<f64>,
+        payoff_smoothing_width_ladder: Option<&Bound<'_, PyAny>>,
         smile_dynamics: &str,
         checkpoint_interval: Option<u32>,
         aad_tile_capacity: Option<u32>,
@@ -902,6 +904,22 @@ impl PyRiskRequest {
                     error,
                 )
             })?;
+        let payoff_smoothing_width_ladder = payoff_smoothing_width_ladder
+            .map(|value| {
+                copied_f64_array(value.py(), value, "/risk/payoff_smoothing_width_ladder").and_then(
+                    |widths| {
+                        PayoffSmoothingWidthLadder::new(widths).map_err(|error| {
+                            domain_error(
+                                value.py(),
+                                "invalid_payoff_smoothing_width_ladder",
+                                "/risk/payoff_smoothing_width_ladder",
+                                error,
+                            )
+                        })
+                    },
+                )
+            })
+            .transpose()?;
         let request = RiskRequest::new(
             delta,
             gamma,
@@ -915,6 +933,10 @@ impl PyRiskRequest {
         let inner = match payoff_smoothing {
             Some(smoothing) => request.with_payoff_smoothing(smoothing),
             None => request,
+        };
+        let inner = match payoff_smoothing_width_ladder {
+            Some(ladder) => inner.with_payoff_smoothing_width_ladder(ladder),
+            None => inner,
         };
         Ok(Self { inner })
     }

@@ -16,6 +16,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_ROOT = ROOT / "schemas" / "v1"
 GOLDEN_ROOT = ROOT / "fixtures" / "v1"
+CURRENT_SCHEMA_ROOT = ROOT / "schemas" / "v2"
+CURRENT_GOLDEN_ROOT = ROOT / "fixtures" / "v2"
 DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 EXPECTED_SCHEMAS = {
     "pricing_request": SCHEMA_ROOT / "pricing_request.schema.json",
@@ -108,6 +110,7 @@ ALLOWED_SCHEMA_KEYWORDS = {
     "additionalProperties",
     "allOf",
     "const",
+    "dependentRequired",
     "exclusiveMaximum",
     "exclusiveMinimum",
     "if",
@@ -1314,6 +1317,128 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_tagged_union_discriminators(document_kind, schema, path)
 
 
+def check_v2_artifacts() -> None:
+    expected_names = {"pricing_request.schema.json", "pricing_result.schema.json"}
+    actual_names = {path.name for path in CURRENT_SCHEMA_ROOT.glob("*.schema.json")}
+    require(actual_names == expected_names, "schema v2 file set mismatch")
+    expected_golden_names = {
+        "pricing_request.golden.json",
+        "pricing_result.golden.json",
+        "pricing_result_v1_migrated.golden.json",
+    }
+    actual_golden_names = {path.name for path in CURRENT_GOLDEN_ROOT.glob("*.golden.json")}
+    require(actual_golden_names == expected_golden_names, "golden v2 file set mismatch")
+
+    request_v1 = load_schema(EXPECTED_SCHEMAS["pricing_request"])
+    expected_request_v2 = json.loads(json.dumps(request_v1))
+    expected_request_v2["$id"] = "urn:rust-pricing-library:schema:v2:pricing_request"
+    expected_request_v2["title"] = "PricingRequest schema v2"
+    expected_request_v2["properties"]["schema_version"]["const"] = 2
+    risk = expected_request_v2["$defs"]["risk"]
+    risk["dependentRequired"] = {
+        "payoff_smoothing_width_ladder": ["payoff_smoothing"]
+    }
+    properties = risk["properties"]
+    rebuilt_properties: dict[str, Any] = {}
+    for name, definition in properties.items():
+        rebuilt_properties[name] = definition
+        if name == "payoff_smoothing":
+            rebuilt_properties["payoff_smoothing_width_ladder"] = {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "number", "exclusiveMinimum": 0},
+            }
+    risk["properties"] = rebuilt_properties
+    request_v2_path = CURRENT_SCHEMA_ROOT / "pricing_request.schema.json"
+    request_v2 = load_schema(request_v2_path)
+    require(request_v2 == expected_request_v2, f"{request_v2_path}: unexpected v2 diff")
+    require(
+        list(request_v2["$defs"]["risk"]["properties"])[-4:]
+        == [
+            "payoff_smoothing",
+            "payoff_smoothing_width_ladder",
+            "checkpoint_interval",
+            "aad_tile_capacity",
+        ],
+        f"{request_v2_path}: width ladder field order changed",
+    )
+
+    result_v1 = load_schema(EXPECTED_SCHEMAS["pricing_result"])
+    expected_result_v2 = json.loads(json.dumps(result_v1))
+    expected_result_v2["$id"] = "urn:rust-pricing-library:schema:v2:pricing_result"
+    expected_result_v2["title"] = "PricingResult schema v2"
+    expected_result_v2["properties"]["schema_version"]["const"] = 2
+    expected_result_v2["properties"]["replay"]["properties"]["schema_version"][
+        "const"
+    ] = 2
+    expected_result_v2["properties"]["replay"]["required"].append("migration")
+    expected_result_v2["properties"]["replay"]["properties"]["migration"] = {
+        "$ref": "#/$defs/migration_provenance"
+    }
+    expected_result_v2["$defs"]["migration_provenance"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "original_schema_version",
+            "current_schema_version",
+            "migration_ids",
+            "pre_migration_fingerprint",
+            "post_migration_fingerprint",
+        ],
+        "properties": {
+            "original_schema_version": {"type": "integer", "minimum": 1, "maximum": 2},
+            "current_schema_version": {
+                "type": "integer",
+                "const": 2,
+                "minimum": 1,
+                "maximum": 4294967295,
+            },
+            "migration_ids": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1},
+            },
+            "pre_migration_fingerprint": {
+                "type": "string",
+                "pattern": "^blake3-256:[0-9a-f]{64}$",
+            },
+            "post_migration_fingerprint": {
+                "type": "string",
+                "pattern": "^blake3-256:[0-9a-f]{64}$",
+            },
+        },
+    }
+    result_v2_path = CURRENT_SCHEMA_ROOT / "pricing_result.schema.json"
+    require(
+        load_schema(result_v2_path) == expected_result_v2,
+        f"{result_v2_path}: unexpected v2 diff",
+    )
+
+    old_path = EXPECTED_GOLDENS["pricing_request"]
+    new_path = CURRENT_GOLDEN_ROOT / "pricing_request.golden.json"
+    expected = old_path.read_text("utf-8").replace('"schema_version":1', '"schema_version":2')
+    require(new_path.read_text("utf-8") == expected, f"{new_path}: unexpected v2 diff")
+
+    result_golden = json.loads(
+        (CURRENT_GOLDEN_ROOT / "pricing_result.golden.json").read_text("utf-8")
+    )
+    require(
+        result_golden["replay"]["migration"]["original_schema_version"] == 2
+        and result_golden["replay"]["migration"]["current_schema_version"] == 2
+        and result_golden["replay"]["migration"]["migration_ids"] == [],
+        "v2 result golden migration metadata mismatch",
+    )
+    migrated_result_golden = json.loads(
+        (CURRENT_GOLDEN_ROOT / "pricing_result_v1_migrated.golden.json").read_text("utf-8")
+    )
+    require(
+        migrated_result_golden["replay"]["migration"]["original_schema_version"] == 1
+        and migrated_result_golden["replay"]["migration"]["current_schema_version"] == 2
+        and migrated_result_golden["replay"]["migration"]["migration_ids"]
+        == ["pricing_result/v1-to-v2"],
+        "v1-to-v2 result migration golden metadata mismatch",
+    )
+
+
 def main() -> int:
     try:
         actual = set(SCHEMA_ROOT.glob("*.schema.json"))
@@ -1329,6 +1454,7 @@ def main() -> int:
             check_schema(document_kind, path)
         for document_kind, path in EXPECTED_GOLDENS.items():
             check_golden(document_kind, path)
+        check_v2_artifacts()
     except SchemaError as exc:
         print(f"schema check failed: {exc}", file=sys.stderr)
         return 1

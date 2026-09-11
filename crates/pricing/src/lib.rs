@@ -15,11 +15,13 @@ pub mod analytical;
 pub use error::{MonteCarloError, RequestValidationError, ResultBuildError};
 pub use monte_carlo::{
     BarrierBridgeDiagnostics, BarrierHitIndicatorMode, BumpValidationPolicy, MonteCarloDiagnostics,
-    MonteCarloPrice, PayoffSmoothingDiagnostics, PayoffSmoothingKernel, RiskDiagnostics,
-    RiskMethod, RiskMethodMetadata, RiskValidation, SimulationPlan, price_monte_carlo,
-    price_pseudo_monte_carlo,
+    MonteCarloPrice, PathStateDiagnostics, PayoffSmoothingDiagnostics, PayoffSmoothingKernel,
+    PayoffSmoothingWidthUnit, PayoffValuationKind, RiskDiagnostics, RiskMethod, RiskMethodMetadata,
+    RiskValidation, SimulationPlan, price_monte_carlo, price_pseudo_monte_carlo,
 };
-pub use plan::{PricingPlan, compile, evaluate};
+pub use plan::{
+    PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,
+};
 pub use pricing_core as core;
 pub use pricing_market as market;
 pub use pricing_mc as mc;
@@ -28,10 +30,11 @@ pub use pricing_product as product;
 pub use pricing_risk as risk;
 pub use request::PricingRequest;
 pub use result::{
-    ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, PricingResult, PricingWarning,
-    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult, VegaKtResultBucketEstimate,
-    VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
-    VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit,
+    ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, MigrationProvenance, PricingResult,
+    PricingWarning, ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult,
+    VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
+    VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
+    VegaKtResultUnit,
 };
 pub use wire::{
     Fingerprint, JsonLimits, MigrationRegistry, WireError, current_request_schema,

@@ -16,10 +16,57 @@ pub enum PayoffSmoothing {
     CompactC2 { half_width: PositiveF64 },
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PayoffSmoothingWidthLadder {
+    half_widths: Box<[PositiveF64]>,
+}
+
+impl PayoffSmoothingWidthLadder {
+    pub fn new(half_widths: Vec<f64>) -> Result<Self, RiskConfigError> {
+        if half_widths.is_empty() {
+            return Err(RiskConfigError::EmptyPayoffSmoothingWidthLadder);
+        }
+        let half_widths = half_widths
+            .into_iter()
+            .map(|value| PayoffSmoothing::compact_c2(value).map(PayoffSmoothing::half_width))
+            .collect::<Result<Vec<_>, _>>()?;
+        if half_widths.len() > 2 {
+            let ascending = half_widths[1].get() > half_widths[0].get();
+            for (left_index, pair) in half_widths.windows(2).enumerate() {
+                let ordered = if ascending {
+                    pair[1].get() > pair[0].get()
+                } else {
+                    pair[1].get() < pair[0].get()
+                };
+                if !ordered {
+                    return Err(RiskConfigError::NonMonotonePayoffSmoothingWidthLadder {
+                        left_index,
+                    });
+                }
+            }
+        } else if half_widths.len() == 2 && half_widths[0] == half_widths[1] {
+            return Err(RiskConfigError::NonMonotonePayoffSmoothingWidthLadder { left_index: 0 });
+        }
+        Ok(Self {
+            half_widths: half_widths.into_boxed_slice(),
+        })
+    }
+
+    #[must_use]
+    pub fn half_widths(&self) -> &[PositiveF64] {
+        &self.half_widths
+    }
+}
+
 impl PayoffSmoothing {
     pub const POLICY_VERSION: u32 = 1;
 
     pub fn compact_c2(half_width: f64) -> Result<Self, RiskConfigError> {
+        if half_width > f64::MAX / 2.0 {
+            return Err(RiskConfigError::PayoffSmoothingWidthTooLarge {
+                bits: half_width.to_bits(),
+            });
+        }
         Ok(Self::CompactC2 {
             half_width: PositiveF64::new(half_width, "payoff_smoothing_half_width")?,
         })
@@ -173,6 +220,7 @@ pub struct RiskRequest {
     checkpoint_interval: Option<NonZeroU32>,
     aad_tile_capacity: Option<NonZeroU32>,
     payoff_smoothing: Option<PayoffSmoothing>,
+    payoff_smoothing_width_ladder: Option<PayoffSmoothingWidthLadder>,
 }
 
 impl RiskRequest {
@@ -200,6 +248,7 @@ impl RiskRequest {
             checkpoint_interval,
             aad_tile_capacity,
             payoff_smoothing: None,
+            payoff_smoothing_width_ladder: None,
         })
     }
 
@@ -214,12 +263,28 @@ impl RiskRequest {
             checkpoint_interval: None,
             aad_tile_capacity: None,
             payoff_smoothing: None,
+            payoff_smoothing_width_ladder: None,
         }
     }
 
     #[must_use]
     pub const fn with_payoff_smoothing(mut self, smoothing: PayoffSmoothing) -> Self {
         self.payoff_smoothing = Some(smoothing);
+        self
+    }
+
+    #[must_use]
+    pub fn with_payoff_smoothing_width_ladder(
+        mut self,
+        ladder: PayoffSmoothingWidthLadder,
+    ) -> Self {
+        self.payoff_smoothing_width_ladder = Some(ladder);
+        self
+    }
+
+    #[must_use]
+    pub fn without_payoff_smoothing_width_ladder(mut self) -> Self {
+        self.payoff_smoothing_width_ladder = None;
         self
     }
 
@@ -261,6 +326,11 @@ impl RiskRequest {
     #[must_use]
     pub const fn payoff_smoothing(&self) -> Option<PayoffSmoothing> {
         self.payoff_smoothing
+    }
+
+    #[must_use]
+    pub const fn payoff_smoothing_width_ladder(&self) -> Option<&PayoffSmoothingWidthLadder> {
+        self.payoff_smoothing_width_ladder.as_ref()
     }
 }
 
@@ -305,9 +375,26 @@ mod tests {
         let smoothed = exact.with_payoff_smoothing(smoothing);
         assert_eq!(smoothed.payoff_smoothing(), Some(smoothing));
         assert_eq!(smoothing.half_width().get(), 2.0);
-        for invalid in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        for invalid in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::MAX] {
             assert!(PayoffSmoothing::compact_c2(invalid).is_err());
         }
+    }
+
+    #[test]
+    fn payoff_smoothing_width_ladder_preserves_strict_user_order() {
+        let descending = PayoffSmoothingWidthLadder::new(vec![4.0, 2.0, 1.0]).expect("ladder");
+        assert_eq!(
+            descending
+                .half_widths()
+                .iter()
+                .map(|value| value.get())
+                .collect::<Vec<_>>(),
+            vec![4.0, 2.0, 1.0]
+        );
+        assert!(PayoffSmoothingWidthLadder::new(Vec::new()).is_err());
+        assert!(PayoffSmoothingWidthLadder::new(vec![1.0, 1.0]).is_err());
+        assert!(PayoffSmoothingWidthLadder::new(vec![1.0, 3.0, 2.0]).is_err());
+        assert!(PayoffSmoothingWidthLadder::new(vec![1.0, f64::NAN]).is_err());
     }
 
     #[test]
