@@ -23,7 +23,8 @@ pub use local_vol::{
 };
 pub use lsm::{
     CpqrConfig, CpqrFit, FeatureScaling, LSM_BASIS_ABI, LSM_REGRESSION_ABI, LsmNumericalError,
-    PolynomialBasisSpec, fit_cpqr, is_training_itm, should_exercise,
+    PolynomialBasisSpec, PolynomialRegressionModel, fit_cpqr, fit_polynomial_regression,
+    is_training_itm, should_exercise,
 };
 pub use qmc::{
     JOE_KUO_DIRECTION_SET, RQMC_SCRAMBLE_ABI, RqmcPlan, RqmcPlanError, RqmcPointError, Scramble32,

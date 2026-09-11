@@ -31,6 +31,10 @@ pub enum LsmNumericalError {
         expected: usize,
         actual: usize,
     },
+    FeatureMatrixLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
     InactiveFeature,
     NonFiniteDecisionValue {
         name: &'static str,
@@ -43,6 +47,10 @@ pub enum LsmNumericalError {
     ZeroMatrixRows,
     ZeroMatrixColumns,
     MatrixShapeOverflow,
+    MatrixElementLimitExceeded {
+        requested: usize,
+        maximum: usize,
+    },
     MatrixLengthMismatch {
         expected: usize,
         actual: usize,
@@ -101,6 +109,10 @@ impl fmt::Display for LsmNumericalError {
                 formatter,
                 "polynomial basis needs {expected} features; received {actual}"
             ),
+            Self::FeatureMatrixLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM feature matrix needs {expected} values; received {actual}"
+            ),
             Self::InactiveFeature => {
                 write!(formatter, "an inactive feature has no standardized value")
             }
@@ -117,6 +129,10 @@ impl fmt::Display for LsmNumericalError {
                 write!(formatter, "LSM regression matrix has zero columns")
             }
             Self::MatrixShapeOverflow => write!(formatter, "LSM regression shape overflowed"),
+            Self::MatrixElementLimitExceeded { requested, maximum } => write!(
+                formatter,
+                "LSM regression matrix needs {requested} elements, exceeding limit {maximum}"
+            ),
             Self::MatrixLengthMismatch { expected, actual } => write!(
                 formatter,
                 "LSM regression matrix needs {expected} values; received {actual}"
@@ -404,6 +420,291 @@ impl FeatureScaling {
         }
         Ok(standardized)
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PolynomialRegressionModel {
+    basis: PolynomialBasisSpec,
+    feature_scalings: Box<[FeatureScaling]>,
+    active_basis_columns: Box<[usize]>,
+    pre_excluded_basis_columns: Box<[usize]>,
+    pivot_order: Box<[usize]>,
+    diagonal_abs: Box<[f64]>,
+    rank_threshold: f64,
+    rank: usize,
+    rank_excluded_basis_columns: Box<[usize]>,
+    coefficients: Box<[f64]>,
+    residual_sum_squares: f64,
+}
+
+impl PolynomialRegressionModel {
+    #[must_use]
+    pub const fn basis(&self) -> &PolynomialBasisSpec {
+        &self.basis
+    }
+
+    #[must_use]
+    pub fn feature_scalings(&self) -> &[FeatureScaling] {
+        &self.feature_scalings
+    }
+
+    #[must_use]
+    pub fn active_basis_columns(&self) -> &[usize] {
+        &self.active_basis_columns
+    }
+
+    #[must_use]
+    pub fn pre_excluded_basis_columns(&self) -> &[usize] {
+        &self.pre_excluded_basis_columns
+    }
+
+    #[must_use]
+    pub fn pivot_order(&self) -> &[usize] {
+        &self.pivot_order
+    }
+
+    #[must_use]
+    pub fn diagonal_abs(&self) -> &[f64] {
+        &self.diagonal_abs
+    }
+
+    #[must_use]
+    pub const fn rank_threshold(&self) -> f64 {
+        self.rank_threshold
+    }
+
+    #[must_use]
+    pub const fn rank(&self) -> usize {
+        self.rank
+    }
+
+    #[must_use]
+    pub fn rank_excluded_basis_columns(&self) -> &[usize] {
+        &self.rank_excluded_basis_columns
+    }
+
+    #[must_use]
+    pub fn coefficients(&self) -> &[f64] {
+        &self.coefficients
+    }
+
+    #[must_use]
+    pub const fn residual_sum_squares(&self) -> f64 {
+        self.residual_sum_squares
+    }
+
+    pub fn predict(&self, features: &[f64]) -> Result<f64, LsmNumericalError> {
+        let standardized = standardize_features(features, &self.feature_scalings)?;
+        let basis_values = self.basis.evaluate(&standardized)?;
+        let mut prediction = NeumaierSum::new();
+        for (&basis_value, &coefficient) in basis_values.iter().zip(&self.coefficients) {
+            prediction.add(basis_value * coefficient);
+        }
+        let prediction = prediction.total();
+        if !prediction.is_finite() {
+            return Err(LsmNumericalError::NonFiniteIntermediate {
+                stage: "regression prediction",
+            });
+        }
+        Ok(prediction)
+    }
+}
+
+pub fn fit_polynomial_regression(
+    basis: PolynomialBasisSpec,
+    features: &[f64],
+    rows: usize,
+    target: &[f64],
+    config: CpqrConfig,
+    max_matrix_elements: usize,
+) -> Result<PolynomialRegressionModel, LsmNumericalError> {
+    if rows == 0 {
+        return Err(LsmNumericalError::ZeroMatrixRows);
+    }
+    if max_matrix_elements == 0 {
+        return Err(LsmNumericalError::ZeroResourceLimit {
+            resource: "regression_matrix_elements",
+        });
+    }
+    if rows > max_matrix_elements {
+        return Err(LsmNumericalError::MatrixElementLimitExceeded {
+            requested: rows,
+            maximum: max_matrix_elements,
+        });
+    }
+    let feature_count = basis.feature_count as usize;
+    let expected_features = rows
+        .checked_mul(feature_count)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if features.len() != expected_features {
+        return Err(LsmNumericalError::FeatureMatrixLengthMismatch {
+            expected: expected_features,
+            actual: features.len(),
+        });
+    }
+    if target.len() != rows {
+        return Err(LsmNumericalError::TargetLengthMismatch {
+            expected: rows,
+            actual: target.len(),
+        });
+    }
+    for (row, &value) in target.iter().enumerate() {
+        if !value.is_finite() {
+            return Err(LsmNumericalError::NonFiniteTargetValue {
+                row,
+                bits: value.to_bits(),
+            });
+        }
+    }
+
+    let mut feature_scalings = Vec::new();
+    feature_scalings
+        .try_reserve_exact(feature_count)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "feature scalings",
+            requested: feature_count,
+        })?;
+    let mut feature_column = if feature_count == 0 {
+        Vec::new()
+    } else {
+        zeroed_values(rows, "feature scaling column")?
+    };
+    for feature in 0..feature_count {
+        for row in 0..rows {
+            feature_column[row] = features[row * feature_count + feature];
+        }
+        feature_scalings.push(FeatureScaling::fit(&feature_column)?);
+    }
+
+    let mut active_basis_columns = Vec::new();
+    let mut pre_excluded_basis_columns = Vec::new();
+    active_basis_columns
+        .try_reserve_exact(basis.exponents.len())
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "active basis columns",
+            requested: basis.exponents.len(),
+        })?;
+    pre_excluded_basis_columns
+        .try_reserve_exact(basis.exponents.len())
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "pre-excluded basis columns",
+            requested: basis.exponents.len(),
+        })?;
+    for (column, exponents) in basis.exponents.iter().enumerate() {
+        let depends_on_inactive = exponents
+            .iter()
+            .zip(&feature_scalings)
+            .any(|(&exponent, scaling)| exponent != 0 && scaling.inactive);
+        if depends_on_inactive {
+            pre_excluded_basis_columns.push(column);
+        } else {
+            active_basis_columns.push(column);
+        }
+    }
+    debug_assert!(!active_basis_columns.is_empty());
+    let matrix_elements = rows
+        .checked_mul(active_basis_columns.len())
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if matrix_elements > max_matrix_elements {
+        return Err(LsmNumericalError::MatrixElementLimitExceeded {
+            requested: matrix_elements,
+            maximum: max_matrix_elements,
+        });
+    }
+    let mut design = zeroed_values(matrix_elements, "polynomial design matrix")?;
+    let mut raw_row = zeroed_values(feature_count, "raw feature row")?;
+    for row in 0..rows {
+        for feature in 0..feature_count {
+            raw_row[feature] = features[row * feature_count + feature];
+        }
+        let standardized = standardize_features(&raw_row, &feature_scalings)?;
+        for (active_column, &basis_column) in active_basis_columns.iter().enumerate() {
+            design[row * active_basis_columns.len() + active_column] =
+                evaluate_monomial(&standardized, &basis.exponents[basis_column])?;
+        }
+    }
+
+    let fit = fit_cpqr(&design, rows, active_basis_columns.len(), target, config)?;
+    let mut pivot_order = Vec::new();
+    pivot_order
+        .try_reserve_exact(fit.pivot_order.len())
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "original basis pivot order",
+            requested: fit.pivot_order.len(),
+        })?;
+    pivot_order.extend(
+        fit.pivot_order
+            .iter()
+            .map(|&active_column| active_basis_columns[active_column]),
+    );
+    let mut rank_excluded_basis_columns = Vec::new();
+    let rank_excluded_count = pivot_order.len().saturating_sub(fit.rank);
+    rank_excluded_basis_columns
+        .try_reserve_exact(rank_excluded_count)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "rank-excluded basis columns",
+            requested: rank_excluded_count,
+        })?;
+    rank_excluded_basis_columns.extend_from_slice(&pivot_order[fit.rank..]);
+    let mut coefficients = zeroed_values(basis.exponents.len(), "basis coefficients")?;
+    for (active_column, &basis_column) in active_basis_columns.iter().enumerate() {
+        coefficients[basis_column] = fit.coefficients[active_column];
+    }
+    Ok(PolynomialRegressionModel {
+        basis,
+        feature_scalings: feature_scalings.into_boxed_slice(),
+        active_basis_columns: active_basis_columns.into_boxed_slice(),
+        pre_excluded_basis_columns: pre_excluded_basis_columns.into_boxed_slice(),
+        pivot_order: pivot_order.into_boxed_slice(),
+        diagonal_abs: fit.diagonal_abs,
+        rank_threshold: fit.rank_threshold,
+        rank: fit.rank,
+        rank_excluded_basis_columns: rank_excluded_basis_columns.into_boxed_slice(),
+        coefficients: coefficients.into_boxed_slice(),
+        residual_sum_squares: fit.residual_sum_squares,
+    })
+}
+
+fn standardize_features(
+    features: &[f64],
+    scalings: &[FeatureScaling],
+) -> Result<Vec<f64>, LsmNumericalError> {
+    if features.len() != scalings.len() {
+        return Err(LsmNumericalError::FeatureCountMismatch {
+            expected: scalings.len(),
+            actual: features.len(),
+        });
+    }
+    let mut standardized = zeroed_values(features.len(), "standardized feature row")?;
+    for (index, (&feature, &scaling)) in features.iter().zip(scalings).enumerate() {
+        if !feature.is_finite() {
+            return Err(LsmNumericalError::NonFiniteFeature {
+                index,
+                bits: feature.to_bits(),
+            });
+        }
+        standardized[index] = if scaling.inactive {
+            0.0
+        } else {
+            scaling.standardize(feature)?
+        };
+    }
+    Ok(standardized)
+}
+
+fn evaluate_monomial(features: &[f64], exponents: &[u32]) -> Result<f64, LsmNumericalError> {
+    let mut value = 1.0;
+    for (&feature, &exponent) in features.iter().zip(exponents) {
+        for _ in 0..exponent {
+            value *= feature;
+            if !value.is_finite() {
+                return Err(LsmNumericalError::NonFiniteIntermediate {
+                    stage: "basis value",
+                });
+            }
+        }
+    }
+    Ok(value)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -973,5 +1274,96 @@ mod tests {
             fit_cpqr(&[1.0], 1, 1, &[f64::INFINITY], config),
             Err(LsmNumericalError::NonFiniteTargetValue { .. })
         ));
+    }
+
+    #[test]
+    fn polynomial_regression_scales_features_and_predicts_in_original_basis_order() {
+        let basis = PolynomialBasisSpec::new(1, 1, 4, 4).expect("basis");
+        let model = fit_polynomial_regression(
+            basis,
+            &[1.0, 2.0, 3.0],
+            3,
+            &[3.0, 5.0, 7.0],
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+        )
+        .expect("model");
+        assert_eq!(model.active_basis_columns(), [0, 1]);
+        assert!(model.pre_excluded_basis_columns().is_empty());
+        assert_eq!(model.rank(), 2);
+        assert!(model.rank_excluded_basis_columns().is_empty());
+        assert!((model.coefficients()[0] - 5.0).abs() < 1.0e-13);
+        assert!((model.coefficients()[1] - 2.0 * (2.0_f64 / 3.0).sqrt()).abs() < 1.0e-13);
+        assert!(model.residual_sum_squares() < 1.0e-26);
+        assert!((model.predict(&[4.0]).expect("prediction") - 9.0).abs() < 1.0e-13);
+    }
+
+    #[test]
+    fn polynomial_regression_pre_excludes_inactive_feature_columns() {
+        let basis = PolynomialBasisSpec::new(1, 2, 4, 4).expect("basis");
+        let model = fit_polynomial_regression(
+            basis,
+            &[5.0, 5.0, 5.0],
+            3,
+            &[1.0, 2.0, 3.0],
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+        )
+        .expect("model");
+        assert_eq!(model.active_basis_columns(), [0]);
+        assert_eq!(model.pre_excluded_basis_columns(), [1, 2]);
+        assert_eq!(model.pivot_order(), [0]);
+        assert_eq!(model.rank(), 1);
+        assert_eq!(model.coefficients(), [2.0, 0.0, 0.0]);
+        assert_eq!(model.residual_sum_squares(), 2.0);
+        assert_eq!(model.predict(&[5.0]).expect("prediction"), 2.0);
+    }
+
+    #[test]
+    fn polynomial_regression_checks_matrix_shape_and_limit_before_allocation() {
+        let basis = PolynomialBasisSpec::new(1, 1, 4, 4).expect("basis");
+        assert_eq!(
+            fit_polynomial_regression(
+                basis.clone(),
+                &[1.0],
+                2,
+                &[1.0, 2.0],
+                CpqrConfig::new(0.0, 0.0).expect("config"),
+                4,
+            ),
+            Err(LsmNumericalError::FeatureMatrixLengthMismatch {
+                expected: 2,
+                actual: 1,
+            })
+        );
+        assert_eq!(
+            fit_polynomial_regression(
+                basis,
+                &[1.0, 2.0],
+                2,
+                &[1.0, 2.0],
+                CpqrConfig::new(0.0, 0.0).expect("config"),
+                3,
+            ),
+            Err(LsmNumericalError::MatrixElementLimitExceeded {
+                requested: 4,
+                maximum: 3,
+            })
+        );
+        let constant = PolynomialBasisSpec::new(0, 0, 1, 1).expect("constant basis");
+        assert_eq!(
+            fit_polynomial_regression(
+                constant,
+                &[],
+                4,
+                &[1.0, 1.0, 1.0, 1.0],
+                CpqrConfig::new(0.0, 0.0).expect("config"),
+                3,
+            ),
+            Err(LsmNumericalError::MatrixElementLimitExceeded {
+                requested: 4,
+                maximum: 3,
+            })
+        );
     }
 }

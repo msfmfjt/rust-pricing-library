@@ -122,9 +122,9 @@ The solver is scalar column-pivoted Householder QR, policy
    non-negative, otherwise `alpha = norm`.
 5. Store the reflector with implicit leading value one and
    `tau = (alpha - leading) / alpha`. Apply it to remaining columns in
-   increasing current-column order and to the target last. Dot products and
-   row updates use ascending row order with separate multiplication and
-   addition/subtraction operations.
+   increasing current-column order and to the target last. Dot products use
+   the versioned Neumaier accumulator in ascending row order. Row updates use
+   separate multiplication and subtraction operations in ascending row order.
 6. Recompute norms from the transformed matrix at the next step. No downdated
    norm estimate is reused.
 
@@ -145,7 +145,8 @@ Once one pivot fails, it and every later pivot are excluded even if a later
 stored diagonal would pass independently.
 
 Back substitution visits retained pivot positions in descending order. Each
-row's upper-triangular dot product visits columns in increasing pivot position.
+row's upper-triangular dot product uses the versioned Neumaier accumulator over
+columns in increasing pivot position.
 Division by a retained diagonal must produce a finite value. Coefficients are
 then mapped to original basis order; pre-excluded and rank-excluded columns are
 exact positive zero.
