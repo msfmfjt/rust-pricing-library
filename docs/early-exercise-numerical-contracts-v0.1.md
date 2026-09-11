@@ -188,6 +188,18 @@ the existing engine ABI. The base valuation stores one stopping index for each
 identity. AAD and validation bumps consume that immutable table and do not
 evaluate exercise comparisons again.
 
+The canonical policy byte stream uses unsigned big-endian integers. Variable
+byte strings and arrays carry a `u64` element-count prefix; native `usize`
+values are converted to `u64` before hashing. A date is encoded as big-endian
+`u16` year followed by `u8` month and day. Fixed 32-byte product and training
+configuration fingerprints are included raw. Finite `f64` values use their
+big-endian `to_bits()` representation, booleans use `0` or `1`, and tagged
+variants use the documented zero-based declaration order. The stream includes
+the fixed `LsmTrain = 1` random-domain identifier, configured resource limits,
+date-local diagnostics, and warnings in deterministic stored order. BLAKE3-256
+hashes the stream, and the displayed form is lowercase
+`blake3-256:<64 hexadecimal digits>`.
+
 ## 8. Reference Artifact
 
 `../fixtures/early-exercise/reference-cases-v0.1.json` freezes decision, basis,

@@ -23,8 +23,9 @@ pub use local_vol::{
 };
 pub use lsm::{
     ContinueAllReason, CpqrConfig, CpqrFit, DateLocalExerciseFit, ExerciseDecisionModel,
-    ExercisePolicy, ExercisePolicyTrainingOutcome, ExerciseRegressionDiagnostics, FeatureScaling,
-    LSM_BASIS_ABI, LSM_REGRESSION_ABI, LsmNumericalError, LsmWarning, PolynomialBasisSpec,
+    ExercisePolicy, ExercisePolicyFingerprint, ExercisePolicyTrainingMetadata,
+    ExercisePolicyTrainingOutcome, ExerciseRegressionDiagnostics, FeatureScaling, LSM_BASIS_ABI,
+    LSM_POLICY_ABI, LSM_REGRESSION_ABI, LsmNumericalError, LsmWarning, PolynomialBasisSpec,
     PolynomialRegressionModel, fit_cpqr, fit_exercise_decision, fit_polynomial_regression,
     is_training_itm, should_exercise, train_exercise_policy,
 };

@@ -6,6 +6,7 @@ use pricing_numerics::NeumaierSum;
 
 pub const LSM_BASIS_ABI: &str = "polynomial-total-degree-v1";
 pub const LSM_REGRESSION_ABI: &str = "cpqr-householder-v1";
+pub const LSM_POLICY_ABI: &str = "early_exercise_v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -109,6 +110,16 @@ pub enum LsmNumericalError {
         date_index: usize,
         path: usize,
         bits: u64,
+    },
+    ZeroTrainingCount {
+        field: &'static str,
+    },
+    TrainingTrajectoryCountMismatch {
+        metadata: u64,
+        actual: usize,
+    },
+    FingerprintCountOverflow {
+        field: &'static str,
     },
     NonFiniteIntermediate {
         stage: &'static str,
@@ -236,6 +247,19 @@ impl fmt::Display for LsmNumericalError {
                 formatter,
                 "LSM immediate value ({date_index}, {path}) is negative: 0x{bits:016x}"
             ),
+            Self::ZeroTrainingCount { field } => {
+                write!(formatter, "LSM training {field} must be positive")
+            }
+            Self::TrainingTrajectoryCountMismatch { metadata, actual } => write!(
+                formatter,
+                "LSM metadata declares {metadata} trajectories; received {actual} training paths"
+            ),
+            Self::FingerprintCountOverflow { field } => {
+                write!(
+                    formatter,
+                    "LSM policy fingerprint {field} does not fit in u64"
+                )
+            }
             Self::NonFiniteIntermediate { stage } => {
                 write!(formatter, "LSM regression produced a non-finite {stage}")
             }
@@ -685,17 +709,140 @@ impl DateLocalExerciseFit {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct ExercisePolicyFingerprint([u8; 32]);
+
+impl ExercisePolicyFingerprint {
+    #[must_use]
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    #[must_use]
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl fmt::Display for ExercisePolicyFingerprint {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "blake3-256:")?;
+        for byte in self.0 {
+            write!(formatter, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct ExercisePolicyTrainingMetadata {
+    product_fingerprint: [u8; 32],
+    training_configuration_fingerprint: [u8; 32],
+    seed: u64,
+    sampling_units: u64,
+    trajectory_count: u64,
+}
+
+impl ExercisePolicyTrainingMetadata {
+    pub fn new(
+        product_fingerprint: [u8; 32],
+        training_configuration_fingerprint: [u8; 32],
+        seed: u64,
+        sampling_units: u64,
+        trajectory_count: u64,
+    ) -> Result<Self, LsmNumericalError> {
+        if sampling_units == 0 {
+            return Err(LsmNumericalError::ZeroTrainingCount {
+                field: "sampling_units",
+            });
+        }
+        if trajectory_count == 0 {
+            return Err(LsmNumericalError::ZeroTrainingCount {
+                field: "trajectory_count",
+            });
+        }
+        Ok(Self {
+            product_fingerprint,
+            training_configuration_fingerprint,
+            seed,
+            sampling_units,
+            trajectory_count,
+        })
+    }
+
+    #[must_use]
+    pub const fn product_fingerprint(self) -> [u8; 32] {
+        self.product_fingerprint
+    }
+
+    #[must_use]
+    pub const fn training_configuration_fingerprint(self) -> [u8; 32] {
+        self.training_configuration_fingerprint
+    }
+
+    #[must_use]
+    pub const fn seed(self) -> u64 {
+        self.seed
+    }
+
+    #[must_use]
+    pub const fn sampling_units(self) -> u64 {
+        self.sampling_units
+    }
+
+    #[must_use]
+    pub const fn trajectory_count(self) -> u64 {
+        self.trajectory_count
+    }
+
+    #[must_use]
+    pub const fn random_domain(self) -> crate::RandomDomain {
+        crate::RandomDomain::LsmTrain
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExercisePolicy {
     exercise_dates: Box<[Date]>,
+    basis: PolynomialBasisSpec,
+    itm_abs_tolerance: f64,
+    cpqr_config: CpqrConfig,
+    max_matrix_elements: usize,
+    training_metadata: ExercisePolicyTrainingMetadata,
     decisions: Box<[ExerciseDecisionModel]>,
     diagnostics: Box<[ExerciseRegressionDiagnostics]>,
+    fingerprint: ExercisePolicyFingerprint,
 }
 
 impl ExercisePolicy {
     #[must_use]
     pub fn exercise_dates(&self) -> &[Date] {
         &self.exercise_dates
+    }
+
+    #[must_use]
+    pub const fn basis(&self) -> &PolynomialBasisSpec {
+        &self.basis
+    }
+
+    #[must_use]
+    pub const fn itm_abs_tolerance(&self) -> f64 {
+        self.itm_abs_tolerance
+    }
+
+    #[must_use]
+    pub const fn cpqr_config(&self) -> CpqrConfig {
+        self.cpqr_config
+    }
+
+    #[must_use]
+    pub const fn max_matrix_elements(&self) -> usize {
+        self.max_matrix_elements
+    }
+
+    #[must_use]
+    pub const fn training_metadata(&self) -> ExercisePolicyTrainingMetadata {
+        self.training_metadata
     }
 
     #[must_use]
@@ -706,6 +853,11 @@ impl ExercisePolicy {
     #[must_use]
     pub fn diagnostics(&self) -> &[ExerciseRegressionDiagnostics] {
         &self.diagnostics
+    }
+
+    #[must_use]
+    pub const fn fingerprint(&self) -> ExercisePolicyFingerprint {
+        self.fingerprint
     }
 }
 
@@ -750,6 +902,7 @@ pub fn train_exercise_policy(
     itm_abs_tolerance: f64,
     config: CpqrConfig,
     max_matrix_elements: usize,
+    training_metadata: ExercisePolicyTrainingMetadata,
 ) -> Result<ExercisePolicyTrainingOutcome, LsmNumericalError> {
     validate_tolerance("itm_abs_tolerance", itm_abs_tolerance)?;
     if exercise_dates.is_empty() {
@@ -780,6 +933,16 @@ pub fn train_exercise_policy(
         return Err(LsmNumericalError::MatrixElementLimitExceeded {
             requested: training_paths,
             maximum: max_matrix_elements,
+        });
+    }
+    let actual_trajectory_count =
+        u64::try_from(training_paths).map_err(|_| LsmNumericalError::FingerprintCountOverflow {
+            field: "training_paths",
+        })?;
+    if training_metadata.trajectory_count != actual_trajectory_count {
+        return Err(LsmNumericalError::TrainingTrajectoryCountMismatch {
+            metadata: training_metadata.trajectory_count,
+            actual: training_paths,
         });
     }
     if discount_factors.len() != exercise_dates.len() {
@@ -921,15 +1084,186 @@ pub fn train_exercise_policy(
         decisions.push(fit.decision);
         diagnostics.push(fit.diagnostics);
     }
+    let mut policy = ExercisePolicy {
+        exercise_dates: policy_dates.into_boxed_slice(),
+        basis,
+        itm_abs_tolerance,
+        cpqr_config: config,
+        max_matrix_elements,
+        training_metadata,
+        decisions: decisions.into_boxed_slice(),
+        diagnostics: diagnostics.into_boxed_slice(),
+        fingerprint: ExercisePolicyFingerprint::from_bytes([0; 32]),
+    };
+    policy.fingerprint = fingerprint_exercise_policy(&policy)?;
     Ok(ExercisePolicyTrainingOutcome {
-        policy: ExercisePolicy {
-            exercise_dates: policy_dates.into_boxed_slice(),
-            decisions: decisions.into_boxed_slice(),
-            diagnostics: diagnostics.into_boxed_slice(),
-        },
+        policy,
         realized_cashflows: realized_cashflows.into_boxed_slice(),
         stopping_indices: stopping_indices.into_boxed_slice(),
     })
+}
+
+fn fingerprint_exercise_policy(
+    policy: &ExercisePolicy,
+) -> Result<ExercisePolicyFingerprint, LsmNumericalError> {
+    let mut hasher = blake3::Hasher::new();
+    hash_bytes(&mut hasher, b"pricing/exercise-policy")?;
+    hash_bytes(&mut hasher, LSM_POLICY_ABI.as_bytes())?;
+    hash_bytes(&mut hasher, LSM_BASIS_ABI.as_bytes())?;
+    hash_bytes(&mut hasher, LSM_REGRESSION_ABI.as_bytes())?;
+    hasher.update(&policy.training_metadata.product_fingerprint);
+    hasher.update(&policy.training_metadata.training_configuration_fingerprint);
+    hasher.update(&policy.training_metadata.seed.to_be_bytes());
+    hasher.update(&policy.training_metadata.sampling_units.to_be_bytes());
+    hasher.update(&policy.training_metadata.trajectory_count.to_be_bytes());
+    hasher.update(&crate::RandomDomain::LsmTrain.id().to_be_bytes());
+    hash_usize(&mut hasher, policy.exercise_dates.len(), "exercise_dates")?;
+    for date in &policy.exercise_dates {
+        hasher.update(&date.year().to_be_bytes());
+        hasher.update(&[date.month(), date.day()]);
+    }
+    hasher.update(&policy.basis.feature_count.to_be_bytes());
+    hasher.update(&policy.basis.max_degree.to_be_bytes());
+    hash_usize(&mut hasher, policy.basis.exponents.len(), "basis_columns")?;
+    for exponents in &policy.basis.exponents {
+        hash_usize(&mut hasher, exponents.len(), "basis_exponents")?;
+        for &exponent in exponents {
+            hasher.update(&exponent.to_be_bytes());
+        }
+    }
+    hasher.update(&policy.itm_abs_tolerance.to_bits().to_be_bytes());
+    hasher.update(
+        &policy
+            .cpqr_config
+            .abs_rank_tolerance
+            .to_bits()
+            .to_be_bytes(),
+    );
+    hasher.update(
+        &policy
+            .cpqr_config
+            .rel_rank_tolerance
+            .to_bits()
+            .to_be_bytes(),
+    );
+    hash_usize(
+        &mut hasher,
+        policy.max_matrix_elements,
+        "max_matrix_elements",
+    )?;
+    hash_usize(&mut hasher, policy.decisions.len(), "decisions")?;
+    for decision in &policy.decisions {
+        match decision {
+            ExerciseDecisionModel::Regression(model) => {
+                hasher.update(&[0]);
+                hash_regression_model(&mut hasher, model)?;
+            }
+            ExerciseDecisionModel::ContinueAll { reason } => {
+                hasher.update(&[1]);
+                match reason {
+                    ContinueAllReason::ZeroItmTrainingPaths => hasher.update(&[0]),
+                };
+            }
+        }
+    }
+    hash_usize(&mut hasher, policy.diagnostics.len(), "diagnostics")?;
+    for diagnostics in &policy.diagnostics {
+        hash_usize(&mut hasher, diagnostics.candidate_rows, "candidate_rows")?;
+        hash_usize(&mut hasher, diagnostics.itm_rows, "itm_rows")?;
+        hash_usize(&mut hasher, diagnostics.feature_count, "feature_count")?;
+        hash_usize(&mut hasher, diagnostics.warnings.len(), "warnings")?;
+        for warning in &diagnostics.warnings {
+            match warning {
+                LsmWarning::ZeroItmTrainingPaths => {
+                    hasher.update(&[0]);
+                }
+                LsmWarning::InactiveFeature { feature } => {
+                    hasher.update(&[1]);
+                    hash_usize(&mut hasher, *feature, "inactive_feature")?;
+                }
+                LsmWarning::RankExcludedBasisColumn { column } => {
+                    hasher.update(&[2]);
+                    hash_usize(&mut hasher, *column, "rank_excluded_column")?;
+                }
+            }
+        }
+    }
+    Ok(ExercisePolicyFingerprint::from_bytes(
+        *hasher.finalize().as_bytes(),
+    ))
+}
+
+fn hash_regression_model(
+    hasher: &mut blake3::Hasher,
+    model: &PolynomialRegressionModel,
+) -> Result<(), LsmNumericalError> {
+    hash_usize(hasher, model.feature_scalings.len(), "feature_scalings")?;
+    for scaling in &model.feature_scalings {
+        hasher.update(&scaling.mean.to_bits().to_be_bytes());
+        hasher.update(&scaling.population_variance.to_bits().to_be_bytes());
+        hasher.update(&scaling.scale.to_bits().to_be_bytes());
+        hasher.update(&scaling.zero_scale_threshold.to_bits().to_be_bytes());
+        hasher.update(&[u8::from(scaling.inactive)]);
+    }
+    hash_usize_slice(hasher, &model.active_basis_columns, "active_basis_columns")?;
+    hash_usize_slice(
+        hasher,
+        &model.pre_excluded_basis_columns,
+        "pre_excluded_basis_columns",
+    )?;
+    hash_usize_slice(hasher, &model.pivot_order, "pivot_order")?;
+    hash_f64_slice(hasher, &model.diagonal_abs, "diagonal_abs")?;
+    hasher.update(&model.rank_threshold.to_bits().to_be_bytes());
+    hash_usize(hasher, model.rank, "rank")?;
+    hash_usize_slice(
+        hasher,
+        &model.rank_excluded_basis_columns,
+        "rank_excluded_basis_columns",
+    )?;
+    hash_f64_slice(hasher, &model.coefficients, "coefficients")?;
+    hasher.update(&model.residual_sum_squares.to_bits().to_be_bytes());
+    Ok(())
+}
+
+fn hash_bytes(hasher: &mut blake3::Hasher, bytes: &[u8]) -> Result<(), LsmNumericalError> {
+    hash_usize(hasher, bytes.len(), "byte_string")?;
+    hasher.update(bytes);
+    Ok(())
+}
+
+fn hash_usize(
+    hasher: &mut blake3::Hasher,
+    value: usize,
+    field: &'static str,
+) -> Result<(), LsmNumericalError> {
+    let value =
+        u64::try_from(value).map_err(|_| LsmNumericalError::FingerprintCountOverflow { field })?;
+    hasher.update(&value.to_be_bytes());
+    Ok(())
+}
+
+fn hash_usize_slice(
+    hasher: &mut blake3::Hasher,
+    values: &[usize],
+    field: &'static str,
+) -> Result<(), LsmNumericalError> {
+    hash_usize(hasher, values.len(), field)?;
+    for &value in values {
+        hash_usize(hasher, value, field)?;
+    }
+    Ok(())
+}
+
+fn hash_f64_slice(
+    hasher: &mut blake3::Hasher,
+    values: &[f64],
+    field: &'static str,
+) -> Result<(), LsmNumericalError> {
+    hash_usize(hasher, values.len(), field)?;
+    for value in values {
+        hasher.update(&value.to_bits().to_be_bytes());
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1660,6 +1994,17 @@ fn column_norm(
 mod tests {
     use super::*;
 
+    fn training_metadata(trajectory_count: u64) -> ExercisePolicyTrainingMetadata {
+        ExercisePolicyTrainingMetadata::new(
+            [0x11; 32],
+            [0x22; 32],
+            7,
+            trajectory_count,
+            trajectory_count,
+        )
+        .expect("training metadata")
+    }
+
     struct CpqrCase<'a> {
         matrix: &'a [f64],
         rows: usize,
@@ -2075,6 +2420,7 @@ mod tests {
             0.0,
             CpqrConfig::new(0.0, 0.0).expect("config"),
             16,
+            training_metadata(2),
         )
         .expect("policy");
         assert_eq!(outcome.policy().exercise_dates(), dates);
@@ -2106,6 +2452,7 @@ mod tests {
             0.0,
             CpqrConfig::new(0.0, 0.0).expect("config"),
             8,
+            training_metadata(1),
         )
         .expect("policy");
         assert!(matches!(
@@ -2135,11 +2482,35 @@ mod tests {
             0.0,
             CpqrConfig::new(0.0, 0.0).expect("config"),
             8,
+            training_metadata(2),
         )
         .expect("terminal policy");
         assert!(outcome.policy().decisions().is_empty());
         assert_eq!(outcome.realized_cashflows(), [0.0, 10.0]);
         assert_eq!(outcome.stopping_indices(), [0, 0]);
+        assert_eq!(
+            outcome.policy().fingerprint().to_string(),
+            "blake3-256:c26c8476b3d6f3f9ff053a8175f721e0b31f78f3113884348b8aa561d405a30e"
+        );
+        let changed_seed = ExercisePolicyTrainingMetadata::new([0x11; 32], [0x22; 32], 8, 2, 2)
+            .expect("changed metadata");
+        let changed = train_exercise_policy(
+            &expiry,
+            PolynomialBasisSpec::new(1, 2, 4, 4).expect("basis"),
+            &[],
+            2,
+            &[0.0, 10.0],
+            &[0.8],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            8,
+            changed_seed,
+        )
+        .expect("changed policy");
+        assert_ne!(
+            outcome.policy().fingerprint(),
+            changed.policy().fingerprint()
+        );
 
         assert!(matches!(
             train_exercise_policy(
@@ -2152,6 +2523,7 @@ mod tests {
                 0.0,
                 CpqrConfig::new(0.0, 0.0).expect("config"),
                 8,
+                training_metadata(2),
             ),
             Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch { .. })
         ));
