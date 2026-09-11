@@ -43,6 +43,9 @@ jobs:
       - name: Check Path Dependence reference fixture
         run: python scripts/check_path_dependence_reference_fixture.py
 
+      - name: Check Early Exercise reference fixture
+        run: python scripts/check_early_exercise_reference_fixture.py
+
       - name: Check JSON schemas
         run: python scripts/check_schemas.py
 

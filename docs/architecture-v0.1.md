@@ -779,7 +779,17 @@ The MVP linear-algebra backend is pure Rust and single-threaded inside each call
 
 `PolynomialBasisSpec` enumerates exponent vectors with total degree at most `max_degree`, including the all-zero constant vector, in a versioned graded order derived from declared feature order. Interaction monomials therefore require no separate flag. At each exercise date, the trainer computes each feature's arithmetic mean and population standard deviation with denominator `n` from that date's ITM training rows only and stores them inside the immutable regression model; valuation rows reuse those exact values. The constant feature is never centered or scaled. A zero-scale feature is tagged before matrix construction so all dependent non-constant monomials receive deterministic exclusion diagnostics.
 
-Column-pivoted QR operates on the standardized design matrix. Pivot selection ties are broken by original basis-column index. For explicit non-negative `abs_rank_tol` and `rel_rank_tol`, pivot `j` is retained only if `abs(R[j,j]) > max(abs_rank_tol, rel_rank_tol * abs(R[0,0]))`. Columns below the threshold are omitted from triangular solve, mapped back to zero coefficients in the full canonical basis vector, and listed in diagnostics. No alternate solver is invoked. Constant-column identity and all scaling, tolerances, permutation, retained-rank, and residual data participate in the policy fingerprint.
+Column-pivoted QR operates on the standardized design matrix using the scalar
+Householder policy fixed by `early-exercise-numerical-contracts-v0.1.md`.
+Residual column norms are recomputed at every pivot, and pivot ties are broken
+by original basis-column index. For explicit non-negative `abs_rank_tol` and
+`rel_rank_tol`, pivot `j` is retained only if
+`abs(R[j,j]) > max(abs_rank_tol, rel_rank_tol * abs(R[0,0]))`. Numerical rank
+is the passing prefix. Excluded columns are omitted from triangular solve,
+mapped back to positive zero coefficients in the full canonical basis vector,
+and listed in diagnostics. No alternate solver is invoked. Constant-column
+identity and all scaling, tolerances, permutation, retained-rank, and residual
+data participate in the policy fingerprint.
 
 ```rust
 pub struct ExercisePolicy {
@@ -1013,7 +1023,6 @@ Black-Scholes and Local Volatility/VegaKT slices:
 The following decisions remain outside the v0.1 release and require a new
 requirements or ADR record before implementation:
 
-- column-pivoted QR details for a production LSM slice;
 - double/window barrier and hit-time-rebate estimator extensions;
 - multi-asset correlation term structures; and
 - public publication, licensing, and artifact-access policy.

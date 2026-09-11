@@ -51,6 +51,7 @@ stable numerical-branch counts.
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
 - [Early Exercise implementation roadmap](docs/early-exercise-roadmap-v0.1.md)
+- [Early Exercise numerical contracts](docs/early-exercise-numerical-contracts-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
@@ -87,6 +88,7 @@ The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
 python3 scripts/check_path_dependence_reference_fixture.py
+python3 scripts/check_early_exercise_reference_fixture.py
 python3 scripts/check_schemas.py
 python3 scripts/check_markdown_links.py
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD

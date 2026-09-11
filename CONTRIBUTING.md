@@ -21,6 +21,7 @@ Do not combine an optimization with an untested numerical-policy change.
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
 python3 scripts/check_path_dependence_reference_fixture.py
+python3 scripts/check_early_exercise_reference_fixture.py
 python3 scripts/check_schemas.py
 python3 scripts/check_markdown_links.py
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD

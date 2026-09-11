@@ -18,6 +18,7 @@ The technical release gate for a candidate commit is the same command set used
 by CI and documented in the repository README:
 
 - Local Volatility reference fixture validation;
+- Path Dependence and Early Exercise reference fixture validation;
 - JSON Schema validation;
 - local Markdown link validation;
 - retained source archive validation;
