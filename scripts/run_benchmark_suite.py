@@ -24,9 +24,11 @@ def main() -> None:
     clear_previous_artifacts(output)
     rust_report = output / "rust.json"
     local_vol_rust_report = output / "local-volatility-rust.json"
+    path_dependence_rust_report = output / "path-dependence-rust.json"
     python_report = output / "python.json"
     replay_report = output / "replay.json"
     local_vol_replay_report = output / "local-volatility-replay.json"
+    path_dependence_replay_report = output / "path-dependence-replay.json"
 
     command_peak_memory_bytes: dict[str, int] = {}
 
@@ -61,6 +63,23 @@ def main() -> None:
     )
     add_process_peak_memory(
         local_vol_rust_report, command_peak_memory_bytes["rust_local_volatility_vegakt"]
+    )
+    command_peak_memory_bytes["path_dependence_rust"] = run_measured(
+        [
+            "cargo",
+            "run",
+            "--locked",
+            "--release",
+            "-p",
+            "pricing",
+            "--example",
+            "benchmark_path_dependence",
+            "--",
+            str(path_dependence_rust_report),
+        ]
+    )
+    add_process_peak_memory(
+        path_dependence_rust_report, command_peak_memory_bytes["path_dependence_rust"]
     )
     command_peak_memory_bytes["replay_european_black_scholes"] = run_measured(
         [
@@ -98,6 +117,24 @@ def main() -> None:
             print(
                 f"generated unfrozen Local Volatility replay evidence at {local_vol_replay_report}"
             )
+    command_peak_memory_bytes["replay_path_dependence"] = run_measured(
+        [
+            "cargo",
+            "run",
+            "--locked",
+            "--release",
+            "-p",
+            "pricing",
+            "--example",
+            "replay_path_dependence",
+            "--",
+            str(path_dependence_replay_report),
+        ]
+    )
+    if path_dependence_fixture_exists():
+        run([sys.executable, "scripts/check_replay_fixture.py", str(path_dependence_replay_report)])
+    else:
+        print(f"generated unfrozen Path Dependence replay evidence at {path_dependence_replay_report}")
     wheel_python = Path(
         os.environ.get(
             "WHEEL_SMOKE_PYTHON",
@@ -309,6 +346,13 @@ def local_volatility_fixture_exists() -> bool:
     if platform_name is None:
         return False
     return (Path("fixtures/replay") / f"local_volatility-{platform_name}.json").is_file()
+
+
+def path_dependence_fixture_exists() -> bool:
+    platform_name = local_volatility_platform_name()
+    if platform_name is None:
+        return False
+    return (Path("fixtures/replay") / f"path_dependence-{platform_name}.json").is_file()
 
 
 def local_volatility_platform_name() -> str | None:

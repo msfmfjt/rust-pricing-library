@@ -16,16 +16,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_replay_fixture import EXPECTED_CASE_NAMES
 from check_replay_fixture import FINGERPRINT
+from check_replay_fixture import PATH_REPLAY_CASE_KEYS
 from check_replay_fixture import REPLAY_CASE_KEYS
 from check_replay_fixture import REPLAY_DOCUMENT_KEYS
 from check_replay_fixture import REPLAY_EXECUTION_KEYS
 from check_replay_fixture import REPLAY_METADATA_KEYS
+from check_replay_fixture import REPLAY_MIGRATION_KEYS
 from check_replay_fixture import REPLAY_MONTE_CARLO_KEYS
 from check_replay_fixture import REPLAY_PLAN_KEYS
 from check_replay_fixture import REPLAY_REQUEST_KEYS
 from check_replay_fixture import REPLAY_RESULT_KEYS
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 from check_replay_fixture import validate_local_vol_case
+from check_replay_fixture import validate_path_dependence_case
 from check_replay_fixture import validate_risk_methods
 from check_replay_fixture import validate_risk_validation
 
@@ -49,6 +52,17 @@ LOCAL_VOL_MEASUREMENTS = (
     "evaluate_price_only",
     "evaluate_selected_crn_bump_validation_price_only",
     "evaluate_vega_kt_decomposition",
+)
+
+PATH_DEPENDENCE_MEASUREMENTS = (
+    "compile_continuous_barrier_full_risk",
+    "compile_exact_digital_price",
+    "compile_smoothed_digital_full_risk",
+    "compile_width_ladder",
+    "evaluate_continuous_barrier_full_risk",
+    "evaluate_exact_digital_price",
+    "evaluate_smoothed_digital_full_risk",
+    "evaluate_width_ladder",
 )
 
 PYTHON_MEASUREMENTS = (
@@ -118,6 +132,30 @@ LOCAL_VOL_CONFIGURATION = {
     "vega_kt_covariance_layout": "full_bucket_matrix_row_major",
     "worker_threads": 2,
 }
+PATH_DEPENDENCE_CONFIGURATION_KEYS = (
+    "antithetic",
+    "compile_samples",
+    "engine",
+    "evaluated_paths",
+    "evaluation_samples",
+    "primary_smoothing_half_width",
+    "reduction_block_size",
+    "sampling_units",
+    "width_ladder",
+    "worker_threads",
+)
+PATH_DEPENDENCE_CONFIGURATION = {
+    "antithetic": True,
+    "compile_samples": 20,
+    "engine": "pseudo_monte_carlo",
+    "evaluated_paths": 16_384,
+    "evaluation_samples": 5,
+    "primary_smoothing_half_width": 3.0,
+    "reduction_block_size": 256,
+    "sampling_units": 8_192,
+    "width_ladder": [4.0, 2.0, 1.0],
+    "worker_threads": 2,
+}
 PYTHON_CONFIGURATION_KEYS = (
     "antithetic",
     "engine",
@@ -163,6 +201,18 @@ LOCAL_VOL_CAPABILITIES = {
     "standalone_spot_and_local_variance_bump_timing_available": True,
     "vega_kt_decomposition_timing_available": True,
 }
+PATH_DEPENDENCE_CAPABILITY_KEYS = (
+    "continuous_bridge_timing_available",
+    "exact_and_smoothed_timing_separable",
+    "peak_memory_available_in_process",
+    "width_ladder_timing_available",
+)
+PATH_DEPENDENCE_CAPABILITIES = {
+    "continuous_bridge_timing_available": True,
+    "exact_and_smoothed_timing_separable": True,
+    "peak_memory_available_in_process": True,
+    "width_ladder_timing_available": True,
+}
 PYTHON_CAPABILITY_KEYS = ("peak_memory_available_in_process",)
 PYTHON_CAPABILITIES = {"peak_memory_available_in_process": True}
 BASE_NOTES = (
@@ -176,6 +226,12 @@ LOCAL_VOL_NOTES = (
     "The standalone bump case evaluates base, Spot-down/up, and uniform local-variance-down/up Price-only plans with common random numbers.",
     "Results are an optimization baseline and not a latency SLA.",
 )
+PATH_DEPENDENCE_NOTES = (
+    "Exact Digital Price and explicitly smoothed Digital Price/AAD are timed separately.",
+    "The Width ladder evaluates one primary and three caller-ordered widths with common logical random coordinates.",
+    "Continuous Barrier timing includes conditional Brownian-bridge survival and full risk validation.",
+    "Results are an optimization baseline and not a latency SLA.",
+)
 PYTHON_NOTES = (
     "Compile/evaluate release the GIL; timings include the Python-to-Rust call boundary.",
     "The full-risk kernel includes AAD and its CRN bump validations.",
@@ -186,11 +242,12 @@ PYTHON_NOTES = (
 EXPECTED_ARTIFACTS = {
     "rust.json",
     "local-volatility-rust.json",
+    "path-dependence-rust.json",
     "python.json",
     "replay.json",
     "metadata.json",
 }
-OPTIONAL_ARTIFACTS = {"local-volatility-replay.json"}
+OPTIONAL_ARTIFACTS = {"local-volatility-replay.json", "path-dependence-replay.json"}
 METADATA_KEYS = (
     "allocation_count",
     "cargo",
@@ -213,6 +270,7 @@ METADATA_KEYS = (
 )
 ENABLED_FEATURE_KEYS = ("python_wheel", "rust_benchmarks")
 COMMAND_PEAK_KEYS = (
+    "path_dependence_rust",
     "python_european_black_scholes",
     "replay_european_black_scholes",
     "rust_european_black_scholes",
@@ -223,8 +281,10 @@ UNAVAILABLE_METRICS = (
 )
 OPTIONAL_COMMAND_PEAKS = {
     "local-volatility-replay.json": "replay_local_volatility",
+    "path-dependence-replay.json": "replay_path_dependence",
 }
 COMMAND_PEAK_REPORTS = {
+    "path_dependence_rust": "path-dependence-rust.json",
     "python_european_black_scholes": "python.json",
     "rust_european_black_scholes": "rust.json",
     "rust_local_volatility_vegakt": "local-volatility-rust.json",
@@ -252,6 +312,13 @@ def main() -> None:
         library_version,
         local_volatility=True,
     )
+    check_report(
+        root / "path-dependence-rust.json",
+        "rust_path_dependence",
+        PATH_DEPENDENCE_MEASUREMENTS,
+        library_version,
+        path_dependence=True,
+    )
     check_python_report(root / "python.json", library_version)
     check_replay_report(root / "replay.json", "european_black_scholes_replay", library_version)
     local_volatility_replay = root / "local-volatility-replay.json"
@@ -259,6 +326,13 @@ def main() -> None:
         check_replay_report(
             local_volatility_replay,
             "local_volatility_replay",
+            library_version,
+        )
+    path_dependence_replay = root / "path-dependence-replay.json"
+    if path_dependence_replay.is_file():
+        check_replay_report(
+            path_dependence_replay,
+            "path_dependence_replay",
             library_version,
         )
     check_metadata(root / "metadata.json", artifacts)
@@ -298,6 +372,7 @@ def check_report(
     library_version: str,
     *,
     local_volatility: bool = False,
+    path_dependence: bool = False,
 ) -> None:
     document = load_object(path)
     require_exact_keys(
@@ -314,9 +389,12 @@ def check_report(
         "library_version must match Cargo workspace version",
     )
     configuration = require_object(document.get("configuration"), path, "configuration")
-    expected_configuration_keys = (
-        LOCAL_VOL_CONFIGURATION_KEYS if local_volatility else BASE_CONFIGURATION_KEYS
-    )
+    if local_volatility:
+        expected_configuration_keys = LOCAL_VOL_CONFIGURATION_KEYS
+    elif path_dependence:
+        expected_configuration_keys = PATH_DEPENDENCE_CONFIGURATION_KEYS
+    else:
+        expected_configuration_keys = BASE_CONFIGURATION_KEYS
     require_exact_keys(configuration, expected_configuration_keys, path, "configuration")
     require(configuration.get("engine") == "pseudo_monte_carlo", path, "unexpected engine")
     require(configuration.get("antithetic") is True, path, "antithetic must be true")
@@ -349,7 +427,12 @@ def check_report(
             path,
             "unexpected vega_kt_covariance_layout",
         )
-    expected_configuration = LOCAL_VOL_CONFIGURATION if local_volatility else BASE_CONFIGURATION
+    if local_volatility:
+        expected_configuration = LOCAL_VOL_CONFIGURATION
+    elif path_dependence:
+        expected_configuration = PATH_DEPENDENCE_CONFIGURATION
+    else:
+        expected_configuration = BASE_CONFIGURATION
     require(configuration == expected_configuration, path, "configuration mismatch")
 
     measurements = require_object(document.get("measurements"), path, "measurements")
@@ -376,15 +459,28 @@ def check_report(
     )
 
     capabilities = require_object(document.get("capabilities"), path, "capabilities")
-    expected_capability_keys = (
-        LOCAL_VOL_CAPABILITY_KEYS if local_volatility else BASE_CAPABILITY_KEYS
-    )
+    if local_volatility:
+        expected_capability_keys = LOCAL_VOL_CAPABILITY_KEYS
+    elif path_dependence:
+        expected_capability_keys = PATH_DEPENDENCE_CAPABILITY_KEYS
+    else:
+        expected_capability_keys = BASE_CAPABILITY_KEYS
     require_exact_keys(capabilities, expected_capability_keys, path, "capabilities")
-    expected_capabilities = LOCAL_VOL_CAPABILITIES if local_volatility else BASE_CAPABILITIES
+    if local_volatility:
+        expected_capabilities = LOCAL_VOL_CAPABILITIES
+    elif path_dependence:
+        expected_capabilities = PATH_DEPENDENCE_CAPABILITIES
+    else:
+        expected_capabilities = BASE_CAPABILITIES
     require(capabilities == expected_capabilities, path, "capabilities mismatch")
     notes = document.get("notes")
     require_string_array(notes, path, "notes")
-    expected_notes = LOCAL_VOL_NOTES if local_volatility else BASE_NOTES
+    if local_volatility:
+        expected_notes = LOCAL_VOL_NOTES
+    elif path_dependence:
+        expected_notes = PATH_DEPENDENCE_NOTES
+    else:
+        expected_notes = BASE_NOTES
     require(notes == list(expected_notes), path, "notes mismatch")
 
 
@@ -414,7 +510,12 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
     for index, case in enumerate(cases):
         case_path = f"cases[{index}]"
         case_object = require_object(case, path, case_path)
-        require_exact_keys(case_object, REPLAY_CASE_KEYS, path, case_path)
+        expected_case_keys = (
+            PATH_REPLAY_CASE_KEYS
+            if fixture_kind == "path_dependence_replay"
+            else REPLAY_CASE_KEYS
+        )
+        require_exact_keys(case_object, expected_case_keys, path, case_path)
         case_name = case_object.get("name")
         require(
             isinstance(case_name, str) and case_name,
@@ -449,7 +550,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path}.request.document_kind",
         )
         require(
-            request.get("schema_version") == 1,
+            request.get("schema_version") == 2,
             path,
             f"{case_path}.request.schema_version",
         )
@@ -464,16 +565,16 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path}.result.document_kind",
         )
         require(
-            result.get("schema_version") == 1,
+            result.get("schema_version") == 2,
             path,
             f"{case_path}.result.schema_version",
         )
         replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
         require_exact_keys(replay, REPLAY_METADATA_KEYS, path, f"{case_path}.result.replay")
         require(
-            replay.get("schema_version") == 1,
+            replay.get("schema_version") == 2,
             path,
-            f"{case_path}.result.replay.schema_version must be 1",
+            f"{case_path}.result.replay.schema_version must be 2",
         )
         require(
             replay.get("library_version") == library_version,
@@ -493,6 +594,33 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             path,
             f"{case_path} request fingerprints must match",
         )
+        migration = require_object(
+            replay.get("migration"), path, f"{case_path}.result.replay.migration"
+        )
+        require_exact_keys(
+            migration,
+            REPLAY_MIGRATION_KEYS,
+            path,
+            f"{case_path}.result.replay.migration",
+        )
+        require(
+            migration.get("original_schema_version") == 2
+            and migration.get("current_schema_version") == 2
+            and migration.get("migration_ids") == [],
+            path,
+            f"{case_path}.result.replay.migration must describe an unmigrated v2 request",
+        )
+        for field in ["pre_migration_fingerprint", "post_migration_fingerprint"]:
+            require_fingerprint(
+                migration.get(field),
+                path,
+                f"{case_path}.result.replay.migration.{field}",
+            )
+            require(
+                migration.get(field) == plan.get("request_fingerprint"),
+                path,
+                f"{case_path}.result.replay.migration.{field} must match request",
+            )
         execution = require_object(case_object.get("execution"), path, f"{case_path}.execution")
         require_exact_keys(execution, REPLAY_EXECUTION_KEYS, path, f"{case_path}.execution")
         monte_carlo = require_object(
@@ -554,6 +682,14 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
                 case_name,
                 request,
                 result,
+            )
+        elif fixture_kind == "path_dependence_replay":
+            validate_path_dependence_case(
+                path,
+                case_path,
+                case_name,
+                case_object,
+                request,
             )
     expected_case_names = set(EXPECTED_CASE_NAMES[fixture_kind])
     actual_case_names = set(seen_case_names)
@@ -696,6 +832,8 @@ def check_measurement(
 def expected_paths_for_measurement(name: str, evaluated_paths: int) -> int | None:
     if name.startswith("compile_") or name == "result_value_getter":
         return None
+    if name == "evaluate_width_ladder":
+        return evaluated_paths * 4
     if "crn_bump_validation" in name and "price_only" in name:
         return evaluated_paths * 5
     if name == "evaluate_crn_bump_validation_from_python":

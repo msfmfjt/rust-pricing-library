@@ -65,6 +65,7 @@ REQUIRED_FILES = {
     "fixtures/replay/european_bs-windows-x86_64.json",
     "fixtures/replay/local_volatility-macos-aarch64.json",
     "fixtures/replay/local_volatility-windows-x86_64.json",
+    "fixtures/replay/path_dependence-macos-aarch64.json",
     "fixtures/v1/pricing_request.golden.json",
     "fixtures/v1/pricing_result.golden.json",
     "fixtures/v2/pricing_request.golden.json",
@@ -88,6 +89,9 @@ REQUIRED_FILES = {
     "examples/python/local_vol_vegakt.py",
     "examples/python/path_dependence.py",
     "tests/python/test_smoke.py",
+    "crates/pricing/examples/benchmark_path_dependence.rs",
+    "crates/pricing/examples/replay_path_dependence.rs",
+    "crates/pricing/tests/path_dependence_acceptance.rs",
 }
 
 CRATE_MANIFESTS = {
@@ -116,6 +120,7 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked --workspace --all-features --exclude pricing-python",
     "cargo test --locked -p pricing-python",
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
@@ -124,6 +129,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_replay_fixture.py benchmark-results/replay.json",
     "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json",
     "python scripts/check_benchmark_reports.py benchmark-results",
     "cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py",
     'python-version: "3.12"',
@@ -156,6 +162,7 @@ REQUIRED_README_SNIPPETS = {
     "cargo test --locked --workspace --all-features --exclude pricing-python",
     "cargo test --locked -p pricing-python",
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo doc --locked --workspace --all-features --no-deps",
     "cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py",
     "python -m maturin develop --locked",
@@ -167,6 +174,7 @@ REQUIRED_README_SNIPPETS = {
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_replay_fixture.py benchmark-results/replay.json",
     "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json",
     "python scripts/check_benchmark_reports.py benchmark-results",
 }
 
@@ -299,19 +307,22 @@ REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
 
 REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "EXPECTED_ARTIFACTS = {",
-    "OPTIONAL_ARTIFACTS = {\"local-volatility-replay.json\"}",
+    "OPTIONAL_ARTIFACTS = {\"local-volatility-replay.json\", \"path-dependence-replay.json\"}",
     "REPORT_KEYS = (",
     "BASE_CONFIGURATION_KEYS = (",
     "BASE_CONFIGURATION = {",
     "LOCAL_VOL_CONFIGURATION = {",
+    "PATH_DEPENDENCE_CONFIGURATION = {",
     "PYTHON_CONFIGURATION = {",
     "PYTHON_GETTER_SAMPLES = 100_000",
     "LOCAL_VOL_CAPABILITY_KEYS = (",
     "BASE_CAPABILITIES = {",
     "LOCAL_VOL_CAPABILITIES = {",
+    "PATH_DEPENDENCE_CAPABILITIES = {",
     "PYTHON_CAPABILITIES = {",
     "BASE_NOTES = (",
     "LOCAL_VOL_NOTES = (",
+    "PATH_DEPENDENCE_NOTES = (",
     "PYTHON_NOTES = (",
     "METADATA_KEYS = (",
     "ENABLED_FEATURE_KEYS = (",

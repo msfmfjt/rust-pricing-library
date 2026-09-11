@@ -87,9 +87,9 @@
       },
       "name": "pseudo_mc_full_risk",
       "plan": {
-        "plan_fingerprint": "blake3-256:8cb517b71bbf4487dd7fa5682a1904a040fc6dae11c234e8b8dfe01e2cc7bfa1",
+        "plan_fingerprint": "blake3-256:8d7dab20add419243bbc3e7c625511c584eaf2c01d539ddf8af06c78ccff8146",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:410398465e4284544fcf620b17a26bd7dafcbbd45daca9ed9e6e1fedb26691c4",
+        "request_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15",
         "worker_threads": 2
       },
       "request": {
@@ -161,7 +161,7 @@
           },
           "vega": true
         },
-        "schema_version": 1,
+        "schema_version": 2,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -171,9 +171,16 @@
         "document_kind": "pricing_result",
         "replay": {
           "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 2,
+            "migration_ids": [],
+            "original_schema_version": 2,
+            "post_migration_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15",
+            "pre_migration_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15"
+          },
           "platform": "windows-x86_64",
-          "request_fingerprint": "blake3-256:410398465e4284544fcf620b17a26bd7dafcbbd45daca9ed9e6e1fedb26691c4",
-          "schema_version": 1
+          "request_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15",
+          "schema_version": 2
         },
         "risks": {
           "delta": {
@@ -261,7 +268,7 @@
             }
           }
         },
-        "schema_version": 1,
+        "schema_version": 2,
         "value": {
           "confidence_lower": 9.105148874063802,
           "confidence_upper": 9.389679102747571,
@@ -361,9 +368,9 @@
       },
       "name": "rqmc_full_risk",
       "plan": {
-        "plan_fingerprint": "blake3-256:f7323b4ad57fe07ddf40b5c690e0018e88fdbf74430dc6ed357d8f5be9da8c1b",
+        "plan_fingerprint": "blake3-256:8bd3224986eb4db2d69593d80cba9c7c49ab7b7e8d7c64b407482a78abe2e784",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:9885c901e78bda6fd4f8e80f0d67951d87b92bc9444a6a3ac31ee261ad7d90c0",
+        "request_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e",
         "worker_threads": 2
       },
       "request": {
@@ -436,7 +443,7 @@
           },
           "vega": true
         },
-        "schema_version": 1,
+        "schema_version": 2,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -446,9 +453,16 @@
         "document_kind": "pricing_result",
         "replay": {
           "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 2,
+            "migration_ids": [],
+            "original_schema_version": 2,
+            "post_migration_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e",
+            "pre_migration_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e"
+          },
           "platform": "windows-x86_64",
-          "request_fingerprint": "blake3-256:9885c901e78bda6fd4f8e80f0d67951d87b92bc9444a6a3ac31ee261ad7d90c0",
-          "schema_version": 1
+          "request_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e",
+          "schema_version": 2
         },
         "risks": {
           "delta": {
@@ -459,7 +473,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00008994012178010528,
+              "standard_error": 8.994012178010528e-05,
               "value": 0.5869126298539828
             },
             "market_scaled_unit": {
@@ -472,7 +486,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00008994012178010528,
+              "standard_error": 8.994012178010528e-05,
               "value": 0.5869126298539828
             },
             "raw_unit": {
@@ -487,7 +501,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00005051687606507074,
+              "standard_error": 5.051687606507074e-05,
               "value": 0.01888568501657452
             },
             "market_scaled_unit": {
@@ -500,7 +514,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.00005051687606507074,
+              "standard_error": 5.051687606507074e-05,
               "value": 0.01888568501657452
             },
             "raw_unit": {
@@ -536,7 +550,7 @@
             }
           }
         },
-        "schema_version": 1,
+        "schema_version": 2,
         "value": {
           "confidence_lower": 9.223899491264342,
           "confidence_upper": 9.232856435173924,
