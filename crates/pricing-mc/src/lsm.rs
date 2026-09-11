@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
+use pricing_core::Date;
 use pricing_numerics::NeumaierSum;
 
 pub const LSM_BASIS_ABI: &str = "polynomial-total-degree-v1";
@@ -82,6 +83,31 @@ pub enum LsmNumericalError {
     },
     NonFiniteContinuationTarget {
         row: usize,
+        bits: u64,
+    },
+    EmptyExerciseSchedule,
+    InvalidExerciseDateOrder {
+        index: usize,
+    },
+    ImmediateValueMatrixLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    TrainingFeatureMatrixLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    DiscountFactorLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    InvalidDiscountFactor {
+        date_index: usize,
+        bits: u64,
+    },
+    NegativeImmediateValue {
+        date_index: usize,
+        path: usize,
         bits: u64,
     },
     NonFiniteIntermediate {
@@ -180,6 +206,35 @@ impl fmt::Display for LsmNumericalError {
             Self::NonFiniteContinuationTarget { row, bits } => write!(
                 formatter,
                 "LSM continuation target {row} is non-finite: 0x{bits:016x}"
+            ),
+            Self::EmptyExerciseSchedule => write!(formatter, "LSM exercise schedule is empty"),
+            Self::InvalidExerciseDateOrder { index } => write!(
+                formatter,
+                "LSM exercise date {index} is not later than its predecessor"
+            ),
+            Self::ImmediateValueMatrixLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM immediate-value matrix needs {expected} values; received {actual}"
+            ),
+            Self::TrainingFeatureMatrixLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM training-feature matrix needs {expected} values; received {actual}"
+            ),
+            Self::DiscountFactorLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM exercise schedule needs {expected} discount factors; received {actual}"
+            ),
+            Self::InvalidDiscountFactor { date_index, bits } => write!(
+                formatter,
+                "LSM discount factor {date_index} must be finite and positive: 0x{bits:016x}"
+            ),
+            Self::NegativeImmediateValue {
+                date_index,
+                path,
+                bits,
+            } => write!(
+                formatter,
+                "LSM immediate value ({date_index}, {path}) is negative: 0x{bits:016x}"
             ),
             Self::NonFiniteIntermediate { stage } => {
                 write!(formatter, "LSM regression produced a non-finite {stage}")
@@ -628,6 +683,253 @@ impl DateLocalExerciseFit {
     pub fn into_decision(self) -> ExerciseDecisionModel {
         self.decision
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExercisePolicy {
+    exercise_dates: Box<[Date]>,
+    decisions: Box<[ExerciseDecisionModel]>,
+    diagnostics: Box<[ExerciseRegressionDiagnostics]>,
+}
+
+impl ExercisePolicy {
+    #[must_use]
+    pub fn exercise_dates(&self) -> &[Date] {
+        &self.exercise_dates
+    }
+
+    #[must_use]
+    pub fn decisions(&self) -> &[ExerciseDecisionModel] {
+        &self.decisions
+    }
+
+    #[must_use]
+    pub fn diagnostics(&self) -> &[ExerciseRegressionDiagnostics] {
+        &self.diagnostics
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExercisePolicyTrainingOutcome {
+    policy: ExercisePolicy,
+    realized_cashflows: Box<[f64]>,
+    stopping_indices: Box<[usize]>,
+}
+
+impl ExercisePolicyTrainingOutcome {
+    #[must_use]
+    pub const fn policy(&self) -> &ExercisePolicy {
+        &self.policy
+    }
+
+    #[must_use]
+    pub fn realized_cashflows(&self) -> &[f64] {
+        &self.realized_cashflows
+    }
+
+    #[must_use]
+    pub fn stopping_indices(&self) -> &[usize] {
+        &self.stopping_indices
+    }
+
+    #[must_use]
+    pub fn into_policy(self) -> ExercisePolicy {
+        self.policy
+    }
+}
+
+/// Trains a policy from date-major immediate values and non-terminal features.
+#[allow(clippy::too_many_arguments)]
+pub fn train_exercise_policy(
+    exercise_dates: &[Date],
+    basis: PolynomialBasisSpec,
+    training_features: &[f64],
+    training_paths: usize,
+    immediate_values: &[f64],
+    discount_factors: &[f64],
+    itm_abs_tolerance: f64,
+    config: CpqrConfig,
+    max_matrix_elements: usize,
+) -> Result<ExercisePolicyTrainingOutcome, LsmNumericalError> {
+    validate_tolerance("itm_abs_tolerance", itm_abs_tolerance)?;
+    if exercise_dates.is_empty() {
+        return Err(LsmNumericalError::EmptyExerciseSchedule);
+    }
+    for (index, pair) in exercise_dates.windows(2).enumerate() {
+        if pair[0] >= pair[1] {
+            return Err(LsmNumericalError::InvalidExerciseDateOrder { index: index + 1 });
+        }
+    }
+    let mut policy_dates = Vec::new();
+    policy_dates
+        .try_reserve_exact(exercise_dates.len())
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "exercise policy dates",
+            requested: exercise_dates.len(),
+        })?;
+    policy_dates.extend_from_slice(exercise_dates);
+    if training_paths == 0 {
+        return Err(LsmNumericalError::ZeroMatrixRows);
+    }
+    if max_matrix_elements == 0 {
+        return Err(LsmNumericalError::ZeroResourceLimit {
+            resource: "regression_matrix_elements",
+        });
+    }
+    if training_paths > max_matrix_elements {
+        return Err(LsmNumericalError::MatrixElementLimitExceeded {
+            requested: training_paths,
+            maximum: max_matrix_elements,
+        });
+    }
+    if discount_factors.len() != exercise_dates.len() {
+        return Err(LsmNumericalError::DiscountFactorLengthMismatch {
+            expected: exercise_dates.len(),
+            actual: discount_factors.len(),
+        });
+    }
+    for (date_index, &discount_factor) in discount_factors.iter().enumerate() {
+        if !discount_factor.is_finite() || discount_factor <= 0.0 {
+            return Err(LsmNumericalError::InvalidDiscountFactor {
+                date_index,
+                bits: discount_factor.to_bits(),
+            });
+        }
+    }
+
+    let immediate_count = exercise_dates
+        .len()
+        .checked_mul(training_paths)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if immediate_values.len() != immediate_count {
+        return Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch {
+            expected: immediate_count,
+            actual: immediate_values.len(),
+        });
+    }
+    for date_index in 0..exercise_dates.len() {
+        for path in 0..training_paths {
+            let value = immediate_values[date_index * training_paths + path];
+            if !value.is_finite() {
+                return Err(LsmNumericalError::NonFiniteImmediateValue {
+                    row: date_index * training_paths + path,
+                    bits: value.to_bits(),
+                });
+            }
+            if value < 0.0 {
+                return Err(LsmNumericalError::NegativeImmediateValue {
+                    date_index,
+                    path,
+                    bits: value.to_bits(),
+                });
+            }
+        }
+    }
+
+    let feature_count = basis.feature_count as usize;
+    let non_terminal_dates = exercise_dates.len() - 1;
+    let feature_count_per_date = training_paths
+        .checked_mul(feature_count)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    let expected_features = non_terminal_dates
+        .checked_mul(feature_count_per_date)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if training_features.len() != expected_features {
+        return Err(LsmNumericalError::TrainingFeatureMatrixLengthMismatch {
+            expected: expected_features,
+            actual: training_features.len(),
+        });
+    }
+
+    let expiry_index = exercise_dates.len() - 1;
+    let expiry_start = expiry_index * training_paths;
+    let mut realized_cashflows = copied_values(
+        &immediate_values[expiry_start..expiry_start + training_paths],
+        "training realized cash flows",
+    )?;
+    let mut stopping_indices = Vec::new();
+    stopping_indices
+        .try_reserve_exact(training_paths)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "training stopping indices",
+            requested: training_paths,
+        })?;
+    stopping_indices.resize(training_paths, expiry_index);
+    let mut reverse_fits = Vec::new();
+    reverse_fits
+        .try_reserve_exact(non_terminal_dates)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "exercise date fits",
+            requested: non_terminal_dates,
+        })?;
+    let mut continuation_targets = zeroed_values(training_paths, "continuation targets")?;
+
+    for date_index in (0..non_terminal_dates).rev() {
+        for path in 0..training_paths {
+            let stopping_index = stopping_indices[path];
+            continuation_targets[path] = realized_cashflows[path]
+                * discount_factors[stopping_index]
+                / discount_factors[date_index];
+            if !continuation_targets[path].is_finite() {
+                return Err(LsmNumericalError::NonFiniteContinuationTarget {
+                    row: path,
+                    bits: continuation_targets[path].to_bits(),
+                });
+            }
+        }
+        let immediate_start = date_index * training_paths;
+        let feature_start = date_index * feature_count_per_date;
+        let fit = fit_exercise_decision(
+            basis.clone(),
+            &training_features[feature_start..feature_start + feature_count_per_date],
+            training_paths,
+            &immediate_values[immediate_start..immediate_start + training_paths],
+            &continuation_targets,
+            itm_abs_tolerance,
+            config,
+            max_matrix_elements,
+        )?;
+        for path in 0..training_paths {
+            let immediate_value = immediate_values[immediate_start + path];
+            let feature_start = feature_start + path * feature_count;
+            if fit.decision.should_exercise(
+                immediate_value,
+                &training_features[feature_start..feature_start + feature_count],
+            )? {
+                realized_cashflows[path] = immediate_value;
+                stopping_indices[path] = date_index;
+            }
+        }
+        reverse_fits.push(fit);
+    }
+    reverse_fits.reverse();
+    let mut decisions = Vec::new();
+    let mut diagnostics = Vec::new();
+    decisions
+        .try_reserve_exact(non_terminal_dates)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "exercise decisions",
+            requested: non_terminal_dates,
+        })?;
+    diagnostics
+        .try_reserve_exact(non_terminal_dates)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "exercise diagnostics",
+            requested: non_terminal_dates,
+        })?;
+    for fit in reverse_fits {
+        decisions.push(fit.decision);
+        diagnostics.push(fit.diagnostics);
+    }
+    Ok(ExercisePolicyTrainingOutcome {
+        policy: ExercisePolicy {
+            exercise_dates: policy_dates.into_boxed_slice(),
+            decisions: decisions.into_boxed_slice(),
+            diagnostics: diagnostics.into_boxed_slice(),
+        },
+        realized_cashflows: realized_cashflows.into_boxed_slice(),
+        stopping_indices: stopping_indices.into_boxed_slice(),
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1753,6 +2055,105 @@ mod tests {
                 8,
             ),
             Err(LsmNumericalError::NonFiniteFeature { index: 1, .. })
+        ));
+    }
+
+    #[test]
+    fn policy_training_runs_backward_and_preserves_ascending_decisions() {
+        let dates = [
+            "2027-01-02".parse().expect("date"),
+            "2027-02-02".parse().expect("date"),
+            "2027-03-02".parse().expect("date"),
+        ];
+        let outcome = train_exercise_policy(
+            &dates,
+            PolynomialBasisSpec::new(1, 0, 1, 1).expect("basis"),
+            &[90.0, 110.0, 92.0, 112.0],
+            2,
+            &[10.0, 0.0, 8.0, 0.0, 0.0, 10.0],
+            &[1.0, 0.9, 0.8],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+        )
+        .expect("policy");
+        assert_eq!(outcome.policy().exercise_dates(), dates);
+        assert_eq!(outcome.policy().decisions().len(), 2);
+        assert_eq!(outcome.policy().diagnostics()[0].itm_rows(), 1);
+        assert_eq!(outcome.policy().diagnostics()[1].itm_rows(), 1);
+        let ExerciseDecisionModel::Regression(first) = &outcome.policy().decisions()[0] else {
+            panic!("first decision must be a regression");
+        };
+        assert!((first.coefficients()[0] - 7.2).abs() < 1.0e-13);
+        assert_eq!(outcome.realized_cashflows(), [10.0, 10.0]);
+        assert_eq!(outcome.stopping_indices(), [0, 2]);
+    }
+
+    #[test]
+    fn policy_training_does_not_reuse_a_later_model_at_zero_itm_date() {
+        let dates = [
+            "2027-01-02".parse().expect("date"),
+            "2027-02-02".parse().expect("date"),
+            "2027-03-02".parse().expect("date"),
+        ];
+        let outcome = train_exercise_policy(
+            &dates,
+            PolynomialBasisSpec::new(1, 0, 1, 1).expect("basis"),
+            &[90.0, 95.0],
+            1,
+            &[9.0, 0.0, 10.0],
+            &[1.0, 0.9, 0.8],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            8,
+        )
+        .expect("policy");
+        assert!(matches!(
+            outcome.policy().decisions()[0],
+            ExerciseDecisionModel::Regression(_)
+        ));
+        assert_eq!(
+            outcome.policy().decisions()[1],
+            ExerciseDecisionModel::ContinueAll {
+                reason: ContinueAllReason::ZeroItmTrainingPaths,
+            }
+        );
+        assert_eq!(outcome.realized_cashflows(), [9.0]);
+        assert_eq!(outcome.stopping_indices(), [0]);
+    }
+
+    #[test]
+    fn policy_training_supports_terminal_only_schedule_and_validates_shapes() {
+        let expiry = ["2027-03-02".parse().expect("date")];
+        let outcome = train_exercise_policy(
+            &expiry,
+            PolynomialBasisSpec::new(1, 2, 4, 4).expect("basis"),
+            &[],
+            2,
+            &[0.0, 10.0],
+            &[0.8],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            8,
+        )
+        .expect("terminal policy");
+        assert!(outcome.policy().decisions().is_empty());
+        assert_eq!(outcome.realized_cashflows(), [0.0, 10.0]);
+        assert_eq!(outcome.stopping_indices(), [0, 0]);
+
+        assert!(matches!(
+            train_exercise_policy(
+                &expiry,
+                PolynomialBasisSpec::new(1, 1, 2, 2).expect("basis"),
+                &[],
+                2,
+                &[0.0],
+                &[0.8],
+                0.0,
+                CpqrConfig::new(0.0, 0.0).expect("config"),
+                8,
+            ),
+            Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch { .. })
         ));
     }
 }
