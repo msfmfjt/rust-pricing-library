@@ -1,8 +1,8 @@
 use pricing_aad::{AadTilePolicy, CheckpointPolicy, SoaWorkspace};
 use pricing_core::{Date, DayCountConvention, PathIndex, PositiveF64, SchemaVersion, UnderlyingId};
 use pricing_market::{
-    AffineDividendTransform, CurveRegion, DiscountCurve, EquityForward, ImpliedVarianceSurface,
-    LocalVarianceGrid, MarketError, ThetaRegion, TotalVarianceDerivatives,
+    AffineDividendCoordinate, AffineDividendTransform, CurveRegion, DiscountCurve, EquityForward,
+    ImpliedVarianceSurface, LocalVarianceGrid, MarketError, ThetaRegion, TotalVarianceDerivatives,
 };
 use pricing_mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
@@ -61,6 +61,8 @@ pub struct SimulationPlan {
     observation_dates: Box<[Date]>,
     observation_times: Box<[f64]>,
     observation_forwards: Box<[f64]>,
+    observation_affine_coordinates: Box<[AffineDividendCoordinate]>,
+    observation_pre_dividend_coordinates: Box<[Option<AffineDividendCoordinate>]>,
     engine: EngineConfig,
     execution_policy: ExecutionPolicy,
     aad_tile_policy: AadTilePolicy,
@@ -392,12 +394,39 @@ impl SimulationPlan {
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let product = request.product();
+        let market_forward = request.market().equity().forward();
+        let dividend_timeline = market_forward
+            .discrete_dividends()
+            .map(AffineDividendTransform::event_timeline)
+            .transpose()?
+            .map_or_else(Vec::new, |entries| entries.into_vec());
+        let jump_dates = match product {
+            ProductSpec::Barrier(barrier) => barrier
+                .monitoring_dates()
+                .iter()
+                .copied()
+                .filter(|date| {
+                    let time =
+                        DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date);
+                    dividend_timeline
+                        .iter()
+                        .any(|entry| entry.ex_time().to_bits() == time.to_bits())
+                })
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
         let payoff_graph = match (product, request.risk().payoff_smoothing()) {
             (ProductSpec::Digital(digital), Some(PayoffSmoothing::CompactC2 { half_width })) => {
                 digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
             }
             (ProductSpec::Barrier(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) => {
-                barrier.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
+                barrier.smoothed_source_graph_with_dividend_jumps(
+                    CompactC2Smoothing::from_positive(half_width),
+                    &jump_dates,
+                )?
+            }
+            (ProductSpec::Barrier(barrier), None) => {
+                barrier.source_graph_with_dividend_jumps(&jump_dates)?
             }
             _ => product.source_graph(request.valuation_date())?,
         };
@@ -410,7 +439,6 @@ impl SimulationPlan {
         };
         let payment_time = DayCountConvention::Act365F
             .year_fraction(request.valuation_date(), product.payment_date());
-        let market_forward = request.market().equity().forward();
         let forward_evaluation = market_forward.evaluate(time)?;
         let discount_evaluation = market_forward.discount_curve().evaluate(payment_time)?;
         let discount = discount_evaluation.discount;
@@ -468,13 +496,27 @@ impl SimulationPlan {
             .iter()
             .map(|(_, date)| *date)
             .collect::<Vec<_>>();
+        let pre_dividend_observations = payoff.pre_dividend_observations();
         let mut observation_times = Vec::with_capacity(observation_dates.len());
         let mut observation_forwards = Vec::with_capacity(observation_dates.len());
+        let mut observation_affine_coordinates = Vec::with_capacity(observation_dates.len());
+        let mut observation_pre_dividend_coordinates = Vec::with_capacity(observation_dates.len());
         for date in &observation_dates {
             let observation_time =
                 DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date);
+            let evaluation = market_forward.evaluate(observation_time)?;
             observation_times.push(observation_time);
-            observation_forwards.push(market_forward.evaluate(observation_time)?.forward);
+            observation_forwards.push(evaluation.forward);
+            observation_affine_coordinates.push(evaluation.affine_coordinate);
+            let needs_pre_dividend =
+                pre_dividend_observations.contains(&(product.underlying(), *date));
+            observation_pre_dividend_coordinates.push(needs_pre_dividend.then(|| {
+                dividend_timeline
+                    .iter()
+                    .find(|entry| entry.ex_time().to_bits() == observation_time.to_bits())
+                    .expect("pre-dividend observations are compiled only for dividend dates")
+                    .before()
+            }));
         }
         if local_volatility.is_some()
             && observation_dates
@@ -532,6 +574,9 @@ impl SimulationPlan {
             observation_dates: observation_dates.into_boxed_slice(),
             observation_times: observation_times.into_boxed_slice(),
             observation_forwards: observation_forwards.into_boxed_slice(),
+            observation_affine_coordinates: observation_affine_coordinates.into_boxed_slice(),
+            observation_pre_dividend_coordinates: observation_pre_dividend_coordinates
+                .into_boxed_slice(),
             engine,
             execution_policy,
             aad_tile_policy,
@@ -547,7 +592,8 @@ impl SimulationPlan {
                 }
                 _ => 0,
             },
-            payoff_smoothing_dividend_jump_count: 0,
+            payoff_smoothing_dividend_jump_count: u32::try_from(jump_dates.len())
+                .unwrap_or(u32::MAX),
             smile_dynamics: request.risk().smile_dynamics(),
             validation_spot_bump,
             validation_volatility_bump,
@@ -1897,16 +1943,27 @@ impl SimulationPlan {
         &self,
         normals: &[f64],
     ) -> Result<f64, pricing_product::GraphError> {
-        let spots = self.spots_from_normals(normals);
-        let outputs = self.payoff.evaluate(|underlying, date| {
-            if underlying != self.underlying {
-                return None;
-            }
-            self.observation_dates
-                .iter()
-                .position(|observation_date| *observation_date == date)
-                .map(|index| spots[index])
-        })?;
+        let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
+        let outputs = self.payoff.evaluate_with_pre_dividend_spots(
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .map(|index| observations[index].post_spot)
+            },
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            },
+        )?;
         Ok(self.discount
             * outputs
                 .first()
@@ -1914,18 +1971,13 @@ impl SimulationPlan {
                 .ok_or(pricing_product::GraphError::NoOutputs)?)
     }
 
-    fn spots_from_normals(&self, normals: &[f64]) -> Vec<f64> {
-        self.spots_and_brownians_from_normals(normals, self.volatility)
-            .into_iter()
-            .map(|(spot, _)| spot)
-            .collect()
-    }
-
-    fn spots_and_brownians_from_normals(
+    fn path_observations_from_normals(
         &self,
         normals: &[f64],
+        spot: f64,
         volatility: f64,
-    ) -> Vec<(f64, f64)> {
+    ) -> Vec<PathObservation> {
+        let spot_scale = spot / self.spot;
         if self.observation_times.len() == 1 {
             let time = self.observation_times[0];
             let normal = normals[0];
@@ -1933,7 +1985,8 @@ impl SimulationPlan {
             let standard_deviation = total_variance.sqrt();
             let brownian = time.sqrt() * normal;
             let log_return = -0.5 * total_variance + standard_deviation * normal;
-            return vec![(self.observation_forwards[0] * log_return.exp(), brownian)];
+            let canonical_f = self.observation_forwards[0] * spot_scale * log_return.exp();
+            return vec![self.path_observation(0, canonical_f, brownian)];
         }
         let mut previous_time = 0.0;
         let mut brownian = 0.0;
@@ -1941,17 +1994,30 @@ impl SimulationPlan {
             .iter()
             .zip(self.observation_forwards.iter())
             .zip(normals.iter())
-            .map(|((&time, &forward), &normal)| {
+            .enumerate()
+            .map(|(index, ((&time, &forward), &normal))| {
                 let step = (time - previous_time).max(0.0);
                 brownian += step.sqrt() * normal;
                 previous_time = time;
                 let total_variance = volatility * volatility * time;
-                (
-                    forward * (-0.5 * total_variance + volatility * brownian).exp(),
-                    brownian,
-                )
+                let canonical_f =
+                    forward * spot_scale * (-0.5 * total_variance + volatility * brownian).exp();
+                self.path_observation(index, canonical_f, brownian)
             })
             .collect()
+    }
+
+    fn path_observation(&self, index: usize, canonical_f: f64, brownian: f64) -> PathObservation {
+        let post_coordinate = self.observation_affine_coordinates[index];
+        let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * canonical_f;
+        let pre_dividend_spot = self.observation_pre_dividend_coordinates[index]
+            .map(|coordinate| coordinate.a() * self.spot + coordinate.b() * canonical_f);
+        PathObservation {
+            post_spot,
+            pre_dividend_spot,
+            canonical_f,
+            brownian,
+        }
     }
 
     fn pathwise_values(
@@ -2014,26 +2080,36 @@ impl SimulationPlan {
         spot: f64,
         volatility: f64,
     ) -> Result<PathwiseAad, pricing_product::GraphError> {
-        if self.observation_dates.len() == 1 && self.observation_dates[0] == self.expiry {
+        if self.observation_dates.len() == 1
+            && self.observation_dates[0] == self.expiry
+            && self
+                .observation_pre_dividend_coordinates
+                .iter()
+                .all(Option::is_none)
+        {
             return self.pathwise_aad_single_terminal(normals[0], spot, volatility);
         }
-        let spot_scale = spot / self.spot;
-        let spots = self
-            .spots_and_brownians_from_normals(normals, volatility)
-            .into_iter()
-            .map(|(path_spot, brownian)| (path_spot * spot_scale, brownian))
-            .collect::<Vec<_>>();
-        let payoff = self
-            .payoff
-            .evaluate_single_with_terminal_adjoint(|underlying, date| {
+        let observations = self.path_observations_from_normals(normals, spot, volatility);
+        let payoff = self.payoff.evaluate_single_with_observation_adjoints(
+            |underlying, date| {
                 if underlying != self.underlying {
                     return None;
                 }
                 self.observation_dates
                     .iter()
                     .position(|observation_date| *observation_date == date)
-                    .map(|index| spots[index].0)
-            })?;
+                    .map(|index| observations[index].post_spot)
+            },
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            },
+        )?;
         let price = self.discount * payoff.value;
         let mut delta = 0.0;
         let mut vega = 0.0;
@@ -2046,11 +2122,32 @@ impl SimulationPlan {
                 .iter()
                 .position(|observation_date| *observation_date == adjoint.observation_date)
             {
-                let (observation_spot, brownian) = spots[index];
-                delta += adjoint.value * observation_spot / spot;
+                let observation = observations[index];
+                let coordinate = self.observation_affine_coordinates[index];
+                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
                 vega += adjoint.value
-                    * observation_spot
-                    * (-volatility * self.observation_times[index] + brownian);
+                    * coordinate.b()
+                    * observation.canonical_f
+                    * (-volatility * self.observation_times[index] + observation.brownian);
+            }
+        }
+        for adjoint in &payoff.pre_dividend_adjoints {
+            if adjoint.underlying != self.underlying {
+                continue;
+            }
+            if let Some(index) = self
+                .observation_dates
+                .iter()
+                .position(|observation_date| *observation_date == adjoint.observation_date)
+            {
+                let observation = observations[index];
+                let coordinate = self.observation_pre_dividend_coordinates[index]
+                    .expect("pre-dividend adjoints have a matching coordinate");
+                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                vega += adjoint.value
+                    * coordinate.b()
+                    * observation.canonical_f
+                    * (-volatility * self.observation_times[index] + observation.brownian);
             }
         }
         Ok(PathwiseAad {
@@ -2070,7 +2167,9 @@ impl SimulationPlan {
         let standard_deviation = total_variance.sqrt();
         let log_return = -0.5 * total_variance + standard_deviation * normal;
         let bumped_forward = self.forward * (spot / self.spot);
-        let terminal = bumped_forward * log_return.exp();
+        let canonical_f = bumped_forward * log_return.exp();
+        let coordinate = self.observation_affine_coordinates[0];
+        let terminal = coordinate.a() * self.spot + coordinate.b() * canonical_f;
         let payoff = self
             .payoff
             .evaluate_single_with_terminal_adjoint(|underlying, date| {
@@ -2084,8 +2183,9 @@ impl SimulationPlan {
             })
             .fold(0.0, |total, adjoint| total + adjoint.value);
         let price = self.discount * payoff.value;
-        let delta = self.discount * terminal_adjoint * terminal / spot;
-        let terminal_vega = terminal * (-volatility * self.time + self.time.sqrt() * normal);
+        let delta = self.discount * terminal_adjoint * coordinate.b() * canonical_f / spot;
+        let terminal_vega =
+            coordinate.b() * canonical_f * (-volatility * self.time + self.time.sqrt() * normal);
         let vega = self.discount * terminal_adjoint * terminal_vega;
         Ok(PathwiseAad { price, delta, vega })
     }
@@ -2255,6 +2355,14 @@ struct PathwiseAad {
     price: f64,
     delta: f64,
     vega: f64,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PathObservation {
+    post_spot: f64,
+    pre_dividend_spot: Option<f64>,
+    canonical_f: f64,
+    brownian: f64,
 }
 
 fn resolve_spot_bump(gamma: GammaConfig, spot: f64) -> f64 {
@@ -2508,8 +2616,11 @@ fn extrapolation_warnings(
 mod tests {
     use std::sync::Arc;
 
-    use pricing_core::{CurrencyId, CurveId, PositiveF64};
-    use pricing_market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
+    use pricing_core::{CurrencyId, CurveId, EventId, PositiveF64};
+    use pricing_market::{
+        DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
+        MarketContext,
+    };
     use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
     use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
     use pricing_product::{
@@ -2810,6 +2921,75 @@ mod tests {
             model,
             engine,
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+        )
+        .expect("request")
+    }
+
+    fn barrier_dividend_jump_request(
+        direction: BarrierDirection,
+        style: BarrierStyle,
+        volatility: f64,
+        risk: RiskRequest,
+    ) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let valuation_date: Date = "2026-09-04".parse().expect("valuation");
+        let dividend_date: Date = "2027-03-05".parse().expect("dividend date");
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let barrier = match direction {
+            BarrierDirection::Up => 95.0,
+            BarrierDirection::Down => 90.0,
+        };
+        let product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                underlying,
+                currency,
+                expiry,
+                80.0,
+                barrier,
+                1.0,
+                OptionSide::Call,
+                direction,
+                style,
+                vec![dividend_date, expiry],
+                None,
+                expiry,
+            )
+            .expect("product"),
+        );
+        let ex_time = DayCountConvention::Act365F.year_fraction(valuation_date, dividend_date);
+        let event = EventId::new(1);
+        let forward = EquityForward::with_discrete_dividends(
+            underlying,
+            PositiveF64::new(100.0, "spot").expect("spot"),
+            curve(1, 0.0),
+            curve(2, 0.0),
+            vec![
+                DividendEvent::new(
+                    event,
+                    ex_time,
+                    DividendQuote::fixed_cash(15.0, event).expect("cash dividend"),
+                )
+                .expect("dividend"),
+            ],
+        )
+        .expect("forward");
+        let market = MarketContext::Equity(EquityMarket::new(currency, forward));
+        let sampling_units = if volatility == 0.0 { 1 } else { 4_096 };
+        PricingRequest::new(
+            valuation_date,
+            product,
+            market,
+            ModelSpec::BlackScholes(BlackScholesSpec::new(volatility).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(
+                    0x0123_4567_89ab_cdef,
+                    sampling_units,
+                    VarianceReduction::new(volatility != 0.0, false),
+                )
+                .expect("engine"),
+            ),
+            risk,
         )
         .expect("request")
     }
@@ -3682,6 +3862,107 @@ mod tests {
             knocked_result.sampling_variance.to_bits(),
             0.0_f64.to_bits()
         );
+    }
+
+    #[test]
+    fn barrier_dividend_collision_uses_pre_and_post_spot_without_an_extra_dimension() {
+        for direction in [BarrierDirection::Up, BarrierDirection::Down] {
+            let knock_in = SimulationPlan::compile(
+                &barrier_dividend_jump_request(
+                    direction,
+                    BarrierStyle::KnockIn,
+                    0.0,
+                    RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+                ),
+                policy(2),
+            )
+            .expect("knock-in plan");
+            let knock_out = SimulationPlan::compile(
+                &barrier_dividend_jump_request(
+                    direction,
+                    BarrierStyle::KnockOut,
+                    0.0,
+                    RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+                ),
+                policy(2),
+            )
+            .expect("knock-out plan");
+
+            assert_eq!(knock_in.observation_dates.len(), 2);
+            assert_eq!(knock_in.payoff.pre_dividend_observations().len(), 1);
+            let observations = knock_in.path_observations_from_normals(&[0.0, 0.0], 100.0, 0.0);
+            assert!(
+                (observations[0].pre_dividend_spot.expect("pre spot") - 100.0).abs() <= 1.0e-12
+            );
+            assert!((observations[0].post_spot - 85.0).abs() <= 1.0e-12);
+
+            let knock_in_value = knock_in
+                .execute()
+                .expect("knock-in execution")
+                .pricing_result
+                .value
+                .value()
+                .get();
+            let knock_out_value = knock_out
+                .execute()
+                .expect("knock-out execution")
+                .pricing_result
+                .value
+                .value()
+                .get();
+            assert!((knock_in_value - 5.0).abs() <= 1.0e-12);
+            assert_eq!(knock_out_value.to_bits(), 0.0_f64.to_bits());
+            assert!((knock_in_value + knock_out_value - 5.0).abs() <= 1.0e-12);
+        }
+    }
+
+    #[test]
+    fn smoothed_barrier_dividend_jump_aad_matches_common_random_number_bumps() {
+        let risk = RiskRequest::new(
+            true,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(5.0).expect("smoothing"));
+        let request =
+            barrier_dividend_jump_request(BarrierDirection::Up, BarrierStyle::KnockIn, 0.2, risk);
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+        let normals = [0.0, 0.0];
+        let base = plan
+            .pathwise_aad(&normals, plan.spot, plan.volatility)
+            .expect("base AAD");
+        let spot_bump = 1.0e-4;
+        let delta_fd = (plan
+            .pathwise_aad(&normals, plan.spot + spot_bump, plan.volatility)
+            .expect("up spot")
+            .price
+            - plan
+                .pathwise_aad(&normals, plan.spot - spot_bump, plan.volatility)
+                .expect("down spot")
+                .price)
+            / (2.0 * spot_bump);
+        let volatility_bump = 1.0e-5;
+        let vega_fd = (plan
+            .pathwise_aad(&normals, plan.spot, plan.volatility + volatility_bump)
+            .expect("up volatility")
+            .price
+            - plan
+                .pathwise_aad(&normals, plan.spot, plan.volatility - volatility_bump)
+                .expect("down volatility")
+                .price)
+            / (2.0 * volatility_bump);
+        assert!((base.delta - delta_fd).abs() <= 1.0e-7);
+        assert!((base.vega - vega_fd).abs() <= 1.0e-6);
+
+        let result = plan.execute().expect("execution");
+        let diagnostics = result.diagnostics.payoff_smoothing.expect("smoothing");
+        assert_eq!(diagnostics.endpoint_count, 2);
+        assert_eq!(diagnostics.dividend_jump_count, 1);
     }
 
     #[test]
