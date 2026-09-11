@@ -7,7 +7,8 @@ use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
 use crate::{
     ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec, BarrierStyle,
-    DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
+    CompactC2Smoothing, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
+    OptionSide, ProductSpec,
 };
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
@@ -106,6 +107,20 @@ pub enum SourceOpcode {
     Indicator {
         input: NodeId,
     },
+    SmoothMinimum {
+        left: NodeId,
+        right: NodeId,
+        smoothing: CompactC2Smoothing,
+    },
+    SmoothMaximum {
+        left: NodeId,
+        right: NodeId,
+        smoothing: CompactC2Smoothing,
+    },
+    SmoothIndicator {
+        input: NodeId,
+        smoothing: CompactC2Smoothing,
+    },
     Negate {
         input: NodeId,
     },
@@ -115,12 +130,16 @@ impl SourceOpcode {
     fn operands(self) -> ([NodeId; 2], usize) {
         match self {
             Self::Literal(_) | Self::TerminalSpot { .. } => ([NodeId::new(0); 2], 0),
-            Self::Negate { input } | Self::Indicator { input } => ([input, NodeId::new(0)], 1),
+            Self::Negate { input }
+            | Self::Indicator { input }
+            | Self::SmoothIndicator { input, .. } => ([input, NodeId::new(0)], 1),
             Self::Add { left, right }
             | Self::Subtract { left, right }
             | Self::Multiply { left, right }
             | Self::Minimum { left, right }
-            | Self::Maximum { left, right } => ([left, right], 2),
+            | Self::Maximum { left, right }
+            | Self::SmoothMinimum { left, right, .. }
+            | Self::SmoothMaximum { left, right, .. } => ([left, right], 2),
             Self::Divide {
                 numerator,
                 denominator,
@@ -139,6 +158,9 @@ impl SourceOpcode {
             Self::Minimum { .. } => "minimum",
             Self::Maximum { .. } => "maximum",
             Self::Indicator { .. } => "indicator",
+            Self::SmoothMinimum { .. } => "smooth_minimum",
+            Self::SmoothMaximum { .. } => "smooth_maximum",
+            Self::SmoothIndicator { .. } => "smooth_indicator",
             Self::Negate { .. } => "negate",
         }
     }
@@ -572,6 +594,23 @@ pub enum CompiledOpcode {
         input: u32,
         output: u32,
     },
+    SmoothMinimum {
+        left: u32,
+        right: u32,
+        smoothing: CompactC2Smoothing,
+        output: u32,
+    },
+    SmoothMaximum {
+        left: u32,
+        right: u32,
+        smoothing: CompactC2Smoothing,
+        output: u32,
+    },
+    SmoothIndicator {
+        input: u32,
+        smoothing: CompactC2Smoothing,
+        output: u32,
+    },
     Negate {
         input: u32,
         output: u32,
@@ -781,6 +820,60 @@ fn reverse_opcode(
             }
         }
         CompiledOpcode::Indicator { .. } => {}
+        CompiledOpcode::SmoothMinimum {
+            left,
+            right,
+            smoothing,
+            ..
+        } => {
+            let derivatives = smoothing.minimum(
+                values[checked_index(left, values.len())?],
+                values[checked_index(right, values.len())?],
+            );
+            add_adjoint(
+                adjoints,
+                left,
+                output_adjoint * derivatives.left_first,
+                opcode.name(),
+            )?;
+            add_adjoint(
+                adjoints,
+                right,
+                output_adjoint * derivatives.right_first,
+                opcode.name(),
+            )?;
+        }
+        CompiledOpcode::SmoothMaximum {
+            left,
+            right,
+            smoothing,
+            ..
+        } => {
+            let derivatives = smoothing.maximum(
+                values[checked_index(left, values.len())?],
+                values[checked_index(right, values.len())?],
+            );
+            add_adjoint(
+                adjoints,
+                left,
+                output_adjoint * derivatives.left_first,
+                opcode.name(),
+            )?;
+            add_adjoint(
+                adjoints,
+                right,
+                output_adjoint * derivatives.right_first,
+                opcode.name(),
+            )?;
+        }
+        CompiledOpcode::SmoothIndicator {
+            input, smoothing, ..
+        } => {
+            let derivative = smoothing
+                .indicator(values[checked_index(input, values.len())?])
+                .first;
+            add_adjoint(adjoints, input, output_adjoint * derivative, opcode.name())?;
+        }
         CompiledOpcode::Negate { input, .. } => {
             add_adjoint(adjoints, input, -output_adjoint, opcode.name())?;
         }
@@ -818,6 +911,9 @@ impl CompiledOpcode {
             Self::Minimum { .. } => "minimum",
             Self::Maximum { .. } => "maximum",
             Self::Indicator { .. } => "indicator",
+            Self::SmoothMinimum { .. } => "smooth_minimum",
+            Self::SmoothMaximum { .. } => "smooth_maximum",
+            Self::SmoothIndicator { .. } => "smooth_indicator",
             Self::Negate { .. } => "negate",
         }
     }
@@ -833,6 +929,9 @@ impl CompiledOpcode {
             | Self::Minimum { output, .. }
             | Self::Maximum { output, .. }
             | Self::Indicator { output, .. }
+            | Self::SmoothMinimum { output, .. }
+            | Self::SmoothMaximum { output, .. }
+            | Self::SmoothIndicator { output, .. }
             | Self::Negate { output, .. } => output,
         }
     }
@@ -900,6 +999,30 @@ where
         CompiledOpcode::Indicator { input, output } => {
             let value = slots[checked_index(input, slots.len())?];
             Ok((output, if value >= 0.0 { 1.0 } else { 0.0 }))
+        }
+        CompiledOpcode::SmoothMinimum {
+            left,
+            right,
+            smoothing,
+            output,
+        } => {
+            binary(left, right).map(|(left, right)| (output, smoothing.minimum(left, right).value))
+        }
+        CompiledOpcode::SmoothMaximum {
+            left,
+            right,
+            smoothing,
+            output,
+        } => {
+            binary(left, right).map(|(left, right)| (output, smoothing.maximum(left, right).value))
+        }
+        CompiledOpcode::SmoothIndicator {
+            input,
+            smoothing,
+            output,
+        } => {
+            let value = slots[checked_index(input, slots.len())?];
+            Ok((output, smoothing.indicator(value).value))
         }
         CompiledOpcode::Negate { input, output } => {
             Ok((output, -slots[checked_index(input, slots.len())?]))
@@ -1093,6 +1216,13 @@ fn fold_node(
                 0.0
             }
         }
+        SourceOpcode::SmoothMinimum { smoothing, .. } => {
+            smoothing.minimum(values[0], values[1]).value
+        }
+        SourceOpcode::SmoothMaximum { smoothing, .. } => {
+            smoothing.maximum(values[0], values[1]).value
+        }
+        SourceOpcode::SmoothIndicator { smoothing, .. } => smoothing.indicator(values[0]).value,
         SourceOpcode::Negate { .. } => -values[0],
         SourceOpcode::Literal(_) | SourceOpcode::TerminalSpot { .. } => unreachable!(),
     };
@@ -1165,6 +1295,31 @@ fn compile_opcode(
         }),
         SourceOpcode::Indicator { input } => Ok(CompiledOpcode::Indicator {
             input: slot(input)?,
+            output,
+        }),
+        SourceOpcode::SmoothMinimum {
+            left,
+            right,
+            smoothing,
+        } => Ok(CompiledOpcode::SmoothMinimum {
+            left: slot(left)?,
+            right: slot(right)?,
+            smoothing,
+            output,
+        }),
+        SourceOpcode::SmoothMaximum {
+            left,
+            right,
+            smoothing,
+        } => Ok(CompiledOpcode::SmoothMaximum {
+            left: slot(left)?,
+            right: slot(right)?,
+            smoothing,
+            output,
+        }),
+        SourceOpcode::SmoothIndicator { input, smoothing } => Ok(CompiledOpcode::SmoothIndicator {
+            input: slot(input)?,
+            smoothing,
             output,
         }),
         SourceOpcode::Negate { input } => Ok(CompiledOpcode::Negate {
@@ -1261,6 +1416,24 @@ fn encode_source_opcode(bytes: &mut Vec<u8>, opcode: SourceOpcode) {
         SourceOpcode::Negate { input } | SourceOpcode::Indicator { input } => {
             put_u32(bytes, input.get());
         }
+        SourceOpcode::SmoothIndicator { input, smoothing } => {
+            put_u32(bytes, input.get());
+            put_u64(bytes, smoothing.half_width().get().to_bits());
+        }
+        SourceOpcode::SmoothMinimum {
+            left,
+            right,
+            smoothing,
+        }
+        | SourceOpcode::SmoothMaximum {
+            left,
+            right,
+            smoothing,
+        } => {
+            put_u32(bytes, left.get());
+            put_u32(bytes, right.get());
+            put_u64(bytes, smoothing.half_width().get().to_bits());
+        }
         _ => {
             let (operands, count) = opcode.operands();
             for operand in operands.into_iter().take(count) {
@@ -1288,6 +1461,32 @@ fn encode_compiled_opcode(bytes: &mut Vec<u8>, opcode: CompiledOpcode) {
         }
         CompiledOpcode::Negate { input, output } | CompiledOpcode::Indicator { input, output } => {
             put_u32(bytes, input);
+            put_u32(bytes, output);
+        }
+        CompiledOpcode::SmoothIndicator {
+            input,
+            smoothing,
+            output,
+        } => {
+            put_u32(bytes, input);
+            put_u64(bytes, smoothing.half_width().get().to_bits());
+            put_u32(bytes, output);
+        }
+        CompiledOpcode::SmoothMinimum {
+            left,
+            right,
+            smoothing,
+            output,
+        }
+        | CompiledOpcode::SmoothMaximum {
+            left,
+            right,
+            smoothing,
+            output,
+        } => {
+            put_u32(bytes, left);
+            put_u32(bytes, right);
+            put_u64(bytes, smoothing.half_width().get().to_bits());
             put_u32(bytes, output);
         }
         CompiledOpcode::Divide {
@@ -1343,6 +1542,9 @@ const fn opcode_tag(opcode: SourceOpcode) -> u8 {
         SourceOpcode::Maximum { .. } => 7,
         SourceOpcode::Negate { .. } => 8,
         SourceOpcode::Indicator { .. } => 9,
+        SourceOpcode::SmoothMinimum { .. } => 10,
+        SourceOpcode::SmoothMaximum { .. } => 11,
+        SourceOpcode::SmoothIndicator { .. } => 12,
     }
 }
 
@@ -1358,6 +1560,9 @@ const fn compiled_opcode_tag(opcode: CompiledOpcode) -> u8 {
         CompiledOpcode::Maximum { .. } => 7,
         CompiledOpcode::Negate { .. } => 8,
         CompiledOpcode::Indicator { .. } => 9,
+        CompiledOpcode::SmoothMinimum { .. } => 10,
+        CompiledOpcode::SmoothMaximum { .. } => 11,
+        CompiledOpcode::SmoothIndicator { .. } => 12,
     }
 }
 
@@ -1968,6 +2173,181 @@ mod tests {
                 .compile(GraphLimitPolicy::DEFAULT)
                 .expect("compile")
                 .source_fingerprint()
+        );
+    }
+
+    #[test]
+    fn smooth_indicator_executes_and_reverses_the_p0_kernel() {
+        let mut builder = SourceGraphBuilder::new();
+        let date = "2027-09-04".parse().expect("date");
+        let input = builder
+            .push(SourceOpcode::TerminalSpot {
+                underlying: UnderlyingId::new(4),
+                observation_date: date,
+            })
+            .expect("input");
+        let output = builder
+            .push(SourceOpcode::SmoothIndicator {
+                input,
+                smoothing: CompactC2Smoothing::new(2.0).expect("smoothing"),
+            })
+            .expect("indicator");
+        let compiled = builder
+            .finish(vec![output])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile");
+
+        let evaluation = compiled
+            .evaluate_single_with_terminal_adjoint(|_, _| Some(0.0))
+            .expect("evaluate");
+        assert_eq!(evaluation.value, 0.5);
+        assert_eq!(evaluation.terminal_adjoints.len(), 1);
+        assert_eq!(evaluation.terminal_adjoints[0].value, 0.468_75);
+
+        for (input, expected) in [
+            (-3.0, 0.0),
+            (-1.0, 0.103_515_625),
+            (1.0, 0.896_484_375),
+            (3.0, 1.0),
+        ] {
+            assert_eq!(
+                compiled.evaluate(|_, _| Some(input)).expect("evaluate"),
+                vec![expected]
+            );
+        }
+    }
+
+    #[test]
+    fn smooth_extrema_execute_and_reverse_as_a_paired_partition() {
+        let first_date = "2027-03-04".parse().expect("first date");
+        let second_date = "2027-09-04".parse().expect("second date");
+        for maximum in [true, false] {
+            let mut builder = SourceGraphBuilder::new();
+            let left = builder
+                .push(SourceOpcode::TerminalSpot {
+                    underlying: UnderlyingId::new(4),
+                    observation_date: first_date,
+                })
+                .expect("left");
+            let right = builder
+                .push(SourceOpcode::TerminalSpot {
+                    underlying: UnderlyingId::new(4),
+                    observation_date: second_date,
+                })
+                .expect("right");
+            let smoothing = CompactC2Smoothing::new(4.0).expect("smoothing");
+            let output = if maximum {
+                builder.push(SourceOpcode::SmoothMaximum {
+                    left,
+                    right,
+                    smoothing,
+                })
+            } else {
+                builder.push(SourceOpcode::SmoothMinimum {
+                    left,
+                    right,
+                    smoothing,
+                })
+            }
+            .expect("extremum");
+            let compiled = builder
+                .finish(vec![output])
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            let evaluation = compiled
+                .evaluate_single_with_terminal_adjoint(|_, date| {
+                    Some(if date == first_date { 101.0 } else { 99.0 })
+                })
+                .expect("evaluate");
+            assert_eq!(
+                evaluation.value,
+                if maximum {
+                    101.056_640_625
+                } else {
+                    98.943_359_375
+                }
+            );
+            let left_adjoint = evaluation
+                .terminal_adjoints
+                .iter()
+                .find(|adjoint| adjoint.observation_date == first_date)
+                .expect("left adjoint")
+                .value;
+            let right_adjoint = evaluation
+                .terminal_adjoints
+                .iter()
+                .find(|adjoint| adjoint.observation_date == second_date)
+                .expect("right adjoint")
+                .value;
+            let expected_left = if maximum {
+                0.896_484_375
+            } else {
+                0.103_515_625
+            };
+            assert_eq!(left_adjoint, expected_left);
+            assert_eq!(right_adjoint, 1.0 - expected_left);
+        }
+    }
+
+    #[test]
+    fn smooth_constant_folding_and_fingerprints_include_half_width() {
+        let compile = |half_width| {
+            let mut builder = SourceGraphBuilder::new();
+            let input = builder.literal(0.0).expect("input");
+            let output = builder
+                .push(SourceOpcode::SmoothIndicator {
+                    input,
+                    smoothing: CompactC2Smoothing::new(half_width).expect("smoothing"),
+                })
+                .expect("indicator");
+            builder
+                .finish(vec![output])
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile")
+        };
+        let narrow = compile(1.0);
+        let wide = compile(2.0);
+        assert!(matches!(
+            narrow.opcodes()[1],
+            CompiledOpcode::Literal { value: 0.5, .. }
+        ));
+        assert_ne!(narrow.source_fingerprint(), wide.source_fingerprint());
+
+        let compile_dynamic = |half_width| {
+            let mut builder = SourceGraphBuilder::new();
+            let input = builder
+                .push(SourceOpcode::TerminalSpot {
+                    underlying: UnderlyingId::new(4),
+                    observation_date: "2027-09-04".parse().expect("date"),
+                })
+                .expect("input");
+            let output = builder
+                .push(SourceOpcode::SmoothIndicator {
+                    input,
+                    smoothing: CompactC2Smoothing::new(half_width).expect("smoothing"),
+                })
+                .expect("indicator");
+            builder
+                .finish(vec![output])
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile")
+        };
+        assert_ne!(
+            compile_dynamic(1.0).tape_fingerprint(),
+            compile_dynamic(2.0).tape_fingerprint()
+        );
+    }
+
+    #[test]
+    fn existing_exact_payoff_fingerprint_is_unchanged() {
+        let compiled = option(OptionSide::Call)
+            .source_graph()
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile");
+        assert_eq!(
+            compiled.tape_fingerprint().to_string(),
+            "blake3-256:32f30625f81f30987a54c18c1b62e20549a86959873c2e33f2b68c84e97aabf3"
         );
     }
 }
