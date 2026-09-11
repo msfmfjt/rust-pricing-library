@@ -15,7 +15,7 @@ use pricing_models::{
 use pricing_product::{
     ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection,
     BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-    FixedLookbackSpec, OptionSide, ProductSpec,
+    FixedLookbackSpec, GraphLimitPolicy, OptionSide, ProductSpec,
 };
 use pricing_risk::{
     GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
@@ -113,6 +113,10 @@ pub enum WireError {
     UnsupportedSchemaVersion(u32),
     Domain(String),
     InvalidFingerprint(String),
+    UnsupportedSchemaFeature {
+        feature: &'static str,
+        schema_version: u32,
+    },
 }
 
 impl fmt::Display for WireError {
@@ -146,6 +150,13 @@ impl fmt::Display for WireError {
             Self::InvalidFingerprint(value) => {
                 write!(formatter, "invalid BLAKE3-256 fingerprint {value:?}")
             }
+            Self::UnsupportedSchemaFeature {
+                feature,
+                schema_version,
+            } => write!(
+                formatter,
+                "{feature} is not available in wire schema version {schema_version}"
+            ),
         }
     }
 }
@@ -545,6 +556,9 @@ impl From<&ProductSpec> for ProductV1 {
                 notional: spec.notional().get(),
                 side: spec.side().into(),
             },
+            ProductSpec::AmericanVanilla(_) => {
+                unreachable!("American requests are rejected before v2 wire conversion")
+            }
             ProductSpec::Digital(spec) => Self::Digital {
                 underlying_id: spec.underlying().get(),
                 currency_id: spec.currency().get(),
@@ -2103,10 +2117,22 @@ fn vega_kt_unit_from_wire(value: VegaKtBucketUnitV1) -> VegaKtResultUnit {
 }
 
 pub fn request_to_json(request: &PricingRequest) -> Result<String, WireError> {
+    reject_unserialized_request_features(request)?;
     serialize(&RequestV2::from(request), false)
 }
 pub fn request_to_pretty_json(request: &PricingRequest) -> Result<String, WireError> {
+    reject_unserialized_request_features(request)?;
     serialize(&RequestV2::from(request), true)
+}
+
+fn reject_unserialized_request_features(request: &PricingRequest) -> Result<(), WireError> {
+    if request.lsm().is_some() {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "American LSM requests",
+            schema_version: SchemaVersion::CURRENT.get(),
+        });
+    }
+    Ok(())
 }
 pub fn result_to_json(result: &PricingResult) -> Result<String, WireError> {
     serialize(&ResultV2::from(result), false)
@@ -2171,6 +2197,43 @@ pub fn parse_result_json(input: &[u8], limits: JsonLimits) -> Result<PricingResu
 }
 
 pub fn fingerprint_request(request: &PricingRequest) -> Result<Fingerprint, WireError> {
+    if let ProductSpec::AmericanVanilla(american) = request.product() {
+        let european = ProductSpec::EuropeanVanilla(
+            EuropeanVanillaSpec::new(
+                american.underlying(),
+                american.currency(),
+                american.expiry(),
+                american.strike().get(),
+                american.notional().get(),
+                american.side(),
+            )
+            .map_err(|error| WireError::Domain(error.to_string()))?,
+        );
+        let surrogate = PricingRequest::new(
+            request.valuation_date(),
+            european,
+            request.market().clone(),
+            request.model().clone(),
+            request.engine(),
+            request.risk().clone(),
+        )
+        .map_err(|error| WireError::Domain(error.to_string()))?;
+        let base = fingerprint_request(&surrogate)?;
+        let product = american
+            .source_graph()
+            .and_then(|graph| graph.compile(GraphLimitPolicy::DEFAULT))
+            .map_err(|error| WireError::Domain(error.to_string()))?;
+        let lsm = request
+            .lsm()
+            .ok_or_else(|| WireError::Domain("American request has no LSM config".to_owned()))?;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"pricing/american-request\0");
+        hasher.update(&1_u32.to_be_bytes());
+        hasher.update(base.as_bytes());
+        hasher.update(product.source_fingerprint().as_bytes());
+        hasher.update(lsm.fingerprint().as_bytes());
+        return Ok(Fingerprint(*hasher.finalize().as_bytes()));
+    }
     let value = serde_json::to_value(RequestV2::from(request)).map_err(json)?;
     fingerprint_request_value(&value, SchemaVersion::CURRENT.get())
 }

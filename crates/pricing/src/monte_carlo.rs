@@ -8,12 +8,14 @@ use pricing_market::{
 use pricing_mc::{
     BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeError, BarrierBridgeIntervalInput,
     BarrierBridgePath, BarrierBridgeStatus, BrownianBridgePlan, DeterministicExecutor,
-    DeterministicStatistics, EngineConfig, ExecutionPolicy, LocalVolDividendCheckpointSchedule,
-    LocalVolLogEulerPlan, LocalVolPath, LocalVolTimeGrid, Philox4x32, PseudoMcConfig,
-    RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan, RqmcPlanError,
+    DeterministicStatistics, EngineConfig, ExecutionPolicy, ExercisePolicyFingerprint,
+    ExerciseRegressionDiagnostics, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan,
+    LocalVolPath, LocalVolTimeGrid, LsmConfig, LsmNumericalError, LsmStateVariable, Philox4x32,
+    PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan, RqmcPlanError,
     SmoothedBarrierBridgeEndpoint, SmoothedBarrierBridgeEndpointInput,
     SmoothedBarrierBridgeInterval, SmoothedBarrierBridgeIntervalAdjoints,
-    SmoothedBarrierBridgeIntervalInput, inverse_standard_normal, transformed_barrier,
+    SmoothedBarrierBridgeIntervalInput, inverse_standard_normal, train_exercise_policy,
+    transformed_barrier, value_exercise_policy,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
@@ -101,6 +103,7 @@ pub struct SimulationPlan {
     market_forward: EquityForward,
     local_volatility: Option<LocalVolRuntime>,
     continuous_barrier: Option<ContinuousBarrierRuntime>,
+    early_exercise: Option<EarlyExerciseRuntime>,
 }
 
 #[derive(Clone, Debug)]
@@ -133,6 +136,15 @@ struct ContinuousBarrierRuntime {
     monitoring_end_time: f64,
     bridge_observation_indices: Box<[usize]>,
     expiry_observation_index: usize,
+}
+
+#[derive(Clone, Debug)]
+struct EarlyExerciseRuntime {
+    config: LsmConfig,
+    exercise_dates: Box<[Date]>,
+    observation_indices: Box<[usize]>,
+    discount_factors: Box<[f64]>,
+    dividend_collisions: Box<[bool]>,
 }
 
 #[derive(Clone, Debug)]
@@ -955,6 +967,45 @@ impl SimulationPlan {
                 expiry_observation_index,
             }
         });
+        let early_exercise = match product {
+            ProductSpec::AmericanVanilla(american) => {
+                let config = request
+                    .lsm()
+                    .expect("PricingRequest validates American LSM configuration")
+                    .clone();
+                let mut observation_indices = Vec::with_capacity(american.exercise_dates().len());
+                let mut discount_factors = Vec::with_capacity(american.exercise_dates().len());
+                let mut dividend_collisions = Vec::with_capacity(american.exercise_dates().len());
+                for &date in american.exercise_dates() {
+                    let observation_index = observation_dates
+                        .iter()
+                        .position(|candidate| *candidate == Some(date))
+                        .expect("American payoff graph retains every exercise date");
+                    let exercise_time =
+                        DayCountConvention::Act365F.year_fraction(request.valuation_date(), date);
+                    observation_indices.push(observation_index);
+                    discount_factors.push(
+                        market_forward
+                            .discount_curve()
+                            .evaluate(exercise_time)?
+                            .discount,
+                    );
+                    dividend_collisions.push(
+                        dividend_timeline
+                            .iter()
+                            .any(|entry| entry.ex_time().to_bits() == exercise_time.to_bits()),
+                    );
+                }
+                Some(EarlyExerciseRuntime {
+                    config,
+                    exercise_dates: american.exercise_dates().into(),
+                    observation_indices: observation_indices.into_boxed_slice(),
+                    discount_factors: discount_factors.into_boxed_slice(),
+                    dividend_collisions: dividend_collisions.into_boxed_slice(),
+                })
+            }
+            _ => None,
+        };
         let request_fingerprint = *fingerprint_request(request)?.as_bytes();
         let request_migration = request
             .wire_migration()
@@ -1078,6 +1129,7 @@ impl SimulationPlan {
             market_forward: market_forward.clone(),
             local_volatility,
             continuous_barrier,
+            early_exercise,
         })
     }
 
@@ -1192,6 +1244,9 @@ impl SimulationPlan {
     }
 
     pub fn execute(&self) -> Result<MonteCarloPrice, MonteCarloError> {
+        if let Some(early_exercise) = &self.early_exercise {
+            return self.execute_early_exercise(early_exercise);
+        }
         if self.observation_dates.is_empty() {
             return self.execute_fixed_payoff();
         }
@@ -1199,6 +1254,256 @@ impl SimulationPlan {
             EngineConfig::PseudoMonteCarlo(engine) => self.execute_pseudo(engine),
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => self.execute_rqmc(engine),
         }
+    }
+
+    fn execute_early_exercise(
+        &self,
+        early_exercise: &EarlyExerciseRuntime,
+    ) -> Result<MonteCarloPrice, MonteCarloError> {
+        if self.local_volatility.is_some() {
+            return Err(MonteCarloError::UnsupportedModel {
+                model: "Local Volatility American LSM",
+            });
+        }
+        let EngineConfig::PseudoMonteCarlo(training_engine) =
+            early_exercise.config.training_engine()
+        else {
+            return Err(MonteCarloError::UnsupportedEngine);
+        };
+        let EngineConfig::PseudoMonteCarlo(valuation_engine) = self.engine else {
+            return Err(MonteCarloError::UnsupportedEngine);
+        };
+        let training = self.constant_vol_lsm_path_matrices(
+            training_engine,
+            RandomDomain::LsmTrain,
+            early_exercise,
+        )?;
+        let training_metadata = early_exercise
+            .config
+            .training_metadata(*self.payoff.source_fingerprint().as_bytes())?;
+        let fitted = train_exercise_policy(
+            &early_exercise.exercise_dates,
+            early_exercise.config.basis().clone(),
+            &training.features,
+            training.path_count,
+            &training.immediate_values,
+            &early_exercise.discount_factors,
+            early_exercise.config.itm_abs_tolerance(),
+            early_exercise.config.cpqr_config(),
+            early_exercise.config.max_matrix_elements(),
+            training_metadata,
+        )?;
+        let valuation = self.constant_vol_lsm_path_matrices(
+            valuation_engine,
+            RandomDomain::Valuation,
+            early_exercise,
+        )?;
+        let valued = value_exercise_policy(
+            fitted.policy(),
+            &valuation.features,
+            valuation.path_count,
+            &valuation.immediate_values,
+            &early_exercise.discount_factors,
+        )?;
+        let antithetic = valuation_engine.variance_reduction().antithetic();
+        let unit_values = collapse_antithetic_values(valued.discounted_cashflows(), antithetic)?;
+        let statistics = DeterministicStatistics::from_ordered_values_two_pass(&unit_values);
+        let independent_units = valuation_engine.independent_sampling_units().get();
+        let estimate = estimate_from_statistics(
+            statistics,
+            independent_units,
+            1.0,
+            EstimatorKind::PseudoMonteCarlo,
+        )?;
+        let sampling_variance = statistics.moments().sample_variance().unwrap_or(0.0);
+        let estimator_variance = sampling_variance / independent_units as f64;
+        let in_sample_discounted = fitted
+            .realized_cashflows()
+            .iter()
+            .zip(fitted.stopping_indices())
+            .map(|(cashflow, stopping_index)| {
+                cashflow * early_exercise.discount_factors[*stopping_index]
+            })
+            .collect::<Vec<_>>();
+        let in_sample_units = collapse_antithetic_values(
+            &in_sample_discounted,
+            training_engine.variance_reduction().antithetic(),
+        )?;
+        let in_sample_value =
+            DeterministicStatistics::from_ordered_values_two_pass(&in_sample_units)
+                .sum()
+                .total()
+                / in_sample_units.len() as f64;
+        let exercise_probabilities = valued
+            .exercise_counts()
+            .iter()
+            .map(|count| *count as f64 / valuation.path_count as f64)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let early_exercise_diagnostics = EarlyExerciseDiagnostics {
+            policy_fingerprint: valued.policy_fingerprint(),
+            training_random_domain: early_exercise.config.training_random_domain(),
+            valuation_random_domain: RandomDomain::Valuation,
+            training_sampling_units: training_engine.independent_sampling_units().get(),
+            training_trajectories: training.path_count as u64,
+            valuation_sampling_units: independent_units,
+            valuation_trajectories: valuation.path_count as u64,
+            in_sample_value,
+            exercise_dates: early_exercise.exercise_dates.clone(),
+            exercise_counts: valued.exercise_counts().into(),
+            exercise_probabilities,
+            stopping_indices: valued.stopping_indices().into(),
+            dividend_collisions: early_exercise.dividend_collisions.clone(),
+            regression_diagnostics: fitted.policy().diagnostics().into(),
+        };
+        let pricing_result = PricingResult {
+            value: estimate,
+            risks: RiskReport {
+                delta: None,
+                gamma: None,
+                vega: None,
+                vega_kt: None,
+            },
+            diagnostics: Diagnostics::new(extrapolation_warnings(
+                self.discount_region,
+                self.dividend_region,
+            )),
+            replay: self.replay_metadata(),
+        };
+        Ok(MonteCarloPrice {
+            pricing_result,
+            sampling_variance,
+            estimator_variance,
+            risk_diagnostics: empty_risk_diagnostics(self.smile_dynamics),
+            independent_sampling_units: independent_units,
+            evaluated_paths: valuation_engine.evaluated_paths(),
+            diagnostics: MonteCarloDiagnostics {
+                master_seed: valuation_engine.master_seed(),
+                estimator: EstimatorKind::PseudoMonteCarlo,
+                scramble_count: None,
+                direction_checksum: None,
+                scramble_checksum: None,
+                policy_version: self.execution_policy.version(),
+                worker_threads: self.execution_policy.worker_threads().get(),
+                reduction_block_size: self.execution_policy.reduction_block_size().get(),
+                aad_tile_policy_version: self.aad_tile_policy.version(),
+                aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
+                checkpoint_policy_version: self.checkpoint_policy.version(),
+                checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
+                antithetic,
+                discount_region: self.discount_region,
+                dividend_region: self.dividend_region,
+                payoff_fingerprint: self.payoff.tape_fingerprint(),
+                valuation_kind: PayoffValuationKind::ExactContractual,
+                payoff_smoothing: None,
+                path_state: None,
+                barrier_bridge: None,
+            },
+            early_exercise_diagnostics: Some(early_exercise_diagnostics),
+        })
+    }
+
+    fn constant_vol_lsm_path_matrices(
+        &self,
+        engine: PseudoMcConfig,
+        domain: RandomDomain,
+        early_exercise: &EarlyExerciseRuntime,
+    ) -> Result<LsmPathMatrices, MonteCarloError> {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let units = usize::try_from(engine.independent_sampling_units().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let path_count = units
+            .checked_mul(multiplier)
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        let date_count = early_exercise.exercise_dates.len();
+        let feature_count = early_exercise.config.state_variables().len();
+        let mut immediate_values = zeroed_lsm_values(
+            date_count
+                .checked_mul(path_count)
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "American immediate values",
+        )?;
+        let mut features = zeroed_lsm_values(
+            date_count
+                .saturating_sub(1)
+                .checked_mul(path_count)
+                .and_then(|count| count.checked_mul(feature_count))
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?,
+            "American state features",
+        )?;
+        let generator = Philox4x32::from_seed(engine.master_seed());
+        for unit in 0..units {
+            let normals = self.normals(&generator, unit as u64, domain);
+            self.write_lsm_trajectory(
+                &normals,
+                unit * multiplier,
+                path_count,
+                early_exercise,
+                &mut immediate_values,
+                &mut features,
+            )?;
+            if multiplier == 2 {
+                let mate_normals = normals.iter().map(|normal| -*normal).collect::<Vec<_>>();
+                self.write_lsm_trajectory(
+                    &mate_normals,
+                    unit * multiplier + 1,
+                    path_count,
+                    early_exercise,
+                    &mut immediate_values,
+                    &mut features,
+                )?;
+            }
+        }
+        Ok(LsmPathMatrices {
+            path_count,
+            immediate_values: immediate_values.into_boxed_slice(),
+            features: features.into_boxed_slice(),
+        })
+    }
+
+    fn write_lsm_trajectory(
+        &self,
+        normals: &[f64],
+        path: usize,
+        path_count: usize,
+        early_exercise: &EarlyExerciseRuntime,
+        immediate_values: &mut [f64],
+        features: &mut [f64],
+    ) -> Result<(), MonteCarloError> {
+        let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
+        let outputs = self.payoff_outputs_from_observations(&observations)?;
+        if outputs.len() != early_exercise.exercise_dates.len() {
+            return Err(LsmNumericalError::ImmediateValueMatrixLengthMismatch {
+                expected: early_exercise.exercise_dates.len(),
+                actual: outputs.len(),
+            }
+            .into());
+        }
+        let feature_count = early_exercise.config.state_variables().len();
+        for (date_index, (&immediate_value, &observation_index)) in outputs
+            .iter()
+            .zip(early_exercise.observation_indices.iter())
+            .enumerate()
+        {
+            immediate_values[date_index * path_count + path] = immediate_value;
+            if date_index + 1 == early_exercise.exercise_dates.len() {
+                continue;
+            }
+            for (feature_index, state_variable) in
+                early_exercise.config.state_variables().iter().enumerate()
+            {
+                let feature = match state_variable {
+                    LsmStateVariable::Spot => observations[observation_index].post_spot,
+                };
+                features[(date_index * path_count + path) * feature_count + feature_index] =
+                    feature;
+            }
+        }
+        Ok(())
     }
 
     fn execute_fixed_payoff(&self) -> Result<MonteCarloPrice, MonteCarloError> {
@@ -1282,6 +1587,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: None,
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -1479,6 +1785,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -1641,6 +1948,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -1756,6 +2064,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -1917,6 +2226,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -2647,6 +2957,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -2828,6 +3139,7 @@ impl SimulationPlan {
                 path_state: self.path_state_diagnostics,
                 barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
+            early_exercise_diagnostics: None,
         })
     }
 
@@ -2876,12 +3188,11 @@ impl SimulationPlan {
             .collect()
     }
 
-    fn discounted_payoff_from_normals(&self, normals: &[f64]) -> Result<f64, MonteCarloError> {
-        let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
-        if let Some(barrier) = &self.continuous_barrier {
-            return self.continuous_barrier_discounted_payoff(barrier, &observations);
-        }
-        let outputs = self.payoff.evaluate_with_pre_dividend_spots(
+    fn payoff_outputs_from_observations(
+        &self,
+        observations: &[PathObservation],
+    ) -> Result<Vec<f64>, MonteCarloError> {
+        Ok(self.payoff.evaluate_with_pre_dividend_spots(
             |underlying, date| {
                 if underlying != self.underlying {
                     return None;
@@ -2900,7 +3211,15 @@ impl SimulationPlan {
                     .position(|observation_date| *observation_date == Some(date))
                     .and_then(|index| observations[index].pre_dividend_spot)
             },
-        )?;
+        )?)
+    }
+
+    fn discounted_payoff_from_normals(&self, normals: &[f64]) -> Result<f64, MonteCarloError> {
+        let observations = self.path_observations_from_normals(normals, self.spot, self.volatility);
+        if let Some(barrier) = &self.continuous_barrier {
+            return self.continuous_barrier_discounted_payoff(barrier, &observations);
+        }
+        let outputs = self.payoff_outputs_from_observations(&observations)?;
         Ok(self.discount
             * outputs
                 .first()
@@ -3613,6 +3932,80 @@ struct PathObservation {
     brownian: f64,
 }
 
+struct LsmPathMatrices {
+    path_count: usize,
+    immediate_values: Box<[f64]>,
+    features: Box<[f64]>,
+}
+
+fn zeroed_lsm_values(count: usize, resource: &'static str) -> Result<Vec<f64>, LsmNumericalError> {
+    let mut values = Vec::new();
+    values
+        .try_reserve_exact(count)
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource,
+            requested: count,
+        })?;
+    values.resize(count, 0.0);
+    Ok(values)
+}
+
+fn collapse_antithetic_values(
+    path_values: &[f64],
+    antithetic: bool,
+) -> Result<Vec<f64>, LsmNumericalError> {
+    if !antithetic {
+        let mut values = Vec::new();
+        values.try_reserve_exact(path_values.len()).map_err(|_| {
+            LsmNumericalError::AllocationFailed {
+                resource: "LSM sampling-unit values",
+                requested: path_values.len(),
+            }
+        })?;
+        values.extend_from_slice(path_values);
+        return Ok(values);
+    }
+    if !path_values.len().is_multiple_of(2) {
+        return Err(LsmNumericalError::MatrixShapeOverflow);
+    }
+    let pairs = path_values.as_chunks::<2>().0;
+    let mut values = Vec::new();
+    values
+        .try_reserve_exact(pairs.len())
+        .map_err(|_| LsmNumericalError::AllocationFailed {
+            resource: "LSM antithetic sampling-unit values",
+            requested: pairs.len(),
+        })?;
+    for pair in pairs {
+        let value = (pair[0] + pair[1]) * 0.5;
+        if !value.is_finite() {
+            return Err(LsmNumericalError::NonFiniteIntermediate {
+                stage: "antithetic sampling-unit average",
+            });
+        }
+        values.push(value);
+    }
+    Ok(values)
+}
+
+fn empty_risk_diagnostics(smile_dynamics: SmileDynamics) -> RiskDiagnostics {
+    RiskDiagnostics {
+        methods: RiskMethodMetadata {
+            delta: None,
+            gamma: None,
+            vega: None,
+            smile_dynamics,
+            gamma_spot_bump: None,
+            validation_spot_bump: None,
+            validation_volatility_bump: None,
+            bump_policy_version: BumpValidationPolicy::VERSION,
+        },
+        delta_validation: None,
+        gamma_validation: None,
+        vega_validation: None,
+    }
+}
+
 fn resolve_spot_bump(gamma: GammaConfig, spot: f64) -> f64 {
     match gamma.bump() {
         SpotBump::Absolute(value) => value.get(),
@@ -3882,9 +4275,10 @@ impl PathStateDiagnostics {
                     historical_extremum: lookback.historical_extremum().map(PositiveF64::get),
                 })
             }
-            ProductSpec::EuropeanVanilla(_) | ProductSpec::Digital(_) | ProductSpec::Barrier(_) => {
-                None
-            }
+            ProductSpec::EuropeanVanilla(_)
+            | ProductSpec::AmericanVanilla(_)
+            | ProductSpec::Digital(_)
+            | ProductSpec::Barrier(_) => None,
         }
     }
 }
@@ -3940,6 +4334,24 @@ pub struct MonteCarloDiagnostics {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct EarlyExerciseDiagnostics {
+    pub policy_fingerprint: ExercisePolicyFingerprint,
+    pub training_random_domain: RandomDomain,
+    pub valuation_random_domain: RandomDomain,
+    pub training_sampling_units: u64,
+    pub training_trajectories: u64,
+    pub valuation_sampling_units: u64,
+    pub valuation_trajectories: u64,
+    pub in_sample_value: f64,
+    pub exercise_dates: Box<[Date]>,
+    pub exercise_counts: Box<[usize]>,
+    pub exercise_probabilities: Box<[f64]>,
+    pub stopping_indices: Box<[usize]>,
+    pub dividend_collisions: Box<[bool]>,
+    pub regression_diagnostics: Box<[ExerciseRegressionDiagnostics]>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct MonteCarloPrice {
     pub pricing_result: PricingResult,
     pub sampling_variance: f64,
@@ -3948,6 +4360,7 @@ pub struct MonteCarloPrice {
     pub independent_sampling_units: u64,
     pub evaluated_paths: u128,
     pub diagnostics: MonteCarloDiagnostics,
+    pub early_exercise_diagnostics: Option<EarlyExerciseDiagnostics>,
 }
 
 pub fn price_pseudo_monte_carlo(
@@ -4105,12 +4518,14 @@ mod tests {
         DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
         MarketContext,
     };
-    use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
+    use pricing_mc::{
+        CpqrConfig, PolynomialBasisSpec, PseudoMcConfig, RqmcConfig, VarianceReduction,
+    };
     use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
     use pricing_product::{
-        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierMonitoring, BarrierSpec,
-        BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
-        OptionSide, ProductSpec,
+        AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, BarrierDirection,
+        BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec,
+        EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
     };
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 
@@ -4146,6 +4561,227 @@ mod tests {
             100.0,
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
         )
+    }
+
+    fn american_request(
+        side: OptionSide,
+        strike: f64,
+        volatility: f64,
+        training_units: u64,
+        valuation_units: u64,
+        antithetic: bool,
+    ) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let exercise_dates = ["2026-12-04", "2027-03-04", "2027-06-04", "2027-09-04"]
+            .map(|date| date.parse().expect("exercise date"));
+        let product = ProductSpec::AmericanVanilla(
+            AmericanVanillaSpec::new(
+                underlying,
+                currency,
+                *exercise_dates.last().expect("exercise dates"),
+                strike,
+                1.0,
+                side,
+                exercise_dates.to_vec(),
+            )
+            .expect("American product"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.05),
+                curve(2, 0.0),
+            ),
+        ));
+        let training_engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                0x1020_3040_5060_7080,
+                training_units,
+                VarianceReduction::new(antithetic, false),
+            )
+            .expect("training engine"),
+        );
+        let lsm = LsmConfig::new(
+            training_engine,
+            vec![LsmStateVariable::Spot],
+            PolynomialBasisSpec::new(1, 3, 8, 8).expect("basis"),
+            0.0,
+            CpqrConfig::new(1.0e-14, 1.0e-12).expect("CPQR config"),
+            1_000_000,
+        )
+        .expect("LSM config");
+        PricingRequest::new_with_lsm(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            ModelSpec::BlackScholes(BlackScholesSpec::new(volatility).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(
+                    0x0123_4567_89ab_cdef,
+                    valuation_units,
+                    VarianceReduction::new(antithetic, false),
+                )
+                .expect("valuation engine"),
+            ),
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            Some(lsm),
+        )
+        .expect("American request")
+    }
+
+    #[test]
+    fn american_zero_volatility_exercises_at_deterministic_optimal_date() {
+        let request = american_request(OptionSide::Put, 120.0, 0.0, 2, 2, true);
+        let result = price_monte_carlo(&request, policy(2)).expect("American price");
+        let diagnostics = result
+            .early_exercise_diagnostics
+            .as_ref()
+            .expect("early-exercise diagnostics");
+        let first_date = diagnostics.exercise_dates[0];
+        let time = DayCountConvention::Act365F.year_fraction(request.valuation_date(), first_date);
+        let forward = request
+            .market()
+            .equity()
+            .forward()
+            .evaluate(time)
+            .expect("forward");
+        let discount = request
+            .market()
+            .equity()
+            .forward()
+            .discount_curve()
+            .evaluate(time)
+            .expect("discount")
+            .discount;
+        let expected = discount * (120.0 - forward.forward).max(0.0);
+        assert_eq!(
+            result.pricing_result.value.value().get().to_bits(),
+            expected.to_bits()
+        );
+        assert_eq!(diagnostics.exercise_counts, Box::from([4, 0, 0, 0]));
+        assert_eq!(
+            diagnostics.exercise_probabilities,
+            Box::from([1.0, 0.0, 0.0, 0.0])
+        );
+        assert!(diagnostics.stopping_indices.iter().all(|index| *index == 0));
+        assert_eq!(diagnostics.training_random_domain, RandomDomain::LsmTrain);
+        assert_eq!(diagnostics.valuation_random_domain, RandomDomain::Valuation);
+        assert_eq!(diagnostics.training_sampling_units, 2);
+        assert_eq!(diagnostics.training_trajectories, 4);
+        assert_eq!(diagnostics.valuation_sampling_units, 2);
+        assert_eq!(diagnostics.valuation_trajectories, 4);
+        assert_eq!(diagnostics.in_sample_value.to_bits(), expected.to_bits());
+    }
+
+    #[test]
+    fn american_pseudo_replays_across_worker_counts() {
+        let request = american_request(OptionSide::Put, 100.0, 0.2, 1024, 2048, true);
+        assert!(matches!(
+            crate::request_to_json(&request),
+            Err(crate::WireError::UnsupportedSchemaFeature {
+                feature: "American LSM requests",
+                schema_version: 2,
+            })
+        ));
+        assert_eq!(fingerprint_request(&request), fingerprint_request(&request));
+        let serial = price_monte_carlo(&request, policy(1)).expect("serial American price");
+        let parallel = price_monte_carlo(&request, policy(4)).expect("parallel American price");
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(
+            serial.early_exercise_diagnostics,
+            parallel.early_exercise_diagnostics
+        );
+        let diagnostics = serial
+            .early_exercise_diagnostics
+            .expect("early-exercise diagnostics");
+        assert_eq!(diagnostics.training_trajectories, 2048);
+        assert_eq!(diagnostics.valuation_trajectories, 4096);
+        assert_eq!(diagnostics.exercise_counts.iter().sum::<usize>(), 4096);
+        assert_eq!(diagnostics.regression_diagnostics.len(), 3);
+    }
+
+    #[test]
+    fn no_dividend_american_call_agrees_with_european_call() {
+        let american = american_request(OptionSide::Call, 100.0, 0.2, 16_384, 32_768, true);
+        let ProductSpec::AmericanVanilla(american_product) = american.product() else {
+            unreachable!("helper constructs an American option");
+        };
+        let european = PricingRequest::new(
+            american.valuation_date(),
+            ProductSpec::EuropeanVanilla(
+                EuropeanVanillaSpec::new(
+                    american_product.underlying(),
+                    american_product.currency(),
+                    american_product.expiry(),
+                    american_product.strike().get(),
+                    american_product.notional().get(),
+                    american_product.side(),
+                )
+                .expect("European product"),
+            ),
+            american.market().clone(),
+            american.model().clone(),
+            american.engine(),
+            american.risk().clone(),
+        )
+        .expect("European request");
+        let american_result = price_monte_carlo(&american, policy(4)).expect("American price");
+        let european_result = price_monte_carlo(&european, policy(4)).expect("European price");
+        let american_estimate = american_result.pricing_result.value;
+        let european_estimate = european_result.pricing_result.value;
+        let combined_error = american_estimate
+            .standard_error()
+            .get()
+            .hypot(european_estimate.standard_error().get());
+        assert!(
+            (american_estimate.value().get() - european_estimate.value().get()).abs()
+                <= 6.0 * combined_error,
+            "American={}, European={}, combined_se={combined_error}",
+            american_estimate.value().get(),
+            european_estimate.value().get(),
+        );
+    }
+
+    #[test]
+    fn american_put_respects_intrinsic_and_european_lower_bounds() {
+        let american = american_request(OptionSide::Put, 105.0, 0.2, 16_384, 32_768, true);
+        let ProductSpec::AmericanVanilla(american_product) = american.product() else {
+            unreachable!("helper constructs an American option");
+        };
+        let european = PricingRequest::new(
+            american.valuation_date(),
+            ProductSpec::EuropeanVanilla(
+                EuropeanVanillaSpec::new(
+                    american_product.underlying(),
+                    american_product.currency(),
+                    american_product.expiry(),
+                    american_product.strike().get(),
+                    american_product.notional().get(),
+                    american_product.side(),
+                )
+                .expect("European product"),
+            ),
+            american.market().clone(),
+            american.model().clone(),
+            american.engine(),
+            american.risk().clone(),
+        )
+        .expect("European request");
+        let european_value = black_scholes_oracle(&european)
+            .expect("European oracle")
+            .price;
+        let result = price_monte_carlo(&american, policy(4)).expect("American price");
+        let estimate = result.pricing_result.value;
+        let lower_bound = european_value.max(5.0);
+        assert!(
+            estimate.value().get() + 6.0 * estimate.standard_error().get() >= lower_bound,
+            "American={}, se={}, lower_bound={lower_bound}",
+            estimate.value().get(),
+            estimate.standard_error().get(),
+        );
     }
 
     #[test]

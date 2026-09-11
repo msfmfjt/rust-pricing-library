@@ -1294,6 +1294,7 @@ fn barrier_monitoring(py: Python<'_>, value: &str) -> PyResult<BarrierMonitoring
 const fn product_name(product: &ProductSpec) -> &'static str {
     match product {
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
+        ProductSpec::AmericanVanilla(_) => "american_vanilla",
         ProductSpec::Digital(_) => "digital",
         ProductSpec::Barrier(_) => "barrier",
         ProductSpec::ArithmeticAsian(_) => "arithmetic_asian",

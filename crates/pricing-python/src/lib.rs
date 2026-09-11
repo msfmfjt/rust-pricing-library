@@ -77,6 +77,9 @@ impl PyValidationIssue {
             WireError::WrongDocumentKind { .. } => ("declared_schema", "wrong_document_kind"),
             WireError::Domain(_) | WireError::DomainAt { .. } => ("domain", "invalid_domain_value"),
             WireError::InvalidFingerprint(_) => ("declared_schema", "invalid_fingerprint"),
+            WireError::UnsupportedSchemaFeature { .. } => {
+                ("declared_schema", "unsupported_schema_feature")
+            }
         };
         let schema_version = match error {
             WireError::UnsupportedSchemaVersion(version) => *version,
@@ -1089,6 +1092,7 @@ fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> Mont
             path_state: None,
             barrier_bridge: None,
         },
+        early_exercise_diagnostics: None,
     }
 }
 

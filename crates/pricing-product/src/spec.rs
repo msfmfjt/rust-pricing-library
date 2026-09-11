@@ -803,6 +803,7 @@ impl FixedLookbackSpec {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProductSpec {
     EuropeanVanilla(EuropeanVanillaSpec),
+    AmericanVanilla(AmericanVanillaSpec),
     Digital(DigitalSpec),
     Barrier(BarrierSpec),
     ArithmeticAsian(ArithmeticAsianSpec),
@@ -814,6 +815,7 @@ impl ProductSpec {
     pub const fn underlying(&self) -> UnderlyingId {
         match self {
             Self::EuropeanVanilla(spec) => spec.underlying(),
+            Self::AmericanVanilla(spec) => spec.underlying(),
             Self::Digital(spec) => spec.underlying(),
             Self::Barrier(spec) => spec.underlying(),
             Self::ArithmeticAsian(spec) => spec.underlying(),
@@ -825,6 +827,7 @@ impl ProductSpec {
     pub const fn currency(&self) -> CurrencyId {
         match self {
             Self::EuropeanVanilla(spec) => spec.currency(),
+            Self::AmericanVanilla(spec) => spec.currency(),
             Self::Digital(spec) => spec.currency(),
             Self::Barrier(spec) => spec.currency(),
             Self::ArithmeticAsian(spec) => spec.currency(),
@@ -836,6 +839,7 @@ impl ProductSpec {
     pub fn expiry(&self) -> Date {
         match self {
             Self::EuropeanVanilla(spec) => spec.expiry(),
+            Self::AmericanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.expiry(),
             Self::Barrier(spec) => spec.expiry(),
             Self::ArithmeticAsian(spec) => spec.expiry(),
@@ -847,6 +851,7 @@ impl ProductSpec {
     pub const fn payment_date(&self) -> Date {
         match self {
             Self::EuropeanVanilla(spec) => spec.expiry(),
+            Self::AmericanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.payment_date(),
             Self::Barrier(spec) => spec.payment_date(),
             Self::ArithmeticAsian(spec) => spec.payment_date(),
@@ -880,7 +885,10 @@ impl ProductSpec {
                         .iter()
                         .all(|date| *date < valuation_date)
             }
-            Self::EuropeanVanilla(_) | Self::Digital(_) | Self::Barrier(_) => false,
+            Self::EuropeanVanilla(_)
+            | Self::AmericanVanilla(_)
+            | Self::Digital(_)
+            | Self::Barrier(_) => false,
         }
     }
 }

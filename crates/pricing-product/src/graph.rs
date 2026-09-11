@@ -680,6 +680,7 @@ impl ProductSpec {
     pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
         match self {
             Self::EuropeanVanilla(spec) => spec.source_graph(),
+            Self::AmericanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
             Self::Barrier(spec) => spec.source_graph(),
             Self::ArithmeticAsian(spec) => spec.source_graph(),

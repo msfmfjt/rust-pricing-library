@@ -5,8 +5,8 @@ use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
 use pricing_mc::{
-    BarrierBridgeError, ExecutionError, ExecutorBuildError, LocalVolError, RqmcPlanError,
-    TryExecutionError,
+    BarrierBridgeError, ExecutionError, ExecutorBuildError, LocalVolError, LsmNumericalError,
+    RqmcPlanError, TryExecutionError,
 };
 use pricing_product::GraphError;
 use pricing_risk::RiskConfigError;
@@ -32,6 +32,13 @@ pub enum RequestValidationError {
         valuation_date: Date,
         payment_date: Date,
     },
+    AmericanPastExerciseUnsupported {
+        exercise_date: Date,
+        valuation_date: Date,
+    },
+    MissingLsmConfiguration,
+    UnexpectedLsmConfiguration,
+    LsmConfiguration(LsmNumericalError),
     AsianPastObservationRequiresKnownFixing {
         observation_date: Date,
         valuation_date: Date,
@@ -81,6 +88,20 @@ impl fmt::Display for RequestValidationError {
                 formatter,
                 "payment date {payment_date} is before valuation date {valuation_date}"
             ),
+            Self::AmericanPastExerciseUnsupported {
+                exercise_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "American exercise date {exercise_date} before valuation date {valuation_date} requires historical exercise state"
+            ),
+            Self::MissingLsmConfiguration => {
+                write!(formatter, "American pricing requires an LSM configuration")
+            }
+            Self::UnexpectedLsmConfiguration => {
+                write!(formatter, "LSM configuration requires an American product")
+            }
+            Self::LsmConfiguration(error) => error.fmt(formatter),
             Self::AsianPastObservationRequiresKnownFixing {
                 observation_date,
                 valuation_date,
@@ -130,6 +151,12 @@ impl fmt::Display for RequestValidationError {
 }
 
 impl Error for RequestValidationError {}
+
+impl From<LsmNumericalError> for RequestValidationError {
+    fn from(error: LsmNumericalError) -> Self {
+        Self::LsmConfiguration(error)
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -250,6 +277,7 @@ pub enum MonteCarloError {
     AadConfig(AadConfigError),
     RqmcPlan(RqmcPlanError),
     RiskConfig(RiskConfigError),
+    Lsm(LsmNumericalError),
 }
 
 impl From<MarketError> for MonteCarloError {
@@ -309,6 +337,12 @@ impl From<RqmcPlanError> for MonteCarloError {
 impl From<RiskConfigError> for MonteCarloError {
     fn from(error: RiskConfigError) -> Self {
         Self::RiskConfig(error)
+    }
+}
+
+impl From<LsmNumericalError> for MonteCarloError {
+    fn from(error: LsmNumericalError) -> Self {
+        Self::Lsm(error)
     }
 }
 
@@ -399,6 +433,7 @@ impl fmt::Display for MonteCarloError {
             Self::AadConfig(error) => error.fmt(formatter),
             Self::RqmcPlan(error) => error.fmt(formatter),
             Self::RiskConfig(error) => error.fmt(formatter),
+            Self::Lsm(error) => error.fmt(formatter),
         }
     }
 }
@@ -417,6 +452,7 @@ impl Error for MonteCarloError {
             Self::AadConfig(error) => Some(error),
             Self::RqmcPlan(error) => Some(error),
             Self::RiskConfig(error) => Some(error),
+            Self::Lsm(error) => Some(error),
             _ => None,
         }
     }
