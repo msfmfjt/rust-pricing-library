@@ -121,6 +121,10 @@ pub enum SourceOpcode {
         input: NodeId,
         smoothing: CompactC2Smoothing,
     },
+    BarrierHitState {
+        previous: NodeId,
+        hit_weight: NodeId,
+    },
     Negate {
         input: NodeId,
     },
@@ -140,6 +144,10 @@ impl SourceOpcode {
             | Self::Maximum { left, right }
             | Self::SmoothMinimum { left, right, .. }
             | Self::SmoothMaximum { left, right, .. } => ([left, right], 2),
+            Self::BarrierHitState {
+                previous,
+                hit_weight,
+            } => ([previous, hit_weight], 2),
             Self::Divide {
                 numerator,
                 denominator,
@@ -161,6 +169,7 @@ impl SourceOpcode {
             Self::SmoothMinimum { .. } => "smooth_minimum",
             Self::SmoothMaximum { .. } => "smooth_maximum",
             Self::SmoothIndicator { .. } => "smooth_indicator",
+            Self::BarrierHitState { .. } => "barrier_hit_state",
             Self::Negate { .. } => "negate",
         }
     }
@@ -410,6 +419,20 @@ impl ArithmeticAsianSpec {
 
 impl BarrierSpec {
     pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(None)
+    }
+
+    pub fn smoothed_source_graph(
+        &self,
+        smoothing: CompactC2Smoothing,
+    ) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(Some(smoothing))
+    }
+
+    fn build_source_graph(
+        &self,
+        smoothing: Option<CompactC2Smoothing>,
+    ) -> Result<SourceGraph, GraphError> {
         let mut builder = SourceGraphBuilder::new();
         let strike = builder.literal(self.strike().get())?;
         let terminal = builder.push(SourceOpcode::TerminalSpot {
@@ -454,12 +477,19 @@ impl BarrierSpec {
                     right: spot,
                 })?,
             };
-            let date_hit = builder.push(SourceOpcode::Indicator {
-                input: signed_distance,
-            })?;
-            hit = builder.push(SourceOpcode::Maximum {
-                left: hit,
-                right: date_hit,
+            let date_hit = if let Some(smoothing) = smoothing {
+                builder.push(SourceOpcode::SmoothIndicator {
+                    input: signed_distance,
+                    smoothing,
+                })?
+            } else {
+                builder.push(SourceOpcode::Indicator {
+                    input: signed_distance,
+                })?
+            };
+            hit = builder.push(SourceOpcode::BarrierHitState {
+                previous: hit,
+                hit_weight: date_hit,
             })?;
         }
 
@@ -630,6 +660,11 @@ pub enum CompiledOpcode {
     SmoothIndicator {
         input: u32,
         smoothing: CompactC2Smoothing,
+        output: u32,
+    },
+    BarrierHitState {
+        previous: u32,
+        hit_weight: u32,
         output: u32,
     },
     Negate {
@@ -895,6 +930,26 @@ fn reverse_opcode(
                 .first;
             add_adjoint(adjoints, input, output_adjoint * derivative, opcode.name())?;
         }
+        CompiledOpcode::BarrierHitState {
+            previous,
+            hit_weight,
+            ..
+        } => {
+            let previous_value = values[checked_index(previous, values.len())?];
+            let hit_weight_value = values[checked_index(hit_weight, values.len())?];
+            add_adjoint(
+                adjoints,
+                previous,
+                output_adjoint * (1.0 - hit_weight_value),
+                opcode.name(),
+            )?;
+            add_adjoint(
+                adjoints,
+                hit_weight,
+                output_adjoint * (1.0 - previous_value),
+                opcode.name(),
+            )?;
+        }
         CompiledOpcode::Negate { input, .. } => {
             add_adjoint(adjoints, input, -output_adjoint, opcode.name())?;
         }
@@ -935,6 +990,7 @@ impl CompiledOpcode {
             Self::SmoothMinimum { .. } => "smooth_minimum",
             Self::SmoothMaximum { .. } => "smooth_maximum",
             Self::SmoothIndicator { .. } => "smooth_indicator",
+            Self::BarrierHitState { .. } => "barrier_hit_state",
             Self::Negate { .. } => "negate",
         }
     }
@@ -953,6 +1009,7 @@ impl CompiledOpcode {
             | Self::SmoothMinimum { output, .. }
             | Self::SmoothMaximum { output, .. }
             | Self::SmoothIndicator { output, .. }
+            | Self::BarrierHitState { output, .. }
             | Self::Negate { output, .. } => output,
         }
     }
@@ -1045,6 +1102,12 @@ where
             let value = slots[checked_index(input, slots.len())?];
             Ok((output, smoothing.indicator(value).value))
         }
+        CompiledOpcode::BarrierHitState {
+            previous,
+            hit_weight,
+            output,
+        } => binary(previous, hit_weight)
+            .map(|(previous, hit_weight)| (output, previous + (1.0 - previous) * hit_weight)),
         CompiledOpcode::Negate { input, output } => {
             Ok((output, -slots[checked_index(input, slots.len())?]))
         }
@@ -1138,6 +1201,11 @@ fn compile(graph: &SourceGraph, limits: GraphLimitPolicy) -> Result<CompiledPayo
     let compiled_count = reachable.len();
     enforce_limit("compiled_opcodes", compiled_count, limits.compiled_opcodes)?;
     enforce_limit("value_slots", compiled_count, limits.value_slots)?;
+    let state_count = reachable
+        .iter()
+        .filter(|id| matches!(nodes[id], SourceOpcode::BarrierHitState { .. }))
+        .count();
+    enforce_limit("state_slots", state_count, limits.state_slots)?;
     let _ = u32::try_from(compiled_count).map_err(|_| GraphError::HardCapacity {
         field: "value_slots",
         observed: compiled_count,
@@ -1244,6 +1312,7 @@ fn fold_node(
             smoothing.maximum(values[0], values[1]).value
         }
         SourceOpcode::SmoothIndicator { smoothing, .. } => smoothing.indicator(values[0]).value,
+        SourceOpcode::BarrierHitState { .. } => values[0] + (1.0 - values[0]) * values[1],
         SourceOpcode::Negate { .. } => -values[0],
         SourceOpcode::Literal(_) | SourceOpcode::TerminalSpot { .. } => unreachable!(),
     };
@@ -1341,6 +1410,14 @@ fn compile_opcode(
         SourceOpcode::SmoothIndicator { input, smoothing } => Ok(CompiledOpcode::SmoothIndicator {
             input: slot(input)?,
             smoothing,
+            output,
+        }),
+        SourceOpcode::BarrierHitState {
+            previous,
+            hit_weight,
+        } => Ok(CompiledOpcode::BarrierHitState {
+            previous: slot(previous)?,
+            hit_weight: slot(hit_weight)?,
             output,
         }),
         SourceOpcode::Negate { input } => Ok(CompiledOpcode::Negate {
@@ -1441,6 +1518,13 @@ fn encode_source_opcode(bytes: &mut Vec<u8>, opcode: SourceOpcode) {
             put_u32(bytes, input.get());
             put_u64(bytes, smoothing.half_width().get().to_bits());
         }
+        SourceOpcode::BarrierHitState {
+            previous,
+            hit_weight,
+        } => {
+            put_u32(bytes, previous.get());
+            put_u32(bytes, hit_weight.get());
+        }
         SourceOpcode::SmoothMinimum {
             left,
             right,
@@ -1510,6 +1594,15 @@ fn encode_compiled_opcode(bytes: &mut Vec<u8>, opcode: CompiledOpcode) {
             put_u64(bytes, smoothing.half_width().get().to_bits());
             put_u32(bytes, output);
         }
+        CompiledOpcode::BarrierHitState {
+            previous,
+            hit_weight,
+            output,
+        } => {
+            put_u32(bytes, previous);
+            put_u32(bytes, hit_weight);
+            put_u32(bytes, output);
+        }
         CompiledOpcode::Divide {
             numerator,
             denominator,
@@ -1566,6 +1659,7 @@ const fn opcode_tag(opcode: SourceOpcode) -> u8 {
         SourceOpcode::SmoothMinimum { .. } => 10,
         SourceOpcode::SmoothMaximum { .. } => 11,
         SourceOpcode::SmoothIndicator { .. } => 12,
+        SourceOpcode::BarrierHitState { .. } => 13,
     }
 }
 
@@ -1584,6 +1678,7 @@ const fn compiled_opcode_tag(opcode: CompiledOpcode) -> u8 {
         CompiledOpcode::SmoothMinimum { .. } => 10,
         CompiledOpcode::SmoothMaximum { .. } => 11,
         CompiledOpcode::SmoothIndicator { .. } => 12,
+        CompiledOpcode::BarrierHitState { .. } => 13,
     }
 }
 
@@ -1993,6 +2088,142 @@ mod tests {
                     .expect("execute"),
                 vec![expected]
             );
+        }
+    }
+
+    #[test]
+    fn barrier_hit_state_is_monotone_inclusive_and_limit_checked() {
+        let product = BarrierSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            "2027-09-04".parse().expect("expiry"),
+            100.0,
+            120.0,
+            2.0,
+            OptionSide::Call,
+            BarrierDirection::Up,
+            BarrierStyle::KnockIn,
+            vec![
+                "2027-03-04".parse().expect("monitoring"),
+                "2027-09-04".parse().expect("expiry"),
+            ],
+            None,
+            "2027-09-04".parse().expect("payment"),
+        )
+        .expect("barrier");
+        let graph = product.source_graph().expect("graph");
+        assert_eq!(
+            graph
+                .nodes()
+                .iter()
+                .filter(|node| matches!(node.opcode(), SourceOpcode::BarrierHitState { .. }))
+                .count(),
+            2
+        );
+        let compiled = graph.compile(GraphLimitPolicy::DEFAULT).expect("compile");
+        let monitoring = "2027-03-04".parse().expect("monitoring");
+        let expiry = "2027-09-04".parse().expect("expiry");
+        assert_eq!(
+            compiled
+                .evaluate(|_, date| (date == monitoring)
+                    .then_some(120.0)
+                    .or_else(|| { (date == expiry).then_some(110.0) }))
+                .expect("inclusive touch"),
+            vec![20.0]
+        );
+        let mut limits = GraphLimitPolicy::DEFAULT;
+        limits.state_slots = 1;
+        assert!(matches!(
+            graph.compile(limits),
+            Err(GraphError::SoftLimitExceeded {
+                field: "state_slots",
+                observed: 2,
+                limit: 1,
+            })
+        ));
+    }
+
+    #[test]
+    fn smoothed_barrier_knock_parity_and_reverse_hold_for_up_and_down() {
+        let smoothing = CompactC2Smoothing::new(2.0).expect("smoothing");
+        let monitoring = "2027-03-04".parse().expect("monitoring");
+        let expiry = "2027-09-04".parse().expect("expiry");
+        for (direction, first_spot, terminal_spot) in [
+            (BarrierDirection::Up, 119.5, 121.0),
+            (BarrierDirection::Down, 80.5, 79.0),
+        ] {
+            let barrier = match direction {
+                BarrierDirection::Up => 120.0,
+                BarrierDirection::Down => 80.0,
+            };
+            let compile = |style, rebate| {
+                BarrierSpec::new(
+                    UnderlyingId::new(4),
+                    CurrencyId::new(1),
+                    expiry,
+                    70.0,
+                    barrier,
+                    2.0,
+                    OptionSide::Call,
+                    direction,
+                    style,
+                    vec![monitoring, expiry],
+                    rebate,
+                    expiry,
+                )
+                .expect("barrier")
+                .smoothed_source_graph(smoothing)
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile")
+            };
+            let knock_in = compile(BarrierStyle::KnockIn, Some(7.0));
+            let knock_out = compile(BarrierStyle::KnockOut, Some(7.0));
+            let observe = |date| {
+                if date == monitoring {
+                    Some(first_spot)
+                } else if date == expiry {
+                    Some(terminal_spot)
+                } else {
+                    None
+                }
+            };
+            let knock_in_value = knock_in
+                .evaluate(|_, date| observe(date))
+                .expect("knock in")[0];
+            let knock_out_value = knock_out
+                .evaluate(|_, date| observe(date))
+                .expect("knock out")[0];
+            let vanilla = (terminal_spot - 70.0) * 2.0;
+            assert!((knock_in_value + knock_out_value - (vanilla + 7.0)).abs() < 1.0e-12);
+
+            let evaluated = knock_in
+                .evaluate_single_with_terminal_adjoint(|_, date| observe(date))
+                .expect("reverse");
+            for date in [monitoring, expiry] {
+                let epsilon = 1.0e-5;
+                let bumped = |shift| {
+                    knock_in
+                        .evaluate(|_, query| {
+                            if query == monitoring {
+                                Some(first_spot + if date == monitoring { shift } else { 0.0 })
+                            } else if query == expiry {
+                                Some(terminal_spot + if date == expiry { shift } else { 0.0 })
+                            } else {
+                                None
+                            }
+                        })
+                        .expect("bump")[0]
+                };
+                let finite_difference = (bumped(epsilon) - bumped(-epsilon)) / (2.0 * epsilon);
+                let adjoint = evaluated
+                    .terminal_adjoints
+                    .iter()
+                    .filter(|item| item.observation_date == date)
+                    .map(|item| item.value)
+                    .sum::<f64>();
+                assert!((adjoint - finite_difference).abs() < 1.0e-7);
+            }
         }
     }
 

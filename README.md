@@ -16,8 +16,11 @@ under the constant-volatility engines. Pathwise Delta, bumped-AAD Gamma, and
 Vega are available for European, Asian, and Lookback products under constant
 volatility. Digital products additionally support explicit compact-C2 payoff
 smoothing for Price, pathwise Delta/Vega, bumped-AAD Gamma, and CRN validation
-through the Rust, JSON, and Python request surfaces. Digital risk without an
-explicit smoothing width and all Barrier risk requests remain rejected.
+through the Rust, JSON, and Python request surfaces. The same explicit policy
+supports endpoint-smoothed risk for discrete-monitoring Barrier products with
+a monotone hit state and KnockIn/KnockOut rebate parity. Digital and Barrier
+risk without an explicit smoothing width remains rejected; dividend-jump
+crossing and continuous Barrier monitoring are not yet supported.
 
 ## Design baselines
 
