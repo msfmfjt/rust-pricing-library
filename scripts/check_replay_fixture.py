@@ -16,6 +16,7 @@ FIXTURE_PREFIXES = {
     "european_black_scholes_replay": "european_bs",
     "local_volatility_replay": "local_volatility",
     "path_dependence_replay": "path_dependence",
+    "early_exercise_replay": "early_exercise",
 }
 EXPECTED_CASE_NAMES = {
     "european_black_scholes_replay": (
@@ -35,6 +36,12 @@ EXPECTED_CASE_NAMES = {
         "continuous_barrier_smoothed_full_risk",
         "arithmetic_asian_full_risk",
         "fixed_lookback_full_risk",
+    ),
+    "early_exercise_replay": (
+        "pseudo_mc_price_only",
+        "rqmc_price_only",
+        "pseudo_mc_fixed_policy_risk",
+        "rqmc_fixed_policy_risk",
     ),
 }
 SUPPORTED_PLATFORMS = {
@@ -63,9 +70,29 @@ REPLAY_REQUEST_KEYS = (
     "schema_version",
     "valuation_date",
 )
+EARLY_EXERCISE_REQUEST_KEYS = (
+    "document_kind",
+    "engine",
+    "lsm",
+    "market",
+    "model",
+    "product",
+    "risk",
+    "schema_version",
+    "valuation_date",
+)
 REPLAY_RESULT_KEYS = (
     "diagnostics",
     "document_kind",
+    "replay",
+    "risks",
+    "schema_version",
+    "value",
+)
+EARLY_EXERCISE_RESULT_KEYS = (
+    "diagnostics",
+    "document_kind",
+    "monte_carlo",
     "replay",
     "risks",
     "schema_version",
@@ -291,9 +318,19 @@ def validate_case(
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
     require_exact_keys(path, plan, REPLAY_PLAN_KEYS, f"{case_path}.plan")
     request = require_object(path, case.get("request"), f"{case_path}.request")
-    require_exact_keys(path, request, REPLAY_REQUEST_KEYS, f"{case_path}.request")
+    request_keys = (
+        EARLY_EXERCISE_REQUEST_KEYS
+        if fixture_kind == "early_exercise_replay"
+        else REPLAY_REQUEST_KEYS
+    )
+    require_exact_keys(path, request, request_keys, f"{case_path}.request")
     result = require_object(path, case.get("result"), f"{case_path}.result")
-    require_exact_keys(path, result, REPLAY_RESULT_KEYS, f"{case_path}.result")
+    result_keys = (
+        EARLY_EXERCISE_RESULT_KEYS
+        if fixture_kind == "early_exercise_replay"
+        else REPLAY_RESULT_KEYS
+    )
+    require_exact_keys(path, result, result_keys, f"{case_path}.result")
     execution = require_object(path, case.get("execution"), f"{case_path}.execution")
     require_exact_keys(path, execution, REPLAY_EXECUTION_KEYS, f"{case_path}.execution")
     monte_carlo = require_object(
@@ -390,6 +427,95 @@ def validate_case(
         validate_local_vol_case(path, case_path, case["name"], request, result)
     elif fixture_kind == "path_dependence_replay":
         validate_path_dependence_case(path, case_path, case["name"], case, request)
+    elif fixture_kind == "early_exercise_replay":
+        validate_early_exercise_case(path, case_path, case["name"], request, result)
+
+
+def validate_early_exercise_case(
+    path: Path,
+    case_path: str,
+    name: object,
+    request: dict[str, object],
+    result: dict[str, object],
+) -> None:
+    product = require_object(path, request.get("product"), f"{case_path}.request.product")
+    if product.get("type") != "american_vanilla":
+        raise SystemExit(f"{path}: {case_path} must contain an American Vanilla request")
+    require_object(path, request.get("lsm"), f"{case_path}.request.lsm")
+    monte_carlo = require_object(
+        path,
+        result.get("monte_carlo"),
+        f"{case_path}.result.monte_carlo",
+    )
+    early = require_object(
+        path,
+        monte_carlo.get("early_exercise"),
+        f"{case_path}.result.monte_carlo.early_exercise",
+    )
+    require_fingerprint(
+        path,
+        early.get("policy_fingerprint"),
+        f"{case_path}.result.monte_carlo.early_exercise.policy_fingerprint",
+    )
+    dates = early.get("exercise_dates")
+    counts = early.get("exercise_counts")
+    probabilities = early.get("exercise_probabilities")
+    stopping_indices = early.get("stopping_indices")
+    decisions = early.get("decision_models")
+    regressions = early.get("regression_diagnostics")
+    arrays = [dates, counts, probabilities, stopping_indices, decisions, regressions]
+    if not all(isinstance(value, list) for value in arrays):
+        raise SystemExit(f"{path}: {case_path} has malformed early-exercise arrays")
+    assert isinstance(dates, list)
+    assert isinstance(counts, list)
+    assert isinstance(probabilities, list)
+    assert isinstance(stopping_indices, list)
+    assert isinstance(decisions, list)
+    assert isinstance(regressions, list)
+    if len(dates) != 4 or len(counts) != 4 or len(probabilities) != 4:
+        raise SystemExit(f"{path}: {case_path} exercise schedule shape changed")
+    if len(decisions) != 3 or len(regressions) != 3:
+        raise SystemExit(f"{path}: {case_path} regression schedule shape changed")
+    trajectories = early.get("valuation_trajectories")
+    if not isinstance(trajectories, int) or trajectories <= 0:
+        raise SystemExit(f"{path}: {case_path} has invalid valuation trajectory count")
+    if len(stopping_indices) != trajectories or sum(counts) != trajectories:
+        raise SystemExit(f"{path}: {case_path} stopping-index counts are inconsistent")
+    if any(
+        not isinstance(index, int) or index < 0 or index >= len(dates)
+        for index in stopping_indices
+    ):
+        raise SystemExit(f"{path}: {case_path} has an invalid stopping index")
+    if str(name).startswith("rqmc"):
+        expected_training_domain = {"type": "rqmc_scramble"}
+        expected_valuation_domain = expected_training_domain
+    else:
+        expected_training_domain = {"type": "lsm_train"}
+        expected_valuation_domain = {"type": "valuation"}
+    if (
+        early.get("training_random_domain") != expected_training_domain
+        or early.get("valuation_random_domain") != expected_valuation_domain
+    ):
+        raise SystemExit(f"{path}: {case_path} random domains changed")
+    risk_diagnostics = require_object(
+        path,
+        monte_carlo.get("risk_diagnostics"),
+        f"{case_path}.result.monte_carlo.risk_diagnostics",
+    )
+    methods = require_object(
+        path,
+        risk_diagnostics.get("methods"),
+        f"{case_path}.result.monte_carlo.risk_diagnostics.methods",
+    )
+    if str(name).endswith("fixed_policy_risk"):
+        if (
+            methods.get("exercise_strategy") != {"type": "fixed_exercise_strategy"}
+            or methods.get("stopping_indices") != {"type": "frozen_stopping_indices"}
+            or methods.get("exercise_policy_fingerprint") != early.get("policy_fingerprint")
+        ):
+            raise SystemExit(f"{path}: {case_path} fixed-policy risk identity changed")
+    elif any(methods.get(field) is not None for field in ["delta", "gamma", "vega"]):
+        raise SystemExit(f"{path}: {case_path} Price-only case contains risk methods")
 
 
 def validate_path_dependence_case(

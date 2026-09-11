@@ -15,6 +15,8 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_replay_fixture import EXPECTED_CASE_NAMES
+from check_replay_fixture import EARLY_EXERCISE_REQUEST_KEYS
+from check_replay_fixture import EARLY_EXERCISE_RESULT_KEYS
 from check_replay_fixture import FINGERPRINT
 from check_replay_fixture import PATH_REPLAY_CASE_KEYS
 from check_replay_fixture import REPLAY_CASE_KEYS
@@ -28,6 +30,7 @@ from check_replay_fixture import REPLAY_REQUEST_KEYS
 from check_replay_fixture import REPLAY_RESULT_KEYS
 from check_replay_fixture import SUPPORTED_PLATFORMS as SUPPORTED_REPLAY_PLATFORMS
 from check_replay_fixture import validate_local_vol_case
+from check_replay_fixture import validate_early_exercise_case
 from check_replay_fixture import validate_path_dependence_case
 from check_replay_fixture import validate_risk_methods
 from check_replay_fixture import validate_risk_validation
@@ -63,6 +66,38 @@ PATH_DEPENDENCE_MEASUREMENTS = (
     "evaluate_exact_digital_price",
     "evaluate_smoothed_digital_full_risk",
     "evaluate_width_ladder",
+)
+EARLY_EXERCISE_MEASUREMENTS = (
+    "compile_fixed_policy_full_risk",
+    "compile_price",
+    "evaluate_fixed_policy_aad_with_crn_validation",
+    "evaluate_training_dominant_price",
+    "evaluate_valuation_dominant_price",
+)
+EARLY_EXERCISE_CONFIGURATION = {
+    "antithetic": True,
+    "basis_column_count": 4,
+    "basis_max_degree": 3,
+    "compile_samples": 20,
+    "engine": "pseudo_monte_carlo",
+    "evaluation_samples": 5,
+    "exercise_date_count": 4,
+    "large_sampling_units": 8_192,
+    "reduction_block_size": 256,
+    "risk_sampling_units": 4_096,
+    "small_sampling_units": 128,
+    "worker_threads": 2,
+}
+EARLY_EXERCISE_CAPABILITIES = {
+    "aad_and_crn_validation_timing_separable": False,
+    "peak_memory_available_in_process": True,
+    "training_and_valuation_workloads_separable": True,
+}
+EARLY_EXERCISE_NOTES = (
+    "The training-dominant workload fixes valuation at 128 sampling units; the valuation-dominant workload fixes training at 128 sampling units.",
+    "The fixed-policy risk workload computes AAD Delta/Vega, bumped-AAD Gamma, and common-random-number validations in one execution.",
+    "The external benchmark runner records peak resident memory for the complete process.",
+    "Results are an optimization baseline and not a latency SLA.",
 )
 
 PYTHON_MEASUREMENTS = (
@@ -243,11 +278,16 @@ EXPECTED_ARTIFACTS = {
     "rust.json",
     "local-volatility-rust.json",
     "path-dependence-rust.json",
+    "early-exercise-rust.json",
     "python.json",
     "replay.json",
     "metadata.json",
 }
-OPTIONAL_ARTIFACTS = {"local-volatility-replay.json", "path-dependence-replay.json"}
+OPTIONAL_ARTIFACTS = {
+    "early-exercise-replay.json",
+    "local-volatility-replay.json",
+    "path-dependence-replay.json",
+}
 METADATA_KEYS = (
     "allocation_count",
     "cargo",
@@ -270,6 +310,7 @@ METADATA_KEYS = (
 )
 ENABLED_FEATURE_KEYS = ("python_wheel", "rust_benchmarks")
 COMMAND_PEAK_KEYS = (
+    "early_exercise_rust",
     "path_dependence_rust",
     "python_european_black_scholes",
     "replay_european_black_scholes",
@@ -280,10 +321,12 @@ UNAVAILABLE_METRICS = (
     "Allocation counting requires an instrumented allocator.",
 )
 OPTIONAL_COMMAND_PEAKS = {
+    "early-exercise-replay.json": "replay_early_exercise",
     "local-volatility-replay.json": "replay_local_volatility",
     "path-dependence-replay.json": "replay_path_dependence",
 }
 COMMAND_PEAK_REPORTS = {
+    "early_exercise_rust": "early-exercise-rust.json",
     "path_dependence_rust": "path-dependence-rust.json",
     "python_european_black_scholes": "python.json",
     "rust_european_black_scholes": "rust.json",
@@ -319,6 +362,7 @@ def main() -> None:
         library_version,
         path_dependence=True,
     )
+    check_early_exercise_report(root / "early-exercise-rust.json", library_version)
     check_python_report(root / "python.json", library_version)
     check_replay_report(root / "replay.json", "european_black_scholes_replay", library_version)
     local_volatility_replay = root / "local-volatility-replay.json"
@@ -333,6 +377,13 @@ def main() -> None:
         check_replay_report(
             path_dependence_replay,
             "path_dependence_replay",
+            library_version,
+        )
+    early_exercise_replay = root / "early-exercise-replay.json"
+    if early_exercise_replay.is_file():
+        check_replay_report(
+            early_exercise_replay,
+            "early_exercise_replay",
             library_version,
         )
     check_metadata(root / "metadata.json", artifacts)
@@ -543,7 +594,12 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             plan.get("worker_threads"), path, f"{case_path}.plan.worker_threads"
         )
         request = require_object(case_object.get("request"), path, f"{case_path}.request")
-        require_exact_keys(request, REPLAY_REQUEST_KEYS, path, f"{case_path}.request")
+        request_keys = (
+            EARLY_EXERCISE_REQUEST_KEYS
+            if fixture_kind == "early_exercise_replay"
+            else REPLAY_REQUEST_KEYS
+        )
+        require_exact_keys(request, request_keys, path, f"{case_path}.request")
         require(
             request.get("document_kind") == "pricing_request",
             path,
@@ -558,7 +614,12 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             request.get("engine"), path, f"{case_path}.request.engine"
         )
         result = require_object(case_object.get("result"), path, f"{case_path}.result")
-        require_exact_keys(result, REPLAY_RESULT_KEYS, path, f"{case_path}.result")
+        result_keys = (
+            EARLY_EXERCISE_RESULT_KEYS
+            if fixture_kind == "early_exercise_replay"
+            else REPLAY_RESULT_KEYS
+        )
+        require_exact_keys(result, result_keys, path, f"{case_path}.result")
         require(
             result.get("document_kind") == "pricing_result",
             path,
@@ -691,6 +752,14 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
                 case_object,
                 request,
             )
+        elif fixture_kind == "early_exercise_replay":
+            validate_early_exercise_case(
+                path,
+                case_path,
+                case_name,
+                request,
+                result,
+            )
     expected_case_names = set(EXPECTED_CASE_NAMES[fixture_kind])
     actual_case_names = set(seen_case_names)
     require(
@@ -705,6 +774,72 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
         path,
         "replay case order changed",
     )
+
+def check_early_exercise_report(path: Path, library_version: str) -> None:
+    document = load_object(path)
+    require_exact_keys(document, REPORT_KEYS, path, "Early Exercise report")
+    require(document.get("schema_version") == 1, path, "schema_version must be 1")
+    require(
+        document.get("benchmark_kind") == "rust_early_exercise",
+        path,
+        "unexpected benchmark_kind",
+    )
+    require(
+        document.get("library_version") == library_version,
+        path,
+        "library_version must match Cargo workspace version",
+    )
+    configuration = require_object(document.get("configuration"), path, "configuration")
+    require_exact_keys(
+        configuration,
+        EARLY_EXERCISE_CONFIGURATION.keys(),
+        path,
+        "configuration",
+    )
+    require(
+        configuration == EARLY_EXERCISE_CONFIGURATION,
+        path,
+        "configuration mismatch",
+    )
+    measurements = require_object(document.get("measurements"), path, "measurements")
+    require_exact_keys(measurements, EARLY_EXERCISE_MEASUREMENTS, path, "measurements")
+    phase_paths = (8_192 + 128) * 2
+    expected_paths = {
+        "compile_price": None,
+        "evaluate_training_dominant_price": phase_paths,
+        "evaluate_valuation_dominant_price": phase_paths,
+        "compile_fixed_policy_full_risk": None,
+        "evaluate_fixed_policy_aad_with_crn_validation": 4_096 * 4,
+    }
+    for name in EARLY_EXERCISE_MEASUREMENTS:
+        check_measurement(
+            require_object(measurements.get(name), path, name),
+            path,
+            name,
+            expected_paths[name],
+            20 if name.startswith("compile_") else 5,
+        )
+    require_positive_int(
+        document.get("process_peak_memory_bytes"),
+        path,
+        "process_peak_memory_bytes",
+    )
+    capabilities = require_object(document.get("capabilities"), path, "capabilities")
+    require_exact_keys(
+        capabilities,
+        EARLY_EXERCISE_CAPABILITIES.keys(),
+        path,
+        "capabilities",
+    )
+    require(
+        capabilities == EARLY_EXERCISE_CAPABILITIES,
+        path,
+        "capabilities mismatch",
+    )
+    notes = document.get("notes")
+    require_string_array(notes, path, "notes")
+    require(notes == list(EARLY_EXERCISE_NOTES), path, "notes mismatch")
+
 
 def check_python_report(path: Path, library_version: str) -> None:
     document = load_object(path)

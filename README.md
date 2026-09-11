@@ -64,6 +64,13 @@ smoothing, Apple Silicon replay, benchmark coverage, and Rust/Python
 conformance evidence. Acceptance remains pending until candidate CI passes and
 the generated Windows x86-64 replay artifact is reviewed and frozen.
 
+Early Exercise Gates E0-E6 are satisfied locally. The E7 candidate now includes
+deterministic and statistical American Call/Put acceptance, independent
+Bermudan-tree and in/out-of-sample evidence, Apple Silicon replay, and
+training/valuation/fixed-policy-risk benchmark workloads. Supported-platform
+acceptance remains pending until candidate CI passes and the generated Windows
+x86-64 replay artifact is reviewed and frozen.
+
 ## Workspace
 
 | Crate | Responsibility |
@@ -99,6 +106,7 @@ cargo test --locked --workspace --all-features --exclude pricing-python
 cargo test --locked -p pricing-python
 cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
 cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
+cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
 cargo doc --locked --workspace --all-features --no-deps
 cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 ```
@@ -114,6 +122,7 @@ python scripts/run_benchmark_suite.py
 python scripts/check_replay_fixture.py benchmark-results/replay.json
 python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
 python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json
+python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json
 python scripts/check_benchmark_reports.py benchmark-results
 ```
 

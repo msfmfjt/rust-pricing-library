@@ -21,6 +21,11 @@ and compare it with the matching platform file:
   discrete and continuous Barrier, partially fixed Arithmetic Asian, and Fixed
   Lookback calculations on Apple Silicon macOS. The Windows fixture is promoted only
   after its generated CI artifact has been reviewed.
+- `early_exercise-macos-aarch64.json` for American Put Price-only and
+  fixed-policy Delta/Gamma/Vega under Pseudo-MC and randomized Sobol QMC. Its
+  complete result records the fitted policy, training and valuation domains,
+  stopping indices, and regression diagnostics. The Windows fixture is
+  promoted only after its generated CI artifact has been reviewed.
 
 The primary estimates currently match across the two platforms, while a small
 number of CRN difference diagnostics differ in low bits. They are intentionally

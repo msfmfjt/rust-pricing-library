@@ -67,6 +67,7 @@ jobs:
         run: |
           cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
           cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
+          cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
 
       - name: Build Rust API docs
         run: cargo doc --locked --workspace --all-features --no-deps
@@ -139,6 +140,10 @@ jobs:
       - name: Check Path Dependence replay fixture
         if: matrix.target == 'aarch64-apple-darwin'
         run: python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json
+
+      - name: Check Early Exercise replay fixture
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json
 
       - name: Check benchmark artifacts
         run: python scripts/check_benchmark_reports.py benchmark-results
