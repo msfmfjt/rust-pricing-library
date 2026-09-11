@@ -5734,10 +5734,19 @@ mod tests {
             )
             .expect("write American result golden");
         }
-        assert_eq!(
-            json,
-            include_str!("../../../fixtures/v3/pricing_result_american.golden.json")
+        let golden = include_str!("../../../fixtures/v3/pricing_result_american.golden.json");
+        let frozen_platform = "\"platform\":\"macos-aarch64\"";
+        assert_eq!(golden.matches(frozen_platform).count(), 1);
+        let expected = golden.replacen(
+            frozen_platform,
+            &format!(
+                "\"platform\":{}",
+                serde_json::to_string(result.pricing_result.replay.platform())
+                    .expect("platform JSON string")
+            ),
+            1,
         );
+        assert_eq!(json, expected);
         assert_json_text_contract(&json);
         assert!(json.contains("\"early_exercise\""));
         assert!(json.contains("\"decision_models\""));

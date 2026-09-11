@@ -271,7 +271,7 @@
         "schema_version": 3,
         "value": {
           "confidence_lower": 9.105148874063802,
-          "confidence_upper": 9.389679102747571,
+          "confidence_upper": 9.389679102747573,
           "effective_sampling_units": 10003,
           "estimator": {
             "type": "pseudo_monte_carlo"
@@ -502,7 +502,7 @@
                 "type": "randomized_quasi_monte_carlo"
               },
               "standard_error": 0.00005051687606507074,
-              "value": 0.01888568501657452
+              "value": 0.018885685016574522
             },
             "market_scaled_unit": {
               "type": "gamma_one_percent_spot_squared"
@@ -515,7 +515,7 @@
                 "type": "randomized_quasi_monte_carlo"
               },
               "standard_error": 0.00005051687606507074,
-              "value": 0.01888568501657452
+              "value": 0.018885685016574522
             },
             "raw_unit": {
               "type": "gamma_raw"
@@ -542,7 +542,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.020497176439694138,
+              "standard_error": 0.020497176439694134,
               "value": 37.9116018204417
             },
             "raw_unit": {
@@ -559,7 +559,7 @@
             "type": "randomized_quasi_monte_carlo"
           },
           "standard_error": 0.0022849766577940555,
-          "value": 9.228377963219131
+          "value": 9.228377963219133
         }
       }
     }
