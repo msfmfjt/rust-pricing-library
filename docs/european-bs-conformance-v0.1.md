@@ -57,9 +57,10 @@ fail-fast and do not produce partial pricing objects.
 The benchmark workload uses 16,384 independent antithetic units (32,768 paths),
 two workers, and reduction block 256. It reports Price-only, the current
 integrated AAD-plus-CRN-validation kernel, an independently executed five-plan
-Price-only CRN bump workload, and installed-wheel Python calls. Peak memory and
-allocation count remain `null` with explicit reasons because portable collection
-requires a platform-specific process harness or instrumented allocator.
+Price-only CRN bump workload, and installed-wheel Python calls. Each retained
+benchmark report includes observed process peak RSS, and shared metadata records
+per-command peak RSS. Allocation count remains `null` with an explicit reason
+because it requires an instrumented allocator.
 
 ## Known limitations accepted for v0.1
 
@@ -69,8 +70,8 @@ requires a platform-specific process harness or instrumented allocator.
 - The full-risk execution currently combines AAD, bumped-AAD Gamma, and CRN
   validation. A separate five-plan bump benchmark is available, but pure AAD-only
   wall time is not inferred by subtracting noisy measurements.
-- Allocation count and peak memory are not yet collected; their absence is
-  explicit in benchmark artifacts.
+- Allocation count is not yet collected; its absence is explicit in benchmark
+  artifacts.
 - The analytical oracle is validation infrastructure, not a public production
   pricing engine.
 - Discrete dividends, Local Volatility, VegaKT, discontinuous payoffs, multiple

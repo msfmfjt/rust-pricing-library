@@ -1,57 +1,94 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use pricing::core::{CurrencyId, CurveId, PositiveF64, UnderlyingId};
+use pricing::core::{CurrencyId, CurveId, Date, PositiveF64, UnderlyingId};
 use pricing::market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
 use pricing::mc::{EngineConfig, ExecutionPolicy, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing::models::{BlackScholesSpec, ModelSpec};
+use pricing::models::{LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec};
 use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
-use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump};
+use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pricing::{
     Estimate, MonteCarloPrice, PricingPlan, PricingRequest, RiskMethod, RiskValidation,
     request_to_json, result_to_json,
 };
 use serde_json::{Value, json};
 
-const PSEUDO_UNITS: u64 = 10_003;
-const RQMC_POINTS: u64 = 1_024;
-const RQMC_SCRAMBLES: u32 = 16;
+const PSEUDO_UNITS: u64 = 8_192;
+const RQMC_POINTS: u64 = 512;
+const RQMC_SCRAMBLES: u32 = 8;
 
 fn main() {
     let output = std::env::args_os()
         .nth(1)
-        .expect("usage: replay_european_bs <output.json>");
+        .expect("usage: replay_local_vol <output.json>");
     let policy = ExecutionPolicy::new(2, Some(256)).expect("execution policy");
     let cases = [
         capture(
-            "pseudo_mc_full_risk",
-            request(EngineConfig::PseudoMonteCarlo(
-                PseudoMcConfig::new(
-                    0x0123_4567_89ab_cdef,
-                    PSEUDO_UNITS,
-                    VarianceReduction::new(true, false),
-                )
-                .expect("pseudo engine"),
-            )),
+            "pseudo_mc_price_only",
+            request(
+                EngineConfig::PseudoMonteCarlo(
+                    PseudoMcConfig::new(
+                        0x1357_9bdf_2468_ace0,
+                        PSEUDO_UNITS,
+                        VarianceReduction::new(true, false),
+                    )
+                    .expect("pseudo engine"),
+                ),
+                RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            ),
             policy,
         ),
         capture(
-            "rqmc_full_risk",
-            request(EngineConfig::RandomizedQuasiMonteCarlo(
-                RqmcConfig::new(
-                    RQMC_POINTS,
-                    RQMC_SCRAMBLES,
-                    0xfedc_ba98_7654_3210,
-                    VarianceReduction::new(true, true),
-                )
-                .expect("RQMC engine"),
-            )),
+            "rqmc_price_only",
+            request(
+                EngineConfig::RandomizedQuasiMonteCarlo(
+                    RqmcConfig::new(
+                        RQMC_POINTS,
+                        RQMC_SCRAMBLES,
+                        0x0246_8ace_1357_9bdf,
+                        VarianceReduction::new(true, true),
+                    )
+                    .expect("RQMC engine"),
+                ),
+                RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            ),
+            policy,
+        ),
+        capture(
+            "pseudo_mc_delta_gamma_vega_vegakt",
+            request(
+                EngineConfig::PseudoMonteCarlo(
+                    PseudoMcConfig::new(
+                        0x1357_9bdf_2468_ace0,
+                        PSEUDO_UNITS,
+                        VarianceReduction::new(true, false),
+                    )
+                    .expect("pseudo engine"),
+                ),
+                risk_request(),
+            ),
+            policy,
+        ),
+        capture(
+            "rqmc_delta_gamma_vega_vegakt",
+            request(
+                EngineConfig::RandomizedQuasiMonteCarlo(
+                    RqmcConfig::new(
+                        RQMC_POINTS,
+                        RQMC_SCRAMBLES,
+                        0x0246_8ace_1357_9bdf,
+                        VarianceReduction::new(true, true),
+                    )
+                    .expect("RQMC engine"),
+                ),
+                risk_request(),
+            ),
             policy,
         ),
     ];
     let fixture = json!({
         "schema_version": 1,
-        "fixture_kind": "european_black_scholes_replay",
+        "fixture_kind": "local_volatility_replay",
         "platform": format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         "cases": cases
     });
@@ -152,9 +189,14 @@ fn estimate_evidence(estimate: Estimate) -> Value {
     })
 }
 
-fn request(engine: EngineConfig) -> PricingRequest {
+fn request(engine: EngineConfig, risk: RiskRequest) -> PricingRequest {
     let underlying = UnderlyingId::new(1);
     let currency = CurrencyId::new(1);
+    let model = if risk.vega_kt().is_some() {
+        local_volatility_model_with_reporting_basis()
+    } else {
+        local_volatility_model()
+    };
     PricingRequest::new(
         "2026-09-04".parse().expect("valuation date"),
         ProductSpec::EuropeanVanilla(
@@ -177,22 +219,87 @@ fn request(engine: EngineConfig) -> PricingRequest {
                 curve(2, 0.02),
             ),
         )),
-        ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+        ModelSpec::LocalVolatility(model),
         engine,
-        RiskRequest::new(
-            true,
-            Some(GammaConfig::new(
-                SpotBump::relative(0.01).expect("gamma bump"),
-            )),
-            true,
-            None,
-            SmileDynamics::StickyLogMoneyness,
-            Some(16),
-            Some(128),
-        )
-        .expect("risk request"),
+        risk,
     )
     .expect("request")
+}
+
+fn local_volatility_model() -> LocalVolatilitySpec {
+    LocalVolatilitySpec::from_explicit_grid(
+        vec![0.0, 0.5, 1.0],
+        vec![-0.3, -0.1, 0.0, 0.2, 0.4],
+        vec![
+            0.048, 0.042, 0.039, 0.041, 0.047, 0.051, 0.044, 0.040, 0.043, 0.050, 0.056, 0.049,
+            0.045, 0.047, 0.053,
+        ],
+        1.0e-8,
+        4.0,
+    )
+    .expect("local volatility")
+}
+
+fn local_volatility_model_with_reporting_basis() -> LocalVolatilitySpec {
+    let reporting_maturities = reporting_maturities();
+    LocalVolatilitySpec::from_explicit_grid(
+        vec![0.0, reporting_maturities[0], reporting_maturities[1]],
+        vec![-0.3, -0.1, 0.0, 0.2, 0.4],
+        vec![
+            0.048, 0.042, 0.039, 0.041, 0.047, 0.051, 0.044, 0.040, 0.043, 0.050, 0.056, 0.049,
+            0.045, 0.047, 0.053,
+        ],
+        1.0e-8,
+        4.0,
+    )
+    .expect("local volatility")
+    .with_reporting_iv_basis(reporting_basis())
+}
+
+fn risk_request() -> RiskRequest {
+    RiskRequest::new(
+        true,
+        Some(GammaConfig::new(
+            SpotBump::relative(0.01).expect("gamma bump"),
+        )),
+        true,
+        Some(
+            VegaKtConfig::new(
+                vec![
+                    "2027-03-05".parse().expect("first VegaKT maturity"),
+                    "2027-09-04".parse().expect("second VegaKT maturity"),
+                ],
+                vec![-0.2, 0.0, 0.2],
+                1.0e-8,
+                true,
+            )
+            .expect("VegaKT config"),
+        ),
+        SmileDynamics::StickyLogMoneyness,
+        Some(16),
+        Some(256),
+    )
+    .expect("risk request")
+}
+
+fn reporting_basis() -> LocalVolatilityReportingBasis {
+    LocalVolatilityReportingBasis::new(
+        reporting_maturities(),
+        vec![-0.2, 0.0, 0.2],
+        vec![0.195, 0.200, 0.207, 0.190, 0.202, 0.215],
+    )
+    .expect("reporting IV basis")
+}
+
+fn reporting_maturities() -> Vec<f64> {
+    let valuation_date: Date = "2026-09-04".parse().expect("valuation date");
+    ["2027-03-05", "2027-09-04"]
+        .into_iter()
+        .map(|date| {
+            let maturity: Date = date.parse().expect("reporting maturity");
+            f64::from(valuation_date.days_until(maturity)) / 365.0
+        })
+        .collect()
 }
 
 fn curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {

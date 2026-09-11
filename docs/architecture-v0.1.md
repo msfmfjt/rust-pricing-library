@@ -1,7 +1,7 @@
 # Rust Derivatives Pricing Library — Architecture v0.1
 
-Status: Initial architecture proposal; AAD execution boundary agreed
-Date: 2026-09-03
+Status: Accepted for the v0.1 European Black-Scholes and Local Volatility/VegaKT baselines
+Date: 2026-09-09
 Requirements baseline: `requirements-v1.0.md`
 Initial implementation roadmap: `european-bs-roadmap-v0.1.md`
 
@@ -156,7 +156,7 @@ Release artifacts include one Draft 2020-12 JSON Schema per `(schema_version, do
 
 Each supported version has dedicated serde-facing wire DTOs. A deterministic generator derives the corresponding Draft 2020-12 documents from those DTOs plus explicit schema annotations; it does not inspect mutable runtime state or current-domain defaults. Generated schemas are checked in as byte-for-byte Golden files. CI regenerates them and requires an empty diff, while an intentional diff must be reviewed with compatibility fixtures, migration coverage, and the declared schema-version decision.
 
-`ValidationIssue.instance_path` is an RFC 6901 JSON Pointer built from decoded member names and zero-based array indices, escaping pointer tokens with `~0` and `~1`; the root is `""`. Each issue also carries `code`, `schema_version`, `document_kind`, and `phase` (`declared_schema`, `migration`, `current_schema`, or `domain`). Migration failures retain the source pointer when available and explicitly label source and target versions; generated target-side errors use the target document pointer rather than pretending to reference original bytes.
+`ValidationIssue.instance_path` is an RFC 6901 JSON Pointer built from decoded member names and zero-based array indices, escaping pointer tokens with `~0` and `~1`; the root is `""`. Each issue also carries `code`, `schema_version`, `document_kind`, and `phase` (`syntax_and_limits`, `declared_schema`, `migration`, `current_schema`, or `domain`). Migration failures retain the source pointer when available and explicitly label source and target versions; generated target-side errors use the target document pointer rather than pretending to reference original bytes.
 
 Recoverable schema and domain validators feed issues into a bounded deterministic collector. Ordering is by validation phase, unsigned UTF-8 byte order of the RFC 6901 pointer, stable error code, and deterministic discovery ordinal for otherwise equal entries. The collector retains at most `max_validation_errors`, whose versioned default may be overridden only up to an absolute cap, and sets `truncated = true` as soon as an additional issue is observed. Fatal syntax, UTF-8, depth, allocation-prevention, and other parser-limit failures return immediately as a single fatal issue. Frozen invalid fixtures pin issue ordering, cap behavior, and truncation across supported platforms.
 
@@ -978,17 +978,34 @@ Implementation order for the European Black–Scholes slice:
 
 This slice intentionally does not begin with a generic plugin system. It proves the compiled boundary and matched primal/adjoint kernel first; subsequent products and models extend those established interfaces.
 
-## 19. Architecture decisions still required
+## 19. Decision status
 
-The next design iteration shall choose:
+The v0.1 baseline resolves the decisions needed for the European
+Black-Scholes and Local Volatility/VegaKT slices:
 
-- final package/project prefix;
-- concrete pure-Rust matrix library and pivoted-QR implementation;
-- concrete primal/reverse kernel ABI version and initial numerical defaults for checkpoint interval and AAD tile capacity;
-- exact closed `PayoffOpcode` variants, payload layout, and stable logical ABI tags;
+- package and artifact names use the `pricing-*` Rust crates and the
+  `rust-pricing` Python package;
+- the supported build uses only pure-Rust numerical code and does not link
+  BLAS/LAPACK;
+- the primal/reverse kernel contracts, Source graph version, tape ABI,
+  checkpoint policy, and AAD tile policy are versioned and exposed in replay
+  diagnostics;
+- the v0.1 Source opcode set, payload layout, and stable logical ABI tags are
+  frozen by the wire schema, fixtures, and payoff fingerprints;
+- SSVI/eSSVI admissibility, eSSVI terminal slope handling, Local-grid helpers,
+  VegaKT transition integration, and non-uniform-grid hat-kernel normalization
+  are fixed in `local-vol-vegakt-numerical-contracts-v0.1.md`;
+- scalar dates use the in-house `pricing-core::Date` representation, while
+  settlement-lag calendars remain outside v0.1;
+- schema version 1 is the only released wire version for request and result
+  documents; and
+- Rust 1.98 and Python 3.12 are the minimum supported toolchain versions for
+  the private artifacts.
+
+The following decisions remain outside the v0.1 release and require a new
+requirements or ADR record before implementation:
+
+- column-pivoted QR details for a production LSM slice;
 - double/window barrier and hit-time-rebate estimator extensions;
-- SSVI/eSSVI admissibility tolerances, eSSVI terminal-slope configuration, and numerical defaults for the Local-grid tail, padding, and piecewise-sinh parameters;
-- VegaKT transition-cell integration formulas and non-uniform-grid hat-kernel boundary normalization;
-- date crate choice and settlement-lag representation;
-- serialization schema/versioning; and
-- minimum supported Rust and Python versions.
+- multi-asset correlation term structures; and
+- public publication, licensing, and artifact-access policy.

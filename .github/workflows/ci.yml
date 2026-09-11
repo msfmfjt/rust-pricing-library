@@ -40,6 +40,12 @@ jobs:
       - name: Check Local Volatility equation fixture
         run: python scripts/check_local_vol_reference_fixture.py
 
+      - name: Check JSON schemas
+        run: python scripts/check_schemas.py
+
+      - name: Check Markdown links
+        run: python scripts/check_markdown_links.py
+
       - name: Check formatting
         run: cargo fmt --all --check
 
@@ -54,16 +60,18 @@ jobs:
       - name: Run statistical acceptance
         run: cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
 
+      - name: Build Rust API docs
+        run: cargo doc --locked --workspace --all-features --no-deps
+
       - name: Build Python wheel
         if: matrix.os == 'ubuntu-24.04'
         run: |
           python -m pip install "maturin>=1.9,<2.0" "numpy>=2.0,<3.0"
           python -m maturin build --locked --release --out dist
-          python -m pip install dist/*.whl
 
       - name: Smoke-test Python API
         if: matrix.os == 'ubuntu-24.04'
-        run: python -m unittest discover -s tests/python -v
+        run: python scripts/smoke_test_wheel.py
 
       - name: Check dependency direction
         shell: bash
@@ -102,17 +110,40 @@ jobs:
           python -m pip install "maturin>=1.9,<2.0"
           python -m maturin build --locked --release --out dist
 
+      - name: Build Rust source package
+        shell: bash
+        run: git archive --format=tar.gz --output "dist/rust-pricing-source-${{ matrix.target }}.tar.gz" HEAD
+
+      - name: Check Rust source package
+        run: python scripts/check_source_archive.py "dist/rust-pricing-source-${{ matrix.target }}.tar.gz"
+
       - name: Test wheel in clean environment
         run: python scripts/smoke_test_wheel.py
 
       - name: Run baseline benchmarks
         run: python scripts/run_benchmark_suite.py
 
+      - name: Check replay fixtures
+        run: |
+          python scripts/check_replay_fixture.py benchmark-results/replay.json
+          python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
+
+      - name: Check benchmark artifacts
+        run: python scripts/check_benchmark_reports.py benchmark-results
+
       - name: Retain private wheel
         uses: actions/upload-artifact@v4
         with:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain Rust source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-pricing-source-${{ matrix.target }}
+          path: dist/rust-pricing-source-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 14
 

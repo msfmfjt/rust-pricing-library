@@ -4,7 +4,9 @@
 
 mod spec;
 
-pub use spec::{BlackScholesSpec, ModelSpec};
+pub use spec::{
+    Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
+};
 
 /// Returns the role of the market layer consumed by model kernels.
 #[must_use]

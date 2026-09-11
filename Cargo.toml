@@ -21,15 +21,15 @@ authors = ["Masafumi Fujita"]
 repository = "https://github.com/msfmfjt/rust-pricing-library"
 
 [workspace.dependencies]
-pricing-core = { path = "crates/pricing-core" }
-pricing-numerics = { path = "crates/pricing-numerics" }
-pricing-aad = { path = "crates/pricing-aad" }
-pricing-market = { path = "crates/pricing-market" }
-pricing-product = { path = "crates/pricing-product" }
-pricing-models = { path = "crates/pricing-models" }
-pricing-mc = { path = "crates/pricing-mc" }
-pricing-risk = { path = "crates/pricing-risk" }
-pricing = { path = "crates/pricing" }
+pricing-core = { version = "0.1.0", path = "crates/pricing-core" }
+pricing-numerics = { version = "0.1.0", path = "crates/pricing-numerics" }
+pricing-aad = { version = "0.1.0", path = "crates/pricing-aad" }
+pricing-market = { version = "0.1.0", path = "crates/pricing-market" }
+pricing-product = { version = "0.1.0", path = "crates/pricing-product" }
+pricing-models = { version = "0.1.0", path = "crates/pricing-models" }
+pricing-mc = { version = "0.1.0", path = "crates/pricing-mc" }
+pricing-risk = { version = "0.1.0", path = "crates/pricing-risk" }
+pricing = { version = "0.1.0", path = "crates/pricing" }
 blake3 = "1.8.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"

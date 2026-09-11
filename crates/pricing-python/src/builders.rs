@@ -1,12 +1,22 @@
 use std::sync::Arc;
 
 use pricing::PricingRequest;
-use pricing::core::{CurrencyId, CurveId, Date, PositiveF64, UnderlyingId};
-use pricing::market::{EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext};
+use pricing::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, UnderlyingId};
+use pricing::market::{
+    DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice, EssviSurface,
+    LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
+    ThetaPchip,
+};
 use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing::models::{BlackScholesSpec, ModelSpec};
-use pricing::product::{EuropeanVanillaSpec, OptionSide, ProductSpec};
-use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump};
+use pricing::models::{
+    Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
+};
+use pricing::product::{
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
+    ProductSpec,
+};
+use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
@@ -47,6 +57,237 @@ impl PyDiscountCurve {
     }
 }
 
+/// Immutable discrete dividend event.
+#[pyclass(frozen, name = "DividendEvent", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyDividendEvent {
+    pub(crate) inner: DividendEvent,
+}
+
+#[pymethods]
+impl PyDividendEvent {
+    /// Build a fixed-cash dividend event.
+    #[staticmethod]
+    fn fixed_cash(py: Python<'_>, event_id: u32, ex_time: f64, amount: f64) -> PyResult<Self> {
+        let event = EventId::new(event_id);
+        let quote = DividendQuote::fixed_cash(amount, event).map_err(|error| {
+            domain_error(
+                py,
+                "invalid_dividend_cash",
+                "/market/discrete_dividends",
+                error,
+            )
+        })?;
+        DividendEvent::new(event, ex_time, quote)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            })
+    }
+
+    /// Build a proportional dividend event.
+    #[staticmethod]
+    fn proportional(py: Python<'_>, event_id: u32, ex_time: f64, beta: f64) -> PyResult<Self> {
+        let event = EventId::new(event_id);
+        let quote = DividendQuote::proportional(beta, event).map_err(|error| {
+            domain_error(
+                py,
+                "invalid_dividend_proportion",
+                "/market/discrete_dividends",
+                error,
+            )
+        })?;
+        DividendEvent::new(event, ex_time, quote)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            })
+    }
+
+    /// Build a fixed-cash plus proportional dividend event.
+    #[staticmethod]
+    fn fixed_cash_and_proportional(
+        py: Python<'_>,
+        event_id: u32,
+        ex_time: f64,
+        fixed_cash: f64,
+        beta: f64,
+    ) -> PyResult<Self> {
+        let event = EventId::new(event_id);
+        let quote = DividendQuote::fixed_cash_and_proportional(fixed_cash, beta, event).map_err(
+            |error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_quote",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            },
+        )?;
+        DividendEvent::new(event, ex_time, quote)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    error,
+                )
+            })
+    }
+
+    #[getter]
+    fn event_id(&self) -> u32 {
+        self.inner.event().get()
+    }
+
+    #[getter]
+    fn ex_time(&self) -> f64 {
+        self.inner.ex_time()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DividendEvent(event_id={}, ex_time={})",
+            self.event_id(),
+            self.ex_time()
+        )
+    }
+}
+
+/// Immutable Asian observation row.
+#[pyclass(frozen, name = "AsianObservation", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyAsianObservation {
+    pub(crate) inner: AsianObservation,
+}
+
+#[pymethods]
+impl PyAsianObservation {
+    /// Build an unknown model observation.
+    #[staticmethod]
+    fn unknown(py: Python<'_>, date: &Bound<'_, PyAny>, weight: f64) -> PyResult<Self> {
+        let date = date_from_python(py, date, "/product/observations/date")?;
+        AsianObservation::unknown(date, weight)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_asian_observation",
+                    "/product/observations",
+                    error,
+                )
+            })
+    }
+
+    /// Build a known historical fixing observation.
+    #[staticmethod]
+    fn known(py: Python<'_>, date: &Bound<'_, PyAny>, weight: f64, fixing: f64) -> PyResult<Self> {
+        let date = date_from_python(py, date, "/product/observations/date")?;
+        AsianObservation::known(date, weight, fixing)
+            .map(|inner| Self { inner })
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_asian_observation",
+                    "/product/observations",
+                    error,
+                )
+            })
+    }
+
+    #[getter]
+    fn date(&self) -> String {
+        self.inner.date().to_string()
+    }
+
+    #[getter]
+    fn weight(&self) -> f64 {
+        self.inner.weight().get()
+    }
+
+    #[getter]
+    fn fixing(&self) -> Option<f64> {
+        match self.inner.value() {
+            AsianObservationValue::Known(fixing) => Some(fixing.get()),
+            AsianObservationValue::Unknown => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.fixing() {
+            Some(fixing) => format!(
+                "AsianObservation(date='{}', weight={}, fixing={})",
+                self.date(),
+                self.weight(),
+                fixing
+            ),
+            None => format!(
+                "AsianObservation(date='{}', weight={}, fixing=None)",
+                self.date(),
+                self.weight()
+            ),
+        }
+    }
+}
+
+/// Immutable eSSVI slice used to materialize Local Volatility grids.
+#[pyclass(frozen, name = "EssviSlice", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyEssviSlice {
+    inner: EssviSlice,
+}
+
+#[pymethods]
+impl PyEssviSlice {
+    #[new]
+    fn new(py: Python<'_>, time: f64, theta: f64, psi: f64, rho_psi: f64) -> PyResult<Self> {
+        EssviSlice::new(time, theta, psi, rho_psi)
+            .map(|inner| Self { inner })
+            .map_err(|error| domain_error(py, "invalid_essvi_slice", "/model/essvi/slices", error))
+    }
+
+    #[getter]
+    fn time(&self) -> f64 {
+        self.inner.time()
+    }
+
+    #[getter]
+    fn theta(&self) -> f64 {
+        self.inner.theta()
+    }
+
+    #[getter]
+    fn psi(&self) -> f64 {
+        self.inner.psi()
+    }
+
+    #[getter]
+    fn rho_psi(&self) -> f64 {
+        self.inner.rho_psi()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "EssviSlice(time={}, theta={}, psi={}, rho_psi={})",
+            self.time(),
+            self.theta(),
+            self.psi(),
+            self.rho_psi()
+        )
+    }
+}
+
 /// Immutable product specification built through named factory methods.
 #[pyclass(frozen, name = "Product", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -83,8 +324,158 @@ impl PyProduct {
         .map_err(|error| domain_error(py, "invalid_european_vanilla", "/product", error))
     }
 
+    /// Build a cash-or-nothing or asset-or-nothing digital call or put.
+    #[staticmethod]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, payout, side, payout_kind, *, payment_date=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn digital(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: &Bound<'_, PyAny>,
+        strike: f64,
+        payout: f64,
+        side: &str,
+        payout_kind: &str,
+        payment_date: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let expiry = date_from_python(py, expiry, "/product/expiry")?;
+        let side = option_side(py, side)?;
+        let payout_kind = digital_payout(py, payout_kind)?;
+        let payment_date = match payment_date {
+            Some(payment_date) => date_from_python(py, payment_date, "/product/payment_date")?,
+            None => expiry,
+        };
+        DigitalSpec::with_payment_date(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            expiry,
+            strike,
+            payout,
+            side,
+            payout_kind,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::Digital(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
+    }
+
+    /// Build a fixed-strike discrete barrier call or put with an optional expiry rebate.
+    #[staticmethod]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring_dates, payment_date, *, rebate=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn barrier(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: &Bound<'_, PyAny>,
+        strike: f64,
+        barrier: f64,
+        notional: f64,
+        side: &str,
+        direction: &str,
+        style: &str,
+        monitoring_dates: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+        rebate: Option<f64>,
+    ) -> PyResult<Self> {
+        let expiry = date_from_python(py, expiry, "/product/expiry")?;
+        let side = option_side(py, side)?;
+        let direction = barrier_direction(py, direction)?;
+        let style = barrier_style(py, style)?;
+        let monitoring_dates =
+            copied_date_array(py, monitoring_dates, "/product/monitoring_dates")?;
+        let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
+        BarrierSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            expiry,
+            strike,
+            barrier,
+            notional,
+            side,
+            direction,
+            style,
+            monitoring_dates,
+            rebate,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::Barrier(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_barrier", "/product", error))
+    }
+
+    /// Build an arithmetic average-price Asian call or put.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn arithmetic_asian(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        strike: f64,
+        notional: f64,
+        side: &str,
+        observations: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let side = option_side(py, side)?;
+        let observations = asian_observations_from_python(py, observations)?;
+        let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
+        ArithmeticAsianSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            strike,
+            notional,
+            side,
+            observations,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::ArithmeticAsian(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_arithmetic_asian", "/product", error))
+    }
+
+    /// Build a fixed-strike discrete-monitoring Lookback call or put.
+    #[staticmethod]
+    #[pyo3(signature = (underlying_id, currency_id, strike, notional, side, monitoring_dates, payment_date, *, historical_extremum=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn fixed_lookback(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        strike: f64,
+        notional: f64,
+        side: &str,
+        monitoring_dates: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+        historical_extremum: Option<f64>,
+    ) -> PyResult<Self> {
+        let side = option_side(py, side)?;
+        let monitoring_dates =
+            copied_date_array(py, monitoring_dates, "/product/monitoring_dates")?;
+        let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
+        FixedLookbackSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            strike,
+            notional,
+            side,
+            monitoring_dates,
+            historical_extremum,
+            payment_date,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::FixedLookback(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_fixed_lookback", "/product", error))
+    }
+
     fn __repr__(&self) -> String {
-        "Product(type='european_vanilla')".into()
+        format!("Product(type={:?})", product_name(&self.inner))
     }
 }
 
@@ -99,6 +490,7 @@ pub struct PyMarket {
 impl PyMarket {
     /// Build a single-currency equity market with deterministic carry curves.
     #[staticmethod]
+    #[pyo3(signature = (currency_id, underlying_id, spot, discount_curve, dividend_curve, *, discrete_dividends=None))]
     fn equity(
         py: Python<'_>,
         currency_id: u16,
@@ -106,15 +498,27 @@ impl PyMarket {
         spot: f64,
         discount_curve: &PyDiscountCurve,
         dividend_curve: &PyDiscountCurve,
+        discrete_dividends: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let spot = PositiveF64::new(spot, "spot")
             .map_err(|error| domain_error(py, "invalid_spot", "/market/spot", error))?;
-        let forward = EquityForward::new(
-            UnderlyingId::new(underlying_id),
-            spot,
-            Arc::clone(&discount_curve.inner),
-            Arc::clone(&dividend_curve.inner),
-        );
+        let underlying = UnderlyingId::new(underlying_id);
+        let discount = Arc::clone(&discount_curve.inner);
+        let dividend = Arc::clone(&dividend_curve.inner);
+        let forward = if let Some(discrete_dividends) = discrete_dividends {
+            let dividends = dividend_events_from_python(py, discrete_dividends)?;
+            EquityForward::with_discrete_dividends(underlying, spot, discount, dividend, dividends)
+                .map_err(|error| {
+                    domain_error(
+                        py,
+                        "invalid_discrete_dividends",
+                        "/market/discrete_dividends",
+                        error,
+                    )
+                })?
+        } else {
+            EquityForward::new(underlying, spot, discount, dividend)
+        };
         Ok(Self {
             inner: MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward)),
         })
@@ -144,8 +548,230 @@ impl PyModel {
             .map_err(|error| domain_error(py, "invalid_volatility", "/model/volatility", error))
     }
 
+    /// Build a constant-volatility Black--76 model on the market forward.
+    #[staticmethod]
+    fn black_76(py: Python<'_>, volatility: f64) -> PyResult<Self> {
+        Black76Spec::new(volatility)
+            .map(|spec| Self {
+                inner: ModelSpec::Black76(spec),
+            })
+            .map_err(|error| domain_error(py, "invalid_volatility", "/model/volatility", error))
+    }
+
+    /// Build a Local Volatility model from a row-major local-variance grid.
+    #[staticmethod]
+    fn local_volatility_from_grid(
+        py: Python<'_>,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        local_variances: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+        let log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/model/local_variance_grid/log_forward_moneyness_nodes",
+        )?;
+        let local_variances =
+            copied_f64_array(py, local_variances, "/model/local_variance_grid/values")?;
+        LocalVolatilitySpec::from_explicit_grid(
+            time_nodes,
+            log_forward_moneyness_nodes,
+            local_variances,
+            floor,
+            cap,
+        )
+        .map(|spec| Self {
+            inner: ModelSpec::LocalVolatility(spec),
+        })
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_local_variance_grid",
+                "/model/local_variance_grid",
+                error,
+            )
+        })
+    }
+
+    /// Build a Local Volatility model from explicit local-variance and reporting-IV grids.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn local_volatility_from_grid_with_reporting_basis(
+        py: Python<'_>,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        local_variances: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+        reporting_maturity_nodes: &Bound<'_, PyAny>,
+        reporting_log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        reporting_implied_volatilities: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+        let log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/model/local_variance_grid/log_forward_moneyness_nodes",
+        )?;
+        let local_variances =
+            copied_f64_array(py, local_variances, "/model/local_variance_grid/values")?;
+        let reporting_maturity_nodes = copied_f64_array(
+            py,
+            reporting_maturity_nodes,
+            "/model/reporting_iv_basis/maturity_nodes",
+        )?;
+        let reporting_log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            reporting_log_forward_moneyness_nodes,
+            "/model/reporting_iv_basis/log_forward_moneyness_nodes",
+        )?;
+        let reporting_implied_volatilities = copied_f64_array(
+            py,
+            reporting_implied_volatilities,
+            "/model/reporting_iv_basis/implied_volatilities",
+        )?;
+        let basis = LocalVolatilityReportingBasis::new(
+            reporting_maturity_nodes,
+            reporting_log_forward_moneyness_nodes,
+            reporting_implied_volatilities,
+        )
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_reporting_iv_basis",
+                "/model/reporting_iv_basis",
+                error,
+            )
+        })?;
+        LocalVolatilitySpec::from_explicit_grid(
+            time_nodes,
+            log_forward_moneyness_nodes,
+            local_variances,
+            floor,
+            cap,
+        )
+        .map(|spec| Self {
+            inner: ModelSpec::LocalVolatility(spec.with_reporting_iv_basis(basis)),
+        })
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_local_variance_grid",
+                "/model/local_variance_grid",
+                error,
+            )
+        })
+    }
+
+    /// Build a Local Volatility model by sampling an eSSVI implied-volatility surface.
+    #[staticmethod]
+    fn local_volatility_from_essvi(
+        py: Python<'_>,
+        slices: &Bound<'_, PyAny>,
+        terminal_theta_slope: f64,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        let surface = EssviSurface::new(
+            essvi_slices_from_python(py, slices)?,
+            terminal_theta_slope,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .map_err(|error| domain_error(py, "invalid_essvi_surface", "/model/essvi", error))?;
+        let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+        let log_forward_moneyness_nodes = copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/model/local_variance_grid/log_forward_moneyness_nodes",
+        )?;
+        LocalVolatilitySpec::from_surface_with_reporting_basis(
+            &surface,
+            time_nodes.clone(),
+            log_forward_moneyness_nodes.clone(),
+            floor,
+            cap,
+            reporting_maturity_nodes(&time_nodes),
+            log_forward_moneyness_nodes,
+        )
+        .map(|spec| Self {
+            inner: ModelSpec::LocalVolatility(spec),
+        })
+        .map_err(|error| {
+            domain_error(
+                py,
+                "invalid_local_variance_grid",
+                "/model/local_variance_grid",
+                error,
+            )
+        })
+    }
+
+    /// Build a Local Volatility model by sampling a standard SSVI power-law surface.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn local_volatility_from_standard_ssvi_power_law(
+        py: Python<'_>,
+        theta_times: &Bound<'_, PyAny>,
+        theta_values: &Bound<'_, PyAny>,
+        terminal_theta_slope: f64,
+        rho: f64,
+        eta: f64,
+        gamma: f64,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        local_volatility_from_standard_ssvi(
+            py,
+            theta_times,
+            theta_values,
+            terminal_theta_slope,
+            rho,
+            PhiSpec::PowerLaw { eta, gamma },
+            time_nodes,
+            log_forward_moneyness_nodes,
+            floor,
+            cap,
+        )
+    }
+
+    /// Build a Local Volatility model by sampling a standard SSVI Heston-like surface.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn local_volatility_from_standard_ssvi_heston_like(
+        py: Python<'_>,
+        theta_times: &Bound<'_, PyAny>,
+        theta_values: &Bound<'_, PyAny>,
+        terminal_theta_slope: f64,
+        rho: f64,
+        lambda_: f64,
+        time_nodes: &Bound<'_, PyAny>,
+        log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        local_volatility_from_standard_ssvi(
+            py,
+            theta_times,
+            theta_values,
+            terminal_theta_slope,
+            rho,
+            PhiSpec::HestonLike { lambda: lambda_ },
+            time_nodes,
+            log_forward_moneyness_nodes,
+            floor,
+            cap,
+        )
+    }
+
     fn __repr__(&self) -> String {
-        "Model(type='black_scholes')".into()
+        format!("Model(type={:?})", self.inner.name())
     }
 }
 
@@ -221,7 +847,7 @@ pub struct PyRiskRequest {
 #[pymethods]
 impl PyRiskRequest {
     #[new]
-    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
+    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -229,6 +855,10 @@ impl PyRiskRequest {
         gamma_relative_bump: Option<f64>,
         gamma_absolute_bump: Option<f64>,
         vega: bool,
+        vega_kt_maturity_nodes: Option<&Bound<'_, PyAny>>,
+        vega_kt_log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
+        vega_kt_relative_density_threshold: Option<f64>,
+        vega_kt_full_bucket_covariance: bool,
         smile_dynamics: &str,
         checkpoint_interval: Option<u32>,
         aad_tile_capacity: Option<u32>,
@@ -247,12 +877,19 @@ impl PyRiskRequest {
             .transpose()
             .map_err(|error| domain_error(py, "invalid_gamma_bump", "/risk/gamma", error))?
             .map(GammaConfig::new);
+        let vega_kt = vega_kt_from_python(
+            py,
+            vega_kt_maturity_nodes,
+            vega_kt_log_forward_moneyness_nodes,
+            vega_kt_relative_density_threshold,
+            vega_kt_full_bucket_covariance,
+        )?;
         let smile_dynamics = smile_dynamics_from_str(py, smile_dynamics)?;
         RiskRequest::new(
             delta,
             gamma,
             vega,
-            None,
+            vega_kt,
             smile_dynamics,
             checkpoint_interval,
             aad_tile_capacity,
@@ -298,11 +935,240 @@ fn copied_f64_array(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> 
     })
 }
 
+fn copied_date_array(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+    pointer: &str,
+) -> PyResult<Vec<Date>> {
+    let mut dates = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_date_sequence",
+            pointer,
+            format!("expected a sequence of datetime.date or ISO date values: {error}"),
+        )
+    })?;
+    for item in iter {
+        dates.push(date_from_python(py, &item?, pointer)?);
+    }
+    Ok(dates)
+}
+
+fn vega_kt_from_python(
+    py: Python<'_>,
+    maturity_nodes: Option<&Bound<'_, PyAny>>,
+    log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
+    relative_density_threshold: Option<f64>,
+    full_bucket_covariance: bool,
+) -> PyResult<Option<VegaKtConfig>> {
+    let requested = maturity_nodes.is_some()
+        || log_forward_moneyness_nodes.is_some()
+        || relative_density_threshold.is_some()
+        || full_bucket_covariance;
+    if !requested {
+        return Ok(None);
+    }
+    let maturity_nodes = maturity_nodes.ok_or_else(|| {
+        domain_error(
+            py,
+            "missing_vega_kt_maturity_nodes",
+            "/risk/vega_kt/maturity_nodes",
+            "VegaKT requires maturity nodes",
+        )
+    })?;
+    let log_forward_moneyness_nodes = log_forward_moneyness_nodes.ok_or_else(|| {
+        domain_error(
+            py,
+            "missing_vega_kt_log_forward_moneyness_nodes",
+            "/risk/vega_kt/log_forward_moneyness_nodes",
+            "VegaKT requires log-forward-moneyness nodes",
+        )
+    })?;
+    let relative_density_threshold = relative_density_threshold.ok_or_else(|| {
+        domain_error(
+            py,
+            "missing_vega_kt_relative_density_threshold",
+            "/risk/vega_kt/relative_density_threshold",
+            "VegaKT requires a relative density threshold",
+        )
+    })?;
+    VegaKtConfig::new(
+        copied_date_array(py, maturity_nodes, "/risk/vega_kt/maturity_nodes")?,
+        copied_f64_array(
+            py,
+            log_forward_moneyness_nodes,
+            "/risk/vega_kt/log_forward_moneyness_nodes",
+        )?,
+        relative_density_threshold,
+        full_bucket_covariance,
+    )
+    .map(Some)
+    .map_err(|error| domain_error(py, "invalid_vega_kt", "/risk/vega_kt", error))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn local_volatility_from_standard_ssvi(
+    py: Python<'_>,
+    theta_times: &Bound<'_, PyAny>,
+    theta_values: &Bound<'_, PyAny>,
+    terminal_theta_slope: f64,
+    rho: f64,
+    phi: PhiSpec,
+    time_nodes: &Bound<'_, PyAny>,
+    log_forward_moneyness_nodes: &Bound<'_, PyAny>,
+    floor: f64,
+    cap: f64,
+) -> PyResult<PyModel> {
+    let theta_curve = ThetaPchip::new(
+        copied_f64_array(py, theta_times, "/model/standard_ssvi/theta_times")?,
+        copied_f64_array(py, theta_values, "/model/standard_ssvi/theta_values")?,
+        terminal_theta_slope,
+    )
+    .map_err(|error| domain_error(py, "invalid_theta_curve", "/model/standard_ssvi", error))?;
+    let surface = StandardSsvi::new(
+        theta_curve,
+        rho,
+        phi,
+        SurfaceValidationTolerance::local_vol_vegakt_v1(),
+    )
+    .map_err(|error| domain_error(py, "invalid_standard_ssvi", "/model/standard_ssvi", error))?;
+    let time_nodes = copied_f64_array(py, time_nodes, "/model/local_variance_grid/time_nodes")?;
+    let log_forward_moneyness_nodes = copied_f64_array(
+        py,
+        log_forward_moneyness_nodes,
+        "/model/local_variance_grid/log_forward_moneyness_nodes",
+    )?;
+    LocalVolatilitySpec::from_surface_with_reporting_basis(
+        &surface,
+        time_nodes.clone(),
+        log_forward_moneyness_nodes.clone(),
+        floor,
+        cap,
+        reporting_maturity_nodes(&time_nodes),
+        log_forward_moneyness_nodes,
+    )
+    .map(|spec| PyModel {
+        inner: ModelSpec::LocalVolatility(spec),
+    })
+    .map_err(|error| {
+        domain_error(
+            py,
+            "invalid_local_variance_grid",
+            "/model/local_variance_grid",
+            error,
+        )
+    })
+}
+
+fn reporting_maturity_nodes(time_nodes: &[f64]) -> Vec<f64> {
+    time_nodes
+        .iter()
+        .copied()
+        .filter(|time| *time > 0.0)
+        .collect()
+}
+
+fn essvi_slices_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Vec<EssviSlice>> {
+    let mut slices = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_essvi_slice_sequence",
+            "/model/essvi/slices",
+            format!("expected a sequence of EssviSlice objects: {error}"),
+        )
+    })?;
+    for item in iter {
+        let item = item?;
+        let slice = item.extract::<PyRef<'_, PyEssviSlice>>().map_err(|error| {
+            domain_error(
+                py,
+                "invalid_essvi_slice",
+                "/model/essvi/slices",
+                format!("expected EssviSlice: {error}"),
+            )
+        })?;
+        slices.push(slice.inner);
+    }
+    Ok(slices)
+}
+
+fn dividend_events_from_python(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<Vec<DividendEvent>> {
+    let mut events = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_dividend_event_sequence",
+            "/market/discrete_dividends",
+            format!("expected a sequence of DividendEvent objects: {error}"),
+        )
+    })?;
+    for item in iter {
+        let item = item?;
+        let dividend = item
+            .extract::<PyRef<'_, PyDividendEvent>>()
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_dividend_event",
+                    "/market/discrete_dividends",
+                    format!("expected DividendEvent: {error}"),
+                )
+            })?;
+        events.push(dividend.inner);
+    }
+    Ok(events)
+}
+
+fn asian_observations_from_python(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<Vec<AsianObservation>> {
+    let mut observations = Vec::new();
+    let iter = value.try_iter().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_asian_observation_sequence",
+            "/product/observations",
+            format!("expected a sequence of AsianObservation objects: {error}"),
+        )
+    })?;
+    for item in iter {
+        let item = item?;
+        let observation = item
+            .extract::<PyRef<'_, PyAsianObservation>>()
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_asian_observation",
+                    "/product/observations",
+                    format!("expected AsianObservation: {error}"),
+                )
+            })?;
+        observations.push(observation.inner);
+    }
+    Ok(observations)
+}
+
 fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Date> {
     let text = if value.cast::<PyString>().is_ok() {
         value.extract::<String>()?
     } else {
-        let date_type = py.import("datetime")?.getattr("date")?;
+        let datetime_module = py.import("datetime")?;
+        let datetime_type = datetime_module.getattr("datetime")?;
+        if value.is_instance(&datetime_type)? {
+            return Err(domain_error(
+                py,
+                "invalid_date_type",
+                pointer,
+                "datetime values with time-of-day semantics are not supported; expected datetime.date or an ISO YYYY-MM-DD string",
+            ));
+        }
+        let date_type = datetime_module.getattr("date")?;
         if !value.is_instance(&date_type)? {
             return Err(domain_error(
                 py,
@@ -327,6 +1193,55 @@ fn option_side(py: Python<'_>, value: &str) -> PyResult<OptionSide> {
             "/product/side",
             format!("expected 'call' or 'put', received {value:?}"),
         )),
+    }
+}
+
+fn digital_payout(py: Python<'_>, value: &str) -> PyResult<DigitalPayout> {
+    match value {
+        "cash" => Ok(DigitalPayout::Cash),
+        "asset" => Ok(DigitalPayout::Asset),
+        _ => Err(domain_error(
+            py,
+            "invalid_digital_payout",
+            "/product/payout_kind",
+            format!("expected 'cash' or 'asset', received {value:?}"),
+        )),
+    }
+}
+
+fn barrier_direction(py: Python<'_>, value: &str) -> PyResult<BarrierDirection> {
+    match value {
+        "up" => Ok(BarrierDirection::Up),
+        "down" => Ok(BarrierDirection::Down),
+        _ => Err(domain_error(
+            py,
+            "invalid_barrier_direction",
+            "/product/direction",
+            format!("expected 'up' or 'down', received {value:?}"),
+        )),
+    }
+}
+
+fn barrier_style(py: Python<'_>, value: &str) -> PyResult<BarrierStyle> {
+    match value {
+        "knock_in" => Ok(BarrierStyle::KnockIn),
+        "knock_out" => Ok(BarrierStyle::KnockOut),
+        _ => Err(domain_error(
+            py,
+            "invalid_barrier_style",
+            "/product/style",
+            format!("expected 'knock_in' or 'knock_out', received {value:?}"),
+        )),
+    }
+}
+
+const fn product_name(product: &ProductSpec) -> &'static str {
+    match product {
+        ProductSpec::EuropeanVanilla(_) => "european_vanilla",
+        ProductSpec::Digital(_) => "digital",
+        ProductSpec::Barrier(_) => "barrier",
+        ProductSpec::ArithmeticAsian(_) => "arithmetic_asian",
+        ProductSpec::FixedLookback(_) => "fixed_lookback",
     }
 }
 

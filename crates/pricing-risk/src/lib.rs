@@ -22,7 +22,8 @@ pub use vegakt::{
     equation_11_refinement_diagnostics, integrate_piecewise_linear_local_gamma_transition,
     local_gamma_transition_cells, local_vega_density_from_node_adjoints, mass_lumped_hat_areas,
     project_local_vega_nodes_to_reporting_iv, vega_kt_bucket_estimates,
-    vega_kt_full_bucket_covariance, vega_kt_report, vega_kt_report_from_samples,
+    vega_kt_full_bucket_covariance, vega_kt_projection_from_parts, vega_kt_report,
+    vega_kt_report_from_samples,
 };
 
 /// Confirms that the risk layer is connected to AAD-enabled simulation.

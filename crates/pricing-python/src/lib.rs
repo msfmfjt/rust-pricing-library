@@ -5,21 +5,28 @@
 mod builders;
 mod diagnostics;
 
-use std::collections::BTreeMap;
-
+use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
 use pricing::{
-    Estimate, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest, RiskEstimate,
-    WireError, fingerprint_request, parse_request_json, request_to_json, result_to_json,
+    Estimate, MonteCarloDiagnostics, MonteCarloError, MonteCarloPrice, PricingPlan, PricingRequest,
+    RiskDiagnostics, RiskEstimate, RiskMethodMetadata, RiskUnit, VegaKtResult,
+    VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
+    VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
+    VegaKtResultUnit, WireError, current_request_schema, current_result_schema,
+    fingerprint_request, parse_request_json, parse_result_json, request_to_json,
+    request_to_pretty_json, result_to_json, result_to_pretty_json,
 };
+use pyo3::basic::CompareOp;
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 use builders::{
-    PyDiscountCurve, PyEngine, PyMarket, PyModel, PyProduct, PyRiskRequest, build_request,
+    PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket,
+    PyModel, PyProduct, PyRiskRequest, build_request,
 };
-use diagnostics::{PyDiagnostics, PyPricingWarning};
+use diagnostics::{PyDiagnosticEstimate, PyDiagnostics, PyPricingWarning, PyRiskValidation};
 
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
@@ -30,12 +37,34 @@ create_exception!(rust_pricing, PricingError, PyRuntimeError);
 pub struct PyValidationIssue {
     pointer: String,
     phase: String,
+    schema_version: u32,
+    document_kind: String,
     code: String,
     message: String,
 }
 
 impl PyValidationIssue {
-    fn wire(error: &WireError) -> Self {
+    fn request_schema_version() -> u32 {
+        pricing::core::SchemaVersion::CURRENT.get()
+    }
+
+    fn request_document_kind() -> &'static str {
+        pricing::core::DocumentKind::PricingRequest.as_str()
+    }
+
+    fn result_document_kind() -> &'static str {
+        pricing::core::DocumentKind::PricingResult.as_str()
+    }
+
+    fn request_wire(error: &WireError) -> Self {
+        Self::wire(error, Self::request_document_kind())
+    }
+
+    fn result_wire(error: &WireError) -> Self {
+        Self::wire(error, Self::result_document_kind())
+    }
+
+    fn wire(error: &WireError, document_kind: &'static str) -> Self {
         let (phase, code) = match error {
             WireError::Json(_) | WireError::Utf8Bom => ("syntax_and_limits", "invalid_json"),
             WireError::ResourceLimit { .. } | WireError::LimitOverrideExceedsHardCap => {
@@ -45,12 +74,22 @@ impl PyValidationIssue {
                 ("declared_schema", "unsupported_schema_version")
             }
             WireError::WrongDocumentKind { .. } => ("declared_schema", "wrong_document_kind"),
-            WireError::Domain(_) => ("domain", "invalid_domain_value"),
+            WireError::Domain(_) | WireError::DomainAt { .. } => ("domain", "invalid_domain_value"),
             WireError::InvalidFingerprint(_) => ("declared_schema", "invalid_fingerprint"),
         };
+        let schema_version = match error {
+            WireError::UnsupportedSchemaVersion(version) => *version,
+            _ => Self::request_schema_version(),
+        };
+        let pointer = match error {
+            WireError::DomainAt { pointer, .. } => pointer.clone(),
+            _ => String::new(),
+        };
         Self {
-            pointer: String::new(),
+            pointer,
             phase: phase.into(),
+            schema_version,
+            document_kind: document_kind.into(),
             code: code.into(),
             message: error.to_string(),
         }
@@ -60,6 +99,8 @@ impl PyValidationIssue {
         Self {
             pointer: String::new(),
             phase: "domain".into(),
+            schema_version: Self::request_schema_version(),
+            document_kind: Self::request_document_kind().into(),
             code: "plan_compile_error".into(),
             message: error.to_string(),
         }
@@ -73,6 +114,8 @@ impl PyValidationIssue {
         Self {
             pointer: pointer.into(),
             phase: "domain".into(),
+            schema_version: Self::request_schema_version(),
+            document_kind: Self::request_document_kind().into(),
             code: code.into(),
             message: message.into(),
         }
@@ -87,8 +130,23 @@ impl PyValidationIssue {
     }
 
     #[getter]
+    fn instance_path(&self) -> &str {
+        &self.pointer
+    }
+
+    #[getter]
     fn phase(&self) -> &str {
         &self.phase
+    }
+
+    #[getter]
+    fn schema_version(&self) -> u32 {
+        self.schema_version
+    }
+
+    #[getter]
+    fn document_kind(&self) -> &str {
+        &self.document_kind
     }
 
     #[getter]
@@ -101,20 +159,38 @@ impl PyValidationIssue {
         &self.message
     }
 
-    fn to_dict(&self) -> BTreeMap<String, String> {
-        BTreeMap::from([
-            ("pointer".into(), self.pointer.clone()),
-            ("phase".into(), self.phase.clone()),
-            ("code".into(), self.code.clone()),
-            ("message".into(), self.message.clone()),
-        ])
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("pointer", &self.pointer)?;
+        dict.set_item("instance_path", &self.pointer)?;
+        dict.set_item("phase", &self.phase)?;
+        dict.set_item("schema_version", self.schema_version)?;
+        dict.set_item("document_kind", &self.document_kind)?;
+        dict.set_item("code", &self.code)?;
+        dict.set_item("message", &self.message)?;
+        Ok(dict)
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "ValidationIssue(pointer={:?}, phase={:?}, code={:?}, message={:?})",
-            self.pointer, self.phase, self.code, self.message
+            "ValidationIssue(pointer={:?}, phase={:?}, schema_version={}, document_kind={:?}, code={:?}, message={:?})",
+            self.pointer,
+            self.phase,
+            self.schema_version,
+            self.document_kind,
+            self.code,
+            self.message
         )
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self == other),
+            CompareOp::Ne => Ok(self != other),
+            _ => Err(PyValueError::new_err(
+                "ValidationIssue only supports equality comparison",
+            )),
+        }
     }
 }
 
@@ -146,11 +222,15 @@ impl PyPricingRequest {
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         parse_request_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
             .map(|inner| Self { inner })
-            .map_err(|error| validation_exception(py, PyValidationIssue::wire(&error)))
+            .map_err(|error| validation_exception(py, PyValidationIssue::request_wire(&error)))
     }
 
     fn to_json(&self) -> PyResult<String> {
         request_to_json(&self.inner).map_err(pricing_exception)
+    }
+
+    fn to_pretty_json(&self) -> PyResult<String> {
+        request_to_pretty_json(&self.inner).map_err(pricing_exception)
     }
 
     #[getter]
@@ -233,8 +313,357 @@ pub struct PyPricingResult {
     inner: MonteCarloPrice,
 }
 
+/// One risk estimate in raw and market-scaled units.
+#[pyclass(frozen, name = "RiskEstimate", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyRiskEstimate {
+    inner: RiskEstimate,
+}
+
+#[pymethods]
+impl PyRiskEstimate {
+    /// Estimate in the raw mathematical risk unit.
+    #[getter]
+    fn raw(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.raw())
+    }
+
+    /// Estimate scaled to the reporting market convention.
+    #[getter]
+    fn market_scaled(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.market_scaled())
+    }
+
+    /// Raw mathematical risk unit label.
+    #[getter]
+    fn raw_unit(&self) -> &'static str {
+        risk_unit_name(self.inner.raw_unit())
+    }
+
+    /// Market-scaled reporting risk unit label.
+    #[getter]
+    fn market_scaled_unit(&self) -> &'static str {
+        risk_unit_name(self.inner.market_scaled_unit())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RiskEstimate(raw={:?})", self.inner.raw().value().get())
+    }
+}
+
+/// One VegaKT bucket coordinate in maturity/log-moneyness space.
+#[pyclass(frozen, name = "VegaKtCoordinate", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtCoordinate {
+    inner: VegaKtResultCoordinate,
+}
+
+#[pymethods]
+impl PyVegaKtCoordinate {
+    #[getter]
+    fn maturity(&self) -> f64 {
+        self.inner.maturity().get()
+    }
+
+    #[getter]
+    fn log_moneyness(&self) -> f64 {
+        self.inner.log_moneyness().get()
+    }
+
+    #[getter]
+    fn implied_volatility(&self) -> f64 {
+        self.inner.implied_volatility().get()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtCoordinate(maturity={:?}, log_moneyness={:?}, implied_volatility={:?})",
+            self.maturity(),
+            self.log_moneyness(),
+            self.implied_volatility()
+        )
+    }
+}
+
+/// One VegaKT bucket estimate with raw and market-scaled units.
+#[pyclass(frozen, name = "VegaKtBucketEstimate", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtBucketEstimate {
+    inner: VegaKtResultBucketEstimate,
+}
+
+#[pymethods]
+impl PyVegaKtBucketEstimate {
+    #[getter]
+    fn raw_mean(&self) -> f64 {
+        self.inner.raw_mean().get()
+    }
+
+    #[getter]
+    fn market_scaled_mean(&self) -> f64 {
+        self.inner.market_scaled_mean().get()
+    }
+
+    #[getter]
+    fn sample_variance(&self) -> Option<f64> {
+        self.inner.sample_variance().map(|value| value.get())
+    }
+
+    #[getter]
+    fn price_covariance(&self) -> Option<f64> {
+        self.inner.price_covariance().map(|value| value.get())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtBucketEstimate(raw_mean={:?}, market_scaled_mean={:?})",
+            self.raw_mean(),
+            self.market_scaled_mean()
+        )
+    }
+}
+
+/// Reporting-edge sensitivity diagnostics for VegaKT projection.
+#[pyclass(frozen, name = "VegaKtReportingStats", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtReportingStats {
+    inner: VegaKtResultReportingStats,
+}
+
+#[pymethods]
+impl PyVegaKtReportingStats {
+    #[getter]
+    fn left_edge_count(&self) -> u64 {
+        self.inner.left_edge_count()
+    }
+
+    #[getter]
+    fn right_edge_count(&self) -> u64 {
+        self.inner.right_edge_count()
+    }
+
+    #[getter]
+    fn left_edge_sensitivity(&self) -> f64 {
+        self.inner.left_edge_sensitivity().get()
+    }
+
+    #[getter]
+    fn right_edge_sensitivity(&self) -> f64 {
+        self.inner.right_edge_sensitivity().get()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtReportingStats(left_edge_count={}, right_edge_count={})",
+            self.left_edge_count(),
+            self.right_edge_count()
+        )
+    }
+}
+
+/// Projection summary used to reconcile VegaKT buckets with scalar vega.
+#[pyclass(frozen, name = "VegaKtProjection", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtProjection {
+    inner: VegaKtResultProjection,
+}
+
+#[pymethods]
+impl PyVegaKtProjection {
+    #[getter]
+    fn scalar_vega(&self) -> f64 {
+        self.inner.scalar_vega().get()
+    }
+
+    #[getter]
+    fn signed_residual(&self) -> f64 {
+        self.inner.signed_residual().get()
+    }
+
+    #[getter]
+    fn pre_projection(&self) -> f64 {
+        self.inner.pre_projection().get()
+    }
+
+    #[getter]
+    fn reporting_stats(&self) -> PyVegaKtReportingStats {
+        PyVegaKtReportingStats {
+            inner: self.inner.reporting_stats(),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtProjection(scalar_vega={:?}, signed_residual={:?})",
+            self.scalar_vega(),
+            self.signed_residual()
+        )
+    }
+}
+
+/// Residual diagnostics for the VegaKT active reporting domain.
+#[pyclass(frozen, name = "VegaKtResidualDiagnostics", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtResidualDiagnostics {
+    inner: VegaKtResultResidualDiagnostics,
+}
+
+#[pymethods]
+impl PyVegaKtResidualDiagnostics {
+    #[getter]
+    fn active_domain_start_index(&self) -> usize {
+        self.inner.active_domain_start_index()
+    }
+
+    #[getter]
+    fn active_domain_end_index(&self) -> usize {
+        self.inner.active_domain_end_index()
+    }
+
+    #[getter]
+    fn active_domain_forward_index(&self) -> usize {
+        self.inner.active_domain_forward_index()
+    }
+
+    #[getter]
+    fn excluded_probability_mass(&self) -> f64 {
+        self.inner.excluded_probability_mass().get()
+    }
+
+    #[getter]
+    fn signed_residual(&self) -> f64 {
+        self.inner.signed_residual().get()
+    }
+
+    #[getter]
+    fn pre_projection(&self) -> f64 {
+        self.inner.pre_projection().get()
+    }
+
+    #[getter]
+    fn reporting_stats(&self) -> PyVegaKtReportingStats {
+        PyVegaKtReportingStats {
+            inner: self.inner.reporting_stats(),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtResidualDiagnostics(active_domain_start_index={}, active_domain_end_index={}, active_domain_forward_index={})",
+            self.active_domain_start_index(),
+            self.active_domain_end_index(),
+            self.active_domain_forward_index()
+        )
+    }
+}
+
+/// Full VegaKT bucket report attached to a pricing result when requested.
+#[pyclass(frozen, name = "VegaKtResult", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyVegaKtResult {
+    inner: VegaKtResult,
+}
+
+#[pymethods]
+impl PyVegaKtResult {
+    #[getter]
+    fn coordinates(&self) -> Vec<PyVegaKtCoordinate> {
+        self.inner
+            .coordinates()
+            .iter()
+            .copied()
+            .map(|inner| PyVegaKtCoordinate { inner })
+            .collect()
+    }
+
+    #[getter]
+    fn estimates(&self) -> Vec<PyVegaKtBucketEstimate> {
+        self.inner
+            .estimates()
+            .iter()
+            .copied()
+            .map(|inner| PyVegaKtBucketEstimate { inner })
+            .collect()
+    }
+
+    #[getter]
+    fn raw_buckets(&self) -> Vec<f64> {
+        self.inner
+            .raw_buckets()
+            .iter()
+            .map(|value| value.get())
+            .collect()
+    }
+
+    #[getter]
+    fn full_bucket_covariance(&self) -> Option<Vec<Option<f64>>> {
+        self.inner.full_bucket_covariance().map(|values| {
+            values
+                .iter()
+                .map(|value| value.map(|value| value.get()))
+                .collect()
+        })
+    }
+
+    #[getter]
+    fn covariance_layout(&self) -> &'static str {
+        vega_kt_covariance_layout_name(self.inner.covariance_layout())
+    }
+
+    #[getter]
+    fn projection(&self) -> PyVegaKtProjection {
+        PyVegaKtProjection {
+            inner: self.inner.projection(),
+        }
+    }
+
+    #[getter]
+    fn residual_diagnostics(&self) -> PyVegaKtResidualDiagnostics {
+        PyVegaKtResidualDiagnostics {
+            inner: self.inner.residual_diagnostics(),
+        }
+    }
+
+    #[getter]
+    fn raw_unit(&self) -> &'static str {
+        vega_kt_unit_name(self.inner.raw_unit())
+    }
+
+    #[getter]
+    fn market_scaled_unit(&self) -> &'static str {
+        vega_kt_unit_name(self.inner.market_scaled_unit())
+    }
+
+    #[getter]
+    fn policy_label(&self) -> &str {
+        self.inner.policy_label()
+    }
+
+    #[getter]
+    fn truncation_order(&self) -> &str {
+        self.inner.truncation_order()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VegaKtResult(buckets={}, covariance_layout={:?})",
+            self.inner.coordinates().len(),
+            self.covariance_layout()
+        )
+    }
+}
+
 #[pymethods]
 impl PyPricingResult {
+    /// Parse and validate a versioned pricing-result JSON document.
+    #[staticmethod]
+    fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
+        parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+            .map(monte_carlo_price_from_result)
+            .map(|inner| Self { inner })
+            .map_err(|error| validation_exception(py, PyValidationIssue::result_wire(&error)))
+    }
+
     #[getter]
     fn value(&self) -> f64 {
         self.inner.pricing_result.value.value().get()
@@ -252,6 +681,20 @@ impl PyPricingResult {
     }
 
     #[getter]
+    fn estimate(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.pricing_result.value)
+    }
+
+    #[getter]
+    fn delta(&self) -> Option<PyRiskEstimate> {
+        self.inner
+            .pricing_result
+            .risks
+            .delta
+            .map(|inner| PyRiskEstimate { inner })
+    }
+
+    #[getter]
     fn delta_raw(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.delta, false)
     }
@@ -259,6 +702,15 @@ impl PyPricingResult {
     #[getter]
     fn delta_market_scaled(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.delta, true)
+    }
+
+    #[getter]
+    fn gamma(&self) -> Option<PyRiskEstimate> {
+        self.inner
+            .pricing_result
+            .risks
+            .gamma
+            .map(|inner| PyRiskEstimate { inner })
     }
 
     #[getter]
@@ -272,6 +724,15 @@ impl PyPricingResult {
     }
 
     #[getter]
+    fn vega(&self) -> Option<PyRiskEstimate> {
+        self.inner
+            .pricing_result
+            .risks
+            .vega
+            .map(|inner| PyRiskEstimate { inner })
+    }
+
+    #[getter]
     fn vega_raw(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.vega, false)
     }
@@ -279,6 +740,16 @@ impl PyPricingResult {
     #[getter]
     fn vega_market_scaled(&self) -> Option<f64> {
         risk_value(self.inner.pricing_result.risks.vega, true)
+    }
+
+    #[getter]
+    fn vega_kt(&self) -> Option<PyVegaKtResult> {
+        self.inner
+            .pricing_result
+            .risks
+            .vega_kt
+            .clone()
+            .map(|inner| PyVegaKtResult { inner })
     }
 
     #[getter]
@@ -313,8 +784,36 @@ impl PyPricingResult {
         PyDiagnostics::from_price(&self.inner).warnings()
     }
 
+    /// Schema version stamped into the replay metadata.
+    #[getter]
+    fn replay_schema_version(&self) -> u32 {
+        self.inner.pricing_result.replay.schema_version().get()
+    }
+
+    /// Fingerprint of the normalized request that produced the result.
+    #[getter]
+    fn replay_request_fingerprint(&self) -> String {
+        format_fingerprint(self.inner.pricing_result.replay.request_fingerprint())
+    }
+
+    /// Library version that produced the result.
+    #[getter]
+    fn replay_library_version(&self) -> &str {
+        self.inner.pricing_result.replay.library_version()
+    }
+
+    /// Platform string that produced the result.
+    #[getter]
+    fn replay_platform(&self) -> &str {
+        self.inner.pricing_result.replay.platform()
+    }
+
     fn to_json(&self) -> PyResult<String> {
         result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
+    }
+
+    fn to_pretty_json(&self) -> PyResult<String> {
+        result_to_pretty_json(&self.inner.pricing_result).map_err(pricing_exception)
     }
 
     fn __repr__(&self) -> String {
@@ -331,6 +830,91 @@ fn risk_value(risk: Option<RiskEstimate>, market_scaled: bool) -> Option<f64> {
         };
         estimate.value().get()
     })
+}
+
+fn format_fingerprint(bytes: &[u8; 32]) -> String {
+    format!(
+        "blake3-256:{}",
+        bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    )
+}
+
+fn risk_unit_name(value: RiskUnit) -> &'static str {
+    match value {
+        RiskUnit::DeltaRaw => "delta_raw",
+        RiskUnit::DeltaOnePercentSpot => "delta_one_percent_spot",
+        RiskUnit::GammaRaw => "gamma_raw",
+        RiskUnit::GammaOnePercentSpotSquared => "gamma_one_percent_spot_squared",
+        RiskUnit::VegaRaw => "vega_raw",
+        RiskUnit::VegaOneVolPoint => "vega_one_vol_point",
+    }
+}
+
+fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> MonteCarloPrice {
+    let effective_units = pricing_result.value.effective_sampling_units().get();
+    let estimator_variance = pricing_result.value.standard_error().get().powi(2);
+    let estimator = pricing_result.value.estimator();
+    MonteCarloPrice {
+        sampling_variance: estimator_variance * effective_units as f64,
+        estimator_variance,
+        risk_diagnostics: RiskDiagnostics {
+            methods: RiskMethodMetadata {
+                delta: None,
+                gamma: None,
+                vega: None,
+                smile_dynamics: pricing::risk::SmileDynamics::StickyLogMoneyness,
+                gamma_spot_bump: None,
+                validation_spot_bump: None,
+                validation_volatility_bump: None,
+                bump_policy_version: 0,
+            },
+            delta_validation: None,
+            gamma_validation: None,
+            vega_validation: None,
+        },
+        pricing_result,
+        independent_sampling_units: effective_units,
+        evaluated_paths: u128::from(effective_units),
+        diagnostics: MonteCarloDiagnostics {
+            master_seed: 0,
+            estimator,
+            scramble_count: None,
+            direction_checksum: None,
+            scramble_checksum: None,
+            policy_version: 0,
+            worker_threads: 1,
+            reduction_block_size: 1,
+            aad_tile_policy_version: 0,
+            aad_tile_capacity: 1,
+            checkpoint_policy_version: 0,
+            checkpoint_interval: 1,
+            antithetic: false,
+            discount_region: CurveRegion::Pillar,
+            dividend_region: CurveRegion::Pillar,
+            payoff_fingerprint: pricing::product::GraphFingerprint::from_bytes([0; 32]),
+        },
+    }
+}
+
+fn vega_kt_covariance_layout_name(value: VegaKtResultCovarianceLayout) -> &'static str {
+    match value {
+        VegaKtResultCovarianceLayout::PriceAndBucketVarianceOnly => {
+            "price_and_bucket_variance_only"
+        }
+        VegaKtResultCovarianceLayout::FullBucketMatrixRowMajor => "full_bucket_matrix_row_major",
+    }
+}
+
+fn vega_kt_unit_name(value: VegaKtResultUnit) -> &'static str {
+    match value {
+        VegaKtResultUnit::CurrencyPerUnitAbsoluteVolatility => {
+            "currency_per_unit_absolute_volatility"
+        }
+        VegaKtResultUnit::CurrencyPerVolatilityPoint => "currency_per_volatility_point",
+    }
 }
 
 pub(crate) fn validation_exception(py: Python<'_>, issue: PyValidationIssue) -> PyErr {
@@ -357,6 +941,18 @@ fn version() -> &'static str {
     facade_version()
 }
 
+#[pyfunction]
+/// Return the bundled Draft 2020-12 pricing-request JSON Schema.
+fn request_json_schema() -> &'static str {
+    current_request_schema()
+}
+
+#[pyfunction]
+/// Return the bundled Draft 2020-12 pricing-result JSON Schema.
+fn result_json_schema() -> &'static str {
+    current_result_schema()
+}
+
 #[pymodule]
 fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("__version__", facade_version())?;
@@ -364,8 +960,13 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("PricingError", module.py().get_type::<PricingError>())?;
     module.add_class::<PyValidationIssue>()?;
     module.add_class::<PyPricingWarning>()?;
+    module.add_class::<PyDiagnosticEstimate>()?;
+    module.add_class::<PyRiskValidation>()?;
     module.add_class::<PyDiagnostics>()?;
     module.add_class::<PyDiscountCurve>()?;
+    module.add_class::<PyDividendEvent>()?;
+    module.add_class::<PyAsianObservation>()?;
+    module.add_class::<PyEssviSlice>()?;
     module.add_class::<PyProduct>()?;
     module.add_class::<PyMarket>()?;
     module.add_class::<PyModel>()?;
@@ -373,8 +974,17 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<PyRiskEstimate>()?;
     module.add_class::<PyPricingResult>()?;
+    module.add_class::<PyVegaKtCoordinate>()?;
+    module.add_class::<PyVegaKtBucketEstimate>()?;
+    module.add_class::<PyVegaKtReportingStats>()?;
+    module.add_class::<PyVegaKtProjection>()?;
+    module.add_class::<PyVegaKtResidualDiagnostics>()?;
+    module.add_class::<PyVegaKtResult>()?;
     module.add_function(wrap_pyfunction!(version, module)?)?;
+    module.add_function(wrap_pyfunction!(request_json_schema, module)?)?;
+    module.add_function(wrap_pyfunction!(result_json_schema, module)?)?;
     Ok(())
 }
 
@@ -388,9 +998,103 @@ mod tests {
     }
 
     #[test]
+    fn python_schema_helpers_return_bundled_schemas() {
+        assert_eq!(crate::request_json_schema(), current_request_schema());
+        assert_eq!(crate::result_json_schema(), current_result_schema());
+    }
+
+    #[test]
     fn wire_errors_have_stable_issue_codes() {
-        let issue = PyValidationIssue::wire(&WireError::UnsupportedSchemaVersion(99));
-        assert_eq!(issue.phase, "declared_schema");
-        assert_eq!(issue.code, "unsupported_schema_version");
+        let cases = [
+            (
+                WireError::Json("expected value".to_owned()),
+                "syntax_and_limits",
+                "invalid_json",
+                "",
+                1,
+            ),
+            (
+                WireError::Utf8Bom,
+                "syntax_and_limits",
+                "invalid_json",
+                "",
+                1,
+            ),
+            (
+                WireError::ResourceLimit {
+                    name: "input_bytes",
+                    observed: 2,
+                    limit: 1,
+                },
+                "syntax_and_limits",
+                "resource_limit",
+                "",
+                1,
+            ),
+            (
+                WireError::LimitOverrideExceedsHardCap,
+                "syntax_and_limits",
+                "resource_limit",
+                "",
+                1,
+            ),
+            (
+                WireError::UnsupportedSchemaVersion(99),
+                "declared_schema",
+                "unsupported_schema_version",
+                "",
+                99,
+            ),
+            (
+                WireError::WrongDocumentKind {
+                    expected: "pricing_request",
+                    actual: "pricing_result".to_owned(),
+                },
+                "declared_schema",
+                "wrong_document_kind",
+                "",
+                1,
+            ),
+            (
+                WireError::InvalidFingerprint("not-a-fingerprint".to_owned()),
+                "declared_schema",
+                "invalid_fingerprint",
+                "",
+                1,
+            ),
+            (
+                WireError::Domain("invalid domain".to_owned()),
+                "domain",
+                "invalid_domain_value",
+                "",
+                1,
+            ),
+            (
+                WireError::DomainAt {
+                    pointer: "/market/spot".to_owned(),
+                    message: "spot must be positive".to_owned(),
+                },
+                "domain",
+                "invalid_domain_value",
+                "/market/spot",
+                1,
+            ),
+        ];
+
+        for (error, phase, code, pointer, schema_version) in cases {
+            let request_issue = PyValidationIssue::request_wire(&error);
+            assert_eq!(request_issue.phase, phase);
+            assert_eq!(request_issue.code, code);
+            assert_eq!(request_issue.pointer, pointer);
+            assert_eq!(request_issue.schema_version, schema_version);
+            assert_eq!(request_issue.document_kind, "pricing_request");
+
+            let result_issue = PyValidationIssue::result_wire(&error);
+            assert_eq!(result_issue.phase, phase);
+            assert_eq!(result_issue.code, code);
+            assert_eq!(result_issue.pointer, pointer);
+            assert_eq!(result_issue.schema_version, schema_version);
+            assert_eq!(result_issue.document_kind, "pricing_result");
+        }
     }
 }

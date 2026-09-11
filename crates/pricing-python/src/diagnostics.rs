@@ -1,5 +1,5 @@
 use pricing::market::CurveRegion;
-use pricing::{EstimatorKind, MonteCarloPrice, RiskMethod};
+use pricing::{Estimate, EstimatorKind, MonteCarloPrice, RiskMethod, RiskValidation};
 use pyo3::prelude::*;
 
 /// A deterministic warning emitted by a completed valuation.
@@ -32,6 +32,93 @@ impl PyPricingWarning {
     }
 }
 
+/// One statistical estimate used by risk validation diagnostics.
+#[pyclass(frozen, name = "DiagnosticEstimate", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyDiagnosticEstimate {
+    estimate: Estimate,
+}
+
+impl PyDiagnosticEstimate {
+    pub(crate) fn from_estimate(estimate: Estimate) -> Self {
+        Self { estimate }
+    }
+}
+
+#[pymethods]
+impl PyDiagnosticEstimate {
+    /// Mean estimate value.
+    #[getter]
+    fn value(&self) -> f64 {
+        self.estimate.value().get()
+    }
+
+    /// Standard error of the estimate.
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.estimate.standard_error().get()
+    }
+
+    /// Two-sided confidence interval as `(lower, upper)`.
+    #[getter]
+    fn confidence_interval(&self) -> (f64, f64) {
+        let interval = self.estimate.confidence_interval();
+        (interval.lower().get(), interval.upper().get())
+    }
+
+    /// Estimator kind used for this estimate.
+    #[getter]
+    fn estimator(&self) -> &str {
+        estimator_name(self.estimate.estimator())
+    }
+
+    /// Number of statistically independent sampling units.
+    #[getter]
+    fn effective_sampling_units(&self) -> u64 {
+        self.estimate.effective_sampling_units().get()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DiagnosticEstimate(value={:?})", self.value())
+    }
+}
+
+/// CRN bump validation diagnostics for one requested risk.
+#[pyclass(frozen, name = "RiskValidation", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyRiskValidation {
+    validation: RiskValidation,
+}
+
+impl PyRiskValidation {
+    fn from_validation(validation: RiskValidation) -> Self {
+        Self { validation }
+    }
+}
+
+#[pymethods]
+impl PyRiskValidation {
+    /// Independent bump-and-revalue estimate.
+    #[getter]
+    fn bump_and_revalue(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.validation.bump_and_revalue)
+    }
+
+    /// CRN bump estimate minus the primary AAD or bumped-AAD estimate.
+    #[getter]
+    fn bump_minus_primary(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.validation.bump_minus_primary)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RiskValidation(bump_and_revalue={:?}, bump_minus_primary={:?})",
+            self.bump_and_revalue().value(),
+            self.bump_minus_primary().value()
+        )
+    }
+}
+
 /// Immutable replay and numerical diagnostics for a Monte Carlo result.
 #[pyclass(frozen, name = "Diagnostics", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -39,6 +126,8 @@ pub struct PyDiagnostics {
     master_seed: u64,
     estimator: &'static str,
     scramble_count: Option<u32>,
+    direction_checksum: Option<String>,
+    scramble_checksum: Option<String>,
     policy_version: u32,
     worker_threads: u32,
     reduction_block_size: u64,
@@ -53,6 +142,13 @@ pub struct PyDiagnostics {
     delta_method: Option<&'static str>,
     gamma_method: Option<&'static str>,
     vega_method: Option<&'static str>,
+    gamma_spot_bump: Option<f64>,
+    validation_spot_bump: Option<f64>,
+    validation_volatility_bump: Option<f64>,
+    bump_policy_version: u32,
+    delta_validation: Option<PyRiskValidation>,
+    gamma_validation: Option<PyRiskValidation>,
+    vega_validation: Option<PyRiskValidation>,
     warnings: Vec<PyPricingWarning>,
 }
 
@@ -64,6 +160,8 @@ impl PyDiagnostics {
             master_seed: diagnostics.master_seed,
             estimator: estimator_name(diagnostics.estimator),
             scramble_count: diagnostics.scramble_count,
+            direction_checksum: diagnostics.direction_checksum.map(hex_32),
+            scramble_checksum: diagnostics.scramble_checksum.map(hex_32),
             policy_version: diagnostics.policy_version,
             worker_threads: diagnostics.worker_threads,
             reduction_block_size: diagnostics.reduction_block_size,
@@ -78,6 +176,22 @@ impl PyDiagnostics {
             delta_method: methods.delta.map(risk_method_name),
             gamma_method: methods.gamma.map(risk_method_name),
             vega_method: methods.vega.map(risk_method_name),
+            gamma_spot_bump: methods.gamma_spot_bump,
+            validation_spot_bump: methods.validation_spot_bump,
+            validation_volatility_bump: methods.validation_volatility_bump,
+            bump_policy_version: methods.bump_policy_version,
+            delta_validation: price
+                .risk_diagnostics
+                .delta_validation
+                .map(PyRiskValidation::from_validation),
+            gamma_validation: price
+                .risk_diagnostics
+                .gamma_validation
+                .map(PyRiskValidation::from_validation),
+            vega_validation: price
+                .risk_diagnostics
+                .vega_validation
+                .map(PyRiskValidation::from_validation),
             warnings: price
                 .pricing_result
                 .diagnostics
@@ -107,6 +221,16 @@ impl PyDiagnostics {
     #[getter]
     fn scramble_count(&self) -> Option<u32> {
         self.scramble_count
+    }
+
+    #[getter]
+    fn direction_checksum(&self) -> Option<&str> {
+        self.direction_checksum.as_deref()
+    }
+
+    #[getter]
+    fn scramble_checksum(&self) -> Option<&str> {
+        self.scramble_checksum.as_deref()
     }
 
     #[getter]
@@ -179,6 +303,41 @@ impl PyDiagnostics {
         self.vega_method
     }
 
+    #[getter]
+    fn gamma_spot_bump(&self) -> Option<f64> {
+        self.gamma_spot_bump
+    }
+
+    #[getter]
+    fn validation_spot_bump(&self) -> Option<f64> {
+        self.validation_spot_bump
+    }
+
+    #[getter]
+    fn validation_volatility_bump(&self) -> Option<f64> {
+        self.validation_volatility_bump
+    }
+
+    #[getter]
+    fn bump_policy_version(&self) -> u32 {
+        self.bump_policy_version
+    }
+
+    #[getter]
+    fn delta_validation(&self) -> Option<PyRiskValidation> {
+        self.delta_validation
+    }
+
+    #[getter]
+    fn gamma_validation(&self) -> Option<PyRiskValidation> {
+        self.gamma_validation
+    }
+
+    #[getter]
+    fn vega_validation(&self) -> Option<PyRiskValidation> {
+        self.vega_validation
+    }
+
     /// Warnings in deterministic emission order.
     #[getter]
     pub(crate) fn warnings(&self) -> Vec<PyPricingWarning> {
@@ -214,6 +373,14 @@ const fn curve_region_name(region: CurveRegion) -> &'static str {
 const fn risk_method_name(method: RiskMethod) -> &'static str {
     match method {
         RiskMethod::AadReverse => "aad_reverse",
+        RiskMethod::CentralBump => "central_bump",
         RiskMethod::CentralBumpOfAadDelta => "central_bump_of_aad_delta",
     }
+}
+
+fn hex_32(bytes: [u8; 32]) -> String {
+    bytes
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>()
 }

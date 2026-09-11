@@ -581,8 +581,8 @@ impl ReportingIvBasis {
         validate_reporting_maturity_nodes(&maturity_nodes)?;
         validate_reporting_log_moneyness_nodes(&log_moneyness_nodes)?;
 
-        let mut implied_volatilities =
-            Vec::with_capacity(maturity_nodes.len() * log_moneyness_nodes.len());
+        let capacity = reporting_iv_value_count(maturity_nodes.len(), log_moneyness_nodes.len())?;
+        let mut implied_volatilities = Vec::with_capacity(capacity);
         for maturity in maturity_nodes.iter().copied() {
             let maturity = PositiveF64::new(maturity, "vega_kt_reporting_surface_maturity")?.get();
             for log_moneyness in log_moneyness_nodes.iter().copied() {
@@ -607,7 +607,7 @@ impl ReportingIvBasis {
     ) -> Result<Self, RiskConfigError> {
         validate_reporting_maturity_nodes(&maturity_nodes)?;
         validate_reporting_log_moneyness_nodes(&log_moneyness_nodes)?;
-        let expected = maturity_nodes.len() * log_moneyness_nodes.len();
+        let expected = reporting_iv_value_count(maturity_nodes.len(), log_moneyness_nodes.len())?;
         if implied_volatilities.len() != expected {
             return Err(RiskConfigError::ReportingIvValueLengthMismatch {
                 expected,
@@ -773,6 +773,34 @@ impl VegaKtProjection {
     }
 }
 
+pub fn vega_kt_projection_from_parts(
+    raw_buckets: Vec<f64>,
+    signed_residual: f64,
+    pre_projection: f64,
+    reporting_stats: ReportingIvProjectionStats,
+) -> Result<VegaKtProjection, RiskConfigError> {
+    for bucket in &raw_buckets {
+        validate_finite(*bucket, "vega_kt_raw_bucket")?;
+    }
+    validate_finite(signed_residual, "vega_kt_signed_residual")?;
+    validate_finite(pre_projection, "vega_kt_pre_projection")?;
+    let scalar_vega = raw_buckets.iter().copied().collect::<NeumaierSum>().total();
+    let projection = VegaKtProjection {
+        raw_buckets: raw_buckets.into_boxed_slice(),
+        scalar_vega,
+        signed_residual,
+        pre_projection,
+        reporting_stats,
+    };
+    if !projection.reconciles() {
+        return Err(RiskConfigError::VegaKtProjectionReconciliationFailure {
+            reconstructed_bits: projection.reconstructed_pre_projection().to_bits(),
+            pre_projection_bits: projection.pre_projection().to_bits(),
+        });
+    }
+    Ok(projection)
+}
+
 pub fn vega_kt_bucket_estimates(
     price_samples: &[f64],
     raw_bucket_samples: &[f64],
@@ -781,10 +809,12 @@ pub fn vega_kt_bucket_estimates(
     if price_samples.is_empty() || bucket_count == 0 {
         return Err(RiskConfigError::EmptyVegaKtBucketSamples);
     }
-    let expected = price_samples
-        .len()
-        .checked_mul(bucket_count)
-        .expect("sample count product fits usize");
+    let Some(expected) = price_samples.len().checked_mul(bucket_count) else {
+        return Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
+            expected_multiple: bucket_count,
+            actual: raw_bucket_samples.len(),
+        });
+    };
     if raw_bucket_samples.len() != expected {
         return Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
             expected_multiple: bucket_count,
@@ -836,8 +866,9 @@ pub fn vega_kt_full_bucket_covariance(
         validate_finite(*sample, "vega_kt_raw_bucket_sample")?;
     }
 
+    let expected = full_bucket_covariance_len(bucket_count)?;
     let sample_count = raw_bucket_samples.len() / bucket_count;
-    let mut covariance = Vec::with_capacity(bucket_count * bucket_count);
+    let mut covariance = Vec::with_capacity(expected);
     for left_bucket in 0..bucket_count {
         for right_bucket in 0..bucket_count {
             let mut accumulator = CenteredCovariance::new();
@@ -882,9 +913,7 @@ pub fn vega_kt_report(
     }
     let full_bucket_covariance = match full_bucket_covariance {
         Some(covariance) => {
-            let expected = bucket_count
-                .checked_mul(bucket_count)
-                .expect("bucket matrix size fits usize");
+            let expected = full_bucket_covariance_len(bucket_count)?;
             if covariance.len() != expected {
                 return Err(RiskConfigError::VegaKtFullCovarianceLengthMismatch {
                     expected,
@@ -1393,6 +1422,27 @@ fn validate_reporting_log_moneyness_nodes(nodes: &[f64]) -> Result<(), RiskConfi
         }
     }
     Ok(())
+}
+
+fn reporting_iv_value_count(
+    maturity_count: usize,
+    log_moneyness_count: usize,
+) -> Result<usize, RiskConfigError> {
+    maturity_count.checked_mul(log_moneyness_count).ok_or(
+        RiskConfigError::ReportingIvValueLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
+}
+
+fn full_bucket_covariance_len(bucket_count: usize) -> Result<usize, RiskConfigError> {
+    bucket_count.checked_mul(bucket_count).ok_or(
+        RiskConfigError::VegaKtFullCovarianceLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
 }
 
 fn excluded_density_probability_mass(
@@ -1968,6 +2018,13 @@ mod tests {
                 actual: 1
             })
         ));
+        assert!(matches!(
+            reporting_iv_value_count(usize::MAX, 2),
+            Err(RiskConfigError::ReportingIvValueLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
+            })
+        ));
         let basis =
             ReportingIvBasis::new(vec![1.0, 2.0], vec![-0.1, 0.1], vec![0.2, 0.3, 0.4, 0.5])
                 .expect("basis");
@@ -2330,6 +2387,13 @@ mod tests {
                 actual: 3
             })
         ));
+        assert!(matches!(
+            vega_kt_bucket_estimates(&[1.0, 2.0], &[], usize::MAX),
+            Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
+                expected_multiple: usize::MAX,
+                actual: 0
+            })
+        ));
     }
 
     #[test]
@@ -2355,6 +2419,13 @@ mod tests {
             Err(RiskConfigError::VegaKtBucketSampleLengthMismatch {
                 expected_multiple: 2,
                 actual: 3
+            })
+        ));
+        assert!(matches!(
+            full_bucket_covariance_len(usize::MAX),
+            Err(RiskConfigError::VegaKtFullCovarianceLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
             })
         ));
     }
