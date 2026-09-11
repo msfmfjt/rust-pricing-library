@@ -69,6 +69,8 @@ pub struct SimulationPlan {
     request_gamma: Option<GammaConfig>,
     request_vega: bool,
     payoff_smoothing: Option<PayoffSmoothing>,
+    payoff_smoothing_endpoint_count: u32,
+    payoff_smoothing_dividend_jump_count: u32,
     smile_dynamics: SmileDynamics,
     validation_spot_bump: f64,
     validation_volatility_bump: f64,
@@ -394,6 +396,9 @@ impl SimulationPlan {
             (ProductSpec::Digital(digital), Some(PayoffSmoothing::CompactC2 { half_width })) => {
                 digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
             }
+            (ProductSpec::Barrier(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) => {
+                barrier.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
+            }
             _ => product.source_graph(request.valuation_date())?,
         };
         let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
@@ -535,6 +540,14 @@ impl SimulationPlan {
             request_gamma: request.risk().gamma(),
             request_vega: request.risk().vega(),
             payoff_smoothing: request.risk().payoff_smoothing(),
+            payoff_smoothing_endpoint_count: match product {
+                ProductSpec::Digital(_) => 1,
+                ProductSpec::Barrier(barrier) => {
+                    u32::try_from(barrier.monitoring_dates().len()).unwrap_or(u32::MAX)
+                }
+                _ => 0,
+            },
+            payoff_smoothing_dividend_jump_count: 0,
             smile_dynamics: request.risk().smile_dynamics(),
             validation_spot_bump,
             validation_volatility_bump,
@@ -580,6 +593,15 @@ impl SimulationPlan {
     #[must_use]
     pub const fn payoff_fingerprint(&self) -> GraphFingerprint {
         self.payoff.tape_fingerprint()
+    }
+
+    fn payoff_smoothing_diagnostics(&self) -> Option<PayoffSmoothingDiagnostics> {
+        self.payoff_smoothing.map(|smoothing| {
+            let mut diagnostics = PayoffSmoothingDiagnostics::from(smoothing);
+            diagnostics.endpoint_count = self.payoff_smoothing_endpoint_count;
+            diagnostics.dividend_jump_count = self.payoff_smoothing_dividend_jump_count;
+            diagnostics
+        })
     }
 
     #[must_use]
@@ -684,7 +706,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -859,7 +881,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -999,7 +1021,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -1112,7 +1134,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -1271,7 +1293,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -1647,7 +1669,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -1826,7 +1848,7 @@ impl SimulationPlan {
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
-                payoff_smoothing: self.payoff_smoothing.map(Into::into),
+                payoff_smoothing: self.payoff_smoothing_diagnostics(),
             },
         })
     }
@@ -2395,6 +2417,8 @@ pub struct PayoffSmoothingDiagnostics {
     pub kernel: PayoffSmoothingKernel,
     pub policy_version: u32,
     pub half_width: PositiveF64,
+    pub endpoint_count: u32,
+    pub dividend_jump_count: u32,
 }
 
 impl From<PayoffSmoothing> for PayoffSmoothingDiagnostics {
@@ -2404,6 +2428,8 @@ impl From<PayoffSmoothing> for PayoffSmoothingDiagnostics {
                 kernel: PayoffSmoothingKernel::CompactC2,
                 policy_version: PayoffSmoothing::POLICY_VERSION,
                 half_width,
+                endpoint_count: 0,
+                dividend_jump_count: 0,
             },
         }
     }
@@ -3598,6 +3624,8 @@ mod tests {
         assert_eq!(diagnostics.kernel, PayoffSmoothingKernel::CompactC2);
         assert_eq!(diagnostics.policy_version, PayoffSmoothing::POLICY_VERSION);
         assert_eq!(diagnostics.half_width.get(), 2.0);
+        assert_eq!(diagnostics.endpoint_count, 1);
+        assert_eq!(diagnostics.dividend_jump_count, 0);
     }
 
     #[test]
@@ -3654,6 +3682,46 @@ mod tests {
             knocked_result.sampling_variance.to_bits(),
             0.0_f64.to_bits()
         );
+    }
+
+    #[test]
+    fn smoothed_discrete_barrier_reports_all_risks_and_endpoint_diagnostics() {
+        let base = barrier_zero_vol_request(120.0);
+        let risk = RiskRequest::new(
+            true,
+            Some(GammaConfig::new(
+                SpotBump::relative(0.01).expect("gamma bump"),
+            )),
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(2.0).expect("smoothing"));
+        let request = PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).expect("model")),
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 4096, VarianceReduction::new(true, false)).expect("engine"),
+            ),
+            risk,
+        )
+        .expect("request");
+
+        let result = price_pseudo_monte_carlo(&request, policy(2)).expect("price");
+        assert!(result.pricing_result.risks.delta.is_some());
+        assert!(result.pricing_result.risks.gamma.is_some());
+        assert!(result.pricing_result.risks.vega.is_some());
+        assert!(result.risk_diagnostics.delta_validation.is_some());
+        assert!(result.risk_diagnostics.gamma_validation.is_some());
+        assert!(result.risk_diagnostics.vega_validation.is_some());
+        let diagnostics = result.diagnostics.payoff_smoothing.expect("smoothing");
+        assert_eq!(diagnostics.endpoint_count, 2);
+        assert_eq!(diagnostics.dividend_jump_count, 0);
     }
 
     #[test]

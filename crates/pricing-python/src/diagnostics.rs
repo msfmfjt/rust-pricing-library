@@ -144,6 +144,8 @@ pub struct PyDiagnostics {
     payoff_smoothing_kernel: Option<&'static str>,
     payoff_smoothing_policy_version: Option<u32>,
     payoff_smoothing_half_width: Option<f64>,
+    payoff_smoothing_endpoint_count: Option<u32>,
+    payoff_smoothing_dividend_jump_count: Option<u32>,
     delta_method: Option<&'static str>,
     gamma_method: Option<&'static str>,
     vega_method: Option<&'static str>,
@@ -187,6 +189,12 @@ impl PyDiagnostics {
             payoff_smoothing_half_width: diagnostics
                 .payoff_smoothing
                 .map(|smoothing| smoothing.half_width.get()),
+            payoff_smoothing_endpoint_count: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| smoothing.endpoint_count),
+            payoff_smoothing_dividend_jump_count: diagnostics
+                .payoff_smoothing
+                .map(|smoothing| smoothing.dividend_jump_count),
             delta_method: methods.delta.map(risk_method_name),
             gamma_method: methods.gamma.map(risk_method_name),
             vega_method: methods.vega.map(risk_method_name),
@@ -315,6 +323,16 @@ impl PyDiagnostics {
     #[getter]
     fn payoff_smoothing_half_width(&self) -> Option<f64> {
         self.payoff_smoothing_half_width
+    }
+
+    #[getter]
+    fn payoff_smoothing_endpoint_count(&self) -> Option<u32> {
+        self.payoff_smoothing_endpoint_count
+    }
+
+    #[getter]
+    fn payoff_smoothing_dividend_jump_count(&self) -> Option<u32> {
+        self.payoff_smoothing_dividend_jump_count
     }
 
     #[getter]

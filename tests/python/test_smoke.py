@@ -337,6 +337,8 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         )
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_policy_version, 1)
         self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_half_width, 2.0)
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_endpoint_count, 1)
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_dividend_jump_count, 0)
 
     def test_native_barrier_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
@@ -390,6 +392,28 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.code, "invalid_pricing_request")
         self.assertEqual(issue.phase, "domain")
         self.assertIn("smooth product payoff", issue.message)
+
+        smoothed_request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 4096, antithetic=True),
+            rust_pricing.RiskRequest(
+                delta=True,
+                gamma_relative_bump=0.01,
+                vega=True,
+                payoff_smoothing_half_width=2.0,
+            ),
+        )
+        smoothed_result = rust_pricing.PricingPlan.compile(
+            smoothed_request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        self.assertIsNotNone(smoothed_result.delta)
+        self.assertIsNotNone(smoothed_result.gamma)
+        self.assertIsNotNone(smoothed_result.vega)
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_endpoint_count, 2)
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_dividend_jump_count, 0)
 
         with self.assertRaises(rust_pricing.ValidationError):
             rust_pricing.PricingRequest(

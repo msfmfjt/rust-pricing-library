@@ -116,14 +116,17 @@ impl PricingRequest {
         {
             return Err(RequestValidationError::VegaKtUnsupportedForConstantVolatility);
         }
-        if risk.payoff_smoothing().is_some() && !matches!(product, ProductSpec::Digital(_)) {
+        if risk.payoff_smoothing().is_some()
+            && !matches!(product, ProductSpec::Digital(_) | ProductSpec::Barrier(_))
+        {
             return Err(RequestValidationError::PayoffSmoothingUnsupportedForProduct);
         }
         let requests_risk =
             risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some();
-        let smoothed_digital =
-            matches!(product, ProductSpec::Digital(_)) && risk.payoff_smoothing().is_some();
-        if !product.supports_pathwise_risk() && requests_risk && !smoothed_digital {
+        let smoothed_discontinuity =
+            matches!(product, ProductSpec::Digital(_) | ProductSpec::Barrier(_))
+                && risk.payoff_smoothing().is_some();
+        if !product.supports_pathwise_risk() && requests_risk && !smoothed_discontinuity {
             return Err(RequestValidationError::RiskUnsupportedForDiscontinuousProduct);
         }
         Ok(Self {
@@ -329,7 +332,7 @@ mod tests {
             )
             .is_ok()
         );
-        assert!(matches!(
+        assert!(
             PricingRequest::new(
                 "2026-09-04".parse().expect("valuation date"),
                 barrier,
@@ -337,9 +340,9 @@ mod tests {
                 model,
                 engine,
                 smoothed_risk,
-            ),
-            Err(RequestValidationError::PayoffSmoothingUnsupportedForProduct)
-        ));
+            )
+            .is_ok()
+        );
     }
 
     #[test]
