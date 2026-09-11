@@ -1,10 +1,12 @@
 use pricing::market::CurveRegion;
 use pricing::{
-    BarrierHitIndicatorMode, Estimate, EstimatorKind, MonteCarloPrice, PathStateDiagnostics,
-    PayoffSmoothingKernel, PayoffSmoothingWidthUnit, PayoffValuationKind, RiskMethod,
-    RiskValidation,
+    BarrierHitIndicatorMode, Estimate, EstimatorKind, ExerciseStrategyRisk, MonteCarloPrice,
+    PathStateDiagnostics, PayoffSmoothingKernel, PayoffSmoothingWidthUnit, PayoffValuationKind,
+    RiskMethod, RiskValidation, StoppingIndexRisk,
 };
 use pyo3::prelude::*;
+
+use crate::format_fingerprint;
 
 /// A deterministic warning emitted by a completed valuation.
 #[pyclass(frozen, name = "PricingWarning", skip_from_py_object)]
@@ -179,6 +181,9 @@ pub struct PyDiagnostics {
     validation_spot_bump: Option<f64>,
     validation_volatility_bump: Option<f64>,
     bump_policy_version: u32,
+    exercise_strategy_risk: Option<&'static str>,
+    stopping_index_risk: Option<&'static str>,
+    exercise_policy_fingerprint: Option<String>,
     delta_validation: Option<PyRiskValidation>,
     gamma_validation: Option<PyRiskValidation>,
     vega_validation: Option<PyRiskValidation>,
@@ -283,6 +288,11 @@ impl PyDiagnostics {
             validation_spot_bump: methods.validation_spot_bump,
             validation_volatility_bump: methods.validation_volatility_bump,
             bump_policy_version: methods.bump_policy_version,
+            exercise_strategy_risk: methods.exercise_strategy.map(exercise_strategy_risk_name),
+            stopping_index_risk: methods.stopping_indices.map(stopping_index_risk_name),
+            exercise_policy_fingerprint: methods
+                .exercise_policy_fingerprint
+                .map(|fingerprint| format_fingerprint(fingerprint.as_bytes())),
             delta_validation: price
                 .risk_diagnostics
                 .delta_validation
@@ -572,6 +582,21 @@ impl PyDiagnostics {
     }
 
     #[getter]
+    fn exercise_strategy_risk(&self) -> Option<&str> {
+        self.exercise_strategy_risk
+    }
+
+    #[getter]
+    fn stopping_index_risk(&self) -> Option<&str> {
+        self.stopping_index_risk
+    }
+
+    #[getter]
+    fn exercise_policy_fingerprint(&self) -> Option<&str> {
+        self.exercise_policy_fingerprint.as_deref()
+    }
+
+    #[getter]
     fn delta_validation(&self) -> Option<PyRiskValidation> {
         self.delta_validation
     }
@@ -623,6 +648,18 @@ const fn risk_method_name(method: RiskMethod) -> &'static str {
         RiskMethod::AadReverse => "aad_reverse",
         RiskMethod::CentralBump => "central_bump",
         RiskMethod::CentralBumpOfAadDelta => "central_bump_of_aad_delta",
+    }
+}
+
+const fn exercise_strategy_risk_name(risk: ExerciseStrategyRisk) -> &'static str {
+    match risk {
+        ExerciseStrategyRisk::FixedExerciseStrategy => "fixed_exercise_strategy",
+    }
+}
+
+const fn stopping_index_risk_name(risk: StoppingIndexRisk) -> &'static str {
+    match risk {
+        StoppingIndexRisk::FrozenStoppingIndices => "frozen_stopping_indices",
     }
 }
 

@@ -15,10 +15,10 @@ pub mod analytical;
 pub use error::{MonteCarloError, RequestValidationError, ResultBuildError};
 pub use monte_carlo::{
     BarrierBridgeDiagnostics, BarrierHitIndicatorMode, BumpValidationPolicy,
-    EarlyExerciseDiagnostics, MonteCarloDiagnostics, MonteCarloPrice, PathStateDiagnostics,
-    PayoffSmoothingDiagnostics, PayoffSmoothingKernel, PayoffSmoothingWidthUnit,
-    PayoffValuationKind, RiskDiagnostics, RiskMethod, RiskMethodMetadata, RiskValidation,
-    SimulationPlan, price_monte_carlo, price_pseudo_monte_carlo,
+    EarlyExerciseDiagnostics, ExerciseStrategyRisk, MonteCarloDiagnostics, MonteCarloPrice,
+    PathStateDiagnostics, PayoffSmoothingDiagnostics, PayoffSmoothingKernel,
+    PayoffSmoothingWidthUnit, PayoffValuationKind, RiskDiagnostics, RiskMethod, RiskMethodMetadata,
+    RiskValidation, SimulationPlan, StoppingIndexRisk, price_monte_carlo, price_pseudo_monte_carlo,
 };
 pub use plan::{
     PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,

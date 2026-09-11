@@ -1348,35 +1348,59 @@ impl SimulationPlan {
             .map(|count| *count as f64 / valuation.path_count as f64)
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        let (risks, risk_diagnostics) = if self.risk_enabled() {
-            let risk_statistics = if let Some(local_volatility) = &self.local_volatility {
-                self.local_vol_fixed_policy_pseudo_statistics(
-                    valuation_engine,
-                    early_exercise,
-                    valued.stopping_indices(),
-                    local_volatility,
-                )?
+        let early_risk_enabled = self.risk_enabled()
+            || self
+                .local_volatility
+                .as_ref()
+                .is_some_and(|local_volatility| local_volatility.vega_kt.is_some());
+        let (risks, risk_diagnostics) = if early_risk_enabled {
+            let (risk_statistics, vega_kt) = if let Some(local_volatility) = &self.local_volatility
+            {
+                if local_volatility.vega_kt.is_some() {
+                    let (statistics, vega_kt) = self
+                        .local_vol_fixed_policy_pseudo_statistics_with_vega_kt(
+                            valuation_engine,
+                            early_exercise,
+                            valued.stopping_indices(),
+                            local_volatility,
+                        )?;
+                    (statistics, Some(vega_kt))
+                } else {
+                    (
+                        self.local_vol_fixed_policy_pseudo_statistics(
+                            valuation_engine,
+                            early_exercise,
+                            valued.stopping_indices(),
+                            local_volatility,
+                        )?,
+                        None,
+                    )
+                }
             } else {
-                self.constant_vol_fixed_policy_pseudo_statistics(
-                    valuation_engine,
-                    early_exercise,
-                    valued.stopping_indices(),
-                )?
+                (
+                    self.constant_vol_fixed_policy_pseudo_statistics(
+                        valuation_engine,
+                        early_exercise,
+                        valued.stopping_indices(),
+                    )?,
+                    None,
+                )
             };
             (
                 self.build_risk_report(
                     &risk_statistics,
                     independent_units,
                     EstimatorKind::PseudoMonteCarlo,
-                    None,
+                    vega_kt,
                 )?,
                 if self.local_volatility.is_some() {
-                    self.build_local_vol_risk_diagnostics()
+                    self.build_local_vol_fixed_policy_risk_diagnostics(valued.policy_fingerprint())
                 } else {
-                    self.build_risk_diagnostics(
+                    self.build_fixed_policy_risk_diagnostics(
                         &risk_statistics,
                         independent_units,
                         EstimatorKind::PseudoMonteCarlo,
+                        valued.policy_fingerprint(),
                     )?
                 },
             )
@@ -1517,37 +1541,62 @@ impl SimulationPlan {
             .map(|count| *count as f64 / valuation.path_count as f64)
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        let (risks, risk_diagnostics) = if self.risk_enabled() {
-            let risk_statistics = if let Some(local_volatility) = &self.local_volatility {
-                self.local_vol_fixed_policy_rqmc_statistics(
-                    valuation_engine,
-                    early_exercise,
-                    valued.stopping_indices(),
-                    local_volatility,
-                    &valuation_qmc,
-                )?
+        let early_risk_enabled = self.risk_enabled()
+            || self
+                .local_volatility
+                .as_ref()
+                .is_some_and(|local_volatility| local_volatility.vega_kt.is_some());
+        let (risks, risk_diagnostics) = if early_risk_enabled {
+            let (risk_statistics, vega_kt) = if let Some(local_volatility) = &self.local_volatility
+            {
+                if local_volatility.vega_kt.is_some() {
+                    let (statistics, vega_kt) = self
+                        .local_vol_fixed_policy_rqmc_statistics_with_vega_kt(
+                            valuation_engine,
+                            early_exercise,
+                            valued.stopping_indices(),
+                            local_volatility,
+                            &valuation_qmc,
+                        )?;
+                    (statistics, Some(vega_kt))
+                } else {
+                    (
+                        self.local_vol_fixed_policy_rqmc_statistics(
+                            valuation_engine,
+                            early_exercise,
+                            valued.stopping_indices(),
+                            local_volatility,
+                            &valuation_qmc,
+                        )?,
+                        None,
+                    )
+                }
             } else {
-                self.constant_vol_fixed_policy_rqmc_statistics(
-                    valuation_engine,
-                    early_exercise,
-                    valued.stopping_indices(),
-                    &valuation_qmc,
-                )?
+                (
+                    self.constant_vol_fixed_policy_rqmc_statistics(
+                        valuation_engine,
+                        early_exercise,
+                        valued.stopping_indices(),
+                        &valuation_qmc,
+                    )?,
+                    None,
+                )
             };
             (
                 self.build_risk_report(
                     &risk_statistics,
                     independent_units,
                     EstimatorKind::RandomizedQuasiMonteCarlo,
-                    None,
+                    vega_kt,
                 )?,
                 if self.local_volatility.is_some() {
-                    self.build_local_vol_risk_diagnostics()
+                    self.build_local_vol_fixed_policy_risk_diagnostics(valued.policy_fingerprint())
                 } else {
-                    self.build_risk_diagnostics(
+                    self.build_fixed_policy_risk_diagnostics(
                         &risk_statistics,
                         independent_units,
                         EstimatorKind::RandomizedQuasiMonteCarlo,
+                        valued.policy_fingerprint(),
                     )?
                 },
             )
@@ -4310,6 +4359,103 @@ impl SimulationPlan {
         )?)
     }
 
+    fn local_vol_fixed_policy_pseudo_statistics_with_vega_kt(
+        &self,
+        engine: PseudoMcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_indices: &[usize],
+        local_volatility: &LocalVolRuntime,
+    ) -> Result<([DeterministicStatistics; PATHWISE_COMPONENTS], VegaKtResult), MonteCarloError>
+    {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let independent_units = engine.independent_sampling_units().get();
+        let unit_count = usize::try_from(independent_units)
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let expected = unit_count
+            .checked_mul(multiplier)
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        if stopping_indices.len() != expected {
+            return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+                expected,
+                actual: stopping_indices.len(),
+            }
+            .into());
+        }
+        let vega_kt = local_volatility
+            .vega_kt
+            .as_ref()
+            .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?;
+        let bucket_count = vega_kt.basis.bucket_count();
+        let bump_runtimes = self.local_vol_bump_runtimes()?;
+        let mut values = Vec::with_capacity(unit_count);
+        let mut price_samples = Vec::with_capacity(unit_count);
+        let mut raw_bucket_samples =
+            Vec::with_capacity(bucket_sample_capacity(unit_count, bucket_count));
+        for sampling_unit in 0..independent_units {
+            let unit = usize::try_from(sampling_unit)
+                .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+            let base_path = unit
+                .checked_mul(multiplier)
+                .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+            let shocks = local_volatility.plan.path_shocks(
+                engine.master_seed(),
+                sampling_unit,
+                RandomDomain::Valuation,
+                engine.variance_reduction().brownian_bridge(),
+            )?;
+            let path = PathIndex::new(sampling_unit);
+            let primary = self.local_vol_fixed_policy_pathwise_values(
+                local_volatility,
+                bump_runtimes.as_ref(),
+                &shocks,
+                path,
+                self.exercise_cashflow_selection(early_exercise, stopping_indices[base_path])?,
+            )?;
+            let pathwise = if multiplier == 2 {
+                let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                let mate = self.local_vol_fixed_policy_pathwise_values(
+                    local_volatility,
+                    bump_runtimes.as_ref(),
+                    &mate_shocks,
+                    path,
+                    self.exercise_cashflow_selection(
+                        early_exercise,
+                        stopping_indices[base_path + 1],
+                    )?,
+                )?;
+                average_local_vol_pathwise(primary, mate)?
+            } else {
+                primary
+            };
+            price_samples.push(pathwise.values[PRICE]);
+            raw_bucket_samples.extend(
+                pathwise
+                    .raw_buckets
+                    .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?,
+            );
+            values.push(pathwise.values);
+        }
+        let statistics = std::array::from_fn(|component| {
+            let component_values = values
+                .iter()
+                .map(|pathwise| pathwise[component])
+                .collect::<Vec<_>>();
+            DeterministicStatistics::from_ordered_values_two_pass(&component_values)
+        });
+        let report = self.build_vega_kt_result(
+            local_volatility,
+            &statistics,
+            independent_units,
+            &price_samples,
+            &raw_bucket_samples,
+        )?;
+        Ok((statistics, report))
+    }
+
     fn local_vol_fixed_policy_rqmc_statistics(
         &self,
         engine: RqmcConfig,
@@ -4409,6 +4555,183 @@ impl SimulationPlan {
                 .collect::<Vec<_>>();
             DeterministicStatistics::from_ordered_values_two_pass(&values)
         }))
+    }
+
+    fn local_vol_fixed_policy_rqmc_statistics_with_vega_kt(
+        &self,
+        engine: RqmcConfig,
+        early_exercise: &EarlyExerciseRuntime,
+        stopping_indices: &[usize],
+        local_volatility: &LocalVolRuntime,
+        qmc: &RqmcPlan,
+    ) -> Result<([DeterministicStatistics; PATHWISE_COMPONENTS], VegaKtResult), MonteCarloError>
+    {
+        let multiplier = if engine.variance_reduction().antithetic() {
+            2_usize
+        } else {
+            1_usize
+        };
+        let points = usize::try_from(engine.points_per_scramble().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let scramble_count = usize::try_from(engine.scramble_count().get())
+            .map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+        let expected = scramble_count
+            .checked_mul(points)
+            .and_then(|count| count.checked_mul(multiplier))
+            .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+        if stopping_indices.len() != expected {
+            return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+                expected,
+                actual: stopping_indices.len(),
+            }
+            .into());
+        }
+        let vega_kt = local_volatility
+            .vega_kt
+            .as_ref()
+            .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?;
+        let bucket_count = vega_kt.basis.bucket_count();
+        let bridge = if engine.variance_reduction().brownian_bridge() {
+            Some(
+                BrownianBridgePlan::compile(local_volatility.plan.time_grid().nodes().to_vec(), 1)
+                    .map_err(|error| MonteCarloError::LocalVol(error.into()))?,
+            )
+        } else {
+            None
+        };
+        let bump_runtimes = self.local_vol_bump_runtimes()?;
+        let mut replicate_values = Vec::with_capacity(scramble_count);
+        let mut price_samples = Vec::with_capacity(scramble_count);
+        let mut raw_bucket_samples =
+            Vec::with_capacity(bucket_sample_capacity(scramble_count, bucket_count));
+        for scramble in 0..engine.scramble_count().get() {
+            let scramble_index = usize::try_from(scramble).expect("u32 fits usize");
+            let mut component_sums = [pricing_numerics::NeumaierSum::new(); PATHWISE_COMPONENTS];
+            let mut bucket_sums = vec![pricing_numerics::NeumaierSum::new(); bucket_count];
+            for point in 0..engine.points_per_scramble().get() {
+                let point_index =
+                    usize::try_from(point).map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
+                let base_path = scramble_index
+                    .checked_mul(points)
+                    .and_then(|value| value.checked_add(point_index))
+                    .and_then(|value| value.checked_mul(multiplier))
+                    .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+                let path = PathIndex::new(
+                    u64::from(scramble).saturating_mul(engine.points_per_scramble().get()) + point,
+                );
+                let shocks = local_vol_rqmc_shocks(qmc, bridge.as_ref(), scramble, point)?;
+                let primary = self.local_vol_fixed_policy_pathwise_values(
+                    local_volatility,
+                    bump_runtimes.as_ref(),
+                    &shocks,
+                    path,
+                    self.exercise_cashflow_selection(early_exercise, stopping_indices[base_path])?,
+                )?;
+                let pathwise = if multiplier == 2 {
+                    let mate_shocks = shocks.iter().map(|shock| -*shock).collect::<Vec<_>>();
+                    let mate = self.local_vol_fixed_policy_pathwise_values(
+                        local_volatility,
+                        bump_runtimes.as_ref(),
+                        &mate_shocks,
+                        path,
+                        self.exercise_cashflow_selection(
+                            early_exercise,
+                            stopping_indices[base_path + 1],
+                        )?,
+                    )?;
+                    average_local_vol_pathwise(primary, mate)?
+                } else {
+                    primary
+                };
+                for (sum, value) in component_sums.iter_mut().zip(pathwise.values) {
+                    sum.add(value);
+                }
+                for (sum, value) in bucket_sums.iter_mut().zip(
+                    pathwise
+                        .raw_buckets
+                        .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?,
+                ) {
+                    sum.add(value);
+                }
+            }
+            let replicate: [f64; PATHWISE_COMPONENTS] = std::array::from_fn(|component| {
+                component_sums[component].total() / engine.points_per_scramble().get() as f64
+            });
+            price_samples.push(replicate[PRICE]);
+            raw_bucket_samples.extend(
+                bucket_sums
+                    .into_iter()
+                    .map(|sum| sum.total() / engine.points_per_scramble().get() as f64),
+            );
+            replicate_values.push(replicate);
+        }
+        let statistics = std::array::from_fn(|component| {
+            let values = replicate_values
+                .iter()
+                .map(|replicate| replicate[component])
+                .collect::<Vec<_>>();
+            DeterministicStatistics::from_ordered_values_two_pass(&values)
+        });
+        let independent_units = u64::from(engine.scramble_count().get());
+        let report = self.build_vega_kt_result(
+            local_volatility,
+            &statistics,
+            independent_units,
+            &price_samples,
+            &raw_bucket_samples,
+        )?;
+        Ok((statistics, report))
+    }
+
+    fn build_vega_kt_result(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
+        independent_units: u64,
+        price_samples: &[f64],
+        raw_bucket_samples: &[f64],
+    ) -> Result<VegaKtResult, MonteCarloError> {
+        let vega_kt = local_volatility
+            .vega_kt
+            .as_ref()
+            .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?;
+        let bucket_count = vega_kt.basis.bucket_count();
+        let estimates = vega_kt_bucket_estimates(price_samples, raw_bucket_samples, bucket_count)?;
+        let raw_bucket_means = estimates
+            .iter()
+            .map(|estimate| estimate.raw_mean())
+            .collect::<Vec<_>>();
+        let mean_vega = statistics[VEGA].sum().total() / independent_units as f64;
+        let bucket_sum = raw_bucket_means
+            .iter()
+            .copied()
+            .collect::<pricing_numerics::NeumaierSum>()
+            .total();
+        let projection = vega_kt_projection_from_parts(
+            raw_bucket_means,
+            mean_vega - bucket_sum,
+            mean_vega,
+            Default::default(),
+        )?;
+        let full_bucket_covariance = if vega_kt.full_bucket_covariance {
+            Some(vega_kt_full_bucket_covariance(
+                raw_bucket_samples,
+                bucket_count,
+            )?)
+        } else {
+            None
+        };
+        let density_row = vega_kt
+            .density_rows
+            .last()
+            .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
+        Ok(VegaKtResult::try_from(&vega_kt_report(
+            &vega_kt.basis,
+            density_row,
+            projection,
+            estimates,
+            full_bucket_covariance,
+        )?)?)
     }
 
     fn exercise_cashflow_selection(
@@ -4946,6 +5269,9 @@ impl SimulationPlan {
                     .request_vega
                     .then_some(self.validation_volatility_bump),
                 bump_policy_version: BumpValidationPolicy::VERSION,
+                exercise_strategy: None,
+                stopping_indices: None,
+                exercise_policy_fingerprint: None,
             },
             delta_validation,
             gamma_validation,
@@ -4967,11 +5293,40 @@ impl SimulationPlan {
                     .then_some(self.validation_spot_bump),
                 validation_volatility_bump: None,
                 bump_policy_version: BumpValidationPolicy::VERSION,
+                exercise_strategy: None,
+                stopping_indices: None,
+                exercise_policy_fingerprint: None,
             },
             delta_validation: None,
             gamma_validation: None,
             vega_validation: None,
         }
+    }
+
+    fn build_fixed_policy_risk_diagnostics(
+        &self,
+        statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
+        independent_units: u64,
+        estimator: EstimatorKind,
+        policy_fingerprint: ExercisePolicyFingerprint,
+    ) -> Result<RiskDiagnostics, MonteCarloError> {
+        let mut diagnostics =
+            self.build_risk_diagnostics(statistics, independent_units, estimator)?;
+        diagnostics.methods.exercise_strategy = Some(ExerciseStrategyRisk::FixedExerciseStrategy);
+        diagnostics.methods.stopping_indices = Some(StoppingIndexRisk::FrozenStoppingIndices);
+        diagnostics.methods.exercise_policy_fingerprint = Some(policy_fingerprint);
+        Ok(diagnostics)
+    }
+
+    fn build_local_vol_fixed_policy_risk_diagnostics(
+        &self,
+        policy_fingerprint: ExercisePolicyFingerprint,
+    ) -> RiskDiagnostics {
+        let mut diagnostics = self.build_local_vol_risk_diagnostics();
+        diagnostics.methods.exercise_strategy = Some(ExerciseStrategyRisk::FixedExerciseStrategy);
+        diagnostics.methods.stopping_indices = Some(StoppingIndexRisk::FrozenStoppingIndices);
+        diagnostics.methods.exercise_policy_fingerprint = Some(policy_fingerprint);
+        diagnostics
     }
 }
 
@@ -5140,6 +5495,9 @@ fn empty_risk_diagnostics(smile_dynamics: SmileDynamics) -> RiskDiagnostics {
             validation_spot_bump: None,
             validation_volatility_bump: None,
             bump_policy_version: BumpValidationPolicy::VERSION,
+            exercise_strategy: None,
+            stopping_indices: None,
+            exercise_policy_fingerprint: None,
         },
         delta_validation: None,
         gamma_validation: None,
@@ -5261,6 +5619,16 @@ pub enum RiskMethod {
     CentralBumpOfAadDelta,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExerciseStrategyRisk {
+    FixedExerciseStrategy,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StoppingIndexRisk {
+    FrozenStoppingIndices,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RiskMethodMetadata {
     pub delta: Option<RiskMethod>,
@@ -5271,6 +5639,9 @@ pub struct RiskMethodMetadata {
     pub validation_spot_bump: Option<f64>,
     pub validation_volatility_bump: Option<f64>,
     pub bump_policy_version: u32,
+    pub exercise_strategy: Option<ExerciseStrategyRisk>,
+    pub stopping_indices: Option<StoppingIndexRisk>,
+    pub exercise_policy_fingerprint: Option<ExercisePolicyFingerprint>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -5821,11 +6192,15 @@ mod tests {
             1.0,
         )
         .expect("constant Local Volatility model");
+        with_model(request, ModelSpec::LocalVolatility(local_volatility))
+    }
+
+    fn with_model(request: &PricingRequest, model: ModelSpec) -> PricingRequest {
         PricingRequest::new_with_lsm(
             request.valuation_date(),
             request.product().clone(),
             request.market().clone(),
-            ModelSpec::LocalVolatility(local_volatility),
+            model,
             request.engine(),
             request.risk().clone(),
             request.lsm().cloned(),
@@ -5844,6 +6219,61 @@ mod tests {
             request.lsm().cloned(),
         )
         .expect("request with risk")
+    }
+
+    fn american_vega_kt_risk(full_bucket_covariance: bool) -> RiskRequest {
+        RiskRequest::new(
+            true,
+            Some(GammaConfig::new(
+                SpotBump::relative(0.01).expect("gamma bump"),
+            )),
+            true,
+            Some(
+                VegaKtConfig::new(
+                    vec![
+                        "2027-03-05".parse().expect("first maturity"),
+                        "2027-09-04".parse().expect("second maturity"),
+                    ],
+                    vec![-1.0, 0.0, 1.0],
+                    1.0e-8,
+                    full_bucket_covariance,
+                )
+                .expect("VegaKT config"),
+            ),
+            SmileDynamics::StickyLogMoneyness,
+            Some(16),
+            Some(128),
+        )
+        .expect("American VegaKT risk")
+    }
+
+    fn small_american_rqmc_request() -> PricingRequest {
+        let base = american_request(OptionSide::Put, 100.0, 0.2, 2, 2, true);
+        let lsm = LsmConfig::new(
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(128, 4, 0x7171, VarianceReduction::new(true, true))
+                    .expect("training RQMC engine"),
+            ),
+            vec![LsmStateVariable::Spot],
+            PolynomialBasisSpec::new(1, 3, 8, 8).expect("basis"),
+            0.0,
+            CpqrConfig::new(1.0e-14, 1.0e-12).expect("CPQR config"),
+            1_000_000,
+        )
+        .expect("LSM config");
+        PricingRequest::new_with_lsm(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            base.model().clone(),
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(256, 8, 0x8181, VarianceReduction::new(true, true))
+                    .expect("valuation RQMC engine"),
+            ),
+            base.risk().clone(),
+            Some(lsm),
+        )
+        .expect("small American RQMC request")
     }
 
     #[test]
@@ -6106,6 +6536,24 @@ mod tests {
             serial.risk_diagnostics.methods.vega,
             Some(RiskMethod::AadReverse)
         );
+        assert_eq!(
+            serial.risk_diagnostics.methods.exercise_strategy,
+            Some(ExerciseStrategyRisk::FixedExerciseStrategy)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.stopping_indices,
+            Some(StoppingIndexRisk::FrozenStoppingIndices)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.exercise_policy_fingerprint,
+            Some(
+                serial
+                    .early_exercise_diagnostics
+                    .as_ref()
+                    .expect("early-exercise diagnostics")
+                    .policy_fingerprint
+            )
+        );
         for validation in [
             serial
                 .risk_diagnostics
@@ -6148,6 +6596,111 @@ mod tests {
     }
 
     #[test]
+    fn local_vol_american_pseudo_vega_kt_replays_with_frozen_stopping_indices() {
+        let base = american_request(OptionSide::Put, 100.0, 0.2, 256, 512, true);
+        let price_request = with_model(&base, constant_local_vol_model_with_reporting_basis());
+        let risk_request = with_risk(&price_request, american_vega_kt_risk(true));
+        let price_only = price_monte_carlo(&price_request, policy(2)).expect("price only");
+        let serial = price_monte_carlo(&risk_request, policy(1)).expect("serial VegaKT");
+        let parallel = price_monte_carlo(&risk_request, policy(4)).expect("parallel VegaKT");
+
+        assert_eq!(price_only.pricing_result.value, serial.pricing_result.value);
+        assert_eq!(serial.pricing_result, parallel.pricing_result);
+        assert_eq!(serial.risk_diagnostics, parallel.risk_diagnostics);
+        assert_eq!(
+            price_only
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("price diagnostics")
+                .stopping_indices,
+            serial
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("risk diagnostics")
+                .stopping_indices
+        );
+        let report = serial.pricing_result.risks.vega_kt.expect("VegaKT");
+        assert_eq!(report.coordinates().len(), 6);
+        assert_eq!(report.estimates().len(), 6);
+        assert_eq!(report.raw_buckets().len(), 6);
+        assert_eq!(
+            report.full_bucket_covariance().expect("covariance").len(),
+            36
+        );
+        assert_eq!(
+            report.projection().pre_projection().get().to_bits(),
+            serial
+                .pricing_result
+                .risks
+                .vega
+                .expect("scalar Vega")
+                .raw()
+                .value()
+                .get()
+                .to_bits()
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.exercise_strategy,
+            Some(ExerciseStrategyRisk::FixedExerciseStrategy)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.stopping_indices,
+            Some(StoppingIndexRisk::FrozenStoppingIndices)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.exercise_policy_fingerprint,
+            Some(
+                serial
+                    .early_exercise_diagnostics
+                    .as_ref()
+                    .expect("early-exercise diagnostics")
+                    .policy_fingerprint
+            )
+        );
+    }
+
+    #[test]
+    fn local_vol_american_rqmc_vega_kt_uses_scramble_uncertainty() {
+        let base = small_american_rqmc_request();
+        let price_request = with_model(&base, constant_local_vol_model_with_reporting_basis());
+        let risk_request = with_risk(&price_request, american_vega_kt_risk(false));
+        let price_only = price_monte_carlo(&price_request, policy(2)).expect("price only");
+        let result = price_monte_carlo(&risk_request, policy(3)).expect("RQMC VegaKT");
+
+        assert_eq!(price_only.pricing_result.value, result.pricing_result.value);
+        assert_eq!(result.independent_sampling_units, 8);
+        assert_eq!(
+            price_only
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("price diagnostics")
+                .stopping_indices,
+            result
+                .early_exercise_diagnostics
+                .as_ref()
+                .expect("risk diagnostics")
+                .stopping_indices
+        );
+        let report = result.pricing_result.risks.vega_kt.expect("VegaKT");
+        assert_eq!(report.estimates().len(), 6);
+        assert!(report.full_bucket_covariance().is_none());
+        assert!(
+            report
+                .estimates()
+                .iter()
+                .all(|estimate| estimate.sample_variance().is_some())
+        );
+        assert_eq!(
+            result.risk_diagnostics.methods.exercise_strategy,
+            Some(ExerciseStrategyRisk::FixedExerciseStrategy)
+        );
+        assert_eq!(
+            result.risk_diagnostics.methods.stopping_indices,
+            Some(StoppingIndexRisk::FrozenStoppingIndices)
+        );
+    }
+
+    #[test]
     fn american_rqmc_fixed_policy_risks_use_between_scramble_uncertainty() {
         let price_request = american_rqmc_request(OptionSide::Put, 100.0, 0x7777, 0x8888);
         let risk_request = with_risk(&price_request, all_risks());
@@ -6181,6 +6734,14 @@ mod tests {
             assert_eq!(estimate.effective_sampling_units().get(), 16);
             assert!(estimate.standard_error().get().is_finite());
         }
+        assert_eq!(
+            serial.risk_diagnostics.methods.exercise_strategy,
+            Some(ExerciseStrategyRisk::FixedExerciseStrategy)
+        );
+        assert_eq!(
+            serial.risk_diagnostics.methods.stopping_indices,
+            Some(StoppingIndexRisk::FrozenStoppingIndices)
+        );
     }
 
     #[test]
