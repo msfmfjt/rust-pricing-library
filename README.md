@@ -26,9 +26,11 @@ coordinate. Digital and Barrier risk without an explicit smoothing width
 remains rejected. Continuous Barrier requests are evaluated under the
 constant-volatility models with a conditional Brownian-bridge survival
 estimator, including affine-dividend jump boundaries, pathwise Delta/Vega, and
-bumped-AAD Gamma. Local Volatility uses the same bridge over every Log-Euler
-sub-step with trapezoidal endpoint Local variance, CRN Delta/Gamma, and reverse
-Local-volatility Vega/VegaKT.
+bumped-AAD Gamma. Explicit compact-C2 smoothing applies matched endpoint,
+affine-dividend-jump, and bridge-survival weights so Price and Greeks use one
+surrogate payoff. Local Volatility uses the same exact or smoothed bridge over
+every Log-Euler sub-step with trapezoidal endpoint Local variance, CRN
+Delta/Gamma, and reverse Local-volatility Vega/VegaKT.
 Result diagnostics report endpoint and dividend-jump hit fractions separately
 from the mean conditional bridge hit weight, together with bridge interval and
 stable numerical-branch counts.
@@ -53,6 +55,12 @@ stable numerical-branch counts.
 ## Status
 
 The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility/VegaKT has completed Gates L0–L8 and is accepted with exact SSVI/eSSVI, Dupire Local variance, non-uniform interpolation, Log-Euler Local Volatility simulation, Local Volatility Price/Delta/Gamma/Vega/VegaKT MC/RQMC evaluation, Local Vega/VegaKT operators, affine dividends, public Rust/JSON/Python request surfaces, independently checked equation fixtures, same-platform replay fixtures on Apple Silicon macOS and Windows x86-64, and retained benchmark artifacts. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
+
+Path Dependence Gates P0-P6 are satisfied locally. The P7/P8 candidate includes
+deterministic and statistical acceptance, compact-C2 continuous Barrier
+smoothing, Apple Silicon replay, benchmark coverage, and Rust/Python
+conformance evidence. Acceptance remains pending until candidate CI passes and
+the generated Windows x86-64 replay artifact is reviewed and frozen.
 
 ## Workspace
 
