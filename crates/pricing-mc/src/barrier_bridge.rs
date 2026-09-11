@@ -565,6 +565,17 @@ mod tests {
         .expect("certain");
         assert_eq!(certain.status(), BarrierBridgeStatus::CertainSurvival);
         assert_eq!(certain.survival(), 1.0);
+
+        let overflow = BarrierBridgeInterval::evaluate(BarrierBridgeIntervalInput {
+            left_local_variance: f64::MAX,
+            right_local_variance: f64::MAX,
+            dt: 2.0,
+            ..input(BarrierBridgeDirection::Up)
+        });
+        assert!(matches!(
+            overflow,
+            Err(BarrierBridgeError::NonFiniteIntegratedVariance { .. })
+        ));
     }
 
     #[test]
@@ -596,6 +607,28 @@ mod tests {
                 field: "spot barrier",
                 ..
             })
+        ));
+
+        let overflow_event = EventId::new(2);
+        let overflow_transform = AffineDividendTransform::new(
+            UnderlyingId::new(7),
+            PositiveF64::new(1.0, "spot").expect("spot"),
+            vec![
+                DividendEvent::new(
+                    overflow_event,
+                    0.5,
+                    DividendQuote::fixed_cash(f64::MAX, overflow_event).expect("quote"),
+                )
+                .expect("event"),
+            ],
+        )
+        .expect("transform");
+        let overflow_coordinate = overflow_transform
+            .coordinate_after_time(0.5)
+            .expect("coordinate");
+        assert!(matches!(
+            transformed_barrier(120.0, 100.0, overflow_coordinate),
+            Err(BarrierBridgeError::InvalidTransformedBarrier { .. })
         ));
     }
 

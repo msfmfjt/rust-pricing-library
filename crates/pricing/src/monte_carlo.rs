@@ -3784,6 +3784,58 @@ mod tests {
         .expect("request")
     }
 
+    fn continuous_barrier_conformance_request(
+        direction: BarrierDirection,
+        style: BarrierStyle,
+        rebate: Option<f64>,
+        engine: EngineConfig,
+        risk: RiskRequest,
+    ) -> PricingRequest {
+        let barrier = match direction {
+            BarrierDirection::Up => 130.0,
+            BarrierDirection::Down => 70.0,
+        };
+        let base = barrier_dividend_jump_request_with_monitoring(
+            direction,
+            style,
+            0.2,
+            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            BarrierMonitoring::Continuous,
+            Some(barrier),
+        );
+        let source = match base.product() {
+            ProductSpec::Barrier(source) => source,
+            _ => unreachable!("helper constructs a Barrier"),
+        };
+        let product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                source.underlying(),
+                source.currency(),
+                source.expiry(),
+                source.strike().get(),
+                source.barrier().get(),
+                source.notional().get(),
+                source.side(),
+                source.direction(),
+                source.style(),
+                source.monitoring(),
+                source.monitoring_dates().to_vec(),
+                rebate,
+                source.payment_date(),
+            )
+            .expect("continuous Barrier product"),
+        );
+        PricingRequest::new(
+            base.valuation_date(),
+            product,
+            base.market().clone(),
+            base.model().clone(),
+            engine,
+            risk,
+        )
+        .expect("continuous Barrier conformance request")
+    }
+
     fn asian_zero_vol_request() -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
@@ -4945,6 +4997,84 @@ mod tests {
         assert!(diagnostics.endpoint_hit_fraction > 0.0);
         assert!(diagnostics.mean_conditional_bridge_hit_weight > 0.0);
         assert_eq!(risk_result.diagnostics.barrier_bridge, Some(diagnostics));
+    }
+
+    #[test]
+    fn continuous_barrier_in_out_parity_covers_directions_and_rebates() {
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(7, 16, VarianceReduction::new(true, true)).expect("engine"),
+        );
+        for direction in [BarrierDirection::Up, BarrierDirection::Down] {
+            for rebate in [None, Some(7.5)] {
+                let request = continuous_barrier_conformance_request(
+                    direction,
+                    BarrierStyle::KnockOut,
+                    rebate,
+                    engine,
+                    RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+                );
+                let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+                let knock_out = plan.continuous_barrier.clone().expect("continuous Barrier");
+                let knock_in = ContinuousBarrierRuntime {
+                    style: BarrierStyle::KnockIn,
+                    ..knock_out.clone()
+                };
+
+                for normals in [[-1.25, 0.5], [0.0, 0.0], [0.75, -0.25], [1.5, 1.0]] {
+                    let observations =
+                        plan.path_observations_from_normals(&normals, plan.spot, plan.volatility);
+                    let out = plan
+                        .continuous_barrier_discounted_payoff(&knock_out, &observations)
+                        .expect("knock out");
+                    let entered = plan
+                        .continuous_barrier_discounted_payoff(&knock_in, &observations)
+                        .expect("knock in");
+                    let terminal = observations[knock_out.expiry_observation_index].post_spot;
+                    let vanilla = (terminal - knock_out.strike).max(0.0) * knock_out.notional;
+                    let expected = plan.discount * (vanilla + rebate.unwrap_or(0.0));
+                    assert!(
+                        (out + entered - expected).abs() < 2.0e-13,
+                        "direction={direction:?}, rebate={rebate:?}, normals={normals:?}, out={out}, in={entered}, expected={expected}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn continuous_barrier_replays_across_worker_counts_for_pseudo_mc_and_rqmc() {
+        let engines = [
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(0x1234_5678, 2_048, VarianceReduction::new(true, true))
+                    .expect("pseudo-MC engine"),
+            ),
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(512, 8, 0x8765_4321, VarianceReduction::new(true, true))
+                    .expect("RQMC engine"),
+            ),
+        ];
+        for engine in engines {
+            let request = continuous_barrier_conformance_request(
+                BarrierDirection::Down,
+                BarrierStyle::KnockIn,
+                Some(7.5),
+                engine,
+                all_risks(),
+            );
+            let plan = SimulationPlan::compile(&request, policy(1)).expect("single-worker plan");
+            assert_eq!(plan.observation_times.len(), 2);
+            let mut single = plan.execute().expect("single-worker execution");
+            let parallel = SimulationPlan::compile(&request, policy(4))
+                .expect("parallel plan")
+                .execute()
+                .expect("parallel execution");
+            assert_ne!(
+                single.diagnostics.worker_threads,
+                parallel.diagnostics.worker_threads
+            );
+            single.diagnostics.worker_threads = parallel.diagnostics.worker_threads;
+            assert_eq!(single, parallel);
+        }
     }
 
     #[test]
