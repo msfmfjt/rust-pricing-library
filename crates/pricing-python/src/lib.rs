@@ -1201,20 +1201,21 @@ mod tests {
 
     #[test]
     fn wire_errors_have_stable_issue_codes() {
+        let current_schema_version = pricing::core::SchemaVersion::CURRENT.get();
         let cases = [
             (
                 WireError::Json("expected value".to_owned()),
                 "syntax_and_limits",
                 "invalid_json",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::Utf8Bom,
                 "syntax_and_limits",
                 "invalid_json",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::ResourceLimit {
@@ -1225,14 +1226,14 @@ mod tests {
                 "syntax_and_limits",
                 "resource_limit",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::LimitOverrideExceedsHardCap,
                 "syntax_and_limits",
                 "resource_limit",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::UnsupportedSchemaVersion(99),
@@ -1249,21 +1250,21 @@ mod tests {
                 "declared_schema",
                 "wrong_document_kind",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::InvalidFingerprint("not-a-fingerprint".to_owned()),
                 "declared_schema",
                 "invalid_fingerprint",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::Domain("invalid domain".to_owned()),
                 "domain",
                 "invalid_domain_value",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::DomainAt {
@@ -1273,7 +1274,7 @@ mod tests {
                 "domain",
                 "invalid_domain_value",
                 "/market/spot",
-                1,
+                current_schema_version,
             ),
         ];
 
