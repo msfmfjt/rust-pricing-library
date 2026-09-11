@@ -16,8 +16,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_ROOT = ROOT / "schemas" / "v1"
 GOLDEN_ROOT = ROOT / "fixtures" / "v1"
-CURRENT_SCHEMA_ROOT = ROOT / "schemas" / "v2"
-CURRENT_GOLDEN_ROOT = ROOT / "fixtures" / "v2"
+V2_SCHEMA_ROOT = ROOT / "schemas" / "v2"
+V2_GOLDEN_ROOT = ROOT / "fixtures" / "v2"
+CURRENT_SCHEMA_ROOT = ROOT / "schemas" / "v3"
+CURRENT_GOLDEN_ROOT = ROOT / "fixtures" / "v3"
 DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 EXPECTED_SCHEMAS = {
     "pricing_request": SCHEMA_ROOT / "pricing_request.schema.json",
@@ -666,7 +668,9 @@ def check_no_json_null(schema: dict[str, Any], path: Path) -> None:
 
 def check_schema_keywords(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
-        if not isinstance(value, dict) or (location and location[-1] in {"properties", "$defs"}):
+        if not isinstance(value, dict) or (
+            location and location[-1] in {"properties", "$defs", "dependentRequired"}
+        ):
             continue
         unexpected = sorted(set(value) - ALLOWED_SCHEMA_KEYWORDS)
         require(
@@ -1319,14 +1323,14 @@ def check_schema(document_kind: str, path: Path) -> None:
 
 def check_v2_artifacts() -> None:
     expected_names = {"pricing_request.schema.json", "pricing_result.schema.json"}
-    actual_names = {path.name for path in CURRENT_SCHEMA_ROOT.glob("*.schema.json")}
+    actual_names = {path.name for path in V2_SCHEMA_ROOT.glob("*.schema.json")}
     require(actual_names == expected_names, "schema v2 file set mismatch")
     expected_golden_names = {
         "pricing_request.golden.json",
         "pricing_result.golden.json",
         "pricing_result_v1_migrated.golden.json",
     }
-    actual_golden_names = {path.name for path in CURRENT_GOLDEN_ROOT.glob("*.golden.json")}
+    actual_golden_names = {path.name for path in V2_GOLDEN_ROOT.glob("*.golden.json")}
     require(actual_golden_names == expected_golden_names, "golden v2 file set mismatch")
 
     request_v1 = load_schema(EXPECTED_SCHEMAS["pricing_request"])
@@ -1349,7 +1353,7 @@ def check_v2_artifacts() -> None:
                 "items": {"type": "number", "exclusiveMinimum": 0},
             }
     risk["properties"] = rebuilt_properties
-    request_v2_path = CURRENT_SCHEMA_ROOT / "pricing_request.schema.json"
+    request_v2_path = V2_SCHEMA_ROOT / "pricing_request.schema.json"
     request_v2 = load_schema(request_v2_path)
     require(request_v2 == expected_request_v2, f"{request_v2_path}: unexpected v2 diff")
     require(
@@ -1407,19 +1411,19 @@ def check_v2_artifacts() -> None:
             },
         },
     }
-    result_v2_path = CURRENT_SCHEMA_ROOT / "pricing_result.schema.json"
+    result_v2_path = V2_SCHEMA_ROOT / "pricing_result.schema.json"
     require(
         load_schema(result_v2_path) == expected_result_v2,
         f"{result_v2_path}: unexpected v2 diff",
     )
 
     old_path = EXPECTED_GOLDENS["pricing_request"]
-    new_path = CURRENT_GOLDEN_ROOT / "pricing_request.golden.json"
+    new_path = V2_GOLDEN_ROOT / "pricing_request.golden.json"
     expected = old_path.read_text("utf-8").replace('"schema_version":1', '"schema_version":2')
     require(new_path.read_text("utf-8") == expected, f"{new_path}: unexpected v2 diff")
 
     result_golden = json.loads(
-        (CURRENT_GOLDEN_ROOT / "pricing_result.golden.json").read_text("utf-8")
+        (V2_GOLDEN_ROOT / "pricing_result.golden.json").read_text("utf-8")
     )
     require(
         result_golden["replay"]["migration"]["original_schema_version"] == 2
@@ -1428,7 +1432,7 @@ def check_v2_artifacts() -> None:
         "v2 result golden migration metadata mismatch",
     )
     migrated_result_golden = json.loads(
-        (CURRENT_GOLDEN_ROOT / "pricing_result_v1_migrated.golden.json").read_text("utf-8")
+        (V2_GOLDEN_ROOT / "pricing_result_v1_migrated.golden.json").read_text("utf-8")
     )
     require(
         migrated_result_golden["replay"]["migration"]["original_schema_version"] == 1
@@ -1437,6 +1441,77 @@ def check_v2_artifacts() -> None:
         == ["pricing_result/v1-to-v2"],
         "v1-to-v2 result migration golden metadata mismatch",
     )
+
+
+def check_v3_artifacts() -> None:
+    expected_names = {"pricing_request.schema.json", "pricing_result.schema.json"}
+    actual_names = {path.name for path in CURRENT_SCHEMA_ROOT.glob("*.schema.json")}
+    require(actual_names == expected_names, "schema v3 file set mismatch")
+    expected_golden_names = {
+        "pricing_request.golden.json",
+        "pricing_request_american.golden.json",
+        "pricing_result.golden.json",
+        "pricing_result_v1_migrated.golden.json",
+        "pricing_result_v2_migrated.golden.json",
+    }
+    actual_golden_names = {path.name for path in CURRENT_GOLDEN_ROOT.glob("*.golden.json")}
+    require(actual_golden_names == expected_golden_names, "golden v3 file set mismatch")
+
+    request_path = CURRENT_SCHEMA_ROOT / "pricing_request.schema.json"
+    request = load_schema(request_path)
+    require(request["$id"] == "urn:rust-pricing-library:schema:v3:pricing_request", f"{request_path}: wrong id")
+    require(request["properties"]["schema_version"]["const"] == 3, f"{request_path}: wrong version")
+    require(list(request["properties"])[-3:] == ["engine", "lsm", "risk"], f"{request_path}: LSM field order changed")
+    product_variants = request["$defs"]["product"]["oneOf"]
+    product_types = [variant["properties"]["type"]["const"] for variant in product_variants]
+    require(product_types == ["european_vanilla", "american_vanilla", "digital", "barrier", "arithmetic_asian", "fixed_lookback"], f"{request_path}: product variants changed")
+    require(set(request["$defs"]) >= {"lsm", "lsm_state_variable", "polynomial_basis", "cpqr"}, f"{request_path}: LSM definitions missing")
+    lsm = request["$defs"]["lsm"]
+    require(lsm["required"] == ["training_engine", "state_variables", "basis", "itm_abs_tolerance", "cpqr", "max_matrix_elements"], f"{request_path}: LSM fields changed")
+    require(request["$defs"]["local_variance_grid"]["properties"]["time_nodes"]["items"] == {"type": "number", "minimum": 0}, f"{request_path}: Local Volatility time nodes must include time zero")
+    check_no_json_null(request, request_path)
+    check_schema_keywords(request, request_path)
+    check_refs(request, request_path)
+    check_wire_names(request, request_path)
+    check_const_schemas_are_typed(request, request_path)
+    check_date_fields(request, request_path)
+    check_id_fields(request, request_path)
+    check_shape_fields(request, request_path)
+    check_array_schemas_are_typed_and_sized(request, request_path)
+    check_integer_fields_are_bounded(request, request_path)
+    check_request_integer_limits(request, request_path)
+    check_no_unstructured_objects(request, request_path)
+    check_strict_objects(request, request_path)
+
+    result_v2 = load_schema(V2_SCHEMA_ROOT / "pricing_result.schema.json")
+    expected_result_v3 = json.loads(json.dumps(result_v2))
+    expected_result_v3["$id"] = "urn:rust-pricing-library:schema:v3:pricing_result"
+    expected_result_v3["title"] = "PricingResult schema v3"
+    expected_result_v3["properties"]["schema_version"]["const"] = 3
+    expected_result_v3["properties"]["replay"]["properties"]["schema_version"]["const"] = 3
+    provenance = expected_result_v3["$defs"]["migration_provenance"]["properties"]
+    provenance["original_schema_version"]["maximum"] = 3
+    provenance["current_schema_version"]["const"] = 3
+    result_path = CURRENT_SCHEMA_ROOT / "pricing_result.schema.json"
+    require(load_schema(result_path) == expected_result_v3, f"{result_path}: unexpected v3 diff")
+
+    request_v2 = (V2_GOLDEN_ROOT / "pricing_request.golden.json").read_text("utf-8")
+    expected_request = request_v2.replace('"schema_version":2', '"schema_version":3')
+    require((CURRENT_GOLDEN_ROOT / "pricing_request.golden.json").read_text("utf-8") == expected_request, "v3 request golden mismatch")
+    american_request = load_golden(CURRENT_GOLDEN_ROOT / "pricing_request_american.golden.json")
+    require(american_request["schema_version"] == 3, "American request golden version mismatch")
+    require(american_request["product"]["type"] == "american_vanilla", "American request golden product mismatch")
+    require(american_request["product"]["exercise_dates"][-1] == american_request["product"]["expiry"], "American request golden schedule must end at expiry")
+    require(american_request["lsm"]["state_variables"] == [{"type": "spot"}], "American request golden state variables mismatch")
+    for name, original, migration_ids in [
+        ("pricing_result.golden.json", 3, []),
+        ("pricing_result_v1_migrated.golden.json", 1, ["pricing_result/v1-to-v2", "pricing_result/v2-to-v3"]),
+        ("pricing_result_v2_migrated.golden.json", 2, ["pricing_result/v2-to-v3"]),
+    ]:
+        document = load_golden(CURRENT_GOLDEN_ROOT / name)
+        migration = document["replay"]["migration"]
+        require(document["schema_version"] == 3 and document["replay"]["schema_version"] == 3, f"{name}: v3 versions mismatch")
+        require(migration["original_schema_version"] == original and migration["current_schema_version"] == 3 and migration["migration_ids"] == migration_ids, f"{name}: migration metadata mismatch")
 
 
 def main() -> int:
@@ -1455,6 +1530,7 @@ def main() -> int:
         for document_kind, path in EXPECTED_GOLDENS.items():
             check_golden(document_kind, path)
         check_v2_artifacts()
+        check_v3_artifacts()
     except SchemaError as exc:
         print(f"schema check failed: {exc}", file=sys.stderr)
         return 1

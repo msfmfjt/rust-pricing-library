@@ -8,14 +8,17 @@ use pricing_market::{
     DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
     MarketContext,
 };
-use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
+use pricing_mc::{
+    CpqrConfig, EngineConfig, LsmConfig, LsmStateVariable, PolynomialBasisSpec, PseudoMcConfig,
+    RqmcConfig, VarianceReduction,
+};
 use pricing_models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing_product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection,
-    BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
-    FixedLookbackSpec, GraphLimitPolicy, OptionSide, ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, AsianObservationValue,
+    BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec,
+    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing_risk::{
     GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
@@ -37,6 +40,10 @@ const DOCUMENT_REQUEST: &str = "pricing_request";
 const DOCUMENT_RESULT: &str = "pricing_result";
 const MIGRATION_REQUEST_V1_TO_V2: &str = "pricing_request/v1-to-v2";
 const MIGRATION_RESULT_V1_TO_V2: &str = "pricing_result/v1-to-v2";
+const MIGRATION_REQUEST_V2_TO_V3: &str = "pricing_request/v2-to-v3";
+const MIGRATION_RESULT_V2_TO_V3: &str = "pricing_result/v2-to-v3";
+const WIRE_MAX_BASIS_COLUMNS: usize = 100_000;
+const WIRE_MAX_BASIS_EXPONENTS: usize = 1_000_000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct JsonLimits {
@@ -202,7 +209,7 @@ impl MigrationRegistry {
 
     #[must_use]
     pub const fn accepted_source_versions(self) -> &'static [u32] {
-        &[1, 2]
+        &[1, 2, 3]
     }
 
     pub fn validate_source(self, version: u32) -> Result<(), WireError> {
@@ -233,6 +240,21 @@ struct RequestV2 {
     risk: RiskV2,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RequestV3 {
+    document_kind: String,
+    schema_version: u32,
+    valuation_date: String,
+    product: ProductV1,
+    market: MarketV1,
+    model: ModelV1,
+    engine: EngineV1,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lsm: Option<LsmV3>,
+    risk: RiskV2,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RequestV1 {
@@ -256,6 +278,15 @@ enum ProductV1 {
         strike: f64,
         notional: f64,
         side: SideV1,
+    },
+    AmericanVanilla {
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: String,
+        strike: f64,
+        notional: f64,
+        side: SideV1,
+        exercise_dates: Vec<String>,
     },
     Digital {
         underlying_id: u32,
@@ -446,6 +477,37 @@ enum EngineV1 {
     },
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LsmV3 {
+    training_engine: EngineV1,
+    state_variables: Vec<LsmStateVariableV3>,
+    basis: PolynomialBasisV3,
+    itm_abs_tolerance: f64,
+    cpqr: CpqrV3,
+    max_matrix_elements: usize,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum LsmStateVariableV3 {
+    Spot,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolynomialBasisV3 {
+    feature_count: u32,
+    max_degree: u32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CpqrV3 {
+    abs_rank_tolerance: f64,
+    rel_rank_tolerance: f64,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct VarianceReductionV1 {
@@ -545,6 +607,22 @@ impl From<&PricingRequest> for RequestV2 {
     }
 }
 
+impl From<&PricingRequest> for RequestV3 {
+    fn from(request: &PricingRequest) -> Self {
+        Self {
+            document_kind: DOCUMENT_REQUEST.to_owned(),
+            schema_version: 3,
+            valuation_date: request.valuation_date().to_string(),
+            product: ProductV1::from(request.product()),
+            market: MarketV1::from(request.market()),
+            model: ModelV1::from(request.model()),
+            engine: EngineV1::from(request.engine()),
+            lsm: request.lsm().map(LsmV3::from),
+            risk: RiskV2::from(request.risk()),
+        }
+    }
+}
+
 impl From<&ProductSpec> for ProductV1 {
     fn from(product: &ProductSpec) -> Self {
         match product {
@@ -556,9 +634,19 @@ impl From<&ProductSpec> for ProductV1 {
                 notional: spec.notional().get(),
                 side: spec.side().into(),
             },
-            ProductSpec::AmericanVanilla(_) => {
-                unreachable!("American requests are rejected before v2 wire conversion")
-            }
+            ProductSpec::AmericanVanilla(spec) => Self::AmericanVanilla {
+                underlying_id: spec.underlying().get(),
+                currency_id: spec.currency().get(),
+                expiry: spec.expiry().to_string(),
+                strike: spec.strike().get(),
+                notional: spec.notional().get(),
+                side: spec.side().into(),
+                exercise_dates: spec
+                    .exercise_dates()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            },
             ProductSpec::Digital(spec) => Self::Digital {
                 underlying_id: spec.underlying().get(),
                 currency_id: spec.currency().get(),
@@ -785,6 +873,31 @@ impl From<EngineConfig> for EngineV1 {
     }
 }
 
+impl From<&LsmConfig> for LsmV3 {
+    fn from(value: &LsmConfig) -> Self {
+        Self {
+            training_engine: value.training_engine().into(),
+            state_variables: value
+                .state_variables()
+                .iter()
+                .map(|state| match state {
+                    LsmStateVariable::Spot => LsmStateVariableV3::Spot,
+                })
+                .collect(),
+            basis: PolynomialBasisV3 {
+                feature_count: value.basis().feature_count(),
+                max_degree: value.basis().max_degree(),
+            },
+            itm_abs_tolerance: value.itm_abs_tolerance(),
+            cpqr: CpqrV3 {
+                abs_rank_tolerance: value.cpqr_config().abs_rank_tolerance(),
+                rel_rank_tolerance: value.cpqr_config().rel_rank_tolerance(),
+            },
+            max_matrix_elements: value.max_matrix_elements(),
+        }
+    }
+}
+
 impl From<VarianceReduction> for VarianceReductionV1 {
     fn from(value: VarianceReduction) -> Self {
         Self {
@@ -823,13 +936,30 @@ impl From<RequestV1> for RequestV2 {
         debug_assert_eq!(value.schema_version, 1);
         Self {
             document_kind: value.document_kind,
-            schema_version: SchemaVersion::CURRENT.get(),
+            schema_version: 2,
             valuation_date: value.valuation_date,
             product: value.product,
             market: value.market,
             model: value.model,
             engine: value.engine,
             risk: value.risk.into(),
+        }
+    }
+}
+
+impl From<RequestV2> for RequestV3 {
+    fn from(value: RequestV2) -> Self {
+        debug_assert_eq!(value.schema_version, 2);
+        Self {
+            document_kind: value.document_kind,
+            schema_version: 3,
+            valuation_date: value.valuation_date,
+            product: value.product,
+            market: value.market,
+            model: value.model,
+            engine: value.engine,
+            lsm: None,
+            risk: value.risk,
         }
     }
 }
@@ -898,9 +1028,9 @@ impl From<SmileDynamics> for SmileDynamicsV1 {
     }
 }
 
-impl TryFrom<RequestV2> for PricingRequest {
+impl TryFrom<RequestV3> for PricingRequest {
     type Error = WireError;
-    fn try_from(value: RequestV2) -> Result<Self, Self::Error> {
+    fn try_from(value: RequestV3) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_REQUEST)?;
         let valuation_date = parse_date_at(&value.valuation_date, "/valuation_date")?;
         let product = match value.product {
@@ -922,6 +1052,35 @@ impl TryFrom<RequestV2> for PricingRequest {
                         SideV1::Call => OptionSide::Call,
                         SideV1::Put => OptionSide::Put,
                     },
+                )
+                .map_err(|error| domain_at("/product", error))?,
+            ),
+            ProductV1::AmericanVanilla {
+                underlying_id,
+                currency_id,
+                expiry,
+                strike,
+                notional,
+                side,
+                exercise_dates,
+            } => ProductSpec::AmericanVanilla(
+                AmericanVanillaSpec::new(
+                    UnderlyingId::new(underlying_id),
+                    CurrencyId::new(currency_id),
+                    parse_date_at(&expiry, "/product/expiry")?,
+                    strike,
+                    notional,
+                    match side {
+                        SideV1::Call => OptionSide::Call,
+                        SideV1::Put => OptionSide::Put,
+                    },
+                    exercise_dates
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, date)| {
+                            parse_date_owned_at(&date, format!("/product/exercise_dates/{index}"))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
                 )
                 .map_err(|error| domain_at("/product", error))?,
             ),
@@ -1175,10 +1334,117 @@ impl TryFrom<RequestV2> for PricingRequest {
                 .map_err(|error| domain_at("/engine", error))?,
             ),
         };
+        let lsm = value.lsm.map(lsm_from_wire).transpose()?;
         let risk = risk_from_wire(value.risk)?;
-        PricingRequest::new(valuation_date, product, market, model, engine, risk)
+        PricingRequest::new_with_lsm(valuation_date, product, market, model, engine, risk, lsm)
             .map_err(|error| domain_at("", error))
     }
+}
+
+fn lsm_from_wire(value: LsmV3) -> Result<LsmConfig, WireError> {
+    let training_engine = match value.training_engine {
+        EngineV1::PseudoMonteCarlo {
+            master_seed,
+            independent_sampling_units,
+            variance_reduction,
+        } => EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                master_seed,
+                independent_sampling_units,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/lsm/training_engine", error))?,
+        ),
+        EngineV1::RandomizedQuasiMonteCarlo {
+            points_per_scramble,
+            scramble_count,
+            master_scramble_seed,
+            variance_reduction,
+        } => EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                points_per_scramble,
+                scramble_count,
+                master_scramble_seed,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/lsm/training_engine", error))?,
+        ),
+    };
+    let state_variables = value
+        .state_variables
+        .into_iter()
+        .map(|state| match state {
+            LsmStateVariableV3::Spot => LsmStateVariable::Spot,
+        })
+        .collect::<Vec<_>>();
+    let max_total_exponents =
+        polynomial_basis_resource_limits(value.basis.feature_count, value.basis.max_degree)?;
+    let basis = PolynomialBasisSpec::new(
+        value.basis.feature_count,
+        value.basis.max_degree,
+        max_total_exponents.0,
+        max_total_exponents.1,
+    )
+    .map_err(|error| domain_at("/lsm/basis", error))?;
+    let cpqr = CpqrConfig::new(value.cpqr.abs_rank_tolerance, value.cpqr.rel_rank_tolerance)
+        .map_err(|error| domain_at("/lsm/cpqr", error))?;
+    LsmConfig::new(
+        training_engine,
+        state_variables,
+        basis,
+        value.itm_abs_tolerance,
+        cpqr,
+        value.max_matrix_elements,
+    )
+    .map_err(|error| domain_at("/lsm", error))
+}
+
+fn polynomial_basis_resource_limits(
+    feature_count: u32,
+    max_degree: u32,
+) -> Result<(usize, usize), WireError> {
+    let n = usize::try_from(feature_count)
+        .map_err(|_| domain_at("/lsm/basis/feature_count", "feature_count exceeds usize"))?;
+    let degree = usize::try_from(max_degree)
+        .map_err(|_| domain_at("/lsm/basis/max_degree", "max_degree exceeds usize"))?;
+    if n == 0 {
+        return Err(domain_at(
+            "/lsm/basis/feature_count",
+            "feature_count must be positive",
+        ));
+    }
+    if degree >= WIRE_MAX_BASIS_COLUMNS {
+        return Err(domain_at(
+            "/lsm/basis/max_degree",
+            "polynomial basis exceeds the wire column resource limit",
+        ));
+    }
+    let mut columns = 1_usize;
+    for index in 1..=degree {
+        let factor = n
+            .checked_add(index)
+            .ok_or_else(|| domain_at("/lsm/basis", "polynomial basis resource limit overflow"))?;
+        columns = columns
+            .checked_mul(factor)
+            .ok_or_else(|| domain_at("/lsm/basis", "polynomial basis resource limit overflow"))?
+            / index;
+        if columns > WIRE_MAX_BASIS_COLUMNS {
+            return Err(domain_at(
+                "/lsm/basis",
+                "polynomial basis exceeds the wire column resource limit",
+            ));
+        }
+    }
+    let exponents = columns
+        .checked_mul(n)
+        .ok_or_else(|| domain_at("/lsm/basis", "polynomial basis resource limit overflow"))?;
+    if exponents > WIRE_MAX_BASIS_EXPONENTS {
+        return Err(domain_at(
+            "/lsm/basis",
+            "polynomial basis exceeds the wire exponent resource limit",
+        ));
+    }
+    Ok((columns, exponents))
 }
 
 fn local_volatility_from_wire(
@@ -1378,6 +1644,17 @@ struct ResultV1 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ResultV2 {
+    document_kind: String,
+    schema_version: u32,
+    value: EstimateV1,
+    risks: RiskReportV1,
+    diagnostics: DiagnosticsV1,
+    replay: ReplayV2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResultV3 {
     document_kind: String,
     schema_version: u32,
     value: EstimateV1,
@@ -1596,6 +1873,35 @@ impl From<&PricingResult> for ResultV2 {
     }
 }
 
+impl From<&PricingResult> for ResultV3 {
+    fn from(result: &PricingResult) -> Self {
+        Self {
+            document_kind: DOCUMENT_RESULT.to_owned(),
+            schema_version: 3,
+            value: result.value.into(),
+            risks: RiskReportV1::from(&result.risks),
+            diagnostics: DiagnosticsV1 {
+                warnings: result
+                    .diagnostics
+                    .warnings()
+                    .iter()
+                    .map(|w| WarningV1 {
+                        code: w.code().to_owned(),
+                        message: w.message().to_owned(),
+                    })
+                    .collect(),
+            },
+            replay: ReplayV2 {
+                schema_version: result.replay.schema_version().get(),
+                request_fingerprint: Fingerprint(*result.replay.request_fingerprint()).to_string(),
+                library_version: result.replay.library_version().to_owned(),
+                platform: result.replay.platform().to_owned(),
+                migration: MigrationProvenanceV2::from(result.replay.migration()),
+            },
+        }
+    }
+}
+
 impl From<&MigrationProvenance> for MigrationProvenanceV2 {
     fn from(value: &MigrationProvenance) -> Self {
         Self {
@@ -1614,15 +1920,15 @@ impl From<ResultV1> for ResultV2 {
         let request_fingerprint = value.replay.request_fingerprint;
         Self {
             document_kind: value.document_kind,
-            schema_version: SchemaVersion::CURRENT.get(),
+            schema_version: 2,
             value: value.value,
             risks: value.risks,
             diagnostics: value.diagnostics,
             replay: ReplayV2 {
-                schema_version: SchemaVersion::CURRENT.get(),
+                schema_version: 2,
                 migration: MigrationProvenanceV2 {
                     original_schema_version: 1,
-                    current_schema_version: SchemaVersion::CURRENT.get(),
+                    current_schema_version: 2,
                     migration_ids: vec![MIGRATION_RESULT_V1_TO_V2.to_owned()],
                     pre_migration_fingerprint: request_fingerprint.clone(),
                     post_migration_fingerprint: request_fingerprint.clone(),
@@ -1630,6 +1936,31 @@ impl From<ResultV1> for ResultV2 {
                 request_fingerprint,
                 library_version: value.replay.library_version,
                 platform: value.replay.platform,
+            },
+        }
+    }
+}
+
+impl From<ResultV2> for ResultV3 {
+    fn from(value: ResultV2) -> Self {
+        debug_assert_eq!(value.schema_version, 2);
+        let mut migration = value.replay.migration;
+        migration.current_schema_version = 3;
+        migration
+            .migration_ids
+            .push(MIGRATION_RESULT_V2_TO_V3.to_owned());
+        Self {
+            document_kind: value.document_kind,
+            schema_version: 3,
+            value: value.value,
+            risks: value.risks,
+            diagnostics: value.diagnostics,
+            replay: ReplayV2 {
+                schema_version: 3,
+                request_fingerprint: value.replay.request_fingerprint,
+                library_version: value.replay.library_version,
+                platform: value.replay.platform,
+                migration,
             },
         }
     }
@@ -1807,9 +2138,9 @@ impl From<VegaKtResultUnit> for VegaKtBucketUnitV1 {
     }
 }
 
-impl TryFrom<ResultV2> for PricingResult {
+impl TryFrom<ResultV3> for PricingResult {
     type Error = WireError;
-    fn try_from(value: ResultV2) -> Result<Self, Self::Error> {
+    fn try_from(value: ResultV3) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_RESULT)?;
         let replay_version = SchemaVersion::new(value.replay.schema_version)
             .map_err(|error| domain_at("/replay/schema_version", error))?;
@@ -1899,18 +2230,19 @@ fn migration_provenance_from_wire(
             "original_schema_version is not accepted by the migration registry",
         ));
     }
-    let expected_ids: &[&str] = match original_schema_version.get() {
-        1 => &[MIGRATION_REQUEST_V1_TO_V2, MIGRATION_RESULT_V1_TO_V2],
-        2 => &[],
-        _ => unreachable!("accepted versions are checked above"),
-    };
-    let identifiers_valid = match expected_ids {
-        [] => value.migration_ids.is_empty(),
-        [request_id, result_id] => {
-            value.migration_ids.len() == 1
-                && matches!(value.migration_ids[0].as_str(), id if id == *request_id || id == *result_id)
+    let identifiers_valid = match original_schema_version.get() {
+        1 => {
+            value.migration_ids
+                == [MIGRATION_REQUEST_V1_TO_V2, MIGRATION_REQUEST_V2_TO_V3].map(str::to_owned)
+                || value.migration_ids
+                    == [MIGRATION_RESULT_V1_TO_V2, MIGRATION_RESULT_V2_TO_V3].map(str::to_owned)
         }
-        _ => unreachable!("v1 has two document-specific alternatives"),
+        2 => {
+            value.migration_ids == [MIGRATION_REQUEST_V2_TO_V3.to_owned()]
+                || value.migration_ids == [MIGRATION_RESULT_V2_TO_V3.to_owned()]
+        }
+        3 => value.migration_ids.is_empty(),
+        _ => unreachable!("accepted versions are checked above"),
     };
     if !identifiers_valid {
         return Err(domain_at(
@@ -2117,28 +2449,16 @@ fn vega_kt_unit_from_wire(value: VegaKtBucketUnitV1) -> VegaKtResultUnit {
 }
 
 pub fn request_to_json(request: &PricingRequest) -> Result<String, WireError> {
-    reject_unserialized_request_features(request)?;
-    serialize(&RequestV2::from(request), false)
+    serialize(&RequestV3::from(request), false)
 }
 pub fn request_to_pretty_json(request: &PricingRequest) -> Result<String, WireError> {
-    reject_unserialized_request_features(request)?;
-    serialize(&RequestV2::from(request), true)
-}
-
-fn reject_unserialized_request_features(request: &PricingRequest) -> Result<(), WireError> {
-    if request.lsm().is_some() {
-        return Err(WireError::UnsupportedSchemaFeature {
-            feature: "American LSM requests",
-            schema_version: SchemaVersion::CURRENT.get(),
-        });
-    }
-    Ok(())
+    serialize(&RequestV3::from(request), true)
 }
 pub fn result_to_json(result: &PricingResult) -> Result<String, WireError> {
-    serialize(&ResultV2::from(result), false)
+    serialize(&ResultV3::from(result), false)
 }
 pub fn result_to_pretty_json(result: &PricingResult) -> Result<String, WireError> {
-    serialize(&ResultV2::from(result), true)
+    serialize(&ResultV3::from(result), true)
 }
 
 fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> {
@@ -2155,7 +2475,7 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
     let text = validate_and_decode(input, limits)?;
     let version = validate_envelope(text, DOCUMENT_REQUEST)?;
-    let source_fingerprint = (version == 1)
+    let source_fingerprint = (version != SchemaVersion::CURRENT.get())
         .then(|| {
             serde_json::from_str::<Value>(text)
                 .map_err(json)
@@ -2163,18 +2483,25 @@ pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingReq
         })
         .transpose()?;
     let current = match version {
-        1 => RequestV2::from(serde_json::from_str::<RequestV1>(text).map_err(json)?),
-        2 => serde_json::from_str::<RequestV2>(text).map_err(json)?,
+        1 => RequestV3::from(RequestV2::from(
+            serde_json::from_str::<RequestV1>(text).map_err(json)?,
+        )),
+        2 => RequestV3::from(serde_json::from_str::<RequestV2>(text).map_err(json)?),
+        3 => serde_json::from_str::<RequestV3>(text).map_err(json)?,
         _ => return Err(WireError::UnsupportedSchemaVersion(version)),
     };
     let request = PricingRequest::try_from(current)?;
     let current_fingerprint = *fingerprint_request(&request)?.as_bytes();
     let original_schema_version =
         SchemaVersion::new(version).map_err(|error| WireError::Domain(error.to_string()))?;
-    let migration_ids = if version == SchemaVersion::CURRENT.get() {
-        Vec::new()
-    } else {
-        vec![MIGRATION_REQUEST_V1_TO_V2.to_owned()]
+    let migration_ids = match version {
+        1 => vec![
+            MIGRATION_REQUEST_V1_TO_V2.to_owned(),
+            MIGRATION_REQUEST_V2_TO_V3.to_owned(),
+        ],
+        2 => vec![MIGRATION_REQUEST_V2_TO_V3.to_owned()],
+        3 => Vec::new(),
+        _ => unreachable!("accepted versions are checked above"),
     };
     Ok(request.with_wire_migration(MigrationProvenance::new(
         original_schema_version,
@@ -2189,52 +2516,18 @@ pub fn parse_result_json(input: &[u8], limits: JsonLimits) -> Result<PricingResu
     let text = validate_and_decode(input, limits)?;
     let version = validate_envelope(text, DOCUMENT_RESULT)?;
     let current = match version {
-        1 => ResultV2::from(serde_json::from_str::<ResultV1>(text).map_err(json)?),
-        2 => serde_json::from_str::<ResultV2>(text).map_err(json)?,
+        1 => ResultV3::from(ResultV2::from(
+            serde_json::from_str::<ResultV1>(text).map_err(json)?,
+        )),
+        2 => ResultV3::from(serde_json::from_str::<ResultV2>(text).map_err(json)?),
+        3 => serde_json::from_str::<ResultV3>(text).map_err(json)?,
         _ => return Err(WireError::UnsupportedSchemaVersion(version)),
     };
     current.try_into()
 }
 
 pub fn fingerprint_request(request: &PricingRequest) -> Result<Fingerprint, WireError> {
-    if let ProductSpec::AmericanVanilla(american) = request.product() {
-        let european = ProductSpec::EuropeanVanilla(
-            EuropeanVanillaSpec::new(
-                american.underlying(),
-                american.currency(),
-                american.expiry(),
-                american.strike().get(),
-                american.notional().get(),
-                american.side(),
-            )
-            .map_err(|error| WireError::Domain(error.to_string()))?,
-        );
-        let surrogate = PricingRequest::new(
-            request.valuation_date(),
-            european,
-            request.market().clone(),
-            request.model().clone(),
-            request.engine(),
-            request.risk().clone(),
-        )
-        .map_err(|error| WireError::Domain(error.to_string()))?;
-        let base = fingerprint_request(&surrogate)?;
-        let product = american
-            .source_graph()
-            .and_then(|graph| graph.compile(GraphLimitPolicy::DEFAULT))
-            .map_err(|error| WireError::Domain(error.to_string()))?;
-        let lsm = request
-            .lsm()
-            .ok_or_else(|| WireError::Domain("American request has no LSM config".to_owned()))?;
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(b"pricing/american-request\0");
-        hasher.update(&1_u32.to_be_bytes());
-        hasher.update(base.as_bytes());
-        hasher.update(product.source_fingerprint().as_bytes());
-        hasher.update(lsm.fingerprint().as_bytes());
-        return Ok(Fingerprint(*hasher.finalize().as_bytes()));
-    }
-    let value = serde_json::to_value(RequestV2::from(request)).map_err(json)?;
+    let value = serde_json::to_value(RequestV3::from(request)).map_err(json)?;
     fingerprint_request_value(&value, SchemaVersion::CURRENT.get())
 }
 
@@ -2552,11 +2845,11 @@ fn non_empty_string_at(value: String, pointer: &'static str) -> Result<String, W
 
 #[must_use]
 pub const fn current_request_schema() -> &'static str {
-    include_str!("../../../schemas/v2/pricing_request.schema.json")
+    include_str!("../../../schemas/v3/pricing_request.schema.json")
 }
 #[must_use]
 pub const fn current_result_schema() -> &'static str {
-    include_str!("../../../schemas/v2/pricing_result.schema.json")
+    include_str!("../../../schemas/v3/pricing_result.schema.json")
 }
 
 #[cfg(test)]
@@ -2600,6 +2893,48 @@ mod tests {
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
         )
         .expect("request")
+    }
+
+    fn american_request() -> PricingRequest {
+        let base = request();
+        let product = ProductSpec::AmericanVanilla(
+            AmericanVanillaSpec::new(
+                base.product().underlying(),
+                base.product().currency(),
+                base.product().expiry(),
+                100.0,
+                1.0,
+                OptionSide::Put,
+                vec![
+                    "2027-03-04".parse().expect("exercise date"),
+                    base.product().expiry(),
+                ],
+            )
+            .expect("American product"),
+        );
+        let training_engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(19, 512, VarianceReduction::new(true, false))
+                .expect("training engine"),
+        );
+        let lsm = LsmConfig::new(
+            training_engine,
+            vec![LsmStateVariable::Spot],
+            PolynomialBasisSpec::new(1, 2, 3, 3).expect("basis"),
+            1.0e-12,
+            CpqrConfig::new(1.0e-12, 1.0e-10).expect("cpqr"),
+            4096,
+        )
+        .expect("lsm");
+        PricingRequest::new_with_lsm(
+            base.valuation_date(),
+            product,
+            base.market().clone(),
+            base.model().clone(),
+            base.engine(),
+            base.risk().clone(),
+            Some(lsm),
+        )
+        .expect("American request")
     }
 
     fn black_76_request() -> PricingRequest {
@@ -2922,7 +3257,7 @@ mod tests {
         let compact = request_to_json(&request).expect("json");
         assert_eq!(
             compact,
-            include_str!("../../../fixtures/v2/pricing_request.golden.json")
+            include_str!("../../../fixtures/v3/pricing_request.golden.json")
         );
         assert_json_text_contract(&compact);
         let parsed = parse_request_json(compact.as_bytes(), JsonLimits::DEFAULT).expect("parse");
@@ -2943,16 +3278,19 @@ mod tests {
 
     #[test]
     fn schema_v1_documents_migrate_forward_and_remain_strict() {
-        assert_eq!(MigrationRegistry.accepted_source_versions(), &[1, 2]);
+        assert_eq!(MigrationRegistry.accepted_source_versions(), &[1, 2, 3]);
         let request_v1 = include_str!("../../../fixtures/v1/pricing_request.golden.json");
         let request = parse_request_json(request_v1.as_bytes(), JsonLimits::DEFAULT)
             .expect("migrate request");
         let request_migration = request.wire_migration().expect("request migration");
         assert_eq!(request_migration.original_schema_version().get(), 1);
-        assert_eq!(request_migration.current_schema_version().get(), 2);
+        assert_eq!(request_migration.current_schema_version().get(), 3);
         assert_eq!(
             request_migration.migration_ids(),
-            &[MIGRATION_REQUEST_V1_TO_V2.to_owned()]
+            &[
+                MIGRATION_REQUEST_V1_TO_V2.to_owned(),
+                MIGRATION_REQUEST_V2_TO_V3.to_owned(),
+            ]
         );
         assert_ne!(
             request_migration.pre_migration_fingerprint(),
@@ -2971,7 +3309,7 @@ mod tests {
         );
         assert_eq!(
             request_to_json(&request).expect("current request"),
-            include_str!("../../../fixtures/v2/pricing_request.golden.json")
+            include_str!("../../../fixtures/v3/pricing_request.golden.json")
         );
         let invalid_v1 = request_v1.replacen(
             "\"smile_dynamics\"",
@@ -2985,13 +3323,101 @@ mod tests {
             parse_result_json(result_v1.as_bytes(), JsonLimits::DEFAULT).expect("migrate result");
         assert_eq!(
             result_to_json(&result).expect("current result"),
-            include_str!("../../../fixtures/v2/pricing_result_v1_migrated.golden.json")
+            include_str!("../../../fixtures/v3/pricing_result_v1_migrated.golden.json")
         );
         assert_eq!(result.replay.schema_version(), SchemaVersion::CURRENT);
         assert_eq!(
             result.replay.migration().migration_ids(),
-            &[MIGRATION_RESULT_V1_TO_V2.to_owned()]
+            &[
+                MIGRATION_RESULT_V1_TO_V2.to_owned(),
+                MIGRATION_RESULT_V2_TO_V3.to_owned(),
+            ]
         );
+    }
+
+    #[test]
+    fn schema_v2_documents_migrate_to_v3_with_adjacent_provenance() {
+        let request_v2 = include_str!("../../../fixtures/v2/pricing_request.golden.json");
+        let request =
+            parse_request_json(request_v2.as_bytes(), JsonLimits::DEFAULT).expect("request");
+        let migration = request.wire_migration().expect("migration");
+        assert_eq!(migration.original_schema_version().get(), 2);
+        assert_eq!(migration.current_schema_version().get(), 3);
+        assert_eq!(
+            migration.migration_ids(),
+            &[MIGRATION_REQUEST_V2_TO_V3.to_owned()]
+        );
+        assert_ne!(
+            migration.pre_migration_fingerprint(),
+            migration.post_migration_fingerprint()
+        );
+        assert_eq!(
+            request_to_json(&request).expect("current request"),
+            include_str!("../../../fixtures/v3/pricing_request.golden.json")
+        );
+
+        let result_v2 = include_str!("../../../fixtures/v2/pricing_result.golden.json");
+        let result = parse_result_json(result_v2.as_bytes(), JsonLimits::DEFAULT).expect("result");
+        assert_eq!(result.replay.migration().original_schema_version().get(), 2);
+        assert_eq!(result.replay.migration().current_schema_version().get(), 3);
+        assert_eq!(
+            result.replay.migration().migration_ids(),
+            &[MIGRATION_RESULT_V2_TO_V3.to_owned()]
+        );
+        assert_eq!(
+            result_to_json(&result).expect("current result"),
+            include_str!("../../../fixtures/v3/pricing_result_v2_migrated.golden.json")
+        );
+    }
+
+    #[test]
+    fn request_json_round_trips_american_product_and_lsm_configuration() {
+        let request = american_request();
+        let expected_lsm_fingerprint = request.lsm().expect("lsm").fingerprint();
+
+        let json = request_to_json(&request).expect("json");
+        assert_eq!(
+            json,
+            include_str!("../../../fixtures/v3/pricing_request_american.golden.json")
+        );
+        assert!(json.contains("\"type\":\"american_vanilla\""));
+        assert!(json.contains("\"exercise_dates\":[\"2027-03-04\",\"2027-09-04\"]"));
+        assert!(json.contains("\"lsm\":{"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+
+        assert_eq!(request, parsed);
+        assert_eq!(
+            parsed.lsm().expect("parsed lsm").fingerprint(),
+            expected_lsm_fingerprint
+        );
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+        assert_eq!(
+            fingerprint_request(&parsed).expect("fingerprint"),
+            fingerprint_request(&request).expect("fingerprint")
+        );
+
+        let mut legacy_value: Value = serde_json::from_str(&json).expect("request value");
+        legacy_value["schema_version"] = 2.into();
+        legacy_value
+            .as_object_mut()
+            .expect("request object")
+            .remove("lsm");
+        assert!(
+            parse_request_json(
+                serde_json::to_string(&legacy_value)
+                    .expect("legacy-shaped JSON")
+                    .as_bytes(),
+                JsonLimits::DEFAULT,
+            )
+            .is_err()
+        );
+
+        let oversized_basis = json.replacen("\"max_degree\":2", "\"max_degree\":4294967295", 1);
+        assert!(matches!(
+            parse_request_json(oversized_basis.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/lsm/basis/max_degree" && message.contains("resource limit")
+        ));
     }
 
     #[test]
@@ -3399,10 +3825,10 @@ mod tests {
         assert!(parse_request_json(unknown.as_bytes(), JsonLimits::DEFAULT).is_err());
         let null = json.replacen("\"risk\":{", "\"risk\":{\"aad_tile_capacity\":null,", 1);
         assert!(parse_request_json(null.as_bytes(), JsonLimits::DEFAULT).is_err());
-        let future = json.replacen("\"schema_version\":2", "\"schema_version\":3", 1);
+        let future = json.replacen("\"schema_version\":3", "\"schema_version\":4", 1);
         assert!(matches!(
             parse_request_json(future.as_bytes(), JsonLimits::DEFAULT),
-            Err(WireError::UnsupportedSchemaVersion(3))
+            Err(WireError::UnsupportedSchemaVersion(4))
         ));
         let limits = JsonLimits {
             max_input_bytes: 8,
@@ -3424,7 +3850,7 @@ mod tests {
         }
         for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
             let invalid = json.replacen(
-                "\"schema_version\":2",
+                "\"schema_version\":3",
                 &format!("\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3603,7 +4029,7 @@ mod tests {
         let request_json = request_to_json(&request()).expect("request json");
         let duplicate_request_root = request_json.replacen(
             "\"valuation_date\"",
-            "\"schema_version\":2,\"valuation_date\"",
+            "\"schema_version\":3,\"valuation_date\"",
             1,
         );
         let duplicate_request_nested =
@@ -3863,7 +4289,7 @@ mod tests {
         let json = result_to_json(&result).expect("json");
         assert_eq!(
             json,
-            include_str!("../../../fixtures/v2/pricing_result.golden.json")
+            include_str!("../../../fixtures/v3/pricing_result.golden.json")
         );
         assert_json_text_contract(&json);
         assert_json_text_contract(&result_to_pretty_json(&result).expect("pretty json"));
@@ -3882,7 +4308,7 @@ mod tests {
 
     #[test]
     fn result_json_domain_errors_include_instance_paths() {
-        let json = include_str!("../../../fixtures/v2/pricing_result.golden.json");
+        let json = include_str!("../../../fixtures/v3/pricing_result.golden.json");
         let invalid_estimate =
             json.replacen("\"standard_error\":0.5", "\"standard_error\":-0.5", 1);
         assert!(matches!(
@@ -3913,19 +4339,19 @@ mod tests {
         ));
 
         let future_replay_schema = json.replace(
-            "\"replay\":{\"schema_version\":2",
             "\"replay\":{\"schema_version\":3",
+            "\"replay\":{\"schema_version\":4",
         );
         assert!(matches!(
             parse_result_json(future_replay_schema.as_bytes(), JsonLimits::DEFAULT),
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/schema_version"
-                    && message.contains("unsupported replay schema_version 3")
+                    && message.contains("unsupported replay schema_version 4")
         ));
 
         for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
             let invalid_top_level = json.replacen(
-                "\"schema_version\":2",
+                "\"schema_version\":3",
                 &format!("\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3934,7 +4360,7 @@ mod tests {
                 "result JSON accepted schema_version {schema_version}"
             );
             let invalid_replay = json.replacen(
-                "\"replay\":{\"schema_version\":2",
+                "\"replay\":{\"schema_version\":3",
                 &format!("\"replay\":{{\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3983,7 +4409,7 @@ mod tests {
 
     #[test]
     fn result_json_rejects_inconsistent_migration_provenance() {
-        let json = include_str!("../../../fixtures/v2/pricing_result.golden.json");
+        let json = include_str!("../../../fixtures/v3/pricing_result.golden.json");
 
         let mut wrong_ids: serde_json::Value = serde_json::from_str(json).expect("fixture");
         wrong_ids["replay"]["migration"]["original_schema_version"] = 1.into();

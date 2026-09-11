@@ -328,12 +328,12 @@ def validate_case(
     )
     if request.get("document_kind") != "pricing_request":
         raise SystemExit(f"{path}: {case_path}.request.document_kind must be pricing_request")
-    if request.get("schema_version") != 2:
-        raise SystemExit(f"{path}: {case_path}.request.schema_version must be 2")
+    if request.get("schema_version") != 3:
+        raise SystemExit(f"{path}: {case_path}.request.schema_version must be 3")
     if result.get("document_kind") != "pricing_result":
         raise SystemExit(f"{path}: {case_path}.result.document_kind must be pricing_result")
-    if result.get("schema_version") != 2:
-        raise SystemExit(f"{path}: {case_path}.result.schema_version must be 2")
+    if result.get("schema_version") != 3:
+        raise SystemExit(f"{path}: {case_path}.result.schema_version must be 3")
     replay = require_object(path, result.get("replay"), f"{case_path}.result.replay")
     require_exact_keys(path, replay, REPLAY_METADATA_KEYS, f"{case_path}.result.replay")
     result_request_fingerprint = require_fingerprint(
@@ -345,8 +345,8 @@ def validate_case(
         raise SystemExit(
             f"{path}: {case_path} plan/result request fingerprints do not match"
         )
-    if replay.get("schema_version") != 2:
-        raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 2")
+    if replay.get("schema_version") != 3:
+        raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 3")
     migration = require_object(
         path,
         replay.get("migration"),
@@ -359,12 +359,12 @@ def validate_case(
         f"{case_path}.result.replay.migration",
     )
     if (
-        migration.get("original_schema_version") != 2
-        or migration.get("current_schema_version") != 2
+        migration.get("original_schema_version") != 3
+        or migration.get("current_schema_version") != 3
         or migration.get("migration_ids") != []
     ):
         raise SystemExit(
-            f"{path}: {case_path}.result.replay.migration must describe an unmigrated v2 request"
+            f"{path}: {case_path}.result.replay.migration must describe an unmigrated v3 request"
         )
     for field in ["pre_migration_fingerprint", "post_migration_fingerprint"]:
         migration_fingerprint = require_fingerprint(

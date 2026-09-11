@@ -141,6 +141,7 @@ def main() -> None:
     )
     verify_runtime_symbols(python, stub_api, metadata["Version"])
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
+    subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
     subprocess.run(

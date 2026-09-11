@@ -550,7 +550,7 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path}.request.document_kind",
         )
         require(
-            request.get("schema_version") == 2,
+            request.get("schema_version") == 3,
             path,
             f"{case_path}.request.schema_version",
         )
@@ -565,16 +565,16 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path}.result.document_kind",
         )
         require(
-            result.get("schema_version") == 2,
+            result.get("schema_version") == 3,
             path,
             f"{case_path}.result.schema_version",
         )
         replay = require_object(result.get("replay"), path, f"{case_path}.result.replay")
         require_exact_keys(replay, REPLAY_METADATA_KEYS, path, f"{case_path}.result.replay")
         require(
-            replay.get("schema_version") == 2,
+            replay.get("schema_version") == 3,
             path,
-            f"{case_path}.result.replay.schema_version must be 2",
+            f"{case_path}.result.replay.schema_version must be 3",
         )
         require(
             replay.get("library_version") == library_version,
@@ -604,11 +604,11 @@ def check_replay_report(path: Path, fixture_kind: str, library_version: str) -> 
             f"{case_path}.result.replay.migration",
         )
         require(
-            migration.get("original_schema_version") == 2
-            and migration.get("current_schema_version") == 2
+            migration.get("original_schema_version") == 3
+            and migration.get("current_schema_version") == 3
             and migration.get("migration_ids") == [],
             path,
-            f"{case_path}.result.replay.migration must describe an unmigrated v2 request",
+            f"{case_path}.result.replay.migration must describe an unmigrated v3 request",
         )
         for field in ["pre_migration_fingerprint", "post_migration_fingerprint"]:
             require_fingerprint(

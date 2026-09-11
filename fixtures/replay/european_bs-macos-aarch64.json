@@ -87,9 +87,9 @@
       },
       "name": "pseudo_mc_full_risk",
       "plan": {
-        "plan_fingerprint": "blake3-256:8d7dab20add419243bbc3e7c625511c584eaf2c01d539ddf8af06c78ccff8146",
+        "plan_fingerprint": "blake3-256:e8576e15db5ac6e5f03b849062d1d557aac6eea38420fa8cef545786759b486f",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15",
+        "request_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a",
         "worker_threads": 2
       },
       "request": {
@@ -161,7 +161,7 @@
           },
           "vega": true
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -172,15 +172,15 @@
         "replay": {
           "library_version": "0.1.0",
           "migration": {
-            "current_schema_version": 2,
+            "current_schema_version": 3,
             "migration_ids": [],
-            "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15",
-            "pre_migration_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15"
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a",
+            "pre_migration_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:b30f55741931071ee7abd6550a02a9119af37d63a40add5756af84ac31fe6b15",
-          "schema_version": 2
+          "request_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a",
+          "schema_version": 3
         },
         "risks": {
           "delta": {
@@ -268,7 +268,7 @@
             }
           }
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.105148874063802,
           "confidence_upper": 9.389679102747571,
@@ -368,9 +368,9 @@
       },
       "name": "rqmc_full_risk",
       "plan": {
-        "plan_fingerprint": "blake3-256:8bd3224986eb4db2d69593d80cba9c7c49ab7b7e8d7c64b407482a78abe2e784",
+        "plan_fingerprint": "blake3-256:88e7642b5e234938642f55bfefaf0784304bd4339383ffacc21bc88f71525132",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e",
+        "request_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d",
         "worker_threads": 2
       },
       "request": {
@@ -443,7 +443,7 @@
           },
           "vega": true
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -454,15 +454,15 @@
         "replay": {
           "library_version": "0.1.0",
           "migration": {
-            "current_schema_version": 2,
+            "current_schema_version": 3,
             "migration_ids": [],
-            "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e",
-            "pre_migration_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e"
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d",
+            "pre_migration_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:124c495b946b657f8d1986b53bba1efb3bc1a655d9340e9eed4f68bf3937ba0e",
-          "schema_version": 2
+          "request_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d",
+          "schema_version": 3
         },
         "risks": {
           "delta": {
@@ -550,7 +550,7 @@
             }
           }
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.223899491264342,
           "confidence_upper": 9.232856435173924,

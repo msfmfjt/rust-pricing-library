@@ -42,9 +42,9 @@
       },
       "name": "pseudo_mc_price_only",
       "plan": {
-        "plan_fingerprint": "blake3-256:5698b2e34c0d462b622f1bc741217fb570e02c36ab8e23ff55d6d926ec014e99",
+        "plan_fingerprint": "blake3-256:29e314aab05aa6fea35c7b70792cefa75763c6e620cabec052af89535a41ce05",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:35e552a02e69562acea15dbd914c652177aee9c7e7ec80fbe7195bfe41815633",
+        "request_fingerprint": "blake3-256:3b29e47f4b265fd971e8d926bf752d11c31d705e0c9453b3ba9924df17082e75",
         "worker_threads": 2
       },
       "request": {
@@ -144,7 +144,7 @@
           },
           "vega": false
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -155,18 +155,18 @@
         "replay": {
           "library_version": "0.1.0",
           "migration": {
-            "current_schema_version": 2,
+            "current_schema_version": 3,
             "migration_ids": [],
-            "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:35e552a02e69562acea15dbd914c652177aee9c7e7ec80fbe7195bfe41815633",
-            "pre_migration_fingerprint": "blake3-256:35e552a02e69562acea15dbd914c652177aee9c7e7ec80fbe7195bfe41815633"
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:3b29e47f4b265fd971e8d926bf752d11c31d705e0c9453b3ba9924df17082e75",
+            "pre_migration_fingerprint": "blake3-256:3b29e47f4b265fd971e8d926bf752d11c31d705e0c9453b3ba9924df17082e75"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:35e552a02e69562acea15dbd914c652177aee9c7e7ec80fbe7195bfe41815633",
-          "schema_version": 2
+          "request_fingerprint": "blake3-256:3b29e47f4b265fd971e8d926bf752d11c31d705e0c9453b3ba9924df17082e75",
+          "schema_version": 3
         },
         "risks": {},
-        "schema_version": 2,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.122797386446743,
           "confidence_upper": 9.44291909059208,
@@ -221,9 +221,9 @@
       },
       "name": "rqmc_price_only",
       "plan": {
-        "plan_fingerprint": "blake3-256:01e7d2a72759b99e2336e51f5579a148bc115643c6e8d6110b529dd8d73e1e88",
+        "plan_fingerprint": "blake3-256:093b79504954e1195f80f59d98432bf205ea4a38c0926b8cc7097cfb230115ae",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:8a42abd819d48eb7edbb762ce6aebf7cc58cc97046685aab4ae317b0a669072b",
+        "request_fingerprint": "blake3-256:cec3c236b4833f6233c153abe2c91c9bf5943763f91becb4707b0017918957d7",
         "worker_threads": 2
       },
       "request": {
@@ -324,7 +324,7 @@
           },
           "vega": false
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -335,18 +335,18 @@
         "replay": {
           "library_version": "0.1.0",
           "migration": {
-            "current_schema_version": 2,
+            "current_schema_version": 3,
             "migration_ids": [],
-            "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:8a42abd819d48eb7edbb762ce6aebf7cc58cc97046685aab4ae317b0a669072b",
-            "pre_migration_fingerprint": "blake3-256:8a42abd819d48eb7edbb762ce6aebf7cc58cc97046685aab4ae317b0a669072b"
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:cec3c236b4833f6233c153abe2c91c9bf5943763f91becb4707b0017918957d7",
+            "pre_migration_fingerprint": "blake3-256:cec3c236b4833f6233c153abe2c91c9bf5943763f91becb4707b0017918957d7"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:8a42abd819d48eb7edbb762ce6aebf7cc58cc97046685aab4ae317b0a669072b",
-          "schema_version": 2
+          "request_fingerprint": "blake3-256:cec3c236b4833f6233c153abe2c91c9bf5943763f91becb4707b0017918957d7",
+          "schema_version": 3
         },
         "risks": {},
-        "schema_version": 2,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.284569629060083,
           "confidence_upper": 9.301776944770964,
@@ -401,9 +401,9 @@
       },
       "name": "pseudo_mc_delta_gamma_vega_vegakt",
       "plan": {
-        "plan_fingerprint": "blake3-256:7ffe53752f050f7638d415026030b77ea9c68f55d3132eec89cc122804cf8dab",
+        "plan_fingerprint": "blake3-256:b3ee9724e5db1f1a19577287f50d283b9a548b76b53dc4407e9ac29dff1ca155",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:ad645bf8a4bb3a0f37b38ab5f36b4f6ca7d82381f3c52f622c2472fad1953540",
+        "request_fingerprint": "blake3-256:3274a35d62a46a6ea0ad65ef5d3a80ab81bd916cf142787fe9069bda6606973f",
         "worker_threads": 2
       },
       "request": {
@@ -547,7 +547,7 @@
             "relative_density_threshold": 1e-8
           }
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -558,15 +558,15 @@
         "replay": {
           "library_version": "0.1.0",
           "migration": {
-            "current_schema_version": 2,
+            "current_schema_version": 3,
             "migration_ids": [],
-            "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:ad645bf8a4bb3a0f37b38ab5f36b4f6ca7d82381f3c52f622c2472fad1953540",
-            "pre_migration_fingerprint": "blake3-256:ad645bf8a4bb3a0f37b38ab5f36b4f6ca7d82381f3c52f622c2472fad1953540"
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:3274a35d62a46a6ea0ad65ef5d3a80ab81bd916cf142787fe9069bda6606973f",
+            "pre_migration_fingerprint": "blake3-256:3274a35d62a46a6ea0ad65ef5d3a80ab81bd916cf142787fe9069bda6606973f"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:ad645bf8a4bb3a0f37b38ab5f36b4f6ca7d82381f3c52f622c2472fad1953540",
-          "schema_version": 2
+          "request_fingerprint": "blake3-256:3274a35d62a46a6ea0ad65ef5d3a80ab81bd916cf142787fe9069bda6606973f",
+          "schema_version": 3
         },
         "risks": {
           "delta": {
@@ -916,7 +916,7 @@
             "truncation_order": "O(delta_t_k)"
           }
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.123121387667185,
           "confidence_upper": 9.44324820691732,
@@ -971,9 +971,9 @@
       },
       "name": "rqmc_delta_gamma_vega_vegakt",
       "plan": {
-        "plan_fingerprint": "blake3-256:88274a58a0670815cd04f62da032269ee12d02cd37134e4e3e1962036c8fd771",
+        "plan_fingerprint": "blake3-256:d4dddbfec654c8ac3e52aebeed09f3dfea3484d81bbdbd530fa031b1efda0fad",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:947a562da98eb55aea65f52b54d9a0f40e091624a120c39718988dffd85de273",
+        "request_fingerprint": "blake3-256:267b2c8a10aa43c742171b95d218652189b2ff83be63ab4fbc9b2175080e67bc",
         "worker_threads": 2
       },
       "request": {
@@ -1118,7 +1118,7 @@
             "relative_density_threshold": 1e-8
           }
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -1129,15 +1129,15 @@
         "replay": {
           "library_version": "0.1.0",
           "migration": {
-            "current_schema_version": 2,
+            "current_schema_version": 3,
             "migration_ids": [],
-            "original_schema_version": 2,
-            "post_migration_fingerprint": "blake3-256:947a562da98eb55aea65f52b54d9a0f40e091624a120c39718988dffd85de273",
-            "pre_migration_fingerprint": "blake3-256:947a562da98eb55aea65f52b54d9a0f40e091624a120c39718988dffd85de273"
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:267b2c8a10aa43c742171b95d218652189b2ff83be63ab4fbc9b2175080e67bc",
+            "pre_migration_fingerprint": "blake3-256:267b2c8a10aa43c742171b95d218652189b2ff83be63ab4fbc9b2175080e67bc"
           },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:947a562da98eb55aea65f52b54d9a0f40e091624a120c39718988dffd85de273",
-          "schema_version": 2
+          "request_fingerprint": "blake3-256:267b2c8a10aa43c742171b95d218652189b2ff83be63ab4fbc9b2175080e67bc",
+          "schema_version": 3
         },
         "risks": {
           "delta": {
@@ -1487,7 +1487,7 @@
             "truncation_order": "O(delta_t_k)"
           }
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.28496840282468,
           "confidence_upper": 9.302179637989909,

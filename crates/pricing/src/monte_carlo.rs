@@ -6338,13 +6338,10 @@ mod tests {
     #[test]
     fn american_pseudo_replays_across_worker_counts() {
         let request = american_request(OptionSide::Put, 100.0, 0.2, 1024, 2048, true);
-        assert!(matches!(
-            crate::request_to_json(&request),
-            Err(crate::WireError::UnsupportedSchemaFeature {
-                feature: "American LSM requests",
-                schema_version: 2,
-            })
-        ));
+        let request_json = crate::request_to_json(&request).expect("serialize American request");
+        let parsed = crate::parse_request_json(request_json.as_bytes(), crate::JsonLimits::DEFAULT)
+            .expect("parse American request");
+        assert_eq!(parsed, request);
         assert_eq!(fingerprint_request(&request), fingerprint_request(&request));
         let serial = price_monte_carlo(&request, policy(1)).expect("serial American price");
         let parallel = price_monte_carlo(&request, policy(4)).expect("parallel American price");
