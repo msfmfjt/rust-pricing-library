@@ -2,7 +2,8 @@ use pricing_aad::{AadTilePolicy, CheckpointPolicy, SoaWorkspace};
 use pricing_core::{Date, DayCountConvention, PathIndex, PositiveF64, SchemaVersion, UnderlyingId};
 use pricing_market::{
     AffineDividendCoordinate, AffineDividendTransform, CurveRegion, DiscountCurve, EquityForward,
-    ImpliedVarianceSurface, LocalVarianceGrid, MarketError, ThetaRegion, TotalVarianceDerivatives,
+    ImpliedVarianceSurface, LocalVarianceGrid, LocalVarianceInterpolation, MarketError,
+    ThetaRegion, TotalVarianceDerivatives,
 };
 use pricing_mc::{
     BarrierBridgeDirection, BarrierBridgeIntervalInput, BarrierBridgePath, BrownianBridgePlan,
@@ -92,6 +93,8 @@ pub struct SimulationPlan {
 struct LocalVolRuntime {
     grid: LocalVarianceGrid,
     plan: LocalVolLogEulerPlan,
+    node_affine_coordinates: Box<[AffineDividendCoordinate]>,
+    node_pre_dividend_coordinates: Box<[Option<AffineDividendCoordinate>]>,
     dividends: Option<AffineDividendTransform>,
     dividend_schedule: Option<LocalVolDividendCheckpointSchedule>,
     vega_kt: Option<LocalVolVegaKtRuntime>,
@@ -113,6 +116,7 @@ struct ContinuousBarrierRuntime {
     side: OptionSide,
     direction: BarrierDirection,
     style: BarrierStyle,
+    monitoring_end_time: f64,
     bridge_observation_indices: Box<[usize]>,
     expiry_observation_index: usize,
 }
@@ -139,6 +143,24 @@ struct ContinuousBarrierPayoffTerms {
     value: f64,
     terminal_derivative: f64,
     survival_derivative: f64,
+}
+
+#[derive(Clone, Debug)]
+struct LocalVolContinuousBarrierBridgeEvaluation {
+    path: BarrierBridgePath,
+    interval_node_indices: Box<[(usize, usize)]>,
+    node_interpolations: Box<[LocalVarianceInterpolation]>,
+    endpoint_touched: bool,
+}
+
+impl LocalVolContinuousBarrierBridgeEvaluation {
+    fn survival(&self) -> f64 {
+        if self.endpoint_touched {
+            0.0
+        } else {
+            self.path.survival()
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -331,12 +353,27 @@ fn compile_local_vol_runtime(
     } else {
         LocalVolTimeGrid::compile(required_times, maximum_step)?
     };
+    let dividends = market_forward.discrete_dividends().cloned();
+    let dividend_timeline = dividends
+        .as_ref()
+        .map(AffineDividendTransform::event_timeline)
+        .transpose()?
+        .unwrap_or_default();
     let mut forwards = Vec::with_capacity(time_grid.nodes().len());
+    let mut node_affine_coordinates = Vec::with_capacity(time_grid.nodes().len());
+    let mut node_pre_dividend_coordinates = Vec::with_capacity(time_grid.nodes().len());
     for time in time_grid.nodes().iter().copied() {
-        forwards.push(market_forward.evaluate(time)?.forward);
+        let evaluation = market_forward.evaluate(time)?;
+        forwards.push(evaluation.forward);
+        node_affine_coordinates.push(evaluation.affine_coordinate);
+        node_pre_dividend_coordinates.push(
+            dividend_timeline
+                .iter()
+                .find(|entry| entry.ex_time().to_bits() == time.to_bits())
+                .map(|entry| entry.before()),
+        );
     }
     let plan = LocalVolLogEulerPlan::new(time_grid, forwards)?;
-    let dividends = market_forward.discrete_dividends().cloned();
     let dividend_schedule = dividends
         .as_ref()
         .map(|dividends| LocalVolDividendCheckpointSchedule::compile(plan.time_grid(), dividends))
@@ -354,6 +391,8 @@ fn compile_local_vol_runtime(
     Ok(LocalVolRuntime {
         grid,
         plan,
+        node_affine_coordinates: node_affine_coordinates.into_boxed_slice(),
+        node_pre_dividend_coordinates: node_pre_dividend_coordinates.into_boxed_slice(),
         dividends,
         dividend_schedule,
         vega_kt,
@@ -542,11 +581,6 @@ impl SimulationPlan {
                 (volatility, volatility * volatility * time, None)
             }
             ModelSpec::LocalVolatility(model) => {
-                if continuous_barrier_spec.is_some() {
-                    return Err(MonteCarloError::UnsupportedModel {
-                        model: "continuous_barrier_local_volatility",
-                    });
-                }
                 let runtime = compile_local_vol_runtime(LocalVolRuntimeInputs {
                     grid: model.local_variance_grid().clone(),
                     reporting_iv_basis: model.reporting_iv_basis(),
@@ -636,6 +670,7 @@ impl SimulationPlan {
                 side: barrier.side(),
                 direction: barrier.direction(),
                 style: barrier.style(),
+                monitoring_end_time: monitoring_end,
                 bridge_observation_indices,
                 expiry_observation_index,
             }
@@ -1484,6 +1519,13 @@ impl SimulationPlan {
                 .evolve_path(&local_volatility.grid, spot, shocks)?
         };
         let observations = self.local_vol_path_observations(&path)?;
+        if let Some(barrier) = &self.continuous_barrier {
+            let bridge =
+                self.local_vol_continuous_barrier_bridge(local_volatility, barrier, &path, spot)?;
+            let terminal = observations[barrier.expiry_observation_index].post_spot;
+            let payoff = continuous_barrier_payoff_terms(barrier, terminal, bridge.survival());
+            return Ok(self.discount * payoff.value);
+        }
         let outputs = self.payoff.evaluate_with_pre_dividend_spots(
             |underlying, date| {
                 if underlying != self.underlying {
@@ -1536,6 +1578,73 @@ impl SimulationPlan {
                 }
             })
             .collect())
+    }
+
+    fn local_vol_continuous_barrier_bridge(
+        &self,
+        local_volatility: &LocalVolRuntime,
+        barrier: &ContinuousBarrierRuntime,
+        path: &LocalVolPath,
+        spot: f64,
+    ) -> Result<LocalVolContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        let nodes = local_volatility.plan.time_grid().nodes();
+        let end_node = nodes
+            .iter()
+            .rposition(|time| *time <= barrier.monitoring_end_time)
+            .expect("Local Volatility time grids start at valuation");
+        let mut node_interpolations = Vec::with_capacity(end_node + 1);
+        for (node, (&time, &state)) in nodes
+            .iter()
+            .zip(path.states())
+            .take(end_node + 1)
+            .enumerate()
+        {
+            let forward = local_volatility.plan.forward_normalizers()[node];
+            node_interpolations.push(
+                local_volatility
+                    .grid
+                    .interpolate(time, (state / forward).ln())?,
+            );
+        }
+
+        let mut intervals = Vec::with_capacity(end_node);
+        let mut interval_node_indices = Vec::with_capacity(end_node);
+        let mut endpoint_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
+        for right_node in 1..=end_node {
+            let left_node = right_node - 1;
+            let left_coordinate = local_volatility.node_affine_coordinates[left_node];
+            let right_post_coordinate = local_volatility.node_affine_coordinates[right_node];
+            let right_pre_coordinate = local_volatility.node_pre_dividend_coordinates[right_node]
+                .unwrap_or(right_post_coordinate);
+            let left_barrier = transformed_barrier(barrier.barrier, spot, left_coordinate)?;
+            let right_barrier = transformed_barrier(barrier.barrier, spot, right_pre_coordinate)?;
+            intervals.push(BarrierBridgeIntervalInput {
+                direction: bridge_direction(barrier.direction),
+                left_state: path.states()[left_node],
+                right_state: path.states()[right_node],
+                left_barrier,
+                right_barrier,
+                left_local_variance: node_interpolations[left_node].value,
+                right_local_variance: node_interpolations[right_node].value,
+                dt: nodes[right_node] - nodes[left_node],
+            });
+            interval_node_indices.push((left_node, right_node));
+
+            if local_volatility.node_pre_dividend_coordinates[right_node].is_some() {
+                let state = path.states()[right_node];
+                let pre_spot = right_pre_coordinate.a() * spot + right_pre_coordinate.b() * state;
+                let post_spot =
+                    right_post_coordinate.a() * spot + right_post_coordinate.b() * state;
+                endpoint_touched |= barrier_touched(barrier.direction, pre_spot, barrier.barrier)
+                    || barrier_touched(barrier.direction, post_spot, barrier.barrier);
+            }
+        }
+        Ok(LocalVolContinuousBarrierBridgeEvaluation {
+            path: BarrierBridgePath::evaluate(&intervals)?,
+            interval_node_indices: interval_node_indices.into_boxed_slice(),
+            node_interpolations: node_interpolations.into_boxed_slice(),
+            endpoint_touched,
+        })
     }
 
     fn local_vol_bump_runtimes(&self) -> Result<Option<LocalVolBumpRuntimes>, MonteCarloError> {
@@ -1621,61 +1730,133 @@ impl SimulationPlan {
                 .evolve_path(&local_volatility.grid, self.spot, shocks)?
         };
         let observations = self.local_vol_path_observations(&path_state)?;
-        let payoff = self.payoff.evaluate_single_with_observation_adjoints(
-            |underlying, date| {
-                if underlying != self.underlying {
-                    return None;
-                }
-                self.observation_dates
-                    .iter()
-                    .position(|observation_date| *observation_date == Some(date))
-                    .map(|index| observations[index].post_spot)
-            },
-            |underlying, date| {
-                if underlying != self.underlying {
-                    return None;
-                }
-                self.observation_dates
-                    .iter()
-                    .position(|observation_date| *observation_date == Some(date))
-                    .and_then(|index| observations[index].pre_dividend_spot)
-            },
-        )?;
-        let price = self.discount * payoff.value;
+        let continuous = if let Some(barrier) = &self.continuous_barrier {
+            let bridge = self.local_vol_continuous_barrier_bridge(
+                local_volatility,
+                barrier,
+                &path_state,
+                self.spot,
+            )?;
+            let terminal = observations[barrier.expiry_observation_index].post_spot;
+            let payoff = continuous_barrier_payoff_terms(barrier, terminal, bridge.survival());
+            Some((bridge, payoff))
+        } else {
+            None
+        };
+        let graph_payoff = if continuous.is_none() {
+            Some(self.payoff.evaluate_single_with_observation_adjoints(
+                |underlying, date| {
+                    if underlying != self.underlying {
+                        return None;
+                    }
+                    self.observation_dates
+                        .iter()
+                        .position(|observation_date| *observation_date == Some(date))
+                        .map(|index| observations[index].post_spot)
+                },
+                |underlying, date| {
+                    if underlying != self.underlying {
+                        return None;
+                    }
+                    self.observation_dates
+                        .iter()
+                        .position(|observation_date| *observation_date == Some(date))
+                        .and_then(|index| observations[index].pre_dividend_spot)
+                },
+            )?)
+        } else {
+            None
+        };
+        let price = self.discount
+            * continuous.as_ref().map_or_else(
+                || graph_payoff.as_ref().expect("graph payoff").value,
+                |(_, payoff)| payoff.value,
+            );
         let mut values = [0.0; PATHWISE_COMPONENTS];
         let mut raw_buckets = None;
         values[PRICE] = price;
         if self.request_vega || local_volatility.vega_kt.is_some() {
             let mut state_seeds = vec![0.0; path_state.states().len()];
-            for adjoint in &payoff.terminal_adjoints {
-                if adjoint.underlying != self.underlying {
-                    continue;
+            let mut bridge_grid_adjoints = vec![0.0; local_volatility.grid.values().len()];
+            if let Some((bridge, payoff)) = &continuous {
+                let barrier = self
+                    .continuous_barrier
+                    .as_ref()
+                    .expect("continuous Barrier");
+                let terminal_observation = observations[barrier.expiry_observation_index];
+                let terminal_coordinate =
+                    self.observation_affine_coordinates[barrier.expiry_observation_index];
+                state_seeds[terminal_observation.node_index] +=
+                    self.discount * payoff.terminal_derivative * terminal_coordinate.b();
+                if !bridge.endpoint_touched {
+                    let interval_adjoints = bridge
+                        .path
+                        .reverse(self.discount * payoff.survival_derivative * bridge.survival());
+                    let mut variance_seeds = vec![0.0; bridge.node_interpolations.len()];
+                    for ((left_node, right_node), adjoints) in bridge
+                        .interval_node_indices
+                        .iter()
+                        .copied()
+                        .zip(interval_adjoints)
+                    {
+                        state_seeds[left_node] += adjoints.left_state;
+                        state_seeds[right_node] += adjoints.right_state;
+                        variance_seeds[left_node] += adjoints.left_local_variance;
+                        variance_seeds[right_node] += adjoints.right_local_variance;
+                    }
+                    let x_count = local_volatility.grid.log_moneyness_nodes().len();
+                    for (node, (interpolation, variance_seed)) in bridge
+                        .node_interpolations
+                        .iter()
+                        .copied()
+                        .zip(variance_seeds)
+                        .enumerate()
+                    {
+                        let state = path_state.states()[node];
+                        state_seeds[node] += variance_seed
+                            * local_volatility
+                                .grid
+                                .interpolation_log_moneyness_derivative(interpolation)
+                            / state;
+                        interpolation.transpose_accumulate(
+                            variance_seed,
+                            &mut bridge_grid_adjoints,
+                            x_count,
+                        );
+                    }
                 }
-                if let Some(index) = self
-                    .observation_dates
-                    .iter()
-                    .position(|date| *date == Some(adjoint.observation_date))
-                {
-                    let observation = observations[index];
-                    let coordinate = self.observation_affine_coordinates[index];
-                    state_seeds[observation.node_index] +=
-                        self.discount * adjoint.value * coordinate.b();
+            } else {
+                let payoff = graph_payoff.as_ref().expect("graph payoff");
+                for adjoint in &payoff.terminal_adjoints {
+                    if adjoint.underlying != self.underlying {
+                        continue;
+                    }
+                    if let Some(index) = self
+                        .observation_dates
+                        .iter()
+                        .position(|date| *date == Some(adjoint.observation_date))
+                    {
+                        let observation = observations[index];
+                        let coordinate = self.observation_affine_coordinates[index];
+                        state_seeds[observation.node_index] +=
+                            self.discount * adjoint.value * coordinate.b();
+                    }
                 }
-            }
-            for adjoint in &payoff.pre_dividend_adjoints {
-                if adjoint.underlying != self.underlying {
-                    continue;
-                }
-                if let Some(index) = self
-                    .observation_dates
-                    .iter()
-                    .position(|date| *date == Some(adjoint.observation_date))
-                {
-                    let observation = observations[index];
-                    let coordinate = self.observation_pre_dividend_coordinates[index]
-                        .expect("pre-dividend adjoints have a matching coordinate");
-                    state_seeds[observation.node_index] +=
-                        self.discount * adjoint.value * coordinate.b();
+                for adjoint in &payoff.pre_dividend_adjoints {
+                    if adjoint.underlying != self.underlying {
+                        continue;
+                    }
+                    if let Some(index) = self
+                        .observation_dates
+                        .iter()
+                        .position(|date| *date == Some(adjoint.observation_date))
+                    {
+                        let observation = observations[index];
+                        let coordinate = self.observation_pre_dividend_coordinates[index]
+                            .expect("pre-dividend adjoints have a matching coordinate");
+                        state_seeds[observation.node_index] +=
+                            self.discount * adjoint.value * coordinate.b();
+                    }
                 }
             }
             let reverse = path_state.reverse_state_adjoints(
@@ -1686,8 +1867,11 @@ impl SimulationPlan {
             let local_vol_node_adjoints = reverse
                 .local_variance_value_adjoints()
                 .iter()
+                .zip(&bridge_grid_adjoints)
                 .zip(local_volatility.grid.values())
-                .map(|(adjoint, variance)| adjoint * 2.0 * variance.sqrt())
+                .map(|((path_adjoint, bridge_adjoint), variance)| {
+                    (path_adjoint + bridge_adjoint) * 2.0 * variance.sqrt()
+                })
                 .collect::<Vec<_>>();
             let vega = local_vol_node_adjoints
                 .iter()
@@ -3788,6 +3972,85 @@ mod tests {
         )
     }
 
+    fn skewed_local_vol_model(time_nodes: Vec<f64>) -> ModelSpec {
+        skewed_local_vol_model_with_parallel_shift(time_nodes, 0.0)
+    }
+
+    fn skewed_local_vol_model_with_parallel_shift(
+        time_nodes: Vec<f64>,
+        volatility_shift: f64,
+    ) -> ModelSpec {
+        let mut values = Vec::with_capacity(time_nodes.len() * 3);
+        for _ in &time_nodes {
+            values.extend(
+                [0.15_f64, 0.2, 0.25].map(|volatility| (volatility + volatility_shift).powi(2)),
+            );
+        }
+        ModelSpec::LocalVolatility(
+            LocalVolatilitySpec::from_explicit_grid(
+                time_nodes,
+                vec![-1.0, 0.0, 1.0],
+                values,
+                1.0e-8,
+                1.0,
+            )
+            .expect("skewed local volatility"),
+        )
+    }
+
+    fn continuous_barrier_local_vol_request(
+        model: ModelSpec,
+        monitoring_dates: Vec<Date>,
+        risk: RiskRequest,
+    ) -> PricingRequest {
+        let underlying = UnderlyingId::new(1);
+        let currency = CurrencyId::new(1);
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let product = ProductSpec::Barrier(
+            BarrierSpec::new(
+                underlying,
+                currency,
+                expiry,
+                100.0,
+                130.0,
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Up,
+                BarrierStyle::KnockOut,
+                BarrierMonitoring::Continuous,
+                monitoring_dates,
+                None,
+                expiry,
+            )
+            .expect("continuous Barrier"),
+        );
+        let market = MarketContext::Equity(EquityMarket::new(
+            currency,
+            EquityForward::new(
+                underlying,
+                PositiveF64::new(100.0, "spot").expect("spot"),
+                curve(1, 0.0),
+                curve(2, 0.0),
+            ),
+        ));
+        PricingRequest::new(
+            "2026-09-04".parse().expect("valuation"),
+            product,
+            market,
+            model,
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(
+                    0x0123_4567_89ab_cdef,
+                    4_096,
+                    VarianceReduction::new(true, true),
+                )
+                .expect("engine"),
+            ),
+            risk,
+        )
+        .expect("request")
+    }
+
     fn local_vol_barrier_dividend_jump_request(
         style: BarrierStyle,
         risk: RiskRequest,
@@ -4590,6 +4853,241 @@ mod tests {
         assert!(result.pricing_result.risks.delta.is_some());
         assert!(result.pricing_result.risks.gamma.is_some());
         assert!(result.pricing_result.risks.vega.is_some());
+    }
+
+    #[test]
+    fn continuous_barrier_local_vol_matches_constant_variance_limit() {
+        let black_scholes = barrier_dividend_jump_request_with_monitoring(
+            BarrierDirection::Down,
+            BarrierStyle::KnockOut,
+            0.2,
+            all_risks(),
+            BarrierMonitoring::Continuous,
+            Some(70.0),
+        );
+        let local_vol = PricingRequest::new(
+            black_scholes.valuation_date(),
+            black_scholes.product().clone(),
+            black_scholes.market().clone(),
+            constant_local_vol_model(),
+            black_scholes.engine(),
+            black_scholes.risk().clone(),
+        )
+        .expect("Local Volatility continuous Barrier request");
+        let black_scholes_result = SimulationPlan::compile(&black_scholes, policy(2))
+            .expect("Black-Scholes plan")
+            .execute()
+            .expect("Black-Scholes execution");
+        let local_vol_result = SimulationPlan::compile(&local_vol, policy(2))
+            .expect("Local Volatility plan")
+            .execute()
+            .expect("Local Volatility execution");
+
+        let black_scholes_price = black_scholes_result.pricing_result.value.value().get();
+        let local_vol_price = local_vol_result.pricing_result.value.value().get();
+        assert!((local_vol_price - black_scholes_price).abs() < 1.0e-12);
+        let black_scholes_vega = black_scholes_result
+            .pricing_result
+            .risks
+            .vega
+            .as_ref()
+            .expect("Black-Scholes Vega")
+            .raw()
+            .value()
+            .get();
+        let local_vol_vega = local_vol_result
+            .pricing_result
+            .risks
+            .vega
+            .as_ref()
+            .expect("Local Volatility Vega")
+            .raw()
+            .value()
+            .get();
+        assert!((local_vol_vega - black_scholes_vega).abs() < 1.0e-10);
+        assert!(local_vol_result.pricing_result.risks.delta.is_some());
+        assert!(local_vol_result.pricing_result.risks.gamma.is_some());
+    }
+
+    #[test]
+    fn continuous_barrier_local_vol_time_step_refinement_converges() {
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let value = |time_nodes: Vec<f64>| {
+            let request = continuous_barrier_local_vol_request(
+                skewed_local_vol_model(time_nodes),
+                vec![expiry],
+                RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            );
+            let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+            let local_volatility = plan.local_volatility.as_ref().expect("Local Volatility");
+            let shocks = local_volatility
+                .plan
+                .time_grid()
+                .nodes()
+                .windows(2)
+                .map(|times| 0.35 * (times[1] - times[0]).sqrt())
+                .collect::<Vec<_>>();
+            plan.local_vol_discounted_payoff_at_spot(
+                local_volatility,
+                plan.spot,
+                &shocks,
+                PathIndex::new(0),
+            )
+            .expect("path value")
+        };
+        let coarse = value(vec![0.0, 1.0]);
+        let medium = value(vec![0.0, 0.5, 1.0]);
+        let fine = value(vec![0.0, 0.25, 0.5, 0.75, 1.0]);
+        let reference = value((0..=16).map(|index| f64::from(index) / 16.0).collect());
+        let coarse_error = (coarse - reference).abs();
+        let medium_error = (medium - reference).abs();
+        let fine_error = (fine - reference).abs();
+        assert!(
+            medium_error < coarse_error && fine_error < medium_error,
+            "coarse={coarse}, medium={medium}, fine={fine}, reference={reference}"
+        );
+    }
+
+    #[test]
+    fn continuous_barrier_local_vol_monitoring_refinement_converges() {
+        let first: Date = "2026-12-04".parse().expect("first");
+        let second: Date = "2027-03-05".parse().expect("second");
+        let third: Date = "2027-06-04".parse().expect("third");
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let value = |monitoring_dates: Vec<Date>, model: ModelSpec| {
+            let request = continuous_barrier_local_vol_request(
+                model,
+                monitoring_dates,
+                RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+            );
+            let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+            let local_volatility = plan.local_volatility.as_ref().expect("Local Volatility");
+            let shocks = local_volatility
+                .plan
+                .time_grid()
+                .nodes()
+                .windows(2)
+                .map(|times| 0.35 * (times[1] - times[0]).sqrt())
+                .collect::<Vec<_>>();
+            plan.local_vol_discounted_payoff_at_spot(
+                local_volatility,
+                plan.spot,
+                &shocks,
+                PathIndex::new(0),
+            )
+            .expect("path value")
+        };
+        let coarse = value(vec![expiry], skewed_local_vol_model(vec![0.0, 1.0]));
+        let medium = value(vec![second, expiry], skewed_local_vol_model(vec![0.0, 1.0]));
+        let fine = value(
+            vec![first, second, third, expiry],
+            skewed_local_vol_model(vec![0.0, 1.0]),
+        );
+        let reference = value(
+            vec![expiry],
+            skewed_local_vol_model((0..=16).map(|index| f64::from(index) / 16.0).collect()),
+        );
+        let coarse_error = (coarse - reference).abs();
+        let medium_error = (medium - reference).abs();
+        let fine_error = (fine - reference).abs();
+        assert!(
+            medium_error < coarse_error && fine_error < medium_error,
+            "coarse={coarse}, medium={medium}, fine={fine}, reference={reference}"
+        );
+    }
+
+    #[test]
+    fn continuous_barrier_local_vol_reverse_matches_parallel_volatility_bump() {
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let risk = RiskRequest::new(
+            false,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk");
+        let time_nodes = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+        let request = |volatility_shift| {
+            continuous_barrier_local_vol_request(
+                skewed_local_vol_model_with_parallel_shift(time_nodes.clone(), volatility_shift),
+                vec![expiry],
+                risk.clone(),
+            )
+        };
+        let base = SimulationPlan::compile(&request(0.0), policy(2)).expect("base plan");
+        let bump = 1.0e-5;
+        let down = SimulationPlan::compile(&request(-bump), policy(2)).expect("down plan");
+        let up = SimulationPlan::compile(&request(bump), policy(2)).expect("up plan");
+        let base_runtime = base.local_volatility.as_ref().expect("base runtime");
+        let shocks = base_runtime
+            .plan
+            .time_grid()
+            .nodes()
+            .windows(2)
+            .map(|times| 0.35 * (times[1] - times[0]).sqrt())
+            .collect::<Vec<_>>();
+        let analytic = base
+            .local_vol_pathwise_values_and_buckets(base_runtime, None, &shocks, PathIndex::new(0))
+            .expect("analytic")
+            .values[VEGA];
+        let down_runtime = down.local_volatility.as_ref().expect("down runtime");
+        let down_value = down
+            .local_vol_discounted_payoff_at_spot(
+                down_runtime,
+                down.spot,
+                &shocks,
+                PathIndex::new(0),
+            )
+            .expect("down value");
+        let up_runtime = up.local_volatility.as_ref().expect("up runtime");
+        let up_value = up
+            .local_vol_discounted_payoff_at_spot(up_runtime, up.spot, &shocks, PathIndex::new(0))
+            .expect("up value");
+        let finite_difference = (up_value - down_value) / (2.0 * bump);
+        assert!(
+            (analytic - finite_difference).abs() < 2.0e-6,
+            "analytic={analytic}, finite_difference={finite_difference}"
+        );
+    }
+
+    #[test]
+    fn continuous_barrier_local_vol_reports_vega_kt() {
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let risk = RiskRequest::new(
+            false,
+            None,
+            true,
+            Some(
+                VegaKtConfig::new(
+                    vec!["2027-03-05".parse().expect("first maturity"), expiry],
+                    vec![-1.0, 0.0, 1.0],
+                    1.0e-8,
+                    false,
+                )
+                .expect("VegaKT"),
+            ),
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk");
+        let request = continuous_barrier_local_vol_request(
+            constant_local_vol_model_with_reporting_basis(),
+            vec![expiry],
+            risk,
+        );
+        let result = SimulationPlan::compile(&request, policy(2))
+            .expect("plan")
+            .execute()
+            .expect("execution");
+        assert!(result.pricing_result.risks.vega.is_some());
+        let vega_kt = result.pricing_result.risks.vega_kt.expect("VegaKT");
+        assert_eq!(vega_kt.coordinates().len(), 6);
+        assert_eq!(vega_kt.raw_buckets().len(), 6);
+        assert!(vega_kt.projection().scalar_vega().get().is_finite());
     }
 
     #[test]

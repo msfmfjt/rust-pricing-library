@@ -26,8 +26,9 @@ coordinate. Digital and Barrier risk without an explicit smoothing width
 remains rejected. Continuous Barrier requests are evaluated under the
 constant-volatility models with a conditional Brownian-bridge survival
 estimator, including affine-dividend jump boundaries, pathwise Delta/Vega, and
-bumped-AAD Gamma. Local Volatility remains rejected until the remaining P4
-bridge stages are enabled.
+bumped-AAD Gamma. Local Volatility uses the same bridge over every Log-Euler
+sub-step with trapezoidal endpoint Local variance, CRN Delta/Gamma, and reverse
+Local-volatility Vega/VegaKT.
 
 ## Design baselines
 
