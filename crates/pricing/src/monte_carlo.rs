@@ -12,7 +12,8 @@ use pricing_mc::{
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
-    CompactC2Smoothing, CompiledPayoff, GraphFingerprint, GraphLimitPolicy, ProductSpec,
+    BarrierMonitoring, CompactC2Smoothing, CompiledPayoff, GraphFingerprint, GraphLimitPolicy,
+    ProductSpec,
 };
 use pricing_risk::{
     AnalyticCallDensityRow, GammaConfig, PayoffSmoothing, ReportingIvBasis, SmileDynamics,
@@ -374,6 +375,15 @@ impl SimulationPlan {
     ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let product = request.product();
+        if matches!(
+            product,
+            ProductSpec::Barrier(barrier)
+                if barrier.monitoring() == BarrierMonitoring::Continuous
+        ) {
+            return Err(MonteCarloError::UnsupportedModel {
+                model: "continuous_barrier_monitoring",
+            });
+        }
         let market_forward = request.market().equity().forward();
         let dividend_timeline = market_forward
             .discrete_dividends()
@@ -2671,9 +2681,9 @@ mod tests {
     use pricing_mc::{PseudoMcConfig, RqmcConfig, VarianceReduction};
     use pricing_models::{Black76Spec, BlackScholesSpec, LocalVolatilitySpec};
     use pricing_product::{
-        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
-        DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
-        ProductSpec,
+        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierMonitoring, BarrierSpec,
+        BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
+        OptionSide, ProductSpec,
     };
     use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
 
@@ -2921,6 +2931,13 @@ mod tests {
     }
 
     fn barrier_zero_vol_request(barrier: f64) -> PricingRequest {
+        barrier_zero_vol_request_with_monitoring(barrier, BarrierMonitoring::Discrete)
+    }
+
+    fn barrier_zero_vol_request_with_monitoring(
+        barrier: f64,
+        monitoring: BarrierMonitoring,
+    ) -> PricingRequest {
         let underlying = UnderlyingId::new(1);
         let currency = CurrencyId::new(1);
         let product = ProductSpec::Barrier(
@@ -2934,6 +2951,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                monitoring,
                 vec![
                     "2027-03-05".parse().expect("first"),
                     "2027-09-04".parse().expect("second"),
@@ -2998,6 +3016,7 @@ mod tests {
                 OptionSide::Call,
                 direction,
                 style,
+                BarrierMonitoring::Discrete,
                 vec![dividend_date, expiry],
                 None,
                 expiry,
@@ -3925,6 +3944,21 @@ mod tests {
             knocked_result.sampling_variance.to_bits(),
             0.0_f64.to_bits()
         );
+    }
+
+    #[test]
+    fn continuous_barrier_contract_is_not_silently_priced_as_discrete() {
+        let error = SimulationPlan::compile(
+            &barrier_zero_vol_request_with_monitoring(120.0, BarrierMonitoring::Continuous),
+            policy(2),
+        )
+        .expect_err("continuous monitoring requires the P4 bridge engine");
+        assert!(matches!(
+            error,
+            MonteCarloError::UnsupportedModel {
+                model: "continuous_barrier_monitoring"
+            }
+        ));
     }
 
     #[test]

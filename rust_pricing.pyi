@@ -9,6 +9,7 @@ OptionSide = Literal["call", "put"]
 DigitalPayout = Literal["cash", "asset"]
 BarrierDirection = Literal["up", "down"]
 BarrierStyle = Literal["knock_in", "knock_out"]
+BarrierMonitoring = Literal["discrete", "continuous"]
 SmileDynamics = Literal[
     "sticky_log_moneyness", "sticky_strike", "sticky_delta"
 ]
@@ -263,6 +264,7 @@ class Product:
         side: OptionSide,
         direction: BarrierDirection,
         style: BarrierStyle,
+        monitoring: BarrierMonitoring,
         monitoring_dates: Sequence[DateLike],
         payment_date: DateLike,
         *,

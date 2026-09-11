@@ -30,6 +30,7 @@ EXPECTED_SCHEMA_DEFS = {
         "asian_observation",
         "asian_observation_value",
         "barrier_direction",
+        "barrier_monitoring",
         "barrier_style",
         "curve",
         "digital_payout",
@@ -134,6 +135,7 @@ EXPECTED_SCHEMA_DEF_ORDER = {
         "digital_payout",
         "barrier_direction",
         "barrier_style",
+        "barrier_monitoring",
         "curve",
         "market",
         "dividend_event",
@@ -214,6 +216,7 @@ EXPECTED_REQUIRED_PROPERTIES = {
             "side",
             "direction",
             "style",
+            "monitoring",
             "monitoring_dates",
             "payment_date",
         ],
@@ -246,6 +249,8 @@ EXPECTED_REQUIRED_PROPERTIES = {
         ("$defs", "barrier_direction", "oneOf", 1): ["type"],
         ("$defs", "barrier_style", "oneOf", 0): ["type"],
         ("$defs", "barrier_style", "oneOf", 1): ["type"],
+        ("$defs", "barrier_monitoring", "oneOf", 0): ["type"],
+        ("$defs", "barrier_monitoring", "oneOf", 1): ["type"],
         ("$defs", "curve"): ["curve_id", "times", "discount_factors"],
         ("$defs", "market"): [
             "type",
@@ -466,6 +471,7 @@ EXPECTED_TAGGED_UNIONS = {
     "pricing_request": {
         ("$defs", "asian_observation_value"): ("known", "unknown"),
         ("$defs", "barrier_direction"): ("up", "down"),
+        ("$defs", "barrier_monitoring"): ("discrete", "continuous"),
         ("$defs", "barrier_style"): ("knock_in", "knock_out"),
         ("$defs", "digital_payout"): ("cash", "asset"),
         ("$defs", "dividend_quote"): (

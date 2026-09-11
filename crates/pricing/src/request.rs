@@ -179,8 +179,9 @@ mod tests {
     use pricing_mc::{PseudoMcConfig, VarianceReduction};
     use pricing_models::{Black76Spec, BlackScholesSpec};
     use pricing_product::{
-        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierSpec, BarrierStyle,
-        DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
+        ArithmeticAsianSpec, AsianObservation, BarrierDirection, BarrierMonitoring, BarrierSpec,
+        BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
+        OptionSide,
     };
     use pricing_risk::{GammaConfig, PayoffSmoothing, SmileDynamics, SpotBump, VegaKtConfig};
 
@@ -290,6 +291,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                BarrierMonitoring::Discrete,
                 vec!["2027-03-04".parse().expect("monitoring"), base.expiry()],
                 None,
                 base.expiry(),
@@ -607,6 +609,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                BarrierMonitoring::Discrete,
                 vec![
                     "2026-03-04".parse().expect("past"),
                     "2027-09-04".parse().expect("future"),

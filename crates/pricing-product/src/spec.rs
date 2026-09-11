@@ -36,6 +36,12 @@ pub enum BarrierStyle {
     KnockOut,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BarrierMonitoring {
+    Discrete,
+    Continuous,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DigitalSpec {
     underlying: UnderlyingId,
@@ -59,6 +65,7 @@ pub struct BarrierSpec {
     side: OptionSide,
     direction: BarrierDirection,
     style: BarrierStyle,
+    monitoring: BarrierMonitoring,
     monitoring_dates: Box<[Date]>,
     rebate: Option<PositiveF64>,
     payment_date: Date,
@@ -253,6 +260,7 @@ impl BarrierSpec {
         side: OptionSide,
         direction: BarrierDirection,
         style: BarrierStyle,
+        monitoring: BarrierMonitoring,
         monitoring_dates: Vec<Date>,
         rebate: Option<f64>,
         payment_date: Date,
@@ -289,6 +297,7 @@ impl BarrierSpec {
             side,
             direction,
             style,
+            monitoring,
             monitoring_dates: monitoring_dates.into_boxed_slice(),
             rebate: rebate
                 .map(|value| PositiveF64::new(value, "barrier_rebate"))
@@ -340,6 +349,11 @@ impl BarrierSpec {
     #[must_use]
     pub const fn style(&self) -> BarrierStyle {
         self.style
+    }
+
+    #[must_use]
+    pub const fn monitoring(&self) -> BarrierMonitoring {
+        self.monitoring
     }
 
     #[must_use]
@@ -760,6 +774,7 @@ mod tests {
             OptionSide::Call,
             BarrierDirection::Up,
             BarrierStyle::KnockOut,
+            BarrierMonitoring::Continuous,
             vec![first, expiry],
             Some(3.0),
             expiry,
@@ -767,6 +782,7 @@ mod tests {
         .expect("barrier");
         assert_eq!(product.expiry(), expiry);
         assert_eq!(product.monitoring_dates(), [first, expiry]);
+        assert_eq!(product.monitoring(), BarrierMonitoring::Continuous);
         assert_eq!(product.rebate().expect("rebate").get(), 3.0);
         assert!(
             BarrierSpec::new(
@@ -779,6 +795,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                BarrierMonitoring::Discrete,
                 vec![expiry],
                 None,
                 first,
@@ -796,6 +813,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                BarrierMonitoring::Discrete,
                 vec![expiry, first],
                 None,
                 expiry,

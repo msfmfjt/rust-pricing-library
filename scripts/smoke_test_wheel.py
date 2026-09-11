@@ -1013,6 +1013,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_top_level_names = {
         "AsianObservation",
         "BarrierDirection",
+        "BarrierMonitoring",
         "BarrierStyle",
         "DateLike",
         "DiagnosticEstimate",
@@ -1117,6 +1118,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "BarrierDirection": {
             "down",
             "up",
+        },
+        "BarrierMonitoring": {
+            "continuous",
+            "discrete",
         },
         "BarrierStyle": {
             "knock_in",
@@ -1416,6 +1421,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "side",
                 "direction",
                 "style",
+                "monitoring",
                 "monitoring_dates",
                 "payment_date",
             ],

@@ -46,13 +46,13 @@
         },
         {
           "type": "object", "additionalProperties": false,
-          "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "barrier", "notional", "side", "direction", "style", "monitoring_dates", "payment_date"],
+          "required": ["type", "underlying_id", "currency_id", "expiry", "strike", "barrier", "notional", "side", "direction", "style", "monitoring", "monitoring_dates", "payment_date"],
           "properties": {
             "type": {"type": "string", "const": "barrier"}, "underlying_id": {"type": "integer", "minimum": 0, "maximum": 4294967295},
             "currency_id": {"type": "integer", "minimum": 0, "maximum": 65535}, "expiry": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "strike": {"type": "number", "exclusiveMinimum": 0}, "barrier": {"type": "number", "exclusiveMinimum": 0},
             "notional": {"type": "number", "exclusiveMinimum": 0}, "side": {"$ref": "#/$defs/side"},
-            "direction": {"$ref": "#/$defs/barrier_direction"}, "style": {"$ref": "#/$defs/barrier_style"},
+            "direction": {"$ref": "#/$defs/barrier_direction"}, "style": {"$ref": "#/$defs/barrier_style"}, "monitoring": {"$ref": "#/$defs/barrier_monitoring"},
             "monitoring_dates": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}},
             "payment_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
             "rebate": {"type": "number", "exclusiveMinimum": 0}
@@ -114,6 +114,12 @@
       "oneOf": [
         {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "knock_in"}}},
         {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "knock_out"}}}
+      ]
+    },
+    "barrier_monitoring": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "discrete"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "continuous"}}}
       ]
     },
     "curve": {

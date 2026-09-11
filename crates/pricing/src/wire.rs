@@ -13,9 +13,9 @@ use pricing_models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing_product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
-    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
-    ProductSpec,
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection,
+    BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+    FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing_risk::{
     GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
@@ -249,6 +249,7 @@ enum ProductV1 {
         side: SideV1,
         direction: BarrierDirectionV1,
         style: BarrierStyleV1,
+        monitoring: BarrierMonitoringV1,
         monitoring_dates: Vec<String>,
         rebate: Option<f64>,
         payment_date: String,
@@ -300,6 +301,13 @@ enum BarrierDirectionV1 {
 enum BarrierStyleV1 {
     KnockIn,
     KnockOut,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum BarrierMonitoringV1 {
+    Discrete,
+    Continuous,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -523,6 +531,7 @@ impl From<&ProductSpec> for ProductV1 {
                 side: spec.side().into(),
                 direction: spec.direction().into(),
                 style: spec.style().into(),
+                monitoring: spec.monitoring().into(),
                 monitoring_dates: spec
                     .monitoring_dates()
                     .iter()
@@ -605,6 +614,15 @@ impl From<BarrierStyle> for BarrierStyleV1 {
         match value {
             BarrierStyle::KnockIn => Self::KnockIn,
             BarrierStyle::KnockOut => Self::KnockOut,
+        }
+    }
+}
+
+impl From<BarrierMonitoring> for BarrierMonitoringV1 {
+    fn from(value: BarrierMonitoring) -> Self {
+        match value {
+            BarrierMonitoring::Discrete => Self::Discrete,
+            BarrierMonitoring::Continuous => Self::Continuous,
         }
     }
 }
@@ -863,6 +881,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                 side,
                 direction,
                 style,
+                monitoring,
                 monitoring_dates,
                 rebate,
                 payment_date,
@@ -885,6 +904,10 @@ impl TryFrom<RequestV1> for PricingRequest {
                     match style {
                         BarrierStyleV1::KnockIn => BarrierStyle::KnockIn,
                         BarrierStyleV1::KnockOut => BarrierStyle::KnockOut,
+                    },
+                    match monitoring {
+                        BarrierMonitoringV1::Discrete => BarrierMonitoring::Discrete,
+                        BarrierMonitoringV1::Continuous => BarrierMonitoring::Continuous,
                     },
                     monitoring_dates
                         .into_iter()
@@ -2340,6 +2363,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                BarrierMonitoring::Continuous,
                 vec![
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
@@ -2668,9 +2692,14 @@ mod tests {
         assert!(json.contains("\"type\":\"barrier\""));
         assert!(json.contains("\"direction\":{\"type\":\"up\"}"));
         assert!(json.contains("\"style\":{\"type\":\"knock_out\"}"));
+        assert!(json.contains("\"monitoring\":{\"type\":\"continuous\"}"));
         assert!(json.contains("\"rebate\":3.0"));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
-        assert!(matches!(parsed.product(), ProductSpec::Barrier(_)));
+        assert!(matches!(
+            parsed.product(),
+            ProductSpec::Barrier(product)
+                if product.monitoring() == BarrierMonitoring::Continuous
+        ));
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")

@@ -8,8 +8,9 @@ Greeks, common-random-number bump validation, and deterministic replay. The
 same public request, wire, and Python surfaces also expose a Black-76
 constant-volatility model on the market forward. Price-only Monte Carlo
 requests can also use cash-or-nothing and asset-or-nothing Digital calls and
-puts, fixed-strike discrete Barrier calls and puts with optional expiry
-rebates, forward-starting, partially fixed, or fully fixed arithmetic
+puts, fixed-strike Barrier calls and puts with an explicit discrete or
+continuous monitoring contract and optional expiry rebates, forward-starting,
+partially fixed, or fully fixed arithmetic
 average-price Asian calls and puts, plus fixed-strike discrete-monitoring
 Lookback calls and puts with future or fully fixed monitoring
 under the constant-volatility engines. Pathwise Delta, bumped-AAD Gamma, and
@@ -22,7 +23,8 @@ discrete-monitoring Barrier products with a monotone hit state and
 KnockIn/KnockOut rebate parity. Dividend collisions reuse one normalized path
 state for pre- and post-jump Spot observations without adding a random
 coordinate. Digital and Barrier risk without an explicit smoothing width
-remains rejected; continuous Barrier monitoring is not yet supported.
+remains rejected. Continuous Barrier requests are represented explicitly and
+currently rejected by plan compilation until the P4 bridge engine is enabled.
 
 ## Design baselines
 

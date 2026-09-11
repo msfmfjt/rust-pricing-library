@@ -2042,6 +2042,7 @@ mod tests {
     use pricing_core::CurrencyId;
 
     use super::*;
+    use crate::BarrierMonitoring;
 
     fn option(side: OptionSide) -> EuropeanVanillaSpec {
         EuropeanVanillaSpec::new(
@@ -2223,6 +2224,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 style,
+                BarrierMonitoring::Discrete,
                 vec![
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
@@ -2265,6 +2267,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 style,
+                BarrierMonitoring::Discrete,
                 vec![
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
@@ -2303,6 +2306,7 @@ mod tests {
             OptionSide::Call,
             BarrierDirection::Up,
             BarrierStyle::KnockIn,
+            BarrierMonitoring::Discrete,
             vec![
                 "2027-03-04".parse().expect("monitoring"),
                 "2027-09-04".parse().expect("expiry"),
@@ -2367,6 +2371,7 @@ mod tests {
                     OptionSide::Call,
                     direction,
                     style,
+                    BarrierMonitoring::Discrete,
                     vec![monitoring, expiry],
                     rebate,
                     expiry,
@@ -2462,6 +2467,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Down,
                 BarrierStyle::KnockIn,
+                BarrierMonitoring::Discrete,
                 vec![expiry],
                 None,
                 expiry,

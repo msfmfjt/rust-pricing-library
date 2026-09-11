@@ -12,9 +12,9 @@ use pricing::models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing::product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
-    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
-    ProductSpec,
+    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection,
+    BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+    FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use pricing::risk::{
     GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
@@ -364,9 +364,9 @@ impl PyProduct {
         .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
     }
 
-    /// Build a fixed-strike discrete barrier call or put with an optional expiry rebate.
+    /// Build a fixed-strike barrier call or put with an explicit monitoring mode.
     #[staticmethod]
-    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring_dates, payment_date, *, rebate=None))]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring, monitoring_dates, payment_date, *, rebate=None))]
     #[allow(clippy::too_many_arguments)]
     fn barrier(
         py: Python<'_>,
@@ -379,6 +379,7 @@ impl PyProduct {
         side: &str,
         direction: &str,
         style: &str,
+        monitoring: &str,
         monitoring_dates: &Bound<'_, PyAny>,
         payment_date: &Bound<'_, PyAny>,
         rebate: Option<f64>,
@@ -387,6 +388,7 @@ impl PyProduct {
         let side = option_side(py, side)?;
         let direction = barrier_direction(py, direction)?;
         let style = barrier_style(py, style)?;
+        let monitoring = barrier_monitoring(py, monitoring)?;
         let monitoring_dates =
             copied_date_array(py, monitoring_dates, "/product/monitoring_dates")?;
         let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
@@ -400,6 +402,7 @@ impl PyProduct {
             side,
             direction,
             style,
+            monitoring,
             monitoring_dates,
             rebate,
             payment_date,
@@ -1249,6 +1252,19 @@ fn barrier_style(py: Python<'_>, value: &str) -> PyResult<BarrierStyle> {
             "invalid_barrier_style",
             "/product/style",
             format!("expected 'knock_in' or 'knock_out', received {value:?}"),
+        )),
+    }
+}
+
+fn barrier_monitoring(py: Python<'_>, value: &str) -> PyResult<BarrierMonitoring> {
+    match value {
+        "discrete" => Ok(BarrierMonitoring::Discrete),
+        "continuous" => Ok(BarrierMonitoring::Continuous),
+        _ => Err(domain_error(
+            py,
+            "invalid_barrier_monitoring",
+            "/product/monitoring",
+            format!("expected 'discrete' or 'continuous', received {value:?}"),
         )),
     }
 }
