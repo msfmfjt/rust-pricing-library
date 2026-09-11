@@ -25,8 +25,9 @@ pub use lsm::{
     ContinueAllReason, CpqrConfig, CpqrFit, DateLocalExerciseFit, ExerciseDecisionModel,
     ExercisePolicy, ExercisePolicyFingerprint, ExercisePolicyTrainingMetadata,
     ExercisePolicyTrainingOutcome, ExercisePolicyValuationOutcome, ExerciseRegressionDiagnostics,
-    FeatureScaling, LSM_BASIS_ABI, LSM_POLICY_ABI, LSM_REGRESSION_ABI, LsmNumericalError,
-    LsmWarning, PolynomialBasisSpec, PolynomialRegressionModel, fit_cpqr, fit_exercise_decision,
+    FeatureScaling, LSM_BASIS_ABI, LSM_POLICY_ABI, LSM_REGRESSION_ABI, LsmConfig,
+    LsmConfigurationFingerprint, LsmNumericalError, LsmStateVariable, LsmWarning,
+    PolynomialBasisSpec, PolynomialRegressionModel, fit_cpqr, fit_exercise_decision,
     fit_polynomial_regression, is_training_itm, should_exercise, train_exercise_policy,
     value_exercise_policy,
 };

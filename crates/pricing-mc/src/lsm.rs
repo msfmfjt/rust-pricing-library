@@ -4,6 +4,8 @@ use std::fmt;
 use pricing_core::Date;
 use pricing_numerics::NeumaierSum;
 
+use crate::EngineConfig;
+
 pub const LSM_BASIS_ABI: &str = "polynomial-total-degree-v1";
 pub const LSM_REGRESSION_ABI: &str = "cpqr-householder-v1";
 pub const LSM_POLICY_ABI: &str = "early_exercise_v1";
@@ -53,6 +55,12 @@ pub enum LsmNumericalError {
     InvalidTolerance {
         name: &'static str,
         bits: u64,
+    },
+    EmptyStateVariables,
+    DuplicateStateVariable,
+    BasisStateVariableCountMismatch {
+        basis: u32,
+        state_variables: usize,
     },
     ZeroMatrixRows,
     ZeroMatrixColumns,
@@ -188,6 +196,19 @@ impl fmt::Display for LsmNumericalError {
             Self::InvalidTolerance { name, bits } => write!(
                 formatter,
                 "LSM tolerance {name} must be finite and non-negative: 0x{bits:016x}"
+            ),
+            Self::EmptyStateVariables => {
+                write!(formatter, "LSM requires at least one state variable")
+            }
+            Self::DuplicateStateVariable => {
+                write!(formatter, "LSM state variables must be unique")
+            }
+            Self::BasisStateVariableCountMismatch {
+                basis,
+                state_variables,
+            } => write!(
+                formatter,
+                "LSM basis declares {basis} features for {state_variables} state variables"
             ),
             Self::ZeroMatrixRows => write!(formatter, "LSM regression matrix has zero rows"),
             Self::ZeroMatrixColumns => {
@@ -729,6 +750,154 @@ impl ExercisePolicyFingerprint {
     #[must_use]
     pub const fn as_bytes(&self) -> &[u8; 32] {
         &self.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[repr(u8)]
+pub enum LsmStateVariable {
+    Spot = 0,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct LsmConfigurationFingerprint([u8; 32]);
+
+impl LsmConfigurationFingerprint {
+    #[must_use]
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl fmt::Display for LsmConfigurationFingerprint {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "blake3-256:")?;
+        for byte in self.0 {
+            write!(formatter, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LsmConfig {
+    training_engine: EngineConfig,
+    state_variables: Box<[LsmStateVariable]>,
+    basis: PolynomialBasisSpec,
+    itm_abs_tolerance: f64,
+    cpqr_config: CpqrConfig,
+    max_matrix_elements: usize,
+    fingerprint: LsmConfigurationFingerprint,
+}
+
+impl LsmConfig {
+    pub fn new(
+        training_engine: EngineConfig,
+        state_variables: Vec<LsmStateVariable>,
+        basis: PolynomialBasisSpec,
+        itm_abs_tolerance: f64,
+        cpqr_config: CpqrConfig,
+        max_matrix_elements: usize,
+    ) -> Result<Self, LsmNumericalError> {
+        validate_tolerance("itm_abs_tolerance", itm_abs_tolerance)?;
+        if state_variables.is_empty() {
+            return Err(LsmNumericalError::EmptyStateVariables);
+        }
+        for (index, state_variable) in state_variables.iter().enumerate() {
+            if state_variables[..index].contains(state_variable) {
+                return Err(LsmNumericalError::DuplicateStateVariable);
+            }
+        }
+        if basis.feature_count() as usize != state_variables.len() {
+            return Err(LsmNumericalError::BasisStateVariableCountMismatch {
+                basis: basis.feature_count(),
+                state_variables: state_variables.len(),
+            });
+        }
+        if max_matrix_elements == 0 {
+            return Err(LsmNumericalError::ZeroResourceLimit {
+                resource: "regression_matrix_elements",
+            });
+        }
+        let mut config = Self {
+            training_engine,
+            state_variables: state_variables.into_boxed_slice(),
+            basis,
+            itm_abs_tolerance,
+            cpqr_config,
+            max_matrix_elements,
+            fingerprint: LsmConfigurationFingerprint([0; 32]),
+        };
+        config.fingerprint = fingerprint_lsm_configuration(&config)?;
+        Ok(config)
+    }
+
+    #[must_use]
+    pub const fn training_engine(&self) -> EngineConfig {
+        self.training_engine
+    }
+
+    #[must_use]
+    pub fn state_variables(&self) -> &[LsmStateVariable] {
+        &self.state_variables
+    }
+
+    #[must_use]
+    pub const fn basis(&self) -> &PolynomialBasisSpec {
+        &self.basis
+    }
+
+    #[must_use]
+    pub const fn itm_abs_tolerance(&self) -> f64 {
+        self.itm_abs_tolerance
+    }
+
+    #[must_use]
+    pub const fn cpqr_config(&self) -> CpqrConfig {
+        self.cpqr_config
+    }
+
+    #[must_use]
+    pub const fn max_matrix_elements(&self) -> usize {
+        self.max_matrix_elements
+    }
+
+    #[must_use]
+    pub const fn fingerprint(&self) -> LsmConfigurationFingerprint {
+        self.fingerprint
+    }
+
+    #[must_use]
+    pub const fn training_seed(&self) -> u64 {
+        match self.training_engine {
+            EngineConfig::PseudoMonteCarlo(config) => config.master_seed(),
+            EngineConfig::RandomizedQuasiMonteCarlo(config) => config.master_scramble_seed(),
+        }
+    }
+
+    #[must_use]
+    pub const fn training_effective_sampling_units(&self) -> u64 {
+        match self.training_engine {
+            EngineConfig::PseudoMonteCarlo(config) => config.independent_sampling_units().get(),
+            EngineConfig::RandomizedQuasiMonteCarlo(config) => config.scramble_count().get() as u64,
+        }
+    }
+
+    #[must_use]
+    pub const fn training_trajectory_count(&self) -> u128 {
+        match self.training_engine {
+            EngineConfig::PseudoMonteCarlo(config) => config.evaluated_paths(),
+            EngineConfig::RandomizedQuasiMonteCarlo(config) => {
+                let antithetic_multiplier = if config.variance_reduction().antithetic() {
+                    2
+                } else {
+                    1
+                };
+                config.points_per_scramble().get() as u128
+                    * config.scramble_count().get() as u128
+                    * antithetic_multiplier
+            }
+        }
     }
 }
 
@@ -1373,6 +1542,73 @@ fn fingerprint_exercise_policy(
     Ok(ExercisePolicyFingerprint::from_bytes(
         *hasher.finalize().as_bytes(),
     ))
+}
+
+fn fingerprint_lsm_configuration(
+    config: &LsmConfig,
+) -> Result<LsmConfigurationFingerprint, LsmNumericalError> {
+    let mut hasher = blake3::Hasher::new();
+    hash_bytes(&mut hasher, b"pricing/lsm-configuration")?;
+    hash_bytes(&mut hasher, LSM_POLICY_ABI.as_bytes())?;
+    hash_bytes(&mut hasher, LSM_BASIS_ABI.as_bytes())?;
+    hash_bytes(&mut hasher, LSM_REGRESSION_ABI.as_bytes())?;
+    match config.training_engine {
+        EngineConfig::PseudoMonteCarlo(engine) => {
+            hasher.update(&[0]);
+            hasher.update(&engine.master_seed().to_be_bytes());
+            hasher.update(&engine.independent_sampling_units().get().to_be_bytes());
+            hash_variance_reduction(&mut hasher, engine.variance_reduction());
+        }
+        EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
+            hasher.update(&[1]);
+            hasher.update(&engine.points_per_scramble().get().to_be_bytes());
+            hasher.update(&engine.scramble_count().get().to_be_bytes());
+            hasher.update(&engine.master_scramble_seed().to_be_bytes());
+            hash_variance_reduction(&mut hasher, engine.variance_reduction());
+        }
+    }
+    hasher.update(&crate::RandomDomain::LsmTrain.id().to_be_bytes());
+    hash_usize(&mut hasher, config.state_variables.len(), "state_variables")?;
+    for state_variable in &config.state_variables {
+        hasher.update(&[*state_variable as u8]);
+    }
+    hasher.update(&config.basis.feature_count.to_be_bytes());
+    hasher.update(&config.basis.max_degree.to_be_bytes());
+    hash_usize(&mut hasher, config.basis.exponents.len(), "basis_columns")?;
+    for exponents in &config.basis.exponents {
+        hash_usize(&mut hasher, exponents.len(), "basis_exponents")?;
+        for &exponent in exponents {
+            hasher.update(&exponent.to_be_bytes());
+        }
+    }
+    hasher.update(&config.itm_abs_tolerance.to_bits().to_be_bytes());
+    hasher.update(
+        &config
+            .cpqr_config
+            .abs_rank_tolerance
+            .to_bits()
+            .to_be_bytes(),
+    );
+    hasher.update(
+        &config
+            .cpqr_config
+            .rel_rank_tolerance
+            .to_bits()
+            .to_be_bytes(),
+    );
+    hash_usize(
+        &mut hasher,
+        config.max_matrix_elements,
+        "max_matrix_elements",
+    )?;
+    Ok(LsmConfigurationFingerprint(*hasher.finalize().as_bytes()))
+}
+
+fn hash_variance_reduction(hasher: &mut blake3::Hasher, value: crate::VarianceReduction) {
+    hasher.update(&[
+        u8::from(value.antithetic()),
+        u8::from(value.brownian_bridge()),
+    ]);
 }
 
 fn hash_regression_model(
@@ -2176,6 +2412,8 @@ fn column_norm(
 mod tests {
     use super::*;
 
+    use crate::{PseudoMcConfig, RqmcConfig, VarianceReduction};
+
     fn training_metadata(trajectory_count: u64) -> ExercisePolicyTrainingMetadata {
         ExercisePolicyTrainingMetadata::new(
             [0x11; 32],
@@ -2185,6 +2423,99 @@ mod tests {
             trajectory_count,
         )
         .expect("training metadata")
+    }
+
+    fn lsm_config(training_engine: EngineConfig, max_degree: u32) -> LsmConfig {
+        LsmConfig::new(
+            training_engine,
+            vec![LsmStateVariable::Spot],
+            PolynomialBasisSpec::new(1, max_degree, 16, 16).expect("basis"),
+            1.0e-12,
+            CpqrConfig::new(1.0e-14, 1.0e-12).expect("CPQR config"),
+            1_000_000,
+        )
+        .expect("LSM config")
+    }
+
+    #[test]
+    fn lsm_config_preserves_training_count_semantics() {
+        let pseudo = lsm_config(
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(7, 100, VarianceReduction::new(true, false))
+                    .expect("pseudo config"),
+            ),
+            2,
+        );
+        assert_eq!(pseudo.training_seed(), 7);
+        assert_eq!(pseudo.training_effective_sampling_units(), 100);
+        assert_eq!(pseudo.training_trajectory_count(), 200);
+
+        let rqmc = lsm_config(
+            EngineConfig::RandomizedQuasiMonteCarlo(
+                RqmcConfig::new(1024, 8, 11, VarianceReduction::new(true, true))
+                    .expect("RQMC config"),
+            ),
+            2,
+        );
+        assert_eq!(rqmc.training_seed(), 11);
+        assert_eq!(rqmc.training_effective_sampling_units(), 8);
+        assert_eq!(rqmc.training_trajectory_count(), 16_384);
+    }
+
+    #[test]
+    fn lsm_config_validates_state_variable_contract() {
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(7, 100, VarianceReduction::new(false, false))
+                .expect("pseudo config"),
+        );
+        let basis = PolynomialBasisSpec::new(1, 2, 16, 16).expect("basis");
+        assert!(matches!(
+            LsmConfig::new(
+                engine,
+                Vec::new(),
+                basis.clone(),
+                0.0,
+                CpqrConfig::new(0.0, 0.0).expect("CPQR config"),
+                16,
+            ),
+            Err(LsmNumericalError::EmptyStateVariables)
+        ));
+        assert!(matches!(
+            LsmConfig::new(
+                engine,
+                vec![LsmStateVariable::Spot, LsmStateVariable::Spot],
+                basis,
+                0.0,
+                CpqrConfig::new(0.0, 0.0).expect("CPQR config"),
+                16,
+            ),
+            Err(LsmNumericalError::DuplicateStateVariable)
+        ));
+    }
+
+    #[test]
+    fn lsm_configuration_fingerprint_is_canonical_and_complete() {
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(7, 100, VarianceReduction::new(true, false))
+                .expect("pseudo config"),
+        );
+        let first = lsm_config(engine, 2);
+        let replay = lsm_config(engine, 2);
+        let changed_basis = lsm_config(engine, 3);
+        let changed_seed = lsm_config(
+            EngineConfig::PseudoMonteCarlo(
+                PseudoMcConfig::new(8, 100, VarianceReduction::new(true, false))
+                    .expect("pseudo config"),
+            ),
+            2,
+        );
+        assert_eq!(first.fingerprint(), replay.fingerprint());
+        assert_ne!(first.fingerprint(), changed_basis.fingerprint());
+        assert_ne!(first.fingerprint(), changed_seed.fingerprint());
+        assert_eq!(
+            first.fingerprint().to_string(),
+            "blake3-256:9c729020cfd000b95c4dd11e46faffdd1e9a8eaf3fdf4e2788e9346cb131cfd2"
+        );
     }
 
     struct CpqrCase<'a> {
