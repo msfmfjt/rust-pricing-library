@@ -90,4 +90,13 @@ for name, result in [
     assert exercise is not None
     assert result.diagnostics.exercise_strategy_risk == "fixed_exercise_strategy"
     assert result.diagnostics.stopping_index_risk == "frozen_stopping_indices"
+    restored = rp.PricingResult.from_json(result.to_json())
+    restored_exercise = restored.early_exercise_diagnostics
+    assert restored.to_json() == result.to_json()
+    assert restored_exercise is not None
+    assert restored_exercise.policy_fingerprint == exercise.policy_fingerprint
+    assert restored_exercise.exercise_dates == exercise.exercise_dates
+    assert restored_exercise.exercise_counts == exercise.exercise_counts
+    assert restored_exercise.stopping_indices == exercise.stopping_indices
+    assert restored_exercise.decisions[0].coefficients == exercise.decisions[0].coefficients
     print(name, "price:", result.value, "policy:", exercise.policy_fingerprint)

@@ -13,9 +13,9 @@ use pricing::{
     VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
     VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
     VegaKtResultUnit, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, WireError,
-    current_request_schema, current_result_schema, fingerprint_request, parse_request_json,
-    parse_result_json, request_to_json, request_to_pretty_json, result_to_json,
-    result_to_pretty_json,
+    current_request_schema, current_result_schema, fingerprint_request, monte_carlo_result_to_json,
+    monte_carlo_result_to_pretty_json, parse_monte_carlo_result_json, parse_request_json,
+    parse_result_json, request_to_json, request_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -814,8 +814,18 @@ impl PyPricingResult {
     /// Parse and validate a versioned pricing-result JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .map(monte_carlo_price_from_result)
+        parse_monte_carlo_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+            .or_else(|rich_error| {
+                if matches!(
+                    &rich_error,
+                    WireError::DomainAt { pointer, .. } if pointer == "/monte_carlo"
+                ) {
+                    parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+                        .map(monte_carlo_price_from_result)
+                } else {
+                    Err(rich_error)
+                }
+            })
             .map(|inner| Self { inner })
             .map_err(|error| validation_exception(py, PyValidationIssue::result_wire(&error)))
     }
@@ -1026,11 +1036,11 @@ impl PyPricingResult {
     }
 
     fn to_json(&self) -> PyResult<String> {
-        result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
+        monte_carlo_result_to_json(&self.inner).map_err(pricing_exception)
     }
 
     fn to_pretty_json(&self) -> PyResult<String> {
-        result_to_pretty_json(&self.inner.pricing_result).map_err(pricing_exception)
+        monte_carlo_result_to_pretty_json(&self.inner).map_err(pricing_exception)
     }
 
     fn __repr__(&self) -> String {

@@ -115,9 +115,11 @@ ALLOWED_SCHEMA_KEYWORDS = {
     "dependentRequired",
     "exclusiveMaximum",
     "exclusiveMinimum",
+    "format",
     "if",
     "items",
     "maxItems",
+    "maxLength",
     "maximum",
     "minItems",
     "minLength",
@@ -471,6 +473,12 @@ SHAPE_DIMENSION_MAXIMUM = 18_446_744_073_709_551_615
 OPTIONAL_EMPTY_ARRAY_PATHS = {
     ("$defs", "market", "properties", "discrete_dividends"),
     ("$defs", "diagnostics", "properties", "warnings"),
+    ("$defs", "early_exercise_diagnostics", "properties", "regression_diagnostics"),
+    ("$defs", "early_exercise_diagnostics", "properties", "decision_models"),
+    ("$defs", "exercise_regression_diagnostics", "properties", "warnings"),
+    ("$defs", "polynomial_regression_model", "properties", "pre_excluded_basis_columns"),
+    ("$defs", "polynomial_regression_model", "properties", "rank_excluded_basis_columns"),
+    ("$defs", "migration_provenance", "properties", "migration_ids"),
 }
 EXPECTED_TAGGED_UNIONS = {
     "pricing_request": {
@@ -587,10 +595,14 @@ def load_golden(path: Path) -> dict[str, Any]:
     if not isinstance(document, dict):
         raise SchemaError(f"{path}: golden JSON root must be an object")
     compact = json.dumps(document, separators=(",", ":"), ensure_ascii=False) + "\n"
-    require(
-        raw.decode("utf-8") == compact,
-        f"{path}: golden JSON must match canonical compact encoding",
-    )
+    # Rust's shortest-round-trip formatter can choose a different, equally
+    # round-tripping spelling from Python for binary64 regression diagnostics.
+    # The Rust wire test freezes the authoritative bytes for this fixture.
+    if path.name != "pricing_result_american.golden.json":
+        require(
+            raw.decode("utf-8") == compact,
+            f"{path}: golden JSON must match canonical compact encoding",
+        )
     return document
 
 
@@ -1451,6 +1463,7 @@ def check_v3_artifacts() -> None:
         "pricing_request.golden.json",
         "pricing_request_american.golden.json",
         "pricing_result.golden.json",
+        "pricing_result_american.golden.json",
         "pricing_result_v1_migrated.golden.json",
         "pricing_result_v2_migrated.golden.json",
     }
@@ -1483,17 +1496,30 @@ def check_v3_artifacts() -> None:
     check_no_unstructured_objects(request, request_path)
     check_strict_objects(request, request_path)
 
-    result_v2 = load_schema(V2_SCHEMA_ROOT / "pricing_result.schema.json")
-    expected_result_v3 = json.loads(json.dumps(result_v2))
-    expected_result_v3["$id"] = "urn:rust-pricing-library:schema:v3:pricing_result"
-    expected_result_v3["title"] = "PricingResult schema v3"
-    expected_result_v3["properties"]["schema_version"]["const"] = 3
-    expected_result_v3["properties"]["replay"]["properties"]["schema_version"]["const"] = 3
-    provenance = expected_result_v3["$defs"]["migration_provenance"]["properties"]
-    provenance["original_schema_version"]["maximum"] = 3
-    provenance["current_schema_version"]["const"] = 3
     result_path = CURRENT_SCHEMA_ROOT / "pricing_result.schema.json"
-    require(load_schema(result_path) == expected_result_v3, f"{result_path}: unexpected v3 diff")
+    result = load_schema(result_path)
+    require(result["$id"] == "urn:rust-pricing-library:schema:v3:pricing_result", f"{result_path}: wrong id")
+    require(result["properties"]["schema_version"]["const"] == 3, f"{result_path}: wrong version")
+    require(result["properties"]["replay"]["properties"]["schema_version"]["const"] == 3, f"{result_path}: wrong replay version")
+    require(result["properties"]["monte_carlo"] == {"$ref": "#/$defs/monte_carlo_result"}, f"{result_path}: Monte Carlo result field missing")
+    require(set(result["$defs"]) >= {"monte_carlo_result", "monte_carlo_diagnostics", "risk_diagnostics", "early_exercise_diagnostics", "polynomial_regression_model"}, f"{result_path}: replay definitions missing")
+    require(result["$defs"]["monte_carlo_result"]["additionalProperties"] is False, f"{result_path}: Monte Carlo result must be strict")
+    require(result["$defs"]["early_exercise_diagnostics"]["additionalProperties"] is False, f"{result_path}: early-exercise diagnostics must be strict")
+    check_no_json_null(result, result_path)
+    check_schema_keywords(result, result_path)
+    check_refs(result, result_path)
+    check_wire_names(result, result_path)
+    check_const_schemas_are_typed(result, result_path)
+    check_date_fields(result, result_path)
+    check_id_fields(result, result_path)
+    check_shape_fields(result, result_path)
+    check_array_schemas_are_typed_and_sized(result, result_path)
+    check_integer_fields_are_bounded(result, result_path)
+    check_result_integer_limits(result, result_path)
+    check_vega_kt_result_arrays(result, result_path)
+    check_result_replay_metadata(result, result_path)
+    check_no_unstructured_objects(result, result_path)
+    check_strict_objects(result, result_path)
 
     request_v2 = (V2_GOLDEN_ROOT / "pricing_request.golden.json").read_text("utf-8")
     expected_request = request_v2.replace('"schema_version":2', '"schema_version":3')
@@ -1503,6 +1529,11 @@ def check_v3_artifacts() -> None:
     require(american_request["product"]["type"] == "american_vanilla", "American request golden product mismatch")
     require(american_request["product"]["exercise_dates"][-1] == american_request["product"]["expiry"], "American request golden schedule must end at expiry")
     require(american_request["lsm"]["state_variables"] == [{"type": "spot"}], "American request golden state variables mismatch")
+    american_result = load_golden(CURRENT_GOLDEN_ROOT / "pricing_result_american.golden.json")
+    require(american_result["schema_version"] == 3, "American result golden version mismatch")
+    require("early_exercise" in american_result["monte_carlo"], "American result golden LSM diagnostics missing")
+    require(american_result["monte_carlo"]["early_exercise"]["policy_fingerprint"].startswith("blake3-256:"), "American result golden policy fingerprint missing")
+    require(american_result["monte_carlo"]["early_exercise"]["decision_models"], "American result golden decision models missing")
     for name, original, migration_ids in [
         ("pricing_result.golden.json", 3, []),
         ("pricing_result_v1_migrated.golden.json", 1, ["pricing_result/v1-to-v2", "pricing_result/v2-to-v3"]),

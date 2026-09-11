@@ -7,12 +7,21 @@ Status: Frozen for library `0.x`
 | `0` | `3` | `1, 2, 3` | `1, 2, 3` | `3` |
 
 Schema v2 adds the optional `risk.payoff_smoothing_width_ladder` field. Schema
-v3 adds the `american_vanilla` product and its required top-level `lsm`
-configuration. The configuration retains the independent training engine,
+v3 adds the `american_vanilla` product, its required top-level `lsm`
+configuration, and an optional `monte_carlo` result block. The configuration retains the independent training engine,
 ordered state variables, polynomial basis, ITM tolerance, CPQR tolerances, and
 regression matrix resource limit needed to reproduce the LSM configuration
 fingerprint. The field is required for American products and forbidden for all
 other products.
+
+The result block preserves execution counts and variances, numerical and risk
+method diagnostics, random-stream checksums, and complete LSM training and
+valuation state. The LSM state includes its policy fingerprint, exercise dates,
+realized stopping indices and counts, canonical basis exponents, regression
+diagnostics, feature scaling, pivot/rank data, and fitted coefficients. The
+dedicated Monte Carlo result reader validates these cross-field invariants and
+reconstructs the immutable policy state; the basic result reader remains able
+to consume the same document while selecting only the financial result.
 
 The forward-only v1-to-v2-to-v3 migration preserves all v1 financial and
 execution meaning, leaving newer optional fields absent. The v2-to-v3 step adds

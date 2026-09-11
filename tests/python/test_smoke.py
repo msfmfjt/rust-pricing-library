@@ -1525,6 +1525,11 @@ class PricingFacadeSmokeTest(unittest.TestCase):
             "/$defs/market/properties/discrete_dividends",
             "/$defs/diagnostics/properties/warnings",
             "/$defs/migration_provenance/properties/migration_ids",
+            "/$defs/early_exercise_diagnostics/properties/regression_diagnostics",
+            "/$defs/early_exercise_diagnostics/properties/decision_models",
+            "/$defs/exercise_regression_diagnostics/properties/warnings",
+            "/$defs/polynomial_regression_model/properties/pre_excluded_basis_columns",
+            "/$defs/polynomial_regression_model/properties/rank_excluded_basis_columns",
         }
 
         self.assertEqual(

@@ -142,6 +142,9 @@ pub enum LsmNumericalError {
     NonFiniteIntermediate {
         stage: &'static str,
     },
+    InvalidReplayState {
+        field: &'static str,
+    },
 }
 
 impl fmt::Display for LsmNumericalError {
@@ -307,6 +310,9 @@ impl fmt::Display for LsmNumericalError {
             }
             Self::NonFiniteIntermediate { stage } => {
                 write!(formatter, "LSM regression produced a non-finite {stage}")
+            }
+            Self::InvalidReplayState { field } => {
+                write!(formatter, "invalid replayed LSM state in {field}")
             }
         }
     }
@@ -494,6 +500,36 @@ pub struct FeatureScaling {
 }
 
 impl FeatureScaling {
+    pub fn from_replay_parts(
+        mean: f64,
+        population_variance: f64,
+        scale: f64,
+        zero_scale_threshold: f64,
+        inactive: bool,
+    ) -> Result<Self, LsmNumericalError> {
+        if !mean.is_finite()
+            || !population_variance.is_finite()
+            || population_variance < 0.0
+            || !scale.is_finite()
+            || scale < 0.0
+            || !zero_scale_threshold.is_finite()
+            || zero_scale_threshold < 0.0
+            || scale != population_variance.sqrt()
+            || inactive != (scale <= zero_scale_threshold)
+        {
+            return Err(LsmNumericalError::InvalidReplayState {
+                field: "feature_scaling",
+            });
+        }
+        Ok(Self {
+            mean,
+            population_variance,
+            scale,
+            zero_scale_threshold,
+            inactive,
+        })
+    }
+
     pub fn fit(values: &[f64]) -> Result<Self, LsmNumericalError> {
         if values.is_empty() {
             return Err(LsmNumericalError::EmptyFeatureSample);
@@ -594,6 +630,90 @@ pub struct PolynomialRegressionModel {
 }
 
 impl PolynomialRegressionModel {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_replay_parts(
+        basis: PolynomialBasisSpec,
+        feature_scalings: Vec<FeatureScaling>,
+        active_basis_columns: Vec<usize>,
+        pre_excluded_basis_columns: Vec<usize>,
+        pivot_order: Vec<usize>,
+        diagonal_abs: Vec<f64>,
+        rank_threshold: f64,
+        rank: usize,
+        rank_excluded_basis_columns: Vec<usize>,
+        coefficients: Vec<f64>,
+        residual_sum_squares: f64,
+    ) -> Result<Self, LsmNumericalError> {
+        let column_count = basis.exponents().len();
+        if feature_scalings.len() != basis.feature_count() as usize
+            || active_basis_columns.is_empty()
+            || active_basis_columns.len() + pre_excluded_basis_columns.len() != column_count
+            || pivot_order.len() != active_basis_columns.len()
+            || diagonal_abs.len() > pivot_order.len()
+            || rank > diagonal_abs.len()
+            || rank_excluded_basis_columns.as_slice() != &pivot_order[rank..]
+            || coefficients.len() != column_count
+            || !rank_threshold.is_finite()
+            || rank_threshold < 0.0
+            || !residual_sum_squares.is_finite()
+            || residual_sum_squares < 0.0
+            || diagonal_abs
+                .iter()
+                .any(|value| !value.is_finite() || *value < 0.0)
+            || coefficients.iter().any(|value| !value.is_finite())
+        {
+            return Err(LsmNumericalError::InvalidReplayState {
+                field: "regression_model",
+            });
+        }
+
+        let mut seen = vec![false; column_count];
+        for &column in active_basis_columns
+            .iter()
+            .chain(&pre_excluded_basis_columns)
+        {
+            if column >= column_count || seen[column] {
+                return Err(LsmNumericalError::InvalidReplayState {
+                    field: "basis_column_partition",
+                });
+            }
+            seen[column] = true;
+        }
+        let mut pivot_seen = vec![false; column_count];
+        for &column in &pivot_order {
+            if column >= column_count
+                || !active_basis_columns.contains(&column)
+                || pivot_seen[column]
+            {
+                return Err(LsmNumericalError::InvalidReplayState {
+                    field: "pivot_order",
+                });
+            }
+            pivot_seen[column] = true;
+        }
+        for (column, &coefficient) in coefficients.iter().enumerate() {
+            if !active_basis_columns.contains(&column) && coefficient != 0.0 {
+                return Err(LsmNumericalError::InvalidReplayState {
+                    field: "excluded_basis_coefficient",
+                });
+            }
+        }
+
+        Ok(Self {
+            basis,
+            feature_scalings: feature_scalings.into_boxed_slice(),
+            active_basis_columns: active_basis_columns.into_boxed_slice(),
+            pre_excluded_basis_columns: pre_excluded_basis_columns.into_boxed_slice(),
+            pivot_order: pivot_order.into_boxed_slice(),
+            diagonal_abs: diagonal_abs.into_boxed_slice(),
+            rank_threshold,
+            rank,
+            rank_excluded_basis_columns: rank_excluded_basis_columns.into_boxed_slice(),
+            coefficients: coefficients.into_boxed_slice(),
+            residual_sum_squares,
+        })
+    }
+
     #[must_use]
     pub const fn basis(&self) -> &PolynomialBasisSpec {
         &self.basis
@@ -710,6 +830,31 @@ pub struct ExerciseRegressionDiagnostics {
 }
 
 impl ExerciseRegressionDiagnostics {
+    pub fn from_replay_parts(
+        candidate_rows: usize,
+        itm_rows: usize,
+        feature_count: usize,
+        warnings: Vec<LsmWarning>,
+    ) -> Result<Self, LsmNumericalError> {
+        if itm_rows > candidate_rows
+            || warnings.iter().any(|warning| match *warning {
+                LsmWarning::ZeroItmTrainingPaths => itm_rows != 0,
+                LsmWarning::InactiveFeature { feature } => feature >= feature_count,
+                LsmWarning::RankExcludedBasisColumn { .. } => false,
+            })
+        {
+            return Err(LsmNumericalError::InvalidReplayState {
+                field: "regression_diagnostics",
+            });
+        }
+        Ok(Self {
+            candidate_rows,
+            itm_rows,
+            feature_count,
+            warnings: warnings.into_boxed_slice(),
+        })
+    }
+
     #[must_use]
     pub const fn candidate_rows(&self) -> usize {
         self.candidate_rows

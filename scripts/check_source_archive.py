@@ -82,6 +82,7 @@ REQUIRED_FILES = {
     "fixtures/v3/pricing_request.golden.json",
     "fixtures/v3/pricing_request_american.golden.json",
     "fixtures/v3/pricing_result.golden.json",
+    "fixtures/v3/pricing_result_american.golden.json",
     "fixtures/v3/pricing_result_v1_migrated.golden.json",
     "fixtures/v3/pricing_result_v2_migrated.golden.json",
     "rust_pricing.pyi",
