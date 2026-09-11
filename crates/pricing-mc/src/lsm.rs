@@ -35,6 +35,14 @@ pub enum LsmNumericalError {
         expected: usize,
         actual: usize,
     },
+    ImmediateValueLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    ContinuationTargetLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
     InactiveFeature,
     NonFiniteDecisionValue {
         name: &'static str,
@@ -65,6 +73,14 @@ pub enum LsmNumericalError {
         bits: u64,
     },
     NonFiniteTargetValue {
+        row: usize,
+        bits: u64,
+    },
+    NonFiniteImmediateValue {
+        row: usize,
+        bits: u64,
+    },
+    NonFiniteContinuationTarget {
         row: usize,
         bits: u64,
     },
@@ -113,6 +129,14 @@ impl fmt::Display for LsmNumericalError {
                 formatter,
                 "LSM feature matrix needs {expected} values; received {actual}"
             ),
+            Self::ImmediateValueLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM exercise date needs {expected} immediate values; received {actual}"
+            ),
+            Self::ContinuationTargetLengthMismatch { expected, actual } => write!(
+                formatter,
+                "LSM exercise date needs {expected} continuation targets; received {actual}"
+            ),
             Self::InactiveFeature => {
                 write!(formatter, "an inactive feature has no standardized value")
             }
@@ -148,6 +172,14 @@ impl fmt::Display for LsmNumericalError {
             Self::NonFiniteTargetValue { row, bits } => write!(
                 formatter,
                 "LSM target value {row} is non-finite: 0x{bits:016x}"
+            ),
+            Self::NonFiniteImmediateValue { row, bits } => write!(
+                formatter,
+                "LSM immediate value {row} is non-finite: 0x{bits:016x}"
+            ),
+            Self::NonFiniteContinuationTarget { row, bits } => write!(
+                formatter,
+                "LSM continuation target {row} is non-finite: 0x{bits:016x}"
             ),
             Self::NonFiniteIntermediate { stage } => {
                 write!(formatter, "LSM regression produced a non-finite {stage}")
@@ -508,6 +540,234 @@ impl PolynomialRegressionModel {
         }
         Ok(prediction)
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ContinueAllReason {
+    ZeroItmTrainingPaths,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExerciseDecisionModel {
+    Regression(PolynomialRegressionModel),
+    ContinueAll { reason: ContinueAllReason },
+}
+
+impl ExerciseDecisionModel {
+    pub fn should_exercise(
+        &self,
+        immediate_value: f64,
+        features: &[f64],
+    ) -> Result<bool, LsmNumericalError> {
+        validate_decision_value("immediate_value", immediate_value)?;
+        match self {
+            Self::Regression(model) => {
+                let continuation_value = model.predict(features)?;
+                should_exercise(immediate_value, continuation_value)
+            }
+            Self::ContinueAll { .. } => Ok(false),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum LsmWarning {
+    ZeroItmTrainingPaths,
+    InactiveFeature { feature: usize },
+    RankExcludedBasisColumn { column: usize },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExerciseRegressionDiagnostics {
+    candidate_rows: usize,
+    itm_rows: usize,
+    feature_count: usize,
+    warnings: Box<[LsmWarning]>,
+}
+
+impl ExerciseRegressionDiagnostics {
+    #[must_use]
+    pub const fn candidate_rows(&self) -> usize {
+        self.candidate_rows
+    }
+
+    #[must_use]
+    pub const fn itm_rows(&self) -> usize {
+        self.itm_rows
+    }
+
+    #[must_use]
+    pub const fn feature_count(&self) -> usize {
+        self.feature_count
+    }
+
+    #[must_use]
+    pub fn warnings(&self) -> &[LsmWarning] {
+        &self.warnings
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct DateLocalExerciseFit {
+    decision: ExerciseDecisionModel,
+    diagnostics: ExerciseRegressionDiagnostics,
+}
+
+impl DateLocalExerciseFit {
+    #[must_use]
+    pub const fn decision(&self) -> &ExerciseDecisionModel {
+        &self.decision
+    }
+
+    #[must_use]
+    pub const fn diagnostics(&self) -> &ExerciseRegressionDiagnostics {
+        &self.diagnostics
+    }
+
+    #[must_use]
+    pub fn into_decision(self) -> ExerciseDecisionModel {
+        self.decision
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn fit_exercise_decision(
+    basis: PolynomialBasisSpec,
+    candidate_features: &[f64],
+    candidate_rows: usize,
+    immediate_values: &[f64],
+    continuation_targets: &[f64],
+    itm_abs_tolerance: f64,
+    config: CpqrConfig,
+    max_matrix_elements: usize,
+) -> Result<DateLocalExerciseFit, LsmNumericalError> {
+    validate_tolerance("itm_abs_tolerance", itm_abs_tolerance)?;
+    if candidate_rows == 0 {
+        return Err(LsmNumericalError::ZeroMatrixRows);
+    }
+    if max_matrix_elements == 0 {
+        return Err(LsmNumericalError::ZeroResourceLimit {
+            resource: "regression_matrix_elements",
+        });
+    }
+    let feature_count = basis.feature_count as usize;
+    let expected_features = candidate_rows
+        .checked_mul(feature_count)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if candidate_features.len() != expected_features {
+        return Err(LsmNumericalError::FeatureMatrixLengthMismatch {
+            expected: expected_features,
+            actual: candidate_features.len(),
+        });
+    }
+    if immediate_values.len() != candidate_rows {
+        return Err(LsmNumericalError::ImmediateValueLengthMismatch {
+            expected: candidate_rows,
+            actual: immediate_values.len(),
+        });
+    }
+    if continuation_targets.len() != candidate_rows {
+        return Err(LsmNumericalError::ContinuationTargetLengthMismatch {
+            expected: candidate_rows,
+            actual: continuation_targets.len(),
+        });
+    }
+    for row in 0..candidate_rows {
+        if !immediate_values[row].is_finite() {
+            return Err(LsmNumericalError::NonFiniteImmediateValue {
+                row,
+                bits: immediate_values[row].to_bits(),
+            });
+        }
+        if !continuation_targets[row].is_finite() {
+            return Err(LsmNumericalError::NonFiniteContinuationTarget {
+                row,
+                bits: continuation_targets[row].to_bits(),
+            });
+        }
+        for feature in 0..feature_count {
+            let value = candidate_features[row * feature_count + feature];
+            if !value.is_finite() {
+                return Err(LsmNumericalError::NonFiniteFeature {
+                    index: row * feature_count + feature,
+                    bits: value.to_bits(),
+                });
+            }
+        }
+    }
+
+    let itm_rows = immediate_values
+        .iter()
+        .filter(|&&value| value > itm_abs_tolerance)
+        .count();
+    if itm_rows == 0 {
+        return Ok(DateLocalExerciseFit {
+            decision: ExerciseDecisionModel::ContinueAll {
+                reason: ContinueAllReason::ZeroItmTrainingPaths,
+            },
+            diagnostics: ExerciseRegressionDiagnostics {
+                candidate_rows,
+                itm_rows,
+                feature_count,
+                warnings: Box::new([LsmWarning::ZeroItmTrainingPaths]),
+            },
+        });
+    }
+
+    let itm_feature_elements = itm_rows
+        .checked_mul(feature_count)
+        .ok_or(LsmNumericalError::MatrixShapeOverflow)?;
+    if itm_feature_elements > max_matrix_elements {
+        return Err(LsmNumericalError::MatrixElementLimitExceeded {
+            requested: itm_feature_elements,
+            maximum: max_matrix_elements,
+        });
+    }
+    let mut itm_features = zeroed_values(itm_feature_elements, "ITM feature matrix")?;
+    let mut itm_targets = zeroed_values(itm_rows, "ITM continuation targets")?;
+    let mut itm_index = 0;
+    for row in 0..candidate_rows {
+        if immediate_values[row] <= itm_abs_tolerance {
+            continue;
+        }
+        let source_start = row * feature_count;
+        let target_start = itm_index * feature_count;
+        itm_features[target_start..target_start + feature_count]
+            .copy_from_slice(&candidate_features[source_start..source_start + feature_count]);
+        itm_targets[itm_index] = continuation_targets[row];
+        itm_index += 1;
+    }
+    debug_assert_eq!(itm_index, itm_rows);
+
+    let model = fit_polynomial_regression(
+        basis,
+        &itm_features,
+        itm_rows,
+        &itm_targets,
+        config,
+        max_matrix_elements,
+    )?;
+    let mut warnings = Vec::new();
+    for (feature, scaling) in model.feature_scalings().iter().enumerate() {
+        if scaling.inactive() {
+            warnings.push(LsmWarning::InactiveFeature { feature });
+        }
+    }
+    warnings.extend(
+        model
+            .rank_excluded_basis_columns()
+            .iter()
+            .map(|&column| LsmWarning::RankExcludedBasisColumn { column }),
+    );
+    Ok(DateLocalExerciseFit {
+        decision: ExerciseDecisionModel::Regression(model),
+        diagnostics: ExerciseRegressionDiagnostics {
+            candidate_rows,
+            itm_rows,
+            feature_count,
+            warnings: warnings.into_boxed_slice(),
+        },
+    })
 }
 
 pub fn fit_polynomial_regression(
@@ -1365,5 +1625,134 @@ mod tests {
                 maximum: 3,
             })
         );
+    }
+
+    #[test]
+    fn exercise_decision_fits_only_strictly_itm_training_rows() {
+        let fit = fit_exercise_decision(
+            PolynomialBasisSpec::new(1, 1, 4, 4).expect("basis"),
+            &[100.0, 90.0, 80.0, 110.0],
+            4,
+            &[0.0, 10.0, 20.0, 0.0],
+            &[1.0, 9.0, 15.0, 2.0],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+        )
+        .expect("date-local fit");
+        assert_eq!(fit.diagnostics().candidate_rows(), 4);
+        assert_eq!(fit.diagnostics().itm_rows(), 2);
+        assert_eq!(fit.diagnostics().feature_count(), 1);
+        assert!(fit.diagnostics().warnings().is_empty());
+        let ExerciseDecisionModel::Regression(model) = fit.decision() else {
+            panic!("expected regression");
+        };
+        assert_eq!(model.feature_scalings()[0].mean(), 85.0);
+        assert!((model.predict(&[90.0]).expect("prediction") - 9.0).abs() < 1.0e-13);
+        assert!((model.predict(&[80.0]).expect("prediction") - 15.0).abs() < 1.0e-13);
+    }
+
+    #[test]
+    fn exercise_decision_stores_continue_all_for_zero_itm_rows() {
+        let fit = fit_exercise_decision(
+            PolynomialBasisSpec::new(1, 2, 4, 4).expect("basis"),
+            &[90.0, 100.0, 110.0],
+            3,
+            &[0.0, 0.01, 0.009],
+            &[1.0, 2.0, 3.0],
+            0.01,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+        )
+        .expect("continue-all fit");
+        assert_eq!(fit.diagnostics().itm_rows(), 0);
+        assert_eq!(
+            fit.decision(),
+            &ExerciseDecisionModel::ContinueAll {
+                reason: ContinueAllReason::ZeroItmTrainingPaths,
+            }
+        );
+        assert!(
+            !fit.decision()
+                .should_exercise(100.0, &[100.0])
+                .expect("ContinueAll decision")
+        );
+        assert_eq!(
+            fit.diagnostics().warnings(),
+            [LsmWarning::ZeroItmTrainingPaths]
+        );
+    }
+
+    #[test]
+    fn exercise_decision_reports_inactive_features_and_rank_exclusions() {
+        let fit = fit_exercise_decision(
+            PolynomialBasisSpec::new(2, 2, 8, 16).expect("basis"),
+            &[5.0, 1.0, 5.0, 2.0],
+            2,
+            &[1.0, 1.0],
+            &[2.0, 3.0],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            16,
+        )
+        .expect("rank-deficient fit");
+        assert_eq!(
+            fit.diagnostics().warnings()[0],
+            LsmWarning::InactiveFeature { feature: 0 }
+        );
+        assert!(matches!(
+            fit.diagnostics().warnings()[1],
+            LsmWarning::RankExcludedBasisColumn { .. }
+        ));
+    }
+
+    #[test]
+    fn exercise_decision_application_uses_strict_comparison() {
+        let fit = fit_exercise_decision(
+            PolynomialBasisSpec::new(1, 0, 1, 1).expect("basis"),
+            &[90.0, 80.0],
+            2,
+            &[10.0, 20.0],
+            &[12.0, 12.0],
+            0.0,
+            CpqrConfig::new(0.0, 0.0).expect("config"),
+            4,
+        )
+        .expect("fit");
+        let ExerciseDecisionModel::Regression(model) = fit.decision() else {
+            panic!("expected regression");
+        };
+        let continuation = model.predict(&[85.0]).expect("continuation");
+        assert!(
+            !fit.decision()
+                .should_exercise(continuation, &[85.0])
+                .expect("tie continues")
+        );
+        assert!(
+            fit.decision()
+                .should_exercise(continuation + 0.0001, &[85.0])
+                .expect("strict exercise")
+        );
+        assert!(matches!(
+            fit.decision().should_exercise(f64::NAN, &[85.0]),
+            Err(LsmNumericalError::NonFiniteDecisionValue { .. })
+        ));
+    }
+
+    #[test]
+    fn exercise_decision_validates_every_candidate_before_zero_itm_shortcut() {
+        assert!(matches!(
+            fit_exercise_decision(
+                PolynomialBasisSpec::new(1, 1, 4, 4).expect("basis"),
+                &[1.0, f64::NAN],
+                2,
+                &[0.0, 0.0],
+                &[1.0, 1.0],
+                0.0,
+                CpqrConfig::new(0.0, 0.0).expect("config"),
+                8,
+            ),
+            Err(LsmNumericalError::NonFiniteFeature { index: 1, .. })
+        ));
     }
 }
