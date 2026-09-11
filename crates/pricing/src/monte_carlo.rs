@@ -6006,38 +6006,52 @@ mod tests {
         let engine = EngineConfig::PseudoMonteCarlo(
             PseudoMcConfig::new(7, 16, VarianceReduction::new(true, true)).expect("engine"),
         );
-        for direction in [BarrierDirection::Up, BarrierDirection::Down] {
-            for rebate in [None, Some(7.5)] {
-                let request = continuous_barrier_conformance_request(
-                    direction,
-                    BarrierStyle::KnockOut,
-                    rebate,
-                    engine,
-                    RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
-                );
-                let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
-                let knock_out = plan.continuous_barrier.clone().expect("continuous Barrier");
-                let knock_in = ContinuousBarrierRuntime {
-                    style: BarrierStyle::KnockIn,
-                    ..knock_out.clone()
-                };
-
-                for normals in [[-1.25, 0.5], [0.0, 0.0], [0.75, -0.25], [1.5, 1.0]] {
-                    let observations =
-                        plan.path_observations_from_normals(&normals, plan.spot, plan.volatility);
-                    let out = plan
-                        .continuous_barrier_discounted_payoff(&knock_out, &observations)
-                        .expect("knock out");
-                    let entered = plan
-                        .continuous_barrier_discounted_payoff(&knock_in, &observations)
-                        .expect("knock in");
-                    let terminal = observations[knock_out.expiry_observation_index].post_spot;
-                    let vanilla = (terminal - knock_out.strike).max(0.0) * knock_out.notional;
-                    let expected = plan.discount * (vanilla + rebate.unwrap_or(0.0));
-                    assert!(
-                        (out + entered - expected).abs() < 2.0e-13,
-                        "direction={direction:?}, rebate={rebate:?}, normals={normals:?}, out={out}, in={entered}, expected={expected}"
+        for smoothing_width in [None, Some(2.0)] {
+            for direction in [BarrierDirection::Up, BarrierDirection::Down] {
+                for rebate in [None, Some(7.5)] {
+                    let risk = smoothing_width.map_or_else(
+                        || RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
+                        |width| {
+                            RiskRequest::price_only(SmileDynamics::StickyLogMoneyness)
+                                .with_payoff_smoothing(
+                                    PayoffSmoothing::compact_c2(width).expect("smoothing"),
+                                )
+                        },
                     );
+                    let request = continuous_barrier_conformance_request(
+                        direction,
+                        BarrierStyle::KnockOut,
+                        rebate,
+                        engine,
+                        risk,
+                    );
+                    let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+                    let knock_out = plan.continuous_barrier.clone().expect("continuous Barrier");
+                    let knock_in = ContinuousBarrierRuntime {
+                        style: BarrierStyle::KnockIn,
+                        ..knock_out.clone()
+                    };
+
+                    for normals in [[-1.25, 0.5], [0.0, 0.0], [0.75, -0.25], [1.5, 1.0]] {
+                        let observations = plan.path_observations_from_normals(
+                            &normals,
+                            plan.spot,
+                            plan.volatility,
+                        );
+                        let out = plan
+                            .continuous_barrier_discounted_payoff(&knock_out, &observations)
+                            .expect("knock out");
+                        let entered = plan
+                            .continuous_barrier_discounted_payoff(&knock_in, &observations)
+                            .expect("knock in");
+                        let terminal = observations[knock_out.expiry_observation_index].post_spot;
+                        let vanilla = (terminal - knock_out.strike).max(0.0) * knock_out.notional;
+                        let expected = plan.discount * (vanilla + rebate.unwrap_or(0.0));
+                        assert!(
+                            (out + entered - expected).abs() < 2.0e-13,
+                            "smoothing_width={smoothing_width:?}, direction={direction:?}, rebate={rebate:?}, normals={normals:?}, out={out}, in={entered}, expected={expected}"
+                        );
+                    }
                 }
             }
         }
@@ -6055,27 +6069,35 @@ mod tests {
                     .expect("RQMC engine"),
             ),
         ];
-        for engine in engines {
-            let request = continuous_barrier_conformance_request(
-                BarrierDirection::Down,
-                BarrierStyle::KnockIn,
-                Some(7.5),
-                engine,
-                all_risks(),
-            );
-            let plan = SimulationPlan::compile(&request, policy(1)).expect("single-worker plan");
-            assert_eq!(plan.observation_times.len(), 2);
-            let mut single = plan.execute().expect("single-worker execution");
-            let parallel = SimulationPlan::compile(&request, policy(4))
-                .expect("parallel plan")
-                .execute()
-                .expect("parallel execution");
-            assert_ne!(
-                single.diagnostics.worker_threads,
-                parallel.diagnostics.worker_threads
-            );
-            single.diagnostics.worker_threads = parallel.diagnostics.worker_threads;
-            assert_eq!(single, parallel);
+        for smoothing_width in [None, Some(2.0)] {
+            for engine in engines {
+                let risk = smoothing_width.map_or_else(all_risks, |width| {
+                    all_risks().with_payoff_smoothing(
+                        PayoffSmoothing::compact_c2(width).expect("smoothing"),
+                    )
+                });
+                let request = continuous_barrier_conformance_request(
+                    BarrierDirection::Down,
+                    BarrierStyle::KnockIn,
+                    Some(7.5),
+                    engine,
+                    risk,
+                );
+                let plan =
+                    SimulationPlan::compile(&request, policy(1)).expect("single-worker plan");
+                assert_eq!(plan.observation_times.len(), 2);
+                let mut single = plan.execute().expect("single-worker execution");
+                let parallel = SimulationPlan::compile(&request, policy(4))
+                    .expect("parallel plan")
+                    .execute()
+                    .expect("parallel execution");
+                assert_ne!(
+                    single.diagnostics.worker_threads,
+                    parallel.diagnostics.worker_threads
+                );
+                single.diagnostics.worker_threads = parallel.diagnostics.worker_threads;
+                assert_eq!(single, parallel, "smoothing_width={smoothing_width:?}");
+            }
         }
     }
 
