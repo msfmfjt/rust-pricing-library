@@ -80,6 +80,10 @@ pub enum SourceOpcode {
         underlying: UnderlyingId,
         observation_date: Date,
     },
+    PreDividendSpot {
+        underlying: UnderlyingId,
+        observation_date: Date,
+    },
     Add {
         left: NodeId,
         right: NodeId,
@@ -133,7 +137,9 @@ pub enum SourceOpcode {
 impl SourceOpcode {
     fn operands(self) -> ([NodeId; 2], usize) {
         match self {
-            Self::Literal(_) | Self::TerminalSpot { .. } => ([NodeId::new(0); 2], 0),
+            Self::Literal(_) | Self::TerminalSpot { .. } | Self::PreDividendSpot { .. } => {
+                ([NodeId::new(0); 2], 0)
+            }
             Self::Negate { input }
             | Self::Indicator { input }
             | Self::SmoothIndicator { input, .. } => ([input, NodeId::new(0)], 1),
@@ -159,6 +165,7 @@ impl SourceOpcode {
         match self {
             Self::Literal(_) => "literal",
             Self::TerminalSpot { .. } => "terminal_spot",
+            Self::PreDividendSpot { .. } => "pre_dividend_spot",
             Self::Add { .. } => "add",
             Self::Subtract { .. } => "subtract",
             Self::Multiply { .. } => "multiply",
@@ -419,19 +426,35 @@ impl ArithmeticAsianSpec {
 
 impl BarrierSpec {
     pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
-        self.build_source_graph(None)
+        self.build_source_graph(None, &BTreeSet::new())
+    }
+
+    pub fn source_graph_with_dividend_jumps(
+        &self,
+        jump_dates: &[Date],
+    ) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(None, &jump_dates.iter().copied().collect())
     }
 
     pub fn smoothed_source_graph(
         &self,
         smoothing: CompactC2Smoothing,
     ) -> Result<SourceGraph, GraphError> {
-        self.build_source_graph(Some(smoothing))
+        self.build_source_graph(Some(smoothing), &BTreeSet::new())
+    }
+
+    pub fn smoothed_source_graph_with_dividend_jumps(
+        &self,
+        smoothing: CompactC2Smoothing,
+        jump_dates: &[Date],
+    ) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(Some(smoothing), &jump_dates.iter().copied().collect())
     }
 
     fn build_source_graph(
         &self,
         smoothing: Option<CompactC2Smoothing>,
+        jump_dates: &BTreeSet<Date>,
     ) -> Result<SourceGraph, GraphError> {
         let mut builder = SourceGraphBuilder::new();
         let strike = builder.literal(self.strike().get())?;
@@ -476,6 +499,36 @@ impl BarrierSpec {
                     left: barrier,
                     right: spot,
                 })?,
+            };
+            let signed_distance = if jump_dates.contains(date) {
+                let pre_jump_spot = builder.push(SourceOpcode::PreDividendSpot {
+                    underlying: self.underlying(),
+                    observation_date: *date,
+                })?;
+                let pre_jump_distance = match self.direction() {
+                    BarrierDirection::Up => builder.push(SourceOpcode::Subtract {
+                        left: pre_jump_spot,
+                        right: barrier,
+                    })?,
+                    BarrierDirection::Down => builder.push(SourceOpcode::Subtract {
+                        left: barrier,
+                        right: pre_jump_spot,
+                    })?,
+                };
+                if let Some(smoothing) = smoothing {
+                    builder.push(SourceOpcode::SmoothMaximum {
+                        left: pre_jump_distance,
+                        right: signed_distance,
+                        smoothing,
+                    })?
+                } else {
+                    builder.push(SourceOpcode::Maximum {
+                        left: pre_jump_distance,
+                        right: signed_distance,
+                    })?
+                }
+            } else {
+                signed_distance
             };
             let date_hit = if let Some(smoothing) = smoothing {
                 builder.push(SourceOpcode::SmoothIndicator {
@@ -611,6 +664,11 @@ pub enum CompiledOpcode {
         observation_date: Date,
         output: u32,
     },
+    PreDividendSpot {
+        underlying: UnderlyingId,
+        observation_date: Date,
+        output: u32,
+    },
     Add {
         left: u32,
         right: u32,
@@ -690,10 +748,18 @@ pub struct TerminalAdjoint {
     pub value: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PreDividendAdjoint {
+    pub underlying: UnderlyingId,
+    pub observation_date: Date,
+    pub value: f64,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PayoffEvaluation {
     pub value: f64,
     pub terminal_adjoints: Box<[TerminalAdjoint]>,
+    pub pre_dividend_adjoints: Box<[PreDividendAdjoint]>,
 }
 
 impl CompiledPayoff {
@@ -735,6 +801,11 @@ impl CompiledPayoff {
                 underlying,
                 observation_date,
                 ..
+            }
+            | CompiledOpcode::PreDividendSpot {
+                underlying,
+                observation_date,
+                ..
             } = *opcode
             {
                 observations.insert((underlying, observation_date));
@@ -743,13 +814,47 @@ impl CompiledPayoff {
         observations.into_iter().collect()
     }
 
+    #[must_use]
+    pub fn pre_dividend_observations(&self) -> Vec<(UnderlyingId, Date)> {
+        self.opcodes
+            .iter()
+            .filter_map(|opcode| match *opcode {
+                CompiledOpcode::PreDividendSpot {
+                    underlying,
+                    observation_date,
+                    ..
+                } => Some((underlying, observation_date)),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
     pub fn evaluate<F>(&self, mut observation: F) -> Result<Vec<f64>, GraphError>
     where
         F: FnMut(UnderlyingId, Date) -> Option<f64>,
     {
+        self.evaluate_with_pre_dividend_spots(&mut observation, |_, _| None)
+    }
+
+    pub fn evaluate_with_pre_dividend_spots<F, G>(
+        &self,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+    ) -> Result<Vec<f64>, GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
         let mut slots = vec![0.0; self.opcodes.len()];
         for opcode in &self.opcodes {
-            let (output, value) = execute_opcode(*opcode, &slots, &mut observation)?;
+            let (output, value) = execute_opcode(
+                *opcode,
+                &slots,
+                &mut observation,
+                &mut pre_dividend_observation,
+            )?;
             let output = checked_index(output, slots.len())?;
             if !value.is_finite() {
                 return Err(GraphError::NonFiniteRuntimeValue {
@@ -772,6 +877,18 @@ impl CompiledPayoff {
     where
         F: FnMut(UnderlyingId, Date) -> Option<f64>,
     {
+        self.evaluate_single_with_observation_adjoints(&mut observation, |_, _| None)
+    }
+
+    pub fn evaluate_single_with_observation_adjoints<F, G>(
+        &self,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+    ) -> Result<PayoffEvaluation, GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
         if self.output_slots.len() != 1 {
             return Err(GraphError::ReverseRequiresSingleOutput {
                 count: self.output_slots.len(),
@@ -779,7 +896,12 @@ impl CompiledPayoff {
         }
         let mut values = vec![0.0; self.opcodes.len()];
         for opcode in &self.opcodes {
-            let (output, value) = execute_opcode(*opcode, &values, &mut observation)?;
+            let (output, value) = execute_opcode(
+                *opcode,
+                &values,
+                &mut observation,
+                &mut pre_dividend_observation,
+            )?;
             let output = checked_index(output, values.len())?;
             if !value.is_finite() {
                 return Err(GraphError::NonFiniteRuntimeValue {
@@ -794,12 +916,20 @@ impl CompiledPayoff {
         let mut adjoints = vec![0.0; self.opcodes.len()];
         adjoints[output] = 1.0;
         let mut terminal_adjoints = Vec::new();
+        let mut pre_dividend_adjoints = Vec::new();
         for opcode in self.opcodes.iter().rev().copied() {
-            reverse_opcode(opcode, &values, &mut adjoints, &mut terminal_adjoints)?;
+            reverse_opcode(
+                opcode,
+                &values,
+                &mut adjoints,
+                &mut terminal_adjoints,
+                &mut pre_dividend_adjoints,
+            )?;
         }
         Ok(PayoffEvaluation {
             value,
             terminal_adjoints: terminal_adjoints.into_boxed_slice(),
+            pre_dividend_adjoints: pre_dividend_adjoints.into_boxed_slice(),
         })
     }
 }
@@ -809,6 +939,7 @@ fn reverse_opcode(
     values: &[f64],
     adjoints: &mut [f64],
     terminal_adjoints: &mut Vec<TerminalAdjoint>,
+    pre_dividend_adjoints: &mut Vec<PreDividendAdjoint>,
 ) -> Result<(), GraphError> {
     let output = checked_index(opcode.output(), adjoints.len())?;
     let output_adjoint = adjoints[output];
@@ -819,6 +950,15 @@ fn reverse_opcode(
             observation_date,
             ..
         } => terminal_adjoints.push(TerminalAdjoint {
+            underlying,
+            observation_date,
+            value: output_adjoint,
+        }),
+        CompiledOpcode::PreDividendSpot {
+            underlying,
+            observation_date,
+            ..
+        } => pre_dividend_adjoints.push(PreDividendAdjoint {
             underlying,
             observation_date,
             value: output_adjoint,
@@ -980,6 +1120,7 @@ impl CompiledOpcode {
         match self {
             Self::Literal { .. } => "literal",
             Self::TerminalSpot { .. } => "terminal_spot",
+            Self::PreDividendSpot { .. } => "pre_dividend_spot",
             Self::Add { .. } => "add",
             Self::Subtract { .. } => "subtract",
             Self::Multiply { .. } => "multiply",
@@ -999,6 +1140,7 @@ impl CompiledOpcode {
         match self {
             Self::Literal { output, .. }
             | Self::TerminalSpot { output, .. }
+            | Self::PreDividendSpot { output, .. }
             | Self::Add { output, .. }
             | Self::Subtract { output, .. }
             | Self::Multiply { output, .. }
@@ -1019,6 +1161,7 @@ fn execute_opcode<F>(
     opcode: CompiledOpcode,
     slots: &[f64],
     observation: &mut F,
+    pre_dividend_observation: &mut impl FnMut(UnderlyingId, Date) -> Option<f64>,
 ) -> Result<(u32, f64), GraphError>
 where
     F: FnMut(UnderlyingId, Date) -> Option<f64>,
@@ -1038,6 +1181,16 @@ where
         } => observation(underlying, observation_date)
             .map(|value| (output, value))
             .ok_or(GraphError::MissingObservation {
+                underlying,
+                observation_date,
+            }),
+        CompiledOpcode::PreDividendSpot {
+            underlying,
+            observation_date,
+            output,
+        } => pre_dividend_observation(underlying, observation_date)
+            .map(|value| (output, value))
+            .ok_or(GraphError::MissingPreDividendObservation {
                 underlying,
                 observation_date,
             }),
@@ -1206,6 +1359,11 @@ fn compile(graph: &SourceGraph, limits: GraphLimitPolicy) -> Result<CompiledPayo
         .filter(|id| matches!(nodes[id], SourceOpcode::BarrierHitState { .. }))
         .count();
     enforce_limit("state_slots", state_count, limits.state_slots)?;
+    let event_count = reachable
+        .iter()
+        .filter(|id| matches!(nodes[id], SourceOpcode::PreDividendSpot { .. }))
+        .count();
+    enforce_limit("events", event_count, limits.events)?;
     let _ = u32::try_from(compiled_count).map_err(|_| GraphError::HardCapacity {
         field: "value_slots",
         observed: compiled_count,
@@ -1267,7 +1425,10 @@ fn fold_node(
     if let SourceOpcode::Literal(value) = opcode {
         return Ok(Some(value));
     }
-    if matches!(opcode, SourceOpcode::TerminalSpot { .. }) {
+    if matches!(
+        opcode,
+        SourceOpcode::TerminalSpot { .. } | SourceOpcode::PreDividendSpot { .. }
+    ) {
         return Ok(None);
     }
     let (operands, count) = opcode.operands();
@@ -1314,7 +1475,9 @@ fn fold_node(
         SourceOpcode::SmoothIndicator { smoothing, .. } => smoothing.indicator(values[0]).value,
         SourceOpcode::BarrierHitState { .. } => values[0] + (1.0 - values[0]) * values[1],
         SourceOpcode::Negate { .. } => -values[0],
-        SourceOpcode::Literal(_) | SourceOpcode::TerminalSpot { .. } => unreachable!(),
+        SourceOpcode::Literal(_)
+        | SourceOpcode::TerminalSpot { .. }
+        | SourceOpcode::PreDividendSpot { .. } => unreachable!(),
     };
     FiniteF64::new(result, "constant_fold")
         .map(Some)
@@ -1346,6 +1509,14 @@ fn compile_opcode(
             underlying,
             observation_date,
         } => Ok(CompiledOpcode::TerminalSpot {
+            underlying,
+            observation_date,
+            output,
+        }),
+        SourceOpcode::PreDividendSpot {
+            underlying,
+            observation_date,
+        } => Ok(CompiledOpcode::PreDividendSpot {
             underlying,
             observation_date,
             output,
@@ -1511,6 +1682,13 @@ fn encode_source_opcode(bytes: &mut Vec<u8>, opcode: SourceOpcode) {
             put_u32(bytes, underlying.get());
             put_date(bytes, observation_date);
         }
+        SourceOpcode::PreDividendSpot {
+            underlying,
+            observation_date,
+        } => {
+            put_u32(bytes, underlying.get());
+            put_date(bytes, observation_date);
+        }
         SourceOpcode::Negate { input } | SourceOpcode::Indicator { input } => {
             put_u32(bytes, input.get());
         }
@@ -1556,6 +1734,15 @@ fn encode_compiled_opcode(bytes: &mut Vec<u8>, opcode: CompiledOpcode) {
             put_u32(bytes, output);
         }
         CompiledOpcode::TerminalSpot {
+            underlying,
+            observation_date,
+            output,
+        } => {
+            put_u32(bytes, underlying.get());
+            put_date(bytes, observation_date);
+            put_u32(bytes, output);
+        }
+        CompiledOpcode::PreDividendSpot {
             underlying,
             observation_date,
             output,
@@ -1660,6 +1847,7 @@ const fn opcode_tag(opcode: SourceOpcode) -> u8 {
         SourceOpcode::SmoothMaximum { .. } => 11,
         SourceOpcode::SmoothIndicator { .. } => 12,
         SourceOpcode::BarrierHitState { .. } => 13,
+        SourceOpcode::PreDividendSpot { .. } => 14,
     }
 }
 
@@ -1679,6 +1867,7 @@ const fn compiled_opcode_tag(opcode: CompiledOpcode) -> u8 {
         CompiledOpcode::SmoothMaximum { .. } => 11,
         CompiledOpcode::SmoothIndicator { .. } => 12,
         CompiledOpcode::BarrierHitState { .. } => 13,
+        CompiledOpcode::PreDividendSpot { .. } => 14,
     }
 }
 
@@ -1741,6 +1930,10 @@ pub enum GraphError {
         length: usize,
     },
     MissingObservation {
+        underlying: UnderlyingId,
+        observation_date: Date,
+    },
+    MissingPreDividendObservation {
         underlying: UnderlyingId,
         observation_date: Date,
     },
@@ -1816,6 +2009,13 @@ impl fmt::Display for GraphError {
             } => write!(
                 formatter,
                 "missing observation for underlying {underlying} on {observation_date}"
+            ),
+            Self::MissingPreDividendObservation {
+                underlying,
+                observation_date,
+            } => write!(
+                formatter,
+                "missing pre-dividend observation for underlying {underlying} on {observation_date}"
             ),
             Self::NonFiniteRuntimeValue { opcode, bits } => {
                 write!(
@@ -2224,6 +2424,90 @@ mod tests {
                     .sum::<f64>();
                 assert!((adjoint - finite_difference).abs() < 1.0e-7);
             }
+        }
+    }
+
+    #[test]
+    fn smoothed_barrier_dividend_jump_matches_p0_fixture_and_reverse() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/path-dependence/reference-cases-v0.1.json"
+        ))
+        .expect("fixture");
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        for case in fixture["jump_cases"].as_array().expect("jump cases") {
+            let parse = |field: &str| {
+                case[field]
+                    .as_str()
+                    .expect("decimal string")
+                    .parse::<f64>()
+                    .expect("binary64")
+            };
+            let expected = |field: &str| {
+                case["expected"][field]
+                    .as_str()
+                    .expect("decimal string")
+                    .parse::<f64>()
+                    .expect("binary64")
+            };
+            let pre = parse("pre_jump_spot");
+            let post = parse("post_jump_spot");
+            let smoothing = CompactC2Smoothing::new(parse("half_width")).expect("smoothing");
+            let product = BarrierSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                expiry,
+                1.0,
+                parse("barrier"),
+                1.0,
+                OptionSide::Call,
+                BarrierDirection::Down,
+                BarrierStyle::KnockIn,
+                vec![expiry],
+                None,
+                expiry,
+            )
+            .expect("barrier");
+            let compiled = product
+                .smoothed_source_graph_with_dividend_jumps(smoothing, &[expiry])
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile");
+            assert_eq!(
+                compiled.pre_dividend_observations(),
+                vec![(UnderlyingId::new(4), expiry)]
+            );
+            let value = compiled
+                .evaluate_with_pre_dividend_spots(|_, _| Some(post), |_, _| Some(pre))
+                .expect("evaluate")[0];
+            assert!((value / (post - 1.0) - expected("hit_weight")).abs() < 2.0e-15);
+
+            let evaluation = compiled
+                .evaluate_single_with_observation_adjoints(|_, _| Some(post), |_, _| Some(pre))
+                .expect("reverse");
+            let epsilon = 1.0e-5;
+            let finite_difference = |bump_pre: bool| {
+                let bumped = |shift| {
+                    compiled
+                        .evaluate_with_pre_dividend_spots(
+                            |_, _| Some(post + if bump_pre { 0.0 } else { shift }),
+                            |_, _| Some(pre + if bump_pre { shift } else { 0.0 }),
+                        )
+                        .expect("bump")[0]
+                };
+                (bumped(epsilon) - bumped(-epsilon)) / (2.0 * epsilon)
+            };
+            let pre_adjoint = evaluation
+                .pre_dividend_adjoints
+                .iter()
+                .map(|adjoint| adjoint.value)
+                .sum::<f64>();
+            let post_adjoint = evaluation
+                .terminal_adjoints
+                .iter()
+                .map(|adjoint| adjoint.value)
+                .sum::<f64>();
+            assert!((pre_adjoint - finite_difference(true)).abs() < 1.0e-7);
+            assert!((post_adjoint - finite_difference(false)).abs() < 1.0e-7);
         }
     }
 

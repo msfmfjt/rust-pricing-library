@@ -8,7 +8,8 @@ mod spec;
 
 pub use graph::{
     CompiledOpcode, CompiledPayoff, GraphError, GraphFingerprint, GraphLimitPolicy,
-    PayoffEvaluation, SourceGraph, SourceGraphBuilder, SourceNode, SourceOpcode, TerminalAdjoint,
+    PayoffEvaluation, PreDividendAdjoint, SourceGraph, SourceGraphBuilder, SourceNode,
+    SourceOpcode, TerminalAdjoint,
 };
 pub use smoothing::{CompactC2Smoothing, SmoothingBinaryDerivatives, SmoothingDerivatives};
 pub use spec::{
