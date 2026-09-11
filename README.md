@@ -29,6 +29,7 @@ rejected until discontinuous-event AAD support is implemented.
 - [Local Volatility and VegaKT diagnostics catalogue](docs/local-vol-vegakt-diagnostics-v0.1.md)
 - [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
 - [Path Dependence implementation roadmap](docs/path-dependence-roadmap-v0.1.md)
+- [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
@@ -58,6 +59,7 @@ The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), 
 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
+python3 scripts/check_path_dependence_reference_fixture.py
 python3 scripts/check_schemas.py
 python3 scripts/check_markdown_links.py
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD

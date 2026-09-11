@@ -33,6 +33,7 @@ REQUIRED_FILES = {
     "docs/local-vol-vegakt-numerical-contracts-v0.1.md",
     "docs/local-vol-vegakt-roadmap-v0.1.md",
     "docs/path-dependence-roadmap-v0.1.md",
+    "docs/path-dependence-numerical-contracts-v0.1.md",
     "docs/release-readiness-v0.1.md",
     "docs/requirements-change-template.md",
     "docs/requirements-v1.0.md",
@@ -55,6 +56,8 @@ REQUIRED_FILES = {
     "fixtures/acceptance/european_bs_analytical.csv",
     "fixtures/local-vol/README.md",
     "fixtures/local-vol/reference-cases-v0.1.json",
+    "fixtures/path-dependence/README.md",
+    "fixtures/path-dependence/reference-cases-v0.1.json",
     "fixtures/replay/README.md",
     "fixtures/replay/european_bs-macos-aarch64.json",
     "fixtures/replay/european_bs-windows-x86_64.json",
@@ -68,6 +71,7 @@ REQUIRED_FILES = {
     "scripts/check_benchmark_reports.py",
     "scripts/check_dependency_direction.py",
     "scripts/check_local_vol_reference_fixture.py",
+    "scripts/check_path_dependence_reference_fixture.py",
     "scripts/check_markdown_links.py",
     "scripts/check_replay_fixture.py",
     "scripts/check_schemas.py",
@@ -98,6 +102,7 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 
 REQUIRED_CI_SNIPPETS = {
     "python scripts/check_local_vol_reference_fixture.py",
+    "python scripts/check_path_dependence_reference_fixture.py",
     "python scripts/check_schemas.py",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
@@ -135,6 +140,7 @@ REQUIRED_CI_SNIPPET_COUNTS = {
 
 REQUIRED_README_SNIPPETS = {
     "python3 scripts/check_local_vol_reference_fixture.py",
+    "python3 scripts/check_path_dependence_reference_fixture.py",
     "python3 scripts/check_schemas.py",
     "python3 scripts/check_markdown_links.py",
     "git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD",
@@ -358,6 +364,17 @@ REQUIRED_LOCAL_VOL_REFERENCE_CHECK_SNIPPETS = {
     "duplicate object key",
 }
 
+REQUIRED_PATH_DEPENDENCE_REFERENCE_CHECK_SNIPPETS = {
+    "getcontext().prec = 70",
+    '"path_dependence_v1"',
+    "SMOOTHING_IDS = {",
+    "BRIDGE_IDS = {",
+    "JUMP_IDS = {",
+    "JSON artifact must end with LF",
+    "non-standard JSON constant",
+    "duplicate object key",
+}
+
 REQUIRED_MARKDOWN_LINK_CHECK_SNIPPETS = {
     "MARKDOWN_ROOTS = [ROOT / \"README.md\", ROOT / \"CONTRIBUTING.md\", ROOT / \"docs\", ROOT / \"fixtures\"]",
     "LINK_PATTERN = re.compile",
@@ -558,6 +575,7 @@ def main() -> int:
         check_benchmark_validation_gate(package, archive)
         check_dependency_direction_gate(package, archive)
         check_local_vol_reference_gate(package, archive)
+        check_path_dependence_reference_gate(package, archive)
         check_markdown_link_gate(package, archive)
         check_source_archive_gate(package, archive)
         check_readme_release_gates(package, archive)
@@ -814,6 +832,24 @@ def check_local_vol_reference_gate(package: tarfile.TarFile, archive: str) -> No
     if missing:
         raise SystemExit(
             f"{archive}: Local Volatility reference validation is missing required gates: {missing}"
+        )
+
+
+def check_path_dependence_reference_gate(
+    package: tarfile.TarFile, archive: str
+) -> None:
+    reference_check = read_text(
+        package, "scripts/check_path_dependence_reference_fixture.py"
+    )
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_PATH_DEPENDENCE_REFERENCE_CHECK_SNIPPETS
+        if snippet not in reference_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: Path Dependence reference validation is missing "
+            f"required gates: {missing}"
         )
 
 
