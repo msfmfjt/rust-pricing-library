@@ -32,6 +32,11 @@ Passing these checks establishes that the commit is ready for private artifact
 retention on the supported CI platforms. It does not resolve publication,
 licensing, or access-control decisions.
 
+The Early Exercise implementation has local E0-E6 evidence and an E7/E8
+candidate baseline. Final acceptance still requires green supported-platform
+CI and review and freezing of the generated Windows x86-64 Early Exercise
+replay artifact, as recorded in `early-exercise-conformance-v0.1.md`.
+
 Before any public publication, the following non-code decisions must be resolved
 outside the repository:
 

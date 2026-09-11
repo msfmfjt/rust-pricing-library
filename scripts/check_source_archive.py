@@ -29,6 +29,8 @@ REQUIRED_FILES = {
     "docs/european-bs-diagnostics-v0.1.md",
     "docs/european-bs-roadmap-v0.1.md",
     "docs/early-exercise-roadmap-v0.1.md",
+    "docs/early-exercise-diagnostics-v0.1.md",
+    "docs/early-exercise-conformance-v0.1.md",
     "docs/early-exercise-numerical-contracts-v0.1.md",
     "docs/local-vol-vegakt-conformance-v0.1.md",
     "docs/local-vol-vegakt-diagnostics-v0.1.md",
