@@ -14,8 +14,10 @@ average-price Asian calls and puts, plus fixed-strike discrete-monitoring
 Lookback calls and puts with future or fully fixed monitoring
 under the constant-volatility engines. Pathwise Delta, bumped-AAD Gamma, and
 Vega are available for European, Asian, and Lookback products under constant
-volatility. Pathwise risk requests for Digital and Barrier products are
-rejected until discontinuous-event AAD support is implemented.
+volatility. Digital products additionally support explicit compact-C2 payoff
+smoothing for Price, pathwise Delta/Vega, bumped-AAD Gamma, and CRN validation
+through the Rust, JSON, and Python request surfaces. Digital risk without an
+explicit smoothing width and all Barrier risk requests remain rejected.
 
 ## Design baselines
 

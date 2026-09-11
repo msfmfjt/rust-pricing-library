@@ -310,6 +310,34 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertEqual(issue.phase, "domain")
         self.assertIn("smooth product payoff", issue.message)
 
+        smoothed_request = rust_pricing.PricingRequest(
+            "2026-09-04",
+            product,
+            market,
+            rust_pricing.Model.black_scholes(0.2),
+            rust_pricing.Engine.pseudo_monte_carlo(7, 4096, antithetic=True),
+            rust_pricing.RiskRequest(
+                delta=True, vega=True, payoff_smoothing_half_width=2.0
+            ),
+        )
+        smoothed_payload = json.loads(smoothed_request.to_json())
+        self.assertEqual(
+            smoothed_payload["risk"]["payoff_smoothing"],
+            {"type": "compact_c2", "half_width": 2.0},
+        )
+        smoothed_result = rust_pricing.PricingPlan.compile(
+            smoothed_request, worker_threads=2, reduction_block_size=256
+        ).evaluate()
+        self.assertIsNotNone(smoothed_result.delta)
+        self.assertIsNotNone(smoothed_result.vega)
+        self.assertIsNotNone(smoothed_result.diagnostics.delta_validation)
+        self.assertIsNotNone(smoothed_result.diagnostics.vega_validation)
+        self.assertEqual(
+            smoothed_result.diagnostics.payoff_smoothing_kernel, "compact_c2"
+        )
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_policy_version, 1)
+        self.assertEqual(smoothed_result.diagnostics.payoff_smoothing_half_width, 2.0)
+
     def test_native_barrier_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])

@@ -16,7 +16,9 @@ use pricing::product::{
     BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
     ProductSpec,
 };
-use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
+use pricing::risk::{
+    GammaConfig, PayoffSmoothing, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig,
+};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
@@ -847,7 +849,7 @@ pub struct PyRiskRequest {
 #[pymethods]
 impl PyRiskRequest {
     #[new]
-    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
+    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, payoff_smoothing_half_width=None, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -859,6 +861,7 @@ impl PyRiskRequest {
         vega_kt_log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
         vega_kt_relative_density_threshold: Option<f64>,
         vega_kt_full_bucket_covariance: bool,
+        payoff_smoothing_half_width: Option<f64>,
         smile_dynamics: &str,
         checkpoint_interval: Option<u32>,
         aad_tile_capacity: Option<u32>,
@@ -885,7 +888,18 @@ impl PyRiskRequest {
             vega_kt_full_bucket_covariance,
         )?;
         let smile_dynamics = smile_dynamics_from_str(py, smile_dynamics)?;
-        RiskRequest::new(
+        let payoff_smoothing = payoff_smoothing_half_width
+            .map(PayoffSmoothing::compact_c2)
+            .transpose()
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_payoff_smoothing",
+                    "/risk/payoff_smoothing/half_width",
+                    error,
+                )
+            })?;
+        let request = RiskRequest::new(
             delta,
             gamma,
             vega,
@@ -894,8 +908,12 @@ impl PyRiskRequest {
             checkpoint_interval,
             aad_tile_capacity,
         )
-        .map(|inner| Self { inner })
-        .map_err(|error| domain_error(py, "invalid_risk_request", "/risk", error))
+        .map_err(|error| domain_error(py, "invalid_risk_request", "/risk", error))?;
+        let inner = match payoff_smoothing {
+            Some(smoothing) => request.with_payoff_smoothing(smoothing),
+            None => request,
+        };
+        Ok(Self { inner })
     }
 
     fn __repr__(&self) -> String {

@@ -51,6 +51,7 @@ pub enum RequestValidationError {
     },
     VegaKtUnsupportedForConstantVolatility,
     RiskUnsupportedForDiscontinuousProduct,
+    PayoffSmoothingUnsupportedForProduct,
 }
 
 impl fmt::Display for RequestValidationError {
@@ -113,6 +114,10 @@ impl fmt::Display for RequestValidationError {
             Self::RiskUnsupportedForDiscontinuousProduct => write!(
                 formatter,
                 "Delta, Gamma, Vega, and VegaKT require a smooth product payoff"
+            ),
+            Self::PayoffSmoothingUnsupportedForProduct => write!(
+                formatter,
+                "payoff smoothing is unsupported for the selected product"
             ),
         }
     }

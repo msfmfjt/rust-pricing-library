@@ -195,8 +195,14 @@
         "smile_dynamics": {"$ref": "#/$defs/smile_dynamics"},
         "gamma": {"$ref": "#/$defs/gamma"},
         "vega_kt": {"$ref": "#/$defs/vega_kt"},
+        "payoff_smoothing": {"$ref": "#/$defs/payoff_smoothing"},
         "checkpoint_interval": {"type": "integer", "minimum": 1, "maximum": 4294967295}, "aad_tile_capacity": {"type": "integer", "minimum": 1, "maximum": 4294967295}
       }
+    },
+    "payoff_smoothing": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "half_width"], "properties": {"type": {"type": "string", "const": "compact_c2"}, "half_width": {"type": "number", "exclusiveMinimum": 0}}}
+      ]
     },
     "gamma": {
       "type": "object", "additionalProperties": false, "required": ["bump"],
