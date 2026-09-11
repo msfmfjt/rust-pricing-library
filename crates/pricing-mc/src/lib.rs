@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod barrier_bridge;
 mod bridge;
 mod config;
 mod error;
@@ -41,6 +42,11 @@ pub const fn aad_enabled() -> bool {
     let _ = pricing_aad::numerical_foundation();
     true
 }
+pub use barrier_bridge::{
+    BARRIER_BRIDGE_ABI, BarrierBridgeDirection, BarrierBridgeError, BarrierBridgeInterval,
+    BarrierBridgeIntervalAdjoints, BarrierBridgeIntervalInput, BarrierBridgePath,
+    BarrierBridgePathDiagnostics, BarrierBridgeStatus, transformed_barrier,
+};
 pub use bridge::{
     BROWNIAN_BRIDGE_ABI, BrownianBridgeError, BrownianBridgeInstruction, BrownianBridgePlan,
 };
