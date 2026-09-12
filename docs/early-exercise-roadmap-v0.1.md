@@ -1,6 +1,6 @@
 # Early Exercise Vertical Slice - Implementation Roadmap v0.1
 
-Status: Candidate implementation roadmap
+Status: Accepted implementation baseline
 
 Requirements: `requirements-v1.0.md`
 
@@ -12,7 +12,7 @@ Complete the single-asset American vanilla MVP and a reusable Least-Squares
 Monte Carlo policy boundary under the constant-volatility and Local Volatility
 engines.
 
-The accepted slice will provide:
+The accepted slice provides:
 
 - American Call and Put contracts with explicit exercise schedules;
 - a calendar-aware helper that materializes ordinary explicit schedules;

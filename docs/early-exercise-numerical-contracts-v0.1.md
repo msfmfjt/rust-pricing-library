@@ -1,6 +1,6 @@
 # Early Exercise Numerical Contracts v0.1
 
-Status: Candidate for roadmap Gate E0
+Status: Frozen for roadmap Gate E0
 
 Requirements: `requirements-v1.0.md` Section 5.3
 
