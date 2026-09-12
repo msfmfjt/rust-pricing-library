@@ -7,6 +7,7 @@ mod config;
 mod error;
 mod execution;
 mod local_vol;
+pub mod lsv;
 mod qmc;
 mod random;
 

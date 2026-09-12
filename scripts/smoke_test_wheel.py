@@ -142,6 +142,7 @@ def main() -> None:
     verify_runtime_symbols(python, stub_api, metadata["Version"])
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
+    subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run(
         [
             str(python),
@@ -1014,6 +1015,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "AsianObservation",
         "BarrierDirection",
         "BarrierStyle",
+        "BergomiLsvPlan",
         "DateLike",
         "DiagnosticEstimate",
         "Diagnostics",
@@ -1022,6 +1024,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "DividendEvent",
         "Engine",
         "EssviSlice",
+        "LsvLocalVarianceRisk",
+        "LsvPrice",
         "Market",
         "Model",
         "OptionSide",
@@ -1179,6 +1183,34 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("BergomiLsvPlan", "compile"): {
+            "positional": ["target_request"],
+            "positional_defaults": {},
+            "keyword_only": [
+                "mean_reversion",
+                "vol_of_vol",
+                "correlation",
+                "particle_count",
+                "calibration_seed",
+                "log_bandwidth",
+                "minimum_effective_samples",
+                "retain_reverse_trace",
+                "worker_threads",
+                "reduction_block_size",
+            ],
+            "required_keyword_only": [
+                "mean_reversion",
+                "vol_of_vol",
+                "correlation",
+                "particle_count",
+                "calibration_seed",
+                "log_bandwidth",
+                "minimum_effective_samples",
+                "retain_reverse_trace",
+                "worker_threads",
+            ],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
         ("AsianObservation", "known"): {
             "positional": ["date", "weight", "fixing"],
             "positional_defaults": {},
@@ -1542,6 +1574,36 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "BergomiLsvPlan": {
+            "compile",
+            "evaluate",
+            "evaluate_local_variance_risk",
+            "plan_fingerprint",
+            "time_nodes",
+            "log_moneyness_nodes",
+            "squared_leverage",
+            "extrapolated_moment_nodes",
+            "minimum_effective_samples",
+        },
+        "LsvLocalVarianceRisk": {
+            "price",
+            "time_nodes",
+            "log_moneyness_nodes",
+            "node_adjoints",
+            "standard_errors",
+            "method",
+            "coordinate",
+        },
+        "LsvPrice": {
+            "value",
+            "standard_error",
+            "independent_sampling_units",
+            "evaluated_paths",
+            "calibration_seed",
+            "plan_fingerprint",
+            "scheme",
+            "uncertainty_scope",
+        },
         "AsianObservation": {
             "__repr__",
             "date",
@@ -1803,6 +1865,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("BergomiLsvPlan", "compile"),
         ("AsianObservation", "known"),
         ("AsianObservation", "unknown"),
         ("DividendEvent", "fixed_cash"),
@@ -1828,6 +1891,27 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("BergomiLsvPlan", "plan_fingerprint"),
+        ("BergomiLsvPlan", "time_nodes"),
+        ("BergomiLsvPlan", "log_moneyness_nodes"),
+        ("BergomiLsvPlan", "squared_leverage"),
+        ("BergomiLsvPlan", "extrapolated_moment_nodes"),
+        ("BergomiLsvPlan", "minimum_effective_samples"),
+        ("LsvLocalVarianceRisk", "price"),
+        ("LsvLocalVarianceRisk", "time_nodes"),
+        ("LsvLocalVarianceRisk", "log_moneyness_nodes"),
+        ("LsvLocalVarianceRisk", "node_adjoints"),
+        ("LsvLocalVarianceRisk", "standard_errors"),
+        ("LsvLocalVarianceRisk", "method"),
+        ("LsvLocalVarianceRisk", "coordinate"),
+        ("LsvPrice", "value"),
+        ("LsvPrice", "standard_error"),
+        ("LsvPrice", "independent_sampling_units"),
+        ("LsvPrice", "evaluated_paths"),
+        ("LsvPrice", "calibration_seed"),
+        ("LsvPrice", "plan_fingerprint"),
+        ("LsvPrice", "scheme"),
+        ("LsvPrice", "uncertainty_scope"),
         ("AsianObservation", "date"),
         ("AsianObservation", "fixing"),
         ("AsianObservation", "weight"),

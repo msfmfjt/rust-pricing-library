@@ -562,6 +562,23 @@ impl LocalVolPath {
         grid_value_count: usize,
         grid_log_moneyness_count: usize,
     ) -> Result<LocalVolReverseAdjoints, LocalVolError> {
+        let mut state_adjoints = vec![0.0; self.states.len()];
+        state_adjoints[self.states.len() - 1] = terminal_state_adjoint;
+        self.reverse_state_adjoints(&state_adjoints, grid_value_count, grid_log_moneyness_count)
+    }
+
+    pub fn reverse_state_adjoints(
+        &self,
+        state_seeds: &[f64],
+        grid_value_count: usize,
+        grid_log_moneyness_count: usize,
+    ) -> Result<LocalVolReverseAdjoints, LocalVolError> {
+        if state_seeds.len() != self.states.len() {
+            return Err(LocalVolError::AdjointCountMismatch {
+                expected: self.states.len(),
+                actual: state_seeds.len(),
+            });
+        }
         for cache in self.step_cache.iter().copied() {
             let required = (cache.interpolation.lower_time_index + 2)
                 .checked_mul(grid_log_moneyness_count)
@@ -573,10 +590,9 @@ impl LocalVolPath {
                 });
             }
         }
-        let mut state_adjoints = vec![0.0; self.states.len()];
+        let mut state_adjoints = state_seeds.to_vec();
         let mut shock_adjoints = vec![0.0; self.step_cache.len()];
         let mut local_variance_value_adjoints = vec![0.0; grid_value_count];
-        state_adjoints[self.states.len() - 1] = terminal_state_adjoint;
         for step in (0..self.step_cache.len()).rev() {
             let cache = self.step_cache[step];
             let next_state_adjoint = state_adjoints[step + 1];
@@ -1090,6 +1106,32 @@ mod tests {
                 (actual - finite).abs() < 1.0e-5,
                 "shock {shock_index}: actual={actual:.17e}, finite={finite:.17e}"
             );
+        }
+
+        let state_seeds = [0.0, 0.3, 0.7];
+        let multi = path
+            .reverse_state_adjoints(
+                &state_seeds,
+                variance_grid.values().len(),
+                variance_grid.log_moneyness_nodes().len(),
+            )
+            .expect("multi-state reverse");
+        let objective = |path: &LocalVolPath| 0.3 * path.states()[1] + 0.7 * path.states()[2];
+        let finite_initial = (objective(&up_path) - objective(&down_path)) / (2.0 * bump);
+        assert!((multi.initial_state_adjoint() - finite_initial).abs() < 1.0e-7);
+        for shock_index in 0..shocks.len() {
+            let mut up_shocks = shocks.clone();
+            up_shocks[shock_index] += bump;
+            let mut down_shocks = shocks.clone();
+            down_shocks[shock_index] -= bump;
+            let up_path = plan
+                .evolve_path(&variance_grid, 100.0, &up_shocks)
+                .expect("up shock");
+            let down_path = plan
+                .evolve_path(&variance_grid, 100.0, &down_shocks)
+                .expect("down shock");
+            let finite = (objective(&up_path) - objective(&down_path)) / (2.0 * bump);
+            assert!((multi.shock_adjoints()[shock_index] - finite).abs() < 1.0e-5);
         }
     }
 

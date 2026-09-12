@@ -6,9 +6,9 @@ use pricing_market::{
 };
 use pricing_mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
-    ExecutionPolicy, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolTimeGrid,
-    Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig, RqmcPlan,
-    RqmcPlanError, inverse_standard_normal,
+    ExecutionPolicy, LocalVolDividendCheckpointSchedule, LocalVolLogEulerPlan, LocalVolPath,
+    LocalVolTimeGrid, Philox4x32, PseudoMcConfig, RandomCoordinate, RandomDomain, RqmcConfig,
+    RqmcPlan, RqmcPlanError, inverse_standard_normal,
 };
 use pricing_models::{LocalVolatilityReportingBasis, ModelSpec};
 use pricing_product::{
@@ -63,6 +63,7 @@ pub struct SimulationPlan {
     observation_forwards: Box<[f64]>,
     observation_affine_coordinates: Box<[AffineDividendCoordinate]>,
     observation_pre_dividend_coordinates: Box<[Option<AffineDividendCoordinate>]>,
+    observation_local_vol_node_indices: Option<Box<[usize]>>,
     engine: EngineConfig,
     execution_policy: ExecutionPolicy,
     aad_tile_policy: AadTilePolicy,
@@ -90,8 +91,6 @@ struct LocalVolRuntime {
     plan: LocalVolLogEulerPlan,
     dividends: Option<AffineDividendTransform>,
     dividend_schedule: Option<LocalVolDividendCheckpointSchedule>,
-    terminal_affine_a: f64,
-    terminal_affine_b: f64,
     vega_kt: Option<LocalVolVegaKtRuntime>,
 }
 
@@ -108,6 +107,13 @@ struct LocalVolPathwise {
     raw_buckets: Option<Vec<f64>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct LocalVolObservation {
+    post_spot: f64,
+    pre_dividend_spot: Option<f64>,
+    node_index: usize,
+}
+
 struct LocalVolRuntimeInputs<'a> {
     grid: LocalVarianceGrid,
     reporting_iv_basis: Option<&'a LocalVolatilityReportingBasis>,
@@ -115,8 +121,7 @@ struct LocalVolRuntimeInputs<'a> {
     market_forward: &'a EquityForward,
     valuation_date: Date,
     expiry_time: f64,
-    terminal_affine_a: f64,
-    terminal_affine_b: f64,
+    event_times: &'a [f64],
 }
 
 struct ReportingIvSurface<'a> {
@@ -239,21 +244,8 @@ fn average_local_vol_pathwise(
 
 impl LocalVolRuntime {
     fn maximum_total_variance(&self) -> f64 {
-        self.plan
-            .time_grid()
-            .nodes()
-            .windows(2)
-            .zip(
-                self.grid
-                    .values()
-                    .chunks(self.grid.log_moneyness_nodes().len()),
-            )
-            .map(|(times, row)| {
-                let dt = times[1] - times[0];
-                let row_max = row.iter().copied().fold(0.0_f64, f64::max);
-                dt * row_max
-            })
-            .sum()
+        let horizon = self.plan.time_grid().nodes().last().copied().unwrap_or(0.0);
+        horizon * self.grid.cap()
     }
 }
 
@@ -276,8 +268,7 @@ fn compile_local_vol_runtime(
         market_forward,
         valuation_date,
         expiry_time,
-        terminal_affine_a,
-        terminal_affine_b,
+        event_times,
     } = inputs;
     let first_time = grid.time_nodes()[0];
     let last_time = grid.time_nodes()[grid.time_nodes().len() - 1];
@@ -293,22 +284,13 @@ fn compile_local_vol_runtime(
         .windows(2)
         .map(|times| times[1] - times[0])
         .fold(0.0_f64, f64::max);
+    let mut required_times = grid.time_nodes().to_vec();
+    required_times.extend_from_slice(event_times);
     let time_grid = if let Some(dividends) = market_forward.discrete_dividends() {
-        LocalVolTimeGrid::compile_with_dividends(
-            grid.time_nodes().to_vec(),
-            dividends,
-            maximum_step,
-        )?
+        LocalVolTimeGrid::compile_with_dividends(required_times, dividends, maximum_step)?
     } else {
-        LocalVolTimeGrid::compile(grid.time_nodes().to_vec(), maximum_step)?
+        LocalVolTimeGrid::compile(required_times, maximum_step)?
     };
-    if time_grid.nodes() != grid.time_nodes() {
-        return Err(MonteCarloError::InvalidLocalVolatilityTimeGrid {
-            expiry_bits: expiry_time.to_bits(),
-            first_bits: first_time.to_bits(),
-            last_bits: last_time.to_bits(),
-        });
-    }
     let mut forwards = Vec::with_capacity(time_grid.nodes().len());
     for time in time_grid.nodes().iter().copied() {
         forwards.push(market_forward.evaluate(time)?.forward);
@@ -334,8 +316,6 @@ fn compile_local_vol_runtime(
         plan,
         dividends,
         dividend_schedule,
-        terminal_affine_a,
-        terminal_affine_b,
         vega_kt,
     })
 }
@@ -432,6 +412,22 @@ impl SimulationPlan {
         };
         let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
         let observations = payoff.terminal_observations();
+        for (underlying, _) in &observations {
+            if *underlying != product.underlying() {
+                return Err(MonteCarloError::UnsupportedObservationUnderlying {
+                    product: *underlying,
+                    market: product.underlying(),
+                });
+            }
+        }
+        let observation_dates = observations
+            .iter()
+            .map(|(_, date)| *date)
+            .collect::<Vec<_>>();
+        let observation_times = observation_dates
+            .iter()
+            .map(|date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date))
+            .collect::<Vec<_>>();
         let time = if observations.is_empty() {
             0.0
         } else {
@@ -460,8 +456,7 @@ impl SimulationPlan {
                     market_forward,
                     valuation_date: request.valuation_date(),
                     expiry_time: time,
-                    terminal_affine_a: forward_evaluation.affine_coordinate.a(),
-                    terminal_affine_b: forward_evaluation.affine_coordinate.b(),
+                    event_times: &observation_times,
                 })?;
                 (0.0, runtime.maximum_total_variance(), Some(runtime))
             }
@@ -484,32 +479,16 @@ impl SimulationPlan {
                 });
             }
         }
-        for (underlying, _) in &observations {
-            if *underlying != product.underlying() {
-                return Err(MonteCarloError::UnsupportedObservationUnderlying {
-                    product: *underlying,
-                    market: product.underlying(),
-                });
-            }
-        }
-        let observation_dates = observations
-            .iter()
-            .map(|(_, date)| *date)
-            .collect::<Vec<_>>();
         let pre_dividend_observations = payoff.pre_dividend_observations();
-        let mut observation_times = Vec::with_capacity(observation_dates.len());
         let mut observation_forwards = Vec::with_capacity(observation_dates.len());
         let mut observation_affine_coordinates = Vec::with_capacity(observation_dates.len());
         let mut observation_pre_dividend_coordinates = Vec::with_capacity(observation_dates.len());
-        for date in &observation_dates {
-            let observation_time =
-                DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date);
+        for (&date, &observation_time) in observation_dates.iter().zip(&observation_times) {
             let evaluation = market_forward.evaluate(observation_time)?;
-            observation_times.push(observation_time);
             observation_forwards.push(evaluation.forward);
             observation_affine_coordinates.push(evaluation.affine_coordinate);
             let needs_pre_dividend =
-                pre_dividend_observations.contains(&(product.underlying(), *date));
+                pre_dividend_observations.contains(&(product.underlying(), date));
             observation_pre_dividend_coordinates.push(needs_pre_dividend.then(|| {
                 dividend_timeline
                     .iter()
@@ -518,15 +497,19 @@ impl SimulationPlan {
                     .before()
             }));
         }
-        if local_volatility.is_some()
-            && observation_dates
+        let observation_local_vol_node_indices = local_volatility.as_ref().map(|runtime| {
+            observation_times
                 .iter()
-                .any(|observation_date| *observation_date != product.expiry())
-        {
-            return Err(MonteCarloError::UnsupportedModel {
-                model: "local_volatility_with_non_terminal_observations",
-            });
-        }
+                .map(|time| {
+                    runtime
+                        .plan
+                        .time_grid()
+                        .node_index_for_time(*time)
+                        .expect("contractual observations are Local Volatility event nodes")
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+        });
         let request_fingerprint = *fingerprint_request(request)?.as_bytes();
         let aad_tile_policy = AadTilePolicy::resolve(
             execution_policy.reduction_block_size().get(),
@@ -577,6 +560,7 @@ impl SimulationPlan {
             observation_affine_coordinates: observation_affine_coordinates.into_boxed_slice(),
             observation_pre_dividend_coordinates: observation_pre_dividend_coordinates
                 .into_boxed_slice(),
+            observation_local_vol_node_indices,
             engine,
             execution_policy,
             aad_tile_policy,
@@ -1368,23 +1352,160 @@ impl SimulationPlan {
                 .plan
                 .evolve_path(&local_volatility.grid, spot, shocks)?
         };
-        let terminal_f =
-            path.states()
-                .last()
-                .copied()
-                .ok_or(MonteCarloError::UnsupportedModel {
-                    model: "local_volatility",
-                })?;
-        let terminal = local_volatility.terminal_affine_a * spot
-            + local_volatility.terminal_affine_b * terminal_f;
-        let outputs = self.payoff.evaluate(|underlying, date| {
-            (underlying == self.underlying && date == self.expiry).then_some(terminal)
-        })?;
+        let observations = self.local_vol_path_observations(&path)?;
+        let outputs = self.payoff.evaluate_with_pre_dividend_spots(
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .map(|index| observations[index].post_spot)
+            },
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            },
+        )?;
         Ok(self.discount
             * outputs
                 .first()
                 .copied()
                 .ok_or(pricing_product::GraphError::NoOutputs)?)
+    }
+
+    fn local_vol_path_observations(
+        &self,
+        path: &LocalVolPath,
+    ) -> Result<Vec<LocalVolObservation>, MonteCarloError> {
+        self.local_vol_state_observations(path.states())
+    }
+
+    fn local_vol_state_observations(
+        &self,
+        states: &[f64],
+    ) -> Result<Vec<LocalVolObservation>, MonteCarloError> {
+        let node_indices = self.observation_local_vol_node_indices.as_ref().ok_or(
+            MonteCarloError::UnsupportedModel {
+                model: "local_volatility",
+            },
+        )?;
+        Ok(node_indices
+            .iter()
+            .enumerate()
+            .map(|(index, &node_index)| {
+                let canonical_f = states[node_index];
+                let post_coordinate = self.observation_affine_coordinates[index];
+                let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * canonical_f;
+                let pre_dividend_spot = self.observation_pre_dividend_coordinates[index]
+                    .map(|coordinate| coordinate.a() * self.spot + coordinate.b() * canonical_f);
+                LocalVolObservation {
+                    post_spot,
+                    pre_dividend_spot,
+                    node_index,
+                }
+            })
+            .collect())
+    }
+
+    pub(crate) fn lsv_time_grid(&self) -> Result<&LocalVolTimeGrid, MonteCarloError> {
+        self.local_volatility
+            .as_ref()
+            .map(|lv| lv.plan.time_grid())
+            .ok_or(MonteCarloError::UnsupportedModel {
+                model: "LSV calibration requires a LocalVolatility target",
+            })
+    }
+
+    /// Reuse the contractual graph, dividend ordering and observation mapping.
+    /// This returns f-state seeds, not a Spot Delta or a market-IV Vega.
+    pub(crate) fn lsv_payoff(
+        &self,
+        states: &[f64],
+        path: PathIndex,
+        with_reverse: bool,
+    ) -> Result<(f64, Option<Vec<f64>>), MonteCarloError> {
+        let runtime = self
+            .local_volatility
+            .as_ref()
+            .ok_or(MonteCarloError::UnsupportedModel {
+                model: "LSV target",
+            })?;
+        if states.len() != runtime.plan.time_grid().nodes().len() {
+            return Err(pricing_mc::lsv::LsvError::LengthMismatch {
+                field: "payoff_states",
+                expected: runtime.plan.time_grid().nodes().len(),
+                actual: states.len(),
+            }
+            .into());
+        }
+        if let (Some(dividends), Some(schedule)) = (&runtime.dividends, &runtime.dividend_schedule)
+        {
+            for (i, checkpoint) in schedule.checkpoints().iter().enumerate() {
+                dividends.validate_post_event_f_state(i, path, states[checkpoint.node_index()])?;
+            }
+        }
+        let observations = self.local_vol_state_observations(states)?;
+        let post = |underlying, date| {
+            if underlying != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|d| *d == date)
+                .map(|i| observations[i].post_spot)
+        };
+        let pre = |underlying, date| {
+            if underlying != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|d| *d == date)
+                .and_then(|i| observations[i].pre_dividend_spot)
+        };
+        if !with_reverse {
+            return Ok((
+                self.discount * self.payoff.evaluate_with_pre_dividend_spots(post, pre)?[0],
+                None,
+            ));
+        }
+        let payoff = self
+            .payoff
+            .evaluate_single_with_observation_adjoints(post, pre)?;
+        let mut seeds = vec![0.0; states.len()];
+        for a in &payoff.terminal_adjoints {
+            if a.underlying == self.underlying
+                && let Some(i) = self
+                    .observation_dates
+                    .iter()
+                    .position(|d| *d == a.observation_date)
+            {
+                seeds[observations[i].node_index] +=
+                    self.discount * a.value * self.observation_affine_coordinates[i].b();
+            }
+        }
+        for a in &payoff.pre_dividend_adjoints {
+            if a.underlying == self.underlying
+                && let Some(i) = self
+                    .observation_dates
+                    .iter()
+                    .position(|d| *d == a.observation_date)
+            {
+                seeds[observations[i].node_index] += self.discount
+                    * a.value
+                    * self.observation_pre_dividend_coordinates[i]
+                        .expect("validated pre-dividend coordinate")
+                        .b();
+            }
+        }
+        Ok((self.discount * payoff.value, Some(seeds)))
     }
 
     fn local_vol_bump_runtimes(&self) -> Result<Option<LocalVolBumpRuntimes>, MonteCarloError> {
@@ -1418,7 +1539,6 @@ impl SimulationPlan {
     ) -> Result<LocalVolRuntime, MonteCarloError> {
         let spot = PositiveF64::new(spot, "spot").map_err(ResultBuildError::from)?;
         let market_forward = self.market_forward.with_spot(spot)?;
-        let forward_evaluation = market_forward.evaluate(self.time)?;
         compile_local_vol_runtime(LocalVolRuntimeInputs {
             grid: local_volatility.grid.clone(),
             reporting_iv_basis: None,
@@ -1426,8 +1546,7 @@ impl SimulationPlan {
             market_forward: &market_forward,
             valuation_date: self.valuation_date,
             expiry_time: self.time,
-            terminal_affine_a: forward_evaluation.affine_coordinate.a(),
-            terminal_affine_b: forward_evaluation.affine_coordinate.b(),
+            event_times: &self.observation_times,
         })
     }
 
@@ -1471,37 +1590,66 @@ impl SimulationPlan {
                 .plan
                 .evolve_path(&local_volatility.grid, self.spot, shocks)?
         };
-        let terminal_f =
-            path_state
-                .states()
-                .last()
-                .copied()
-                .ok_or(MonteCarloError::UnsupportedModel {
-                    model: "local_volatility",
-                })?;
-        let terminal = local_volatility.terminal_affine_a * self.spot
-            + local_volatility.terminal_affine_b * terminal_f;
-        let payoff = self
-            .payoff
-            .evaluate_single_with_terminal_adjoint(|underlying, date| {
-                (underlying == self.underlying && date == self.expiry).then_some(terminal)
-            })?;
-        let terminal_spot_adjoint = payoff
-            .terminal_adjoints
-            .iter()
-            .filter(|adjoint| {
-                adjoint.underlying == self.underlying && adjoint.observation_date == self.expiry
-            })
-            .fold(0.0, |total, adjoint| total + adjoint.value);
+        let observations = self.local_vol_path_observations(&path_state)?;
+        let payoff = self.payoff.evaluate_single_with_observation_adjoints(
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .map(|index| observations[index].post_spot)
+            },
+            |underlying, date| {
+                if underlying != self.underlying {
+                    return None;
+                }
+                self.observation_dates
+                    .iter()
+                    .position(|observation_date| *observation_date == date)
+                    .and_then(|index| observations[index].pre_dividend_spot)
+            },
+        )?;
         let price = self.discount * payoff.value;
         let mut values = [0.0; PATHWISE_COMPONENTS];
         let mut raw_buckets = None;
         values[PRICE] = price;
         if self.request_vega || local_volatility.vega_kt.is_some() {
-            let terminal_f_adjoint =
-                self.discount * terminal_spot_adjoint * local_volatility.terminal_affine_b;
-            let reverse = path_state.reverse_terminal(
-                terminal_f_adjoint,
+            let mut state_seeds = vec![0.0; path_state.states().len()];
+            for adjoint in &payoff.terminal_adjoints {
+                if adjoint.underlying != self.underlying {
+                    continue;
+                }
+                if let Some(index) = self
+                    .observation_dates
+                    .iter()
+                    .position(|date| *date == adjoint.observation_date)
+                {
+                    let observation = observations[index];
+                    let coordinate = self.observation_affine_coordinates[index];
+                    state_seeds[observation.node_index] +=
+                        self.discount * adjoint.value * coordinate.b();
+                }
+            }
+            for adjoint in &payoff.pre_dividend_adjoints {
+                if adjoint.underlying != self.underlying {
+                    continue;
+                }
+                if let Some(index) = self
+                    .observation_dates
+                    .iter()
+                    .position(|date| *date == adjoint.observation_date)
+                {
+                    let observation = observations[index];
+                    let coordinate = self.observation_pre_dividend_coordinates[index]
+                        .expect("pre-dividend adjoints have a matching coordinate");
+                    state_seeds[observation.node_index] +=
+                        self.discount * adjoint.value * coordinate.b();
+                }
+            }
+            let reverse = path_state.reverse_state_adjoints(
+                &state_seeds,
                 local_volatility.grid.values().len(),
                 local_volatility.grid.log_moneyness_nodes().len(),
             )?;
@@ -3405,6 +3553,22 @@ mod tests {
         )
     }
 
+    fn local_vol_barrier_dividend_jump_request(
+        style: BarrierStyle,
+        risk: RiskRequest,
+    ) -> PricingRequest {
+        let base = barrier_dividend_jump_request(BarrierDirection::Up, style, 0.2, risk);
+        PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            constant_local_vol_model(),
+            base.engine(),
+            base.risk().clone(),
+        )
+        .expect("Local Volatility Barrier request")
+    }
+
     fn constant_local_vol_model_with_reporting_basis() -> ModelSpec {
         let valuation: Date = "2026-09-04".parse().expect("valuation");
         let first_maturity: Date = "2027-03-05".parse().expect("first maturity");
@@ -3960,6 +4124,112 @@ mod tests {
         assert!((base.vega - vega_fd).abs() <= 1.0e-6);
 
         let result = plan.execute().expect("execution");
+        let diagnostics = result.diagnostics.payoff_smoothing.expect("smoothing");
+        assert_eq!(diagnostics.endpoint_count, 2);
+        assert_eq!(diagnostics.dividend_jump_count, 1);
+    }
+
+    #[test]
+    fn local_vol_exact_barrier_detects_pre_dividend_hit() {
+        let risk = RiskRequest::price_only(SmileDynamics::StickyLogMoneyness);
+        let knock_in = SimulationPlan::compile(
+            &local_vol_barrier_dividend_jump_request(BarrierStyle::KnockIn, risk.clone()),
+            policy(2),
+        )
+        .expect("knock-in plan");
+        let knock_out = SimulationPlan::compile(
+            &local_vol_barrier_dividend_jump_request(BarrierStyle::KnockOut, risk),
+            policy(2),
+        )
+        .expect("knock-out plan");
+        let local_volatility = knock_in
+            .local_volatility
+            .as_ref()
+            .expect("Local Volatility");
+        let shocks = vec![0.0; local_volatility.plan.time_grid().step_count()];
+        assert_eq!(shocks.len(), 2);
+        let path = local_volatility
+            .plan
+            .evolve_path_with_dividend_checks(
+                &local_volatility.grid,
+                knock_in.spot,
+                &shocks,
+                local_volatility.dividends.as_ref().expect("dividends"),
+                local_volatility
+                    .dividend_schedule
+                    .as_ref()
+                    .expect("dividend schedule"),
+                PathIndex::new(0),
+            )
+            .expect("path");
+        let observations = knock_in
+            .local_vol_path_observations(&path)
+            .expect("observations");
+        assert!(observations[0].pre_dividend_spot.expect("pre spot") >= 95.0);
+        assert!(
+            observations
+                .iter()
+                .all(|observation| observation.post_spot < 95.0)
+        );
+
+        let knock_in_value = knock_in
+            .local_vol_discounted_payoff_at_spot(
+                local_volatility,
+                knock_in.spot,
+                &shocks,
+                PathIndex::new(0),
+            )
+            .expect("knock-in value");
+        let knock_out_runtime = knock_out
+            .local_volatility
+            .as_ref()
+            .expect("Local Volatility");
+        let knock_out_value = knock_out
+            .local_vol_discounted_payoff_at_spot(
+                knock_out_runtime,
+                knock_out.spot,
+                &shocks,
+                PathIndex::new(0),
+            )
+            .expect("knock-out value");
+        assert!(knock_in_value > 0.0);
+        assert_eq!(knock_out_value.to_bits(), 0.0_f64.to_bits());
+    }
+
+    #[test]
+    fn local_vol_barrier_dividend_jump_uses_event_node_and_reports_risks() {
+        let risk = RiskRequest::new(
+            true,
+            Some(GammaConfig::new(
+                SpotBump::relative(0.01).expect("gamma bump"),
+            )),
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(5.0).expect("smoothing"));
+        let request = local_vol_barrier_dividend_jump_request(BarrierStyle::KnockIn, risk);
+        let plan = SimulationPlan::compile(&request, policy(2)).expect("plan");
+        let local_volatility = plan.local_volatility.as_ref().expect("Local Volatility");
+        let dividend_time = plan.observation_times[0];
+        assert_eq!(local_volatility.grid.time_nodes(), [0.0, 1.0]);
+        assert!(
+            local_volatility
+                .plan
+                .time_grid()
+                .node_index_for_time(dividend_time)
+                .is_some()
+        );
+        assert_eq!(local_volatility.plan.time_grid().step_count(), 2);
+        assert_eq!(plan.payoff.pre_dividend_observations().len(), 1);
+
+        let result = plan.execute().expect("execution");
+        assert!(result.pricing_result.risks.delta.is_some());
+        assert!(result.pricing_result.risks.gamma.is_some());
+        assert!(result.pricing_result.risks.vega.is_some());
         let diagnostics = result.diagnostics.payoff_smoothing.expect("smoothing");
         assert_eq!(diagnostics.endpoint_count, 2);
         assert_eq!(diagnostics.dividend_jump_count, 1);

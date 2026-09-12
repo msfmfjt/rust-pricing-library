@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod error;
+pub mod lsv;
 mod monte_carlo;
 mod plan;
 mod request;
