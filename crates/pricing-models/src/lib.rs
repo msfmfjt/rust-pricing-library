@@ -2,7 +2,10 @@
 
 #![forbid(unsafe_code)]
 
+mod bergomi;
 mod spec;
+
+pub use bergomi::{Bergomi1Factor, BergomiTransition};
 
 pub use spec::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
