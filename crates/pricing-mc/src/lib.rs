@@ -6,6 +6,7 @@ mod bridge;
 mod config;
 mod error;
 mod execution;
+pub mod hull_white;
 mod local_vol;
 pub mod lsv;
 mod qmc;

@@ -37,6 +37,108 @@ RiskUnit = Literal[
 __version__: str
 
 
+class HullWhiteModel:
+    """One-factor HW: constant mean reversion and piecewise constant rate volatility."""
+    def __init__(
+        self, mean_reversion: float, volatility_times: Sequence[float],
+        volatilities: Sequence[float],
+    ) -> None: ...
+    @property
+    def mean_reversion(self) -> float: ...
+    @property
+    def volatility_times(self) -> list[float]: ...
+    @property
+    def volatilities(self) -> list[float]: ...
+    def bond_price(
+        self, discount_curve: DiscountCurve, time: float, maturity: float,
+        rate_factor: float,
+    ) -> float: ...
+    def bond_option(
+        self, discount_curve: DiscountCurve, expiry: float, maturity: float,
+        strike: float, *, is_call: bool = True,
+    ) -> float: ...
+
+
+class HullWhiteLsvTarget:
+    """Paired Dupire variance and T-forward log-density calibration samples."""
+    @staticmethod
+    def flat(
+        volatility: float, time_nodes: Sequence[float],
+        log_moneyness_nodes: Sequence[float], *, floor: float = 1e-8, cap: float = 4.0,
+    ) -> HullWhiteLsvTarget: ...
+    @staticmethod
+    def from_essvi(
+        slices: Sequence[EssviSlice], terminal_theta_slope: float,
+        time_nodes: Sequence[float], log_moneyness_nodes: Sequence[float], *,
+        floor: float = 1e-8, cap: float = 4.0,
+    ) -> HullWhiteLsvTarget: ...
+    @staticmethod
+    def from_grid(model: Model, forward_log_densities: Sequence[float]) -> HullWhiteLsvTarget: ...
+    @property
+    def model(self) -> Model: ...
+    @property
+    def time_nodes(self) -> list[float]: ...
+    @property
+    def log_moneyness_nodes(self) -> list[float]: ...
+    @property
+    def forward_log_densities(self) -> list[float]: ...
+
+
+class HullWhiteEquityPlan:
+    """Experimental price-only BS/LSV + HW; fixed cash dividends are unsupported."""
+    @staticmethod
+    def compile_bs(
+        request: PricingRequest, rate_model: HullWhiteModel, *,
+        equity_rate_correlation: float, maximum_step: float, worker_threads: int,
+        reduction_block_size: int | None = None,
+    ) -> HullWhiteEquityPlan: ...
+    @staticmethod
+    def compile_lsv(
+        request: PricingRequest, target: HullWhiteLsvTarget, rate_model: HullWhiteModel, *,
+        vol_mean_reversion: float, vol_of_vol: float, equity_vol_correlation: float,
+        equity_rate_correlation: float, vol_rate_correlation: float,
+        particle_count: int, calibration_seed: int, log_bandwidth: float,
+        minimum_effective_samples: float, worker_threads: int,
+        reduction_block_size: int | None = None,
+    ) -> HullWhiteEquityPlan: ...
+    def evaluate(self) -> HullWhitePrice: ...
+    @property
+    def plan_fingerprint(self) -> str: ...
+    @property
+    def time_nodes(self) -> list[float]: ...
+    @property
+    def squared_leverage(self) -> list[float] | None: ...
+    @property
+    def minimum_effective_samples(self) -> list[float]: ...
+    @property
+    def fallback_nodes(self) -> list[int]: ...
+    @property
+    def calibration_discount_means(self) -> list[float]: ...
+    @property
+    def calibration_discounted_equity_means(self) -> list[float]: ...
+
+
+class HullWhitePrice:
+    @property
+    def value(self) -> float: ...
+    @property
+    def standard_error(self) -> float: ...
+    @property
+    def independent_sampling_units(self) -> int: ...
+    @property
+    def evaluated_paths(self) -> int: ...
+    @property
+    def plan_fingerprint(self) -> str: ...
+    @property
+    def scheme(self) -> str: ...
+    @property
+    def calibration_method(self) -> str | None: ...
+    @property
+    def calibration_seed(self) -> int | None: ...
+    @property
+    def uncertainty_scope(self) -> Literal["pricing_only", "pricing_conditional_on_calibration"]: ...
+
+
 class BergomiLsvPlan:
     """Experimental LSV calibration and independent MC/RQMC pricing plan."""
     @staticmethod

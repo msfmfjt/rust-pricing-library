@@ -143,6 +143,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
+    subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
     subprocess.run(
         [
             str(python),
@@ -1012,6 +1013,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "HullWhiteModel",
+        "HullWhiteLsvTarget",
+        "HullWhiteEquityPlan",
+        "HullWhitePrice",
         "AsianObservation",
         "BarrierDirection",
         "BarrierStyle",
@@ -1183,6 +1188,104 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("HullWhiteModel", "__init__"): {
+            "positional": ["self", "mean_reversion", "volatility_times", "volatilities"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("HullWhiteModel", "bond_price"): {
+            "positional": [
+                "self",
+                "discount_curve",
+                "time",
+                "maturity",
+                "rate_factor",
+            ],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("HullWhiteModel", "bond_option"): {
+            "positional": [
+                "self",
+                "discount_curve",
+                "expiry",
+                "maturity",
+                "strike",
+            ],
+            "positional_defaults": {},
+            "keyword_only": ["is_call"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"is_call": True},
+        },
+        ("HullWhiteLsvTarget", "flat"): {
+            "positional": ["volatility", "time_nodes", "log_moneyness_nodes"],
+            "positional_defaults": {},
+            "keyword_only": ["floor", "cap"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"cap": 4.0, "floor": 1e-08},
+        },
+        ("HullWhiteLsvTarget", "from_essvi"): {
+            "positional": ["slices", "terminal_theta_slope", "time_nodes", "log_moneyness_nodes"],
+            "positional_defaults": {},
+            "keyword_only": ["floor", "cap"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"cap": 4.0, "floor": 1e-08},
+        },
+        ("HullWhiteLsvTarget", "from_grid"): {
+            "positional": ["model", "forward_log_densities"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("HullWhiteEquityPlan", "compile_bs"): {
+            "positional": ["request", "rate_model"],
+            "positional_defaults": {},
+            "keyword_only": ["equity_rate_correlation", "maximum_step", "worker_threads", "reduction_block_size"],
+            "required_keyword_only": ["equity_rate_correlation", "maximum_step", "worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
+        ("HullWhiteEquityPlan", "compile_lsv"): {
+            "positional": ["request", "target", "rate_model"],
+            "positional_defaults": {},
+            "keyword_only": [
+                "vol_mean_reversion",
+                "vol_of_vol",
+                "equity_vol_correlation",
+                "equity_rate_correlation",
+                "vol_rate_correlation",
+                "particle_count",
+                "calibration_seed",
+                "log_bandwidth",
+                "minimum_effective_samples",
+                "worker_threads",
+                "reduction_block_size",
+            ],
+            "required_keyword_only": [
+                "vol_mean_reversion",
+                "vol_of_vol",
+                "equity_vol_correlation",
+                "equity_rate_correlation",
+                "vol_rate_correlation",
+                "particle_count",
+                "calibration_seed",
+                "log_bandwidth",
+                "minimum_effective_samples",
+                "worker_threads",
+            ],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
+        ("HullWhiteEquityPlan", "evaluate"): {
+            "positional": ["self"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
         ("BergomiLsvPlan", "compile"): {
             "positional": ["target_request"],
             "positional_defaults": {},
@@ -1574,6 +1677,46 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "HullWhiteModel": {
+            "__init__",
+            "mean_reversion",
+            "volatility_times",
+            "volatilities",
+            "bond_price",
+            "bond_option",
+        },
+        "HullWhiteLsvTarget": {
+            "flat",
+            "from_essvi",
+            "from_grid",
+            "model",
+            "time_nodes",
+            "log_moneyness_nodes",
+            "forward_log_densities",
+        },
+        "HullWhiteEquityPlan": {
+            "compile_bs",
+            "compile_lsv",
+            "evaluate",
+            "plan_fingerprint",
+            "time_nodes",
+            "squared_leverage",
+            "minimum_effective_samples",
+            "fallback_nodes",
+            "calibration_discount_means",
+            "calibration_discounted_equity_means",
+        },
+        "HullWhitePrice": {
+            "value",
+            "standard_error",
+            "independent_sampling_units",
+            "evaluated_paths",
+            "plan_fingerprint",
+            "scheme",
+            "calibration_method",
+            "calibration_seed",
+            "uncertainty_scope",
+        },
         "BergomiLsvPlan": {
             "compile",
             "evaluate",
@@ -1865,6 +2008,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("HullWhiteLsvTarget", "flat"),
+        ("HullWhiteLsvTarget", "from_essvi"),
+        ("HullWhiteLsvTarget", "from_grid"),
+        ("HullWhiteEquityPlan", "compile_bs"),
+        ("HullWhiteEquityPlan", "compile_lsv"),
         ("BergomiLsvPlan", "compile"),
         ("AsianObservation", "known"),
         ("AsianObservation", "unknown"),
@@ -1891,6 +2039,29 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("HullWhiteModel", "mean_reversion"),
+        ("HullWhiteModel", "volatility_times"),
+        ("HullWhiteModel", "volatilities"),
+        ("HullWhiteLsvTarget", "model"),
+        ("HullWhiteLsvTarget", "time_nodes"),
+        ("HullWhiteLsvTarget", "log_moneyness_nodes"),
+        ("HullWhiteLsvTarget", "forward_log_densities"),
+        ("HullWhiteEquityPlan", "plan_fingerprint"),
+        ("HullWhiteEquityPlan", "time_nodes"),
+        ("HullWhiteEquityPlan", "squared_leverage"),
+        ("HullWhiteEquityPlan", "minimum_effective_samples"),
+        ("HullWhiteEquityPlan", "fallback_nodes"),
+        ("HullWhiteEquityPlan", "calibration_discount_means"),
+        ("HullWhiteEquityPlan", "calibration_discounted_equity_means"),
+        ("HullWhitePrice", "value"),
+        ("HullWhitePrice", "standard_error"),
+        ("HullWhitePrice", "independent_sampling_units"),
+        ("HullWhitePrice", "evaluated_paths"),
+        ("HullWhitePrice", "plan_fingerprint"),
+        ("HullWhitePrice", "scheme"),
+        ("HullWhitePrice", "calibration_method"),
+        ("HullWhitePrice", "calibration_seed"),
+        ("HullWhitePrice", "uncertainty_scope"),
         ("BergomiLsvPlan", "plan_fingerprint"),
         ("BergomiLsvPlan", "time_nodes"),
         ("BergomiLsvPlan", "log_moneyness_nodes"),

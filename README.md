@@ -39,6 +39,8 @@ remains rejected; continuous Barrier monitoring is not yet supported.
 - [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
 - [LSV extension and implementation status](docs/lsv-roadmap-v0.1.md)
 - [LSV numerical contracts](docs/lsv-numerical-contracts-v0.1.md)
+- [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
+- [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
@@ -55,6 +57,15 @@ Local-variance nodes. It reuses the existing payoff graphs and affine dividends.
 Market-IV VegaKT and sticky-smile Spot Greeks are not enabled at this boundary.
 See the [LSV example](examples/python/bergomi_lsv.py) and
 [acceptance roadmap](docs/lsv-roadmap-v0.1.md).
+
+Experimental one-currency stochastic-rate pricing is available through Rust
+`HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
+one-factor Hull–White with BS or particle-recalibrated Bergomi LSV, including
+equity/rate correlation, stochastic discounting, proportional dividends and
+payment lags. The initial boundary is price only; fixed-cash dividends and
+hybrid AAD are not yet supported. See the
+[example](examples/python/hull_white_lsv.py) and
+[numerical contracts](docs/hull-white-numerical-contracts-v0.1.md).
 
 | Crate | Responsibility |
 | --- | --- |

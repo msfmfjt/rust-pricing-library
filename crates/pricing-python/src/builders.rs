@@ -247,7 +247,7 @@ impl PyAsianObservation {
 #[pyclass(frozen, name = "EssviSlice", skip_from_py_object)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyEssviSlice {
-    inner: EssviSlice,
+    pub(crate) inner: EssviSlice,
 }
 
 #[pymethods]

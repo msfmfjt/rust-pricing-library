@@ -1423,6 +1423,62 @@ impl SimulationPlan {
             })
     }
 
+    pub(crate) fn hybrid_observation_times(&self) -> &[f64] {
+        &self.observation_times
+    }
+
+    /// Map normalized hybrid equity states back to contractual Spot. The HW
+    /// compiler rejects cash dividends; proportional pre/post observations use
+    /// the same compiled payoff graph and event convention as the stable API.
+    pub(crate) fn hybrid_payoff(
+        &self,
+        times: &[f64],
+        normalized_states: &[f64],
+    ) -> Result<f64, MonteCarloError> {
+        if times.len() != normalized_states.len() {
+            return Err(pricing_models::HullWhiteError::InvalidInput {
+                field: "hybrid_state_count",
+                index: normalized_states.len(),
+            }
+            .into());
+        }
+        let indices = self
+            .observation_times
+            .iter()
+            .map(|t| {
+                times.binary_search_by(|x| x.total_cmp(t)).map_err(|_| {
+                    pricing_models::HullWhiteError::InvalidInput {
+                        field: "missing_observation_time",
+                        index: 0,
+                    }
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let value_at = |underlying, date, pre: bool| {
+            if underlying != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|d| *d == date)
+                .and_then(|i| {
+                    let coordinate = if pre {
+                        self.observation_pre_dividend_coordinates[i]
+                    } else {
+                        Some(self.observation_affine_coordinates[i])
+                    }?;
+                    let f =
+                        normalized_states[indices[i]] * self.observation_forwards[i] / self.spot;
+                    Some(coordinate.a() * self.spot + coordinate.b() * f)
+                })
+        };
+        Ok(self.discount
+            * self.payoff.evaluate_with_pre_dividend_spots(
+                |u, d| value_at(u, d, false),
+                |u, d| value_at(u, d, true),
+            )?[0])
+    }
+
     /// Reuse the contractual graph, dividend ordering and observation mapping.
     /// This returns f-state seeds, not a Spot Delta or a market-IV Vega.
     pub(crate) fn lsv_payoff(
