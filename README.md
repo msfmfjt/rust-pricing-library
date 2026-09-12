@@ -37,6 +37,8 @@ remains rejected; continuous Barrier monitoring is not yet supported.
 - [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
 - [Path Dependence implementation roadmap](docs/path-dependence-roadmap-v0.1.md)
 - [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
+- [LSV extension and implementation status](docs/lsv-roadmap-v0.1.md)
+- [LSV numerical contracts](docs/lsv-numerical-contracts-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
@@ -44,6 +46,15 @@ remains rejected; continuous Barrier monitoring is not yet supported.
 The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility/VegaKT has completed Gates L0–L8 and is accepted with exact SSVI/eSSVI, Dupire Local variance, non-uniform interpolation, Log-Euler Local Volatility simulation, Local Volatility Price/Delta/Gamma/Vega/VegaKT MC/RQMC evaluation, Local Vega/VegaKT operators, affine dividends, public Rust/JSON/Python request surfaces, independently checked equation fixtures, same-platform replay fixtures on Apple Silicon macOS and Windows x86-64, and retained benchmark artifacts. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
 
 ## Workspace
+
+An experimental one-factor Bergomi LSV extension is available through Rust
+`pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan`. It calibrates
+an existing Local Volatility target with particles, prices with independent
+MC/RQMC paths, and differentiates the finite calibration to effective Dupire
+Local-variance nodes. It reuses the existing payoff graphs and affine dividends.
+Market-IV VegaKT and sticky-smile Spot Greeks are not enabled at this boundary.
+See the [LSV example](examples/python/bergomi_lsv.py) and
+[acceptance roadmap](docs/lsv-roadmap-v0.1.md).
 
 | Crate | Responsibility |
 | --- | --- |

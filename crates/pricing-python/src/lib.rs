@@ -4,6 +4,7 @@
 
 mod builders;
 mod diagnostics;
+mod lsv;
 
 use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
@@ -975,6 +976,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<lsv::PyBergomiLsvPlan>()?;
+    module.add_class::<lsv::PyLsvPrice>()?;
+    module.add_class::<lsv::PyLsvLocalVarianceRisk>()?;
     module.add_class::<PyRiskEstimate>()?;
     module.add_class::<PyPricingResult>()?;
     module.add_class::<PyVegaKtCoordinate>()?;

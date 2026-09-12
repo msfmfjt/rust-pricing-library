@@ -1384,6 +1384,13 @@ impl SimulationPlan {
         &self,
         path: &LocalVolPath,
     ) -> Result<Vec<LocalVolObservation>, MonteCarloError> {
+        self.local_vol_state_observations(path.states())
+    }
+
+    fn local_vol_state_observations(
+        &self,
+        states: &[f64],
+    ) -> Result<Vec<LocalVolObservation>, MonteCarloError> {
         let node_indices = self.observation_local_vol_node_indices.as_ref().ok_or(
             MonteCarloError::UnsupportedModel {
                 model: "local_volatility",
@@ -1393,7 +1400,7 @@ impl SimulationPlan {
             .iter()
             .enumerate()
             .map(|(index, &node_index)| {
-                let canonical_f = path.states()[node_index];
+                let canonical_f = states[node_index];
                 let post_coordinate = self.observation_affine_coordinates[index];
                 let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * canonical_f;
                 let pre_dividend_spot = self.observation_pre_dividend_coordinates[index]
@@ -1405,6 +1412,100 @@ impl SimulationPlan {
                 }
             })
             .collect())
+    }
+
+    pub(crate) fn lsv_time_grid(&self) -> Result<&LocalVolTimeGrid, MonteCarloError> {
+        self.local_volatility
+            .as_ref()
+            .map(|lv| lv.plan.time_grid())
+            .ok_or(MonteCarloError::UnsupportedModel {
+                model: "LSV calibration requires a LocalVolatility target",
+            })
+    }
+
+    /// Reuse the contractual graph, dividend ordering and observation mapping.
+    /// This returns f-state seeds, not a Spot Delta or a market-IV Vega.
+    pub(crate) fn lsv_payoff(
+        &self,
+        states: &[f64],
+        path: PathIndex,
+        with_reverse: bool,
+    ) -> Result<(f64, Option<Vec<f64>>), MonteCarloError> {
+        let runtime = self
+            .local_volatility
+            .as_ref()
+            .ok_or(MonteCarloError::UnsupportedModel {
+                model: "LSV target",
+            })?;
+        if states.len() != runtime.plan.time_grid().nodes().len() {
+            return Err(pricing_mc::lsv::LsvError::LengthMismatch {
+                field: "payoff_states",
+                expected: runtime.plan.time_grid().nodes().len(),
+                actual: states.len(),
+            }
+            .into());
+        }
+        if let (Some(dividends), Some(schedule)) = (&runtime.dividends, &runtime.dividend_schedule)
+        {
+            for (i, checkpoint) in schedule.checkpoints().iter().enumerate() {
+                dividends.validate_post_event_f_state(i, path, states[checkpoint.node_index()])?;
+            }
+        }
+        let observations = self.local_vol_state_observations(states)?;
+        let post = |underlying, date| {
+            if underlying != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|d| *d == date)
+                .map(|i| observations[i].post_spot)
+        };
+        let pre = |underlying, date| {
+            if underlying != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|d| *d == date)
+                .and_then(|i| observations[i].pre_dividend_spot)
+        };
+        if !with_reverse {
+            return Ok((
+                self.discount * self.payoff.evaluate_with_pre_dividend_spots(post, pre)?[0],
+                None,
+            ));
+        }
+        let payoff = self
+            .payoff
+            .evaluate_single_with_observation_adjoints(post, pre)?;
+        let mut seeds = vec![0.0; states.len()];
+        for a in &payoff.terminal_adjoints {
+            if a.underlying == self.underlying
+                && let Some(i) = self
+                    .observation_dates
+                    .iter()
+                    .position(|d| *d == a.observation_date)
+            {
+                seeds[observations[i].node_index] +=
+                    self.discount * a.value * self.observation_affine_coordinates[i].b();
+            }
+        }
+        for a in &payoff.pre_dividend_adjoints {
+            if a.underlying == self.underlying
+                && let Some(i) = self
+                    .observation_dates
+                    .iter()
+                    .position(|d| *d == a.observation_date)
+            {
+                seeds[observations[i].node_index] += self.discount
+                    * a.value
+                    * self.observation_pre_dividend_coordinates[i]
+                        .expect("validated pre-dividend coordinate")
+                        .b();
+            }
+        }
+        Ok((self.discount * payoff.value, Some(seeds)))
     }
 
     fn local_vol_bump_runtimes(&self) -> Result<Option<LocalVolBumpRuntimes>, MonteCarloError> {
