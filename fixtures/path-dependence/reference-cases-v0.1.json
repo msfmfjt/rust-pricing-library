@@ -1,0 +1,317 @@
+{
+  "fixture_version": 2,
+  "policy_version": "path_dependence_v2",
+  "tolerances": {
+    "decimal_abs": "1e-45"
+  },
+  "smoothing_cases": [
+    {
+      "id": "below_band",
+      "half_width": "2",
+      "input": "-3",
+      "expected": {
+        "indicator": "0",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "0",
+        "positive_part_first": "0",
+        "positive_part_second": "0"
+      }
+    },
+    {
+      "id": "lower_boundary",
+      "half_width": "2",
+      "input": "-2",
+      "expected": {
+        "indicator": "0",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "0",
+        "positive_part_first": "0",
+        "positive_part_second": "0"
+      }
+    },
+    {
+      "id": "lower_interior",
+      "half_width": "2",
+      "input": "-1",
+      "expected": {
+        "indicator": "0.103515625",
+        "indicator_first": "0.263671875",
+        "indicator_second": "0.3515625",
+        "positive_part": "0.0283203125",
+        "positive_part_first": "0.103515625",
+        "positive_part_second": "0.263671875"
+      }
+    },
+    {
+      "id": "center",
+      "half_width": "2",
+      "input": "0",
+      "expected": {
+        "indicator": "0.5",
+        "indicator_first": "0.46875",
+        "indicator_second": "0",
+        "positive_part": "0.3125",
+        "positive_part_first": "0.5",
+        "positive_part_second": "0.46875"
+      }
+    },
+    {
+      "id": "upper_interior",
+      "half_width": "2",
+      "input": "1",
+      "expected": {
+        "indicator": "0.896484375",
+        "indicator_first": "0.263671875",
+        "indicator_second": "-0.3515625",
+        "positive_part": "1.0283203125",
+        "positive_part_first": "0.896484375",
+        "positive_part_second": "0.263671875"
+      }
+    },
+    {
+      "id": "upper_boundary",
+      "half_width": "2",
+      "input": "2",
+      "expected": {
+        "indicator": "1",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "2",
+        "positive_part_first": "1",
+        "positive_part_second": "0"
+      }
+    },
+    {
+      "id": "above_band",
+      "half_width": "2",
+      "input": "3",
+      "expected": {
+        "indicator": "1",
+        "indicator_first": "0",
+        "indicator_second": "0",
+        "positive_part": "3",
+        "positive_part_first": "1",
+        "positive_part_second": "0"
+      }
+    }
+  ],
+  "extrema_cases": [
+    {
+      "id": "interior_ordered",
+      "left": "101",
+      "right": "99",
+      "half_width": "4",
+      "expected": {
+        "maximum": "101.056640625",
+        "minimum": "98.943359375"
+      }
+    },
+    {
+      "id": "equal_operands",
+      "left": "100",
+      "right": "100",
+      "half_width": "4",
+      "expected": {
+        "maximum": "100.625",
+        "minimum": "99.375"
+      }
+    },
+    {
+      "id": "outside_band_reversed",
+      "left": "97",
+      "right": "101",
+      "half_width": "2",
+      "expected": {
+        "maximum": "101",
+        "minimum": "97"
+      }
+    }
+  ],
+  "bridge_cases": [
+    {
+      "id": "up_safe_endpoints",
+      "direction": "up",
+      "barrier": "120",
+      "start_spot": "100",
+      "end_spot": "110",
+      "integrated_variance": "0.04",
+      "expected": {
+        "hit_probability": "0.452393688685556570278176290283242218748487747282187491681904",
+        "survival_probability": "0.547606311314443429721823709716757781251512252717812508318096"
+      }
+    },
+    {
+      "id": "down_safe_endpoints",
+      "direction": "down",
+      "barrier": "80",
+      "start_spot": "100",
+      "end_spot": "90",
+      "integrated_variance": "0.04",
+      "expected": {
+        "hit_probability": "0.268709007059333795215179762024371739792253422533902853679384",
+        "survival_probability": "0.731290992940666204784820237975628260207746577466097146320616"
+      }
+    },
+    {
+      "id": "endpoint_touch",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "100",
+      "end_spot": "90",
+      "integrated_variance": "0.04",
+      "expected": {
+        "hit_probability": "1",
+        "survival_probability": "0"
+      }
+    },
+    {
+      "id": "zero_variance_safe",
+      "direction": "up",
+      "barrier": "120",
+      "start_spot": "100",
+      "end_spot": "110",
+      "integrated_variance": "0",
+      "expected": {
+        "hit_probability": "0",
+        "survival_probability": "1"
+      }
+    }
+  ],
+  "smoothed_bridge_cases": [
+    {
+      "id": "up_safe_exterior",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "95",
+      "end_spot": "96",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "0",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "end_effective_log_distance": "0.04082199452025512955457706515531987017721174763352022972856142083068282",
+        "bridge_survival": "0.0994005926000584109781976851572197343014990509254659848872820512243827",
+        "endpoint_survival": "1",
+        "total_survival": "0.0994005926000584109781976851572197343014990509254659848872820512243827",
+        "total_hit_weight": "0.9005994073999415890218023148427802656985009490745340151127179487756173"
+      }
+    },
+    {
+      "id": "up_center_endpoint",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "100",
+      "end_spot": "95",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "0.5",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0.003129893008927659858936451648206142662382392569887992496489887661186314",
+        "end_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "bridge_survival": "0.0079949948297067718731715288314531706181515866735439792842678736741962",
+        "endpoint_survival": "0.5",
+        "total_survival": "0.003997497414853385936585764415726585309075793336771989642133936837098100",
+        "total_hit_weight": "0.9960025025851466140634142355842734146909242066632280103578660631629019"
+      }
+    },
+    {
+      "id": "up_hit_exterior",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "103",
+      "end_spot": "95",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "1",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0",
+        "end_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "bridge_survival": "0",
+        "endpoint_survival": "0",
+        "total_survival": "0",
+        "total_hit_weight": "1"
+      }
+    },
+    {
+      "id": "down_interior_endpoints",
+      "direction": "down",
+      "barrier": "100",
+      "start_spot": "101",
+      "end_spot": "99.5",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "0.103515625",
+        "end_hit_weight": "0.72479248046875",
+        "start_effective_log_distance": "0.01023069068234149456759777261581319255971931516378408319961964704934181",
+        "end_effective_log_distance": "0.001198164970225995431842688835770081067852448154967906837437591872587065",
+        "bridge_survival": "0.0006127149733103637384875231488483092007201669944976685193681828955907",
+        "endpoint_survival": "0.24671924114227294921875",
+        "total_survival": "0.0001511685732516409652769173410027116560215568467365746731052984874706597",
+        "total_hit_weight": "0.9998488314267483590347230826589972883439784431532634253268947015125293"
+      }
+    },
+    {
+      "id": "up_center_zero_variance",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "100",
+      "end_spot": "95",
+      "half_width": "2",
+      "integrated_variance": "0",
+      "expected": {
+        "start_hit_weight": "0.5",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0.003129893008927659858936451648206142662382392569887992496489887661186314",
+        "end_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "bridge_survival": "1",
+        "endpoint_survival": "0.5",
+        "total_survival": "0.5",
+        "total_hit_weight": "0.5"
+      }
+    }
+  ],
+  "jump_cases": [
+    {
+      "id": "down_crossing",
+      "direction": "down",
+      "barrier": "90",
+      "pre_jump_spot": "100",
+      "post_jump_spot": "85",
+      "half_width": "2",
+      "expected": {
+        "signed_score": "5",
+        "hit_weight": "1"
+      }
+    },
+    {
+      "id": "down_safe",
+      "direction": "down",
+      "barrier": "90",
+      "pre_jump_spot": "100",
+      "post_jump_spot": "95",
+      "half_width": "2",
+      "expected": {
+        "signed_score": "-5",
+        "hit_weight": "0"
+      }
+    },
+    {
+      "id": "down_near_crossing",
+      "direction": "down",
+      "barrier": "90",
+      "pre_jump_spot": "91",
+      "post_jump_spot": "89.5",
+      "half_width": "2",
+      "expected": {
+        "signed_score": "0.5020904541015625",
+        "hit_weight": "0.72565324033767153404175604056172620303393868876860872685342"
+      }
+    }
+  ]
+}

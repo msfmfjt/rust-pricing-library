@@ -31,6 +31,15 @@ pub enum CoreError {
         field: &'static str,
         bits: u64,
     },
+    EmptyInput {
+        field: &'static str,
+    },
+    InvalidOrdering {
+        field: &'static str,
+    },
+    InvalidWeights {
+        field: &'static str,
+    },
     IdExhausted {
         kind: &'static str,
     },
@@ -74,6 +83,16 @@ impl fmt::Display for CoreError {
                 formatter,
                 "{field} must be non-negative; received bits 0x{bits:016x}"
             ),
+            Self::EmptyInput { field } => write!(formatter, "{field} must not be empty"),
+            Self::InvalidOrdering { field } => {
+                write!(formatter, "{field} must be strictly ordered")
+            }
+            Self::InvalidWeights { field } => {
+                write!(
+                    formatter,
+                    "{field} must satisfy the required weight constraints"
+                )
+            }
             Self::IdExhausted { kind } => write!(formatter, "{kind} capacity is exhausted"),
             Self::InvalidSchemaVersion { value } => {
                 write!(

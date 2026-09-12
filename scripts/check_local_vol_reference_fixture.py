@@ -15,6 +15,11 @@ D = Decimal
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "fixtures" / "local-vol" / "reference-cases-v0.1.json"
 PI = D("3.141592653589793238462643383279502884197169399375105820974944")
+STANDARD_SSVI_CASE_IDS = {
+    "power_regular",
+    "heston_like_regular",
+    "heston_like_small_theta",
+}
 
 
 class Checks:
@@ -47,6 +52,19 @@ def require_keys(value: dict[str, Any], expected: set[str], label: str) -> None:
             f"{label}: field mismatch missing={sorted(expected-actual)} "
             f"unknown={sorted(actual-expected)}"
         )
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
+
+
+def reject_json_constant(value: str) -> Any:
+    raise ValueError(f"non-standard JSON constant: {value}")
 
 
 def ssvi_values(
@@ -89,7 +107,22 @@ def ssvi_values(
 
 
 def check_standard_ssvi(fixture: dict[str, Any], checks: Checks) -> None:
-    for case in fixture["standard_ssvi"]:
+    cases = fixture["standard_ssvi"]
+    if not isinstance(cases, list):
+        raise AssertionError("standard_ssvi must be an array")
+    actual_ids = {case.get("id") for case in cases if isinstance(case, dict)}
+    if actual_ids != STANDARD_SSVI_CASE_IDS:
+        raise AssertionError(
+            "standard_ssvi case mismatch "
+            f"missing={sorted(STANDARD_SSVI_CASE_IDS - actual_ids)} "
+            f"unknown={sorted(actual_ids - STANDARD_SSVI_CASE_IDS)}"
+        )
+    if len(cases) != len(STANDARD_SSVI_CASE_IDS):
+        raise AssertionError("standard_ssvi must contain each required case exactly once")
+
+    for case in cases:
+        if not isinstance(case, dict):
+            raise AssertionError("standard_ssvi entries must be objects")
         inputs = {key: D(value) for key, value in case["inputs"].items()}
         theta = inputs["theta"]
         rho = inputs["rho"]
@@ -160,6 +193,8 @@ def check_standard_ssvi(fixture: dict[str, Any], checks: Checks) -> None:
 
 def check_essvi(fixture: dict[str, Any], checks: Checks) -> None:
     case = fixture["essvi_interpolation"]
+    if case.get("id") != "midpoint_regular":
+        raise AssertionError("essvi_interpolation.id must be midpoint_regular")
     x = {key: D(value) for key, value in case["inputs"].items()}
     weight = (x["t"] - x["t0"]) / (x["t1"] - x["t0"])
     theta = x["theta0"] + weight * (x["theta1"] - x["theta0"])
@@ -353,7 +388,20 @@ def check_dividend(fixture: dict[str, Any], checks: Checks) -> None:
 
 
 def main() -> None:
-    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    raw = FIXTURE.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise AssertionError(f"{FIXTURE}: UTF-8 BOM is not allowed")
+    if b"\r" in raw:
+        raise AssertionError(f"{FIXTURE}: CR or CRLF line endings are not allowed")
+    if not raw.endswith(b"\n"):
+        raise AssertionError(f"{FIXTURE}: JSON artifact must end with LF")
+    if raw.endswith(b"\n\n"):
+        raise AssertionError(f"{FIXTURE}: JSON artifact must end with exactly one LF")
+    fixture = json.loads(
+        raw.decode("utf-8"),
+        object_pairs_hook=reject_duplicate_keys,
+        parse_constant=reject_json_constant,
+    )
     require_keys(
         fixture,
         {

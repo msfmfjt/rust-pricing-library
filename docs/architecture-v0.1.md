@@ -1,7 +1,7 @@
 # Rust Derivatives Pricing Library — Architecture v0.1
 
-Status: Initial architecture proposal; AAD execution boundary agreed
-Date: 2026-09-03
+Status: Accepted for the v0.1 European Black-Scholes and Local Volatility/VegaKT baselines
+Date: 2026-09-09
 Requirements baseline: `requirements-v1.0.md`
 Initial implementation roadmap: `european-bs-roadmap-v0.1.md`
 
@@ -156,7 +156,7 @@ Release artifacts include one Draft 2020-12 JSON Schema per `(schema_version, do
 
 Each supported version has dedicated serde-facing wire DTOs. A deterministic generator derives the corresponding Draft 2020-12 documents from those DTOs plus explicit schema annotations; it does not inspect mutable runtime state or current-domain defaults. Generated schemas are checked in as byte-for-byte Golden files. CI regenerates them and requires an empty diff, while an intentional diff must be reviewed with compatibility fixtures, migration coverage, and the declared schema-version decision.
 
-`ValidationIssue.instance_path` is an RFC 6901 JSON Pointer built from decoded member names and zero-based array indices, escaping pointer tokens with `~0` and `~1`; the root is `""`. Each issue also carries `code`, `schema_version`, `document_kind`, and `phase` (`declared_schema`, `migration`, `current_schema`, or `domain`). Migration failures retain the source pointer when available and explicitly label source and target versions; generated target-side errors use the target document pointer rather than pretending to reference original bytes.
+`ValidationIssue.instance_path` is an RFC 6901 JSON Pointer built from decoded member names and zero-based array indices, escaping pointer tokens with `~0` and `~1`; the root is `""`. Each issue also carries `code`, `schema_version`, `document_kind`, and `phase` (`syntax_and_limits`, `declared_schema`, `migration`, `current_schema`, or `domain`). Migration failures retain the source pointer when available and explicitly label source and target versions; generated target-side errors use the target document pointer rather than pretending to reference original bytes.
 
 Recoverable schema and domain validators feed issues into a bounded deterministic collector. Ordering is by validation phase, unsigned UTF-8 byte order of the RFC 6901 pointer, stable error code, and deterministic discovery ordinal for otherwise equal entries. The collector retains at most `max_validation_errors`, whose versioned default may be overridden only up to an absolute cap, and sets `truncated = true` as soon as an additional issue is observed. Fatal syntax, UTF-8, depth, allocation-prevention, and other parser-limit failures return immediately as a single fatal issue. Frozen invalid fixtures pin issue ordering, cap behavior, and truncation across supported platforms.
 
@@ -554,6 +554,14 @@ Expiry observations colliding with an ex-date are always compiled into the post-
 
 For continuous barrier correction, compilation transforms each Spot barrier to `H_f(t) = (H_S(t) - A(t)*S0) / B(t)` and validates positivity over every monitored interval. The path kernel applies its bridge formula in `log(f)` using a linearly interpolated `log(H_f)`, both transformed-barrier endpoints, and effective interval variance `0.5 * (local_var_start + local_var_end) * dt`. With two safe endpoints it carries the analytic conditional survival probability as a path weight; it consumes no extra uniform coordinate. Products of survival terms use stable log-domain accumulation. Dividend events bypass the diffusion bridge and consume no random variate.
 
+In smoothed continuous mode, each Spot-distance endpoint predicate is mapped to
+an effective log distance whose compact-C2 safety weight is preserved before
+the bridge formula is applied. Endpoint, dividend-jump, and interval safety
+factors are accumulated in fixed order in the log domain. The matched reverse
+rules propagate through the smoothing kernel, affine Spot reconstruction,
+transformed barrier, and interval variance. Exact mode retains the v1 bridge
+ABI; smoothed mode reports the separately versioned v2 bridge ABI.
+
 Barrier opcodes expose exact and smoothed hit modes. Exact mode preserves inclusive touch-is-hit semantics. Smoothed Price/AAD mode evaluates every discrete endpoint with the compact C2 quintic indicator at an explicit Spot-distance half-width. For a dividend event it computes pre- and post-jump signed hit distances and combines them with the same C2 smoothed `Maximum` opcode before applying the quintic indicator. This represents a deterministic jump crossing as a differentiable hit weight without reclassifying it as bridge crossing. Barrier diagnostics count endpoint, weighted bridge, and dividend-jump contributions separately and record the mode and half-width.
 
 The barrier opcode owns an explicit reverse rule through both endpoint states, both Local-variance lookups, the trapezoidal variance, the transformed barrier endpoints, and stable survival-probability branches. The validation bump recompiles these same quantities; it does not freeze the base crossing probability.
@@ -771,7 +779,17 @@ The MVP linear-algebra backend is pure Rust and single-threaded inside each call
 
 `PolynomialBasisSpec` enumerates exponent vectors with total degree at most `max_degree`, including the all-zero constant vector, in a versioned graded order derived from declared feature order. Interaction monomials therefore require no separate flag. At each exercise date, the trainer computes each feature's arithmetic mean and population standard deviation with denominator `n` from that date's ITM training rows only and stores them inside the immutable regression model; valuation rows reuse those exact values. The constant feature is never centered or scaled. A zero-scale feature is tagged before matrix construction so all dependent non-constant monomials receive deterministic exclusion diagnostics.
 
-Column-pivoted QR operates on the standardized design matrix. Pivot selection ties are broken by original basis-column index. For explicit non-negative `abs_rank_tol` and `rel_rank_tol`, pivot `j` is retained only if `abs(R[j,j]) > max(abs_rank_tol, rel_rank_tol * abs(R[0,0]))`. Columns below the threshold are omitted from triangular solve, mapped back to zero coefficients in the full canonical basis vector, and listed in diagnostics. No alternate solver is invoked. Constant-column identity and all scaling, tolerances, permutation, retained-rank, and residual data participate in the policy fingerprint.
+Column-pivoted QR operates on the standardized design matrix using the scalar
+Householder policy fixed by `early-exercise-numerical-contracts-v0.1.md`.
+Residual column norms are recomputed at every pivot, and pivot ties are broken
+by original basis-column index. For explicit non-negative `abs_rank_tol` and
+`rel_rank_tol`, pivot `j` is retained only if
+`abs(R[j,j]) > max(abs_rank_tol, rel_rank_tol * abs(R[0,0]))`. Numerical rank
+is the passing prefix. Excluded columns are omitted from triangular solve,
+mapped back to positive zero coefficients in the full canonical basis vector,
+and listed in diagnostics. No alternate solver is invoked. Constant-column
+identity and all scaling, tolerances, permutation, retained-rank, and residual
+data participate in the policy fingerprint.
 
 ```rust
 pub struct ExercisePolicy {
@@ -978,17 +996,33 @@ Implementation order for the European Black–Scholes slice:
 
 This slice intentionally does not begin with a generic plugin system. It proves the compiled boundary and matched primal/adjoint kernel first; subsequent products and models extend those established interfaces.
 
-## 19. Architecture decisions still required
+## 19. Decision status
 
-The next design iteration shall choose:
+The v0.1 baseline resolves the decisions needed for the European
+Black-Scholes and Local Volatility/VegaKT slices:
 
-- final package/project prefix;
-- concrete pure-Rust matrix library and pivoted-QR implementation;
-- concrete primal/reverse kernel ABI version and initial numerical defaults for checkpoint interval and AAD tile capacity;
-- exact closed `PayoffOpcode` variants, payload layout, and stable logical ABI tags;
+- package and artifact names use the `pricing-*` Rust crates and the
+  `rust-pricing` Python package;
+- the supported build uses only pure-Rust numerical code and does not link
+  BLAS/LAPACK;
+- the primal/reverse kernel contracts, Source graph version, tape ABI,
+  checkpoint policy, and AAD tile policy are versioned and exposed in replay
+  diagnostics;
+- the v0.1 Source opcode set, payload layout, and stable logical ABI tags are
+  frozen by the wire schema, fixtures, and payoff fingerprints;
+- SSVI/eSSVI admissibility, eSSVI terminal slope handling, Local-grid helpers,
+  VegaKT transition integration, and non-uniform-grid hat-kernel normalization
+  are fixed in `local-vol-vegakt-numerical-contracts-v0.1.md`;
+- scalar dates use the in-house `pricing-core::Date` representation, while
+  settlement-lag calendars remain outside v0.1;
+- schema version 1 is the only released wire version for request and result
+  documents; and
+- Rust 1.98 and Python 3.12 are the minimum supported toolchain versions for
+  the private artifacts.
+
+The following decisions remain outside the v0.1 release and require a new
+requirements or ADR record before implementation:
+
 - double/window barrier and hit-time-rebate estimator extensions;
-- SSVI/eSSVI admissibility tolerances, eSSVI terminal-slope configuration, and numerical defaults for the Local-grid tail, padding, and piecewise-sinh parameters;
-- VegaKT transition-cell integration formulas and non-uniform-grid hat-kernel boundary normalization;
-- date crate choice and settlement-lag representation;
-- serialization schema/versioning; and
-- minimum supported Rust and Python versions.
+- multi-asset correlation term structures; and
+- public publication, licensing, and artifact-access policy.

@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
-use pricing_core::{CurveId, UnderlyingId};
+use pricing_core::{CurveId, EventId, PathIndex, UnderlyingId};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -69,6 +69,47 @@ pub enum MarketError {
         underlying: UnderlyingId,
         time_bits: u64,
         forward_bits: u64,
+    },
+    InvalidDividendTime {
+        event: EventId,
+        index: usize,
+        bits: u64,
+    },
+    UnsortedDividendEvents {
+        left_index: usize,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    InvalidDividendCash {
+        event: EventId,
+        bits: u64,
+    },
+    InvalidDividendProportion {
+        event: EventId,
+        bits: u64,
+    },
+    NonFiniteDividendTransform {
+        event: EventId,
+        field: &'static str,
+        bits: u64,
+    },
+    NonPositivePostDividendSpot {
+        underlying: UnderlyingId,
+        event: EventId,
+        path: PathIndex,
+        pre_spot_bits: u64,
+        alpha_bits: u64,
+        beta_bits: u64,
+        fixed_cash_bits: u64,
+        post_spot_bits: u64,
+    },
+    DividendMatchingConditionViolation {
+        event: EventId,
+        expected_bits: u64,
+        actual_bits: u64,
+        abs_error_bits: u64,
+        abs_tol_bits: u64,
+        rel_tol_bits: u64,
     },
     InvalidSurfaceKnotCount {
         count: usize,
@@ -144,6 +185,37 @@ pub enum MarketError {
         condition: &'static str,
         left_bits: u64,
         right_bits: u64,
+    },
+    InvalidLocalVarianceNodeCount {
+        coordinate: &'static str,
+        count: usize,
+    },
+    InvalidLocalVarianceNode {
+        coordinate: &'static str,
+        index: usize,
+        bits: u64,
+    },
+    UnsortedLocalVarianceNodes {
+        coordinate: &'static str,
+        left_index: usize,
+        left_bits: u64,
+        right_bits: u64,
+    },
+    LocalVarianceValueLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    InvalidLocalVarianceValue {
+        index: usize,
+        bits: u64,
+    },
+    LocalVarianceBoundaryCountOverflow {
+        boundary: &'static str,
+    },
+    SurfaceQuantileNotBracketed {
+        side: &'static str,
+        time_bits: u64,
+        probability_bits: u64,
     },
 }
 
@@ -233,6 +305,54 @@ impl fmt::Display for MarketError {
             } => write!(
                 formatter,
                 "underlying {underlying} produced an invalid forward at 0x{time_bits:016x}: 0x{forward_bits:016x}"
+            ),
+            Self::InvalidDividendTime { event, index, bits } => write!(
+                formatter,
+                "dividend event {event} at index {index} has an invalid ex-time: 0x{bits:016x}"
+            ),
+            Self::UnsortedDividendEvents {
+                left_index,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "dividend event times are not strictly increasing at {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidDividendCash { event, bits } => write!(
+                formatter,
+                "dividend event {event} fixed cash amount must be finite and non-negative: 0x{bits:016x}"
+            ),
+            Self::InvalidDividendProportion { event, bits } => write!(
+                formatter,
+                "dividend event {event} proportional amount must be finite with 0 <= beta < 1: 0x{bits:016x}"
+            ),
+            Self::NonFiniteDividendTransform { event, field, bits } => write!(
+                formatter,
+                "dividend event {event} produced a non-finite affine transform field {field}: 0x{bits:016x}"
+            ),
+            Self::NonPositivePostDividendSpot {
+                underlying,
+                event,
+                path,
+                pre_spot_bits,
+                alpha_bits,
+                beta_bits,
+                fixed_cash_bits,
+                post_spot_bits,
+            } => write!(
+                formatter,
+                "underlying {underlying} path {path} has non-positive post-dividend spot at event {event}: pre=0x{pre_spot_bits:016x}, alpha=0x{alpha_bits:016x}, beta=0x{beta_bits:016x}, fixed_cash=0x{fixed_cash_bits:016x}, post=0x{post_spot_bits:016x}"
+            ),
+            Self::DividendMatchingConditionViolation {
+                event,
+                expected_bits,
+                actual_bits,
+                abs_error_bits,
+                abs_tol_bits,
+                rel_tol_bits,
+            } => write!(
+                formatter,
+                "dividend event {event} violates the affine call-price matching condition: expected=0x{expected_bits:016x}, actual=0x{actual_bits:016x}, abs_error=0x{abs_error_bits:016x}, abs_tol=0x{abs_tol_bits:016x}, rel_tol=0x{rel_tol_bits:016x}"
             ),
             Self::InvalidSurfaceKnotCount { count } => write!(
                 formatter,
@@ -333,6 +453,47 @@ impl fmt::Display for MarketError {
             } => write!(
                 formatter,
                 "eSSVI slices at {left_index} violate {condition}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidLocalVarianceNodeCount { coordinate, count } => write!(
+                formatter,
+                "Local variance {coordinate} grid requires at least two nodes; received {count}"
+            ),
+            Self::InvalidLocalVarianceNode {
+                coordinate,
+                index,
+                bits,
+            } => write!(
+                formatter,
+                "Local variance {coordinate} node {index} is invalid: 0x{bits:016x}"
+            ),
+            Self::UnsortedLocalVarianceNodes {
+                coordinate,
+                left_index,
+                left_bits,
+                right_bits,
+            } => write!(
+                formatter,
+                "Local variance {coordinate} nodes are not strictly increasing at {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::LocalVarianceValueLengthMismatch { expected, actual } => write!(
+                formatter,
+                "Local variance grid expected {expected} row-major values; received {actual}"
+            ),
+            Self::InvalidLocalVarianceValue { index, bits } => write!(
+                formatter,
+                "Local variance grid value {index} is invalid: 0x{bits:016x}"
+            ),
+            Self::LocalVarianceBoundaryCountOverflow { boundary } => write!(
+                formatter,
+                "Local variance {boundary} boundary counter overflowed"
+            ),
+            Self::SurfaceQuantileNotBracketed {
+                side,
+                time_bits,
+                probability_bits,
+            } => write!(
+                formatter,
+                "implied surface {side} quantile was not bracketed at time 0x{time_bits:016x}, probability 0x{probability_bits:016x}"
             ),
         }
     }

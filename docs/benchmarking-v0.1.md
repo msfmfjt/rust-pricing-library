@@ -5,7 +5,10 @@ Status: baseline harness; measured artifacts are produced by CI
 The benchmark suite is a regression and optimization baseline, not a latency
 service-level agreement. Pull-request CI runs it on the two MVP targets:
 Apple Silicon macOS and Windows x86-64. Each run retains `rust.json`,
-`python.json`, and `metadata.json` as a short-lived workflow artifact.
+`local-volatility-rust.json`, `path-dependence-rust.json`, `python.json`,
+`replay.json`, and `metadata.json` as a short-lived workflow artifact.
+Supported platforms also retain Local Volatility and Path Dependence replay
+reports.
 
 ## Workload
 
@@ -36,11 +39,46 @@ Price-only CRN bump case, labelled
 new execution mode and remains a documented limitation rather than silently
 changing the frozen request/result contract.
 
+## Local Volatility/VegaKT workload
+
+The suite also emits `local-volatility-rust.json` as the accepted L8 benchmark
+baseline for the Local Volatility/VegaKT slice. It records Rust compile and
+evaluate timings for Price-only, AAD Local Vega, VegaKT decomposition with full
+bucket covariance, and selected common-random-number bump workloads. The
+standalone bump case evaluates five Price-only Plans: base, Spot-down/up, and
+uniform Local-variance-down/up. It uses the same two-worker, Reduction block
+256 execution policy as the replay fixture and records grid sizes, checkpoint
+policy, AAD tile capacity, and covariance layout.
+
+On supported platforms, the same CI step also generates
+`local-volatility-replay.json`. If a matching frozen fixture exists, CI compares
+it byte-for-byte. If the platform fixture is not frozen yet, the generated JSON
+is retained as an artifact so it can be reviewed and promoted in a follow-up
+change.
+
+## Path Dependence workload
+
+The suite emits `path-dependence-rust.json` with separate compile and evaluate
+timings for exact Digital Price, explicitly smoothed Digital Price/AAD, a
+caller-ordered three-width ladder plus its primary width, and continuous
+Barrier Price/risk with conditional bridge correction. It uses 8,192
+independent antithetic units, two workers, and Reduction block 256.
+
+`path-dependence-replay.json` retains six exact or smoothed cases covering
+Digital, discrete and continuous Barrier, partially fixed Arithmetic Asian,
+and Fixed Lookback calculations. Exact/smoothed labels, smoothing metadata,
+bridge diagnostics, fixed historical state, request/result JSON, Plan and
+Payoff fingerprints, random-plan checksums, and CRN validation evidence are
+part of the frozen artifact.
+
 ## Host and resource metadata
 
 `metadata.json` records the commit, runner OS/architecture, platform and CPU
-strings, Python version, and full `rustc -vV`/`cargo -V` output. Portable peak
-memory and allocation counters are not currently available without changing
-the measured process or allocator, so the corresponding fields are `null` and
-the reason is recorded. Later instrumentation must add fields without silently
+strings, Python version and ABI tag, full `rustc -vV`/`cargo -V` output, target
+triple, enabled feature sets for Rust and wheel measurements, the SHA-256
+digest of `Cargo.lock`, and observed peak RSS for each benchmark/replay child
+process. The Local Volatility replay peak is present exactly when
+`local-volatility-replay.json` is retained. Allocation counters require an
+instrumented allocator and remain recorded explicitly as unavailable rather
+than silently omitted. Later instrumentation must add fields without silently
 changing the v0.1 workload.

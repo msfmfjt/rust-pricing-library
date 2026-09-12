@@ -2,11 +2,18 @@ use std::sync::Arc;
 
 use pricing_core::{PositiveF64, UnderlyingId};
 
-use crate::{CurveRegion, DiscountCurve, LogLinearDiscountCurve, MarketError};
+use crate::{
+    AffineDividendCoordinate, AffineDividendTransform, CurveRegion, DiscountCurve, DividendEvent,
+    LogLinearDiscountCurve, MarketError,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ForwardEvaluation {
+    /// Canonical continuous-martingale `f` forward used for Local Volatility and VegaKT.
     pub forward: f64,
+    /// Spot-contract forward reconstructed from `S=A*S0+B*f`.
+    pub spot_contract_forward: f64,
+    pub affine_coordinate: AffineDividendCoordinate,
     pub discount_region: CurveRegion,
     pub dividend_region: CurveRegion,
 }
@@ -19,6 +26,7 @@ pub struct EquityForward {
     spot: PositiveF64,
     discount_curve: Arc<LogLinearDiscountCurve>,
     dividend_curve: Arc<LogLinearDiscountCurve>,
+    discrete_dividends: Option<AffineDividendTransform>,
 }
 
 impl EquityForward {
@@ -34,7 +42,25 @@ impl EquityForward {
             spot,
             discount_curve,
             dividend_curve,
+            discrete_dividends: None,
         }
+    }
+
+    pub fn with_discrete_dividends(
+        underlying: UnderlyingId,
+        spot: PositiveF64,
+        discount_curve: Arc<LogLinearDiscountCurve>,
+        dividend_curve: Arc<LogLinearDiscountCurve>,
+        dividends: Vec<DividendEvent>,
+    ) -> Result<Self, MarketError> {
+        let discrete_dividends = AffineDividendTransform::new(underlying, spot, dividends)?;
+        Ok(Self {
+            underlying,
+            spot,
+            discount_curve,
+            dividend_curve,
+            discrete_dividends: Some(discrete_dividends),
+        })
     }
 
     #[must_use]
@@ -57,6 +83,26 @@ impl EquityForward {
         self.dividend_curve.as_ref()
     }
 
+    #[must_use]
+    pub const fn discrete_dividends(&self) -> Option<&AffineDividendTransform> {
+        self.discrete_dividends.as_ref()
+    }
+
+    pub fn with_spot(&self, spot: PositiveF64) -> Result<Self, MarketError> {
+        let discrete_dividends = self
+            .discrete_dividends
+            .as_ref()
+            .map(|dividends| dividends.with_spot(spot))
+            .transpose()?;
+        Ok(Self {
+            underlying: self.underlying,
+            spot,
+            discount_curve: Arc::clone(&self.discount_curve),
+            dividend_curve: Arc::clone(&self.dividend_curve),
+            discrete_dividends,
+        })
+    }
+
     pub fn evaluate(&self, time: f64) -> Result<ForwardEvaluation, MarketError> {
         let discount = self.discount_curve.evaluate(time)?;
         let dividend = self.dividend_curve.evaluate(time)?;
@@ -68,8 +114,24 @@ impl EquityForward {
                 forward_bits: forward.to_bits(),
             });
         }
+        let affine_coordinate = self
+            .discrete_dividends
+            .as_ref()
+            .map_or(Ok(AffineDividendCoordinate::identity()), |dividends| {
+                dividends.coordinate_after_time(time)
+            })?;
+        let spot_contract_forward = affine_coordinate.reconstruct_spot(self.spot, forward);
+        if !spot_contract_forward.is_finite() || spot_contract_forward <= 0.0 {
+            return Err(MarketError::NonFiniteForward {
+                underlying: self.underlying,
+                time_bits: time.to_bits(),
+                forward_bits: spot_contract_forward.to_bits(),
+            });
+        }
         Ok(ForwardEvaluation {
             forward,
+            spot_contract_forward,
+            affine_coordinate,
             discount_region: discount.region,
             dividend_region: dividend.region,
         })
@@ -83,7 +145,9 @@ impl EquityForward {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pricing_core::CurveId;
+    use pricing_core::{CurveId, EventId};
+
+    use crate::DividendQuote;
 
     fn flat_curve(id: u32, rate: f64) -> Arc<LogLinearDiscountCurve> {
         Arc::new(
@@ -101,8 +165,70 @@ mod tests {
             flat_curve(11, 0.02),
         );
         let expected = 100.0 * 0.03_f64.exp();
-        assert!((forward.forward(1.0).expect("forward") - expected).abs() < 1.0e-13);
+        let value = forward.evaluate(1.0).expect("forward");
+        assert!((value.forward - expected).abs() < 1.0e-13);
+        assert_eq!(value.forward, value.spot_contract_forward);
+        assert_eq!(
+            value.affine_coordinate,
+            AffineDividendCoordinate::identity()
+        );
         assert_eq!(forward.forward(0.0), Ok(100.0));
+    }
+
+    #[test]
+    fn discrete_dividends_keep_f_forward_canonical_and_map_spot_contract_forward() {
+        let forward = EquityForward::with_discrete_dividends(
+            UnderlyingId::new(3),
+            PositiveF64::new(100.0, "spot").expect("positive spot"),
+            flat_curve(10, 0.05),
+            flat_curve(11, 0.02),
+            vec![
+                DividendEvent::new(
+                    EventId::new(1),
+                    0.5,
+                    DividendQuote::fixed_cash_and_proportional(4.0, 0.1, EventId::new(1))
+                        .expect("quote"),
+                )
+                .expect("event"),
+            ],
+        )
+        .expect("forward");
+        let value = forward.evaluate(1.0).expect("evaluation");
+        let f_forward = 100.0 * 0.03_f64.exp();
+        assert!((value.forward - f_forward).abs() < 1.0e-13);
+        assert!((value.affine_coordinate.a() + 0.04).abs() < 1.0e-15);
+        assert!((value.affine_coordinate.b() - 0.9).abs() < 1.0e-15);
+        assert!((value.spot_contract_forward - (0.9 * f_forward - 4.0)).abs() < 1.0e-13);
+        assert!(forward.discrete_dividends().is_some());
+    }
+
+    #[test]
+    fn bumped_spot_recompiles_discrete_dividends_with_fixed_cash_held_constant() {
+        let forward = EquityForward::with_discrete_dividends(
+            UnderlyingId::new(3),
+            PositiveF64::new(100.0, "spot").expect("positive spot"),
+            flat_curve(10, 0.05),
+            flat_curve(11, 0.02),
+            vec![
+                DividendEvent::new(
+                    EventId::new(1),
+                    0.5,
+                    DividendQuote::fixed_cash_and_proportional(4.0, 0.1, EventId::new(1))
+                        .expect("quote"),
+                )
+                .expect("event"),
+            ],
+        )
+        .expect("forward");
+        let bumped = forward
+            .with_spot(PositiveF64::new(125.0, "spot").expect("positive spot"))
+            .expect("bumped");
+
+        let event = bumped.discrete_dividends().expect("dividends").events()[0];
+        assert_eq!(event.fixed_cash(), 4.0);
+        assert!((event.alpha() - 4.0 / 125.0).abs() < 1.0e-15);
+        assert_eq!(event.beta(), 0.1);
+        assert_eq!(bumped.spot().get(), 125.0);
     }
 
     #[test]

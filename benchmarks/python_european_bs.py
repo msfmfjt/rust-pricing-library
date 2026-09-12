@@ -103,9 +103,8 @@ def main() -> None:
             "Results are an optimization baseline and not a latency SLA.",
         ],
     }
-    Path(sys.argv[1]).write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    serialized = json.dumps(report, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    Path(sys.argv[1]).write_bytes(serialized.encode("utf-8"))
 
 
 def build_request(

@@ -4,19 +4,55 @@ Status: Frozen for library `0.x`
 
 | Library major | Current schema | Accepted request versions | Accepted result versions | Writer output |
 |---|---:|---:|---:|---:|
-| `0` | `1` | `1` | `1` | `1` |
+| `0` | `3` | `1, 2, 3` | `1, 2, 3` | `3` |
 
-Schema v1 is the first public wire contract, so its forward-only migration
-registry is intentionally empty. The registry is nevertheless exercised by
-every read: version 1 is accepted and zero, missing, or future versions are
-rejected before domain construction. When schema v2 is introduced, v1-to-v2
-migration must preserve the complete financial and execution meaning.
+Schema v2 adds the optional `risk.payoff_smoothing_width_ladder` field. Schema
+v3 adds the `american_vanilla` product, its required top-level `lsm`
+configuration, and an optional `monte_carlo` result block. The configuration retains the independent training engine,
+ordered state variables, polynomial basis, ITM tolerance, CPQR tolerances, and
+regression matrix resource limit needed to reproduce the LSM configuration
+fingerprint. The field is required for American products and forbidden for all
+other products.
 
-The committed files under `schemas/v1/` are the Draft 2020-12 interoperability
-contract. The committed files under `fixtures/v1/` freeze the deterministic
-compact writer, including field order, tagged-enum representation, numeric
-spelling, UTF-8/LF policy, and the final newline. Pretty JSON is an inspection
-view and normalizes back to the same typed-data fingerprint.
+The result block preserves execution counts and variances, numerical and risk
+method diagnostics, random-stream checksums, and complete LSM training and
+valuation state. The LSM state includes its policy fingerprint, exercise dates,
+realized stopping indices and counts, canonical basis exponents, regression
+diagnostics, feature scaling, pivot/rank data, and fitted coefficients. The
+dedicated Monte Carlo result reader validates these cross-field invariants and
+reconstructs the immutable policy state; the basic result reader remains able
+to consume the same document while selecting only the financial result.
+
+The forward-only v1-to-v2-to-v3 migration preserves all v1 financial and
+execution meaning, leaving newer optional fields absent. The v2-to-v3 step adds
+no financial defaults. Versions 1 and 2 remain readable, while zero, missing,
+and versions newer than 3 are rejected before domain construction. Historical
+documents containing fields from a later schema are rejected rather than
+interpreted as extensions.
+
+Successful reads retain migration provenance separately from normalized
+financial identity. Compiled plans and results expose the original and current
+schema versions, ordered stable migration identifiers, and BLAKE3-256
+fingerprints before and after request migration. Version 3 result replay data
+serializes the same immutable provenance. Migration identifiers form an ordered
+adjacent chain, using `pricing_request/v2-to-v3` or
+`pricing_result/v2-to-v3` for the new step. Historical result migration
+preserves its only available request fingerprint where the result document does
+not contain the request body needed to recompute a current request fingerprint.
+
+The committed files under `schemas/v1/`, `schemas/v2/`, and `schemas/v3/` are
+the Draft 2020-12 interoperability contracts. Their corresponding fixture
+directories freeze deterministic compact output, including field order,
+tagged-enum representation, numeric spelling, UTF-8/LF policy, and the final
+newline. Pretty JSON is an inspection view and normalizes back to the same
+typed-data fingerprint.
+
+Optional result fields use omission only. In particular, a VegaKT result with
+`covariance_layout.type = "full_bucket_matrix_row_major"` must include
+`full_bucket_covariance`, while `covariance_layout.type =
+"price_and_bucket_variance_only"` must omit `full_bucket_covariance`. A present
+`null`, a missing full matrix under the full-matrix layout, or an unexpected
+matrix under the compact layout is invalid schema/domain input.
 
 The canonical fingerprint is separate from JSON. It hashes a domain-separated,
 versioned, self-delimiting typed-data stream with BLAKE3-256 and renders as

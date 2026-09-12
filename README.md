@@ -1,8 +1,39 @@
 # Rust Pricing Library
 
-An extensible derivatives-pricing library for model validation and quantitative research. The calculation core is written in Rust and will expose a Python interface for interactive single-trade analysis.
+An extensible derivatives-pricing library for model validation and quantitative research. The calculation core is written in Rust and exposes a typed Python interface for interactive single-trade analysis.
 
-The first vertical slice is a European vanilla option under Black–Scholes, with analytical reference values, Pseudo-Monte Carlo, randomized Sobol QMC, AAD Greeks, common-random-number bump validation, and deterministic replay.
+The first vertical slice is a European vanilla option under Black-Scholes, with
+analytical reference values, Pseudo-Monte Carlo, randomized Sobol QMC, AAD
+Greeks, common-random-number bump validation, and deterministic replay. The
+same public request, wire, and Python surfaces also expose a Black-76
+constant-volatility model on the market forward. Price-only Monte Carlo
+requests can also use cash-or-nothing and asset-or-nothing Digital calls and
+puts, fixed-strike Barrier calls and puts with an explicit discrete or
+continuous monitoring contract and optional expiry rebates, forward-starting,
+partially fixed, or fully fixed arithmetic
+average-price Asian calls and puts, plus fixed-strike discrete-monitoring
+Lookback calls and puts with future or fully fixed monitoring
+under the constant-volatility engines. Pathwise Delta, bumped-AAD Gamma, and
+Vega are available for European, Asian, and Lookback products under constant
+volatility. Digital products additionally support explicit compact-C2 payoff
+smoothing for Price, pathwise Delta/Vega, bumped-AAD Gamma, and CRN validation
+through the Rust, JSON, and Python request surfaces. The same explicit policy
+supports endpoint- and affine-dividend-jump-smoothed risk for
+discrete-monitoring Barrier products with a monotone hit state and
+KnockIn/KnockOut rebate parity. Dividend collisions reuse one normalized path
+state for pre- and post-jump Spot observations without adding a random
+coordinate. Digital and Barrier risk without an explicit smoothing width
+remains rejected. Continuous Barrier requests are evaluated under the
+constant-volatility models with a conditional Brownian-bridge survival
+estimator, including affine-dividend jump boundaries, pathwise Delta/Vega, and
+bumped-AAD Gamma. Explicit compact-C2 smoothing applies matched endpoint,
+affine-dividend-jump, and bridge-survival weights so Price and Greeks use one
+surrogate payoff. Local Volatility uses the same exact or smoothed bridge over
+every Log-Euler sub-step with trapezoidal endpoint Local variance, CRN
+Delta/Gamma, and reverse Local-volatility Vega/VegaKT.
+Result diagnostics report endpoint and dividend-jump hit fractions separately
+from the mean conditional bridge hit weight, together with bridge interval and
+stable numerical-branch counts.
 
 ## Design baselines
 
@@ -13,10 +44,31 @@ The first vertical slice is a European vanilla option under Black–Scholes, wit
 - [European Black–Scholes diagnostics catalogue](docs/european-bs-diagnostics-v0.1.md)
 - [Local Volatility and VegaKT implementation roadmap](docs/local-vol-vegakt-roadmap-v0.1.md)
 - [Local Volatility and VegaKT numerical contracts](docs/local-vol-vegakt-numerical-contracts-v0.1.md)
+- [Local Volatility and VegaKT diagnostics catalogue](docs/local-vol-vegakt-diagnostics-v0.1.md)
+- [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
+- [Path Dependence implementation roadmap](docs/path-dependence-roadmap-v0.1.md)
+- [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
+- [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
+- [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
+- [Early Exercise implementation roadmap](docs/early-exercise-roadmap-v0.1.md)
+- [Early Exercise numerical contracts](docs/early-exercise-numerical-contracts-v0.1.md)
+- [Early Exercise diagnostics catalogue](docs/early-exercise-diagnostics-v0.1.md)
+- [Early Exercise conformance report](docs/early-exercise-conformance-v0.1.md)
+- [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
 
-The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility Gate L0 is accepted: exact SSVI/eSSVI, Dupire, non-uniform hat, equation (11), transition-cell, reporting-unit, and affine-dividend numerical contracts are frozen with independently checked equation fixtures. Gate L1, the calibrated SSVI/eSSVI market implementation, is next. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
+The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility/VegaKT has completed Gates L0–L8 and is accepted with exact SSVI/eSSVI, Dupire Local variance, non-uniform interpolation, Log-Euler Local Volatility simulation, Local Volatility Price/Delta/Gamma/Vega/VegaKT MC/RQMC evaluation, Local Vega/VegaKT operators, affine dividends, public Rust/JSON/Python request surfaces, independently checked equation fixtures, same-platform replay fixtures on Apple Silicon macOS and Windows x86-64, and retained benchmark artifacts. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
+
+Path Dependence has completed Gates P0-P8 and is accepted with deterministic
+and statistical acceptance, compact-C2 continuous Barrier smoothing,
+same-platform replay on Apple Silicon macOS and Windows x86-64, benchmark
+coverage, and Rust/JSON/Python conformance evidence.
+
+Early Exercise has completed Gates E0-E8 and is accepted with deterministic
+and statistical American Call/Put acceptance, independent Bermudan-tree and
+in/out-of-sample evidence, same-platform replay on Apple Silicon macOS and
+Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 
@@ -40,11 +92,22 @@ Dependency direction is checked in CI. Lower-level crates may not depend on high
 The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run:
 
 ```shell
+python3 scripts/check_local_vol_reference_fixture.py
+python3 scripts/check_path_dependence_reference_fixture.py
+python3 scripts/check_early_exercise_reference_fixture.py
+python3 scripts/check_schemas.py
+python3 scripts/check_markdown_links.py
+git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
+python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-features --exclude pricing-python
 cargo test --locked -p pricing-python
-cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
+cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
+cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
+cargo doc --locked --workspace --all-features --no-deps
+cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 ```
 
 The Python extension is built with [maturin](https://www.maturin.rs/):
@@ -52,7 +115,19 @@ The Python extension is built with [maturin](https://www.maturin.rs/):
 ```shell
 python -m maturin develop --locked
 python -m unittest discover -s tests/python -v
+python -m maturin build --locked --release --out dist
+python scripts/smoke_test_wheel.py
+python scripts/run_benchmark_suite.py
+python scripts/check_replay_fixture.py benchmark-results/replay.json
+python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
+python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json
+python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json
+python scripts/check_benchmark_reports.py benchmark-results
 ```
+
+Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
+tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
+mismatches before installation.
 
 A cell-oriented end-to-end example is available at
 [`examples/python/european_bs.py`](examples/python/european_bs.py). It uses the
@@ -60,9 +135,44 @@ native builders, NumPy inputs, AAD Greeks, deterministic plan compilation, and
 structured diagnostics. The distributed wheel contains `rust_pricing.pyi` and
 the PEP 561 `py.typed` marker generated by maturin.
 
+The American LSM example at
+[`examples/python/american_lsm.py`](examples/python/american_lsm.py) uses
+independent training and valuation paths, round-trips the v3 request, and
+evaluates the same Put under Black-Scholes and Local Volatility with
+fixed-policy Greeks and immutable exercise diagnostics.
+
+A Local Volatility/VegaKT valuation example is available at
+[`examples/python/local_vol_vegakt.py`](examples/python/local_vol_vegakt.py).
+It builds Local variance and reporting-IV grids from calibrated eSSVI slices,
+requests VegaKT reporting buckets, round-trips the canonical JSON payload, and
+evaluates Price, Greeks, and the VegaKT result report.
+
+The path-dependence example at
+[`examples/python/path_dependence.py`](examples/python/path_dependence.py)
+keeps exact contractual Digital Price separate from an explicitly smoothed
+Price/Greek calculation and evaluates a caller-ordered, non-adaptive smoothing
+width ladder with adjacent-width differences.
+
+The Python facade exposes the same versioned JSON boundary as Rust:
+`PricingRequest.to_json()`, `PricingRequest.to_pretty_json()`,
+`PricingRequest.from_json()`, `PricingResult.to_json()`,
+`PricingResult.to_pretty_json()`, and `PricingResult.from_json()`. The bundled
+Draft 2020-12 schemas are available through `request_json_schema()` and
+`result_json_schema()` for external validation or fixture review. Pricing
+results expose Price and Greek estimates with standard errors, confidence
+intervals, estimator labels, effective sample counts, raw/market-scaled risk
+units, and replay metadata for the schema version, request fingerprint, library
+version, producing platform, and any ordered schema migration provenance.
+Result diagnostics expose replay-critical
+seeds, execution policy fields, curve regions, Payoff fingerprints, QMC
+direction/scramble checksums, bump validation policy fields, and CRN bump
+validation estimates for requested Greeks.
+
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts. Each wheel is installed into a
-fresh virtual environment before the Python API smoke suite runs.
+fresh virtual environment before the Python API smoke suite runs. CI also
+retains a source archive for the exact commit, including the locked Rust
+dependency metadata required to consume the Rust crates privately.
 
 The [benchmark baseline protocol](docs/benchmarking-v0.1.md) records native
 Rust and installed-wheel Python timings and the host/build metadata required to

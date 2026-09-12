@@ -4,8 +4,12 @@ use std::fmt;
 use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
-use pricing_mc::{ExecutionError, ExecutorBuildError, RqmcPlanError, TryExecutionError};
+use pricing_mc::{
+    BarrierBridgeError, ExecutionError, ExecutorBuildError, LocalVolError, LsmNumericalError,
+    RqmcPlanError, TryExecutionError,
+};
 use pricing_product::GraphError;
+use pricing_risk::RiskConfigError;
 
 use crate::WireError;
 
@@ -24,7 +28,39 @@ pub enum RequestValidationError {
         valuation_date: Date,
         expiry: Date,
     },
-    VegaKtUnsupportedForBlackScholes,
+    PaymentBeforeValuation {
+        valuation_date: Date,
+        payment_date: Date,
+    },
+    AmericanPastExerciseUnsupported {
+        exercise_date: Date,
+        valuation_date: Date,
+    },
+    MissingLsmConfiguration,
+    UnexpectedLsmConfiguration,
+    LsmConfiguration(LsmNumericalError),
+    AsianPastObservationRequiresKnownFixing {
+        observation_date: Date,
+        valuation_date: Date,
+    },
+    AsianFutureObservationCannotCarryFixing {
+        observation_date: Date,
+        valuation_date: Date,
+    },
+    BarrierPastMonitoringUnsupported {
+        monitoring_date: Date,
+        valuation_date: Date,
+    },
+    LookbackPastMonitoringRequiresHistoricalExtremum {
+        valuation_date: Date,
+    },
+    LookbackHistoricalExtremumWithoutPastMonitoring {
+        valuation_date: Date,
+    },
+    VegaKtUnsupportedForConstantVolatility,
+    RiskUnsupportedForDiscontinuousProduct,
+    PayoffSmoothingUnsupportedForProduct,
+    PayoffSmoothingWidthLadderRequiresPrimary,
 }
 
 impl fmt::Display for RequestValidationError {
@@ -45,14 +81,82 @@ impl fmt::Display for RequestValidationError {
                 formatter,
                 "expiry {expiry} is before valuation date {valuation_date}"
             ),
-            Self::VegaKtUnsupportedForBlackScholes => {
+            Self::PaymentBeforeValuation {
+                valuation_date,
+                payment_date,
+            } => write!(
+                formatter,
+                "payment date {payment_date} is before valuation date {valuation_date}"
+            ),
+            Self::AmericanPastExerciseUnsupported {
+                exercise_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "American exercise date {exercise_date} before valuation date {valuation_date} requires historical exercise state"
+            ),
+            Self::MissingLsmConfiguration => {
+                write!(formatter, "American pricing requires an LSM configuration")
+            }
+            Self::UnexpectedLsmConfiguration => {
+                write!(formatter, "LSM configuration requires an American product")
+            }
+            Self::LsmConfiguration(error) => error.fmt(formatter),
+            Self::AsianPastObservationRequiresKnownFixing {
+                observation_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "Asian observation {observation_date} before valuation date {valuation_date} requires a known fixing"
+            ),
+            Self::AsianFutureObservationCannotCarryFixing {
+                observation_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "Asian observation {observation_date} after valuation date {valuation_date} cannot carry a known fixing"
+            ),
+            Self::BarrierPastMonitoringUnsupported {
+                monitoring_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "Barrier monitoring date {monitoring_date} before valuation date {valuation_date} requires historical barrier state"
+            ),
+            Self::LookbackPastMonitoringRequiresHistoricalExtremum { valuation_date } => write!(
+                formatter,
+                "Lookback monitoring before valuation date {valuation_date} requires a historical extremum"
+            ),
+            Self::LookbackHistoricalExtremumWithoutPastMonitoring { valuation_date } => write!(
+                formatter,
+                "Lookback historical extremum is only valid when monitoring dates before valuation date {valuation_date} exist"
+            ),
+            Self::VegaKtUnsupportedForConstantVolatility => {
                 write!(formatter, "VegaKT requires a Local Volatility model")
             }
+            Self::RiskUnsupportedForDiscontinuousProduct => write!(
+                formatter,
+                "Delta, Gamma, Vega, and VegaKT require a smooth product payoff"
+            ),
+            Self::PayoffSmoothingUnsupportedForProduct => write!(
+                formatter,
+                "payoff smoothing is unsupported for the selected product"
+            ),
+            Self::PayoffSmoothingWidthLadderRequiresPrimary => write!(
+                formatter,
+                "payoff smoothing width ladder requires a separately declared primary smoothing width"
+            ),
         }
     }
 }
 
 impl Error for RequestValidationError {}
+
+impl From<LsmNumericalError> for RequestValidationError {
+    fn from(error: LsmNumericalError) -> Self {
+        Self::LsmConfiguration(error)
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -63,6 +167,17 @@ pub enum ResultBuildError {
         value_bits: u64,
         upper_bits: u64,
     },
+    VegaKtLengthMismatch {
+        coordinates: usize,
+        estimates: usize,
+        raw_buckets: usize,
+    },
+    VegaKtFullCovarianceLengthMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    VegaKtFullCovarianceRequired,
+    VegaKtUnexpectedFullCovariance,
     ZeroEffectiveSamplingUnits,
 }
 
@@ -84,6 +199,26 @@ impl fmt::Display for ResultBuildError {
                 formatter,
                 "confidence interval must satisfy lower <= value <= upper; received 0x{lower_bits:016x}, 0x{value_bits:016x}, 0x{upper_bits:016x}"
             ),
+            Self::VegaKtLengthMismatch {
+                coordinates,
+                estimates,
+                raw_buckets,
+            } => write!(
+                formatter,
+                "VegaKT result lengths must match; coordinates={coordinates}, estimates={estimates}, raw_buckets={raw_buckets}"
+            ),
+            Self::VegaKtFullCovarianceLengthMismatch { expected, actual } => write!(
+                formatter,
+                "VegaKT full covariance length must be {expected}; received {actual}"
+            ),
+            Self::VegaKtFullCovarianceRequired => write!(
+                formatter,
+                "VegaKT full covariance layout requires full_bucket_covariance"
+            ),
+            Self::VegaKtUnexpectedFullCovariance => write!(
+                formatter,
+                "VegaKT price-and-bucket variance layout must not include full_bucket_covariance"
+            ),
             Self::ZeroEffectiveSamplingUnits => {
                 write!(formatter, "effective sampling-unit count must be positive")
             }
@@ -104,10 +239,36 @@ impl Error for ResultBuildError {
 #[non_exhaustive]
 pub enum MonteCarloError {
     UnsupportedEngine,
-    InvalidGammaBump { spot_bits: u64, bump_bits: u64 },
-    InsufficientSamplingUnits { count: u64 },
-    NonFiniteTotalVariance { bits: u64 },
+    UnsupportedModel {
+        model: &'static str,
+    },
+    UnsupportedRiskForModel {
+        model: &'static str,
+    },
+    InvalidLocalVolatilityTimeGrid {
+        expiry_bits: u64,
+        first_bits: u64,
+        last_bits: u64,
+    },
+    MissingLocalVolatilityReportingBasis,
+    MismatchedLocalVolatilityReportingBasis,
+    InvalidGammaBump {
+        spot_bits: u64,
+        bump_bits: u64,
+    },
+    InsufficientSamplingUnits {
+        count: u64,
+    },
+    NonFiniteTotalVariance {
+        bits: u64,
+    },
+    BarrierBridge(BarrierBridgeError),
+    UnsupportedObservationUnderlying {
+        product: UnderlyingId,
+        market: UnderlyingId,
+    },
     Market(MarketError),
+    LocalVol(LocalVolError),
     Graph(GraphError),
     ExecutorBuild(ExecutorBuildError),
     Execution(ExecutionError),
@@ -115,11 +276,25 @@ pub enum MonteCarloError {
     Wire(WireError),
     AadConfig(AadConfigError),
     RqmcPlan(RqmcPlanError),
+    RiskConfig(RiskConfigError),
+    Lsm(LsmNumericalError),
 }
 
 impl From<MarketError> for MonteCarloError {
     fn from(error: MarketError) -> Self {
         Self::Market(error)
+    }
+}
+
+impl From<LocalVolError> for MonteCarloError {
+    fn from(error: LocalVolError) -> Self {
+        Self::LocalVol(error)
+    }
+}
+
+impl From<BarrierBridgeError> for MonteCarloError {
+    fn from(error: BarrierBridgeError) -> Self {
+        Self::BarrierBridge(error)
     }
 }
 
@@ -159,6 +334,18 @@ impl From<RqmcPlanError> for MonteCarloError {
     }
 }
 
+impl From<RiskConfigError> for MonteCarloError {
+    fn from(error: RiskConfigError) -> Self {
+        Self::RiskConfig(error)
+    }
+}
+
+impl From<LsmNumericalError> for MonteCarloError {
+    fn from(error: LsmNumericalError) -> Self {
+        Self::Lsm(error)
+    }
+}
+
 impl From<TryExecutionError<GraphError>> for MonteCarloError {
     fn from(error: TryExecutionError<GraphError>) -> Self {
         match error {
@@ -186,6 +373,34 @@ impl fmt::Display for MonteCarloError {
                     "the selected pricing entry point does not support this engine"
                 )
             }
+            Self::UnsupportedModel { model } => {
+                write!(
+                    formatter,
+                    "the selected pricing entry point does not support the {model} model yet"
+                )
+            }
+            Self::UnsupportedRiskForModel { model } => {
+                write!(
+                    formatter,
+                    "the selected pricing entry point does not support risk requests for the {model} model yet"
+                )
+            }
+            Self::InvalidLocalVolatilityTimeGrid {
+                expiry_bits,
+                first_bits,
+                last_bits,
+            } => write!(
+                formatter,
+                "Local Volatility Price-only evaluation requires explicit time nodes from 0.0 through expiry; expiry=0x{expiry_bits:016x}, first=0x{first_bits:016x}, last=0x{last_bits:016x}"
+            ),
+            Self::MissingLocalVolatilityReportingBasis => write!(
+                formatter,
+                "Local Volatility VegaKT evaluation requires a reporting-IV basis on the model"
+            ),
+            Self::MismatchedLocalVolatilityReportingBasis => write!(
+                formatter,
+                "Local Volatility VegaKT request nodes must match the model reporting-IV basis"
+            ),
             Self::InvalidGammaBump {
                 spot_bits,
                 bump_bits,
@@ -203,7 +418,13 @@ impl fmt::Display for MonteCarloError {
                     "Black-Scholes total variance is non-finite: 0x{bits:016x}"
                 )
             }
+            Self::BarrierBridge(error) => error.fmt(formatter),
+            Self::UnsupportedObservationUnderlying { product, market } => write!(
+                formatter,
+                "product observation underlying {product} does not match market underlying {market}"
+            ),
             Self::Market(error) => error.fmt(formatter),
+            Self::LocalVol(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),
             Self::ExecutorBuild(error) => error.fmt(formatter),
             Self::Execution(error) => error.fmt(formatter),
@@ -211,6 +432,8 @@ impl fmt::Display for MonteCarloError {
             Self::Wire(error) => error.fmt(formatter),
             Self::AadConfig(error) => error.fmt(formatter),
             Self::RqmcPlan(error) => error.fmt(formatter),
+            Self::RiskConfig(error) => error.fmt(formatter),
+            Self::Lsm(error) => error.fmt(formatter),
         }
     }
 }
@@ -219,6 +442,8 @@ impl Error for MonteCarloError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Market(error) => Some(error),
+            Self::LocalVol(error) => Some(error),
+            Self::BarrierBridge(error) => Some(error),
             Self::Graph(error) => Some(error),
             Self::ExecutorBuild(error) => Some(error),
             Self::Execution(error) => Some(error),
@@ -226,6 +451,8 @@ impl Error for MonteCarloError {
             Self::Wire(error) => Some(error),
             Self::AadConfig(error) => Some(error),
             Self::RqmcPlan(error) => Some(error),
+            Self::RiskConfig(error) => Some(error),
+            Self::Lsm(error) => Some(error),
             _ => None,
         }
     }

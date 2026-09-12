@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:schema:v3:pricing_result",
+  "title": "PricingResult schema v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document_kind", "schema_version", "value", "risks", "diagnostics", "replay"],
+  "properties": {
+    "document_kind": {"type": "string", "const": "pricing_result"},
+    "schema_version": {"type": "integer", "const": 3, "minimum": 1, "maximum": 4294967295},
+    "value": {"$ref": "#/$defs/estimate"},
+    "risks": {"$ref": "#/$defs/risk_report"},
+    "diagnostics": {"$ref": "#/$defs/diagnostics"},
+    "monte_carlo": {"$ref": "#/$defs/monte_carlo_result"},
+    "replay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "request_fingerprint", "library_version", "platform", "migration"],
+      "properties": {
+        "schema_version": {"type": "integer", "const": 3, "minimum": 1, "maximum": 4294967295},
+        "request_fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
+        "library_version": {"type": "string", "minLength": 1},
+        "platform": {"type": "string", "minLength": 1},
+        "migration": {"$ref": "#/$defs/migration_provenance"}
+      }
+    }
+  },
+  "$defs": {
+    "monte_carlo_result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sampling_variance", "estimator_variance", "independent_sampling_units", "evaluated_paths", "diagnostics", "risk_diagnostics"],
+      "properties": {
+        "sampling_variance": {"type": "number", "minimum": 0},
+        "estimator_variance": {"type": "number", "minimum": 0},
+        "independent_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "evaluated_paths": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$", "maxLength": 39},
+        "diagnostics": {"$ref": "#/$defs/monte_carlo_diagnostics"},
+        "risk_diagnostics": {"$ref": "#/$defs/risk_diagnostics"},
+        "early_exercise": {"$ref": "#/$defs/early_exercise_diagnostics"}
+      }
+    },
+    "monte_carlo_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["master_seed", "estimator", "policy_version", "worker_threads", "reduction_block_size", "aad_tile_policy_version", "aad_tile_capacity", "checkpoint_policy_version", "checkpoint_interval", "antithetic", "discount_region", "dividend_region", "payoff_fingerprint", "valuation_kind"],
+      "properties": {
+        "master_seed": {"$ref": "#/$defs/u64"},
+        "estimator": {"$ref": "#/$defs/estimator"},
+        "scramble_count": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "direction_checksum": {"$ref": "#/$defs/checksum"},
+        "scramble_checksum": {"$ref": "#/$defs/checksum"},
+        "policy_version": {"$ref": "#/$defs/u32"},
+        "worker_threads": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "reduction_block_size": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "aad_tile_policy_version": {"$ref": "#/$defs/u32"},
+        "aad_tile_capacity": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "checkpoint_policy_version": {"$ref": "#/$defs/u32"},
+        "checkpoint_interval": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "antithetic": {"type": "boolean"},
+        "discount_region": {"$ref": "#/$defs/curve_region"},
+        "dividend_region": {"$ref": "#/$defs/curve_region"},
+        "payoff_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "valuation_kind": {"$ref": "#/$defs/payoff_valuation_kind"},
+        "payoff_smoothing": {"$ref": "#/$defs/payoff_smoothing_diagnostics"},
+        "path_state": {"$ref": "#/$defs/path_state_diagnostics"},
+        "barrier_bridge": {"$ref": "#/$defs/barrier_bridge_diagnostics"}
+      }
+    },
+    "curve_region": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "pillar"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "interpolated"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "right_extrapolated"}}}
+      ]
+    },
+    "payoff_valuation_kind": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "exact_contractual"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "smoothed_surrogate"}}}
+      ]
+    },
+    "payoff_smoothing_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kernel", "policy_version", "half_width", "full_transition_width", "width_unit", "price_and_greeks_share_payoff", "endpoint_count", "dividend_jump_count"],
+      "properties": {
+        "kernel": {"$ref": "#/$defs/payoff_smoothing_kernel"},
+        "policy_version": {"$ref": "#/$defs/u32"},
+        "half_width": {"type": "number", "exclusiveMinimum": 0},
+        "full_transition_width": {"type": "number", "exclusiveMinimum": 0},
+        "width_unit": {"$ref": "#/$defs/payoff_smoothing_width_unit"},
+        "price_and_greeks_share_payoff": {"type": "boolean"},
+        "endpoint_count": {"$ref": "#/$defs/u32"},
+        "dividend_jump_count": {"$ref": "#/$defs/u32"}
+      }
+    },
+    "payoff_smoothing_kernel": {
+      "type": "object", "additionalProperties": false, "required": ["type"],
+      "properties": {"type": {"type": "string", "const": "compact_c2"}}
+    },
+    "payoff_smoothing_width_unit": {
+      "type": "object", "additionalProperties": false, "required": ["type"],
+      "properties": {"type": {"type": "string", "const": "spot"}}
+    },
+    "path_state_diagnostics": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "known_observation_count", "unknown_observation_count", "known_weight_sum", "unknown_weight_sum", "weighted_known_fixing_sum"],
+          "properties": {
+            "type": {"type": "string", "const": "arithmetic_asian"},
+            "known_observation_count": {"$ref": "#/$defs/u32"},
+            "unknown_observation_count": {"$ref": "#/$defs/u32"},
+            "known_weight_sum": {"type": "number", "minimum": 0},
+            "unknown_weight_sum": {"type": "number", "minimum": 0},
+            "weighted_known_fixing_sum": {"type": "number"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "past_monitoring_count", "future_monitoring_count"],
+          "properties": {
+            "type": {"type": "string", "const": "fixed_lookback"},
+            "past_monitoring_count": {"$ref": "#/$defs/u32"},
+            "future_monitoring_count": {"$ref": "#/$defs/u32"},
+            "historical_extremum": {"type": "number", "exclusiveMinimum": 0}
+          }
+        }
+      ]
+    },
+    "barrier_bridge_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["abi", "policy_version", "indicator_mode", "endpoint_hit_fraction", "dividend_jump_hit_fraction", "mean_conditional_bridge_hit_weight", "mean_interval_count", "mean_finite_correction_count", "mean_zero_variance_count", "mean_survival_underflow_count", "mean_certain_survival_count"],
+      "properties": {
+        "abi": {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "continuous_barrier_bridge_log_survival_v1"}}},
+        "policy_version": {"$ref": "#/$defs/u32"},
+        "indicator_mode": {"$ref": "#/$defs/barrier_hit_indicator_mode"},
+        "endpoint_hit_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "dividend_jump_hit_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "mean_conditional_bridge_hit_weight": {"type": "number", "minimum": 0, "maximum": 1},
+        "mean_interval_count": {"type": "number", "minimum": 0},
+        "mean_finite_correction_count": {"type": "number", "minimum": 0},
+        "mean_zero_variance_count": {"type": "number", "minimum": 0},
+        "mean_survival_underflow_count": {"type": "number", "minimum": 0},
+        "mean_certain_survival_count": {"type": "number", "minimum": 0}
+      }
+    },
+    "barrier_hit_indicator_mode": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "exact"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "compact_c2"}}}
+      ]
+    },
+    "risk_diagnostics": {
+      "type": "object", "additionalProperties": false, "required": ["methods"],
+      "properties": {
+        "methods": {"$ref": "#/$defs/risk_method_metadata"},
+        "delta_validation": {"$ref": "#/$defs/risk_validation"},
+        "gamma_validation": {"$ref": "#/$defs/risk_validation"},
+        "vega_validation": {"$ref": "#/$defs/risk_validation"}
+      }
+    },
+    "risk_method_metadata": {
+      "type": "object", "additionalProperties": false,
+      "required": ["smile_dynamics", "bump_policy_version"],
+      "properties": {
+        "delta": {"$ref": "#/$defs/risk_method"},
+        "gamma": {"$ref": "#/$defs/risk_method"},
+        "vega": {"$ref": "#/$defs/risk_method"},
+        "smile_dynamics": {"$ref": "#/$defs/smile_dynamics"},
+        "gamma_spot_bump": {"type": "number", "exclusiveMinimum": 0},
+        "validation_spot_bump": {"type": "number", "exclusiveMinimum": 0},
+        "validation_volatility_bump": {"type": "number", "exclusiveMinimum": 0},
+        "bump_policy_version": {"$ref": "#/$defs/u32"},
+        "exercise_strategy": {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "fixed_exercise_strategy"}}},
+        "stopping_indices": {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "frozen_stopping_indices"}}},
+        "exercise_policy_fingerprint": {"$ref": "#/$defs/fingerprint"}
+      }
+    },
+    "risk_method": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "aad_reverse"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "central_bump"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "central_bump_of_aad_delta"}}}
+      ]
+    },
+    "risk_validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bump_and_revalue", "bump_minus_primary"],
+      "properties": {
+        "bump_and_revalue": {"$ref": "#/$defs/estimate"},
+        "bump_minus_primary": {"$ref": "#/$defs/estimate"}
+      }
+    },
+    "early_exercise_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_fingerprint", "training_random_domain", "valuation_random_domain", "training_sampling_units", "training_trajectories", "valuation_sampling_units", "valuation_trajectories", "in_sample_value", "exercise_dates", "exercise_counts", "exercise_probabilities", "stopping_indices", "dividend_collisions", "regression_diagnostics", "policy_basis", "itm_abs_tolerance", "cpqr", "max_matrix_elements", "decision_models"],
+      "properties": {
+        "policy_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "training_random_domain": {"$ref": "#/$defs/random_domain"},
+        "valuation_random_domain": {"$ref": "#/$defs/random_domain"},
+        "training_direction_checksum": {"$ref": "#/$defs/checksum"},
+        "training_scramble_checksum": {"$ref": "#/$defs/checksum"},
+        "valuation_direction_checksum": {"$ref": "#/$defs/checksum"},
+        "valuation_scramble_checksum": {"$ref": "#/$defs/checksum"},
+        "training_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "training_trajectories": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "valuation_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "valuation_trajectories": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "in_sample_value": {"type": "number"},
+        "exercise_dates": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}},
+        "exercise_counts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/usize"}},
+        "exercise_probabilities": {"type": "array", "minItems": 1, "items": {"type": "number", "minimum": 0, "maximum": 1}},
+        "stopping_indices": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/usize"}},
+        "dividend_collisions": {"type": "array", "minItems": 1, "items": {"type": "boolean"}},
+        "regression_diagnostics": {"type": "array", "items": {"$ref": "#/$defs/exercise_regression_diagnostics"}},
+        "policy_basis": {"$ref": "#/$defs/polynomial_basis_replay"},
+        "itm_abs_tolerance": {"type": "number", "minimum": 0},
+        "cpqr": {"$ref": "#/$defs/cpqr"},
+        "max_matrix_elements": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615},
+        "decision_models": {"type": "array", "items": {"$ref": "#/$defs/exercise_decision_model"}}
+      }
+    },
+    "random_domain": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "valuation"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "lsm_train"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "rqmc_scramble"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "diagnostics"}}}
+      ]
+    },
+    "polynomial_basis_replay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["feature_count", "max_degree", "exponents"],
+      "properties": {
+        "feature_count": {"$ref": "#/$defs/u32"},
+        "max_degree": {"$ref": "#/$defs/u32"},
+        "exponents": {"type": "array", "minItems": 1, "maxItems": 100000, "items": {"type": "array", "minItems": 1, "maxItems": 1000000, "items": {"$ref": "#/$defs/u32"}}}
+      }
+    },
+    "exercise_regression_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate_rows", "itm_rows", "feature_count", "warnings"],
+      "properties": {
+        "candidate_rows": {"$ref": "#/$defs/usize"},
+        "itm_rows": {"$ref": "#/$defs/usize"},
+        "feature_count": {"$ref": "#/$defs/usize"},
+        "warnings": {"type": "array", "items": {"$ref": "#/$defs/lsm_warning"}}
+      }
+    },
+    "lsm_warning": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "zero_itm_training_paths"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "feature"], "properties": {"type": {"type": "string", "const": "inactive_feature"}, "feature": {"$ref": "#/$defs/usize"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "column"], "properties": {"type": {"type": "string", "const": "rank_excluded_basis_column"}, "column": {"$ref": "#/$defs/usize"}}}
+      ]
+    },
+    "exercise_decision_model": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "model"],
+          "properties": {"type": {"type": "string", "const": "regression"}, "model": {"$ref": "#/$defs/polynomial_regression_model"}}
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "reason"],
+          "properties": {
+            "type": {"type": "string", "const": "continue_all"},
+            "reason": {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "zero_itm_training_paths"}}}
+          }
+        }
+      ]
+    },
+    "polynomial_regression_model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["basis", "feature_scalings", "active_basis_columns", "pre_excluded_basis_columns", "pivot_order", "diagonal_abs", "rank_threshold", "rank", "rank_excluded_basis_columns", "coefficients", "residual_sum_squares"],
+      "properties": {
+        "basis": {"$ref": "#/$defs/polynomial_basis_replay"},
+        "feature_scalings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/feature_scaling"}},
+        "active_basis_columns": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/usize"}},
+        "pre_excluded_basis_columns": {"type": "array", "items": {"$ref": "#/$defs/usize"}},
+        "pivot_order": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/usize"}},
+        "diagonal_abs": {"type": "array", "minItems": 1, "items": {"type": "number", "minimum": 0}},
+        "rank_threshold": {"type": "number", "minimum": 0},
+        "rank": {"$ref": "#/$defs/usize"},
+        "rank_excluded_basis_columns": {"type": "array", "items": {"$ref": "#/$defs/usize"}},
+        "coefficients": {"type": "array", "minItems": 1, "items": {"type": "number"}},
+        "residual_sum_squares": {"type": "number", "minimum": 0}
+      }
+    },
+    "feature_scaling": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mean", "population_variance", "scale", "zero_scale_threshold", "inactive"],
+      "properties": {
+        "mean": {"type": "number"},
+        "population_variance": {"type": "number", "minimum": 0},
+        "scale": {"type": "number", "minimum": 0},
+        "zero_scale_threshold": {"type": "number", "minimum": 0},
+        "inactive": {"type": "boolean"}
+      }
+    },
+    "cpqr": {
+      "type": "object", "additionalProperties": false,
+      "required": ["abs_rank_tolerance", "rel_rank_tolerance"],
+      "properties": {
+        "abs_rank_tolerance": {"type": "number", "minimum": 0},
+        "rel_rank_tolerance": {"type": "number", "minimum": 0}
+      }
+    },
+    "smile_dynamics": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "sticky_log_moneyness"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "sticky_strike"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "sticky_delta"}}}
+      ]
+    },
+    "fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
+    "checksum": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "u32": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+    "u64": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+    "usize": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+    "estimate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value", "standard_error", "confidence_lower", "confidence_upper", "estimator", "effective_sampling_units"],
+      "properties": {
+        "value": {"type": "number"}, "standard_error": {"type": "number", "minimum": 0},
+        "confidence_lower": {"type": "number"}, "confidence_upper": {"type": "number"},
+        "estimator": {"$ref": "#/$defs/estimator"}, "effective_sampling_units": {"type": "integer", "minimum": 1, "maximum": 18446744073709551615}
+      }
+    },
+    "risk_report": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "delta": {"$ref": "#/$defs/risk_estimate"},
+        "gamma": {"$ref": "#/$defs/risk_estimate"},
+        "vega": {"$ref": "#/$defs/risk_estimate"},
+        "vega_kt": {"$ref": "#/$defs/vega_kt_report"}
+      }
+    },
+    "risk_estimate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw", "market_scaled", "raw_unit", "market_scaled_unit"],
+      "properties": {
+        "raw": {"$ref": "#/$defs/estimate"},
+        "market_scaled": {"$ref": "#/$defs/estimate"},
+        "raw_unit": {"$ref": "#/$defs/risk_unit"},
+        "market_scaled_unit": {"$ref": "#/$defs/risk_unit"}
+      }
+    },
+    "vega_kt_report": {
+      "type": "object", "additionalProperties": false,
+      "required": ["coordinates", "estimates", "raw_buckets", "covariance_layout", "projection", "residual_diagnostics", "raw_unit", "market_scaled_unit", "policy_label", "truncation_order"],
+      "properties": {
+        "coordinates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/vega_kt_coordinate"}},
+        "estimates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/vega_kt_bucket_estimate"}},
+        "raw_buckets": {"type": "array", "minItems": 1, "items": {"type": "number"}},
+        "covariance_layout": {"$ref": "#/$defs/vega_kt_covariance_layout"},
+        "projection": {"$ref": "#/$defs/vega_kt_projection"},
+        "residual_diagnostics": {"$ref": "#/$defs/vega_kt_residual_diagnostics"},
+        "raw_unit": {"$ref": "#/$defs/vega_kt_bucket_unit"},
+        "market_scaled_unit": {"$ref": "#/$defs/vega_kt_bucket_unit"},
+        "policy_label": {"type": "string"},
+        "truncation_order": {"type": "string"},
+        "full_bucket_covariance": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/vega_kt_covariance_entry"}}
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["covariance_layout"],
+            "properties": {"covariance_layout": {"properties": {"type": {"type": "string", "const": "full_bucket_matrix_row_major"}}}}
+          },
+          "then": {
+            "required": ["full_bucket_covariance"],
+            "properties": {"full_bucket_covariance": {}}
+          }
+        },
+        {
+          "if": {
+            "required": ["covariance_layout"],
+            "properties": {"covariance_layout": {"properties": {"type": {"type": "string", "const": "price_and_bucket_variance_only"}}}}
+          },
+          "then": {
+            "not": {
+              "required": ["full_bucket_covariance"],
+              "properties": {"full_bucket_covariance": {}}
+            }
+          }
+        }
+      ]
+    },
+    "diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["warnings"],
+      "properties": {
+        "warnings": {"type": "array", "items": {"$ref": "#/$defs/warning"}}
+      }
+    },
+    "warning": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    },
+    "estimator": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "analytical"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "pseudo_monte_carlo"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "randomized_quasi_monte_carlo"}}}
+      ]
+    },
+    "risk_unit": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "delta_raw"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "delta_one_percent_spot"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "gamma_raw"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "gamma_one_percent_spot_squared"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "vega_raw"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "vega_one_vol_point"}}}
+      ]
+    },
+    "vega_kt_covariance_layout": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "price_and_bucket_variance_only"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "full_bucket_matrix_row_major"}}}
+      ]
+    },
+    "vega_kt_bucket_unit": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "currency_per_unit_absolute_volatility"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "currency_per_volatility_point"}}}
+      ]
+    },
+    "vega_kt_coordinate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["maturity", "log_moneyness", "implied_volatility"],
+      "properties": {
+        "maturity": {"type": "number", "exclusiveMinimum": 0},
+        "log_moneyness": {"type": "number"},
+        "implied_volatility": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "vega_kt_bucket_estimate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw_mean", "market_scaled_mean"],
+      "properties": {
+        "raw_mean": {"type": "number"},
+        "market_scaled_mean": {"type": "number"},
+        "sample_variance": {"type": "number", "minimum": 0},
+        "price_covariance": {"type": "number"}
+      }
+    },
+    "vega_kt_covariance_entry": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": {"type": {"type": "string", "const": "value"}, "value": {"type": "number"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"type": "string", "const": "unavailable"}}}
+      ]
+    },
+    "vega_kt_projection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scalar_vega", "signed_residual", "pre_projection", "reporting_stats"],
+      "properties": {
+        "scalar_vega": {"type": "number"},
+        "signed_residual": {"type": "number"},
+        "pre_projection": {"type": "number"},
+        "reporting_stats": {"$ref": "#/$defs/reporting_iv_projection_stats"}
+      }
+    },
+    "vega_kt_residual_diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["active_domain_start_index", "active_domain_end_index", "active_domain_forward_index", "excluded_probability_mass", "signed_residual", "pre_projection", "reporting_stats"],
+      "properties": {
+        "active_domain_start_index": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "active_domain_end_index": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "active_domain_forward_index": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "excluded_probability_mass": {"type": "number", "minimum": 0},
+        "signed_residual": {"type": "number"},
+        "pre_projection": {"type": "number"},
+        "reporting_stats": {"$ref": "#/$defs/reporting_iv_projection_stats"}
+      }
+    },
+    "reporting_iv_projection_stats": {
+      "type": "object", "additionalProperties": false,
+      "required": ["left_edge_count", "right_edge_count", "left_edge_sensitivity", "right_edge_sensitivity"],
+      "properties": {
+        "left_edge_count": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "right_edge_count": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "left_edge_sensitivity": {"type": "number"},
+        "right_edge_sensitivity": {"type": "number"}
+      }
+    },
+    "migration_provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["original_schema_version", "current_schema_version", "migration_ids", "pre_migration_fingerprint", "post_migration_fingerprint"],
+      "properties": {
+        "original_schema_version": {"type": "integer", "minimum": 1, "maximum": 3},
+        "current_schema_version": {"type": "integer", "const": 3, "minimum": 1, "maximum": 4294967295},
+        "migration_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "pre_migration_fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"},
+        "post_migration_fingerprint": {"type": "string", "pattern": "^blake3-256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
