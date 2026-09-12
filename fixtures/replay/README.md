@@ -19,13 +19,15 @@ and compare it with the matching platform file:
   Sobol QMC.
 - `path_dependence-macos-aarch64.json` for exact and smoothed Digital, smoothed
   discrete and continuous Barrier, partially fixed Arithmetic Asian, and Fixed
-  Lookback calculations on Apple Silicon macOS. The Windows fixture is promoted only
-  after its generated CI artifact has been reviewed.
+  Lookback calculations on Apple Silicon macOS.
+- `path_dependence-windows-x86_64.json` for the same Path Dependence cases on
+  Windows x86-64 MSVC.
 - `early_exercise-macos-aarch64.json` for American Put Price-only and
   fixed-policy Delta/Gamma/Vega under Pseudo-MC and randomized Sobol QMC. Its
   complete result records the fitted policy, training and valuation domains,
-  stopping indices, and regression diagnostics. The Windows fixture is
-  promoted only after its generated CI artifact has been reviewed.
+  stopping indices, and regression diagnostics.
+- `early_exercise-windows-x86_64.json` for the same Early Exercise cases and
+  complete replay state on Windows x86-64 MSVC.
 
 The primary estimates currently match across the two platforms, while a small
 number of CRN difference diagnostics differ in low bits. They are intentionally

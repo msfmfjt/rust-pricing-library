@@ -147,11 +147,9 @@ jobs:
           python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
 
       - name: Check Path Dependence replay fixture
-        if: matrix.target == 'aarch64-apple-darwin'
         run: python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json
 
       - name: Check Early Exercise replay fixture
-        if: matrix.target == 'aarch64-apple-darwin'
         run: python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json
 
       - name: Check benchmark artifacts
