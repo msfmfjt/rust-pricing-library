@@ -3,9 +3,13 @@
 #![forbid(unsafe_code)]
 
 mod bergomi;
+pub mod hull_white;
 mod spec;
 
 pub use bergomi::{Bergomi1Factor, BergomiTransition};
+pub use hull_white::{
+    HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
+};
 
 pub use spec::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,

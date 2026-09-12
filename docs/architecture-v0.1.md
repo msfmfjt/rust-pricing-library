@@ -873,6 +873,13 @@ report integration remain acceptance work; see the
 [LSV roadmap](lsv-roadmap-v0.1.md) and
 [coordinate contracts](lsv-numerical-contracts-v0.1.md).
 
+The experimental equity/Hull–White extension adds the rate/integral kernel in
+`pricing-models`, joint simulation and discounted LSV calibration in
+`pricing-mc`, and a separate price-only Rust/Python plan boundary. It does not
+change the dependency direction or stable JSON model variants. See
+[ADR 0001](adr/0001-hull-white-equity-hybrid.md) and the
+[HW numerical contracts](hull-white-numerical-contracts-v0.1.md).
+
 ### 12.5 Gamma
 
 Gamma is orchestrated by `pricing-risk`, not by a second-order global tape. The risk engine performs two AAD Delta calculations at \(S_0-h\) and \(S_0+h\), using common random coordinates and the selected Sticky log-moneyness, Sticky strike, or Sticky delta adapter.
