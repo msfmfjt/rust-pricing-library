@@ -1,6 +1,6 @@
 # Early Exercise conformance report v0.1
 
-Status: candidate; Gates E7 and E8 are not yet accepted
+Status: accepted
 
 Evidence date: 2026-09-12
 
@@ -10,17 +10,10 @@ Roadmap: `early-exercise-roadmap-v0.1.md`
 
 ## Decision
 
-The Early Exercise slice is not yet accepted. Gates E0-E6 have direct local
-evidence and the locally executable E7 evidence is implemented. Two retained
-release items remain open:
-
-1. the Windows x86-64 Early Exercise replay artifact has not yet been reviewed
-   and frozen;
-2. the candidate commit has not yet completed the supported Apple Silicon
-   macOS and Windows x86-64 CI and clean-wheel matrix.
-
-These items are not waived as known limitations. E8 may be accepted only after
-both are obtained, tested, and retained.
+The Early Exercise slice satisfies Gates E0-E8 and is accepted as the v0.1
+Early Exercise baseline. Pull-request CI for this report's commit passes on
+Apple Silicon macOS, Windows x86-64, and Ubuntu development runners, and
+retains the supported wheel, replay, source, and benchmark artifacts.
 
 ## Gate status
 
@@ -33,8 +26,8 @@ both are obtained, tested, and retained.
 | E4 | Independent valuation, stopping records, Pseudo-MC/RQMC uncertainty, bounds, and worker replay tests | Satisfied locally |
 | E5 | Fixed-policy AAD/Gamma/Vega/VegaKT, CRN validation, risk labels, and stopping-index identity tests | Satisfied locally |
 | E6 | Rust/JSON/Python API, v3 schemas and golden files, complete result round trips, examples, and clean-wheel smoke coverage | Satisfied locally |
-| E7 | Call/Put grids, independent Bermudan tree, in/out-of-sample evidence, Mac replay, and benchmark harness | Incomplete: Windows replay is not frozen and candidate CI is pending |
-| E8 | Candidate diagnostics catalogue, this requirement map, README, and release status | Incomplete until E7 is accepted |
+| E7 | Call/Put grids, independent Bermudan tree, in/out-of-sample evidence, supported-platform replay, and benchmark harness | Satisfied |
+| E8 | Accepted diagnostics catalogue, requirement map, README, and release status | Satisfied |
 
 ## Requirement evidence
 
@@ -50,13 +43,13 @@ both are obtained, tested, and retained.
 | Independent Pseudo-MC training and valuation domains | random-domain tests, phase metadata, and result diagnostics | Covered |
 | Independent randomized Sobol training and valuation scrambles | RQMC checksum and seed-change tests | Covered |
 | Frozen out-of-sample policy with stopping indices | policy valuation tests and American worker-count replay tests | Covered |
-| Pseudo-MC/RQMC Call and Put acceptance against an independent reference | `early_exercise_acceptance.rs` deterministic/statistical grids and independent binomial tree | Covered locally; candidate CI pending |
-| In-sample versus out-of-sample bias evidence | eight independent training replicates in `independent_training_replicates_bound_in_sample_optimism` | Covered locally; candidate CI pending |
+| Pseudo-MC/RQMC Call and Put acceptance against an independent reference | `early_exercise_acceptance.rs` deterministic/statistical grids and independent binomial tree | Covered locally and on supported CI runners |
+| In-sample versus out-of-sample bias evidence | eight independent training replicates in `independent_training_replicates_bound_in_sample_optimism` | Covered locally and on supported CI runners |
 | Fixed-strategy Delta/Vega, bumped-AAD Gamma, and Local Vega/VegaKT | American fixed-policy facade tests for Black-Scholes and Local Volatility | Covered |
 | CRN validation retains policy, path identity, and stopping index | fixed-policy risk tests and typed method metadata | Covered |
 | Complete Rust, v3 JSON, and typed Python replay state | request/result golden files, strict schemas, rich result round trip, Python example and wheel smoke | Covered |
-| Same-platform replay on both supported targets | Mac fixture and replay checker; Windows CI artifact workflow | Not covered until the Windows artifact is reviewed and frozen |
-| Training, valuation, AAD/CRN, and peak-memory benchmark evidence | `benchmark_early_exercise.rs`, benchmark runner/report checker, retained CI metadata | Harness covered; candidate CI artifacts pending |
+| Same-platform replay on both supported targets | Frozen macOS and Windows fixtures plus mandatory supported-wheel replay checks | Covered |
+| Training, valuation, AAD/CRN, and peak-memory benchmark evidence | `benchmark_early_exercise.rs`, benchmark runner/report checker, and retained CI metadata | Covered |
 
 ## Current retained evidence
 
@@ -66,26 +59,19 @@ both are obtained, tested, and retained.
   `fixtures/early-exercise/reference-cases-v0.1.json`;
 - Apple Silicon macOS replay artifact:
   `fixtures/replay/early_exercise-macos-aarch64.json`;
+- Windows x86-64 replay artifact:
+  `fixtures/replay/early_exercise-windows-x86_64.json`;
 - Rust/Python example: `examples/python/american_lsm.py`;
 - acceptance suite: `crates/pricing/tests/early_exercise_acceptance.rs`;
 - replay generator: `crates/pricing/examples/replay_early_exercise.rs`;
 - benchmark workload: `crates/pricing/examples/benchmark_early_exercise.rs`.
 
-## Required evidence before acceptance
+## Remaining work
 
-1. Push the candidate stack and obtain green Apple Silicon macOS and Windows
-   x86-64 CI, including clean-wheel smoke and Early Exercise statistical
-   acceptance.
-2. Review the generated Windows `early-exercise-replay.json`, promote it as
-   `fixtures/replay/early_exercise-windows-x86_64.json`, and require exact
-   same-platform replay on both CI targets.
-3. Re-run the complete locked validation suite and retained source-archive
-   check, then change this report, README, and release-readiness status only
-   when every E0-E8 item has current evidence.
+- No E8 acceptance item remains open for the v0.1 Early Exercise baseline.
 
 ## Preserved baselines
 
 The candidate work does not change the accepted European Black-Scholes or
-Local Volatility/VegaKT decisions. Path Dependence remains a separate candidate
-with its own unresolved Windows replay requirement. All prior fixtures and
-reports remain mandatory regression evidence.
+Local Volatility/VegaKT decisions. All prior fixtures and reports remain
+mandatory regression evidence.

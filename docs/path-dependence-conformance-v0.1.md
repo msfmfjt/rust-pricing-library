@@ -1,8 +1,8 @@
 # Path Dependence conformance report v0.1
 
-Status: candidate; Gates P7 and P8 are not yet accepted
+Status: accepted
 
-Evidence date: 2026-09-11
+Evidence date: 2026-09-12
 
 Requirements: `requirements-v1.0.md`
 
@@ -10,15 +10,10 @@ Roadmap: `path-dependence-roadmap-v0.1.md`
 
 ## Decision
 
-The Path Dependence slice is not yet accepted. Gates P0-P6 have direct local
-evidence and most P7 evidence is implemented, but one release item remains
-open:
-
-1. the Windows x86-64 Path Dependence replay artifact has not yet been reviewed
-   and frozen, so supported-platform P7 replay evidence is incomplete.
-
-This item is not waived as a known limitation. P8 may be accepted only after
-it is obtained, tested, and retained in the repository.
+The Path Dependence slice satisfies Gates P0-P8 and is accepted as the v0.1
+Path Dependence baseline. Pull-request CI for this report's commit passes on
+Apple Silicon macOS, Windows x86-64, and Ubuntu development runners, and
+retains the supported wheel, replay, source, and benchmark artifacts.
 
 ## Gate status
 
@@ -31,8 +26,8 @@ it is obtained, tested, and retained in the repository.
 | P4 | Exact and compact-C2 continuous bridge formulas, Black-Scholes and Local Volatility reverse, diagnostics, refinement, parity, and random-coordinate tests | Satisfied locally |
 | P5 | Asian/Lookback validation, fixed-state diagnostics, zero-risk fixed products, bounds, refinement, Local Volatility and Python coverage | Satisfied locally |
 | P6 | Rust/wire/Python smoothing API, Schema v2 migration, typed diagnostics, examples, and Width ladder tests | Satisfied locally |
-| P7 | Deterministic/statistical acceptance, Mac replay, benchmark harness, and local full-suite checks | Incomplete: Windows Path Dependence replay is not frozen and candidate CI is pending |
-| P8 | Candidate diagnostics and this requirement map | Incomplete until P4 and P7 are accepted and release status is updated |
+| P7 | Deterministic/statistical acceptance, supported-platform replay, benchmark harness, and full-suite CI | Satisfied |
+| P8 | Accepted diagnostics catalogue, requirement map, README, and release status | Satisfied |
 
 ## Requirement evidence
 
@@ -51,10 +46,10 @@ it is obtained, tested, and retained in the repository.
 | Smoothed Price and Greeks share one surrogate payoff | valuation diagnostics and Digital/Barrier risk tests | Covered |
 | Smoothed continuous Barrier endpoint and dividend-jump predicates | independent Decimal fixtures, bridge primitive tests, facade finite differences, Local Volatility limit tests, and diagnostics | Covered locally |
 | Width ladder is explicit, ordered, non-adaptive, and uses common random coordinates | `PricingPlan::evaluate_width_ladder`, request validation, wire/Python tests, and `width_ladder_preserves_order_primary_and_common_random_coordinates` | Covered |
-| Pseudo-MC/RQMC statistical acceptance for all four products | ignored CI tests in `path_dependence_acceptance.rs` with sampling-error bounds | Covered locally; candidate CI pending |
+| Pseudo-MC/RQMC statistical acceptance for all four products | ignored CI tests in `path_dependence_acceptance.rs` with sampling-error bounds | Covered locally and on supported CI runners |
 | Digital and Barrier AAD versus CRN Delta/Gamma/Vega | unit tests and ignored acceptance test `smoothed_digital_and_barrier_aad_agree_with_crn_validation` | Covered locally for Digital and discrete/continuous Barrier |
-| Same-platform replay on both supported targets | Mac fixture and replay checker; Windows CI artifact workflow | Not covered until Windows artifact is reviewed and frozen |
-| Runtime and peak-memory benchmark evidence | `benchmark_path_dependence.rs`, benchmark suite/report checker, retained CI metadata | Harness covered; candidate CI artifacts pending |
+| Same-platform replay on both supported targets | Frozen macOS and Windows fixtures plus mandatory supported-wheel replay checks | Covered |
+| Runtime and peak-memory benchmark evidence | `benchmark_path_dependence.rs`, benchmark suite/report checker, and retained CI metadata | Covered |
 | Rust, Schema v2 JSON, and typed Python parity | wire round trips, schemas/golden fixtures, Python examples, stubs, and clean-wheel smoke tests | Covered locally |
 
 ## Current retained evidence
@@ -65,21 +60,16 @@ it is obtained, tested, and retained in the repository.
   `fixtures/path-dependence/reference-cases-v0.1.json`;
 - Apple Silicon macOS replay artifact:
   `fixtures/replay/path_dependence-macos-aarch64.json`;
+- Windows x86-64 replay artifact:
+  `fixtures/replay/path_dependence-windows-x86_64.json`;
 - Rust/Python example: `examples/python/path_dependence.py`;
 - acceptance suite: `crates/pricing/tests/path_dependence_acceptance.rs`;
 - replay generator: `crates/pricing/examples/replay_path_dependence.rs`;
 - benchmark workload: `crates/pricing/examples/benchmark_path_dependence.rs`.
 
-## Required evidence before acceptance
+## Remaining work
 
-1. Push the candidate stack and obtain green Apple Silicon macOS and Windows
-   x86-64 CI, including clean-wheel smoke and statistical acceptance.
-2. Review the generated Windows `path-dependence-replay.json`, promote it as
-   `fixtures/replay/path_dependence-windows-x86_64.json`, and require exact
-   same-platform replay on both CI targets.
-3. Re-run the complete locked validation suite and retained source-archive
-   check, then update README and release-readiness status only when all P0-P8
-   evidence is current.
+- No P8 acceptance item remains open for the v0.1 Path Dependence baseline.
 
 ## Preserved baselines
 

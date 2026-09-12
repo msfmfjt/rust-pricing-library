@@ -32,10 +32,10 @@ Passing these checks establishes that the commit is ready for private artifact
 retention on the supported CI platforms. It does not resolve publication,
 licensing, or access-control decisions.
 
-The Early Exercise implementation has local E0-E6 evidence and an E7/E8
-candidate baseline. Final acceptance still requires green supported-platform
-CI and review and freezing of the generated Windows x86-64 Early Exercise
-replay artifact, as recorded in `early-exercise-conformance-v0.1.md`.
+Path Dependence and Early Exercise have completed their P0-P8 and E0-E8 gates.
+Their supported Apple Silicon macOS and Windows x86-64 replay fixtures are
+frozen, and the latest pull-request CI for this status passes the complete
+Rust, Python wheel, statistical acceptance, replay, and benchmark matrix.
 
 Before any public publication, the following non-code decisions must be resolved
 outside the repository:

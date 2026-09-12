@@ -60,18 +60,15 @@ stable numerical-branch counts.
 
 The European Black–Scholes vertical slice has completed Gates G0–G8 and is the accepted baseline for the Local Volatility/VegaKT stage. Local Volatility/VegaKT has completed Gates L0–L8 and is accepted with exact SSVI/eSSVI, Dupire Local variance, non-uniform interpolation, Log-Euler Local Volatility simulation, Local Volatility Price/Delta/Gamma/Vega/VegaKT MC/RQMC evaluation, Local Vega/VegaKT operators, affine dividends, public Rust/JSON/Python request surfaces, independently checked equation fixtures, same-platform replay fixtures on Apple Silicon macOS and Windows x86-64, and retained benchmark artifacts. The accepted baseline supports deterministic Pseudo-MC and randomized Sobol QMC Price and Greeks, including independent-scramble uncertainty and a non-uniform Brownian-bridge plan. Stable Rust and typed PyO3 request/plan/result facades are available, including immutable diagnostics and warnings. CI builds, installs, smoke-tests, benchmarks, and replay-checks private wheels on Apple Silicon macOS and Windows x86-64.
 
-Path Dependence Gates P0-P6 are satisfied locally. The P7/P8 candidate includes
-deterministic and statistical acceptance, compact-C2 continuous Barrier
-smoothing, Apple Silicon replay, benchmark coverage, and Rust/Python
-conformance evidence. Acceptance remains pending until candidate CI passes and
-the generated Windows x86-64 replay artifact is reviewed and frozen.
+Path Dependence has completed Gates P0-P8 and is accepted with deterministic
+and statistical acceptance, compact-C2 continuous Barrier smoothing,
+same-platform replay on Apple Silicon macOS and Windows x86-64, benchmark
+coverage, and Rust/JSON/Python conformance evidence.
 
-Early Exercise Gates E0-E6 are satisfied locally. The E7 candidate now includes
-deterministic and statistical American Call/Put acceptance, independent
-Bermudan-tree and in/out-of-sample evidence, Apple Silicon replay, and
-training/valuation/fixed-policy-risk benchmark workloads. Supported-platform
-acceptance remains pending until candidate CI passes and the generated Windows
-x86-64 replay artifact is reviewed and frozen.
+Early Exercise has completed Gates E0-E8 and is accepted with deterministic
+and statistical American Call/Put acceptance, independent Bermudan-tree and
+in/out-of-sample evidence, same-platform replay on Apple Silicon macOS and
+Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 

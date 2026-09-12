@@ -1,6 +1,6 @@
 # Early Exercise diagnostics catalogue v0.1
 
-Status: candidate catalogue; Gate E8 is not accepted
+Status: accepted catalogue
 
 Requirements: `requirements-v1.0.md`
 
