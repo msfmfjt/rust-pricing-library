@@ -48,6 +48,11 @@ stable numerical-branch counts.
 - [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
 - [Path Dependence implementation roadmap](docs/path-dependence-roadmap-v0.1.md)
 - [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
+- [LSV extension and implementation status](docs/lsv-roadmap-v0.1.md)
+- [LSV numerical contracts](docs/lsv-numerical-contracts-v0.1.md)
+- [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
+- [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
+- [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
 - [Early Exercise implementation roadmap](docs/early-exercise-roadmap-v0.1.md)
@@ -72,6 +77,48 @@ Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 
+An experimental one-factor Bergomi LSV extension is available through Rust
+`pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan`. It calibrates
+an existing Local Volatility target with particles, prices with independent
+MC/RQMC paths, and differentiates the finite calibration to effective Dupire
+Local-variance nodes. It reuses the existing payoff graphs and affine dividends.
+Market-IV VegaKT and sticky-smile Spot Greeks are not enabled at this boundary.
+See the [LSV example](examples/python/bergomi_lsv.py) and
+[acceptance roadmap](docs/lsv-roadmap-v0.1.md).
+
+Experimental one-currency stochastic-rate pricing is available through Rust
+`HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
+one-factor Hull–White with BS or particle-recalibrated Bergomi LSV, including
+equity/rate correlation, stochastic discounting, proportional dividends and
+payment lags. Fixed and mixed cash/proportional payouts are available through
+the explicit `cash_dividend_model="escrowed"` option, with stochastic bond
+reserves and a quadratic LSV calibration. Explicit `evaluate_aad()` returns Spot
+Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
+adjoints. Targets built with `HullWhiteLsvTarget.from_market_iv` additionally
+return quote-node VegaKT, market scaling and a parallel IV Vega, reversing both
+variance and density through explicit cubic/time interpolation. Cash-mode quotes
+refer to the converted escrow F coordinate. See the
+[VegaKT contracts](docs/hull-white-vegakt-v0.1.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
+payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md),
+[cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
+[example](examples/python/hull_white_lsv.py) and
+[numerical contracts](docs/hull-white-numerical-contracts-v0.1.md).
+
+The same engine now supports experimental rough Bergomi and particle-calibrated
+rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
+`RoughBergomiModel`. A nonuniform Volterra hybrid scheme connects the rough
+driver to Hull–White, escrowed cash dividends, first-order AAD and quote-node
+VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
+target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
+per path. See the [example](examples/python/rough_bergomi.py) and
+[numerical/API contracts](docs/rough-bergomi-v0.1.md).
+
+The experimental LSV/Hull–White adapters reject American exercise,
+continuous Barrier monitoring and smoothing-width ladders; these features
+remain available through the general BS/Local Volatility facade. The
+[integration decision](docs/adr/0006-integrate-completed-baseline.md) records
+the shared observation and schema boundaries.
+
 | Crate | Responsibility |
 | --- | --- |
 | `pricing-core` | Fundamental IDs, dates, errors, configuration, and result primitives |
@@ -79,7 +126,7 @@ Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 | `pricing-aad` | Simulation reverse-mode and adjoint execution infrastructure |
 | `pricing-market` | Curves, dividends, implied/local-volatility market objects |
 | `pricing-product` | Built-in products and compiled Event/Payoff graphs |
-| `pricing-models` | Black–Scholes, Black-76, and Local Volatility kernels |
+| `pricing-models` | Black–Scholes, Black-76, Local Volatility, Bergomi, rough Bergomi and Hull–White kernels |
 | `pricing-mc` | MC/QMC simulation, path execution, and LSM |
 | `pricing-risk` | AAD orchestration, bump validation, and VegaKT |
 | `pricing` | Stable public Rust facade |

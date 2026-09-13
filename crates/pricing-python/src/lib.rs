@@ -4,6 +4,8 @@
 
 mod builders;
 mod diagnostics;
+mod hull_white;
+mod lsv;
 
 use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
@@ -1215,6 +1217,15 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<lsv::PyBergomiLsvPlan>()?;
+    module.add_class::<lsv::PyLsvPrice>()?;
+    module.add_class::<lsv::PyLsvLocalVarianceRisk>()?;
+    module.add_class::<hull_white::PyRoughBergomiModel>()?;
+    module.add_class::<hull_white::PyHullWhiteModel>()?;
+    module.add_class::<hull_white::PyHullWhiteLsvTarget>()?;
+    module.add_class::<hull_white::PyHullWhiteEquityPlan>()?;
+    module.add_class::<hull_white::PyHullWhitePrice>()?;
+    module.add_class::<hull_white::PyHullWhiteAadRisk>()?;
     module.add_class::<PyWidthLadderDifference>()?;
     module.add_class::<PyWidthLadderEntry>()?;
     module.add_class::<PyWidthLadderResult>()?;

@@ -1904,6 +1904,10 @@ enum RandomDomainV3 {
     LsmTrain,
     RqmcScramble,
     Diagnostics,
+    // The experimental calibration stream has no schema-v3 representation.
+    // Serde returns an error if a mutated result tries to serialize it.
+    #[serde(skip)]
+    LsvCalibration,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2461,6 +2465,7 @@ impl From<RandomDomain> for RandomDomainV3 {
             RandomDomain::LsmTrain => Self::LsmTrain,
             RandomDomain::RqmcScramble => Self::RqmcScramble,
             RandomDomain::Diagnostics => Self::Diagnostics,
+            RandomDomain::LsvCalibration => Self::LsvCalibration,
         }
     }
 }
@@ -3665,6 +3670,7 @@ impl From<RandomDomainV3> for RandomDomain {
             RandomDomainV3::LsmTrain => Self::LsmTrain,
             RandomDomainV3::RqmcScramble => Self::RqmcScramble,
             RandomDomainV3::Diagnostics => Self::Diagnostics,
+            RandomDomainV3::LsvCalibration => Self::LsvCalibration,
         }
     }
 }
@@ -5714,6 +5720,22 @@ mod tests {
             parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("round trip"),
             result
         );
+    }
+
+    #[test]
+    fn schema_v3_rejects_experimental_calibration_domain_on_write() {
+        let mut result = parse_monte_carlo_result_json(
+            include_bytes!("../../../fixtures/v3/pricing_result_american.golden.json"),
+            JsonLimits::DEFAULT,
+        )
+        .expect("accepted American replay fixture");
+        result
+            .early_exercise_diagnostics
+            .as_mut()
+            .expect("LSM diagnostics")
+            .training_random_domain = RandomDomain::LsvCalibration;
+        assert!(monte_carlo_result_to_json(&result).is_err());
+        assert!(monte_carlo_result_to_pretty_json(&result).is_err());
     }
 
     #[test]

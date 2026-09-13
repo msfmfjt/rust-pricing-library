@@ -7,8 +7,10 @@ mod bridge;
 mod config;
 mod error;
 mod execution;
+pub mod hull_white;
 mod local_vol;
 mod lsm;
+pub mod lsv;
 mod qmc;
 mod random;
 

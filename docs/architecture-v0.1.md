@@ -884,7 +884,19 @@ pub struct VegaKtReport {
 
 `buckets` and `scalar_vega` are in the marked `f`-IV quote space. Bucket metadata may include `K_S=A*S0+B*K_f` for contract interpretation, but the numerical sensitivity remains unchanged and no Spot-IV inversion or Vega-ratio transformation is performed.
 
-The LSV extension will provide a different Local/Leverage Vega producer and calibration mapping while retaining the report type and validation interface.
+The LSV extension provides a separate experimental Local/Leverage risk producer
+and a discrete particle-calibration VJP. Its current result is sensitivity to
+effective Dupire variance nodes. The market-IV projection and stable VegaKT
+report integration remain acceptance work; see the
+[LSV roadmap](lsv-roadmap-v0.1.md) and
+[coordinate contracts](lsv-numerical-contracts-v0.1.md).
+
+The experimental equity/Hull–White extension adds the rate/integral kernel in
+`pricing-models`, joint simulation and discounted LSV calibration in
+`pricing-mc`, and a separate price-only Rust/Python plan boundary. It does not
+change the dependency direction or stable JSON model variants. See
+[ADR 0001](adr/0001-hull-white-equity-hybrid.md) and the
+[HW numerical contracts](hull-white-numerical-contracts-v0.1.md).
 
 ### 12.5 Gamma
 

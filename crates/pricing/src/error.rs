@@ -269,6 +269,8 @@ pub enum MonteCarloError {
     },
     Market(MarketError),
     LocalVol(LocalVolError),
+    Lsv(pricing_mc::lsv::LsvError),
+    HullWhite(pricing_mc::hull_white::HullWhiteMcError),
     Graph(GraphError),
     ExecutorBuild(ExecutorBuildError),
     Execution(ExecutionError),
@@ -289,6 +291,23 @@ impl From<MarketError> for MonteCarloError {
 impl From<LocalVolError> for MonteCarloError {
     fn from(error: LocalVolError) -> Self {
         Self::LocalVol(error)
+    }
+}
+
+impl From<pricing_mc::lsv::LsvError> for MonteCarloError {
+    fn from(error: pricing_mc::lsv::LsvError) -> Self {
+        Self::Lsv(error)
+    }
+}
+
+impl From<pricing_mc::hull_white::HullWhiteMcError> for MonteCarloError {
+    fn from(error: pricing_mc::hull_white::HullWhiteMcError) -> Self {
+        Self::HullWhite(error)
+    }
+}
+impl From<pricing_models::HullWhiteError> for MonteCarloError {
+    fn from(error: pricing_models::HullWhiteError) -> Self {
+        Self::HullWhite(error.into())
     }
 }
 
@@ -425,6 +444,8 @@ impl fmt::Display for MonteCarloError {
             ),
             Self::Market(error) => error.fmt(formatter),
             Self::LocalVol(error) => error.fmt(formatter),
+            Self::Lsv(error) => error.fmt(formatter),
+            Self::HullWhite(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),
             Self::ExecutorBuild(error) => error.fmt(formatter),
             Self::Execution(error) => error.fmt(formatter),
@@ -443,6 +464,8 @@ impl Error for MonteCarloError {
         match self {
             Self::Market(error) => Some(error),
             Self::LocalVol(error) => Some(error),
+            Self::Lsv(error) => Some(error),
+            Self::HullWhite(error) => Some(error),
             Self::BarrierBridge(error) => Some(error),
             Self::Graph(error) => Some(error),
             Self::ExecutorBuild(error) => Some(error),

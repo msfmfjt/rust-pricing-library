@@ -1049,6 +1049,7 @@ const fn random_domain_name(domain: RandomDomain) -> &'static str {
         RandomDomain::LsmTrain => "lsm_train",
         RandomDomain::RqmcScramble => "rqmc_scramble",
         RandomDomain::Diagnostics => "diagnostics",
+        RandomDomain::LsvCalibration => "lsv_calibration",
     }
 }
 
