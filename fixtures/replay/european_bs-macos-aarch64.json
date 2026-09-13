@@ -87,9 +87,9 @@
       },
       "name": "pseudo_mc_full_risk",
       "plan": {
-        "plan_fingerprint": "blake3-256:8cb517b71bbf4487dd7fa5682a1904a040fc6dae11c234e8b8dfe01e2cc7bfa1",
+        "plan_fingerprint": "blake3-256:e8576e15db5ac6e5f03b849062d1d557aac6eea38420fa8cef545786759b486f",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:410398465e4284544fcf620b17a26bd7dafcbbd45daca9ed9e6e1fedb26691c4",
+        "request_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a",
         "worker_threads": 2
       },
       "request": {
@@ -161,7 +161,7 @@
           },
           "vega": true
         },
-        "schema_version": 1,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -171,9 +171,16 @@
         "document_kind": "pricing_result",
         "replay": {
           "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a",
+            "pre_migration_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a"
+          },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:410398465e4284544fcf620b17a26bd7dafcbbd45daca9ed9e6e1fedb26691c4",
-          "schema_version": 1
+          "request_fingerprint": "blake3-256:490a95c197da2daa96101e67a0d12e51b7efdd8cbb5fb010501b355ff7e55d3a",
+          "schema_version": 3
         },
         "risks": {
           "delta": {
@@ -261,10 +268,10 @@
             }
           }
         },
-        "schema_version": 1,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.105148874063802,
-          "confidence_upper": 9.389679102747571,
+          "confidence_upper": 9.389679102747573,
           "effective_sampling_units": 10003,
           "estimator": {
             "type": "pseudo_monte_carlo"
@@ -361,9 +368,9 @@
       },
       "name": "rqmc_full_risk",
       "plan": {
-        "plan_fingerprint": "blake3-256:f7323b4ad57fe07ddf40b5c690e0018e88fdbf74430dc6ed357d8f5be9da8c1b",
+        "plan_fingerprint": "blake3-256:88e7642b5e234938642f55bfefaf0784304bd4339383ffacc21bc88f71525132",
         "reduction_block_size": 256,
-        "request_fingerprint": "blake3-256:9885c901e78bda6fd4f8e80f0d67951d87b92bc9444a6a3ac31ee261ad7d90c0",
+        "request_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d",
         "worker_threads": 2
       },
       "request": {
@@ -436,7 +443,7 @@
           },
           "vega": true
         },
-        "schema_version": 1,
+        "schema_version": 3,
         "valuation_date": "2026-09-04"
       },
       "result": {
@@ -446,9 +453,16 @@
         "document_kind": "pricing_result",
         "replay": {
           "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d",
+            "pre_migration_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d"
+          },
           "platform": "macos-aarch64",
-          "request_fingerprint": "blake3-256:9885c901e78bda6fd4f8e80f0d67951d87b92bc9444a6a3ac31ee261ad7d90c0",
-          "schema_version": 1
+          "request_fingerprint": "blake3-256:b9847ecda3d30cae87ceb46d0aef974e12ff66460a254bc17ddb99e3c4ed138d",
+          "schema_version": 3
         },
         "risks": {
           "delta": {
@@ -488,7 +502,7 @@
                 "type": "randomized_quasi_monte_carlo"
               },
               "standard_error": 0.00005051687606507074,
-              "value": 0.01888568501657452
+              "value": 0.018885685016574522
             },
             "market_scaled_unit": {
               "type": "gamma_one_percent_spot_squared"
@@ -501,7 +515,7 @@
                 "type": "randomized_quasi_monte_carlo"
               },
               "standard_error": 0.00005051687606507074,
-              "value": 0.01888568501657452
+              "value": 0.018885685016574522
             },
             "raw_unit": {
               "type": "gamma_raw"
@@ -528,7 +542,7 @@
               "estimator": {
                 "type": "randomized_quasi_monte_carlo"
               },
-              "standard_error": 0.020497176439694138,
+              "standard_error": 0.020497176439694134,
               "value": 37.9116018204417
             },
             "raw_unit": {
@@ -536,7 +550,7 @@
             }
           }
         },
-        "schema_version": 1,
+        "schema_version": 3,
         "value": {
           "confidence_lower": 9.223899491264342,
           "confidence_upper": 9.232856435173924,
@@ -545,7 +559,7 @@
             "type": "randomized_quasi_monte_carlo"
           },
           "standard_error": 0.0022849766577940555,
-          "value": 9.228377963219131
+          "value": 9.228377963219133
         }
       }
     }

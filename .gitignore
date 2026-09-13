@@ -1,7 +1,10 @@
 /target/
 /.venv/
+/.wheel-smoke-venv/
 /dist/
 /wheelhouse/
+/benchmark-results/
+/uv.lock
 *.egg-info/
 __pycache__/
 *.py[cod]

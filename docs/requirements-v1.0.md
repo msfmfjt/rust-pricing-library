@@ -136,7 +136,12 @@ Within that common range, the helper shall generate a non-uniform horizontal gri
 
 The Local-variance floor and cap shall be mandatory values in every Local Vol calculation configuration. The MVP shall not silently supply library-wide or surface-wide defaults. Validation shall require finite values satisfying `0 < floor <= cap`.
 
-The precise admissibility tolerances, eSSVI terminal forward-variance slope configuration, and quantitative defaults for the two tail probabilities, two paddings, side-specific node counts, and piecewise-sinh shape parameters remain to be specified. These policies must be replaceable rather than embedded in the pricing engine.
+The precise admissibility tolerances, eSSVI terminal forward-variance slope
+configuration, and quantitative helper parameters for the two tail
+probabilities, two paddings, side-specific node counts, and piecewise-sinh
+shape are fixed for v0.1 in
+`local-vol-vegakt-numerical-contracts-v0.1.md`. These policies remain
+replaceable rather than embedded in the pricing engine.
 
 ### 3.2 Dates, curves, and dividends
 
@@ -962,7 +967,11 @@ It shall cover:
 8. comparison with the analytical Black–Scholes price and Greeks;
 9. deterministic replay for a fixed complete configuration.
 
-The subsequent vertical slice shall add calibrated SSVI/eSSVI input, Dupire Local Volatility construction, and VegaKT decomposition before expanding to all path-dependent and multi-asset products.
+The subsequent Local Volatility/VegaKT vertical slice adds calibrated
+SSVI/eSSVI input, Dupire Local Volatility construction, and VegaKT
+decomposition before expansion to the remaining path-dependent and multi-asset
+products. Its v0.1 acceptance evidence is recorded in
+`local-vol-vegakt-conformance-v0.1.md`.
 
 ### 13.1 VegaKT acceptance criteria
 
@@ -979,7 +988,11 @@ Acceptance additionally requires conservation checks for the hat-kernel projecti
 
 ## 14. Proposed delivery stages
 
-The European Black–Scholes stage is committed through `european-bs-roadmap-v0.1.md`. Later stages remain sequencing recommendations until their own implementation roadmaps are accepted.
+The European Black-Scholes stage is committed through
+`european-bs-roadmap-v0.1.md`. The Local Volatility/VegaKT stage is committed
+through `local-vol-vegakt-roadmap-v0.1.md` and accepted in
+`local-vol-vegakt-conformance-v0.1.md`. Later stages remain sequencing
+recommendations until their own implementation roadmaps are accepted.
 
 1. **Foundation:** numerical types, market objects, product/model/engine interfaces, result diagnostics, Python packaging.
 2. **European Black–Scholes slice:** MC/QMC, analytical benchmark, AAD and bump Greeks.
@@ -991,22 +1004,18 @@ The European Black–Scholes stage is committed through `european-bs-roadmap-v0.
 
 ## 15. Architecture and numerical-specification decisions
 
-The following choices do not change the agreed product scope or externally observable requirements, but must be fixed and documented during architecture and detailed numerical design:
+The following choices do not change the agreed product scope or externally
+observable requirements. Decisions needed by the accepted European
+Black-Scholes and Local Volatility/VegaKT baselines are recorded in
+`architecture-v0.1.md`,
+`local-vol-vegakt-numerical-contracts-v0.1.md`, and the conformance reports.
+Choices for future product slices remain open until their own roadmap or ADR is
+accepted:
 
 - settlement-lag representation used by schedule generation;
-- precise Standard SSVI and eSSVI formulas and admissibility constraints;
-- SSVI/eSSVI admissibility tolerances, eSSVI terminal-slope configuration, and quantitative Local-grid helper parameters;
-- numerical defaults for VegaKT maturity-grid helper generation and the active-domain density threshold;
-- exact Dupire discretization and stabilization policy;
-- Local-variance floor/cap values and warning thresholds;
-- Local Volatility time-step convergence protocol and recommended helper values;
 - Local Volatility Brownian-bridge interval-variance approximation;
 - extension policy for double/window barriers and hit-time-paid rebates;
-- exact numerical defaults for checkpoint interval and AAD tile capacity;
-- precise non-uniform-grid hat-kernel normalization and analytic formulas or controlled numerical method for transition-cell integrals;
 - precise smoothing-width interpretation and fixed widths by discontinuity type;
-- supported Rust toolchain and Python versions/ABI;
-- serialization format for calculation configurations and results;
 - private artifact repository and internal licensing terms.
 
 ## 16. MVP acceptance summary

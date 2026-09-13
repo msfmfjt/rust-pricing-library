@@ -4,16 +4,23 @@
 
 mod context;
 mod curve;
+mod dividend;
 mod error;
 mod essvi;
 mod forward;
 mod local_variance;
+mod market_iv;
 mod pchip;
 mod ssvi;
 
 pub use context::{EquityMarket, MarketContext};
 pub use curve::{
     CurveEvaluation, CurveExtrapolationStats, CurveRegion, DiscountCurve, LogLinearDiscountCurve,
+};
+pub use dividend::{
+    AffineDividendCoordinate, AffineDividendTimelineEntry, AffineDividendTransform,
+    CompiledDividendEvent, DIVIDEND_EVENT_ORDER, DividendEvent, DividendMatchingTolerance,
+    DividendQuote, validate_dividend_call_price_matching,
 };
 pub use error::MarketError;
 pub use essvi::{EssviParameters, EssviSlice, EssviSurface};
@@ -24,6 +31,7 @@ pub use local_variance::{
     LocalVarianceRepairReason, piecewise_sinh_log_moneyness_nodes,
     suggest_log_moneyness_nodes_from_density,
 };
+pub use market_iv::{MARKET_IV_INTERPOLATION, MarketIvSurface};
 pub use pchip::{ThetaEvaluation, ThetaPchip, ThetaRegion};
 pub use ssvi::{
     ForwardCallEvaluation, ImpliedVarianceSurface, PhiEvaluation, PhiSpec, StandardSsvi,

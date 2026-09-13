@@ -227,6 +227,7 @@ fn estimator_name(value: pricing::EstimatorKind) -> &'static str {
 fn risk_method_name(value: RiskMethod) -> &'static str {
     match value {
         RiskMethod::AadReverse => "aad_reverse",
+        RiskMethod::CentralBump => "central_bump",
         RiskMethod::CentralBumpOfAadDelta => "central_bump_of_aad_delta",
     }
 }
