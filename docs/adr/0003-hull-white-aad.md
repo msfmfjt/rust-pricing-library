@@ -1,6 +1,7 @@
 # First-order AAD for the equity/Hull–White hybrid
 
 Date: 2026-09-13. Status: experimental implementation decision.
+The market-IV boundary below is extended by [ADR 0004](0004-hull-white-vegakt.md).
 
 The user requested AAD after the stochastic-rate and escrowed-dividend extensions.
 The deterministic-rate LSV reverse omits discounted calibration, stochastic bond

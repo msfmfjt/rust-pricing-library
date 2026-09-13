@@ -9,8 +9,9 @@ use pricing_models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, transp
 #[derive(Clone, Debug, PartialEq)]
 pub struct HullWhiteAadRisk {
     pub price: HullWhitePrice,
-    /// Order: Spot, optional BS volatility, discount log-DF pillars, dividend
-    /// log-DF pillars, row-major local variance, row-major forward log density.
+    /// Order: Spot, optional BS sigma / rough sigma0, discount log-DF pillars, dividend
+    /// log-DF pillars, row-major local variance, row-major forward log density,
+    /// optional row-major market IV and parallel market IV.
     pub parameter_labels: Box<[String]>,
     pub derivatives: Box<[f64]>,
     /// Same order as derivatives. Only independent RQMC scrambles; conditional
@@ -20,6 +21,9 @@ pub struct HullWhiteAadRisk {
     pub dividend_times: Box<[f64]>,
     pub target_time_nodes: Box<[f64]>,
     pub target_log_moneyness_nodes: Box<[f64]>,
+    pub vega_kt_maturity_nodes: Box<[f64]>,
+    pub vega_kt_log_moneyness_nodes: Box<[f64]>,
+    pub vega_kt_implied_volatilities: Box<[f64]>,
     pub method: &'static str,
     is_bs: bool,
 }
@@ -30,7 +34,13 @@ impl HullWhiteAadRisk {
     }
     #[must_use]
     pub fn vega(&self) -> Option<f64> {
-        self.is_bs.then(|| self.derivatives[1])
+        if self.is_bs {
+            Some(self.derivatives[1])
+        } else if !self.vega_kt_implied_volatilities.is_empty() {
+            self.derivatives.last().copied()
+        } else {
+            None
+        }
     }
     fn curve_offset(&self) -> usize {
         1 + usize::from(self.is_bs)
@@ -74,7 +84,46 @@ impl HullWhiteAadRisk {
             + self.discount_times.len()
             + self.dividend_times.len()
             + self.target_time_nodes.len() * self.target_log_moneyness_nodes.len();
-        &self.derivatives[start..]
+        let count = self.target_time_nodes.len() * self.target_log_moneyness_nodes.len();
+        &self.derivatives[start..start + count]
+    }
+    fn quote_range(&self) -> Option<std::ops::Range<usize>> {
+        let n = self.vega_kt_implied_volatilities.len();
+        if n == 0 {
+            None
+        } else {
+            let end = self.derivatives.len() - 1;
+            Some(end - n..end)
+        }
+    }
+    #[must_use]
+    pub fn vega_kt_raw(&self) -> Option<&[f64]> {
+        self.quote_range().map(|r| &self.derivatives[r])
+    }
+    /// Currency per +1 absolute volatility point (0.01).
+    #[must_use]
+    pub fn vega_kt_market_scaled(&self) -> Option<Vec<f64>> {
+        self.vega_kt_raw()
+            .map(|v| v.iter().map(|v| 0.01 * v).collect())
+    }
+    #[must_use]
+    pub fn vega_kt_standard_errors(&self) -> Option<&[f64]> {
+        Some(&self.standard_errors.as_ref()?[self.quote_range()?])
+    }
+    /// SE of the scramble-wise sum, including cross-bucket covariance.
+    #[must_use]
+    pub fn parallel_vega_standard_error(&self) -> Option<f64> {
+        let errors = self.standard_errors.as_ref()?;
+        if self.is_bs {
+            Some(errors[1])
+        } else {
+            self.quote_range().and_then(|_| errors.last().copied())
+        }
+    }
+    #[must_use]
+    pub fn vega_kt_method(&self) -> Option<&'static str> {
+        self.quote_range()
+            .map(|_| pricing_market::MARKET_IV_INTERPOLATION)
     }
 }
 
@@ -153,11 +202,20 @@ impl Context {
         }
         let mut spot = mean[1];
         let mut target = Vec::new();
+        let mut quotes = Vec::new();
         if let Some(c) = &plan.calibration {
             let adj = c.reverse_leverage(&mean[offset..])?;
             spot += adj.initial_spot;
             if let Some(nodes) = &adj.dividends {
                 add_nodes(&mut coefficients, nodes);
+            }
+            if let Some(source) = &plan.market_iv_target {
+                quotes = source.reverse_market_iv(&adj.local_variance, &adj.forward_log_density)?;
+                let mut sum = pricing_numerics::NeumaierSum::new();
+                for &q in &quotes {
+                    sum.add(q);
+                }
+                quotes.push(sum.total());
             }
             target.extend(adj.local_variance);
             target.extend(adj.forward_log_density);
@@ -178,6 +236,7 @@ impl Context {
         out.extend(market.discount_log_df);
         out.extend(market.dividend_log_df);
         out.extend(target);
+        out.extend(quotes);
         if out.iter().any(|v| !v.is_finite()) {
             return Err(HullWhiteError::InvalidInput {
                 field: "hybrid_risk_estimator",
@@ -254,7 +313,8 @@ impl HullWhiteEquityPricingPlan {
                 )
             }
             EngineConfig::RandomizedQuasiMonteCarlo(config) => {
-                let dimension = (4 * (self.time_nodes().len() - 1)) as u32;
+                let dimension =
+                    (self.path.random_factor_count() * (self.time_nodes().len() - 1)) as u32;
                 let qmc = RqmcPlan::compile(config, dimension)?;
                 let bridge = self.bridge(config.variance_reduction())?;
                 let count = config.points_per_scramble().get();
@@ -320,7 +380,14 @@ impl HullWhiteEquityPricingPlan {
         };
         let mut labels = vec!["spot".to_owned()];
         if context.is_bs {
-            labels.push("bs_volatility".to_owned());
+            labels.push(
+                if self.path.is_direct_rough() {
+                    "initial_volatility"
+                } else {
+                    "bs_volatility"
+                }
+                .to_owned(),
+            );
         }
         for (name, count) in [
             (
@@ -336,20 +403,24 @@ impl HullWhiteEquityPricingPlan {
         ] {
             labels.extend((0..count).map(|i| format!("{name}[{i}]")));
         }
+        let market_iv = self
+            .market_iv_target
+            .as_ref()
+            .and_then(HullWhiteLsvTarget::market_iv_surface);
+        if let Some(surface) = market_iv {
+            labels.extend(
+                (0..surface.implied_volatilities().len()).map(|i| format!("market_iv[{i}]")),
+            );
+            labels.push("parallel_market_iv".to_owned());
+        }
         let price = HullWhitePrice {
             value: price_stats.sum().total() / units as f64,
             standard_error: standard_error(price_stats, units)?,
             independent_sampling_units: units,
             evaluated_paths: paths,
             plan_fingerprint: self.fingerprint,
-            scheme: HULL_WHITE_EQUITY_SCHEME,
-            calibration_method: self.calibration.as_ref().map(|_| {
-                if self.path.dividends().is_some() {
-                    HULL_WHITE_CASH_LSV_CALIBRATION
-                } else {
-                    HULL_WHITE_LSV_CALIBRATION
-                }
-            }),
+            scheme: self.path.scheme(),
+            calibration_method: self.path.calibration_method(),
             calibration_seed: self.calibration_seed,
             cash_dividend_model: self.cash_dividend_model(),
         };
@@ -372,6 +443,13 @@ impl HullWhiteEquityPricingPlan {
                 .into(),
             method: HULL_WHITE_AAD_METHOD,
             is_bs: context.is_bs,
+            vega_kt_maturity_nodes: market_iv.map_or(&[][..], |s| s.maturity_nodes()).into(),
+            vega_kt_log_moneyness_nodes: market_iv
+                .map_or(&[][..], |s| s.log_moneyness_nodes())
+                .into(),
+            vega_kt_implied_volatilities: market_iv
+                .map_or(&[][..], |s| s.implied_volatilities())
+                .into(),
         })
     }
 

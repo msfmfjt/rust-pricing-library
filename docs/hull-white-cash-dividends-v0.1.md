@@ -154,7 +154,9 @@ now describe F; its discounted mean is S0 because `E[Dbar*y]=0`.
   model identifier enter the plan fingerprint, including future dividends.
 - Pricing SE excludes calibration noise, kernel bias and log-Euler time bias.
   The explicit AAD extension includes initial-curve DV01 and paired target
-  sensitivities. Gamma, market-IV VegaKT and dividend-amount risk remain unsupported.
+  sensitivities. [Quote-node VegaKT](hull-white-vegakt-v0.1.md) is available for
+  converted escrow F IV inputs. Physical quote conversion adjoints, Gamma and
+  dividend-amount risk remain unsupported.
 
 ## Focused evidence and acceptance boundary
 

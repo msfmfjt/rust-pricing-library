@@ -39,6 +39,88 @@ class HullWhiteTest(unittest.TestCase):
             retain_reverse_trace=retain_reverse_trace,
         )
 
+    def test_market_iv_vegakt_api_recalibration_and_ownership(self):
+        maturities = [0.4, 1.0]
+        xs = [-0.8, -0.3, 0.0, 0.4, 0.8]
+        vols = [0.23, 0.224, 0.22, 0.216, 0.22, 0.236, 0.23, 0.226, 0.222, 0.226]
+        def target(quotes):
+            return rp.HullWhiteLsvTarget.from_market_iv(maturities, xs, quotes,
+                                                       [0.0, 0.25, 0.5, 0.75, 1.0], xs)
+        def compile_quotes(quotes, workers=1):
+            t = target(quotes)
+            request = rp.PricingRequest(
+                "2026-09-04",
+                rp.Product.european_vanilla(1, 2, "2027-09-04", 100.0, 1.0, "call"),
+                rp.Market.equity(2, 1, 100.0,
+                    rp.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95]),
+                    rp.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98]),
+                    discrete_dividends=[rp.DividendEvent.fixed_cash(1, 0.5, 6.0)]),
+                t.model, rp.Engine.randomized_quasi_monte_carlo(
+                    64, 612, scramble_count=4, antithetic=True, brownian_bridge=True),
+                rp.RiskRequest(),
+            )
+            return rp.HullWhiteEquityPlan.compile_lsv(
+                request, t, rp.HullWhiteModel(0.2, [0.0], [0.005]),
+                vol_mean_reversion=2.0, vol_of_vol=0.25,
+                equity_vol_correlation=-0.5, equity_rate_correlation=0.25,
+                vol_rate_correlation=-0.1, particle_count=256, calibration_seed=712,
+                log_bandwidth=0.35, minimum_effective_samples=5.0,
+                worker_threads=workers, reduction_block_size=32,
+                retain_reverse_trace=True, cash_dividend_model="escrowed",
+            )
+        self.assertTrue(target(vols).supports_vega_kt)
+        plan = compile_quotes(vols)
+        risk = plan.evaluate_aad()
+        self.assertEqual(risk.price.value, plan.evaluate().value)
+        self.assertEqual(len(risk.vega_kt_raw), 10)
+        self.assertEqual(len(risk.vega_kt_standard_errors), 10)
+        self.assertEqual(risk.vega_kt_maturity_nodes, maturities)
+        self.assertEqual(risk.vega_kt_log_moneyness_nodes, xs)
+        self.assertEqual(risk.vega_kt_implied_volatilities, vols)
+        self.assertEqual(risk.vega_kt_method, "natural-cubic-w-linear-time-v1")
+        self.assertEqual(risk.vega_kt_market_scaled, [v*0.01 for v in risk.vega_kt_raw])
+        self.assertAlmostEqual(risk.vega, sum(risk.vega_kt_raw), places=12)
+        self.assertTrue(math.isfinite(risk.parallel_vega_standard_error))
+        self.assertEqual(risk.parameter_labels[-1], "parallel_market_iv")
+        self.assertEqual(len(risk.parameter_labels), len(risk.derivatives))
+        self.assertEqual(len(risk.derivatives), len(risk.standard_errors))
+        for i in [2, 7]:
+            up, down = vols.copy(), vols.copy()
+            up[i] += 1e-7
+            down[i] -= 1e-7
+            fd = (compile_quotes(up).evaluate().value-compile_quotes(down).evaluate().value)/2e-7
+            self.assertAlmostEqual(risk.vega_kt_raw[i], fd, delta=2e-5)
+        replay = compile_quotes(vols, workers=3).evaluate_aad()
+        self.assertEqual(risk.derivatives, replay.derivatives)
+        self.assertEqual(risk.standard_errors, replay.standard_errors)
+        copied = risk.vega_kt_raw
+        copied[0] = 999.0
+        self.assertNotEqual(risk.vega_kt_raw[0], 999.0)
+        with self.assertRaises(AttributeError):
+            risk.vega_kt_raw = []
+        flat = rp.HullWhiteLsvTarget.flat(0.2, [0.0, 0.5, 1.0], [-0.5, 0.0, 0.5])
+        self.assertFalse(flat.supports_vega_kt)
+        old_risk = self.compile_lsv(flat, retain_reverse_trace=True).evaluate_aad()
+        self.assertIsNone(old_risk.vega_kt_raw)
+        self.assertIsNone(old_risk.vega_kt_standard_errors)
+        self.assertIsNone(old_risk.vega_kt_method)
+        self.assertEqual(old_risk.vega_kt_maturity_nodes, [])
+
+    def test_market_iv_rejects_malformed_or_inconsistent_targets(self):
+        def build(times, xs, values, grid_xs=None, floor=1e-8, cap=4.0):
+            return rp.HullWhiteLsvTarget.from_market_iv(times, xs, values,
+                [0.0, 0.5, 1.0], grid_xs or xs, floor=floor, cap=cap)
+        for t, x, v in [([0.0, 1.0], [-0.5, 0.5], [0.2]*4),
+                         ([0.5, 1.0], [-0.5, 0.5], [0.2]*3),
+                         ([0.5, 1.0], [-0.5, 0.5], [math.nan]*4),
+                         ([0.5, 1.0], [-0.5, 0.5], [0.5, 0.5, 0.1, 0.1])]:
+            with self.assertRaises(rp.ValidationError):
+                build(t, x, v)
+        with self.assertRaises(rp.ValidationError):
+            build([0.5, 1.0], [-0.5, 0.5], [0.2]*4, [-0.6, 0.0, 0.6])
+        with self.assertRaises(rp.ValidationError):
+            build([0.5, 1.0], [-0.5, 0.5], [0.2]*4, cap=0.03)
+
     def test_bs_aad_fields_and_finite_difference(self):
         rates = rp.HullWhiteModel(0.2, [0.0], [0.01])
         def compile_request(data):

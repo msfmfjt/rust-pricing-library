@@ -2,8 +2,12 @@
 
 Date: 2026-09-13. Status: experimental first-order implementation of H5.
 Decision: [ADR 0003](adr/0003-hull-white-aad.md).
+Quote-backed VegaKT is added by [ADR 0004](adr/0004-hull-white-vegakt.md) and
+the [VegaKT contracts](hull-white-vegakt-v0.1.md).
 These contracts extend the [hybrid](hull-white-numerical-contracts-v0.1.md) and
 [cash-dividend](hull-white-cash-dividends-v0.1.md) price contracts.
+The [rough extension](rough-bergomi-v0.1.md) reuses this VJP with a fixed
+Volterra driver and adds the pure model's `initial_volatility` sensitivity.
 
 ## API and risk coordinates
 
@@ -19,11 +23,15 @@ The immutable Python `HullWhiteAadRisk` contains a price, `parameter_labels`,
 | Order / label | Coordinate / units |
 | --- | --- |
 | `spot` | Currency per unit input pre-event S0; initial residual equity, normalized log-coordinate lookup and particle recalibration all move |
-| `bs_volatility` (BS only) | Currency per unit absolute residual-equity volatility; `vega` is `None` for LSV |
+| `bs_volatility` (BS only) | Currency per unit absolute residual-equity volatility; `vega` is `None` for LSV targets without a retained market-IV source |
 | `discount_log_df[i]` | dPrice / d log P0(t_i), including the HW initial-curve fit, reserve and payment discount |
 | `dividend_log_df[i]` | dPrice / d log Q0(t_i), including continuous carry and the reserve |
 | `local_variance[i]` (LSV) | dPrice / d effective relative local-variance sample; paired density held fixed |
 | `forward_log_density[i]` (LSV) | dPrice / d p_log, with p_log=K*p_F^T(K); this is **not** the logarithm of a density |
+
+Quote-backed targets append row-major `market_iv[i]` and `parallel_market_iv`
+derivatives. Their axes, units and interpolation are specified in the
+[VegaKT contracts](hull-white-vegakt-v0.1.md).
 
 Both target arrays use row-major `(time_nodes, log_moneyness_nodes)` order.
 Convenience properties expose `delta`, `vega`, the four node-adjoint arrays,
@@ -43,8 +51,8 @@ quotes must first be converted to the cash model's escrow coordinate; changing
 that conversion or refitting a smile requires an additional caller-supplied
 chain rule. The stable request still remains price-only, including its risk
 flags; the explicit AAD method defines these coordinates independently of those
-flags. Gamma, model-parameter risk, dividend-amount risk and market-IV VegaKT are
-not returned.
+flags. Gamma, model-parameter risk and dividend-amount risk are not returned.
+Market-IV VegaKT is available only for the explicitly retained quote source.
 
 ## Path, payoff and curve reverse
 
@@ -158,7 +166,8 @@ MC and RQMC. Python tests verify typed selection, result ownership and signed
 DV01 units. These establish an experimental numerical boundary, not broad risk
 acceptance or a completed market-IV fitting pipeline.
 
-Local Linux validation (Rust 1.98.1 / CPython 3.12) passed 318 Rust workspace
+The initial AAD implementation, before the quote-node VegaKT extension, passed
+local Linux validation (Rust 1.98.1 / CPython 3.12): 318 Rust workspace
 tests, 3 native Python-extension tests, statistical acceptance, 51 Python tests
 and four installed-wheel examples, together with formatting, Clippy, Rust docs,
 wheel API contracts and reference/schema/dependency/link checks. The cash example

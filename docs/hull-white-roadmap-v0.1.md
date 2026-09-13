@@ -17,6 +17,11 @@ Python provides `HullWhiteModel`, `HullWhiteLsvTarget`, `HullWhiteEquityPlan`
 and immutable `HullWhitePrice`. See the
 [runnable example](../examples/python/hull_white_lsv.py).
 
+The [rough Bergomi extension](rough-bergomi-v0.1.md) adds pure rough and
+rough-LSV constructors to the same plan, including cash, AAD and quote-node
+VegaKT at fixed H/eta. It has separate five-block RNG and Volterra discretization
+contracts; the H3/H5/H6 acceptance scope below remains open.
+
 Supply one currency's discount curve and explicit Hull–White parameters:
 constant a and piecewise constant sigma_r. `compile_bs` takes a price-only
 Black–Scholes request, equity/rate correlation and maximum equity step.
@@ -44,7 +49,7 @@ flags remain unsupported at the hybrid boundary.
 | H2 | BS+HW, correlations, payment lag, dividends, MC/RQMC | Implemented and focused tests pass |
 | H3 | Discounted Bergomi LSV calibration and Python integration | Implemented; broad calibration acceptance pending |
 | H4 | Fixed-cash dividends with stochastic-bond coordinates | Experimental implementation; broad acceptance pending |
-| H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | First-order implementation; broad risk acceptance and market-IV mapping pending |
+| H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | First-order AAD and explicit quote-node VegaKT implemented; broad risk acceptance and physical quote/fitting adjoints pending |
 | H6 | Rate instrument calibration, stable wire, native replay and benchmark acceptance | Pending |
 
 Initial numerical checks cover exact covariance against independent quadrature
@@ -63,7 +68,8 @@ fallback sensitivity. Pricing SE alone is insufficient for that gate. H5 now
 has a dedicated hybrid VJP and recompiled-bump evidence for the initial-curve
 fit/discounting, reserve and discounted calibration. It still requires broader
 risk refinement and branch-stability studies. HW/Bergomi parameters and payout
-quotes are fixed; Gamma and market-IV VegaKT remain future work.
+quotes are fixed. [Quote-node VegaKT](hull-white-vegakt-v0.1.md) is available for
+`from_market_iv` targets; Gamma and physical quote/fitting adjoints remain future work.
 H6 requires parameter calibration to specified instruments and new native
 hybrid replay/performance fixtures. Existing platform CI remains a regression
 gate for the pre-existing pricing baseline.
