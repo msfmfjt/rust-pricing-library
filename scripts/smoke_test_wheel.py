@@ -1222,6 +1222,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "required_keyword_only": [],
             "keyword_only_defaults": {"is_call": True},
         },
+        ("HullWhiteLsvTarget", "from_market_iv"): {
+            "positional": ["maturity_nodes", "quote_log_moneyness_nodes", "implied_volatilities", "time_nodes", "log_moneyness_nodes"],
+            "positional_defaults": {},
+            "keyword_only": ["floor", "cap"],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {"cap": 4.0, "floor": 1e-08},
+        },
         ("HullWhiteLsvTarget", "flat"): {
             "positional": ["volatility", "time_nodes", "log_moneyness_nodes"],
             "positional_defaults": {},
@@ -1702,6 +1709,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "bond_option",
         },
         "HullWhiteLsvTarget": {
+            "from_market_iv",
+            "supports_vega_kt",
             "flat",
             "from_essvi",
             "from_grid",
@@ -1727,6 +1736,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "calibration_discounted_equity_means",
         },
         "HullWhiteAadRisk": {
+            "vega_kt_raw",
+            "vega_kt_market_scaled",
+            "vega_kt_standard_errors",
+            "parallel_vega_standard_error",
+            "vega_kt_maturity_nodes",
+            "vega_kt_log_moneyness_nodes",
+            "vega_kt_implied_volatilities",
+            "vega_kt_method",
             "price",
             "parameter_labels",
             "derivatives",
@@ -2049,6 +2066,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("HullWhiteLsvTarget", "from_market_iv"),
         ("HullWhiteLsvTarget", "flat"),
         ("HullWhiteLsvTarget", "from_essvi"),
         ("HullWhiteLsvTarget", "from_grid"),
@@ -2081,6 +2099,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     }
     expected_properties = {
         ("HullWhiteEquityPlan", "retains_reverse_trace"),
+        ("HullWhiteLsvTarget", "supports_vega_kt"),
+        ("HullWhiteAadRisk", "vega_kt_raw"),
+        ("HullWhiteAadRisk", "vega_kt_market_scaled"),
+        ("HullWhiteAadRisk", "vega_kt_standard_errors"),
+        ("HullWhiteAadRisk", "parallel_vega_standard_error"),
+        ("HullWhiteAadRisk", "vega_kt_maturity_nodes"),
+        ("HullWhiteAadRisk", "vega_kt_log_moneyness_nodes"),
+        ("HullWhiteAadRisk", "vega_kt_implied_volatilities"),
+        ("HullWhiteAadRisk", "vega_kt_method"),
         ("HullWhiteAadRisk", "price"),
         ("HullWhiteAadRisk", "parameter_labels"),
         ("HullWhiteAadRisk", "derivatives"),

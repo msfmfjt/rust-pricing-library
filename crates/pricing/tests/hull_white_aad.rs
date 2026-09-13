@@ -1,5 +1,5 @@
 use pricing::hull_white::HullWhiteEquityPricingPlan as Plan;
-use pricing::market::LocalVarianceGrid;
+use pricing::market::{LocalVarianceGrid, MarketIvSurface};
 use pricing::mc::{ExecutionPolicy, hull_white::HullWhiteLsvTarget, lsv::LsvParticleConfig};
 use pricing::models::{Bergomi1Factor, HullWhite1Factor, HybridCorrelation};
 use pricing::{JsonLimits, PricingRequest, parse_request_json};
@@ -456,4 +456,210 @@ fn zero_rate_and_vol_factor_aad_limit_and_rqmc_density_contract() {
     let replay = lsv(v, &target, true, true, 3).evaluate_aad().unwrap();
     assert_eq!(risk.derivatives, replay.derivatives);
     assert_eq!(risk.standard_errors, replay.standard_errors);
+}
+
+fn quoted_target(quotes: Vec<f64>) -> HullWhiteLsvTarget {
+    HullWhiteLsvTarget::from_market_iv(
+        MarketIvSurface::new(vec![0.4, 1.0], vec![-1.0, -0.3, 0.0, 0.4, 1.0], quotes).unwrap(),
+        vec![0.0, 0.25, 0.5, 0.75, 1.0],
+        vec![-1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0],
+        1e-8,
+        4.0,
+    )
+    .unwrap()
+}
+fn quotes() -> Vec<f64> {
+    vec![
+        0.23, 0.224, 0.22, 0.216, 0.22, 0.236, 0.23, 0.226, 0.222, 0.226,
+    ]
+}
+
+#[test]
+fn paired_market_iv_transpose_includes_density_and_time_zero_variance() {
+    let q = quotes();
+    let target = quoted_target(q.clone());
+    let n = target.grid().values().len();
+    let vb = (0..n).map(|i| 0.7 - (i as f64) * 0.02).collect::<Vec<_>>();
+    let db = (0..n).map(|i| -0.2 + (i as f64) * 0.01).collect::<Vec<_>>();
+    let bar = target.reverse_market_iv(&vb, &db).unwrap();
+    let contract = |s: &HullWhiteLsvTarget| -> f64 {
+        s.grid()
+            .values()
+            .iter()
+            .zip(&vb)
+            .map(|(v, b)| v * b)
+            .sum::<f64>()
+            + s.log_densities()
+                .iter()
+                .zip(&db)
+                .map(|(v, b)| v * b)
+                .sum::<f64>()
+    };
+    for (i, &b) in bar.iter().enumerate() {
+        let mut up = q.clone();
+        let mut down = q.clone();
+        up[i] += 1e-6;
+        down[i] -= 1e-6;
+        close(
+            "paired IV transpose",
+            b,
+            (contract(&quoted_target(up)) - contract(&quoted_target(down))) / 2e-6,
+        );
+    }
+    assert!(target.reverse_market_iv(&[1.0], &db).is_err());
+    assert!(flat(0.2).reverse_market_iv(&vb, &db).is_err());
+    let zero = target
+        .reverse_market_iv(&vec![0.0; n], &vec![0.0; n])
+        .unwrap();
+    assert_eq!(zero, vec![0.0; q.len()]);
+    let mut time_zero_density = vec![0.0; n];
+    time_zero_density[..7].fill(1.0);
+    assert_eq!(
+        target
+            .reverse_market_iv(&vec![0.0; n], &time_zero_density)
+            .unwrap(),
+        zero
+    );
+}
+
+#[test]
+fn market_iv_vegakt_matches_every_recalibrated_bucket_with_cash_and_proportional_dividends() {
+    let q = quotes();
+    let target = quoted_target(q.clone());
+    for cash in [false, true] {
+        let v = payload(cash);
+        let plan = lsv(v.clone(), &target, cash, true, 1);
+        let risk = plan.evaluate_aad().unwrap();
+        let raw = risk.vega_kt_raw().unwrap();
+        assert_eq!(risk.price.value, plan.evaluate().unwrap().value);
+        assert_eq!(raw.len(), q.len());
+        assert_eq!(
+            risk.forward_log_density_adjoints().len(),
+            target.grid().values().len()
+        );
+        assert_eq!(risk.derivatives.len(), risk.parameter_labels.len());
+        assert_eq!(risk.parameter_labels.last().unwrap(), "parallel_market_iv");
+        assert_eq!(risk.vega_kt_maturity_nodes.as_ref(), &[0.4, 1.0]);
+        assert_eq!(risk.vega_kt_implied_volatilities.as_ref(), q);
+        assert!(risk.vega_kt_standard_errors().is_none());
+        close("bucket sum", risk.vega().unwrap(), raw.iter().sum());
+        for (a, b) in risk.vega_kt_market_scaled().unwrap().iter().zip(raw) {
+            assert_eq!(*a, 0.01 * b);
+        }
+        let h = 1e-7;
+        for (i, &b) in raw.iter().enumerate() {
+            let mut up = q.clone();
+            let mut down = q.clone();
+            up[i] += h;
+            down[i] -= h;
+            let price = |qs| {
+                lsv(v.clone(), &quoted_target(qs), cash, false, 1)
+                    .evaluate()
+                    .unwrap()
+                    .value
+            };
+            close(
+                &format!("market IV[{i}] cash={cash}"),
+                b,
+                (price(up) - price(down)) / (2.0 * h),
+            );
+        }
+        let price = |h: f64| {
+            lsv(
+                v.clone(),
+                &quoted_target(q.iter().map(|q| q + h).collect()),
+                cash,
+                false,
+                1,
+            )
+            .evaluate()
+            .unwrap()
+            .value
+        };
+        close(
+            "parallel market IV",
+            risk.vega().unwrap(),
+            (price(h) - price(-h)) / (2.0 * h),
+        );
+        let variance_only = target
+            .reverse_market_iv(
+                risk.local_variance_adjoints(),
+                &vec![0.0; target.grid().values().len()],
+            )
+            .unwrap();
+        assert!(
+            raw.iter()
+                .zip(&variance_only)
+                .any(|(a, b)| (a - b).abs() > 1e-5)
+        );
+        let replay = lsv(v.clone(), &target, cash, true, 4)
+            .evaluate_aad()
+            .unwrap();
+        assert_eq!(risk.derivatives, replay.derivatives);
+        let explicit =
+            HullWhiteLsvTarget::new(target.grid().clone(), target.log_densities().to_vec())
+                .unwrap();
+        let untracked = lsv(v, &explicit, cash, true, 1);
+        assert_eq!(untracked.evaluate().unwrap().value, risk.price.value);
+        assert_ne!(plan.plan_fingerprint(), untracked.plan_fingerprint());
+        let risk = untracked.evaluate_aad().unwrap();
+        assert!(risk.vega_kt_raw().is_none() && risk.vega().is_none());
+    }
+}
+
+#[test]
+fn market_iv_rqmc_uncertainty_and_deterministic_factor_limit() {
+    let target = quoted_target(vec![0.23; 10]);
+    let mut v = payload(true);
+    v["engine"] = json!({"type":"randomized_quasi_monte_carlo","points_per_scramble":128,"scramble_count":4,"master_scramble_seed":612,"variance_reduction":{"antithetic":true,"brownian_bridge":true}});
+    let plan = lsv(v.clone(), &target, true, true, 1);
+    let risk = plan.evaluate_aad().unwrap();
+    let replay = lsv(v.clone(), &target, true, true, 3)
+        .evaluate_aad()
+        .unwrap();
+    assert_eq!(risk.derivatives, replay.derivatives);
+    assert_eq!(risk.standard_errors, replay.standard_errors);
+    assert_eq!(risk.vega_kt_standard_errors().unwrap().len(), 10);
+    assert!(risk.parallel_vega_standard_error().unwrap().is_finite());
+    assert!(risk.parallel_vega_standard_error().unwrap() > 0.0);
+    assert_eq!(risk.price.value, plan.evaluate().unwrap().value);
+    let h = 1e-7;
+    let price = |h: f64| {
+        lsv(
+            v.clone(),
+            &quoted_target(vec![0.23 + h; 10]),
+            true,
+            false,
+            1,
+        )
+        .evaluate()
+        .unwrap()
+        .value
+    };
+    close(
+        "RQMC parallel IV",
+        risk.vega().unwrap(),
+        (price(h) - price(-h)) / (2.0 * h),
+    );
+    let g = target.grid();
+    v["model"] = json!({"type":"local_volatility","local_variance_grid":{"time_nodes":g.time_nodes(),"log_forward_moneyness_nodes":g.log_moneyness_nodes(),"shape":[5,7],"values":g.values(),"floor":g.floor(),"cap":g.cap()}});
+    let deterministic = Plan::compile_lsv_with_cash_dividends(
+        &request(v),
+        &target,
+        Bergomi1Factor::new(2.0, 0.0, 0.0).unwrap(),
+        rates(0.0),
+        HybridCorrelation::new(0.0, 0.0, 0.0).unwrap(),
+        LsvParticleConfig::new(128, 711, 0.32, 5.0, true).unwrap(),
+        policy(1),
+    )
+    .unwrap()
+    .evaluate_aad()
+    .unwrap();
+    assert!(
+        deterministic
+            .forward_log_density_adjoints()
+            .iter()
+            .all(|v| *v == 0.0)
+    );
+    assert!(deterministic.vega().unwrap() > 0.0);
 }

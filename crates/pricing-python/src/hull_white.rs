@@ -1,7 +1,7 @@
 use super::builders::{PyDiscountCurve, PyEssviSlice, PyModel};
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 use pricing::hull_white::{HullWhiteAadRisk, HullWhiteEquityPricingPlan, HullWhitePrice};
-use pricing::market::{EssviSurface, SurfaceValidationTolerance};
+use pricing::market::{EssviSurface, MarketIvSurface, SurfaceValidationTolerance};
 use pricing::mc::{ExecutionPolicy, hull_white::HullWhiteLsvTarget, lsv::LsvParticleConfig};
 use pricing::models::{
     Bergomi1Factor, HullWhite1Factor, HybridCorrelation, LocalVolatilitySpec, ModelSpec,
@@ -85,6 +85,36 @@ pub struct PyHullWhiteLsvTarget {
 }
 #[pymethods]
 impl PyHullWhiteLsvTarget {
+    /// Quote-node Black IV in the target forward coordinate. Retains the exact
+    /// interpolation transpose for VegaKT; no strike extrapolation or repair.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(maturity_nodes, quote_log_moneyness_nodes, implied_volatilities, time_nodes, log_moneyness_nodes, *, floor=1e-8, cap=4.0))]
+    fn from_market_iv(
+        py: Python<'_>,
+        maturity_nodes: Vec<f64>,
+        quote_log_moneyness_nodes: Vec<f64>,
+        implied_volatilities: Vec<f64>,
+        time_nodes: Vec<f64>,
+        log_moneyness_nodes: Vec<f64>,
+        floor: f64,
+        cap: f64,
+    ) -> PyResult<Self> {
+        py.detach(|| {
+            let surface = MarketIvSurface::new(
+                maturity_nodes,
+                quote_log_moneyness_nodes,
+                implied_volatilities,
+            )?;
+            HullWhiteLsvTarget::from_market_iv(surface, time_nodes, log_moneyness_nodes, floor, cap)
+        })
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(py, e))
+    }
+    #[getter]
+    fn supports_vega_kt(&self) -> bool {
+        self.inner.market_iv_surface().is_some()
+    }
     /// Flat market-IV smile with matching Dupire variance and T-forward density.
     #[staticmethod]
     #[pyo3(signature=(volatility, time_nodes, log_moneyness_nodes, *, floor=1e-8, cap=4.0))]
@@ -418,6 +448,38 @@ pub struct PyHullWhiteAadRisk {
 }
 #[pymethods]
 impl PyHullWhiteAadRisk {
+    #[getter]
+    fn vega_kt_raw(&self) -> Option<Vec<f64>> {
+        self.inner.vega_kt_raw().map(<[f64]>::to_vec)
+    }
+    #[getter]
+    fn vega_kt_market_scaled(&self) -> Option<Vec<f64>> {
+        self.inner.vega_kt_market_scaled()
+    }
+    #[getter]
+    fn vega_kt_standard_errors(&self) -> Option<Vec<f64>> {
+        self.inner.vega_kt_standard_errors().map(<[f64]>::to_vec)
+    }
+    #[getter]
+    fn parallel_vega_standard_error(&self) -> Option<f64> {
+        self.inner.parallel_vega_standard_error()
+    }
+    #[getter]
+    fn vega_kt_maturity_nodes(&self) -> Vec<f64> {
+        self.inner.vega_kt_maturity_nodes.to_vec()
+    }
+    #[getter]
+    fn vega_kt_log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.vega_kt_log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn vega_kt_implied_volatilities(&self) -> Vec<f64> {
+        self.inner.vega_kt_implied_volatilities.to_vec()
+    }
+    #[getter]
+    fn vega_kt_method(&self) -> Option<&'static str> {
+        self.inner.vega_kt_method()
+    }
     #[getter]
     fn price(&self) -> PyHullWhitePrice {
         PyHullWhitePrice {

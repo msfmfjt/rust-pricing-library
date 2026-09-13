@@ -66,7 +66,11 @@ payment lags. Fixed and mixed cash/proportional payouts are available through
 the explicit `cash_dividend_model="escrowed"` option, with stochastic bond
 reserves and a quadratic LSV calibration. Explicit `evaluate_aad()` returns Spot
 Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
-adjoints. LSV AAD requires `retain_reverse_trace=True`; model parameters and
+adjoints. Targets built with `HullWhiteLsvTarget.from_market_iv` additionally
+return quote-node VegaKT, market scaling and a parallel IV Vega, reversing both
+variance and density through explicit cubic/time interpolation. Cash-mode quotes
+refer to the converted escrow F coordinate. See the
+[VegaKT contracts](docs/hull-white-vegakt-v0.1.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
 payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md),
 [cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
 [example](examples/python/hull_white_lsv.py) and

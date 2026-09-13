@@ -51,6 +51,7 @@ pub struct HullWhiteEquityPricingPlan {
     fingerprint: Fingerprint,
     market: pricing_market::EquityForward,
     risk_supported: bool,
+    market_iv_target: Option<HullWhiteLsvTarget>,
 }
 
 impl HullWhiteEquityPricingPlan {
@@ -350,6 +351,23 @@ impl HullWhiteEquityPricingPlan {
             {
                 hash.update(&v.to_bits().to_be_bytes());
             }
+            if let Some(surface) = target.market_iv_surface() {
+                hash.update(pricing_market::MARKET_IV_INTERPOLATION.as_bytes());
+                for n in [
+                    surface.maturity_nodes().len(),
+                    surface.log_moneyness_nodes().len(),
+                ] {
+                    hash.update(&(n as u64).to_be_bytes());
+                }
+                for &v in surface
+                    .maturity_nodes()
+                    .iter()
+                    .chain(surface.log_moneyness_nodes())
+                    .chain(surface.implied_volatilities())
+                {
+                    hash.update(&v.to_bits().to_be_bytes());
+                }
+            }
         }
         // The stochastic-volatility parameters are also encoded by the path.
         hash.update(&path.parameter_fingerprint_bytes());
@@ -370,6 +388,7 @@ impl HullWhiteEquityPricingPlan {
             market: request.market().equity().forward().clone(),
             risk_supported: request.product().supports_pathwise_risk()
                 || request.risk().payoff_smoothing().is_some(),
+            market_iv_target: target.filter(|t| t.market_iv_surface().is_some()).cloned(),
         })
     }
     #[must_use]

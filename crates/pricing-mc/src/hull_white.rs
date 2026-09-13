@@ -5,7 +5,9 @@
 
 use crate::lsv::{LsvError, LsvLeverageSurface, LsvParticleConfig};
 use crate::{LocalVolError, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
-use pricing_market::{ImpliedVarianceSurface, LocalVarianceGrid};
+use pricing_market::{
+    ImpliedVarianceSurface, LocalVarianceGrid, MarketIvSurface, durrleman_density_factor,
+};
 use pricing_models::hull_white::hw_valid;
 use pricing_models::hull_white_dividends::HullWhiteDividendPlan;
 use pricing_models::{
@@ -386,6 +388,7 @@ fn hybrid_shocks(
 pub struct HullWhiteLsvTarget {
     grid: LocalVarianceGrid,
     log_densities: Box<[f64]>,
+    market_iv: Option<std::sync::Arc<MarketIvSurface>>,
 }
 impl HullWhiteLsvTarget {
     pub fn flat(
@@ -439,6 +442,7 @@ impl HullWhiteLsvTarget {
         Ok(Self {
             grid,
             log_densities: log_densities.into(),
+            market_iv: None,
         })
     }
     pub fn from_surface(
@@ -461,6 +465,82 @@ impl HullWhiteLsvTarget {
             }
         }
         Self::new(grid, densities)
+    }
+    /// Retain the exact quote interpolation for VegaKT. Quotes are Black IV in
+    /// the target forward coordinate (escrow F for the explicit cash model).
+    pub fn from_market_iv(
+        surface: MarketIvSurface,
+        times: Vec<f64>,
+        log_nodes: Vec<f64>,
+        floor: f64,
+        cap: f64,
+    ) -> Result<Self, HullWhiteMcError> {
+        let mut target = Self::from_surface(&surface, times, log_nodes, floor, cap)?;
+        target.market_iv = Some(std::sync::Arc::new(surface));
+        Ok(target)
+    }
+    #[must_use]
+    pub fn market_iv_surface(&self) -> Option<&MarketIvSurface> {
+        self.market_iv.as_deref()
+    }
+    /// Exact transpose of both Dupire variance and K*p_F^T(K). No finite
+    /// difference or particle recalibration is performed by this operation.
+    pub fn reverse_market_iv(
+        &self,
+        variance_seeds: &[f64],
+        density_seeds: &[f64],
+    ) -> Result<Vec<f64>, HullWhiteMcError> {
+        let surface = self
+            .market_iv
+            .as_ref()
+            .ok_or_else(|| invalid("market_iv_source_not_retained", 0))?;
+        let n = self.grid.values().len();
+        if variance_seeds.len() != n
+            || density_seeds.len() != n
+            || variance_seeds
+                .iter()
+                .chain(density_seeds)
+                .any(|v| !v.is_finite())
+        {
+            return Err(invalid("market_iv_target_adjoint_shape_or_value", 0));
+        }
+        let mut out = vec![0.0; surface.implied_volatilities().len()];
+        let m = self.grid.log_moneyness_nodes().len();
+        for (row, &t) in self.grid.time_nodes().iter().enumerate() {
+            let surface_time = if t == 0.0 {
+                self.grid.time_nodes()[1]
+            } else {
+                t
+            };
+            for (col, &x) in self.grid.log_moneyness_nodes().iter().enumerate() {
+                let i = row * m + col;
+                let v = surface.total_variance_derivatives(surface_time, x)?;
+                let w = v.total_variance;
+                let wx = v.log_moneyness_derivative;
+                let g = durrleman_density_factor(surface_time, x, v)?;
+                let mut g_bar = -variance_seeds[i] * v.time_derivative / (g * g);
+                let mut w_bar = 0.0;
+                if t > 0.0 {
+                    let root = w.sqrt();
+                    let d2 = -x / root - 0.5 * root;
+                    let normal = standard_normal_pdf(d2) / root;
+                    g_bar += density_seeds[i] * normal;
+                    w_bar += density_seeds[i]
+                        * (normal * g)
+                        * (-d2 * (x / (2.0 * w * root) - 1.0 / (4.0 * root)) - 0.5 / w);
+                }
+                let u = 1.0 - x * wx / (2.0 * w);
+                w_bar += g_bar * (u * x * wx / (w * w) + wx * wx / (4.0 * w * w));
+                let wx_bar = g_bar * (-u * x / w - 0.5 * wx * (1.0 / w + 0.25));
+                surface.transpose_accumulate(
+                    surface_time,
+                    x,
+                    [w_bar, wx_bar, 0.5 * g_bar, variance_seeds[i] / g],
+                    &mut out,
+                )?;
+            }
+        }
+        Ok(out)
     }
     #[must_use]
     pub const fn grid(&self) -> &LocalVarianceGrid {

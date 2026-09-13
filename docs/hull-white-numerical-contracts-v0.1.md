@@ -179,7 +179,8 @@ across particle count, bandwidth, seeds, smiles and maturities is still required
 - Stable request risk flags remain unsupported for hybrid pricing. Use the
   explicit [AAD API](hull-white-aad-v0.1.md) for Delta, BS Vega, initial-curve
   DV01 and paired target adjoints; LSV requires a retained calibration trace.
-  Gamma, model-parameter risk and market-IV VegaKT remain outside this boundary.
+  Explicit quote-node [VegaKT](hull-white-vegakt-v0.1.md) extends that API.
+  Gamma and model-parameter risk remain outside this boundary.
 - Stable JSON is unchanged and does not serialize the hybrid configuration.
   Persist explicit compile inputs as well as the request to reproduce a plan.
 

@@ -62,6 +62,14 @@ class HullWhiteModel:
 class HullWhiteLsvTarget:
     """Paired Dupire variance and T-forward log-density calibration samples."""
     @staticmethod
+    def from_market_iv(
+        maturity_nodes: Sequence[float], quote_log_moneyness_nodes: Sequence[float],
+        implied_volatilities: Sequence[float], time_nodes: Sequence[float],
+        log_moneyness_nodes: Sequence[float], *, floor: float = 1e-8, cap: float = 4.0,
+    ) -> HullWhiteLsvTarget: ...
+    @property
+    def supports_vega_kt(self) -> bool: ...
+    @staticmethod
     def flat(
         volatility: float, time_nodes: Sequence[float],
         log_moneyness_nodes: Sequence[float], *, floor: float = 1e-8, cap: float = 4.0,
@@ -154,6 +162,22 @@ class HullWhitePrice:
 
 class HullWhiteAadRisk:
     """Finite hybrid AAD at fixed model parameters and paired-target coordinates."""
+    @property
+    def vega_kt_raw(self) -> list[float] | None: ...
+    @property
+    def vega_kt_market_scaled(self) -> list[float] | None: ...
+    @property
+    def vega_kt_standard_errors(self) -> list[float] | None: ...
+    @property
+    def parallel_vega_standard_error(self) -> float | None: ...
+    @property
+    def vega_kt_maturity_nodes(self) -> list[float]: ...
+    @property
+    def vega_kt_log_moneyness_nodes(self) -> list[float]: ...
+    @property
+    def vega_kt_implied_volatilities(self) -> list[float]: ...
+    @property
+    def vega_kt_method(self) -> str | None: ...
     @property
     def price(self) -> HullWhitePrice: ...
     @property
