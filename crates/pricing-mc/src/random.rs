@@ -15,6 +15,8 @@ pub enum RandomDomain {
     LsmTrain = 1,
     RqmcScramble = 2,
     Diagnostics = 3,
+    /// Separate stream for the interacting LSV calibration population.
+    LsvCalibration = 4,
 }
 
 impl RandomDomain {

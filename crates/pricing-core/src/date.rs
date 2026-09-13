@@ -89,7 +89,12 @@ impl Date {
                 direction: "following",
             });
         }
-        let maximum = days_in_month(self.year, self.month).expect("validated date");
+        let maximum = days_in_month(self.year, self.month).ok_or(CoreError::InvalidDate {
+            year: self.year,
+            month: self.month,
+            day: self.day,
+            reason: "month must be in 1..=12",
+        })?;
         if self.day < maximum {
             return Self::new(self.year, self.month, self.day + 1);
         }
@@ -111,7 +116,12 @@ impl Date {
         }
         if self.month > 1 {
             let month = self.month - 1;
-            let day = days_in_month(self.year, month).expect("valid previous month");
+            let day = days_in_month(self.year, month).ok_or(CoreError::InvalidDate {
+                year: self.year,
+                month,
+                day: self.day,
+                reason: "month must be in 1..=12",
+            })?;
             return Self::new(self.year, month, day);
         }
         Self::new(self.year - 1, 12, 31)

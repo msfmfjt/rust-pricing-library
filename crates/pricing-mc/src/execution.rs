@@ -254,6 +254,52 @@ impl DeterministicExecutor {
         })
     }
 
+    /// Dynamic-width counterpart used by surface adjoints. Callback output is
+    /// reset for every sampling unit; reductions retain the fixed block order.
+    pub fn try_map_reduce_statistics_vector<F, E>(
+        &self,
+        sampling_units: u64,
+        components: usize,
+        evaluate: F,
+    ) -> Result<Vec<DeterministicStatistics>, TryExecutionError<E>>
+    where
+        F: Fn(u64, &mut [f64]) -> Result<(), E> + Sync + Send,
+        E: Send,
+    {
+        let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
+            .map_err(TryExecutionError::Execution)?;
+        let results = self.pool.install(|| {
+            blocks
+                .into_par_iter()
+                .map(|block| {
+                    let mut statistics = vec![DeterministicStatistics::default(); components];
+                    let mut values = vec![0.0; components];
+                    for sampling_unit in block {
+                        values.fill(0.0);
+                        evaluate(sampling_unit, &mut values).map_err(|source| {
+                            TryExecutionError::Evaluation {
+                                sampling_unit,
+                                source,
+                            }
+                        })?;
+                        for (statistic, &value) in statistics.iter_mut().zip(&values) {
+                            statistic.sum.add(value);
+                            statistic.moments.add(value);
+                        }
+                    }
+                    Ok(statistics)
+                })
+                .collect::<Vec<Result<_, TryExecutionError<E>>>>()
+        });
+        let results = results.into_iter().collect::<Result<Vec<_>, _>>()?;
+        Ok((0..components)
+            .map(|i| DeterministicStatistics {
+                sum: reduce_sums(results.iter().map(|r| r[i].sum).collect()),
+                moments: reduce_moments(results.iter().map(|r| r[i].moments).collect()),
+            })
+            .collect())
+    }
+
     /// Reduces several pathwise quantities together while preserving the same
     /// fixed block and sampling-unit order for every component.
     pub fn try_map_reduce_statistics_array_tiled<const N: usize, F, E>(
