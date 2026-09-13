@@ -226,7 +226,10 @@ fn calibration_zero_factor_limit_and_unsupported_contracts_are_explicit() {
             LsvParticleConfig::new(128, 71, 0.14, 5.0, true).unwrap(),
             policy(1)
         )
-        .is_err()
+        .unwrap()
+        .calibration()
+        .unwrap()
+        .retains_reverse_trace()
     );
 }
 
@@ -240,6 +243,7 @@ fn proportional_dividend_barrier_observes_pre_and_post_jump() {
         v["product"] = json!({"type":"barrier","underlying_id":1,"currency_id":2,
             "expiry":"2027-09-04","strike":70.0,"barrier":102.0,"notional":1.0,
             "side":{"type":"call"},"direction":{"type":"up"},"style":{"type":style},
+            "monitoring":{"type":"discrete"},
             "monitoring_dates":["2027-09-04"],"payment_date":"2027-09-04"});
         // Pre-dividend Spot = 103.1579 crosses 102, post-dividend = 82.5263.
         let result =

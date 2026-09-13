@@ -2,6 +2,9 @@
 
 Date: 2026-09-13. Status: experimental implementation decision.
 
+The follow-on [AAD decision](0003-hull-white-aad.md) adds first-order risk through
+this coordinate construction at fixed payout amounts and proportions.
+
 The user requested dividend support after the initial HW extension. Proportional
 dividends already worked; this change addresses scheduled fixed cash and mixed
 cash/proportional payouts. Simply removing the cash rejection and reusing the

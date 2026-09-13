@@ -99,7 +99,7 @@ fn cash_barrier_jump_and_immediate_ex_date_are_observed() {
     v["model"]["volatility"] = json!(0.0);
     v["market"]["discrete_dividends"] =
         json!([{"event_id":1,"ex_time":1.0,"quote":{"type":"fixed_cash","amount":10.0}}]);
-    v["product"] = json!({"type":"barrier","underlying_id":1,"currency_id":2,"expiry":"2027-09-04","strike":80.0,"barrier":100.0,"notional":1.0,"side":{"type":"call"},"direction":{"type":"up"},"style":{"type":"knock_in"},"monitoring_dates":["2027-09-04"],"payment_date":"2027-09-04"});
+    v["product"] = json!({"type":"barrier","underlying_id":1,"currency_id":2,"expiry":"2027-09-04","strike":80.0,"barrier":100.0,"notional":1.0,"side":{"type":"call"},"direction":{"type":"up"},"style":{"type":"knock_in"},"monitoring":{"type":"discrete"},"monitoring_dates":["2027-09-04"],"payment_date":"2027-09-04"});
     // Pre-dividend Spot is 103.1579; post-dividend is 93.1579.
     let actual = Plan::compile_bs_with_cash_dividends(&request(v), rates(0.0), 0.0, 1.0, policy(1))
         .unwrap()

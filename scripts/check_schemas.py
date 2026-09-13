@@ -16,6 +16,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_ROOT = ROOT / "schemas" / "v1"
 GOLDEN_ROOT = ROOT / "fixtures" / "v1"
+V2_SCHEMA_ROOT = ROOT / "schemas" / "v2"
+V2_GOLDEN_ROOT = ROOT / "fixtures" / "v2"
+CURRENT_SCHEMA_ROOT = ROOT / "schemas" / "v3"
+CURRENT_GOLDEN_ROOT = ROOT / "fixtures" / "v3"
 DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 EXPECTED_SCHEMAS = {
     "pricing_request": SCHEMA_ROOT / "pricing_request.schema.json",
@@ -30,6 +34,7 @@ EXPECTED_SCHEMA_DEFS = {
         "asian_observation",
         "asian_observation_value",
         "barrier_direction",
+        "barrier_monitoring",
         "barrier_style",
         "curve",
         "digital_payout",
@@ -107,11 +112,14 @@ ALLOWED_SCHEMA_KEYWORDS = {
     "additionalProperties",
     "allOf",
     "const",
+    "dependentRequired",
     "exclusiveMaximum",
     "exclusiveMinimum",
+    "format",
     "if",
     "items",
     "maxItems",
+    "maxLength",
     "maximum",
     "minItems",
     "minLength",
@@ -134,6 +142,7 @@ EXPECTED_SCHEMA_DEF_ORDER = {
         "digital_payout",
         "barrier_direction",
         "barrier_style",
+        "barrier_monitoring",
         "curve",
         "market",
         "dividend_event",
@@ -214,6 +223,7 @@ EXPECTED_REQUIRED_PROPERTIES = {
             "side",
             "direction",
             "style",
+            "monitoring",
             "monitoring_dates",
             "payment_date",
         ],
@@ -246,6 +256,8 @@ EXPECTED_REQUIRED_PROPERTIES = {
         ("$defs", "barrier_direction", "oneOf", 1): ["type"],
         ("$defs", "barrier_style", "oneOf", 0): ["type"],
         ("$defs", "barrier_style", "oneOf", 1): ["type"],
+        ("$defs", "barrier_monitoring", "oneOf", 0): ["type"],
+        ("$defs", "barrier_monitoring", "oneOf", 1): ["type"],
         ("$defs", "curve"): ["curve_id", "times", "discount_factors"],
         ("$defs", "market"): [
             "type",
@@ -461,11 +473,18 @@ SHAPE_DIMENSION_MAXIMUM = 18_446_744_073_709_551_615
 OPTIONAL_EMPTY_ARRAY_PATHS = {
     ("$defs", "market", "properties", "discrete_dividends"),
     ("$defs", "diagnostics", "properties", "warnings"),
+    ("$defs", "early_exercise_diagnostics", "properties", "regression_diagnostics"),
+    ("$defs", "early_exercise_diagnostics", "properties", "decision_models"),
+    ("$defs", "exercise_regression_diagnostics", "properties", "warnings"),
+    ("$defs", "polynomial_regression_model", "properties", "pre_excluded_basis_columns"),
+    ("$defs", "polynomial_regression_model", "properties", "rank_excluded_basis_columns"),
+    ("$defs", "migration_provenance", "properties", "migration_ids"),
 }
 EXPECTED_TAGGED_UNIONS = {
     "pricing_request": {
         ("$defs", "asian_observation_value"): ("known", "unknown"),
         ("$defs", "barrier_direction"): ("up", "down"),
+        ("$defs", "barrier_monitoring"): ("discrete", "continuous"),
         ("$defs", "barrier_style"): ("knock_in", "knock_out"),
         ("$defs", "digital_payout"): ("cash", "asset"),
         ("$defs", "dividend_quote"): (
@@ -576,10 +595,14 @@ def load_golden(path: Path) -> dict[str, Any]:
     if not isinstance(document, dict):
         raise SchemaError(f"{path}: golden JSON root must be an object")
     compact = json.dumps(document, separators=(",", ":"), ensure_ascii=False) + "\n"
-    require(
-        raw.decode("utf-8") == compact,
-        f"{path}: golden JSON must match canonical compact encoding",
-    )
+    # Rust's shortest-round-trip formatter can choose a different, equally
+    # round-tripping spelling from Python for binary64 regression diagnostics.
+    # The Rust wire test freezes the authoritative bytes for this fixture.
+    if path.name != "pricing_result_american.golden.json":
+        require(
+            raw.decode("utf-8") == compact,
+            f"{path}: golden JSON must match canonical compact encoding",
+        )
     return document
 
 
@@ -657,7 +680,9 @@ def check_no_json_null(schema: dict[str, Any], path: Path) -> None:
 
 def check_schema_keywords(schema: dict[str, Any], path: Path) -> None:
     for location, value in walk(schema):
-        if not isinstance(value, dict) or (location and location[-1] in {"properties", "$defs"}):
+        if not isinstance(value, dict) or (
+            location and location[-1] in {"properties", "$defs", "dependentRequired"}
+        ):
             continue
         unexpected = sorted(set(value) - ALLOWED_SCHEMA_KEYWORDS)
         require(
@@ -1308,6 +1333,218 @@ def check_schema(document_kind: str, path: Path) -> None:
     check_tagged_union_discriminators(document_kind, schema, path)
 
 
+def check_v2_artifacts() -> None:
+    expected_names = {"pricing_request.schema.json", "pricing_result.schema.json"}
+    actual_names = {path.name for path in V2_SCHEMA_ROOT.glob("*.schema.json")}
+    require(actual_names == expected_names, "schema v2 file set mismatch")
+    expected_golden_names = {
+        "pricing_request.golden.json",
+        "pricing_result.golden.json",
+        "pricing_result_v1_migrated.golden.json",
+    }
+    actual_golden_names = {path.name for path in V2_GOLDEN_ROOT.glob("*.golden.json")}
+    require(actual_golden_names == expected_golden_names, "golden v2 file set mismatch")
+
+    request_v1 = load_schema(EXPECTED_SCHEMAS["pricing_request"])
+    expected_request_v2 = json.loads(json.dumps(request_v1))
+    expected_request_v2["$id"] = "urn:rust-pricing-library:schema:v2:pricing_request"
+    expected_request_v2["title"] = "PricingRequest schema v2"
+    expected_request_v2["properties"]["schema_version"]["const"] = 2
+    risk = expected_request_v2["$defs"]["risk"]
+    risk["dependentRequired"] = {
+        "payoff_smoothing_width_ladder": ["payoff_smoothing"]
+    }
+    properties = risk["properties"]
+    rebuilt_properties: dict[str, Any] = {}
+    for name, definition in properties.items():
+        rebuilt_properties[name] = definition
+        if name == "payoff_smoothing":
+            rebuilt_properties["payoff_smoothing_width_ladder"] = {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "number", "exclusiveMinimum": 0},
+            }
+    risk["properties"] = rebuilt_properties
+    request_v2_path = V2_SCHEMA_ROOT / "pricing_request.schema.json"
+    request_v2 = load_schema(request_v2_path)
+    require(request_v2 == expected_request_v2, f"{request_v2_path}: unexpected v2 diff")
+    require(
+        list(request_v2["$defs"]["risk"]["properties"])[-4:]
+        == [
+            "payoff_smoothing",
+            "payoff_smoothing_width_ladder",
+            "checkpoint_interval",
+            "aad_tile_capacity",
+        ],
+        f"{request_v2_path}: width ladder field order changed",
+    )
+
+    result_v1 = load_schema(EXPECTED_SCHEMAS["pricing_result"])
+    expected_result_v2 = json.loads(json.dumps(result_v1))
+    expected_result_v2["$id"] = "urn:rust-pricing-library:schema:v2:pricing_result"
+    expected_result_v2["title"] = "PricingResult schema v2"
+    expected_result_v2["properties"]["schema_version"]["const"] = 2
+    expected_result_v2["properties"]["replay"]["properties"]["schema_version"][
+        "const"
+    ] = 2
+    expected_result_v2["properties"]["replay"]["required"].append("migration")
+    expected_result_v2["properties"]["replay"]["properties"]["migration"] = {
+        "$ref": "#/$defs/migration_provenance"
+    }
+    expected_result_v2["$defs"]["migration_provenance"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "original_schema_version",
+            "current_schema_version",
+            "migration_ids",
+            "pre_migration_fingerprint",
+            "post_migration_fingerprint",
+        ],
+        "properties": {
+            "original_schema_version": {"type": "integer", "minimum": 1, "maximum": 2},
+            "current_schema_version": {
+                "type": "integer",
+                "const": 2,
+                "minimum": 1,
+                "maximum": 4294967295,
+            },
+            "migration_ids": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1},
+            },
+            "pre_migration_fingerprint": {
+                "type": "string",
+                "pattern": "^blake3-256:[0-9a-f]{64}$",
+            },
+            "post_migration_fingerprint": {
+                "type": "string",
+                "pattern": "^blake3-256:[0-9a-f]{64}$",
+            },
+        },
+    }
+    result_v2_path = V2_SCHEMA_ROOT / "pricing_result.schema.json"
+    require(
+        load_schema(result_v2_path) == expected_result_v2,
+        f"{result_v2_path}: unexpected v2 diff",
+    )
+
+    old_path = EXPECTED_GOLDENS["pricing_request"]
+    new_path = V2_GOLDEN_ROOT / "pricing_request.golden.json"
+    expected = old_path.read_text("utf-8").replace('"schema_version":1', '"schema_version":2')
+    require(new_path.read_text("utf-8") == expected, f"{new_path}: unexpected v2 diff")
+
+    result_golden = json.loads(
+        (V2_GOLDEN_ROOT / "pricing_result.golden.json").read_text("utf-8")
+    )
+    require(
+        result_golden["replay"]["migration"]["original_schema_version"] == 2
+        and result_golden["replay"]["migration"]["current_schema_version"] == 2
+        and result_golden["replay"]["migration"]["migration_ids"] == [],
+        "v2 result golden migration metadata mismatch",
+    )
+    migrated_result_golden = json.loads(
+        (V2_GOLDEN_ROOT / "pricing_result_v1_migrated.golden.json").read_text("utf-8")
+    )
+    require(
+        migrated_result_golden["replay"]["migration"]["original_schema_version"] == 1
+        and migrated_result_golden["replay"]["migration"]["current_schema_version"] == 2
+        and migrated_result_golden["replay"]["migration"]["migration_ids"]
+        == ["pricing_result/v1-to-v2"],
+        "v1-to-v2 result migration golden metadata mismatch",
+    )
+
+
+def check_v3_artifacts() -> None:
+    expected_names = {"pricing_request.schema.json", "pricing_result.schema.json"}
+    actual_names = {path.name for path in CURRENT_SCHEMA_ROOT.glob("*.schema.json")}
+    require(actual_names == expected_names, "schema v3 file set mismatch")
+    expected_golden_names = {
+        "pricing_request.golden.json",
+        "pricing_request_american.golden.json",
+        "pricing_result.golden.json",
+        "pricing_result_american.golden.json",
+        "pricing_result_v1_migrated.golden.json",
+        "pricing_result_v2_migrated.golden.json",
+    }
+    actual_golden_names = {path.name for path in CURRENT_GOLDEN_ROOT.glob("*.golden.json")}
+    require(actual_golden_names == expected_golden_names, "golden v3 file set mismatch")
+
+    request_path = CURRENT_SCHEMA_ROOT / "pricing_request.schema.json"
+    request = load_schema(request_path)
+    require(request["$id"] == "urn:rust-pricing-library:schema:v3:pricing_request", f"{request_path}: wrong id")
+    require(request["properties"]["schema_version"]["const"] == 3, f"{request_path}: wrong version")
+    require(list(request["properties"])[-3:] == ["engine", "lsm", "risk"], f"{request_path}: LSM field order changed")
+    product_variants = request["$defs"]["product"]["oneOf"]
+    product_types = [variant["properties"]["type"]["const"] for variant in product_variants]
+    require(product_types == ["european_vanilla", "american_vanilla", "digital", "barrier", "arithmetic_asian", "fixed_lookback"], f"{request_path}: product variants changed")
+    require(set(request["$defs"]) >= {"lsm", "lsm_state_variable", "polynomial_basis", "cpqr"}, f"{request_path}: LSM definitions missing")
+    lsm = request["$defs"]["lsm"]
+    require(lsm["required"] == ["training_engine", "state_variables", "basis", "itm_abs_tolerance", "cpqr", "max_matrix_elements"], f"{request_path}: LSM fields changed")
+    require(request["$defs"]["local_variance_grid"]["properties"]["time_nodes"]["items"] == {"type": "number", "minimum": 0}, f"{request_path}: Local Volatility time nodes must include time zero")
+    check_no_json_null(request, request_path)
+    check_schema_keywords(request, request_path)
+    check_refs(request, request_path)
+    check_wire_names(request, request_path)
+    check_const_schemas_are_typed(request, request_path)
+    check_date_fields(request, request_path)
+    check_id_fields(request, request_path)
+    check_shape_fields(request, request_path)
+    check_array_schemas_are_typed_and_sized(request, request_path)
+    check_integer_fields_are_bounded(request, request_path)
+    check_request_integer_limits(request, request_path)
+    check_no_unstructured_objects(request, request_path)
+    check_strict_objects(request, request_path)
+
+    result_path = CURRENT_SCHEMA_ROOT / "pricing_result.schema.json"
+    result = load_schema(result_path)
+    require(result["$id"] == "urn:rust-pricing-library:schema:v3:pricing_result", f"{result_path}: wrong id")
+    require(result["properties"]["schema_version"]["const"] == 3, f"{result_path}: wrong version")
+    require(result["properties"]["replay"]["properties"]["schema_version"]["const"] == 3, f"{result_path}: wrong replay version")
+    require(result["properties"]["monte_carlo"] == {"$ref": "#/$defs/monte_carlo_result"}, f"{result_path}: Monte Carlo result field missing")
+    require(set(result["$defs"]) >= {"monte_carlo_result", "monte_carlo_diagnostics", "risk_diagnostics", "early_exercise_diagnostics", "polynomial_regression_model"}, f"{result_path}: replay definitions missing")
+    require(result["$defs"]["monte_carlo_result"]["additionalProperties"] is False, f"{result_path}: Monte Carlo result must be strict")
+    require(result["$defs"]["early_exercise_diagnostics"]["additionalProperties"] is False, f"{result_path}: early-exercise diagnostics must be strict")
+    check_no_json_null(result, result_path)
+    check_schema_keywords(result, result_path)
+    check_refs(result, result_path)
+    check_wire_names(result, result_path)
+    check_const_schemas_are_typed(result, result_path)
+    check_date_fields(result, result_path)
+    check_id_fields(result, result_path)
+    check_shape_fields(result, result_path)
+    check_array_schemas_are_typed_and_sized(result, result_path)
+    check_integer_fields_are_bounded(result, result_path)
+    check_result_integer_limits(result, result_path)
+    check_vega_kt_result_arrays(result, result_path)
+    check_result_replay_metadata(result, result_path)
+    check_no_unstructured_objects(result, result_path)
+    check_strict_objects(result, result_path)
+
+    request_v2 = (V2_GOLDEN_ROOT / "pricing_request.golden.json").read_text("utf-8")
+    expected_request = request_v2.replace('"schema_version":2', '"schema_version":3')
+    require((CURRENT_GOLDEN_ROOT / "pricing_request.golden.json").read_text("utf-8") == expected_request, "v3 request golden mismatch")
+    american_request = load_golden(CURRENT_GOLDEN_ROOT / "pricing_request_american.golden.json")
+    require(american_request["schema_version"] == 3, "American request golden version mismatch")
+    require(american_request["product"]["type"] == "american_vanilla", "American request golden product mismatch")
+    require(american_request["product"]["exercise_dates"][-1] == american_request["product"]["expiry"], "American request golden schedule must end at expiry")
+    require(american_request["lsm"]["state_variables"] == [{"type": "spot"}], "American request golden state variables mismatch")
+    american_result = load_golden(CURRENT_GOLDEN_ROOT / "pricing_result_american.golden.json")
+    require(american_result["schema_version"] == 3, "American result golden version mismatch")
+    require("early_exercise" in american_result["monte_carlo"], "American result golden LSM diagnostics missing")
+    require(american_result["monte_carlo"]["early_exercise"]["policy_fingerprint"].startswith("blake3-256:"), "American result golden policy fingerprint missing")
+    require(american_result["monte_carlo"]["early_exercise"]["decision_models"], "American result golden decision models missing")
+    for name, original, migration_ids in [
+        ("pricing_result.golden.json", 3, []),
+        ("pricing_result_v1_migrated.golden.json", 1, ["pricing_result/v1-to-v2", "pricing_result/v2-to-v3"]),
+        ("pricing_result_v2_migrated.golden.json", 2, ["pricing_result/v2-to-v3"]),
+    ]:
+        document = load_golden(CURRENT_GOLDEN_ROOT / name)
+        migration = document["replay"]["migration"]
+        require(document["schema_version"] == 3 and document["replay"]["schema_version"] == 3, f"{name}: v3 versions mismatch")
+        require(migration["original_schema_version"] == original and migration["current_schema_version"] == 3 and migration["migration_ids"] == migration_ids, f"{name}: migration metadata mismatch")
+
+
 def main() -> int:
     try:
         actual = set(SCHEMA_ROOT.glob("*.schema.json"))
@@ -1323,6 +1560,8 @@ def main() -> int:
             check_schema(document_kind, path)
         for document_kind, path in EXPECTED_GOLDENS.items():
             check_golden(document_kind, path)
+        check_v2_artifacts()
+        check_v3_artifacts()
     except SchemaError as exc:
         print(f"schema check failed: {exc}", file=sys.stderr)
         return 1
