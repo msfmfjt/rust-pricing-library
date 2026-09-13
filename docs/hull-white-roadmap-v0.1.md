@@ -28,8 +28,9 @@ example; no rate option calibration has been performed.
 
 The payoff integration supports positive-horizon European, Asian, Lookback,
 Digital and discrete Barrier prices with continuous deterministic carry,
-proportional dividends and payment lags. Fixed-cash dividends and hybrid
-Greeks are explicit errors in this release.
+proportional dividends and payment lags. Fixed-cash dividends now have an
+explicit [escrowed model](hull-white-cash-dividends-v0.1.md); default compilation
+still rejects them. Hybrid Greeks remain explicit errors.
 
 ## Gates
 
@@ -39,7 +40,7 @@ Greeks are explicit errors in this release.
 | H1 | Exact HW rate/integral kernel, curve fit, bond option | Implemented and focused tests pass |
 | H2 | BS+HW, correlations, payment lag, dividends, MC/RQMC | Implemented and focused tests pass |
 | H3 | Discounted Bergomi LSV calibration and Python integration | Implemented; broad calibration acceptance pending |
-| H4 | Fixed-cash dividends with stochastic-bond coordinates | Pending |
+| H4 | Fixed-cash dividends with stochastic-bond coordinates | Experimental implementation; broad acceptance pending |
 | H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | Pending |
 | H6 | Rate instrument calibration, stable wire, native replay and benchmark acceptance | Pending |
 

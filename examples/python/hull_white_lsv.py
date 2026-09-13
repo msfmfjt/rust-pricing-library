@@ -48,3 +48,31 @@ print("Terminal mean D/P0 * normalized equity (target 100):",
 print("Terminal fallback nodes:", plan.fallback_nodes[-1])
 print("Scheme / calibration:", lsv.scheme, lsv.calibration_method)
 print("Plan:", plan.plan_fingerprint)
+
+# Explicit escrowed model: the flat target refers to the normalized deterministic
+# escrow coordinate. It is not an unadjusted spot Black implied-volatility smile.
+# A cash payment after option expiry is included in the stochastic bond reserve.
+cash_market = rp.Market.equity(
+    2, 1, 100.0, discount, dividend,
+    discrete_dividends=[
+        rp.DividendEvent.fixed_cash(1, 0.5, 6.0),
+        rp.DividendEvent.fixed_cash_and_proportional(2, 1.5, 4.0, 0.1),
+    ],
+)
+cash_request = rp.PricingRequest(
+    "2026-09-04",
+    rp.Product.european_vanilla(1, 2, "2027-09-04", 100.0, 1.0, "call"),
+    cash_market, target.model, engine, rp.RiskRequest(),
+)
+cash_plan = rp.HullWhiteEquityPlan.compile_lsv(
+    cash_request, target, rates,
+    vol_mean_reversion=2.0, vol_of_vol=0.4,
+    equity_vol_correlation=-0.5, equity_rate_correlation=0.25,
+    vol_rate_correlation=-0.1, particle_count=8192, calibration_seed=712,
+    log_bandwidth=0.14, minimum_effective_samples=20.0, worker_threads=2,
+    cash_dividend_model="escrowed",
+)
+cash_price = cash_plan.evaluate()
+print("Cash dividend model:", cash_price.cash_dividend_model)
+print("Initial risky equity (after dividend reserve):", cash_plan.risky_spot)
+print("Cash-dividend LSV + HW price / SE:", cash_price.value, cash_price.standard_error)

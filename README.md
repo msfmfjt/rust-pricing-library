@@ -62,8 +62,10 @@ Experimental one-currency stochastic-rate pricing is available through Rust
 `HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
 one-factor Hull–White with BS or particle-recalibrated Bergomi LSV, including
 equity/rate correlation, stochastic discounting, proportional dividends and
-payment lags. The initial boundary is price only; fixed-cash dividends and
-hybrid AAD are not yet supported. See the
+payment lags. Fixed and mixed cash/proportional payouts are available through
+the explicit `cash_dividend_model="escrowed"` option, with stochastic bond
+reserves and a quadratic LSV calibration. The boundary remains price only;
+hybrid AAD is not yet supported. See the [cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
 [example](examples/python/hull_white_lsv.py) and
 [numerical contracts](docs/hull-white-numerical-contracts-v0.1.md).
 

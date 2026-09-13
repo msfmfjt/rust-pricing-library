@@ -7,12 +7,16 @@ use pricing_mc::hull_white::{
     CalibratedHullWhiteLsv, HULL_WHITE_EQUITY_SCHEME, HULL_WHITE_LSV_CALIBRATION,
     HullWhiteEquityPlan, HullWhiteLsvTarget, HybridEquityVolatility, calibrate_hull_white_lsv,
 };
+use pricing_mc::hull_white::{
+    HULL_WHITE_CASH_LSV_CALIBRATION, calibrate_hull_white_lsv_with_dividends,
+};
 use pricing_mc::lsv::LsvParticleConfig;
 use pricing_mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, LocalVolTimeGrid, RandomDomain, RqmcPlan, VarianceReduction,
     inverse_standard_normal,
 };
+use pricing_models::hull_white_dividends::{HULL_WHITE_CASH_DIVIDEND_MODEL, HullWhiteDividendPlan};
 use pricing_models::{
     Bergomi1Factor, HullWhite1Factor, HullWhiteError, HybridCorrelation, ModelSpec,
 };
@@ -27,6 +31,7 @@ pub struct HullWhitePrice {
     pub scheme: &'static str,
     pub calibration_method: Option<&'static str>,
     pub calibration_seed: Option<u64>,
+    pub cash_dividend_model: Option<&'static str>,
 }
 
 #[derive(Clone, Debug)]
@@ -50,24 +55,78 @@ impl HullWhiteEquityPricingPlan {
         maximum_step: f64,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
+        Self::compile_bs_impl(
+            request,
+            rates,
+            equity_rate_correlation,
+            maximum_step,
+            policy,
+            false,
+        )
+    }
+    /// Explicit escrowed model: volatility applies to the residual risky equity.
+    pub fn compile_bs_with_cash_dividends(
+        request: &PricingRequest,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile_bs_impl(
+            request,
+            rates,
+            equity_rate_correlation,
+            maximum_step,
+            policy,
+            true,
+        )
+    }
+    fn compile_bs_impl(
+        request: &PricingRequest,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+        cash: bool,
+    ) -> Result<Self, MonteCarloError> {
         let ModelSpec::BlackScholes(bs) = request.model() else {
             return Err(HullWhiteError::Unsupported {
                 feature: "BS-HW compile requires a BlackScholes request",
             }
             .into());
         };
-        let base = compile_base(request, policy)?;
+        let base = compile_base(request, policy, cash)?;
         let expiry = expiry_time(request);
         let mut events = base.hybrid_observation_times().to_vec();
         events.push(expiry);
+        if cash && let Some(d) = request.market().equity().forward().discrete_dividends() {
+            events.extend(
+                d.events()
+                    .iter()
+                    .filter(|e| e.ex_time() <= expiry)
+                    .map(|e| e.ex_time()),
+            );
+        }
         let grid = LocalVolTimeGrid::compile(events, maximum_step)
             .map_err(|e| MonteCarloError::HullWhite(e.into()))?;
-        let path = HullWhiteEquityPlan::new(
+        let dividends = if cash {
+            Some(HullWhiteDividendPlan::new(
+                &rates,
+                request.market().equity().forward(),
+                grid.nodes(),
+            )?)
+        } else {
+            None
+        };
+        let mut path = HullWhiteEquityPlan::new(
             rates,
             HybridEquityVolatility::BlackScholes(bs.volatility().get()),
             HybridCorrelation::new(0.0, equity_rate_correlation, 0.0)?,
             &grid,
         )?;
+        if let Some(d) = dividends {
+            path = path.with_dividends(d)?;
+        }
         Self::finish(request, base, path, None, None, None, policy)
     }
 
@@ -83,6 +142,49 @@ impl HullWhiteEquityPricingPlan {
         particles: LsvParticleConfig,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
+        Self::compile_lsv_impl(
+            request,
+            target,
+            factor,
+            rates,
+            correlation,
+            particles,
+            policy,
+            false,
+        )
+    }
+    /// Calibrate the deterministic escrow-coordinate smile with bond covariance.
+    pub fn compile_lsv_with_cash_dividends(
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        factor: Bergomi1Factor,
+        rates: HullWhite1Factor,
+        correlation: HybridCorrelation,
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile_lsv_impl(
+            request,
+            target,
+            factor,
+            rates,
+            correlation,
+            particles,
+            policy,
+            true,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn compile_lsv_impl(
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        factor: Bergomi1Factor,
+        rates: HullWhite1Factor,
+        correlation: HybridCorrelation,
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+        cash: bool,
+    ) -> Result<Self, MonteCarloError> {
         let ModelSpec::LocalVolatility(lv) = request.model() else {
             return Err(HullWhiteError::Unsupported {
                 feature: "LSV-HW compile requires a LocalVolatility target request",
@@ -96,7 +198,7 @@ impl HullWhiteEquityPricingPlan {
             }
             .into());
         }
-        let base = compile_base(request, policy)?;
+        let base = compile_base(request, policy, cash)?;
         let expiry = expiry_time(request);
         for &t in base
             .hybrid_observation_times()
@@ -111,14 +213,35 @@ impl HullWhiteEquityPricingPlan {
                 .into());
             }
         }
-        let calibration = calibrate_hull_white_lsv(
-            target,
-            factor,
-            &rates,
-            correlation,
-            request.market().equity().forward().spot().get(),
-            &particles,
-        )?;
+        let dividends = if cash {
+            Some(HullWhiteDividendPlan::new(
+                &rates,
+                request.market().equity().forward(),
+                target.grid().time_nodes(),
+            )?)
+        } else {
+            None
+        };
+        let calibration = if let Some(d) = &dividends {
+            calibrate_hull_white_lsv_with_dividends(
+                target,
+                factor,
+                &rates,
+                correlation,
+                request.market().equity().forward().spot().get(),
+                &particles,
+                Some(d),
+            )?
+        } else {
+            calibrate_hull_white_lsv(
+                target,
+                factor,
+                &rates,
+                correlation,
+                request.market().equity().forward().spot().get(),
+                &particles,
+            )?
+        };
         let events = target
             .grid()
             .time_nodes()
@@ -128,7 +251,7 @@ impl HullWhiteEquityPricingPlan {
             .collect();
         let grid = LocalVolTimeGrid::compile(events, expiry)
             .map_err(|e| MonteCarloError::HullWhite(e.into()))?;
-        let path = HullWhiteEquityPlan::new(
+        let mut path = HullWhiteEquityPlan::new(
             rates,
             HybridEquityVolatility::BergomiLsv {
                 factor,
@@ -137,6 +260,9 @@ impl HullWhiteEquityPricingPlan {
             correlation,
             &grid,
         )?;
+        if let Some(d) = dividends {
+            path = path.with_dividends(d)?;
+        }
         Self::finish(
             request,
             base,
@@ -218,6 +344,9 @@ impl HullWhiteEquityPricingPlan {
         }
         // The stochastic-volatility parameters are also encoded by the path.
         hash.update(&path.parameter_fingerprint_bytes());
+        if let Some(d) = path.dividends() {
+            hash.update(&d.fingerprint_bytes());
+        }
         Ok(Self {
             base,
             path,
@@ -242,6 +371,18 @@ impl HullWhiteEquityPricingPlan {
     #[must_use]
     pub fn calibration(&self) -> Option<&CalibratedHullWhiteLsv> {
         self.calibration.as_ref()
+    }
+    #[must_use]
+    pub fn cash_dividend_model(&self) -> Option<&'static str> {
+        self.path
+            .dividends()
+            .map(|_| HULL_WHITE_CASH_DIVIDEND_MODEL)
+    }
+    #[must_use]
+    pub fn risky_spot(&self) -> f64 {
+        self.path
+            .dividends()
+            .map_or(self.spot, HullWhiteDividendPlan::risky_spot)
     }
 
     pub fn evaluate(&self) -> Result<HullWhitePrice, MonteCarloError> {
@@ -322,11 +463,15 @@ impl HullWhiteEquityPricingPlan {
             evaluated_paths: paths,
             plan_fingerprint: self.fingerprint,
             scheme: HULL_WHITE_EQUITY_SCHEME,
-            calibration_method: self
-                .calibration
-                .as_ref()
-                .map(|_| HULL_WHITE_LSV_CALIBRATION),
+            calibration_method: self.calibration.as_ref().map(|_| {
+                if self.path.dividends().is_some() {
+                    HULL_WHITE_CASH_LSV_CALIBRATION
+                } else {
+                    HULL_WHITE_LSV_CALIBRATION
+                }
+            }),
             calibration_seed: self.calibration_seed,
+            cash_dividend_model: self.cash_dividend_model(),
         })
     }
 
@@ -381,7 +526,18 @@ impl HullWhiteEquityPricingPlan {
                 .iter()
                 .map(|s| s.normalized_equity)
                 .collect::<Vec<_>>();
-            value += self.base.hybrid_payoff(self.path.times(), &equity)? * relative_discount;
+            let payoff = if let Some(d) = self.path.dividends() {
+                let spots = d
+                    .nodes()
+                    .iter()
+                    .zip(&states)
+                    .map(|(n, s)| n.spots(s.normalized_equity, s.rate_factor))
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.base.hybrid_spot_payoff(self.path.times(), &spots)?
+            } else {
+                self.base.hybrid_payoff(self.path.times(), &equity)?
+            };
+            value += payoff * relative_discount;
         }
         Ok(value / if antithetic { 2.0 } else { 1.0 })
     }
@@ -413,6 +569,7 @@ fn matching_target_grid(
 fn compile_base(
     request: &PricingRequest,
     policy: ExecutionPolicy,
+    cash: bool,
 ) -> Result<SimulationPlan, MonteCarloError> {
     let risk = request.risk();
     if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
@@ -429,7 +586,8 @@ fn compile_base(
         }
         .into());
     }
-    if let Some(dividends) = request.market().equity().forward().discrete_dividends()
+    if !cash
+        && let Some(dividends) = request.market().equity().forward().discrete_dividends()
         && dividends
             .events()
             .iter()

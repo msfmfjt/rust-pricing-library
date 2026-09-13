@@ -124,3 +124,51 @@ class HullWhiteTest(unittest.TestCase):
         different = rp.HullWhiteLsvTarget.flat(0.3, times, nodes)
         with self.assertRaises(rp.PricingError):
             self.compile_lsv(different)
+
+    def test_explicit_cash_dividend_model_and_metadata(self):
+        data = self.payload()
+        data["model"]["volatility"] = 0.0
+        data["product"]["strike"] = 80.0
+        data["market"]["discrete_dividends"] = [
+            {"event_id": 1, "ex_time": 1.0, "quote": {"type": "fixed_cash", "amount": 10.0}}
+        ]
+        request = rp.PricingRequest.from_json(json.dumps(data))
+        rates = rp.HullWhiteModel(0.2, [0.0], [0.0])
+        kwargs = dict(equity_rate_correlation=0.0, maximum_step=1.0, worker_threads=1)
+        with self.assertRaises(rp.PricingError):
+            rp.HullWhiteEquityPlan.compile_bs(request, rates, **kwargs)
+        plan = rp.HullWhiteEquityPlan.compile_bs(
+            request, rates, cash_dividend_model="escrowed", **kwargs
+        )
+        self.assertAlmostEqual(plan.risky_spot, 100.0 - 10.0*0.95/0.98, places=12)
+        result = plan.evaluate()
+        self.assertAlmostEqual(result.value, 12.5, places=12)
+        self.assertEqual(plan.cash_dividend_model, "escrowed-hw-bonds-v1")
+        self.assertEqual(result.cash_dividend_model, plan.cash_dividend_model)
+        with self.assertRaises(AttributeError):
+            plan.risky_spot = 0.0
+        with self.assertRaises(rp.ValidationError):
+            rp.HullWhiteEquityPlan.compile_bs(request, rates, cash_dividend_model="unknown", **kwargs)
+
+    def test_cash_lsv_deterministic_limit_and_missing_event_time(self):
+        target = rp.HullWhiteLsvTarget.flat(0.2, [0.0, 0.5, 1.0], [-0.5, 0.0, 0.5])
+        data = json.loads(self.request(target).to_json())
+        data["market"]["discrete_dividends"] = [
+            {"event_id": 1, "ex_time": 0.5, "quote": {"type": "fixed_cash", "amount": 4.0}}
+        ]
+        rates = rp.HullWhiteModel(0.2, [0.0], [0.0])
+        kwargs = dict(vol_mean_reversion=2.0, vol_of_vol=0.0,
+                      equity_vol_correlation=-0.5, equity_rate_correlation=0.25,
+                      vol_rate_correlation=-0.1, particle_count=128, calibration_seed=712,
+                      log_bandwidth=0.35, minimum_effective_samples=5.0,
+                      worker_threads=1, cash_dividend_model="escrowed")
+        plan = rp.HullWhiteEquityPlan.compile_lsv(
+            rp.PricingRequest.from_json(json.dumps(data)), target, rates, **kwargs
+        )
+        self.assertTrue(all(abs(v - 0.04) < 1e-15 for v in plan.squared_leverage))
+        self.assertEqual(plan.evaluate().calibration_method, "lsv-hw-escrowed-quadratic-quartic-v1")
+        data["market"]["discrete_dividends"][0]["ex_time"] = 0.3
+        with self.assertRaises(rp.PricingError):
+            rp.HullWhiteEquityPlan.compile_lsv(
+                rp.PricingRequest.from_json(json.dumps(data)), target, rates, **kwargs
+            )

@@ -3,6 +3,10 @@
 Status: experimental, price only. Date: 2026-09-12.
 Decision: [ADR 0001](adr/0001-hull-white-equity-hybrid.md).
 
+These are the default no-cash contracts. The explicit
+[escrowed cash-dividend mode](hull-white-cash-dividends-v0.1.md) extends the
+coordinate, pricing map and calibration equation without changing the default.
+
 ## Model and deterministic curve shift
 
 Let P0(t) be the supplied discount curve, f0(t) its instantaneous forward rate,

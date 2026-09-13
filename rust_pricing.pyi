@@ -85,12 +85,13 @@ class HullWhiteLsvTarget:
 
 
 class HullWhiteEquityPlan:
-    """Experimental price-only BS/LSV + HW; fixed cash dividends are unsupported."""
+    """Experimental BS/LSV + HW with optional escrowed cash dividends."""
     @staticmethod
     def compile_bs(
         request: PricingRequest, rate_model: HullWhiteModel, *,
         equity_rate_correlation: float, maximum_step: float, worker_threads: int,
         reduction_block_size: int | None = None,
+        cash_dividend_model: Literal["escrowed"] | None = None,
     ) -> HullWhiteEquityPlan: ...
     @staticmethod
     def compile_lsv(
@@ -100,8 +101,13 @@ class HullWhiteEquityPlan:
         particle_count: int, calibration_seed: int, log_bandwidth: float,
         minimum_effective_samples: float, worker_threads: int,
         reduction_block_size: int | None = None,
+        cash_dividend_model: Literal["escrowed"] | None = None,
     ) -> HullWhiteEquityPlan: ...
     def evaluate(self) -> HullWhitePrice: ...
+    @property
+    def cash_dividend_model(self) -> str | None: ...
+    @property
+    def risky_spot(self) -> float: ...
     @property
     def plan_fingerprint(self) -> str: ...
     @property
@@ -119,6 +125,8 @@ class HullWhiteEquityPlan:
 
 
 class HullWhitePrice:
+    @property
+    def cash_dividend_model(self) -> str | None: ...
     @property
     def value(self) -> float: ...
     @property

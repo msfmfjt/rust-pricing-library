@@ -1245,9 +1245,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("HullWhiteEquityPlan", "compile_bs"): {
             "positional": ["request", "rate_model"],
             "positional_defaults": {},
-            "keyword_only": ["equity_rate_correlation", "maximum_step", "worker_threads", "reduction_block_size"],
+            "keyword_only": [
+                "equity_rate_correlation",
+                "maximum_step",
+                "worker_threads",
+                "reduction_block_size",
+                "cash_dividend_model",
+            ],
             "required_keyword_only": ["equity_rate_correlation", "maximum_step", "worker_threads"],
-            "keyword_only_defaults": {"reduction_block_size": None},
+            "keyword_only_defaults": {"reduction_block_size": None, "cash_dividend_model": None},
         },
         ("HullWhiteEquityPlan", "compile_lsv"): {
             "positional": ["request", "target", "rate_model"],
@@ -1264,6 +1270,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "minimum_effective_samples",
                 "worker_threads",
                 "reduction_block_size",
+                "cash_dividend_model",
             ],
             "required_keyword_only": [
                 "vol_mean_reversion",
@@ -1277,7 +1284,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "minimum_effective_samples",
                 "worker_threads",
             ],
-            "keyword_only_defaults": {"reduction_block_size": None},
+            "keyword_only_defaults": {"reduction_block_size": None, "cash_dividend_model": None},
         },
         ("HullWhiteEquityPlan", "evaluate"): {
             "positional": ["self"],
@@ -1695,6 +1702,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "forward_log_densities",
         },
         "HullWhiteEquityPlan": {
+            "cash_dividend_model",
+            "risky_spot",
             "compile_bs",
             "compile_lsv",
             "evaluate",
@@ -1707,6 +1716,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "calibration_discounted_equity_means",
         },
         "HullWhitePrice": {
+            "cash_dividend_model",
             "value",
             "standard_error",
             "independent_sampling_units",
@@ -2039,6 +2049,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("HullWhiteEquityPlan", "cash_dividend_model"),
+        ("HullWhiteEquityPlan", "risky_spot"),
+        ("HullWhitePrice", "cash_dividend_model"),
         ("HullWhiteModel", "mean_reversion"),
         ("HullWhiteModel", "volatility_times"),
         ("HullWhiteModel", "volatilities"),

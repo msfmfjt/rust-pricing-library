@@ -177,10 +177,10 @@ pub struct PyHullWhiteEquityPlan {
 }
 #[pymethods]
 impl PyHullWhiteEquityPlan {
-    /// Compile price-only BS+HW; cash dividends are currently unsupported.
+    /// Compile price-only BS+HW. Opt into cash dividends with cash_dividend_model="escrowed".
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, rate_model, *, equity_rate_correlation, maximum_step, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, rate_model, *, equity_rate_correlation, maximum_step, worker_threads, reduction_block_size=None, cash_dividend_model=None))]
     fn compile_bs(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -189,13 +189,24 @@ impl PyHullWhiteEquityPlan {
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        cash_dividend_model: Option<&str>,
     ) -> PyResult<Self> {
+        let cash = match cash_dividend_model {
+            None => false,
+            Some("escrowed") => true,
+            Some(_) => return Err(invalid(py, "cash_dividend_model must be escrowed or None")),
+        };
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
         let rates = rate_model.inner.clone();
         py.detach(|| {
-            HullWhiteEquityPricingPlan::compile_bs(
+            let compile = if cash {
+                HullWhiteEquityPricingPlan::compile_bs_with_cash_dividends
+            } else {
+                HullWhiteEquityPricingPlan::compile_bs
+            };
+            compile(
                 &request,
                 rates,
                 equity_rate_correlation,
@@ -209,7 +220,7 @@ impl PyHullWhiteEquityPlan {
     /// Calibrate LSV with stochastic-rate correction, then price independently.
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, target, rate_model, *, vol_mean_reversion, vol_of_vol, equity_vol_correlation, equity_rate_correlation, vol_rate_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, target, rate_model, *, vol_mean_reversion, vol_of_vol, equity_vol_correlation, equity_rate_correlation, vol_rate_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, worker_threads, reduction_block_size=None, cash_dividend_model=None))]
     fn compile_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -226,7 +237,13 @@ impl PyHullWhiteEquityPlan {
         minimum_effective_samples: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        cash_dividend_model: Option<&str>,
     ) -> PyResult<Self> {
+        let cash = match cash_dividend_model {
+            None => false,
+            Some("escrowed") => true,
+            Some(_) => return Err(invalid(py, "cash_dividend_model must be escrowed or None")),
+        };
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let factor = Bergomi1Factor::new(vol_mean_reversion, vol_of_vol, equity_vol_correlation)
@@ -249,7 +266,12 @@ impl PyHullWhiteEquityPlan {
         let rates = rate_model.inner.clone();
         let target = target.inner.clone();
         py.detach(|| {
-            HullWhiteEquityPricingPlan::compile_lsv(
+            let compile = if cash {
+                HullWhiteEquityPricingPlan::compile_lsv_with_cash_dividends
+            } else {
+                HullWhiteEquityPricingPlan::compile_lsv
+            };
+            compile(
                 &request,
                 &target,
                 factor,
@@ -270,6 +292,14 @@ impl PyHullWhiteEquityPlan {
     #[getter]
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
+    }
+    #[getter]
+    fn cash_dividend_model(&self) -> Option<&'static str> {
+        self.inner.cash_dividend_model()
+    }
+    #[getter]
+    fn risky_spot(&self) -> f64 {
+        self.inner.risky_spot()
     }
     #[getter]
     fn time_nodes(&self) -> Vec<f64> {
@@ -323,6 +353,10 @@ pub struct PyHullWhitePrice {
 }
 #[pymethods]
 impl PyHullWhitePrice {
+    #[getter]
+    fn cash_dividend_model(&self) -> Option<&'static str> {
+        self.inner.cash_dividend_model
+    }
     #[getter]
     fn value(&self) -> f64 {
         self.inner.value

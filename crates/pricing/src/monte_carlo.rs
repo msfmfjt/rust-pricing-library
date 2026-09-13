@@ -1427,8 +1427,55 @@ impl SimulationPlan {
         &self.observation_times
     }
 
+    /// Evaluate on reconstructed physical Spot without another affine mapping.
+    pub(crate) fn hybrid_spot_payoff(
+        &self,
+        times: &[f64],
+        spots: &[(f64, Option<f64>)],
+    ) -> Result<f64, MonteCarloError> {
+        if times.len() != spots.len() {
+            return Err(pricing_models::HullWhiteError::InvalidInput {
+                field: "hybrid_spot_count",
+                index: spots.len(),
+            }
+            .into());
+        }
+        let indices = self
+            .observation_times
+            .iter()
+            .map(|t| {
+                times.binary_search_by(|x| x.total_cmp(t)).map_err(|_| {
+                    pricing_models::HullWhiteError::InvalidInput {
+                        field: "missing_observation_time",
+                        index: 0,
+                    }
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let at = |u, d, pre| {
+            if u != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|date| *date == d)
+                .and_then(|i| {
+                    if pre {
+                        spots[indices[i]].1
+                    } else {
+                        Some(spots[indices[i]].0)
+                    }
+                })
+        };
+        Ok(self.discount
+            * self
+                .payoff
+                .evaluate_with_pre_dividend_spots(|u, d| at(u, d, false), |u, d| at(u, d, true))?
+                [0])
+    }
+
     /// Map normalized hybrid equity states back to contractual Spot. The HW
-    /// compiler rejects cash dividends; proportional pre/post observations use
+    /// default compiler rejects cash dividends; proportional pre/post observations use
     /// the same compiled payoff graph and event convention as the stable API.
     pub(crate) fn hybrid_payoff(
         &self,

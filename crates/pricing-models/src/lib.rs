@@ -4,6 +4,7 @@
 
 mod bergomi;
 pub mod hull_white;
+pub mod hull_white_dividends;
 mod spec;
 
 pub use bergomi::{Bergomi1Factor, BergomiTransition};
