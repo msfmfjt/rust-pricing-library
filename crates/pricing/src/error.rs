@@ -5,7 +5,8 @@ use pricing_aad::AadConfigError;
 use pricing_core::{CoreError, CurrencyId, Date, UnderlyingId};
 use pricing_market::MarketError;
 use pricing_mc::{
-    ExecutionError, ExecutorBuildError, LocalVolError, RqmcPlanError, TryExecutionError,
+    BarrierBridgeError, ExecutionError, ExecutorBuildError, LocalVolError, LsmNumericalError,
+    RqmcPlanError, TryExecutionError,
 };
 use pricing_product::GraphError;
 use pricing_risk::RiskConfigError;
@@ -31,6 +32,13 @@ pub enum RequestValidationError {
         valuation_date: Date,
         payment_date: Date,
     },
+    AmericanPastExerciseUnsupported {
+        exercise_date: Date,
+        valuation_date: Date,
+    },
+    MissingLsmConfiguration,
+    UnexpectedLsmConfiguration,
+    LsmConfiguration(LsmNumericalError),
     AsianPastObservationRequiresKnownFixing {
         observation_date: Date,
         valuation_date: Date,
@@ -52,6 +60,7 @@ pub enum RequestValidationError {
     VegaKtUnsupportedForConstantVolatility,
     RiskUnsupportedForDiscontinuousProduct,
     PayoffSmoothingUnsupportedForProduct,
+    PayoffSmoothingWidthLadderRequiresPrimary,
 }
 
 impl fmt::Display for RequestValidationError {
@@ -79,6 +88,20 @@ impl fmt::Display for RequestValidationError {
                 formatter,
                 "payment date {payment_date} is before valuation date {valuation_date}"
             ),
+            Self::AmericanPastExerciseUnsupported {
+                exercise_date,
+                valuation_date,
+            } => write!(
+                formatter,
+                "American exercise date {exercise_date} before valuation date {valuation_date} requires historical exercise state"
+            ),
+            Self::MissingLsmConfiguration => {
+                write!(formatter, "American pricing requires an LSM configuration")
+            }
+            Self::UnexpectedLsmConfiguration => {
+                write!(formatter, "LSM configuration requires an American product")
+            }
+            Self::LsmConfiguration(error) => error.fmt(formatter),
             Self::AsianPastObservationRequiresKnownFixing {
                 observation_date,
                 valuation_date,
@@ -119,11 +142,21 @@ impl fmt::Display for RequestValidationError {
                 formatter,
                 "payoff smoothing is unsupported for the selected product"
             ),
+            Self::PayoffSmoothingWidthLadderRequiresPrimary => write!(
+                formatter,
+                "payoff smoothing width ladder requires a separately declared primary smoothing width"
+            ),
         }
     }
 }
 
 impl Error for RequestValidationError {}
+
+impl From<LsmNumericalError> for RequestValidationError {
+    fn from(error: LsmNumericalError) -> Self {
+        Self::LsmConfiguration(error)
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -229,6 +262,7 @@ pub enum MonteCarloError {
     NonFiniteTotalVariance {
         bits: u64,
     },
+    BarrierBridge(BarrierBridgeError),
     UnsupportedObservationUnderlying {
         product: UnderlyingId,
         market: UnderlyingId,
@@ -236,6 +270,7 @@ pub enum MonteCarloError {
     Market(MarketError),
     LocalVol(LocalVolError),
     Lsv(pricing_mc::lsv::LsvError),
+    HullWhite(pricing_mc::hull_white::HullWhiteMcError),
     Graph(GraphError),
     ExecutorBuild(ExecutorBuildError),
     Execution(ExecutionError),
@@ -244,6 +279,7 @@ pub enum MonteCarloError {
     AadConfig(AadConfigError),
     RqmcPlan(RqmcPlanError),
     RiskConfig(RiskConfigError),
+    Lsm(LsmNumericalError),
 }
 
 impl From<MarketError> for MonteCarloError {
@@ -261,6 +297,23 @@ impl From<LocalVolError> for MonteCarloError {
 impl From<pricing_mc::lsv::LsvError> for MonteCarloError {
     fn from(error: pricing_mc::lsv::LsvError) -> Self {
         Self::Lsv(error)
+    }
+}
+
+impl From<pricing_mc::hull_white::HullWhiteMcError> for MonteCarloError {
+    fn from(error: pricing_mc::hull_white::HullWhiteMcError) -> Self {
+        Self::HullWhite(error)
+    }
+}
+impl From<pricing_models::HullWhiteError> for MonteCarloError {
+    fn from(error: pricing_models::HullWhiteError) -> Self {
+        Self::HullWhite(error.into())
+    }
+}
+
+impl From<BarrierBridgeError> for MonteCarloError {
+    fn from(error: BarrierBridgeError) -> Self {
+        Self::BarrierBridge(error)
     }
 }
 
@@ -303,6 +356,12 @@ impl From<RqmcPlanError> for MonteCarloError {
 impl From<RiskConfigError> for MonteCarloError {
     fn from(error: RiskConfigError) -> Self {
         Self::RiskConfig(error)
+    }
+}
+
+impl From<LsmNumericalError> for MonteCarloError {
+    fn from(error: LsmNumericalError) -> Self {
+        Self::Lsm(error)
     }
 }
 
@@ -378,6 +437,7 @@ impl fmt::Display for MonteCarloError {
                     "Black-Scholes total variance is non-finite: 0x{bits:016x}"
                 )
             }
+            Self::BarrierBridge(error) => error.fmt(formatter),
             Self::UnsupportedObservationUnderlying { product, market } => write!(
                 formatter,
                 "product observation underlying {product} does not match market underlying {market}"
@@ -385,6 +445,7 @@ impl fmt::Display for MonteCarloError {
             Self::Market(error) => error.fmt(formatter),
             Self::LocalVol(error) => error.fmt(formatter),
             Self::Lsv(error) => error.fmt(formatter),
+            Self::HullWhite(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),
             Self::ExecutorBuild(error) => error.fmt(formatter),
             Self::Execution(error) => error.fmt(formatter),
@@ -393,6 +454,7 @@ impl fmt::Display for MonteCarloError {
             Self::AadConfig(error) => error.fmt(formatter),
             Self::RqmcPlan(error) => error.fmt(formatter),
             Self::RiskConfig(error) => error.fmt(formatter),
+            Self::Lsm(error) => error.fmt(formatter),
         }
     }
 }
@@ -403,6 +465,8 @@ impl Error for MonteCarloError {
             Self::Market(error) => Some(error),
             Self::LocalVol(error) => Some(error),
             Self::Lsv(error) => Some(error),
+            Self::HullWhite(error) => Some(error),
+            Self::BarrierBridge(error) => Some(error),
             Self::Graph(error) => Some(error),
             Self::ExecutorBuild(error) => Some(error),
             Self::Execution(error) => Some(error),
@@ -411,6 +475,7 @@ impl Error for MonteCarloError {
             Self::AadConfig(error) => Some(error),
             Self::RqmcPlan(error) => Some(error),
             Self::RiskConfig(error) => Some(error),
+            Self::Lsm(error) => Some(error),
             _ => None,
         }
     }

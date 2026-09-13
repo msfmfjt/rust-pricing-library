@@ -554,6 +554,14 @@ Expiry observations colliding with an ex-date are always compiled into the post-
 
 For continuous barrier correction, compilation transforms each Spot barrier to `H_f(t) = (H_S(t) - A(t)*S0) / B(t)` and validates positivity over every monitored interval. The path kernel applies its bridge formula in `log(f)` using a linearly interpolated `log(H_f)`, both transformed-barrier endpoints, and effective interval variance `0.5 * (local_var_start + local_var_end) * dt`. With two safe endpoints it carries the analytic conditional survival probability as a path weight; it consumes no extra uniform coordinate. Products of survival terms use stable log-domain accumulation. Dividend events bypass the diffusion bridge and consume no random variate.
 
+In smoothed continuous mode, each Spot-distance endpoint predicate is mapped to
+an effective log distance whose compact-C2 safety weight is preserved before
+the bridge formula is applied. Endpoint, dividend-jump, and interval safety
+factors are accumulated in fixed order in the log domain. The matched reverse
+rules propagate through the smoothing kernel, affine Spot reconstruction,
+transformed barrier, and interval variance. Exact mode retains the v1 bridge
+ABI; smoothed mode reports the separately versioned v2 bridge ABI.
+
 Barrier opcodes expose exact and smoothed hit modes. Exact mode preserves inclusive touch-is-hit semantics. Smoothed Price/AAD mode evaluates every discrete endpoint with the compact C2 quintic indicator at an explicit Spot-distance half-width. For a dividend event it computes pre- and post-jump signed hit distances and combines them with the same C2 smoothed `Maximum` opcode before applying the quintic indicator. This represents a deterministic jump crossing as a differentiable hit weight without reclassifying it as bridge crossing. Barrier diagnostics count endpoint, weighted bridge, and dividend-jump contributions separately and record the mode and half-width.
 
 The barrier opcode owns an explicit reverse rule through both endpoint states, both Local-variance lookups, the trapezoidal variance, the transformed barrier endpoints, and stable survival-probability branches. The validation bump recompiles these same quantities; it does not freeze the base crossing probability.
@@ -771,7 +779,17 @@ The MVP linear-algebra backend is pure Rust and single-threaded inside each call
 
 `PolynomialBasisSpec` enumerates exponent vectors with total degree at most `max_degree`, including the all-zero constant vector, in a versioned graded order derived from declared feature order. Interaction monomials therefore require no separate flag. At each exercise date, the trainer computes each feature's arithmetic mean and population standard deviation with denominator `n` from that date's ITM training rows only and stores them inside the immutable regression model; valuation rows reuse those exact values. The constant feature is never centered or scaled. A zero-scale feature is tagged before matrix construction so all dependent non-constant monomials receive deterministic exclusion diagnostics.
 
-Column-pivoted QR operates on the standardized design matrix. Pivot selection ties are broken by original basis-column index. For explicit non-negative `abs_rank_tol` and `rel_rank_tol`, pivot `j` is retained only if `abs(R[j,j]) > max(abs_rank_tol, rel_rank_tol * abs(R[0,0]))`. Columns below the threshold are omitted from triangular solve, mapped back to zero coefficients in the full canonical basis vector, and listed in diagnostics. No alternate solver is invoked. Constant-column identity and all scaling, tolerances, permutation, retained-rank, and residual data participate in the policy fingerprint.
+Column-pivoted QR operates on the standardized design matrix using the scalar
+Householder policy fixed by `early-exercise-numerical-contracts-v0.1.md`.
+Residual column norms are recomputed at every pivot, and pivot ties are broken
+by original basis-column index. For explicit non-negative `abs_rank_tol` and
+`rel_rank_tol`, pivot `j` is retained only if
+`abs(R[j,j]) > max(abs_rank_tol, rel_rank_tol * abs(R[0,0]))`. Numerical rank
+is the passing prefix. Excluded columns are omitted from triangular solve,
+mapped back to positive zero coefficients in the full canonical basis vector,
+and listed in diagnostics. No alternate solver is invoked. Constant-column
+identity and all scaling, tolerances, permutation, retained-rank, and residual
+data participate in the policy fingerprint.
 
 ```rust
 pub struct ExercisePolicy {
@@ -872,6 +890,13 @@ effective Dupire variance nodes. The market-IV projection and stable VegaKT
 report integration remain acceptance work; see the
 [LSV roadmap](lsv-roadmap-v0.1.md) and
 [coordinate contracts](lsv-numerical-contracts-v0.1.md).
+
+The experimental equity/Hull–White extension adds the rate/integral kernel in
+`pricing-models`, joint simulation and discounted LSV calibration in
+`pricing-mc`, and a separate price-only Rust/Python plan boundary. It does not
+change the dependency direction or stable JSON model variants. See
+[ADR 0001](adr/0001-hull-white-equity-hybrid.md) and the
+[HW numerical contracts](hull-white-numerical-contracts-v0.1.md).
 
 ### 12.5 Gamma
 
@@ -1010,7 +1035,6 @@ Black-Scholes and Local Volatility/VegaKT slices:
 The following decisions remain outside the v0.1 release and require a new
 requirements or ADR record before implementation:
 
-- column-pivoted QR details for a production LSM slice;
 - double/window barrier and hit-time-rebate estimator extensions;
 - multi-asset correlation term structures; and
 - public publication, licensing, and artifact-access policy.

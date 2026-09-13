@@ -76,7 +76,7 @@ impl BergomiLsvPricingPlan {
                 model: "Bergomi LSV: use price_only and evaluate_local_variance_risk",
             });
         }
-        let base = SimulationPlan::compile(target_request, policy)?;
+        let base = SimulationPlan::compile_hybrid_base(target_request, policy)?;
         let grid = base.lsv_time_grid()?;
         let original_target = target.local_variance_grid().clone();
         // Calibration and pricing share all contractual and dividend nodes.

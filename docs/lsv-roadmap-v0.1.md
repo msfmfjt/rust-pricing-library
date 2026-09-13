@@ -133,8 +133,11 @@ memory/runtime measurements, and native macOS/Windows replay evidence. The
 current calibration sorts particles per time step and evaluates supported
 kernel neighborhoods; the calibration reverse is a deterministic full sweep.
 Its retained trace costs O(particles * time steps) memory. Multi-factor Bergomi,
-Heston/CIR, stochastic rates, multi-asset correlation, continuous barrier
+Heston/CIR, multi-asset correlation, continuous barrier
 corrections and LSM state expansion remain further model/engine extensions.
+Stochastic rates now have a separate experimental price-only
+[Hull–White extension](hull-white-roadmap-v0.1.md); the deterministic LSV VJP
+described here is not connected to that extension.
 
 This branch depends on PR #45 and the preceding stack. It neither merges that
 stack nor changes its acceptance status. Rebase with refreshed CI evidence if
