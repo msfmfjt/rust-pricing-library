@@ -699,5 +699,5 @@ fn compile_base(
         }
         .into());
     }
-    SimulationPlan::compile(request, policy)
+    SimulationPlan::compile_hybrid_base(request, policy)
 }

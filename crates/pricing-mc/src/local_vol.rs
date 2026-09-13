@@ -405,8 +405,9 @@ impl LocalVolLogEulerPlan {
                 local_variance_grid.interpolate_and_record(time, x, &mut boundary_stats)?;
             let local_variance = interpolation.value;
             let local_volatility = local_variance.sqrt();
-            let exponential =
-                (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
+            let forward_ratio = self.forward_normalizers[step + 1] / self.forward_normalizers[step];
+            let exponential = forward_ratio
+                * (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
             step_cache.push(LocalVolStepCache {
                 state_before: state,
                 local_variance,
@@ -1030,6 +1031,42 @@ mod tests {
         assert!((path.states()[path.states().len() - 1] - expected).abs() < 1.0e-12);
         assert!(path.local_variances().iter().all(|value| *value == 0.04));
         assert_eq!(path.boundary_stats().total_flat_count(), 0);
+    }
+
+    #[test]
+    fn log_euler_applies_compiled_forward_carry() {
+        let time_grid = LocalVolTimeGrid::compile(vec![0.5, 1.0], 0.5).expect("time grid");
+        let plan = LocalVolLogEulerPlan::new(time_grid, vec![100.0, 102.0, 105.0]).expect("plan");
+        let variance_grid = LocalVarianceGrid::new(
+            vec![0.0, 1.0],
+            vec![-1.0, 1.0],
+            vec![0.04, 0.04, 0.04, 0.04],
+            0.0001,
+            1.0,
+        )
+        .expect("variance grid");
+        let shocks = [0.1, -0.2];
+        let path = plan
+            .evolve_path(&variance_grid, 100.0, &shocks)
+            .expect("path");
+        let expected = 105.0
+            * (-0.5 * 0.04 + 0.2 * 0.5_f64.sqrt() * shocks.iter().copied().sum::<f64>()).exp();
+        assert!((path.states()[2] - expected).abs() < 1.0e-12);
+
+        let reverse = path
+            .reverse_terminal(1.0, variance_grid.values().len(), 2)
+            .expect("reverse");
+        let bump = 1.0e-4;
+        let down = plan
+            .evolve_path(&variance_grid, 100.0 - bump, &shocks)
+            .expect("down")
+            .states()[2];
+        let up = plan
+            .evolve_path(&variance_grid, 100.0 + bump, &shocks)
+            .expect("up")
+            .states()[2];
+        let finite_difference = (up - down) / (2.0 * bump);
+        assert!((reverse.initial_state_adjoint() - finite_difference).abs() < 1.0e-10);
     }
 
     #[test]

@@ -14,9 +14,10 @@ use pricing::{
     RiskDiagnostics, RiskEstimate, RiskMethodMetadata, RiskUnit, VegaKtResult,
     VegaKtResultBucketEstimate, VegaKtResultCoordinate, VegaKtResultCovarianceLayout,
     VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
-    VegaKtResultUnit, WireError, current_request_schema, current_result_schema,
-    fingerprint_request, parse_request_json, parse_result_json, request_to_json,
-    request_to_pretty_json, result_to_json, result_to_pretty_json,
+    VegaKtResultUnit, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, WireError,
+    current_request_schema, current_result_schema, fingerprint_request, monte_carlo_result_to_json,
+    monte_carlo_result_to_pretty_json, parse_monte_carlo_result_json, parse_request_json,
+    parse_result_json, request_to_json, request_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -25,10 +26,14 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use builders::{
-    PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyMarket,
-    PyModel, PyProduct, PyRiskRequest, build_request,
+    PyAsianObservation, PyDiscountCurve, PyDividendEvent, PyEngine, PyEssviSlice, PyLsmConfig,
+    PyMarket, PyModel, PyProduct, PyRiskRequest, build_request,
 };
-use diagnostics::{PyDiagnosticEstimate, PyDiagnostics, PyPricingWarning, PyRiskValidation};
+use diagnostics::{
+    PyDiagnosticEstimate, PyDiagnostics, PyEarlyExerciseDiagnostics, PyExerciseDecisionDiagnostics,
+    PyExerciseRegressionDiagnostics, PyLsmFeatureScaling, PyLsmWarning, PyPricingWarning,
+    PyRiskValidation,
+};
 
 create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
@@ -78,6 +83,9 @@ impl PyValidationIssue {
             WireError::WrongDocumentKind { .. } => ("declared_schema", "wrong_document_kind"),
             WireError::Domain(_) | WireError::DomainAt { .. } => ("domain", "invalid_domain_value"),
             WireError::InvalidFingerprint(_) => ("declared_schema", "invalid_fingerprint"),
+            WireError::UnsupportedSchemaFeature { .. } => {
+                ("declared_schema", "unsupported_schema_feature")
+            }
         };
         let schema_version = match error {
             WireError::UnsupportedSchemaVersion(version) => *version,
@@ -206,6 +214,8 @@ pub struct PyPricingRequest {
 #[pymethods]
 impl PyPricingRequest {
     #[new]
+    #[pyo3(signature = (valuation_date, product, market, model, engine, risk, *, lsm=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -214,9 +224,19 @@ impl PyPricingRequest {
         model: &PyModel,
         engine: &PyEngine,
         risk: &PyRiskRequest,
+        lsm: Option<&PyLsmConfig>,
     ) -> PyResult<Self> {
-        build_request(py, valuation_date, product, market, model, engine, risk)
-            .map(|inner| Self { inner })
+        build_request(
+            py,
+            valuation_date,
+            product,
+            market,
+            model,
+            engine,
+            risk,
+            lsm,
+        )
+        .map(|inner| Self { inner })
     }
 
     /// Parse and validate a versioned pricing-request JSON document.
@@ -283,6 +303,13 @@ impl PyPricingPlan {
             .map_err(pricing_exception)
     }
 
+    /// Evaluate the primary smoothing width and every explicitly ordered ladder width.
+    fn evaluate_width_ladder(&self, py: Python<'_>) -> PyResult<PyWidthLadderResult> {
+        py.detach(|| self.inner.evaluate_width_ladder())
+            .map(|inner| PyWidthLadderResult { inner })
+            .map_err(pricing_exception)
+    }
+
     #[getter]
     fn request_fingerprint(&self) -> String {
         self.inner.request_fingerprint().to_string()
@@ -303,8 +330,137 @@ impl PyPricingPlan {
         self.inner.execution_policy().reduction_block_size().get()
     }
 
+    #[getter]
+    fn request_original_schema_version(&self) -> u32 {
+        self.inner
+            .request_migration()
+            .original_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn request_current_schema_version(&self) -> u32 {
+        self.inner
+            .request_migration()
+            .current_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn request_migration_ids(&self) -> Vec<String> {
+        self.inner.request_migration().migration_ids().to_vec()
+    }
+
+    #[getter]
+    fn request_pre_migration_fingerprint(&self) -> String {
+        format_fingerprint(self.inner.request_migration().pre_migration_fingerprint())
+    }
+
+    #[getter]
+    fn request_post_migration_fingerprint(&self) -> String {
+        format_fingerprint(self.inner.request_migration().post_migration_fingerprint())
+    }
+
     fn __repr__(&self) -> String {
         format!("PricingPlan(fingerprint={:?})", self.plan_fingerprint())
+    }
+}
+
+/// Adjacent current-minus-previous differences in raw mathematical units.
+#[pyclass(frozen, name = "WidthLadderDifference", skip_from_py_object)]
+#[derive(Clone, Copy, Debug)]
+pub struct PyWidthLadderDifference {
+    inner: WidthLadderDifference,
+}
+
+#[pymethods]
+impl PyWidthLadderDifference {
+    #[getter]
+    fn price(&self) -> f64 {
+        self.inner.price
+    }
+
+    #[getter]
+    fn delta(&self) -> Option<f64> {
+        self.inner.delta
+    }
+
+    #[getter]
+    fn gamma(&self) -> Option<f64> {
+        self.inner.gamma
+    }
+
+    #[getter]
+    fn vega(&self) -> Option<f64> {
+        self.inner.vega
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WidthLadderDifference(price={:?})", self.inner.price)
+    }
+}
+
+/// One complete, labelled smoothing-width valuation.
+#[pyclass(frozen, name = "WidthLadderEntry", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyWidthLadderEntry {
+    inner: WidthLadderEntry,
+}
+
+#[pymethods]
+impl PyWidthLadderEntry {
+    #[getter]
+    fn half_width(&self) -> f64 {
+        self.inner.half_width.get()
+    }
+
+    #[getter]
+    fn result(&self) -> PyPricingResult {
+        PyPricingResult {
+            inner: self.inner.result.clone(),
+        }
+    }
+
+    #[getter]
+    fn adjacent_difference(&self) -> Option<PyWidthLadderDifference> {
+        self.inner
+            .adjacent_difference
+            .map(|inner| PyWidthLadderDifference { inner })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WidthLadderEntry(half_width={:?})", self.half_width())
+    }
+}
+
+/// Primary result plus complete results at every requested ladder width.
+#[pyclass(frozen, name = "WidthLadderResult", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyWidthLadderResult {
+    inner: WidthLadderResult,
+}
+
+#[pymethods]
+impl PyWidthLadderResult {
+    #[getter]
+    fn primary(&self) -> PyPricingResult {
+        PyPricingResult {
+            inner: self.inner.primary.clone(),
+        }
+    }
+
+    #[getter]
+    fn entries(&self) -> Vec<PyWidthLadderEntry> {
+        self.inner
+            .entries
+            .iter()
+            .cloned()
+            .map(|inner| PyWidthLadderEntry { inner })
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WidthLadderResult(entries={})", self.inner.entries.len())
     }
 }
 
@@ -660,8 +816,18 @@ impl PyPricingResult {
     /// Parse and validate a versioned pricing-result JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .map(monte_carlo_price_from_result)
+        parse_monte_carlo_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+            .or_else(|rich_error| {
+                if matches!(
+                    &rich_error,
+                    WireError::DomainAt { pointer, .. } if pointer == "/monte_carlo"
+                ) {
+                    parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+                        .map(monte_carlo_price_from_result)
+                } else {
+                    Err(rich_error)
+                }
+            })
             .map(|inner| Self { inner })
             .map_err(|error| validation_exception(py, PyValidationIssue::result_wire(&error)))
     }
@@ -780,6 +946,15 @@ impl PyPricingResult {
         PyDiagnostics::from_price(&self.inner)
     }
 
+    /// LSM policy, regression, and realized stopping diagnostics when applicable.
+    #[getter]
+    fn early_exercise_diagnostics(&self) -> Option<PyEarlyExerciseDiagnostics> {
+        self.inner
+            .early_exercise_diagnostics
+            .clone()
+            .map(PyEarlyExerciseDiagnostics::from_diagnostics)
+    }
+
     /// Valuation warnings in deterministic emission order.
     #[getter]
     fn warnings(&self) -> Vec<PyPricingWarning> {
@@ -810,12 +985,64 @@ impl PyPricingResult {
         self.inner.pricing_result.replay.platform()
     }
 
+    #[getter]
+    fn replay_original_schema_version(&self) -> u32 {
+        self.inner
+            .pricing_result
+            .replay
+            .migration()
+            .original_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn replay_current_schema_version(&self) -> u32 {
+        self.inner
+            .pricing_result
+            .replay
+            .migration()
+            .current_schema_version()
+            .get()
+    }
+
+    #[getter]
+    fn replay_migration_ids(&self) -> Vec<String> {
+        self.inner
+            .pricing_result
+            .replay
+            .migration()
+            .migration_ids()
+            .to_vec()
+    }
+
+    #[getter]
+    fn replay_pre_migration_fingerprint(&self) -> String {
+        format_fingerprint(
+            self.inner
+                .pricing_result
+                .replay
+                .migration()
+                .pre_migration_fingerprint(),
+        )
+    }
+
+    #[getter]
+    fn replay_post_migration_fingerprint(&self) -> String {
+        format_fingerprint(
+            self.inner
+                .pricing_result
+                .replay
+                .migration()
+                .post_migration_fingerprint(),
+        )
+    }
+
     fn to_json(&self) -> PyResult<String> {
-        result_to_json(&self.inner.pricing_result).map_err(pricing_exception)
+        monte_carlo_result_to_json(&self.inner).map_err(pricing_exception)
     }
 
     fn to_pretty_json(&self) -> PyResult<String> {
-        result_to_pretty_json(&self.inner.pricing_result).map_err(pricing_exception)
+        monte_carlo_result_to_pretty_json(&self.inner).map_err(pricing_exception)
     }
 
     fn __repr__(&self) -> String {
@@ -872,6 +1099,9 @@ fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> Mont
                 validation_spot_bump: None,
                 validation_volatility_bump: None,
                 bump_policy_version: 0,
+                exercise_strategy: None,
+                stopping_indices: None,
+                exercise_policy_fingerprint: None,
             },
             delta_validation: None,
             gamma_validation: None,
@@ -897,8 +1127,12 @@ fn monte_carlo_price_from_result(pricing_result: pricing::PricingResult) -> Mont
             discount_region: CurveRegion::Pillar,
             dividend_region: CurveRegion::Pillar,
             payoff_fingerprint: pricing::product::GraphFingerprint::from_bytes([0; 32]),
+            valuation_kind: pricing::PayoffValuationKind::ExactContractual,
             payoff_smoothing: None,
+            path_state: None,
+            barrier_bridge: None,
         },
+        early_exercise_diagnostics: None,
     }
 }
 
@@ -965,6 +1199,11 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPricingWarning>()?;
     module.add_class::<PyDiagnosticEstimate>()?;
     module.add_class::<PyRiskValidation>()?;
+    module.add_class::<PyLsmWarning>()?;
+    module.add_class::<PyLsmFeatureScaling>()?;
+    module.add_class::<PyExerciseDecisionDiagnostics>()?;
+    module.add_class::<PyExerciseRegressionDiagnostics>()?;
+    module.add_class::<PyEarlyExerciseDiagnostics>()?;
     module.add_class::<PyDiagnostics>()?;
     module.add_class::<PyDiscountCurve>()?;
     module.add_class::<PyDividendEvent>()?;
@@ -974,6 +1213,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyMarket>()?;
     module.add_class::<PyModel>()?;
     module.add_class::<PyEngine>()?;
+    module.add_class::<PyLsmConfig>()?;
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
@@ -986,6 +1226,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<hull_white::PyHullWhiteEquityPlan>()?;
     module.add_class::<hull_white::PyHullWhitePrice>()?;
     module.add_class::<hull_white::PyHullWhiteAadRisk>()?;
+    module.add_class::<PyWidthLadderDifference>()?;
+    module.add_class::<PyWidthLadderEntry>()?;
+    module.add_class::<PyWidthLadderResult>()?;
     module.add_class::<PyRiskEstimate>()?;
     module.add_class::<PyPricingResult>()?;
     module.add_class::<PyVegaKtCoordinate>()?;
@@ -1017,20 +1260,21 @@ mod tests {
 
     #[test]
     fn wire_errors_have_stable_issue_codes() {
+        let current_schema_version = pricing::core::SchemaVersion::CURRENT.get();
         let cases = [
             (
                 WireError::Json("expected value".to_owned()),
                 "syntax_and_limits",
                 "invalid_json",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::Utf8Bom,
                 "syntax_and_limits",
                 "invalid_json",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::ResourceLimit {
@@ -1041,14 +1285,14 @@ mod tests {
                 "syntax_and_limits",
                 "resource_limit",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::LimitOverrideExceedsHardCap,
                 "syntax_and_limits",
                 "resource_limit",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::UnsupportedSchemaVersion(99),
@@ -1065,21 +1309,21 @@ mod tests {
                 "declared_schema",
                 "wrong_document_kind",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::InvalidFingerprint("not-a-fingerprint".to_owned()),
                 "declared_schema",
                 "invalid_fingerprint",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::Domain("invalid domain".to_owned()),
                 "domain",
                 "invalid_domain_value",
                 "",
-                1,
+                current_schema_version,
             ),
             (
                 WireError::DomainAt {
@@ -1089,7 +1333,7 @@ mod tests {
                 "domain",
                 "invalid_domain_value",
                 "/market/spot",
-                1,
+                current_schema_version,
             ),
         ];
 

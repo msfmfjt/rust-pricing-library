@@ -6,9 +6,9 @@ use std::mem;
 use pricing_core::{Date, FiniteF64, NodeId, UnderlyingId};
 
 use crate::{
-    ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec, BarrierStyle,
-    CompactC2Smoothing, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec,
-    OptionSide, ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, CompactC2Smoothing, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+    FixedLookbackSpec, OptionSide, ProductSpec,
 };
 
 const SOURCE_GRAPH_VERSION: u32 = 1;
@@ -316,6 +316,41 @@ impl EuropeanVanillaSpec {
             right: notional,
         })?;
         Ok(builder.finish(vec![payoff]))
+    }
+}
+
+impl AmericanVanillaSpec {
+    pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
+        let mut builder = SourceGraphBuilder::new();
+        let strike = builder.literal(self.strike().get())?;
+        let zero = builder.literal(0.0)?;
+        let notional = builder.literal(self.notional().get())?;
+        let mut outputs = Vec::with_capacity(self.exercise_dates().len());
+        for &observation_date in self.exercise_dates() {
+            let spot = builder.push(SourceOpcode::TerminalSpot {
+                underlying: self.underlying(),
+                observation_date,
+            })?;
+            let signed_intrinsic = match self.side() {
+                OptionSide::Call => builder.push(SourceOpcode::Subtract {
+                    left: spot,
+                    right: strike,
+                })?,
+                OptionSide::Put => builder.push(SourceOpcode::Subtract {
+                    left: strike,
+                    right: spot,
+                })?,
+            };
+            let positive_part = builder.push(SourceOpcode::Maximum {
+                left: signed_intrinsic,
+                right: zero,
+            })?;
+            outputs.push(builder.push(SourceOpcode::Multiply {
+                left: positive_part,
+                right: notional,
+            })?);
+        }
+        Ok(builder.finish(outputs))
     }
 }
 
@@ -645,6 +680,7 @@ impl ProductSpec {
     pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
         match self {
             Self::EuropeanVanilla(spec) => spec.source_graph(),
+            Self::AmericanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
             Self::Barrier(spec) => spec.source_graph(),
             Self::ArithmeticAsian(spec) => spec.source_graph(),
@@ -894,6 +930,31 @@ impl CompiledPayoff {
                 count: self.output_slots.len(),
             });
         }
+        self.evaluate_output_with_observation_adjoints(
+            0,
+            &mut observation,
+            &mut pre_dividend_observation,
+        )
+    }
+
+    pub fn evaluate_output_with_observation_adjoints<F, G>(
+        &self,
+        output_index: usize,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+    ) -> Result<PayoffEvaluation, GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        let output_slot =
+            self.output_slots
+                .get(output_index)
+                .copied()
+                .ok_or(GraphError::InvalidOutputIndex {
+                    index: output_index,
+                    count: self.output_slots.len(),
+                })?;
         let mut values = vec![0.0; self.opcodes.len()];
         for opcode in &self.opcodes {
             let (output, value) = execute_opcode(
@@ -911,7 +972,7 @@ impl CompiledPayoff {
             }
             values[output] = value;
         }
-        let output = checked_index(self.output_slots[0], values.len())?;
+        let output = checked_index(output_slot, values.len())?;
         let value = values[output];
         let mut adjoints = vec![0.0; self.opcodes.len()];
         adjoints[output] = 1.0;
@@ -1944,6 +2005,10 @@ pub enum GraphError {
     ReverseRequiresSingleOutput {
         count: usize,
     },
+    InvalidOutputIndex {
+        index: usize,
+        count: usize,
+    },
     NonFiniteRuntimeAdjoint {
         opcode: &'static str,
         bits: u64,
@@ -2027,6 +2092,10 @@ impl fmt::Display for GraphError {
                 formatter,
                 "payoff reverse requires exactly one output; received {count}"
             ),
+            Self::InvalidOutputIndex { index, count } => write!(
+                formatter,
+                "payoff output index {index} is outside output count {count}"
+            ),
             Self::NonFiniteRuntimeAdjoint { opcode, bits } => write!(
                 formatter,
                 "runtime {opcode} produced non-finite adjoint 0x{bits:016x}"
@@ -2042,6 +2111,7 @@ mod tests {
     use pricing_core::CurrencyId;
 
     use super::*;
+    use crate::BarrierMonitoring;
 
     fn option(side: OptionSide) -> EuropeanVanillaSpec {
         EuropeanVanillaSpec::new(
@@ -2073,6 +2143,115 @@ mod tests {
                 vec![expected]
             );
         }
+    }
+
+    #[test]
+    fn american_builder_emits_intrinsic_values_in_exercise_order() {
+        let first: Date = "2027-03-04".parse().expect("first");
+        let expiry: Date = "2027-09-04".parse().expect("expiry");
+        let product = AmericanVanillaSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            expiry,
+            100.0,
+            2.0,
+            OptionSide::Put,
+            vec![first, expiry],
+        )
+        .expect("American option");
+        let compiled = product
+            .source_graph()
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile");
+        let values = compiled
+            .evaluate(|_, observation_date| match observation_date {
+                value if value == first => Some(90.0),
+                value if value == expiry => Some(80.0),
+                _ => None,
+            })
+            .expect("execute");
+        assert_eq!(values, [20.0, 40.0]);
+
+        let terminal_only = AmericanVanillaSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            expiry,
+            100.0,
+            2.0,
+            OptionSide::Put,
+            vec![expiry],
+        )
+        .expect("terminal-only option")
+        .source_graph()
+        .expect("terminal graph")
+        .compile(GraphLimitPolicy::DEFAULT)
+        .expect("compile terminal graph");
+        assert_ne!(
+            compiled.source_fingerprint(),
+            terminal_only.source_fingerprint()
+        );
+    }
+
+    #[test]
+    fn american_reverse_selects_one_exercise_output() {
+        let dates = [
+            "2027-03-04".parse().expect("first"),
+            "2027-09-04".parse().expect("expiry"),
+        ];
+        let compiled = AmericanVanillaSpec::new(
+            UnderlyingId::new(4),
+            CurrencyId::new(1),
+            dates[1],
+            100.0,
+            2.0,
+            OptionSide::Put,
+            dates.to_vec(),
+        )
+        .expect("American option")
+        .source_graph()
+        .expect("graph")
+        .compile(GraphLimitPolicy::DEFAULT)
+        .expect("compile");
+        let spots = [90.0, 80.0];
+        for (output_index, expected_value) in [20.0, 40.0].into_iter().enumerate() {
+            let evaluation = compiled
+                .evaluate_output_with_observation_adjoints(
+                    output_index,
+                    |_, date| {
+                        dates
+                            .iter()
+                            .position(|candidate| *candidate == date)
+                            .map(|index| spots[index])
+                    },
+                    |_, _| None,
+                )
+                .expect("selected reverse");
+            assert_eq!(evaluation.value, expected_value);
+            assert_eq!(evaluation.terminal_adjoints.len(), 2);
+            for adjoint in &evaluation.terminal_adjoints {
+                let date_index = dates
+                    .iter()
+                    .position(|candidate| *candidate == adjoint.observation_date)
+                    .expect("American observation date");
+                assert_eq!(
+                    adjoint.value,
+                    if date_index == output_index {
+                        -2.0
+                    } else {
+                        0.0
+                    }
+                );
+            }
+        }
+        assert_eq!(
+            compiled.evaluate_output_with_observation_adjoints(2, |_, _| Some(90.0), |_, _| None),
+            Err(GraphError::InvalidOutputIndex { index: 2, count: 2 })
+        );
+        assert_eq!(
+            compiled.evaluate_single_with_terminal_adjoint(|_, _| Some(90.0)),
+            Err(GraphError::ReverseRequiresSingleOutput { count: 2 })
+        );
     }
 
     #[test]
@@ -2223,6 +2402,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 style,
+                BarrierMonitoring::Discrete,
                 vec![
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
@@ -2265,6 +2445,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 style,
+                BarrierMonitoring::Discrete,
                 vec![
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
@@ -2303,6 +2484,7 @@ mod tests {
             OptionSide::Call,
             BarrierDirection::Up,
             BarrierStyle::KnockIn,
+            BarrierMonitoring::Discrete,
             vec![
                 "2027-03-04".parse().expect("monitoring"),
                 "2027-09-04".parse().expect("expiry"),
@@ -2367,6 +2549,7 @@ mod tests {
                     OptionSide::Call,
                     direction,
                     style,
+                    BarrierMonitoring::Discrete,
                     vec![monitoring, expiry],
                     rebate,
                     expiry,
@@ -2462,6 +2645,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Down,
                 BarrierStyle::KnockIn,
+                BarrierMonitoring::Discrete,
                 vec![expiry],
                 None,
                 expiry,
@@ -2546,6 +2730,55 @@ mod tests {
     }
 
     #[test]
+    fn arithmetic_asian_is_invariant_to_weighted_observation_pair_permutation() {
+        let dates = [
+            "2027-03-04".parse().expect("first"),
+            "2027-06-04".parse().expect("second"),
+            "2027-09-04".parse().expect("third"),
+        ];
+        let compile = |weights: [f64; 3]| {
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(4),
+                CurrencyId::new(1),
+                100.0,
+                2.0,
+                OptionSide::Call,
+                dates
+                    .into_iter()
+                    .zip(weights)
+                    .map(|(date, weight)| {
+                        crate::AsianObservation::unknown(date, weight).expect("observation")
+                    })
+                    .collect(),
+                dates[2],
+            )
+            .expect("Asian")
+            .source_graph()
+            .expect("graph")
+            .compile(GraphLimitPolicy::DEFAULT)
+            .expect("compile")
+        };
+        let first = compile([0.2, 0.3, 0.5]);
+        let permuted = compile([0.5, 0.2, 0.3]);
+        let first_spots = [80.0, 110.0, 130.0];
+        let permuted_spots = [130.0, 80.0, 110.0];
+        let evaluate = |compiled: &CompiledPayoff, spots: [f64; 3]| {
+            compiled
+                .evaluate(|_, date| {
+                    dates
+                        .iter()
+                        .position(|candidate| *candidate == date)
+                        .map(|index| spots[index])
+                })
+                .expect("evaluate")[0]
+        };
+        assert_eq!(
+            evaluate(&first, first_spots),
+            evaluate(&permuted, permuted_spots)
+        );
+    }
+
+    #[test]
     fn fixed_lookback_builder_executes_running_extremum_payoff() {
         let product = FixedLookbackSpec::new(
             UnderlyingId::new(4),
@@ -2584,6 +2817,50 @@ mod tests {
                 (UnderlyingId::new(4), "2027-09-04".parse().expect("date")),
             ]
         );
+    }
+
+    #[test]
+    fn fixed_lookback_payoff_is_monotone_under_monitoring_refinement() {
+        let dates = [
+            "2027-03-04".parse().expect("first"),
+            "2027-06-04".parse().expect("second"),
+            "2027-09-04".parse().expect("third"),
+        ];
+        for (side, middle_spot) in [(OptionSide::Call, 150.0), (OptionSide::Put, 70.0)] {
+            let compile = |monitoring_dates: Vec<Date>| {
+                FixedLookbackSpec::new(
+                    UnderlyingId::new(4),
+                    CurrencyId::new(1),
+                    100.0,
+                    2.0,
+                    side,
+                    monitoring_dates,
+                    None,
+                    dates[2],
+                )
+                .expect("Lookback")
+                .source_graph("2026-09-04".parse().expect("valuation"))
+                .expect("graph")
+                .compile(GraphLimitPolicy::DEFAULT)
+                .expect("compile")
+            };
+            let coarse = compile(vec![dates[0], dates[2]]);
+            let refined = compile(dates.to_vec());
+            let observe = |date| {
+                if date == dates[0] {
+                    Some(90.0)
+                } else if date == dates[1] {
+                    Some(middle_spot)
+                } else if date == dates[2] {
+                    Some(130.0)
+                } else {
+                    None
+                }
+            };
+            let coarse_value = coarse.evaluate(|_, date| observe(date)).expect("coarse")[0];
+            let refined_value = refined.evaluate(|_, date| observe(date)).expect("refined")[0];
+            assert!(refined_value >= coarse_value);
+        }
     }
 
     #[test]

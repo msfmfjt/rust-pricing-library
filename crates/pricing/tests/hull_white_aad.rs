@@ -386,6 +386,7 @@ fn smoothed_cash_barrier_reverses_both_sides_of_jump() {
     v["product"] = json!({"type":"barrier","underlying_id":1,"currency_id":2,"expiry":"2027-09-04",
         "strike":80.0,"barrier":100.0,"notional":1.0,"side":{"type":"call"},
         "direction":{"type":"up"},"style":{"type":"knock_in"},
+        "monitoring":{"type":"discrete"},
         "monitoring_dates":["2027-09-04"],"payment_date":"2027-09-04"});
     assert!(bs(v.clone(), true, 1).evaluate_aad().is_err());
     v["risk"]["payoff_smoothing"] = json!({"type":"compact_c2","half_width":8.0});
