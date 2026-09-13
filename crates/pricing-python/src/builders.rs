@@ -7,16 +7,22 @@ use pricing::market::{
     LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
     ThetaPchip,
 };
-use pricing::mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
+use pricing::mc::{
+    CpqrConfig, EngineConfig, LsmConfig, LsmStateVariable, PolynomialBasisSpec, PseudoMcConfig,
+    RqmcConfig, VarianceReduction,
+};
 use pricing::models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing::product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
-    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
-    ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, AsianObservationValue,
+    BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec,
+    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
-use pricing::risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
+use pricing::risk::{
+    GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
+    VegaKtConfig,
+};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
@@ -245,7 +251,7 @@ impl PyAsianObservation {
 #[pyclass(frozen, name = "EssviSlice", skip_from_py_object)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyEssviSlice {
-    inner: EssviSlice,
+    pub(crate) inner: EssviSlice,
 }
 
 #[pymethods]
@@ -324,6 +330,37 @@ impl PyProduct {
         .map_err(|error| domain_error(py, "invalid_european_vanilla", "/product", error))
     }
 
+    /// Build an American vanilla call or put with explicit exercise dates.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    fn american_vanilla(
+        py: Python<'_>,
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: &Bound<'_, PyAny>,
+        strike: f64,
+        notional: f64,
+        side: &str,
+        exercise_dates: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let expiry = date_from_python(py, expiry, "/product/expiry")?;
+        let side = option_side(py, side)?;
+        let exercise_dates = copied_date_array(py, exercise_dates, "/product/exercise_dates")?;
+        AmericanVanillaSpec::new(
+            UnderlyingId::new(underlying_id),
+            CurrencyId::new(currency_id),
+            expiry,
+            strike,
+            notional,
+            side,
+            exercise_dates,
+        )
+        .map(|spec| Self {
+            inner: ProductSpec::AmericanVanilla(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_american_vanilla", "/product", error))
+    }
+
     /// Build a cash-or-nothing or asset-or-nothing digital call or put.
     #[staticmethod]
     #[pyo3(signature = (underlying_id, currency_id, expiry, strike, payout, side, payout_kind, *, payment_date=None))]
@@ -362,9 +399,9 @@ impl PyProduct {
         .map_err(|error| domain_error(py, "invalid_digital", "/product", error))
     }
 
-    /// Build a fixed-strike discrete barrier call or put with an optional expiry rebate.
+    /// Build a fixed-strike barrier call or put with an explicit monitoring mode.
     #[staticmethod]
-    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring_dates, payment_date, *, rebate=None))]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring, monitoring_dates, payment_date, *, rebate=None))]
     #[allow(clippy::too_many_arguments)]
     fn barrier(
         py: Python<'_>,
@@ -377,6 +414,7 @@ impl PyProduct {
         side: &str,
         direction: &str,
         style: &str,
+        monitoring: &str,
         monitoring_dates: &Bound<'_, PyAny>,
         payment_date: &Bound<'_, PyAny>,
         rebate: Option<f64>,
@@ -385,6 +423,7 @@ impl PyProduct {
         let side = option_side(py, side)?;
         let direction = barrier_direction(py, direction)?;
         let style = barrier_style(py, style)?;
+        let monitoring = barrier_monitoring(py, monitoring)?;
         let monitoring_dates =
             copied_date_array(py, monitoring_dates, "/product/monitoring_dates")?;
         let payment_date = date_from_python(py, payment_date, "/product/payment_date")?;
@@ -398,6 +437,7 @@ impl PyProduct {
             side,
             direction,
             style,
+            monitoring,
             monitoring_dates,
             rebate,
             payment_date,
@@ -837,6 +877,123 @@ impl PyEngine {
     }
 }
 
+/// Immutable Least-Squares Monte Carlo training configuration.
+#[pyclass(frozen, name = "LsmConfig", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyLsmConfig {
+    pub(crate) inner: LsmConfig,
+}
+
+#[pymethods]
+impl PyLsmConfig {
+    #[new]
+    #[pyo3(signature = (training_engine, *, state_variables=None, max_degree=3, max_basis_columns=64, max_total_exponents=64, itm_abs_tolerance=0.0, abs_rank_tolerance=1.0e-14, rel_rank_tolerance=1.0e-12, max_matrix_elements=1_000_000))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python<'_>,
+        training_engine: &PyEngine,
+        state_variables: Option<&Bound<'_, PyAny>>,
+        max_degree: u32,
+        max_basis_columns: usize,
+        max_total_exponents: usize,
+        itm_abs_tolerance: f64,
+        abs_rank_tolerance: f64,
+        rel_rank_tolerance: f64,
+        max_matrix_elements: usize,
+    ) -> PyResult<Self> {
+        let state_variables = match state_variables {
+            Some(values) => lsm_state_variables_from_python(py, values)?,
+            None => vec![LsmStateVariable::Spot],
+        };
+        let feature_count = u32::try_from(state_variables.len()).map_err(|_| {
+            domain_error(
+                py,
+                "invalid_lsm_state_variables",
+                "/lsm/state_variables",
+                "state-variable count exceeds the supported range",
+            )
+        })?;
+        let basis = PolynomialBasisSpec::new(
+            feature_count,
+            max_degree,
+            max_basis_columns,
+            max_total_exponents,
+        )
+        .map_err(|error| domain_error(py, "invalid_lsm_basis", "/lsm/basis", error))?;
+        let cpqr = CpqrConfig::new(abs_rank_tolerance, rel_rank_tolerance)
+            .map_err(|error| domain_error(py, "invalid_lsm_cpqr", "/lsm/cpqr", error))?;
+        LsmConfig::new(
+            training_engine.inner,
+            state_variables,
+            basis,
+            itm_abs_tolerance,
+            cpqr,
+            max_matrix_elements,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|error| domain_error(py, "invalid_lsm_config", "/lsm", error))
+    }
+
+    #[getter]
+    fn state_variables(&self) -> Vec<&'static str> {
+        self.inner
+            .state_variables()
+            .iter()
+            .map(|variable| match variable {
+                LsmStateVariable::Spot => "spot",
+            })
+            .collect()
+    }
+
+    #[getter]
+    fn max_degree(&self) -> u32 {
+        self.inner.basis().max_degree()
+    }
+
+    #[getter]
+    fn basis_exponents(&self) -> Vec<Vec<u32>> {
+        self.inner
+            .basis()
+            .exponents()
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+
+    #[getter]
+    fn itm_abs_tolerance(&self) -> f64 {
+        self.inner.itm_abs_tolerance()
+    }
+
+    #[getter]
+    fn abs_rank_tolerance(&self) -> f64 {
+        self.inner.cpqr_config().abs_rank_tolerance()
+    }
+
+    #[getter]
+    fn rel_rank_tolerance(&self) -> f64 {
+        self.inner.cpqr_config().rel_rank_tolerance()
+    }
+
+    #[getter]
+    fn max_matrix_elements(&self) -> usize {
+        self.inner.max_matrix_elements()
+    }
+
+    #[getter]
+    fn fingerprint(&self) -> String {
+        self.inner.fingerprint().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "LsmConfig(state_variables={:?}, max_degree={})",
+            self.state_variables(),
+            self.max_degree()
+        )
+    }
+}
+
 /// Requested Greeks and deterministic AAD/bump execution controls.
 #[pyclass(frozen, name = "RiskRequest", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -847,7 +1004,7 @@ pub struct PyRiskRequest {
 #[pymethods]
 impl PyRiskRequest {
     #[new]
-    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
+    #[pyo3(signature = (*, delta=false, gamma_relative_bump=None, gamma_absolute_bump=None, vega=false, vega_kt_maturity_nodes=None, vega_kt_log_forward_moneyness_nodes=None, vega_kt_relative_density_threshold=None, vega_kt_full_bucket_covariance=false, payoff_smoothing_half_width=None, payoff_smoothing_width_ladder=None, smile_dynamics="sticky_log_moneyness", checkpoint_interval=None, aad_tile_capacity=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -859,6 +1016,8 @@ impl PyRiskRequest {
         vega_kt_log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
         vega_kt_relative_density_threshold: Option<f64>,
         vega_kt_full_bucket_covariance: bool,
+        payoff_smoothing_half_width: Option<f64>,
+        payoff_smoothing_width_ladder: Option<&Bound<'_, PyAny>>,
         smile_dynamics: &str,
         checkpoint_interval: Option<u32>,
         aad_tile_capacity: Option<u32>,
@@ -885,7 +1044,34 @@ impl PyRiskRequest {
             vega_kt_full_bucket_covariance,
         )?;
         let smile_dynamics = smile_dynamics_from_str(py, smile_dynamics)?;
-        RiskRequest::new(
+        let payoff_smoothing = payoff_smoothing_half_width
+            .map(PayoffSmoothing::compact_c2)
+            .transpose()
+            .map_err(|error| {
+                domain_error(
+                    py,
+                    "invalid_payoff_smoothing",
+                    "/risk/payoff_smoothing/half_width",
+                    error,
+                )
+            })?;
+        let payoff_smoothing_width_ladder = payoff_smoothing_width_ladder
+            .map(|value| {
+                copied_f64_array(value.py(), value, "/risk/payoff_smoothing_width_ladder").and_then(
+                    |widths| {
+                        PayoffSmoothingWidthLadder::new(widths).map_err(|error| {
+                            domain_error(
+                                value.py(),
+                                "invalid_payoff_smoothing_width_ladder",
+                                "/risk/payoff_smoothing_width_ladder",
+                                error,
+                            )
+                        })
+                    },
+                )
+            })
+            .transpose()?;
+        let request = RiskRequest::new(
             delta,
             gamma,
             vega,
@@ -894,8 +1080,16 @@ impl PyRiskRequest {
             checkpoint_interval,
             aad_tile_capacity,
         )
-        .map(|inner| Self { inner })
-        .map_err(|error| domain_error(py, "invalid_risk_request", "/risk", error))
+        .map_err(|error| domain_error(py, "invalid_risk_request", "/risk", error))?;
+        let inner = match payoff_smoothing {
+            Some(smoothing) => request.with_payoff_smoothing(smoothing),
+            None => request,
+        };
+        let inner = match payoff_smoothing_width_ladder {
+            Some(ladder) => inner.with_payoff_smoothing_width_ladder(ladder),
+            None => inner,
+        };
+        Ok(Self { inner })
     }
 
     fn __repr__(&self) -> String {
@@ -903,6 +1097,7 @@ impl PyRiskRequest {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_request(
     py: Python<'_>,
     valuation_date: &Bound<'_, PyAny>,
@@ -911,17 +1106,46 @@ pub(crate) fn build_request(
     model: &PyModel,
     engine: &PyEngine,
     risk: &PyRiskRequest,
+    lsm: Option<&PyLsmConfig>,
 ) -> PyResult<PricingRequest> {
     let valuation_date = date_from_python(py, valuation_date, "/valuation_date")?;
-    PricingRequest::new(
+    PricingRequest::new_with_lsm(
         valuation_date,
         product.inner.clone(),
         market.inner.clone(),
         model.inner.clone(),
         engine.inner,
         risk.inner.clone(),
+        lsm.map(|config| config.inner.clone()),
     )
     .map_err(|error| domain_error(py, "invalid_pricing_request", "", error))
+}
+
+fn lsm_state_variables_from_python(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<Vec<LsmStateVariable>> {
+    let names = value.extract::<Vec<String>>().map_err(|error| {
+        domain_error(
+            py,
+            "invalid_lsm_state_variables",
+            "/lsm/state_variables",
+            format!("expected a sequence of state-variable names: {error}"),
+        )
+    })?;
+    names
+        .into_iter()
+        .enumerate()
+        .map(|(index, name)| match name.as_str() {
+            "spot" => Ok(LsmStateVariable::Spot),
+            _ => Err(domain_error(
+                py,
+                "invalid_lsm_state_variable",
+                &format!("/lsm/state_variables/{index}"),
+                format!("expected 'spot', received {name:?}"),
+            )),
+        })
+        .collect()
 }
 
 fn copied_f64_array(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Vec<f64>> {
@@ -1235,9 +1459,23 @@ fn barrier_style(py: Python<'_>, value: &str) -> PyResult<BarrierStyle> {
     }
 }
 
+fn barrier_monitoring(py: Python<'_>, value: &str) -> PyResult<BarrierMonitoring> {
+    match value {
+        "discrete" => Ok(BarrierMonitoring::Discrete),
+        "continuous" => Ok(BarrierMonitoring::Continuous),
+        _ => Err(domain_error(
+            py,
+            "invalid_barrier_monitoring",
+            "/product/monitoring",
+            format!("expected 'discrete' or 'continuous', received {value:?}"),
+        )),
+    }
+}
+
 const fn product_name(product: &ProductSpec) -> &'static str {
     match product {
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
+        ProductSpec::AmericanVanilla(_) => "american_vanilla",
         ProductSpec::Digital(_) => "digital",
         ProductSpec::Barrier(_) => "barrier",
         ProductSpec::ArithmeticAsian(_) => "arithmetic_asian",
