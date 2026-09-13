@@ -11,8 +11,8 @@ pub use reduction::{
     reduce_sums,
 };
 
-/// Returns the direct lower-layer dependency role.
+/// Legacy foundation marker; the numerical crate has no financial dependencies.
 #[must_use]
 pub const fn foundation_role() -> &'static str {
-    pricing_core::role()
+    "core"
 }

@@ -20,7 +20,7 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 | Gate | Current evidence | Status |
 |---|---|---|
 | P0 | `path-dependence-numerical-contracts-v0.1.md`, Decimal reference fixture, independent checker | Satisfied locally |
-| P1 | `pricing-product` smoothing and graph tests cover kernels, extrema, reverse rules, constant folding, limits, and fingerprints | Satisfied locally |
+| P1 | `pricing::product` smoothing and graph tests cover kernels, extrema, reverse rules, constant folding, limits, and fingerprints | Satisfied locally |
 | P2 | Digital exact/smoothed unit tests, CRN risk validation, public diagnostics, Python smoke coverage | Satisfied locally |
 | P3 | Discrete Barrier state, parity, rebates, endpoint/jump handling, reverse checks, and collision tests | Satisfied locally |
 | P4 | Exact and compact-C2 continuous bridge formulas, Black-Scholes and Local Volatility reverse, diagnostics, refinement, parity, and random-coordinate tests | Satisfied locally |
@@ -40,9 +40,9 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 | Observation/dividend collisions use post-dividend Spot | `asian_and_lookback_dividend_collisions_observe_post_jump_spot` | Covered |
 | Discrete Barrier Up/Down, KnockIn/KnockOut, inclusive touch, and expiry rebate | Barrier graph tests and `continuous_barrier_in_out_parity_covers_directions_and_rebates` | Covered |
 | Affine-dividend Barrier jumps use pre/post Spot without random draws | `barrier_dividend_collision_uses_pre_and_post_spot_without_an_extra_dimension` and bridge collision tests | Covered in exact and smoothed modes |
-| Continuous bridge transformed barriers, trapezoidal variance, log accumulation, and full reverse | `pricing-mc::barrier_bridge` tests and continuous Barrier facade tests | Covered in exact and smoothed modes |
+| Continuous bridge transformed barriers, trapezoidal variance, log accumulation, and full reverse | `pricing::engine::payoff::barrier_bridge` tests and continuous Barrier facade tests | Covered in exact and smoothed modes |
 | Continuous Local Volatility bridge convergence and constant-variance limit | `continuous_barrier_local_vol_*` refinement and limit tests | Covered |
-| Compact C2 Indicator/Maximum/Minimum formulas and reverse rules | independent Decimal fixture checker plus `pricing-product::smoothing` and graph tests | Covered |
+| Compact C2 Indicator/Maximum/Minimum formulas and reverse rules | independent Decimal fixture checker plus `pricing::product::smoothing` and graph tests | Covered |
 | Smoothed Price and Greeks share one surrogate payoff | valuation diagnostics and Digital/Barrier risk tests | Covered |
 | Smoothed continuous Barrier endpoint and dividend-jump predicates | independent Decimal fixtures, bridge primitive tests, facade finite differences, Local Volatility limit tests, and diagnostics | Covered locally |
 | Width ladder is explicit, ordered, non-adaptive, and uses common random coordinates | `PricingPlan::evaluate_width_ladder`, request validation, wire/Python tests, and `width_ladder_preserves_order_primary_and_common_random_coordinates` | Covered |

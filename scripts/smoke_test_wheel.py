@@ -44,39 +44,8 @@ EXPECTED_INIT_PY = (
     "    __all__ = rust_pricing.__all__"
 )
 EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {
-    "pricing-core": set(),
-    "pricing-numerics": {"pricing-core"},
-    "pricing-aad": {"pricing-core", "pricing-numerics"},
-    "pricing-market": {"pricing-core", "pricing-numerics"},
-    "pricing-product": {"pricing-core"},
-    "pricing-models": {"pricing-core", "pricing-market", "pricing-numerics"},
-    "pricing-mc": {
-        "pricing-aad",
-        "pricing-core",
-        "pricing-market",
-        "pricing-models",
-        "pricing-numerics",
-        "pricing-product",
-    },
-    "pricing-risk": {
-        "pricing-aad",
-        "pricing-core",
-        "pricing-market",
-        "pricing-mc",
-        "pricing-models",
-        "pricing-numerics",
-        "pricing-product",
-    },
-    "pricing": {
-        "pricing-aad",
-        "pricing-core",
-        "pricing-market",
-        "pricing-mc",
-        "pricing-models",
-        "pricing-numerics",
-        "pricing-product",
-        "pricing-risk",
-    },
+    "pricing-numerics": set(),
+    "pricing": {"pricing-numerics"},
     "pricing-python": {"pricing"},
 }
 

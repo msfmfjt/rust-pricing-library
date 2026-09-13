@@ -121,18 +121,16 @@ the shared observation and schema boundaries.
 
 | Crate | Responsibility |
 | --- | --- |
-| `pricing-core` | Fundamental IDs, dates, errors, configuration, and result primitives |
-| `pricing-numerics` | Deterministic numerical utilities |
-| `pricing-aad` | Simulation reverse-mode and adjoint execution infrastructure |
-| `pricing-market` | Curves, dividends, implied/local-volatility market objects |
-| `pricing-product` | Built-in products and compiled Event/Payoff graphs |
-| `pricing-models` | Black–Scholes, Black-76, Local Volatility, Bergomi, rough Bergomi and Hull–White kernels |
-| `pricing-mc` | MC/QMC simulation, path execution, and LSM |
-| `pricing-risk` | AAD orchestration, bump validation, and VegaKT |
-| `pricing` | Stable public Rust facade |
-| `pricing-python` | Python binding boundary |
+| `pricing-numerics` | Financially independent normal-distribution functions and deterministic reduction |
+| `pricing` | Financial definitions and valuation, with private execution modules |
+| `pricing-python` | Python conversion, exceptions and bindings to `pricing` |
 
-Dependency direction is checked in CI. Lower-level crates may not depend on higher-level crates.
+The dependency chain is `pricing-python → pricing → pricing-numerics`. CI checks
+both the Cargo graph and selected internal boundaries. `pricing::core`, `market`,
+`product`, `models`, `mc`, `risk`, `hull_white`, `lsv`, `analytical`, and the root
+entry points retain their existing public paths. The former seven financial
+subcrates are removed; direct users must follow the
+[three-crate migration guide](docs/three-crate-migration.md).
 
 ## Development
 

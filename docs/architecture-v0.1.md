@@ -36,38 +36,50 @@ Dates, strings, maps, Python objects, dynamic graph nodes, and validation logic 
 
 ## 3. Cargo workspace
 
+The implemented workspace consists of exactly three crates:
+
 | Crate | Responsibility | Direct internal dependencies |
 | --- | --- | --- |
-| `pricing-core` | IDs, dates/times, currency, typed errors, configuration metadata, result primitives | none |
-| `pricing-numerics` | interpolation, matrix utilities, QR, correlation checks, deterministic reduction | `pricing-core` |
-| `pricing-aad` | adjoint buffers, configurable fixed-interval checkpoints, reverse-kernel contracts | `pricing-core`, `pricing-numerics` |
-| `pricing-market` | curves, forwards, dividends, SSVI/eSSVI, Dupire, Local variance grids | `pricing-core`, `pricing-numerics` |
-| `pricing-product` | built-in products, Event/Payoff graph, graph validation and compilation | `pricing-core` |
-| `pricing-models` | Black–Scholes, Black-76, Local Vol path kernels | `pricing-core`, `pricing-market`, `pricing-numerics` |
-| `pricing-mc` | time-grid construction, RNG/QMC mapping, path blocks, payoff execution, LSM | `pricing-core`, `pricing-numerics`, `pricing-product`, `pricing-market`, `pricing-models`; optional `pricing-aad` |
-| `pricing-risk` | AAD orchestration, bump/revalue, Gamma, smoothing policy, Local Vega, VegaKT | all Rust pricing crates |
-| `pricing` | stable facade and convenient builders; re-exports supported public API | market, product, models, MC, risk |
-| `pricing-python` | PyO3 classes, NumPy conversion, exception mapping, wheel module | `pricing` |
+| `pricing-numerics` | Normal distribution and deterministic sums, moments and covariances | none |
+| `pricing` | Financial domain, compile, valuation, risk and wire contracts | `pricing-numerics` |
+| `pricing-python` | PyO3 conversion, exceptions and Python API | `pricing` |
 
-The facade crate is the supported Rust entry point. Lower-level crates may initially remain private workspace implementation details even when compiled as separate crates.
+`pricing-python → pricing → pricing-numerics` is checked by
+`scripts/check_dependency_direction.py`, together with the prohibition on Python
+dependencies in the financial/numerical crates. There are no compatibility crates.
 
-```mermaid
-flowchart TD
-    PY["pricing-python"] --> F["pricing facade"]
-    F --> R["pricing-risk"]
-    R --> MC["pricing-mc"]
-    MC --> MD["pricing-models"]
-    MC --> PD["pricing-product"]
-    MD --> MK["pricing-market"]
-    R --> AD["pricing-aad"]
-    MC --> NU["pricing-numerics"]
-    MK --> NU
-    PD --> CO["pricing-core"]
-    NU --> CO
-    AD --> CO
-```
+Within `pricing`, `core`, `market`, `product`, `models` and `risk` contain financial
+definitions. The `api` module holds request, result and error definitions; `wire`
+retains the versioned JSON schemas, migration and fingerprint rules. The root and
+`mc`, `hull_white`, `lsv`, `analytical` entries re-export their existing API.
 
-No dependency may point upward in this graph. In particular, market and product crates must not depend on an engine, and no Rust crate may depend on `pricing-python`.
+The private `engine` tree separates execution responsibilities:
+
+| Module | Responsibility |
+| --- | --- |
+| `plan` | Compiled simulation state and shared path/adjoint data |
+| `compile` | Request normalization and simulation-plan compilation |
+| `analytic` | Closed-form valuation |
+| `mc` | Deterministic executor, path matrices, LSM and numerical statistics |
+| `sampling` | Philox, Sobol, scrambling, normal coordinates and Brownian bridge |
+| `processes` | Model-specific path forward/reverse kernels |
+| `payoff` | Source-graph compilation, tape forward/reverse and barrier evaluation |
+| `aad` | Workspace, tiles and checkpoint infrastructure |
+| `calibration` | Bergomi and hybrid LSV calibration with their discrete reverse |
+| `risk` | Valuation orchestration, bumps, Greeks, VegaKT transforms and reporting |
+
+Risk orchestration invokes the MC executor and process kernels. Lower execution
+modules do not import report assembly. Public inherent methods retain their
+signatures even when their implementation lives in `engine`. Source/domain types
+hold no executor or AAD workspace. Public compatibility re-exports do not make
+`engine` public. Fields shared between engine modules use `pub(in crate::engine)`;
+fields shared between a domain type and its inherent implementation use
+`pub(crate)` only where needed.
+
+Small stateless mathematical methods remain with the existing model value types;
+this migration does not redesign model types, move QR into numerics, introduce
+new traits, or change execution algorithms. See the
+[migration guide](three-crate-migration.md) for compatibility and validation details.
 
 ## 4. Request lifecycle
 
@@ -892,15 +904,15 @@ report integration remain acceptance work; see the
 [coordinate contracts](lsv-numerical-contracts-v0.1.md).
 
 The experimental equity/Hull–White extension adds the rate/integral kernel in
-`pricing-models`, joint simulation and discounted LSV calibration in
-`pricing-mc`, and a separate price-only Rust/Python plan boundary. It does not
+`pricing::models`, joint simulation and discounted LSV calibration in
+`pricing::mc`, and a separate price-only Rust/Python plan boundary. It does not
 change the dependency direction or stable JSON model variants. See
 [ADR 0001](adr/0001-hull-white-equity-hybrid.md) and the
 [HW numerical contracts](hull-white-numerical-contracts-v0.1.md).
 
 ### 12.5 Gamma
 
-Gamma is orchestrated by `pricing-risk`, not by a second-order global tape. The risk engine performs two AAD Delta calculations at \(S_0-h\) and \(S_0+h\), using common random coordinates and the selected Sticky log-moneyness, Sticky strike, or Sticky delta adapter.
+Gamma is orchestrated by `engine::risk`, not by a second-order global tape. The risk engine performs two AAD Delta calculations at \(S_0-h\) and \(S_0+h\), using common random coordinates and the selected Sticky log-moneyness, Sticky strike, or Sticky delta adapter.
 
 ## 13. Risk API and result model
 
@@ -950,15 +962,19 @@ Initial Python classes should be deliberately small: `Market`, `Product`, `Model
 
 ## 15. Features and build policy
 
-Suggested Cargo features:
+`pricing` and `pricing-numerics` declare no Cargo features. Their default and
+`--no-default-features` builds include the same financial functionality as the
+baseline facade. In the former workspace, `pricing::risk` unconditionally enabled
+`pricing-mc/aad`; the moved executor imports, AAD workspace method, its test, and
+`aad_enabled()` are therefore unconditional in `pricing`. AAD work is still
+selected at runtime by the risk request.
 
-- `aad`: AAD execution and risk orchestration;
-- `qmc`: Sobol and scrambling;
-- `parallel`: multi-core executor;
-- `serde`: strict versioned UTF-8 JSON request/result serialization and migrations;
-- `python`: enabled only by `pricing-python`.
-
-Default facade builds should include `aad`, `qmc`, and `parallel` for the private binary artifacts. Lower-level crates shall compile with minimal features for isolated testing.
+`pricing-python` retains `default = []` and
+`extension-module = ["pyo3/extension-module"]`. Wheel builds retain the same
+maturin feature and module name. CI keeps extension-module compilation separate
+from Rust unit-test linking: all-feature Rust tests exclude `pricing-python`,
+and Python's Rust unit tests run with its default features. The future feature
+ideas in the original requirements are not implemented by this reorganization.
 
 Supported release targets are `aarch64-apple-darwin` and `x86_64-pc-windows-msvc`. CI shall build and test the Rust facade and Python wheel on both platforms.
 
@@ -994,7 +1010,7 @@ Golden fixtures shall store inputs and deterministic metadata, but statistical t
 
 Implementation order for the European Black–Scholes slice:
 
-1. workspace and `pricing-core` identifiers/errors/results;
+1. workspace and `pricing::core` identifiers/errors/results;
 2. log-linear discount curve and single-currency `MarketContext`;
 3. European call/put graph and compiler;
 4. exact Black–Scholes `PathKernel`;
@@ -1025,7 +1041,7 @@ Black-Scholes and Local Volatility/VegaKT slices:
 - SSVI/eSSVI admissibility, eSSVI terminal slope handling, Local-grid helpers,
   VegaKT transition integration, and non-uniform-grid hat-kernel normalization
   are fixed in `local-vol-vegakt-numerical-contracts-v0.1.md`;
-- scalar dates use the in-house `pricing-core::Date` representation, while
+- scalar dates use the in-house `pricing::core::Date` representation, while
   settlement-lag calendars remain outside v0.1;
 - schema version 1 is the only released wire version for request and result
   documents; and
