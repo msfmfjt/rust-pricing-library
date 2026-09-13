@@ -1,20 +1,36 @@
 //! Equity/Hull–White hybrid simulation and discounted-particle LSV calibration.
-//! The simulated equity state is S0*S/F0(t), before proportional dividends.
-//! Cash dividends require a different calibration contract and are not accepted
-//! by the experimental calibrated facade.
+//! The default equity state is S0*S/F0(t), before proportional dividends.
+//! Explicit escrowed cash mode simulates normalized residual equity and
+//! calibrates a continuous target coordinate including the stochastic bond reserve.
 
 use crate::lsv::{LsvError, LsvLeverageSurface, LsvParticleConfig};
 use crate::{LocalVolError, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
-use pricing_market::{ImpliedVarianceSurface, LocalVarianceGrid};
+use pricing_market::{
+    ImpliedVarianceSurface, LocalVarianceGrid, MarketIvSurface, durrleman_density_factor,
+};
 use pricing_models::hull_white::hw_valid;
+use pricing_models::hull_white_dividends::HullWhiteDividendPlan;
 use pricing_models::{
     Bergomi1Factor, HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
+    RoughBergomi,
 };
 use pricing_numerics::{NeumaierSum, standard_normal_pdf};
 use std::{error::Error, fmt};
 
+mod rough;
+pub use rough::{
+    HybridVolatilityFactor, ROUGH_BERGOMI_SCHEME, ROUGH_CASH_LSV_CALIBRATION,
+    ROUGH_LSV_CALIBRATION, RoughBergomiDriverPlan,
+};
+mod reverse;
+pub use reverse::{
+    HULL_WHITE_AAD_METHOD, HullWhiteCalibrationAdjoints, HullWhitePathAdjoints,
+    HullWhiteRecordedPath,
+};
+
 pub const HULL_WHITE_EQUITY_SCHEME: &str = "equity-hw1f-joint-gaussian-log-euler-v1";
 pub const HULL_WHITE_LSV_CALIBRATION: &str = "lsv-hw-discounted-quartic-centered-rate-v1";
+pub const HULL_WHITE_CASH_LSV_CALIBRATION: &str = "lsv-hw-escrowed-quadratic-quartic-v1";
 
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -153,10 +169,12 @@ impl Kernel {
 
 /// PSD Cholesky after normalization to correlation scale. Only round-off sized
 /// negative residuals are set to zero; inconsistent singular rows are rejected.
-fn covariance_loading(cov: [[f64; 4]; 4]) -> Result<[[f64; 4]; 4], HullWhiteMcError> {
-    let scales = std::array::from_fn::<_, 4, _>(|i| cov[i][i].sqrt());
-    let mut l = [[0.0; 4]; 4];
-    for i in 0..4 {
+fn covariance_loading<const N: usize>(
+    cov: [[f64; N]; N],
+) -> Result<[[f64; N]; N], HullWhiteMcError> {
+    let scales = std::array::from_fn::<_, N, _>(|i| cov[i][i].sqrt());
+    let mut l = [[0.0; N]; N];
+    for i in 0..N {
         for j in 0..=i {
             let c = if scales[i] == 0.0 || scales[j] == 0.0 {
                 0.0
@@ -190,10 +208,52 @@ fn covariance_loading(cov: [[f64; 4]; 4]) -> Result<[[f64; 4]; 4], HullWhiteMcEr
 #[derive(Clone, Debug)]
 pub enum HybridEquityVolatility {
     BlackScholes(f64),
+    RoughBergomi {
+        factor: RoughBergomi,
+        initial_volatility: f64,
+    },
+    RoughBergomiLsv {
+        factor: RoughBergomi,
+        leverage: LsvLeverageSurface,
+    },
     BergomiLsv {
         factor: Bergomi1Factor,
         leverage: LsvLeverageSurface,
     },
+}
+
+impl HybridEquityVolatility {
+    fn lsv(&self) -> Option<(HybridVolatilityFactor, &LsvLeverageSurface)> {
+        match self {
+            Self::BergomiLsv { factor, leverage } => Some(((*factor).into(), leverage)),
+            Self::RoughBergomiLsv { factor, leverage } => Some(((*factor).into(), leverage)),
+            _ => None,
+        }
+    }
+    fn rough(&self) -> Option<RoughBergomi> {
+        match self {
+            Self::RoughBergomi { factor, .. } | Self::RoughBergomiLsv { factor, .. } => {
+                Some(*factor)
+            }
+            _ => None,
+        }
+    }
+    fn direct_volatility(&self) -> Option<f64> {
+        match self {
+            Self::BlackScholes(v)
+            | Self::RoughBergomi {
+                initial_volatility: v,
+                ..
+            } => Some(*v),
+            _ => None,
+        }
+    }
+    fn log_vol_coefficient(&self) -> f64 {
+        self.lsv().map_or_else(
+            || self.rough().map_or(0.0, |v| 0.5 * v.vol_of_vol()),
+            |(v, _)| v.vol_of_vol(),
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -203,6 +263,8 @@ pub struct HullWhiteEquityPlan {
     correlation: HybridCorrelation,
     times: Box<[f64]>,
     kernels: Box<[Kernel]>,
+    dividends: Option<HullWhiteDividendPlan>,
+    rough_driver: Option<RoughBergomiDriverPlan>,
 }
 impl HullWhiteEquityPlan {
     pub fn new(
@@ -211,32 +273,40 @@ impl HullWhiteEquityPlan {
         correlation: HybridCorrelation,
         grid: &LocalVolTimeGrid,
     ) -> Result<Self, HullWhiteMcError> {
-        let k = match &volatility {
-            HybridEquityVolatility::BlackScholes(sigma) => {
-                hw_valid(*sigma, "equity_volatility", 0, true)?;
-                0.0
+        if let Some(sigma) = volatility.direct_volatility() {
+            hw_valid(sigma, "equity_volatility", 0, true)?;
+        }
+        if let Some(factor) = volatility.rough()
+            && factor.correlation() != correlation.equity_vol
+        {
+            return Err(invalid("equity_vol_correlation_mismatch", 0));
+        }
+        let k = if let Some((factor, leverage)) = volatility.lsv() {
+            if factor.correlation() != correlation.equity_vol {
+                return Err(invalid("equity_vol_correlation_mismatch", 0));
             }
-            HybridEquityVolatility::BergomiLsv { factor, leverage } => {
-                if factor.correlation() != correlation.equity_vol {
-                    return Err(invalid("equity_vol_correlation_mismatch", 0));
-                }
-                let end = grid.nodes()[grid.nodes().len() - 1];
-                if end > leverage.times()[leverage.times().len() - 1] {
-                    return Err(invalid("leverage_time_coverage", 0));
-                }
-                for (i, &t) in leverage
-                    .times()
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, t)| **t <= end)
-                {
-                    if !grid.nodes().contains(&t) {
-                        return Err(invalid("missing_leverage_knot", i));
-                    }
-                }
-                factor.mean_reversion()
+            let end = grid.nodes()[grid.nodes().len() - 1];
+            if end > leverage.times()[leverage.times().len() - 1] {
+                return Err(invalid("leverage_time_coverage", 0));
             }
+            for (i, &t) in leverage
+                .times()
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| **t <= end)
+            {
+                if !grid.nodes().contains(&t) {
+                    return Err(invalid("missing_leverage_knot", i));
+                }
+            }
+            factor.mean_reversion()
+        } else {
+            0.0
         };
+        let rough_driver = volatility
+            .rough()
+            .map(|factor| RoughBergomiDriverPlan::new(factor, &rates, correlation, grid))
+            .transpose()?;
         let kernels = grid
             .nodes()
             .windows(2)
@@ -248,7 +318,32 @@ impl HullWhiteEquityPlan {
             correlation,
             times: grid.nodes().into(),
             kernels: kernels.into(),
+            dividends: None,
+            rough_driver,
         })
+    }
+    pub fn with_dividends(
+        mut self,
+        dividends: HullWhiteDividendPlan,
+    ) -> Result<Self, HullWhiteMcError> {
+        if dividends.rates() != &self.rates {
+            return Err(invalid("dividend_rate_model_mismatch", 0));
+        }
+        if dividends.nodes().len() != self.times.len()
+            || dividends
+                .nodes()
+                .iter()
+                .zip(self.times.iter())
+                .any(|(n, t)| n.time() != *t)
+        {
+            return Err(invalid("dividend_plan_time_mismatch", 0));
+        }
+        self.dividends = Some(dividends);
+        Ok(self)
+    }
+    #[must_use]
+    pub fn dividends(&self) -> Option<&HullWhiteDividendPlan> {
+        self.dividends.as_ref()
     }
     #[must_use]
     pub fn times(&self) -> &[f64] {
@@ -266,6 +361,22 @@ impl HullWhiteEquityPlan {
     pub fn parameter_fingerprint_bytes(&self) -> Vec<u8> {
         let values = match &self.volatility {
             HybridEquityVolatility::BlackScholes(sigma) => vec![0.0, *sigma],
+            HybridEquityVolatility::RoughBergomi {
+                factor,
+                initial_volatility,
+            } => vec![
+                2.0,
+                factor.hurst(),
+                factor.vol_of_vol(),
+                factor.correlation(),
+                *initial_volatility,
+            ],
+            HybridEquityVolatility::RoughBergomiLsv { factor, .. } => vec![
+                3.0,
+                factor.hurst(),
+                factor.vol_of_vol(),
+                factor.correlation(),
+            ],
             HybridEquityVolatility::BergomiLsv { factor, .. } => vec![
                 1.0,
                 factor.mean_reversion(),
@@ -284,9 +395,46 @@ impl HullWhiteEquityPlan {
         path: u64,
         domain: RandomDomain,
     ) -> Result<Vec<f64>, HullWhiteMcError> {
-        hybrid_shocks(seed, path, self.kernels.len(), domain)
+        hybrid_shocks(
+            seed,
+            path,
+            self.kernels.len(),
+            self.random_factor_count(),
+            domain,
+        )
     }
-    /// Four factor-major blocks of independent normals. All four blocks must be
+    #[must_use]
+    pub fn random_factor_count(&self) -> usize {
+        if self.rough_driver.is_some() { 5 } else { 4 }
+    }
+    #[must_use]
+    pub fn is_rough(&self) -> bool {
+        self.rough_driver.is_some()
+    }
+    #[must_use]
+    pub fn is_direct_rough(&self) -> bool {
+        self.is_rough() && self.volatility.direct_volatility().is_some()
+    }
+    #[must_use]
+    pub fn scheme(&self) -> &'static str {
+        if self.is_rough() {
+            ROUGH_BERGOMI_SCHEME
+        } else {
+            HULL_WHITE_EQUITY_SCHEME
+        }
+    }
+    #[must_use]
+    pub fn calibration_method(&self) -> Option<&'static str> {
+        self.volatility
+            .lsv()
+            .map(|_| match (self.is_rough(), self.dividends.is_some()) {
+                (true, true) => ROUGH_CASH_LSV_CALIBRATION,
+                (true, false) => ROUGH_LSV_CALIBRATION,
+                (false, true) => HULL_WHITE_CASH_LSV_CALIBRATION,
+                (false, false) => HULL_WHITE_LSV_CALIBRATION,
+            })
+    }
+    /// Four factor-major blocks (five for rough). All blocks must be
     /// sign-reversed for an antithetic path; Brownian bridge acts on each block.
     pub fn evolve_path(
         &self,
@@ -294,25 +442,42 @@ impl HullWhiteEquityPlan {
         shocks: &[f64],
     ) -> Result<Vec<HybridState>, HullWhiteMcError> {
         let n = self.kernels.len();
-        if Some(shocks.len()) != n.checked_mul(4) {
+        if Some(shocks.len()) != n.checked_mul(self.random_factor_count()) {
             return Err(invalid("shock_count", shocks.len()));
         }
         let mut state = HybridState::initial(spot)?;
-        if let HybridEquityVolatility::BergomiLsv { leverage, .. } = &self.volatility
+        if self
+            .dividends
+            .as_ref()
+            .is_some_and(|d| d.initial_spot() != spot)
+        {
+            return Err(invalid("dividend_initial_spot", 0));
+        }
+        if let Some((_, leverage)) = self.volatility.lsv()
             && spot != leverage.initial_f()
         {
             return Err(invalid("leverage_initial_spot", 0));
         }
+        let rough_values = self
+            .rough_driver
+            .as_ref()
+            .map(|driver| driver.normalized(shocks))
+            .transpose()?;
         let mut states = vec![state];
         for (i, kernel) in self.kernels.iter().enumerate() {
-            let (l2, nu) = match &self.volatility {
-                HybridEquityVolatility::BlackScholes(sigma) => (sigma * sigma, 0.0),
-                HybridEquityVolatility::BergomiLsv { factor, leverage } => (
-                    leverage.squared_leverage_at(self.times[i], state.normalized_equity)?,
-                    factor.vol_of_vol(),
-                ),
+            let l2 = if let Some((_, leverage)) = self.volatility.lsv() {
+                leverage.squared_leverage_at(
+                    self.times[i],
+                    target_state(self.dividends.as_ref(), i, state)?.0,
+                )?
+            } else {
+                self.volatility.direct_volatility().unwrap().powi(2)
             };
+            let nu = self.volatility.log_vol_coefficient();
             state = kernel.advance(state, l2, nu, std::array::from_fn(|j| shocks[j * n + i]), i)?;
+            if let Some(values) = &rough_values {
+                state.volatility_factor = values[i + 1];
+            }
             states.push(state);
         }
         Ok(states)
@@ -323,10 +488,11 @@ fn hybrid_shocks(
     seed: u64,
     path: u64,
     steps: usize,
+    factors: usize,
     domain: RandomDomain,
 ) -> Result<Vec<f64>, HullWhiteMcError> {
     let count = steps
-        .checked_mul(4)
+        .checked_mul(factors)
         .and_then(|n| u32::try_from(n).ok())
         .ok_or_else(|| invalid("random_dimension", steps))?;
     let rng = Philox4x32::from_seed(seed);
@@ -343,6 +509,7 @@ fn hybrid_shocks(
 pub struct HullWhiteLsvTarget {
     grid: LocalVarianceGrid,
     log_densities: Box<[f64]>,
+    market_iv: Option<std::sync::Arc<MarketIvSurface>>,
 }
 impl HullWhiteLsvTarget {
     pub fn flat(
@@ -396,6 +563,7 @@ impl HullWhiteLsvTarget {
         Ok(Self {
             grid,
             log_densities: log_densities.into(),
+            market_iv: None,
         })
     }
     pub fn from_surface(
@@ -418,6 +586,82 @@ impl HullWhiteLsvTarget {
             }
         }
         Self::new(grid, densities)
+    }
+    /// Retain the exact quote interpolation for VegaKT. Quotes are Black IV in
+    /// the target forward coordinate (escrow F for the explicit cash model).
+    pub fn from_market_iv(
+        surface: MarketIvSurface,
+        times: Vec<f64>,
+        log_nodes: Vec<f64>,
+        floor: f64,
+        cap: f64,
+    ) -> Result<Self, HullWhiteMcError> {
+        let mut target = Self::from_surface(&surface, times, log_nodes, floor, cap)?;
+        target.market_iv = Some(std::sync::Arc::new(surface));
+        Ok(target)
+    }
+    #[must_use]
+    pub fn market_iv_surface(&self) -> Option<&MarketIvSurface> {
+        self.market_iv.as_deref()
+    }
+    /// Exact transpose of both Dupire variance and K*p_F^T(K). No finite
+    /// difference or particle recalibration is performed by this operation.
+    pub fn reverse_market_iv(
+        &self,
+        variance_seeds: &[f64],
+        density_seeds: &[f64],
+    ) -> Result<Vec<f64>, HullWhiteMcError> {
+        let surface = self
+            .market_iv
+            .as_ref()
+            .ok_or_else(|| invalid("market_iv_source_not_retained", 0))?;
+        let n = self.grid.values().len();
+        if variance_seeds.len() != n
+            || density_seeds.len() != n
+            || variance_seeds
+                .iter()
+                .chain(density_seeds)
+                .any(|v| !v.is_finite())
+        {
+            return Err(invalid("market_iv_target_adjoint_shape_or_value", 0));
+        }
+        let mut out = vec![0.0; surface.implied_volatilities().len()];
+        let m = self.grid.log_moneyness_nodes().len();
+        for (row, &t) in self.grid.time_nodes().iter().enumerate() {
+            let surface_time = if t == 0.0 {
+                self.grid.time_nodes()[1]
+            } else {
+                t
+            };
+            for (col, &x) in self.grid.log_moneyness_nodes().iter().enumerate() {
+                let i = row * m + col;
+                let v = surface.total_variance_derivatives(surface_time, x)?;
+                let w = v.total_variance;
+                let wx = v.log_moneyness_derivative;
+                let g = durrleman_density_factor(surface_time, x, v)?;
+                let mut g_bar = -variance_seeds[i] * v.time_derivative / (g * g);
+                let mut w_bar = 0.0;
+                if t > 0.0 {
+                    let root = w.sqrt();
+                    let d2 = -x / root - 0.5 * root;
+                    let normal = standard_normal_pdf(d2) / root;
+                    g_bar += density_seeds[i] * normal;
+                    w_bar += density_seeds[i]
+                        * (normal * g)
+                        * (-d2 * (x / (2.0 * w * root) - 1.0 / (4.0 * root)) - 0.5 / w);
+                }
+                let u = 1.0 - x * wx / (2.0 * w);
+                w_bar += g_bar * (u * x * wx / (w * w) + wx * wx / (4.0 * w * w));
+                let wx_bar = g_bar * (-u * x / w - 0.5 * wx * (1.0 / w + 0.25));
+                surface.transpose_accumulate(
+                    surface_time,
+                    x,
+                    [w_bar, wx_bar, 0.5 * g_bar, variance_seeds[i] / g],
+                    &mut out,
+                )?;
+            }
+        }
+        Ok(out)
     }
     #[must_use]
     pub const fn grid(&self) -> &LocalVarianceGrid {
@@ -443,10 +687,16 @@ pub struct HullWhiteCalibrationDiagnostics {
 pub struct CalibratedHullWhiteLsv {
     pub surface: LsvLeverageSurface,
     pub diagnostics: Box<[HullWhiteCalibrationDiagnostics]>,
-    /// Row-major discounted conditional second moment of exp(nu*X).
+    /// Row-major discounted conditional second moment of exp(nu*X); in cash
+    /// mode the loading also includes normalized residual equity / target F.
     pub conditional_second_moments: Box<[f64]>,
     /// Row-major variance correction subtracted from the deterministic Dupire target.
     pub rate_corrections: Box<[f64]>,
+    /// Cash-dividend conditional equity/bond cross coefficient (before rho).
+    pub conditional_cross_moments: Box<[f64]>,
+    /// Cash-dividend conditional bond variance coefficient.
+    pub conditional_rate_variances: Box<[f64]>,
+    reverse_trace: Option<reverse::CalibrationTrace>,
 }
 
 pub fn calibrate_hull_white_lsv(
@@ -457,17 +707,79 @@ pub fn calibrate_hull_white_lsv(
     initial_spot: f64,
     config: &LsvParticleConfig,
 ) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
-    if config.retain_reverse_trace() {
-        return Err(HullWhiteError::Unsupported {
-            feature: "hybrid calibration reverse trace (price-only API)",
-        }
-        .into());
-    }
+    calibrate_hull_white_lsv_with_dividends(
+        target,
+        factor,
+        rates,
+        correlation,
+        initial_spot,
+        config,
+        None,
+    )
+}
+
+pub fn calibrate_hull_white_lsv_with_dividends(
+    target: &HullWhiteLsvTarget,
+    factor: Bergomi1Factor,
+    rates: &HullWhite1Factor,
+    correlation: HybridCorrelation,
+    initial_spot: f64,
+    config: &LsvParticleConfig,
+    dividends: Option<&HullWhiteDividendPlan>,
+) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
+    calibrate_hybrid_lsv_with_dividends(
+        target,
+        factor.into(),
+        rates,
+        correlation,
+        initial_spot,
+        config,
+        dividends,
+    )
+}
+
+pub fn calibrate_rough_hull_white_lsv(
+    target: &HullWhiteLsvTarget,
+    factor: RoughBergomi,
+    rates: &HullWhite1Factor,
+    correlation: HybridCorrelation,
+    initial_spot: f64,
+    config: &LsvParticleConfig,
+    dividends: Option<&HullWhiteDividendPlan>,
+) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
+    calibrate_hybrid_lsv_with_dividends(
+        target,
+        factor.into(),
+        rates,
+        correlation,
+        initial_spot,
+        config,
+        dividends,
+    )
+}
+
+pub fn calibrate_hybrid_lsv_with_dividends(
+    target: &HullWhiteLsvTarget,
+    factor: HybridVolatilityFactor,
+    rates: &HullWhite1Factor,
+    correlation: HybridCorrelation,
+    initial_spot: f64,
+    config: &LsvParticleConfig,
+    dividends: Option<&HullWhiteDividendPlan>,
+) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
     if factor.correlation() != correlation.equity_vol {
         return Err(invalid("equity_vol_correlation_mismatch", 0));
     }
     let grid = target.grid();
     let times = grid.time_nodes();
+    if let Some(d) = dividends
+        && (d.rates() != rates
+            || d.initial_spot() != initial_spot
+            || d.nodes().len() != times.len()
+            || d.nodes().iter().zip(times).any(|(n, t)| n.time() != *t))
+    {
+        return Err(invalid("dividend_calibration_grid", 0));
+    }
     let xs = grid.log_moneyness_nodes();
     let m = xs.len();
     let n = config.particle_count();
@@ -477,35 +789,70 @@ pub fn calibrate_hull_white_lsv(
         .windows(2)
         .map(|w| Kernel::new(rates, factor.mean_reversion(), correlation, w[0], w[1]))
         .collect::<Result<Vec<_>, _>>()?;
+    let rough_driver = factor
+        .rough()
+        .map(|f| RoughBergomiDriverPlan::compile(f, rates, correlation, times))
+        .transpose()?;
+    let rough_values = rough_driver
+        .as_ref()
+        .map(|driver| {
+            (0..n)
+                .map(|p| {
+                    let shocks = hybrid_shocks(
+                        config.seed(),
+                        p as u64,
+                        kernels.len(),
+                        5,
+                        RandomDomain::LsvCalibration,
+                    )?;
+                    driver.normalized(&shocks)
+                })
+                .collect::<Result<Vec<_>, HullWhiteMcError>>()
+        })
+        .transpose()?;
     let rng = Philox4x32::from_seed(config.seed());
     let steps = kernels.len();
     steps
-        .checked_mul(4)
+        .checked_mul(if rough_driver.is_some() { 5 } else { 4 })
         .and_then(|n| u32::try_from(n).ok())
         .ok_or_else(|| invalid("random_dimension", steps))?;
     let mut values = Vec::with_capacity(grid.values().len());
     let mut moments = Vec::with_capacity(values.capacity());
     let mut corrections = Vec::with_capacity(values.capacity());
+    let mut crosses = Vec::with_capacity(values.capacity());
+    let mut rate_variances = Vec::with_capacity(values.capacity());
     let mut diagnostics = Vec::new();
+    let mut trace = config.retain_reverse_trace().then(Vec::new);
     for (r, &t) in times.iter().enumerate() {
         let shift = rates.rate_shift(t)?;
         let half_v = 0.5 * rates.integrated_variance(t)?;
         let mut sorted = states
             .iter()
             .map(|s| {
+                let (f, rate_loading) = target_state(dividends, r, *s)?;
                 let weight = (-s.integrated_rate_factor - half_v).exp();
                 let a2 = (2.0 * factor.vol_of_vol() * s.volatility_factor).exp();
-                (
-                    (s.normalized_equity / initial_spot).ln(),
+                let ratio = s.normalized_equity / f;
+                let rate_ratio = rate_loading / f;
+                Ok((
+                    (f / initial_spot).ln(),
                     weight,
                     weight * (s.rate_factor + shift),
-                    a2,
-                    s.normalized_equity,
-                )
+                    a2 * ratio * ratio,
+                    f,
+                    a2.sqrt() * ratio * rate_ratio,
+                    rate_ratio * rate_ratio,
+                ))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, HullWhiteMcError>>()?;
         if sorted.iter().any(|p| {
-            !p.1.is_finite() || p.1 <= 0.0 || !p.2.is_finite() || !p.3.is_finite() || p.3 <= 0.0
+            !p.1.is_finite()
+                || p.1 <= 0.0
+                || !p.2.is_finite()
+                || !p.3.is_finite()
+                || p.3 <= 0.0
+                || !p.5.is_finite()
+                || !p.6.is_finite()
         }) {
             return Err(invalid("calibration_particle", r));
         }
@@ -522,10 +869,16 @@ pub fn calibrate_hull_white_lsv(
             suffix_y[i] = sy.total();
         }
         let mut row = vec![None; m];
+        let mut weight_sums = vec![0.0; m];
         let analytic = r == 0 || (rates.is_deterministic() && factor.vol_of_vol() == 0.0);
         for (j, &x) in xs.iter().enumerate() {
             if analytic {
-                row[j] = Some((1.0, 0.0, n as f64));
+                let loading = if r == 0 {
+                    target_state(dividends, 0, initial)?.1 / (initial_spot * x.exp())
+                } else {
+                    0.0
+                };
+                row[j] = Some((1.0, 0.0, n as f64, loading, loading * loading));
                 continue;
             }
             let h = config.log_bandwidth();
@@ -533,12 +886,15 @@ pub fn calibrate_hull_white_lsv(
             let hi = sorted.partition_point(|p| p.0 < x + h);
             let (mut w, mut w2, mut wa2) =
                 (NeumaierSum::new(), NeumaierSum::new(), NeumaierSum::new());
+            let (mut wc, mut wr) = (NeumaierSum::new(), NeumaierSum::new());
             for p in &sorted[lo..hi] {
                 let u = (p.0 - x) / h;
                 let kw = (1.0 - u * u).powi(2) * p.1;
                 w.add(kw);
                 w2.add(kw * kw);
                 wa2.add(kw * p.3);
+                wc.add(kw * p.5);
+                wr.add(kw * p.6);
             }
             let ess = w.total() * w.total() / w2.total();
             if !ess.is_finite() || ess < config.minimum_effective_samples() {
@@ -555,13 +911,23 @@ pub fn calibrate_hull_white_lsv(
                 // E[Dbar*(r-f0)]=0 exactly. Empirical centering reduces noise;
                 // its finite-population ratio bias is part of this versioned scheme.
                 let q = (suffix_y[above] - suffix_d[above] / suffix_d[0] * suffix_y[0]) / n as f64;
-                2.0 * q / density
+                let h = dividends.map_or(0.0, |d| {
+                    d.nodes()[r].deterministic_reserve() / d.nodes()[r].scale()
+                });
+                2.0 * q / density * (1.0 + h / (initial_spot * x.exp()))
             };
             let second = wa2.total() / w.total();
             if !second.is_finite() || second <= 0.0 || !correction.is_finite() {
                 return Err(invalid("conditional_estimator", r * m + j));
             }
-            row[j] = Some((second, correction, ess));
+            row[j] = Some((
+                second,
+                correction,
+                ess,
+                wc.total() / w.total(),
+                wr.total() / w.total(),
+            ));
+            weight_sums[j] = w.total();
         }
         let supported = row
             .iter()
@@ -572,6 +938,7 @@ pub fn calibrate_hull_white_lsv(
             return Err(invalid("no_supported_calibration_node", r));
         }
         let mut fallback = 0;
+        let mut donors = Vec::with_capacity(m);
         let mut max_c: f64 = 0.0;
         let min_ess = supported
             .iter()
@@ -592,14 +959,22 @@ pub fn calibrate_hull_white_lsv(
                     })
                     .unwrap()
             };
-            let (second, correction, _) = row[donor].unwrap();
-            let value = (grid.values()[r * m + j] - correction) / second;
+            let (second, correction, _, cross, rate_variance) = row[donor].unwrap();
+            donors.push(donor);
+            let value = corrected_leverage(
+                grid.values()[r * m + j] - correction,
+                second,
+                correlation.equity_rate * cross,
+                rate_variance,
+            )?;
             if !value.is_finite() || value <= 0.0 {
                 return Err(invalid("non_positive_rate_corrected_variance", r * m + j));
             }
             values.push(value);
             moments.push(second);
             corrections.push(correction);
+            crosses.push(cross);
+            rate_variances.push(rate_variance);
             max_c = max_c.max(correction.abs());
         }
         diagnostics.push(HullWhiteCalibrationDiagnostics {
@@ -610,9 +985,17 @@ pub fn calibrate_hull_white_lsv(
             mean_discounted_normalized_equity: sdf.total() / n as f64,
             maximum_rate_correction: max_c,
         });
+        if let Some(trace) = &mut trace {
+            trace.push(reverse::TraceRow {
+                states: states.clone().into(),
+                weight_sums: weight_sums.into(),
+                donors: donors.into(),
+                analytic,
+            });
+        }
         if r < steps {
             for (p, state) in states.iter_mut().enumerate() {
-                let x = (state.normalized_equity / initial_spot).ln();
+                let x = (target_state(dividends, r, *state)?.0 / initial_spot).ln();
                 let j = xs.partition_point(|v| *v <= x).saturating_sub(1).min(m - 2);
                 let w = ((x - xs[j]) / (xs[j + 1] - xs[j])).clamp(0.0, 1.0);
                 let l2 = (1.0 - w) * values[r * m + j] + w * values[r * m + j + 1];
@@ -624,13 +1007,73 @@ pub fn calibrate_hull_white_lsv(
                     ))
                 });
                 *state = kernels[r].advance(*state, l2, factor.vol_of_vol(), z, r)?;
+                if let Some(values) = &rough_values {
+                    state.volatility_factor = values[p][r + 1];
+                }
             }
         }
     }
-    Ok(CalibratedHullWhiteLsv {
+    let mut calibrated = CalibratedHullWhiteLsv {
         surface: LsvLeverageSurface::new(times.to_vec(), xs.to_vec(), values, initial_spot)?,
         diagnostics: diagnostics.into(),
         conditional_second_moments: moments.into(),
         rate_corrections: corrections.into(),
+        conditional_cross_moments: crosses.into(),
+        conditional_rate_variances: rate_variances.into(),
+        reverse_trace: trace.map(|rows| reverse::CalibrationTrace {
+            rows: rows.into(),
+            target: target.clone(),
+            factor,
+            rates: rates.clone(),
+            correlation,
+            config: config.clone(),
+            dividends: dividends.cloned(),
+            kernels: kernels.into(),
+            primal_fingerprint: [0; 32],
+        }),
+    };
+    if config.retain_reverse_trace() {
+        let fingerprint = calibrated.reverse_primal_fingerprint();
+        calibrated
+            .reverse_trace
+            .as_mut()
+            .expect("reverse trace requested")
+            .primal_fingerprint = fingerprint;
+    }
+    Ok(calibrated)
+}
+
+fn target_state(
+    dividends: Option<&HullWhiteDividendPlan>,
+    index: usize,
+    state: HybridState,
+) -> Result<(f64, f64), HullWhiteMcError> {
+    dividends.map_or(Ok((state.normalized_equity, 0.0)), |d| {
+        d.nodes()[index]
+            .target_state(state.normalized_equity, state.rate_factor)
+            .map_err(Into::into)
     })
+}
+
+// Solve A*L^2+2*B*L+C=target on the upper positive branch. Rationalize
+// the subtraction for B>=0; the zero-bond limit preserves the v1 calculation.
+fn corrected_leverage(target: f64, a: f64, b: f64, c: f64) -> Result<f64, HullWhiteMcError> {
+    if b == 0.0 && c == 0.0 {
+        return Ok(target / a);
+    }
+    let residual = target - c;
+    let discriminant = b * b + a * residual;
+    if !discriminant.is_finite() || discriminant < 0.0 {
+        return Err(invalid("cash_dividend_leverage_discriminant", 0));
+    }
+    let root = discriminant.sqrt();
+    let leverage = if b >= 0.0 {
+        residual / (root + b)
+    } else {
+        (root - b) / a
+    };
+    if !leverage.is_finite() || leverage <= 0.0 {
+        return Err(invalid("positive_cash_dividend_leverage", 0));
+    }
+    Ok(leverage * leverage)
 }

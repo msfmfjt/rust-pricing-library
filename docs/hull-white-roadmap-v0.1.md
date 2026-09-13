@@ -1,6 +1,6 @@
 # Hull–White extension: implementation and acceptance roadmap
 
-Status: experimental. Date: 2026-09-12.
+Status: experimental. Date: 2026-09-12; AAD update 2026-09-13.
 Base: PR #45 at `fde80879fa6ddbe7e6b842890313e421d27ddbe4`, including merged
 LSV PR #47. The earlier stack's acceptance/merge status is unchanged.
 
@@ -17,6 +17,11 @@ Python provides `HullWhiteModel`, `HullWhiteLsvTarget`, `HullWhiteEquityPlan`
 and immutable `HullWhitePrice`. See the
 [runnable example](../examples/python/hull_white_lsv.py).
 
+The [rough Bergomi extension](rough-bergomi-v0.1.md) adds pure rough and
+rough-LSV constructors to the same plan, including cash, AAD and quote-node
+VegaKT at fixed H/eta. It has separate five-block RNG and Volterra discretization
+contracts; the H3/H5/H6 acceptance scope below remains open.
+
 Supply one currency's discount curve and explicit Hull–White parameters:
 constant a and piecewise constant sigma_r. `compile_bs` takes a price-only
 Black–Scholes request, equity/rate correlation and maximum equity step.
@@ -28,8 +33,12 @@ example; no rate option calibration has been performed.
 
 The payoff integration supports positive-horizon European, Asian, Lookback,
 Digital and discrete Barrier prices with continuous deterministic carry,
-proportional dividends and payment lags. Fixed-cash dividends and hybrid
-Greeks are explicit errors in this release.
+proportional dividends and payment lags. Fixed-cash dividends now have an
+explicit [escrowed model](hull-white-cash-dividends-v0.1.md); default compilation
+still rejects them. The explicit [AAD API](hull-white-aad-v0.1.md) adds first-order
+Spot/BS volatility/initial-curve risk and paired-target adjoints through particle
+recalibration. Set `retain_reverse_trace=True` for LSV. Stable request Greek
+flags remain unsupported at the hybrid boundary.
 
 ## Gates
 
@@ -39,8 +48,8 @@ Greeks are explicit errors in this release.
 | H1 | Exact HW rate/integral kernel, curve fit, bond option | Implemented and focused tests pass |
 | H2 | BS+HW, correlations, payment lag, dividends, MC/RQMC | Implemented and focused tests pass |
 | H3 | Discounted Bergomi LSV calibration and Python integration | Implemented; broad calibration acceptance pending |
-| H4 | Fixed-cash dividends with stochastic-bond coordinates | Pending |
-| H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | Pending |
+| H4 | Fixed-cash dividends with stochastic-bond coordinates | Experimental implementation; broad acceptance pending |
+| H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | First-order AAD and explicit quote-node VegaKT implemented; broad risk acceptance and physical quote/fitting adjoints pending |
 | H6 | Rate instrument calibration, stable wire, native replay and benchmark acceptance | Pending |
 
 Initial numerical checks cover exact covariance against independent quadrature
@@ -55,9 +64,12 @@ the public stub/runtime API, all Python tests and the example.
 These are focused implementation checks, not smile-wide calibration acceptance.
 H3 requires retained particle-count, bandwidth and time-step studies with
 independent calibration seeds, adverse smiles, long maturities and measured
-fallback sensitivity. Pricing SE alone is insufficient for that gate. H5 must
-differentiate rate drift/discounting and the discounted calibration, then check
-recalibrated bumps; the deterministic-rate LSV VJP must not be reused unchanged.
+fallback sensitivity. Pricing SE alone is insufficient for that gate. H5 now
+has a dedicated hybrid VJP and recompiled-bump evidence for the initial-curve
+fit/discounting, reserve and discounted calibration. It still requires broader
+risk refinement and branch-stability studies. HW/Bergomi parameters and payout
+quotes are fixed. [Quote-node VegaKT](hull-white-vegakt-v0.1.md) is available for
+`from_market_iv` targets; Gamma and physical quote/fitting adjoints remain future work.
 H6 requires parameter calibration to specified instruments and new native
 hybrid replay/performance fixtures. Existing platform CI remains a regression
 gate for the pre-existing pricing baseline.
