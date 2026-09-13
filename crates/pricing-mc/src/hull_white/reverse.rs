@@ -18,7 +18,7 @@ pub(super) struct TraceRow {
 pub(super) struct CalibrationTrace {
     pub(super) rows: Box<[TraceRow]>,
     pub(super) target: HullWhiteLsvTarget,
-    pub(super) factor: Bergomi1Factor,
+    pub(super) factor: HybridVolatilityFactor,
     pub(super) rates: HullWhite1Factor,
     pub(super) correlation: HybridCorrelation,
     pub(super) config: LsvParticleConfig,
@@ -30,6 +30,7 @@ pub(super) struct CalibrationTrace {
 #[derive(Clone, Debug)]
 pub struct HullWhitePathAdjoints {
     pub initial_spot: f64,
+    /// Legacy slot: BS sigma, or the pure rough model's initial sigma0.
     pub bs_volatility: Option<f64>,
     pub squared_leverage: Vec<f64>,
     pub dividends: Option<Vec<HullWhiteDividendNodeAdjoints>>,
@@ -140,16 +141,13 @@ impl HullWhiteRecordedPath<'_> {
         let n = plan.kernels.len();
         let mut out = HullWhitePathAdjoints {
             initial_spot: 0.0,
-            bs_volatility: match plan.volatility {
-                HybridEquityVolatility::BlackScholes(_) => Some(0.0),
-                _ => None,
-            },
-            squared_leverage: match &plan.volatility {
-                HybridEquityVolatility::BergomiLsv { leverage, .. } => {
+            bs_volatility: plan.volatility.direct_volatility().map(|_| 0.0),
+            squared_leverage: plan
+                .volatility
+                .lsv()
+                .map_or_else(Vec::new, |(_, leverage)| {
                     vec![0.0; leverage.squared_leverage().len()]
-                }
-                _ => Vec::new(),
-            },
+                }),
             dividends: plan
                 .dividends
                 .as_ref()
@@ -163,34 +161,33 @@ impl HullWhiteRecordedPath<'_> {
             let dw = plan.kernels[i].loading[0][0] * self.shocks[i];
             let exponent_bar = bar * next;
             let direct = bar * next / state.normalized_equity;
-            let feedback = match &plan.volatility {
-                HybridEquityVolatility::BlackScholes(sigma) => {
-                    // This is the right derivative at sigma=0, without a 0/0
-                    // variance-to-volatility conversion.
-                    *out.bs_volatility.as_mut().unwrap() += exponent_bar * (-sigma * dt + dw);
-                    0.0
-                }
-                HybridEquityVolatility::BergomiLsv { factor, leverage } => {
-                    let f = target_state(plan.dividends.as_ref(), i, state)?.0;
-                    let row = leverage
-                        .times()
-                        .partition_point(|t| *t <= plan.times[i])
-                        .saturating_sub(1);
-                    let l = lookup(leverage, row, f);
-                    let a2 = (2.0 * factor.vol_of_vol() * state.volatility_factor).exp();
-                    let v = l.value * a2;
-                    let lbar = exponent_bar * (-0.5 * dt + dw / (2.0 * v.sqrt())) * a2;
-                    transpose_lookup(l, lbar, &mut out.squared_leverage);
-                    out.initial_spot -= lbar * l.slope / self.spot;
-                    target_reverse(
-                        plan.dividends.as_ref(),
-                        i,
-                        state,
-                        lbar * l.slope / f,
-                        0.0,
-                        &mut out.dividends,
-                    )?
-                }
+            let feedback = if let Some(sigma) = plan.volatility.direct_volatility() {
+                let a2 =
+                    (2.0 * plan.volatility.log_vol_coefficient() * state.volatility_factor).exp();
+                *out.bs_volatility.as_mut().unwrap() +=
+                    exponent_bar * (-sigma * a2 * dt + a2.sqrt() * dw);
+                0.0
+            } else {
+                let (factor, leverage) = plan.volatility.lsv().expect("LSV variant");
+                let f = target_state(plan.dividends.as_ref(), i, state)?.0;
+                let row = leverage
+                    .times()
+                    .partition_point(|t| *t <= plan.times[i])
+                    .saturating_sub(1);
+                let l = lookup(leverage, row, f);
+                let a2 = (2.0 * factor.vol_of_vol() * state.volatility_factor).exp();
+                let v = l.value * a2;
+                let lbar = exponent_bar * (-0.5 * dt + dw / (2.0 * v.sqrt())) * a2;
+                transpose_lookup(l, lbar, &mut out.squared_leverage);
+                out.initial_spot -= lbar * l.slope / self.spot;
+                target_reverse(
+                    plan.dividends.as_ref(),
+                    i,
+                    state,
+                    lbar * l.slope / f,
+                    0.0,
+                    &mut out.dividends,
+                )?
             };
             bar = state_seeds[i] + direct + feedback;
         }

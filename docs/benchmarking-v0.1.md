@@ -5,9 +5,10 @@ Status: baseline harness; measured artifacts are produced by CI
 The benchmark suite is a regression and optimization baseline, not a latency
 service-level agreement. Pull-request CI runs it on the two MVP targets:
 Apple Silicon macOS and Windows x86-64. Each run retains `rust.json`,
-`local-volatility-rust.json`, `python.json`, `replay.json`, and
-`metadata.json` as a short-lived workflow artifact. Supported platforms also
-retain `local-volatility-replay.json`.
+`local-volatility-rust.json`, `path-dependence-rust.json`, `python.json`,
+`replay.json`, and `metadata.json` as a short-lived workflow artifact.
+Supported platforms also retain Local Volatility and Path Dependence replay
+reports.
 
 ## Workload
 
@@ -54,6 +55,21 @@ On supported platforms, the same CI step also generates
 it byte-for-byte. If the platform fixture is not frozen yet, the generated JSON
 is retained as an artifact so it can be reviewed and promoted in a follow-up
 change.
+
+## Path Dependence workload
+
+The suite emits `path-dependence-rust.json` with separate compile and evaluate
+timings for exact Digital Price, explicitly smoothed Digital Price/AAD, a
+caller-ordered three-width ladder plus its primary width, and continuous
+Barrier Price/risk with conditional bridge correction. It uses 8,192
+independent antithetic units, two workers, and Reduction block 256.
+
+`path-dependence-replay.json` retains six exact or smoothed cases covering
+Digital, discrete and continuous Barrier, partially fixed Arithmetic Asian,
+and Fixed Lookback calculations. Exact/smoothed labels, smoothing metadata,
+bridge diagnostics, fixed historical state, request/result JSON, Plan and
+Payoff fingerprints, random-plan checksums, and CRN validation evidence are
+part of the frozen artifact.
 
 ## Host and resource metadata
 

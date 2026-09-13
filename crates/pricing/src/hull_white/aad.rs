@@ -9,7 +9,7 @@ use pricing_models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, transp
 #[derive(Clone, Debug, PartialEq)]
 pub struct HullWhiteAadRisk {
     pub price: HullWhitePrice,
-    /// Order: Spot, optional BS volatility, discount log-DF pillars, dividend
+    /// Order: Spot, optional BS sigma / rough sigma0, discount log-DF pillars, dividend
     /// log-DF pillars, row-major local variance, row-major forward log density,
     /// optional row-major market IV and parallel market IV.
     pub parameter_labels: Box<[String]>,
@@ -313,7 +313,8 @@ impl HullWhiteEquityPricingPlan {
                 )
             }
             EngineConfig::RandomizedQuasiMonteCarlo(config) => {
-                let dimension = (4 * (self.time_nodes().len() - 1)) as u32;
+                let dimension =
+                    (self.path.random_factor_count() * (self.time_nodes().len() - 1)) as u32;
                 let qmc = RqmcPlan::compile(config, dimension)?;
                 let bridge = self.bridge(config.variance_reduction())?;
                 let count = config.points_per_scramble().get();
@@ -379,7 +380,14 @@ impl HullWhiteEquityPricingPlan {
         };
         let mut labels = vec!["spot".to_owned()];
         if context.is_bs {
-            labels.push("bs_volatility".to_owned());
+            labels.push(
+                if self.path.is_direct_rough() {
+                    "initial_volatility"
+                } else {
+                    "bs_volatility"
+                }
+                .to_owned(),
+            );
         }
         for (name, count) in [
             (
@@ -411,14 +419,8 @@ impl HullWhiteEquityPricingPlan {
             independent_sampling_units: units,
             evaluated_paths: paths,
             plan_fingerprint: self.fingerprint,
-            scheme: HULL_WHITE_EQUITY_SCHEME,
-            calibration_method: self.calibration.as_ref().map(|_| {
-                if self.path.dividends().is_some() {
-                    HULL_WHITE_CASH_LSV_CALIBRATION
-                } else {
-                    HULL_WHITE_LSV_CALIBRATION
-                }
-            }),
+            scheme: self.path.scheme(),
+            calibration_method: self.path.calibration_method(),
             calibration_seed: self.calibration_seed,
             cash_dividend_model: self.cash_dividend_model(),
         };

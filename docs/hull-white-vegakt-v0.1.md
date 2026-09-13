@@ -3,6 +3,8 @@
 Date: 2026-09-13. Status: experimental extension of the
 [first-order AAD contract](hull-white-aad-v0.1.md).
 Decision: [ADR 0004](adr/0004-hull-white-vegakt.md).
+The same quote transpose is available for
+[rough-LSV](rough-bergomi-v0.1.md) with fixed H/eta.
 
 ## Input and interpolation contract
 

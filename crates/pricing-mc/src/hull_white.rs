@@ -12,10 +12,16 @@ use pricing_models::hull_white::hw_valid;
 use pricing_models::hull_white_dividends::HullWhiteDividendPlan;
 use pricing_models::{
     Bergomi1Factor, HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
+    RoughBergomi,
 };
 use pricing_numerics::{NeumaierSum, standard_normal_pdf};
 use std::{error::Error, fmt};
 
+mod rough;
+pub use rough::{
+    HybridVolatilityFactor, ROUGH_BERGOMI_SCHEME, ROUGH_CASH_LSV_CALIBRATION,
+    ROUGH_LSV_CALIBRATION, RoughBergomiDriverPlan,
+};
 mod reverse;
 pub use reverse::{
     HULL_WHITE_AAD_METHOD, HullWhiteCalibrationAdjoints, HullWhitePathAdjoints,
@@ -163,10 +169,12 @@ impl Kernel {
 
 /// PSD Cholesky after normalization to correlation scale. Only round-off sized
 /// negative residuals are set to zero; inconsistent singular rows are rejected.
-fn covariance_loading(cov: [[f64; 4]; 4]) -> Result<[[f64; 4]; 4], HullWhiteMcError> {
-    let scales = std::array::from_fn::<_, 4, _>(|i| cov[i][i].sqrt());
-    let mut l = [[0.0; 4]; 4];
-    for i in 0..4 {
+fn covariance_loading<const N: usize>(
+    cov: [[f64; N]; N],
+) -> Result<[[f64; N]; N], HullWhiteMcError> {
+    let scales = std::array::from_fn::<_, N, _>(|i| cov[i][i].sqrt());
+    let mut l = [[0.0; N]; N];
+    for i in 0..N {
         for j in 0..=i {
             let c = if scales[i] == 0.0 || scales[j] == 0.0 {
                 0.0
@@ -200,10 +208,52 @@ fn covariance_loading(cov: [[f64; 4]; 4]) -> Result<[[f64; 4]; 4], HullWhiteMcEr
 #[derive(Clone, Debug)]
 pub enum HybridEquityVolatility {
     BlackScholes(f64),
+    RoughBergomi {
+        factor: RoughBergomi,
+        initial_volatility: f64,
+    },
+    RoughBergomiLsv {
+        factor: RoughBergomi,
+        leverage: LsvLeverageSurface,
+    },
     BergomiLsv {
         factor: Bergomi1Factor,
         leverage: LsvLeverageSurface,
     },
+}
+
+impl HybridEquityVolatility {
+    fn lsv(&self) -> Option<(HybridVolatilityFactor, &LsvLeverageSurface)> {
+        match self {
+            Self::BergomiLsv { factor, leverage } => Some(((*factor).into(), leverage)),
+            Self::RoughBergomiLsv { factor, leverage } => Some(((*factor).into(), leverage)),
+            _ => None,
+        }
+    }
+    fn rough(&self) -> Option<RoughBergomi> {
+        match self {
+            Self::RoughBergomi { factor, .. } | Self::RoughBergomiLsv { factor, .. } => {
+                Some(*factor)
+            }
+            _ => None,
+        }
+    }
+    fn direct_volatility(&self) -> Option<f64> {
+        match self {
+            Self::BlackScholes(v)
+            | Self::RoughBergomi {
+                initial_volatility: v,
+                ..
+            } => Some(*v),
+            _ => None,
+        }
+    }
+    fn log_vol_coefficient(&self) -> f64 {
+        self.lsv().map_or_else(
+            || self.rough().map_or(0.0, |v| 0.5 * v.vol_of_vol()),
+            |(v, _)| v.vol_of_vol(),
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -214,6 +264,7 @@ pub struct HullWhiteEquityPlan {
     times: Box<[f64]>,
     kernels: Box<[Kernel]>,
     dividends: Option<HullWhiteDividendPlan>,
+    rough_driver: Option<RoughBergomiDriverPlan>,
 }
 impl HullWhiteEquityPlan {
     pub fn new(
@@ -222,32 +273,40 @@ impl HullWhiteEquityPlan {
         correlation: HybridCorrelation,
         grid: &LocalVolTimeGrid,
     ) -> Result<Self, HullWhiteMcError> {
-        let k = match &volatility {
-            HybridEquityVolatility::BlackScholes(sigma) => {
-                hw_valid(*sigma, "equity_volatility", 0, true)?;
-                0.0
+        if let Some(sigma) = volatility.direct_volatility() {
+            hw_valid(sigma, "equity_volatility", 0, true)?;
+        }
+        if let Some(factor) = volatility.rough()
+            && factor.correlation() != correlation.equity_vol
+        {
+            return Err(invalid("equity_vol_correlation_mismatch", 0));
+        }
+        let k = if let Some((factor, leverage)) = volatility.lsv() {
+            if factor.correlation() != correlation.equity_vol {
+                return Err(invalid("equity_vol_correlation_mismatch", 0));
             }
-            HybridEquityVolatility::BergomiLsv { factor, leverage } => {
-                if factor.correlation() != correlation.equity_vol {
-                    return Err(invalid("equity_vol_correlation_mismatch", 0));
-                }
-                let end = grid.nodes()[grid.nodes().len() - 1];
-                if end > leverage.times()[leverage.times().len() - 1] {
-                    return Err(invalid("leverage_time_coverage", 0));
-                }
-                for (i, &t) in leverage
-                    .times()
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, t)| **t <= end)
-                {
-                    if !grid.nodes().contains(&t) {
-                        return Err(invalid("missing_leverage_knot", i));
-                    }
-                }
-                factor.mean_reversion()
+            let end = grid.nodes()[grid.nodes().len() - 1];
+            if end > leverage.times()[leverage.times().len() - 1] {
+                return Err(invalid("leverage_time_coverage", 0));
             }
+            for (i, &t) in leverage
+                .times()
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| **t <= end)
+            {
+                if !grid.nodes().contains(&t) {
+                    return Err(invalid("missing_leverage_knot", i));
+                }
+            }
+            factor.mean_reversion()
+        } else {
+            0.0
         };
+        let rough_driver = volatility
+            .rough()
+            .map(|factor| RoughBergomiDriverPlan::new(factor, &rates, correlation, grid))
+            .transpose()?;
         let kernels = grid
             .nodes()
             .windows(2)
@@ -260,6 +319,7 @@ impl HullWhiteEquityPlan {
             times: grid.nodes().into(),
             kernels: kernels.into(),
             dividends: None,
+            rough_driver,
         })
     }
     pub fn with_dividends(
@@ -301,6 +361,22 @@ impl HullWhiteEquityPlan {
     pub fn parameter_fingerprint_bytes(&self) -> Vec<u8> {
         let values = match &self.volatility {
             HybridEquityVolatility::BlackScholes(sigma) => vec![0.0, *sigma],
+            HybridEquityVolatility::RoughBergomi {
+                factor,
+                initial_volatility,
+            } => vec![
+                2.0,
+                factor.hurst(),
+                factor.vol_of_vol(),
+                factor.correlation(),
+                *initial_volatility,
+            ],
+            HybridEquityVolatility::RoughBergomiLsv { factor, .. } => vec![
+                3.0,
+                factor.hurst(),
+                factor.vol_of_vol(),
+                factor.correlation(),
+            ],
             HybridEquityVolatility::BergomiLsv { factor, .. } => vec![
                 1.0,
                 factor.mean_reversion(),
@@ -319,9 +395,46 @@ impl HullWhiteEquityPlan {
         path: u64,
         domain: RandomDomain,
     ) -> Result<Vec<f64>, HullWhiteMcError> {
-        hybrid_shocks(seed, path, self.kernels.len(), domain)
+        hybrid_shocks(
+            seed,
+            path,
+            self.kernels.len(),
+            self.random_factor_count(),
+            domain,
+        )
     }
-    /// Four factor-major blocks of independent normals. All four blocks must be
+    #[must_use]
+    pub fn random_factor_count(&self) -> usize {
+        if self.rough_driver.is_some() { 5 } else { 4 }
+    }
+    #[must_use]
+    pub fn is_rough(&self) -> bool {
+        self.rough_driver.is_some()
+    }
+    #[must_use]
+    pub fn is_direct_rough(&self) -> bool {
+        self.is_rough() && self.volatility.direct_volatility().is_some()
+    }
+    #[must_use]
+    pub fn scheme(&self) -> &'static str {
+        if self.is_rough() {
+            ROUGH_BERGOMI_SCHEME
+        } else {
+            HULL_WHITE_EQUITY_SCHEME
+        }
+    }
+    #[must_use]
+    pub fn calibration_method(&self) -> Option<&'static str> {
+        self.volatility
+            .lsv()
+            .map(|_| match (self.is_rough(), self.dividends.is_some()) {
+                (true, true) => ROUGH_CASH_LSV_CALIBRATION,
+                (true, false) => ROUGH_LSV_CALIBRATION,
+                (false, true) => HULL_WHITE_CASH_LSV_CALIBRATION,
+                (false, false) => HULL_WHITE_LSV_CALIBRATION,
+            })
+    }
+    /// Four factor-major blocks (five for rough). All blocks must be
     /// sign-reversed for an antithetic path; Brownian bridge acts on each block.
     pub fn evolve_path(
         &self,
@@ -329,7 +442,7 @@ impl HullWhiteEquityPlan {
         shocks: &[f64],
     ) -> Result<Vec<HybridState>, HullWhiteMcError> {
         let n = self.kernels.len();
-        if Some(shocks.len()) != n.checked_mul(4) {
+        if Some(shocks.len()) != n.checked_mul(self.random_factor_count()) {
             return Err(invalid("shock_count", shocks.len()));
         }
         let mut state = HybridState::initial(spot)?;
@@ -340,24 +453,31 @@ impl HullWhiteEquityPlan {
         {
             return Err(invalid("dividend_initial_spot", 0));
         }
-        if let HybridEquityVolatility::BergomiLsv { leverage, .. } = &self.volatility
+        if let Some((_, leverage)) = self.volatility.lsv()
             && spot != leverage.initial_f()
         {
             return Err(invalid("leverage_initial_spot", 0));
         }
+        let rough_values = self
+            .rough_driver
+            .as_ref()
+            .map(|driver| driver.normalized(shocks))
+            .transpose()?;
         let mut states = vec![state];
         for (i, kernel) in self.kernels.iter().enumerate() {
-            let (l2, nu) = match &self.volatility {
-                HybridEquityVolatility::BlackScholes(sigma) => (sigma * sigma, 0.0),
-                HybridEquityVolatility::BergomiLsv { factor, leverage } => (
-                    leverage.squared_leverage_at(
-                        self.times[i],
-                        target_state(self.dividends.as_ref(), i, state)?.0,
-                    )?,
-                    factor.vol_of_vol(),
-                ),
+            let l2 = if let Some((_, leverage)) = self.volatility.lsv() {
+                leverage.squared_leverage_at(
+                    self.times[i],
+                    target_state(self.dividends.as_ref(), i, state)?.0,
+                )?
+            } else {
+                self.volatility.direct_volatility().unwrap().powi(2)
             };
+            let nu = self.volatility.log_vol_coefficient();
             state = kernel.advance(state, l2, nu, std::array::from_fn(|j| shocks[j * n + i]), i)?;
+            if let Some(values) = &rough_values {
+                state.volatility_factor = values[i + 1];
+            }
             states.push(state);
         }
         Ok(states)
@@ -368,10 +488,11 @@ fn hybrid_shocks(
     seed: u64,
     path: u64,
     steps: usize,
+    factors: usize,
     domain: RandomDomain,
 ) -> Result<Vec<f64>, HullWhiteMcError> {
     let count = steps
-        .checked_mul(4)
+        .checked_mul(factors)
         .and_then(|n| u32::try_from(n).ok())
         .ok_or_else(|| invalid("random_dimension", steps))?;
     let rng = Philox4x32::from_seed(seed);
@@ -606,6 +727,46 @@ pub fn calibrate_hull_white_lsv_with_dividends(
     config: &LsvParticleConfig,
     dividends: Option<&HullWhiteDividendPlan>,
 ) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
+    calibrate_hybrid_lsv_with_dividends(
+        target,
+        factor.into(),
+        rates,
+        correlation,
+        initial_spot,
+        config,
+        dividends,
+    )
+}
+
+pub fn calibrate_rough_hull_white_lsv(
+    target: &HullWhiteLsvTarget,
+    factor: RoughBergomi,
+    rates: &HullWhite1Factor,
+    correlation: HybridCorrelation,
+    initial_spot: f64,
+    config: &LsvParticleConfig,
+    dividends: Option<&HullWhiteDividendPlan>,
+) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
+    calibrate_hybrid_lsv_with_dividends(
+        target,
+        factor.into(),
+        rates,
+        correlation,
+        initial_spot,
+        config,
+        dividends,
+    )
+}
+
+pub fn calibrate_hybrid_lsv_with_dividends(
+    target: &HullWhiteLsvTarget,
+    factor: HybridVolatilityFactor,
+    rates: &HullWhite1Factor,
+    correlation: HybridCorrelation,
+    initial_spot: f64,
+    config: &LsvParticleConfig,
+    dividends: Option<&HullWhiteDividendPlan>,
+) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
     if factor.correlation() != correlation.equity_vol {
         return Err(invalid("equity_vol_correlation_mismatch", 0));
     }
@@ -628,10 +789,31 @@ pub fn calibrate_hull_white_lsv_with_dividends(
         .windows(2)
         .map(|w| Kernel::new(rates, factor.mean_reversion(), correlation, w[0], w[1]))
         .collect::<Result<Vec<_>, _>>()?;
+    let rough_driver = factor
+        .rough()
+        .map(|f| RoughBergomiDriverPlan::compile(f, rates, correlation, times))
+        .transpose()?;
+    let rough_values = rough_driver
+        .as_ref()
+        .map(|driver| {
+            (0..n)
+                .map(|p| {
+                    let shocks = hybrid_shocks(
+                        config.seed(),
+                        p as u64,
+                        kernels.len(),
+                        5,
+                        RandomDomain::LsvCalibration,
+                    )?;
+                    driver.normalized(&shocks)
+                })
+                .collect::<Result<Vec<_>, HullWhiteMcError>>()
+        })
+        .transpose()?;
     let rng = Philox4x32::from_seed(config.seed());
     let steps = kernels.len();
     steps
-        .checked_mul(4)
+        .checked_mul(if rough_driver.is_some() { 5 } else { 4 })
         .and_then(|n| u32::try_from(n).ok())
         .ok_or_else(|| invalid("random_dimension", steps))?;
     let mut values = Vec::with_capacity(grid.values().len());
@@ -825,6 +1007,9 @@ pub fn calibrate_hull_white_lsv_with_dividends(
                     ))
                 });
                 *state = kernels[r].advance(*state, l2, factor.vol_of_vol(), z, r)?;
+                if let Some(values) = &rough_values {
+                    state.volatility_factor = values[p][r + 1];
+                }
             }
         }
     }
