@@ -353,4 +353,6 @@ The European Black–Scholes vertical slice is complete when:
 6. no unresolved requirement ambiguity blocks the subsequent Local Volatility/VegaKT slice;
 7. the conformance report records known limitations without silently weakening the frozen requirements.
 
-The next implementation roadmap begins with SSVI/eSSVI input, Dupire Local variance, Log-Euler simulation, Local Vega AAD, and the paper-defined VegaKT decomposition while reusing the accepted infrastructure from this slice.
+The Local Volatility/VegaKT roadmap now extends this accepted infrastructure
+with SSVI/eSSVI input, Dupire Local variance, Log-Euler simulation, Local Vega
+AAD, and the paper-defined VegaKT decomposition.

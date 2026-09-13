@@ -61,6 +61,12 @@ state-changing event times, requested observation times, and product expiry, all
 not later than expiry. Equality is exact normalized-year-fraction equality; no
 fuzzy deduplication is performed.
 
+When a materialized Local-variance grid includes the required initial
+simulation node `T=0`, the Dupire helper fills that row from the first strictly
+positive Local-variance time node. Reporting-IV maturity nodes remain strictly
+positive, so calibrated-surface Python helpers exclude `T=0` from the retained
+reporting basis even when it is present in the Local-variance grid.
+
 ## 3. Validation arithmetic
 
 ### 3.1 General rules

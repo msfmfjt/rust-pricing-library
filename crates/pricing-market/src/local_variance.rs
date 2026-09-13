@@ -157,22 +157,25 @@ impl LocalVarianceGrid {
         validate_nodes("log_moneyness", &log_moneyness_nodes, false)?;
         validate_floor_cap(floor, cap)?;
 
-        let mut values = Vec::with_capacity(time_nodes.len() * log_moneyness_nodes.len());
+        let capacity = local_variance_value_count(time_nodes.len(), log_moneyness_nodes.len())?;
+        let mut values = Vec::with_capacity(capacity);
         let mut repairs = Vec::new();
         for (time_index, time) in time_nodes.iter().copied().enumerate() {
+            let surface_time = if time == 0.0 { time_nodes[1] } else { time };
             for (log_moneyness_index, log_moneyness) in
                 log_moneyness_nodes.iter().copied().enumerate()
             {
-                let variance = surface.total_variance_derivatives(time, log_moneyness)?;
+                let variance = surface.total_variance_derivatives(surface_time, log_moneyness)?;
                 if !variance.time_derivative.is_finite() {
                     return Err(MarketError::NonFiniteSurfaceValue {
                         field: "time_derivative",
-                        time_bits: time.to_bits(),
+                        time_bits: surface_time.to_bits(),
                         log_moneyness_bits: log_moneyness.to_bits(),
                         value_bits: variance.time_derivative.to_bits(),
                     });
                 }
-                let density_factor = durrleman_density_factor(time, log_moneyness, variance)?;
+                let density_factor =
+                    durrleman_density_factor(surface_time, log_moneyness, variance)?;
                 let raw = variance.time_derivative / density_factor;
                 let (value, reason) = classify_local_variance(raw, floor, cap);
                 if let Some(reason) = reason {
@@ -212,7 +215,7 @@ impl LocalVarianceGrid {
         validate_nodes("time", &time_nodes, true)?;
         validate_nodes("log_moneyness", &log_moneyness_nodes, false)?;
         validate_floor_cap(floor, cap)?;
-        let expected = time_nodes.len() * log_moneyness_nodes.len();
+        let expected = local_variance_value_count(time_nodes.len(), log_moneyness_nodes.len())?;
         if values.len() != expected {
             return Err(MarketError::LocalVarianceValueLengthMismatch {
                 expected,
@@ -344,6 +347,24 @@ impl LocalVarianceGrid {
         stats.record(interpolation)?;
         Ok(interpolation)
     }
+
+    #[must_use]
+    pub fn interpolation_log_moneyness_derivative(
+        &self,
+        interpolation: LocalVarianceInterpolation,
+    ) -> f64 {
+        if interpolation.boundary != LocalVarianceBoundary::InRange {
+            return 0.0;
+        }
+        let x_count = self.log_moneyness_nodes.len();
+        let row = interpolation.lower_time_index * x_count;
+        let next_row = row + x_count;
+        let left = interpolation.lower_log_moneyness_index;
+        let width = self.log_moneyness_nodes[left + 1] - self.log_moneyness_nodes[left];
+        let lower_slope = (self.values[row + left + 1] - self.values[row + left]) / width;
+        let upper_slope = (self.values[next_row + left + 1] - self.values[next_row + left]) / width;
+        lower_slope * (1.0 - interpolation.time_weight) + upper_slope * interpolation.time_weight
+    }
 }
 
 pub fn piecewise_sinh_log_moneyness_nodes(
@@ -441,7 +462,7 @@ pub fn suggest_log_moneyness_nodes_from_density(
 fn validate_nodes(
     coordinate: &'static str,
     values: &[f64],
-    require_positive: bool,
+    reject_negative: bool,
 ) -> Result<(), MarketError> {
     if values.len() < 2 {
         return Err(MarketError::InvalidLocalVarianceNodeCount {
@@ -450,7 +471,7 @@ fn validate_nodes(
         });
     }
     for (index, value) in values.iter().copied().enumerate() {
-        if !value.is_finite() || (require_positive && value <= 0.0) {
+        if !value.is_finite() || (reject_negative && value < 0.0) {
             return Err(MarketError::InvalidLocalVarianceNode {
                 coordinate,
                 index,
@@ -502,6 +523,18 @@ fn validate_floor_cap(floor: f64, cap: f64) -> Result<(), MarketError> {
         });
     }
     Ok(())
+}
+
+fn local_variance_value_count(
+    time_count: usize,
+    log_moneyness_count: usize,
+) -> Result<usize, MarketError> {
+    time_count.checked_mul(log_moneyness_count).ok_or(
+        MarketError::LocalVarianceValueLengthMismatch {
+            expected: usize::MAX,
+            actual: 0,
+        },
+    )
 }
 
 fn validate_tail_probability(parameter: &'static str, value: f64) -> Result<(), MarketError> {
@@ -680,6 +713,34 @@ mod tests {
         }
     }
 
+    struct PositiveTimeOnlySurface {
+        variance: f64,
+    }
+
+    impl ImpliedVarianceSurface for PositiveTimeOnlySurface {
+        fn total_variance_derivatives(
+            &self,
+            time: f64,
+            _log_moneyness: f64,
+        ) -> Result<TotalVarianceDerivatives, MarketError> {
+            if time <= 0.0 {
+                return Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "time",
+                    bits: time.to_bits(),
+                });
+            }
+            Ok(TotalVarianceDerivatives {
+                total_variance: self.variance * time,
+                log_moneyness_derivative: 0.0,
+                log_moneyness_second_derivative: 0.0,
+                time_derivative: self.variance,
+                theta: self.variance * time,
+                theta_derivative: self.variance,
+                theta_region: ThetaRegion::Interpolated,
+            })
+        }
+    }
+
     struct RawLocalVarianceSurface {
         raw: f64,
     }
@@ -703,6 +764,18 @@ mod tests {
     }
 
     #[test]
+    fn local_variance_value_count_rejects_overflow() {
+        assert_eq!(local_variance_value_count(2, 3).expect("count"), 6);
+        assert!(matches!(
+            local_variance_value_count(usize::MAX, 2),
+            Err(MarketError::LocalVarianceValueLengthMismatch {
+                expected: usize::MAX,
+                actual: 0
+            })
+        ));
+    }
+
+    #[test]
     fn dupire_grid_reproduces_constant_variance_surface() {
         let surface = ConstantVarianceSurface { variance: 0.09 };
         let grid = LocalVarianceGrid::from_surface(
@@ -714,6 +787,26 @@ mod tests {
         )
         .expect("grid");
         assert!(grid.repairs().is_empty());
+        assert!(
+            grid.values()
+                .iter()
+                .all(|value| (*value - 0.09).abs() < 1.0e-15)
+        );
+    }
+
+    #[test]
+    fn dupire_grid_initial_row_uses_first_positive_surface_time() {
+        let surface = PositiveTimeOnlySurface { variance: 0.09 };
+        let grid = LocalVarianceGrid::from_surface(
+            &surface,
+            vec![0.0, 0.5, 1.0],
+            vec![-0.2, 0.0, 0.3],
+            0.0001,
+            1.0,
+        )
+        .expect("grid");
+        assert!(grid.repairs().is_empty());
+        assert_eq!(grid.time_nodes(), &[0.0, 0.5, 1.0]);
         assert!(
             grid.values()
                 .iter()
@@ -775,6 +868,7 @@ mod tests {
         let interpolation = grid.interpolate(1.25, 0.0).expect("interpolate");
         assert_eq!(interpolation.boundary, LocalVarianceBoundary::InRange);
         assert!((interpolation.value - 3.0).abs() < 1.0e-15);
+        assert!((grid.interpolation_log_moneyness_derivative(interpolation) - 1.0).abs() < 1.0e-15);
 
         let mut adjoints = vec![0.0; grid.values().len()];
         interpolation.transpose_accumulate(2.0, &mut adjoints, grid.log_moneyness_nodes().len());

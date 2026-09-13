@@ -42,7 +42,7 @@ impl fmt::Display for AnalyticalError {
             Self::UnsupportedProductOrModel => {
                 write!(
                     formatter,
-                    "analytical oracle supports European Black-Scholes only"
+                    "analytical oracle supports European Black-Scholes and Black-76 only"
                 )
             }
             Self::InvalidInput { field, bits } => {
@@ -68,8 +68,12 @@ impl Error for AnalyticalError {
 pub fn black_scholes_oracle(
     request: &PricingRequest,
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
-    let ProductSpec::EuropeanVanilla(product) = request.product();
-    let ModelSpec::BlackScholes(model) = request.model();
+    let ProductSpec::EuropeanVanilla(product) = request.product() else {
+        return Err(AnalyticalError::UnsupportedProductOrModel);
+    };
+    let ModelSpec::BlackScholes(model) = request.model() else {
+        return Err(AnalyticalError::UnsupportedProductOrModel);
+    };
     let time =
         DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry());
     let forward = request.market().equity().forward();
@@ -87,6 +91,31 @@ pub fn black_scholes_oracle(
     })
 }
 
+pub fn black_76_oracle(
+    request: &PricingRequest,
+) -> Result<BlackScholesOracleResult, AnalyticalError> {
+    let ProductSpec::EuropeanVanilla(product) = request.product() else {
+        return Err(AnalyticalError::UnsupportedProductOrModel);
+    };
+    let ModelSpec::Black76(model) = request.model() else {
+        return Err(AnalyticalError::UnsupportedProductOrModel);
+    };
+    let time =
+        DayCountConvention::Act365F.year_fraction(request.valuation_date(), product.expiry());
+    let forward = request.market().equity().forward();
+    let discount = forward.discount_curve().discount(time)?;
+    let forward_evaluation = forward.evaluate(time)?;
+    evaluate_black_forward(BlackForwardOracleInputs {
+        side: product.side(),
+        forward: forward_evaluation.forward,
+        strike: product.strike().get(),
+        notional: product.notional().get(),
+        discount,
+        volatility: model.volatility().get(),
+        time,
+    })
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BlackScholesOracleInputs {
     pub side: OptionSide,
@@ -95,6 +124,17 @@ pub struct BlackScholesOracleInputs {
     pub notional: f64,
     pub discount: f64,
     pub dividend_discount: f64,
+    pub volatility: f64,
+    pub time: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlackForwardOracleInputs {
+    pub side: OptionSide,
+    pub forward: f64,
+    pub strike: f64,
+    pub notional: f64,
+    pub discount: f64,
     pub volatility: f64,
     pub time: f64,
 }
@@ -133,6 +173,38 @@ pub fn evaluate(
     validate_result(result)
 }
 
+pub fn evaluate_black_forward(
+    inputs: BlackForwardOracleInputs,
+) -> Result<BlackScholesOracleResult, AnalyticalError> {
+    for (field, value) in [
+        ("forward", inputs.forward),
+        ("strike", inputs.strike),
+        ("notional", inputs.notional),
+        ("discount", inputs.discount),
+    ] {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(AnalyticalError::InvalidInput {
+                field,
+                bits: value.to_bits(),
+            });
+        }
+    }
+    for (field, value) in [("volatility", inputs.volatility), ("time", inputs.time)] {
+        if !value.is_finite() || value < 0.0 {
+            return Err(AnalyticalError::InvalidInput {
+                field,
+                bits: value.to_bits(),
+            });
+        }
+    }
+    let result = if inputs.time == 0.0 || inputs.volatility == 0.0 {
+        deterministic_forward_limit(inputs)
+    } else {
+        regular_forward_formula(inputs)
+    };
+    validate_result(result)
+}
+
 fn deterministic_limit(inputs: BlackScholesOracleInputs, forward: f64) -> BlackScholesOracleResult {
     let signed_intrinsic = match inputs.side {
         OptionSide::Call => forward - inputs.strike,
@@ -143,6 +215,28 @@ fn deterministic_limit(inputs: BlackScholesOracleInputs, forward: f64) -> BlackS
         match inputs.side {
             OptionSide::Call => inputs.notional * inputs.dividend_discount,
             OptionSide::Put => -inputs.notional * inputs.dividend_discount,
+        }
+    } else {
+        0.0
+    };
+    BlackScholesOracleResult {
+        price,
+        delta,
+        gamma: 0.0,
+        vega: 0.0,
+    }
+}
+
+fn deterministic_forward_limit(inputs: BlackForwardOracleInputs) -> BlackScholesOracleResult {
+    let signed_intrinsic = match inputs.side {
+        OptionSide::Call => inputs.forward - inputs.strike,
+        OptionSide::Put => inputs.strike - inputs.forward,
+    };
+    let price = inputs.notional * inputs.discount * signed_intrinsic.max(0.0);
+    let delta = if signed_intrinsic > 0.0 {
+        match inputs.side {
+            OptionSide::Call => inputs.notional * inputs.discount,
+            OptionSide::Put => -inputs.notional * inputs.discount,
         }
     } else {
         0.0
@@ -177,6 +271,33 @@ fn regular_formula(inputs: BlackScholesOracleInputs, forward: f64) -> BlackSchol
         gamma: inputs.notional * inputs.dividend_discount * density
             / (inputs.spot * standard_deviation),
         vega: inputs.notional * inputs.spot * inputs.dividend_discount * density * root_time,
+    }
+}
+
+fn regular_forward_formula(inputs: BlackForwardOracleInputs) -> BlackScholesOracleResult {
+    let std_dev = inputs.volatility * inputs.time.sqrt();
+    let d1 = ((inputs.forward / inputs.strike).ln() + 0.5 * std_dev * std_dev) / std_dev;
+    let d2 = d1 - std_dev;
+    let (side_sign, side_d1, side_d2) = match inputs.side {
+        OptionSide::Call => (1.0, d1, d2),
+        OptionSide::Put => (-1.0, -d1, -d2),
+    };
+    let price = inputs.notional
+        * inputs.discount
+        * side_sign
+        * (inputs.forward * normal_cdf(side_d1) - inputs.strike * normal_cdf(side_d2));
+    let delta = inputs.notional * inputs.discount * side_sign * normal_cdf(side_d1);
+    let gamma = inputs.notional * inputs.discount * normal_density(d1) / (inputs.forward * std_dev);
+    let vega = inputs.notional
+        * inputs.discount
+        * inputs.forward
+        * normal_density(d1)
+        * inputs.time.sqrt();
+    BlackScholesOracleResult {
+        price,
+        delta,
+        gamma,
+        vega,
     }
 }
 
@@ -216,6 +337,18 @@ mod tests {
         }
     }
 
+    fn forward_inputs(side: OptionSide) -> BlackForwardOracleInputs {
+        BlackForwardOracleInputs {
+            side,
+            forward: 103.045_453_395_351_7,
+            strike: 100.0,
+            notional: 1.0,
+            discount: (-0.05_f64).exp(),
+            volatility: 0.2,
+            time: 1.0,
+        }
+    }
+
     #[test]
     fn cdf_matches_reference_values_and_symmetry() {
         for (x, expected) in [
@@ -235,6 +368,15 @@ mod tests {
         assert!((result.price - 9.227_005_508_154_036).abs() < 2.0e-12);
         assert!((result.delta - 0.586_851_146_134_764).abs() < 2.0e-13);
         assert!((result.gamma - 0.018_950_578_755_008_72).abs() < 2.0e-14);
+        assert!((result.vega - 37.901_157_510_017_44).abs() < 2.0e-12);
+    }
+
+    #[test]
+    fn black_76_forward_price_and_greeks_match_reference() {
+        let result = evaluate_black_forward(forward_inputs(OptionSide::Call)).expect("oracle");
+        assert!((result.price - 9.227_005_508_154_036).abs() < 2.0e-12);
+        assert!((result.delta - 0.569_507_073_624_304_6).abs() < 2.0e-13);
+        assert!((result.gamma - 0.017_846_982_962_362_35).abs() < 2.0e-14);
         assert!((result.vega - 37.901_157_510_017_44).abs() < 2.0e-12);
     }
 
@@ -294,6 +436,23 @@ mod tests {
         let result = evaluate(deterministic).expect("zero volatility");
         assert!(result.price > 0.0);
         assert_eq!(result.delta, deterministic.dividend_discount);
+        assert_eq!(result.gamma, 0.0);
+        assert_eq!(result.vega, 0.0);
+    }
+
+    #[test]
+    fn black_76_deterministic_limits_are_explicit() {
+        let deterministic = BlackForwardOracleInputs {
+            volatility: 0.0,
+            strike: 90.0,
+            ..forward_inputs(OptionSide::Call)
+        };
+        let result = evaluate_black_forward(deterministic).expect("zero volatility");
+        assert_eq!(
+            result.price,
+            deterministic.discount * (deterministic.forward - deterministic.strike)
+        );
+        assert_eq!(result.delta, deterministic.discount);
         assert_eq!(result.gamma, 0.0);
         assert_eq!(result.vega, 0.0);
     }
