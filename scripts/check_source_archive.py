@@ -28,10 +28,18 @@ REQUIRED_FILES = {
     "docs/european-bs-conformance-v0.1.md",
     "docs/european-bs-diagnostics-v0.1.md",
     "docs/european-bs-roadmap-v0.1.md",
+    "docs/early-exercise-roadmap-v0.1.md",
+    "docs/early-exercise-diagnostics-v0.1.md",
+    "docs/early-exercise-conformance-v0.1.md",
+    "docs/early-exercise-numerical-contracts-v0.1.md",
     "docs/local-vol-vegakt-conformance-v0.1.md",
     "docs/local-vol-vegakt-diagnostics-v0.1.md",
     "docs/local-vol-vegakt-numerical-contracts-v0.1.md",
     "docs/local-vol-vegakt-roadmap-v0.1.md",
+    "docs/path-dependence-roadmap-v0.1.md",
+    "docs/path-dependence-numerical-contracts-v0.1.md",
+    "docs/path-dependence-diagnostics-v0.1.md",
+    "docs/path-dependence-conformance-v0.1.md",
     "docs/release-readiness-v0.1.md",
     "docs/requirements-change-template.md",
     "docs/requirements-v1.0.md",
@@ -50,23 +58,46 @@ REQUIRED_FILES = {
     "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin",
     "schemas/v1/pricing_request.schema.json",
     "schemas/v1/pricing_result.schema.json",
+    "schemas/v2/pricing_request.schema.json",
+    "schemas/v2/pricing_result.schema.json",
+    "schemas/v3/pricing_request.schema.json",
+    "schemas/v3/pricing_result.schema.json",
     "fixtures/acceptance/README.md",
     "fixtures/acceptance/european_bs_analytical.csv",
+    "fixtures/early-exercise/README.md",
+    "fixtures/early-exercise/reference-cases-v0.1.json",
     "fixtures/local-vol/README.md",
     "fixtures/local-vol/reference-cases-v0.1.json",
+    "fixtures/path-dependence/README.md",
+    "fixtures/path-dependence/reference-cases-v0.1.json",
     "fixtures/replay/README.md",
     "fixtures/replay/european_bs-macos-aarch64.json",
     "fixtures/replay/european_bs-windows-x86_64.json",
     "fixtures/replay/local_volatility-macos-aarch64.json",
     "fixtures/replay/local_volatility-windows-x86_64.json",
+    "fixtures/replay/path_dependence-macos-aarch64.json",
+    "fixtures/replay/path_dependence-windows-x86_64.json",
+    "fixtures/replay/early_exercise-macos-aarch64.json",
+    "fixtures/replay/early_exercise-windows-x86_64.json",
     "fixtures/v1/pricing_request.golden.json",
     "fixtures/v1/pricing_result.golden.json",
+    "fixtures/v2/pricing_request.golden.json",
+    "fixtures/v2/pricing_result.golden.json",
+    "fixtures/v2/pricing_result_v1_migrated.golden.json",
+    "fixtures/v3/pricing_request.golden.json",
+    "fixtures/v3/pricing_request_american.golden.json",
+    "fixtures/v3/pricing_result.golden.json",
+    "fixtures/v3/pricing_result_american.golden.json",
+    "fixtures/v3/pricing_result_v1_migrated.golden.json",
+    "fixtures/v3/pricing_result_v2_migrated.golden.json",
     "rust_pricing.pyi",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
     "scripts/check_benchmark_reports.py",
     "scripts/check_dependency_direction.py",
+    "scripts/check_early_exercise_reference_fixture.py",
     "scripts/check_local_vol_reference_fixture.py",
+    "scripts/check_path_dependence_reference_fixture.py",
     "scripts/check_markdown_links.py",
     "scripts/check_replay_fixture.py",
     "scripts/check_schemas.py",
@@ -75,8 +106,16 @@ REQUIRED_FILES = {
     "scripts/smoke_test_wheel.py",
     "benchmarks/python_european_bs.py",
     "examples/python/european_bs.py",
+    "examples/python/american_lsm.py",
     "examples/python/local_vol_vegakt.py",
+    "examples/python/path_dependence.py",
     "tests/python/test_smoke.py",
+    "crates/pricing/examples/benchmark_path_dependence.rs",
+    "crates/pricing/examples/benchmark_early_exercise.rs",
+    "crates/pricing/examples/replay_path_dependence.rs",
+    "crates/pricing/examples/replay_early_exercise.rs",
+    "crates/pricing/tests/path_dependence_acceptance.rs",
+    "crates/pricing/tests/early_exercise_acceptance.rs",
 }
 
 CRATE_MANIFESTS = {
@@ -97,6 +136,8 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 
 REQUIRED_CI_SNIPPETS = {
     "python scripts/check_local_vol_reference_fixture.py",
+    "python scripts/check_path_dependence_reference_fixture.py",
+    "python scripts/check_early_exercise_reference_fixture.py",
     "python scripts/check_schemas.py",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
@@ -104,6 +145,8 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked --workspace --all-features --exclude pricing-python",
     "cargo test --locked -p pricing-python",
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
+    "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
     "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
@@ -112,12 +155,15 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_replay_fixture.py benchmark-results/replay.json",
     "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json",
     "python scripts/check_benchmark_reports.py benchmark-results",
     "cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py",
     'python-version: "3.12"',
     "target: aarch64-apple-darwin",
     "target: x86_64-pc-windows-msvc",
     "actions/upload-artifact@v4",
+    "name: replay-candidate-${{ matrix.target }}",
     "name: rust-pricing-${{ matrix.target }}-cp312",
     "name: rust-pricing-source-${{ matrix.target }}",
     "name: benchmark-${{ matrix.target }}",
@@ -128,12 +174,14 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 2,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 3,
-    "retention-days: 14": 3,
+    "actions/upload-artifact@v4": 4,
+    "retention-days: 14": 4,
 }
 
 REQUIRED_README_SNIPPETS = {
     "python3 scripts/check_local_vol_reference_fixture.py",
+    "python3 scripts/check_path_dependence_reference_fixture.py",
+    "python3 scripts/check_early_exercise_reference_fixture.py",
     "python3 scripts/check_schemas.py",
     "python3 scripts/check_markdown_links.py",
     "git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD",
@@ -143,6 +191,8 @@ REQUIRED_README_SNIPPETS = {
     "cargo test --locked --workspace --all-features --exclude pricing-python",
     "cargo test --locked -p pricing-python",
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
+    "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
+    "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
     "cargo doc --locked --workspace --all-features --no-deps",
     "cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py",
     "python -m maturin develop --locked",
@@ -154,6 +204,8 @@ REQUIRED_README_SNIPPETS = {
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_replay_fixture.py benchmark-results/replay.json",
     "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json",
+    "python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json",
     "python scripts/check_benchmark_reports.py benchmark-results",
 }
 
@@ -286,19 +338,23 @@ REQUIRED_REPLAY_FIXTURE_CHECK_SNIPPETS = {
 
 REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
     "EXPECTED_ARTIFACTS = {",
-    "OPTIONAL_ARTIFACTS = {\"local-volatility-replay.json\"}",
+    '"early-exercise-replay.json",',
     "REPORT_KEYS = (",
     "BASE_CONFIGURATION_KEYS = (",
     "BASE_CONFIGURATION = {",
     "LOCAL_VOL_CONFIGURATION = {",
+    "PATH_DEPENDENCE_CONFIGURATION = {",
+    "EARLY_EXERCISE_CONFIGURATION = {",
     "PYTHON_CONFIGURATION = {",
     "PYTHON_GETTER_SAMPLES = 100_000",
     "LOCAL_VOL_CAPABILITY_KEYS = (",
     "BASE_CAPABILITIES = {",
     "LOCAL_VOL_CAPABILITIES = {",
+    "PATH_DEPENDENCE_CAPABILITIES = {",
     "PYTHON_CAPABILITIES = {",
     "BASE_NOTES = (",
     "LOCAL_VOL_NOTES = (",
+    "PATH_DEPENDENCE_NOTES = (",
     "PYTHON_NOTES = (",
     "METADATA_KEYS = (",
     "ENABLED_FEATURE_KEYS = (",
@@ -352,6 +408,30 @@ REQUIRED_LOCAL_VOL_REFERENCE_CHECK_SNIPPETS = {
     "\"heston_like_regular\"",
     "\"heston_like_small_theta\"",
     "essvi_interpolation.id must be midpoint_regular",
+    "JSON artifact must end with LF",
+    "non-standard JSON constant",
+    "duplicate object key",
+}
+
+REQUIRED_PATH_DEPENDENCE_REFERENCE_CHECK_SNIPPETS = {
+    "getcontext().prec = 70",
+    '"path_dependence_v2"',
+    "SMOOTHING_IDS = {",
+    "BRIDGE_IDS = {",
+    "JUMP_IDS = {",
+    "JSON artifact must end with LF",
+    "non-standard JSON constant",
+    "duplicate object key",
+}
+
+REQUIRED_EARLY_EXERCISE_REFERENCE_CHECK_SNIPPETS = {
+    "getcontext().prec = 80",
+    '"early_exercise_v1"',
+    '"cpqr_householder_v1"',
+    "DECISION_IDS = {",
+    "BASIS_IDS = {",
+    "SCALING_IDS = {",
+    "QR_IDS = {",
     "JSON artifact must end with LF",
     "non-standard JSON constant",
     "duplicate object key",
@@ -557,6 +637,8 @@ def main() -> int:
         check_benchmark_validation_gate(package, archive)
         check_dependency_direction_gate(package, archive)
         check_local_vol_reference_gate(package, archive)
+        check_path_dependence_reference_gate(package, archive)
+        check_early_exercise_reference_gate(package, archive)
         check_markdown_link_gate(package, archive)
         check_source_archive_gate(package, archive)
         check_readme_release_gates(package, archive)
@@ -813,6 +895,42 @@ def check_local_vol_reference_gate(package: tarfile.TarFile, archive: str) -> No
     if missing:
         raise SystemExit(
             f"{archive}: Local Volatility reference validation is missing required gates: {missing}"
+        )
+
+
+def check_path_dependence_reference_gate(
+    package: tarfile.TarFile, archive: str
+) -> None:
+    reference_check = read_text(
+        package, "scripts/check_path_dependence_reference_fixture.py"
+    )
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_PATH_DEPENDENCE_REFERENCE_CHECK_SNIPPETS
+        if snippet not in reference_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: Path Dependence reference validation is missing "
+            f"required gates: {missing}"
+        )
+
+
+def check_early_exercise_reference_gate(
+    package: tarfile.TarFile, archive: str
+) -> None:
+    reference_check = read_text(
+        package, "scripts/check_early_exercise_reference_fixture.py"
+    )
+    missing = sorted(
+        snippet
+        for snippet in REQUIRED_EARLY_EXERCISE_REFERENCE_CHECK_SNIPPETS
+        if snippet not in reference_check
+    )
+    if missing:
+        raise SystemExit(
+            f"{archive}: Early Exercise reference validation is missing "
+            f"required gates: {missing}"
         )
 
 

@@ -20,6 +20,8 @@ Do not combine an optimization with an untested numerical-policy change.
 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
+python3 scripts/check_path_dependence_reference_fixture.py
+python3 scripts/check_early_exercise_reference_fixture.py
 python3 scripts/check_schemas.py
 python3 scripts/check_markdown_links.py
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
@@ -29,6 +31,8 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-features --exclude pricing-python
 cargo test --locked -p pricing-python
 cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
+cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
+cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
 cargo doc --locked --workspace --all-features --no-deps
 cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 python -m maturin develop --locked
@@ -38,6 +42,8 @@ python scripts/smoke_test_wheel.py
 python scripts/run_benchmark_suite.py
 python scripts/check_replay_fixture.py benchmark-results/replay.json
 python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json
+python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.json
+python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json
 python scripts/check_benchmark_reports.py benchmark-results
 ```
 
