@@ -8,29 +8,47 @@ use pricing_market::{
     DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
     MarketContext,
 };
-use pricing_mc::{EngineConfig, PseudoMcConfig, RqmcConfig, VarianceReduction};
+use pricing_mc::{
+    ContinueAllReason, CpqrConfig, EngineConfig, ExerciseDecisionModel, ExercisePolicyFingerprint,
+    ExerciseRegressionDiagnostics, FeatureScaling, LsmConfig, LsmStateVariable, LsmWarning,
+    PolynomialBasisSpec, PolynomialRegressionModel, PseudoMcConfig, RandomDomain, RqmcConfig,
+    VarianceReduction,
+};
 use pricing_models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
 use pricing_product::{
-    ArithmeticAsianSpec, AsianObservation, AsianObservationValue, BarrierDirection, BarrierSpec,
-    BarrierStyle, DigitalPayout, DigitalSpec, EuropeanVanillaSpec, FixedLookbackSpec, OptionSide,
-    ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, AsianObservationValue,
+    BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec,
+    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
-use pricing_risk::{GammaConfig, RiskRequest, SmileDynamics, SpotBump, VegaKtConfig};
+use pricing_risk::{
+    GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
+    VegaKtConfig,
+};
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::{
-    Diagnostics, Estimate, EstimatorKind, PricingRequest, PricingResult, PricingWarning,
-    ReplayMetadata, RiskEstimate, RiskReport, RiskUnit, VegaKtResult, VegaKtResultBucketEstimate,
+    BarrierBridgeDiagnostics, BarrierHitIndicatorMode, Diagnostics, EarlyExerciseDiagnostics,
+    Estimate, EstimatorKind, ExerciseStrategyRisk, MigrationProvenance, MonteCarloDiagnostics,
+    MonteCarloPrice, PathStateDiagnostics, PayoffSmoothingDiagnostics, PayoffSmoothingKernel,
+    PayoffSmoothingWidthUnit, PayoffValuationKind, PricingRequest, PricingResult, PricingWarning,
+    ReplayMetadata, RiskDiagnostics, RiskEstimate, RiskMethod, RiskMethodMetadata, RiskReport,
+    RiskUnit, RiskValidation, StoppingIndexRisk, VegaKtResult, VegaKtResultBucketEstimate,
     VegaKtResultCoordinate, VegaKtResultCovarianceLayout, VegaKtResultProjection,
     VegaKtResultReportingStats, VegaKtResultResidualDiagnostics, VegaKtResultUnit,
 };
 
 const DOCUMENT_REQUEST: &str = "pricing_request";
 const DOCUMENT_RESULT: &str = "pricing_result";
+const MIGRATION_REQUEST_V1_TO_V2: &str = "pricing_request/v1-to-v2";
+const MIGRATION_RESULT_V1_TO_V2: &str = "pricing_result/v1-to-v2";
+const MIGRATION_REQUEST_V2_TO_V3: &str = "pricing_request/v2-to-v3";
+const MIGRATION_RESULT_V2_TO_V3: &str = "pricing_result/v2-to-v3";
+const WIRE_MAX_BASIS_COLUMNS: usize = 100_000;
+const WIRE_MAX_BASIS_EXPONENTS: usize = 1_000_000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct JsonLimits {
@@ -107,6 +125,10 @@ pub enum WireError {
     UnsupportedSchemaVersion(u32),
     Domain(String),
     InvalidFingerprint(String),
+    UnsupportedSchemaFeature {
+        feature: &'static str,
+        schema_version: u32,
+    },
 }
 
 impl fmt::Display for WireError {
@@ -140,6 +162,13 @@ impl fmt::Display for WireError {
             Self::InvalidFingerprint(value) => {
                 write!(formatter, "invalid BLAKE3-256 fingerprint {value:?}")
             }
+            Self::UnsupportedSchemaFeature {
+                feature,
+                schema_version,
+            } => write!(
+                formatter,
+                "{feature} is not available in wire schema version {schema_version}"
+            ),
         }
     }
 }
@@ -185,11 +214,11 @@ impl MigrationRegistry {
 
     #[must_use]
     pub const fn accepted_source_versions(self) -> &'static [u32] {
-        &[1]
+        &[1, 2, 3]
     }
 
     pub fn validate_source(self, version: u32) -> Result<(), WireError> {
-        if version == SchemaVersion::CURRENT.get() {
+        if self.accepted_source_versions().contains(&version) {
             Ok(())
         } else {
             Err(WireError::UnsupportedSchemaVersion(version))
@@ -204,6 +233,34 @@ struct Envelope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RequestV2 {
+    document_kind: String,
+    schema_version: u32,
+    valuation_date: String,
+    product: ProductV1,
+    market: MarketV1,
+    model: ModelV1,
+    engine: EngineV1,
+    risk: RiskV2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RequestV3 {
+    document_kind: String,
+    schema_version: u32,
+    valuation_date: String,
+    product: ProductV1,
+    market: MarketV1,
+    model: ModelV1,
+    engine: EngineV1,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lsm: Option<LsmV3>,
+    risk: RiskV2,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RequestV1 {
     document_kind: String,
@@ -227,6 +284,15 @@ enum ProductV1 {
         notional: f64,
         side: SideV1,
     },
+    AmericanVanilla {
+        underlying_id: u32,
+        currency_id: u16,
+        expiry: String,
+        strike: f64,
+        notional: f64,
+        side: SideV1,
+        exercise_dates: Vec<String>,
+    },
     Digital {
         underlying_id: u32,
         currency_id: u16,
@@ -247,7 +313,9 @@ enum ProductV1 {
         side: SideV1,
         direction: BarrierDirectionV1,
         style: BarrierStyleV1,
+        monitoring: BarrierMonitoringV1,
         monitoring_dates: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         rebate: Option<f64>,
         payment_date: String,
     },
@@ -267,6 +335,7 @@ enum ProductV1 {
         notional: f64,
         side: SideV1,
         monitoring_dates: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         historical_extremum: Option<f64>,
         payment_date: String,
     },
@@ -298,6 +367,13 @@ enum BarrierDirectionV1 {
 enum BarrierStyleV1 {
     KnockIn,
     KnockOut,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum BarrierMonitoringV1 {
+    Discrete,
+    Continuous,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -406,6 +482,37 @@ enum EngineV1 {
     },
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LsmV3 {
+    training_engine: EngineV1,
+    state_variables: Vec<LsmStateVariableV3>,
+    basis: PolynomialBasisV3,
+    itm_abs_tolerance: f64,
+    cpqr: CpqrV3,
+    max_matrix_elements: usize,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum LsmStateVariableV3 {
+    Spot,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolynomialBasisV3 {
+    feature_count: u32,
+    max_degree: u32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CpqrV3 {
+    abs_rank_tolerance: f64,
+    rel_rank_tolerance: f64,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct VarianceReductionV1 {
@@ -415,7 +522,7 @@ struct VarianceReductionV1 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RiskV1 {
+struct RiskV2 {
     delta: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     gamma: Option<GammaV1>,
@@ -427,6 +534,29 @@ struct RiskV1 {
     checkpoint_interval: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     aad_tile_capacity: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payoff_smoothing: Option<PayoffSmoothingV1>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payoff_smoothing_width_ladder: Option<Vec<f64>>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RiskV1 {
+    delta: bool,
+    gamma: Option<GammaV1>,
+    vega: bool,
+    vega_kt: Option<VegaKtV1>,
+    smile_dynamics: SmileDynamicsV1,
+    checkpoint_interval: Option<u32>,
+    aad_tile_capacity: Option<u32>,
+    payoff_smoothing: Option<PayoffSmoothingV1>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum PayoffSmoothingV1 {
+    CompactC2 { half_width: f64 },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -467,7 +597,7 @@ enum SmileDynamicsV1 {
     Delta,
 }
 
-impl From<&PricingRequest> for RequestV1 {
+impl From<&PricingRequest> for RequestV2 {
     fn from(request: &PricingRequest) -> Self {
         Self {
             document_kind: DOCUMENT_REQUEST.to_owned(),
@@ -477,7 +607,23 @@ impl From<&PricingRequest> for RequestV1 {
             market: MarketV1::from(request.market()),
             model: ModelV1::from(request.model()),
             engine: EngineV1::from(request.engine()),
-            risk: RiskV1::from(request.risk()),
+            risk: RiskV2::from(request.risk()),
+        }
+    }
+}
+
+impl From<&PricingRequest> for RequestV3 {
+    fn from(request: &PricingRequest) -> Self {
+        Self {
+            document_kind: DOCUMENT_REQUEST.to_owned(),
+            schema_version: 3,
+            valuation_date: request.valuation_date().to_string(),
+            product: ProductV1::from(request.product()),
+            market: MarketV1::from(request.market()),
+            model: ModelV1::from(request.model()),
+            engine: EngineV1::from(request.engine()),
+            lsm: request.lsm().map(LsmV3::from),
+            risk: RiskV2::from(request.risk()),
         }
     }
 }
@@ -492,6 +638,19 @@ impl From<&ProductSpec> for ProductV1 {
                 strike: spec.strike().get(),
                 notional: spec.notional().get(),
                 side: spec.side().into(),
+            },
+            ProductSpec::AmericanVanilla(spec) => Self::AmericanVanilla {
+                underlying_id: spec.underlying().get(),
+                currency_id: spec.currency().get(),
+                expiry: spec.expiry().to_string(),
+                strike: spec.strike().get(),
+                notional: spec.notional().get(),
+                side: spec.side().into(),
+                exercise_dates: spec
+                    .exercise_dates()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
             },
             ProductSpec::Digital(spec) => Self::Digital {
                 underlying_id: spec.underlying().get(),
@@ -513,6 +672,7 @@ impl From<&ProductSpec> for ProductV1 {
                 side: spec.side().into(),
                 direction: spec.direction().into(),
                 style: spec.style().into(),
+                monitoring: spec.monitoring().into(),
                 monitoring_dates: spec
                     .monitoring_dates()
                     .iter()
@@ -595,6 +755,15 @@ impl From<BarrierStyle> for BarrierStyleV1 {
         match value {
             BarrierStyle::KnockIn => Self::KnockIn,
             BarrierStyle::KnockOut => Self::KnockOut,
+        }
+    }
+}
+
+impl From<BarrierMonitoring> for BarrierMonitoringV1 {
+    fn from(value: BarrierMonitoring) -> Self {
+        match value {
+            BarrierMonitoring::Discrete => Self::Discrete,
+            BarrierMonitoring::Continuous => Self::Continuous,
         }
     }
 }
@@ -709,6 +878,31 @@ impl From<EngineConfig> for EngineV1 {
     }
 }
 
+impl From<&LsmConfig> for LsmV3 {
+    fn from(value: &LsmConfig) -> Self {
+        Self {
+            training_engine: value.training_engine().into(),
+            state_variables: value
+                .state_variables()
+                .iter()
+                .map(|state| match state {
+                    LsmStateVariable::Spot => LsmStateVariableV3::Spot,
+                })
+                .collect(),
+            basis: PolynomialBasisV3 {
+                feature_count: value.basis().feature_count(),
+                max_degree: value.basis().max_degree(),
+            },
+            itm_abs_tolerance: value.itm_abs_tolerance(),
+            cpqr: CpqrV3 {
+                abs_rank_tolerance: value.cpqr_config().abs_rank_tolerance(),
+                rel_rank_tolerance: value.cpqr_config().rel_rank_tolerance(),
+            },
+            max_matrix_elements: value.max_matrix_elements(),
+        }
+    }
+}
+
 impl From<VarianceReduction> for VarianceReductionV1 {
     fn from(value: VarianceReduction) -> Self {
         Self {
@@ -718,7 +912,7 @@ impl From<VarianceReduction> for VarianceReductionV1 {
     }
 }
 
-impl From<&RiskRequest> for RiskV1 {
+impl From<&RiskRequest> for RiskV2 {
     fn from(risk: &RiskRequest) -> Self {
         Self {
             delta: risk.delta(),
@@ -730,6 +924,73 @@ impl From<&RiskRequest> for RiskV1 {
             smile_dynamics: risk.smile_dynamics().into(),
             checkpoint_interval: risk.checkpoint_interval().map(std::num::NonZeroU32::get),
             aad_tile_capacity: risk.aad_tile_capacity().map(std::num::NonZeroU32::get),
+            payoff_smoothing: risk.payoff_smoothing().map(Into::into),
+            payoff_smoothing_width_ladder: risk.payoff_smoothing_width_ladder().map(|ladder| {
+                ladder
+                    .half_widths()
+                    .iter()
+                    .map(|value| value.get())
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl From<RequestV1> for RequestV2 {
+    fn from(value: RequestV1) -> Self {
+        debug_assert_eq!(value.schema_version, 1);
+        Self {
+            document_kind: value.document_kind,
+            schema_version: 2,
+            valuation_date: value.valuation_date,
+            product: value.product,
+            market: value.market,
+            model: value.model,
+            engine: value.engine,
+            risk: value.risk.into(),
+        }
+    }
+}
+
+impl From<RequestV2> for RequestV3 {
+    fn from(value: RequestV2) -> Self {
+        debug_assert_eq!(value.schema_version, 2);
+        Self {
+            document_kind: value.document_kind,
+            schema_version: 3,
+            valuation_date: value.valuation_date,
+            product: value.product,
+            market: value.market,
+            model: value.model,
+            engine: value.engine,
+            lsm: None,
+            risk: value.risk,
+        }
+    }
+}
+
+impl From<RiskV1> for RiskV2 {
+    fn from(value: RiskV1) -> Self {
+        Self {
+            delta: value.delta,
+            gamma: value.gamma,
+            vega: value.vega,
+            vega_kt: value.vega_kt,
+            smile_dynamics: value.smile_dynamics,
+            checkpoint_interval: value.checkpoint_interval,
+            aad_tile_capacity: value.aad_tile_capacity,
+            payoff_smoothing: value.payoff_smoothing,
+            payoff_smoothing_width_ladder: None,
+        }
+    }
+}
+
+impl From<PayoffSmoothing> for PayoffSmoothingV1 {
+    fn from(value: PayoffSmoothing) -> Self {
+        match value {
+            PayoffSmoothing::CompactC2 { half_width } => Self::CompactC2 {
+                half_width: half_width.get(),
+            },
         }
     }
 }
@@ -772,9 +1033,9 @@ impl From<SmileDynamics> for SmileDynamicsV1 {
     }
 }
 
-impl TryFrom<RequestV1> for PricingRequest {
+impl TryFrom<RequestV3> for PricingRequest {
     type Error = WireError;
-    fn try_from(value: RequestV1) -> Result<Self, Self::Error> {
+    fn try_from(value: RequestV3) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_REQUEST)?;
         let valuation_date = parse_date_at(&value.valuation_date, "/valuation_date")?;
         let product = match value.product {
@@ -796,6 +1057,35 @@ impl TryFrom<RequestV1> for PricingRequest {
                         SideV1::Call => OptionSide::Call,
                         SideV1::Put => OptionSide::Put,
                     },
+                )
+                .map_err(|error| domain_at("/product", error))?,
+            ),
+            ProductV1::AmericanVanilla {
+                underlying_id,
+                currency_id,
+                expiry,
+                strike,
+                notional,
+                side,
+                exercise_dates,
+            } => ProductSpec::AmericanVanilla(
+                AmericanVanillaSpec::new(
+                    UnderlyingId::new(underlying_id),
+                    CurrencyId::new(currency_id),
+                    parse_date_at(&expiry, "/product/expiry")?,
+                    strike,
+                    notional,
+                    match side {
+                        SideV1::Call => OptionSide::Call,
+                        SideV1::Put => OptionSide::Put,
+                    },
+                    exercise_dates
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, date)| {
+                            parse_date_owned_at(&date, format!("/product/exercise_dates/{index}"))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
                 )
                 .map_err(|error| domain_at("/product", error))?,
             ),
@@ -842,6 +1132,7 @@ impl TryFrom<RequestV1> for PricingRequest {
                 side,
                 direction,
                 style,
+                monitoring,
                 monitoring_dates,
                 rebate,
                 payment_date,
@@ -864,6 +1155,10 @@ impl TryFrom<RequestV1> for PricingRequest {
                     match style {
                         BarrierStyleV1::KnockIn => BarrierStyle::KnockIn,
                         BarrierStyleV1::KnockOut => BarrierStyle::KnockOut,
+                    },
+                    match monitoring {
+                        BarrierMonitoringV1::Discrete => BarrierMonitoring::Discrete,
+                        BarrierMonitoringV1::Continuous => BarrierMonitoring::Continuous,
                     },
                     monitoring_dates
                         .into_iter()
@@ -1044,10 +1339,117 @@ impl TryFrom<RequestV1> for PricingRequest {
                 .map_err(|error| domain_at("/engine", error))?,
             ),
         };
+        let lsm = value.lsm.map(lsm_from_wire).transpose()?;
         let risk = risk_from_wire(value.risk)?;
-        PricingRequest::new(valuation_date, product, market, model, engine, risk)
+        PricingRequest::new_with_lsm(valuation_date, product, market, model, engine, risk, lsm)
             .map_err(|error| domain_at("", error))
     }
+}
+
+fn lsm_from_wire(value: LsmV3) -> Result<LsmConfig, WireError> {
+    let training_engine = match value.training_engine {
+        EngineV1::PseudoMonteCarlo {
+            master_seed,
+            independent_sampling_units,
+            variance_reduction,
+        } => EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                master_seed,
+                independent_sampling_units,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/lsm/training_engine", error))?,
+        ),
+        EngineV1::RandomizedQuasiMonteCarlo {
+            points_per_scramble,
+            scramble_count,
+            master_scramble_seed,
+            variance_reduction,
+        } => EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                points_per_scramble,
+                scramble_count,
+                master_scramble_seed,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/lsm/training_engine", error))?,
+        ),
+    };
+    let state_variables = value
+        .state_variables
+        .into_iter()
+        .map(|state| match state {
+            LsmStateVariableV3::Spot => LsmStateVariable::Spot,
+        })
+        .collect::<Vec<_>>();
+    let max_total_exponents =
+        polynomial_basis_resource_limits(value.basis.feature_count, value.basis.max_degree)?;
+    let basis = PolynomialBasisSpec::new(
+        value.basis.feature_count,
+        value.basis.max_degree,
+        max_total_exponents.0,
+        max_total_exponents.1,
+    )
+    .map_err(|error| domain_at("/lsm/basis", error))?;
+    let cpqr = CpqrConfig::new(value.cpqr.abs_rank_tolerance, value.cpqr.rel_rank_tolerance)
+        .map_err(|error| domain_at("/lsm/cpqr", error))?;
+    LsmConfig::new(
+        training_engine,
+        state_variables,
+        basis,
+        value.itm_abs_tolerance,
+        cpqr,
+        value.max_matrix_elements,
+    )
+    .map_err(|error| domain_at("/lsm", error))
+}
+
+fn polynomial_basis_resource_limits(
+    feature_count: u32,
+    max_degree: u32,
+) -> Result<(usize, usize), WireError> {
+    let n = usize::try_from(feature_count)
+        .map_err(|_| domain_at("/lsm/basis/feature_count", "feature_count exceeds usize"))?;
+    let degree = usize::try_from(max_degree)
+        .map_err(|_| domain_at("/lsm/basis/max_degree", "max_degree exceeds usize"))?;
+    if n == 0 {
+        return Err(domain_at(
+            "/lsm/basis/feature_count",
+            "feature_count must be positive",
+        ));
+    }
+    if degree >= WIRE_MAX_BASIS_COLUMNS {
+        return Err(domain_at(
+            "/lsm/basis/max_degree",
+            "polynomial basis exceeds the wire column resource limit",
+        ));
+    }
+    let mut columns = 1_usize;
+    for index in 1..=degree {
+        let factor = n
+            .checked_add(index)
+            .ok_or_else(|| domain_at("/lsm/basis", "polynomial basis resource limit overflow"))?;
+        columns = columns
+            .checked_mul(factor)
+            .ok_or_else(|| domain_at("/lsm/basis", "polynomial basis resource limit overflow"))?
+            / index;
+        if columns > WIRE_MAX_BASIS_COLUMNS {
+            return Err(domain_at(
+                "/lsm/basis",
+                "polynomial basis exceeds the wire column resource limit",
+            ));
+        }
+    }
+    let exponents = columns
+        .checked_mul(n)
+        .ok_or_else(|| domain_at("/lsm/basis", "polynomial basis resource limit overflow"))?;
+    if exponents > WIRE_MAX_BASIS_EXPONENTS {
+        return Err(domain_at(
+            "/lsm/basis",
+            "polynomial basis exceeds the wire exponent resource limit",
+        ));
+    }
+    Ok((columns, exponents))
 }
 
 fn local_volatility_from_wire(
@@ -1144,7 +1546,19 @@ fn curve_from_wire(
     .map_err(|error| domain_at(pointer, error))
 }
 
-fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
+fn risk_from_wire(value: RiskV2) -> Result<RiskRequest, WireError> {
+    let payoff_smoothing_width_ladder = value
+        .payoff_smoothing_width_ladder
+        .map(PayoffSmoothingWidthLadder::new)
+        .transpose()
+        .map_err(|error| domain_at("/risk/payoff_smoothing_width_ladder", error))?;
+    let payoff_smoothing = value
+        .payoff_smoothing
+        .map(|smoothing| match smoothing {
+            PayoffSmoothingV1::CompactC2 { half_width } => PayoffSmoothing::compact_c2(half_width),
+        })
+        .transpose()
+        .map_err(|error| domain_at("/risk/payoff_smoothing/half_width", error))?;
     let gamma = value
         .gamma
         .map(|item| {
@@ -1181,7 +1595,7 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
         SmileDynamicsV1::Strike => SmileDynamics::StickyStrike,
         SmileDynamicsV1::Delta => SmileDynamics::StickyDelta,
     };
-    RiskRequest::new(
+    let request = RiskRequest::new(
         value.delta,
         gamma,
         value.vega,
@@ -1190,7 +1604,15 @@ fn risk_from_wire(value: RiskV1) -> Result<RiskRequest, WireError> {
         value.checkpoint_interval,
         value.aad_tile_capacity,
     )
-    .map_err(|error| domain_at("/risk", error))
+    .map_err(|error| domain_at("/risk", error))?;
+    let request = match payoff_smoothing {
+        Some(smoothing) => request.with_payoff_smoothing(smoothing),
+        None => request,
+    };
+    Ok(match payoff_smoothing_width_ladder {
+        Some(ladder) => request.with_payoff_smoothing_width_ladder(ladder),
+        None => request,
+    })
 }
 
 fn parse_date_at(value: &str, pointer: &'static str) -> Result<Date, WireError> {
@@ -1222,6 +1644,338 @@ struct ResultV1 {
     risks: RiskReportV1,
     diagnostics: DiagnosticsV1,
     replay: ReplayV1,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResultV2 {
+    document_kind: String,
+    schema_version: u32,
+    value: EstimateV1,
+    risks: RiskReportV1,
+    diagnostics: DiagnosticsV1,
+    replay: ReplayV2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResultV3 {
+    document_kind: String,
+    schema_version: u32,
+    value: EstimateV1,
+    risks: RiskReportV1,
+    diagnostics: DiagnosticsV1,
+    replay: ReplayV2,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    monte_carlo: Option<MonteCarloResultV3>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MonteCarloResultV3 {
+    sampling_variance: f64,
+    estimator_variance: f64,
+    independent_sampling_units: u64,
+    evaluated_paths: String,
+    diagnostics: MonteCarloDiagnosticsV3,
+    risk_diagnostics: RiskDiagnosticsV3,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    early_exercise: Option<EarlyExerciseDiagnosticsV3>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MonteCarloDiagnosticsV3 {
+    master_seed: u64,
+    estimator: EstimatorV1,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scramble_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    direction_checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scramble_checksum: Option<String>,
+    policy_version: u32,
+    worker_threads: u32,
+    reduction_block_size: u64,
+    aad_tile_policy_version: u32,
+    aad_tile_capacity: u32,
+    checkpoint_policy_version: u32,
+    checkpoint_interval: u32,
+    antithetic: bool,
+    discount_region: CurveRegionV3,
+    dividend_region: CurveRegionV3,
+    payoff_fingerprint: String,
+    valuation_kind: PayoffValuationKindV3,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payoff_smoothing: Option<PayoffSmoothingDiagnosticsV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path_state: Option<PathStateDiagnosticsV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    barrier_bridge: Option<BarrierBridgeDiagnosticsV3>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum CurveRegionV3 {
+    Pillar,
+    Interpolated,
+    RightExtrapolated,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum PayoffValuationKindV3 {
+    ExactContractual,
+    SmoothedSurrogate,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PayoffSmoothingDiagnosticsV3 {
+    kernel: PayoffSmoothingKernelV3,
+    policy_version: u32,
+    half_width: f64,
+    full_transition_width: f64,
+    width_unit: PayoffSmoothingWidthUnitV3,
+    price_and_greeks_share_payoff: bool,
+    endpoint_count: u32,
+    dividend_jump_count: u32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum PayoffSmoothingKernelV3 {
+    CompactC2,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum PayoffSmoothingWidthUnitV3 {
+    Spot,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum PathStateDiagnosticsV3 {
+    ArithmeticAsian {
+        known_observation_count: u32,
+        unknown_observation_count: u32,
+        known_weight_sum: f64,
+        unknown_weight_sum: f64,
+        weighted_known_fixing_sum: f64,
+    },
+    FixedLookback {
+        past_monitoring_count: u32,
+        future_monitoring_count: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        historical_extremum: Option<f64>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BarrierBridgeDiagnosticsV3 {
+    abi: BarrierBridgeAbiV3,
+    policy_version: u32,
+    indicator_mode: BarrierHitIndicatorModeV3,
+    endpoint_hit_fraction: f64,
+    dividend_jump_hit_fraction: f64,
+    mean_conditional_bridge_hit_weight: f64,
+    mean_interval_count: f64,
+    mean_finite_correction_count: f64,
+    mean_zero_variance_count: f64,
+    mean_survival_underflow_count: f64,
+    mean_certain_survival_count: f64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum BarrierBridgeAbiV3 {
+    ContinuousBarrierBridgeLogSurvivalV1,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum BarrierHitIndicatorModeV3 {
+    Exact,
+    CompactC2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RiskDiagnosticsV3 {
+    methods: RiskMethodMetadataV3,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delta_validation: Option<RiskValidationV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gamma_validation: Option<RiskValidationV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vega_validation: Option<RiskValidationV3>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RiskMethodMetadataV3 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delta: Option<RiskMethodV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gamma: Option<RiskMethodV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vega: Option<RiskMethodV3>,
+    smile_dynamics: SmileDynamicsV1,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gamma_spot_bump: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    validation_spot_bump: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    validation_volatility_bump: Option<f64>,
+    bump_policy_version: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exercise_strategy: Option<ExerciseStrategyRiskV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stopping_indices: Option<StoppingIndexRiskV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exercise_policy_fingerprint: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum RiskMethodV3 {
+    AadReverse,
+    CentralBump,
+    CentralBumpOfAadDelta,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum ExerciseStrategyRiskV3 {
+    FixedExerciseStrategy,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum StoppingIndexRiskV3 {
+    FrozenStoppingIndices,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RiskValidationV3 {
+    bump_and_revalue: EstimateV1,
+    bump_minus_primary: EstimateV1,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EarlyExerciseDiagnosticsV3 {
+    policy_fingerprint: String,
+    training_random_domain: RandomDomainV3,
+    valuation_random_domain: RandomDomainV3,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    training_direction_checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    training_scramble_checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    valuation_direction_checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    valuation_scramble_checksum: Option<String>,
+    training_sampling_units: u64,
+    training_trajectories: u64,
+    valuation_sampling_units: u64,
+    valuation_trajectories: u64,
+    in_sample_value: f64,
+    exercise_dates: Vec<String>,
+    exercise_counts: Vec<usize>,
+    exercise_probabilities: Vec<f64>,
+    stopping_indices: Vec<usize>,
+    dividend_collisions: Vec<bool>,
+    regression_diagnostics: Vec<ExerciseRegressionDiagnosticsV3>,
+    policy_basis: PolynomialBasisReplayV3,
+    itm_abs_tolerance: f64,
+    cpqr: CpqrV3,
+    max_matrix_elements: usize,
+    decision_models: Vec<ExerciseDecisionModelV3>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum RandomDomainV3 {
+    Valuation,
+    LsmTrain,
+    RqmcScramble,
+    Diagnostics,
+    // The experimental calibration stream has no schema-v3 representation.
+    // Serde returns an error if a mutated result tries to serialize it.
+    #[serde(skip)]
+    LsvCalibration,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolynomialBasisReplayV3 {
+    feature_count: u32,
+    max_degree: u32,
+    exponents: Vec<Vec<u32>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExerciseRegressionDiagnosticsV3 {
+    candidate_rows: usize,
+    itm_rows: usize,
+    feature_count: usize,
+    warnings: Vec<LsmWarningV3>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum LsmWarningV3 {
+    ZeroItmTrainingPaths,
+    InactiveFeature { feature: usize },
+    RankExcludedBasisColumn { column: usize },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum ExerciseDecisionModelV3 {
+    Regression {
+        model: Box<PolynomialRegressionModelV3>,
+    },
+    ContinueAll {
+        reason: ContinueAllReasonV3,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum ContinueAllReasonV3 {
+    ZeroItmTrainingPaths,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolynomialRegressionModelV3 {
+    basis: PolynomialBasisReplayV3,
+    feature_scalings: Vec<FeatureScalingV3>,
+    active_basis_columns: Vec<usize>,
+    pre_excluded_basis_columns: Vec<usize>,
+    pivot_order: Vec<usize>,
+    diagonal_abs: Vec<f64>,
+    rank_threshold: f64,
+    rank: usize,
+    rank_excluded_basis_columns: Vec<usize>,
+    coefficients: Vec<f64>,
+    residual_sum_squares: f64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FeatureScalingV3 {
+    mean: f64,
+    population_variance: f64,
+    scale: f64,
+    zero_scale_threshold: f64,
+    inactive: bool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -1385,7 +2139,27 @@ struct ReplayV1 {
     platform: String,
 }
 
-impl From<&PricingResult> for ResultV1 {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplayV2 {
+    schema_version: u32,
+    request_fingerprint: String,
+    library_version: String,
+    platform: String,
+    migration: MigrationProvenanceV2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MigrationProvenanceV2 {
+    original_schema_version: u32,
+    current_schema_version: u32,
+    migration_ids: Vec<String>,
+    pre_migration_fingerprint: String,
+    post_migration_fingerprint: String,
+}
+
+impl From<&PricingResult> for ResultV2 {
     fn from(result: &PricingResult) -> Self {
         Self {
             document_kind: DOCUMENT_RESULT.to_owned(),
@@ -1403,12 +2177,447 @@ impl From<&PricingResult> for ResultV1 {
                     })
                     .collect(),
             },
-            replay: ReplayV1 {
+            replay: ReplayV2 {
                 schema_version: result.replay.schema_version().get(),
                 request_fingerprint: Fingerprint(*result.replay.request_fingerprint()).to_string(),
                 library_version: result.replay.library_version().to_owned(),
                 platform: result.replay.platform().to_owned(),
+                migration: MigrationProvenanceV2::from(result.replay.migration()),
             },
+        }
+    }
+}
+
+impl From<&PricingResult> for ResultV3 {
+    fn from(result: &PricingResult) -> Self {
+        Self {
+            document_kind: DOCUMENT_RESULT.to_owned(),
+            schema_version: 3,
+            value: result.value.into(),
+            risks: RiskReportV1::from(&result.risks),
+            diagnostics: DiagnosticsV1 {
+                warnings: result
+                    .diagnostics
+                    .warnings()
+                    .iter()
+                    .map(|w| WarningV1 {
+                        code: w.code().to_owned(),
+                        message: w.message().to_owned(),
+                    })
+                    .collect(),
+            },
+            replay: ReplayV2 {
+                schema_version: result.replay.schema_version().get(),
+                request_fingerprint: Fingerprint(*result.replay.request_fingerprint()).to_string(),
+                library_version: result.replay.library_version().to_owned(),
+                platform: result.replay.platform().to_owned(),
+                migration: MigrationProvenanceV2::from(result.replay.migration()),
+            },
+            monte_carlo: None,
+        }
+    }
+}
+
+impl From<&MonteCarloPrice> for ResultV3 {
+    fn from(value: &MonteCarloPrice) -> Self {
+        let mut result = Self::from(&value.pricing_result);
+        result.monte_carlo = Some(MonteCarloResultV3::from(value));
+        result
+    }
+}
+
+impl From<&MonteCarloPrice> for MonteCarloResultV3 {
+    fn from(value: &MonteCarloPrice) -> Self {
+        Self {
+            sampling_variance: value.sampling_variance,
+            estimator_variance: value.estimator_variance,
+            independent_sampling_units: value.independent_sampling_units,
+            evaluated_paths: value.evaluated_paths.to_string(),
+            diagnostics: value.diagnostics.into(),
+            risk_diagnostics: RiskDiagnosticsV3::from(&value.risk_diagnostics),
+            early_exercise: value
+                .early_exercise_diagnostics
+                .as_ref()
+                .map(EarlyExerciseDiagnosticsV3::from),
+        }
+    }
+}
+
+impl From<MonteCarloDiagnostics> for MonteCarloDiagnosticsV3 {
+    fn from(value: MonteCarloDiagnostics) -> Self {
+        Self {
+            master_seed: value.master_seed,
+            estimator: value.estimator.into(),
+            scramble_count: value.scramble_count,
+            direction_checksum: value.direction_checksum.map(format_checksum),
+            scramble_checksum: value.scramble_checksum.map(format_checksum),
+            policy_version: value.policy_version,
+            worker_threads: value.worker_threads,
+            reduction_block_size: value.reduction_block_size,
+            aad_tile_policy_version: value.aad_tile_policy_version,
+            aad_tile_capacity: value.aad_tile_capacity,
+            checkpoint_policy_version: value.checkpoint_policy_version,
+            checkpoint_interval: value.checkpoint_interval,
+            antithetic: value.antithetic,
+            discount_region: value.discount_region.into(),
+            dividend_region: value.dividend_region.into(),
+            payoff_fingerprint: Fingerprint(*value.payoff_fingerprint.as_bytes()).to_string(),
+            valuation_kind: value.valuation_kind.into(),
+            payoff_smoothing: value.payoff_smoothing.map(Into::into),
+            path_state: value.path_state.map(Into::into),
+            barrier_bridge: value.barrier_bridge.map(Into::into),
+        }
+    }
+}
+
+impl From<pricing_market::CurveRegion> for CurveRegionV3 {
+    fn from(value: pricing_market::CurveRegion) -> Self {
+        match value {
+            pricing_market::CurveRegion::Pillar => Self::Pillar,
+            pricing_market::CurveRegion::Interpolated => Self::Interpolated,
+            pricing_market::CurveRegion::RightExtrapolated => Self::RightExtrapolated,
+        }
+    }
+}
+
+impl From<PayoffValuationKind> for PayoffValuationKindV3 {
+    fn from(value: PayoffValuationKind) -> Self {
+        match value {
+            PayoffValuationKind::ExactContractual => Self::ExactContractual,
+            PayoffValuationKind::SmoothedSurrogate => Self::SmoothedSurrogate,
+        }
+    }
+}
+
+impl From<PayoffSmoothingDiagnostics> for PayoffSmoothingDiagnosticsV3 {
+    fn from(value: PayoffSmoothingDiagnostics) -> Self {
+        Self {
+            kernel: match value.kernel {
+                PayoffSmoothingKernel::CompactC2 => PayoffSmoothingKernelV3::CompactC2,
+            },
+            policy_version: value.policy_version,
+            half_width: value.half_width.get(),
+            full_transition_width: value.full_transition_width.get(),
+            width_unit: match value.width_unit {
+                PayoffSmoothingWidthUnit::Spot => PayoffSmoothingWidthUnitV3::Spot,
+            },
+            price_and_greeks_share_payoff: value.price_and_greeks_share_payoff,
+            endpoint_count: value.endpoint_count,
+            dividend_jump_count: value.dividend_jump_count,
+        }
+    }
+}
+
+impl From<PathStateDiagnostics> for PathStateDiagnosticsV3 {
+    fn from(value: PathStateDiagnostics) -> Self {
+        match value {
+            PathStateDiagnostics::ArithmeticAsian {
+                known_observation_count,
+                unknown_observation_count,
+                known_weight_sum,
+                unknown_weight_sum,
+                weighted_known_fixing_sum,
+            } => Self::ArithmeticAsian {
+                known_observation_count,
+                unknown_observation_count,
+                known_weight_sum,
+                unknown_weight_sum,
+                weighted_known_fixing_sum,
+            },
+            PathStateDiagnostics::FixedLookback {
+                past_monitoring_count,
+                future_monitoring_count,
+                historical_extremum,
+            } => Self::FixedLookback {
+                past_monitoring_count,
+                future_monitoring_count,
+                historical_extremum,
+            },
+        }
+    }
+}
+
+impl From<BarrierBridgeDiagnostics> for BarrierBridgeDiagnosticsV3 {
+    fn from(value: BarrierBridgeDiagnostics) -> Self {
+        debug_assert_eq!(value.abi, pricing_mc::BARRIER_BRIDGE_ABI);
+        Self {
+            abi: BarrierBridgeAbiV3::ContinuousBarrierBridgeLogSurvivalV1,
+            policy_version: value.policy_version,
+            indicator_mode: match value.indicator_mode {
+                BarrierHitIndicatorMode::Exact => BarrierHitIndicatorModeV3::Exact,
+                BarrierHitIndicatorMode::CompactC2 => BarrierHitIndicatorModeV3::CompactC2,
+            },
+            endpoint_hit_fraction: value.endpoint_hit_fraction,
+            dividend_jump_hit_fraction: value.dividend_jump_hit_fraction,
+            mean_conditional_bridge_hit_weight: value.mean_conditional_bridge_hit_weight,
+            mean_interval_count: value.mean_interval_count,
+            mean_finite_correction_count: value.mean_finite_correction_count,
+            mean_zero_variance_count: value.mean_zero_variance_count,
+            mean_survival_underflow_count: value.mean_survival_underflow_count,
+            mean_certain_survival_count: value.mean_certain_survival_count,
+        }
+    }
+}
+
+impl From<&RiskDiagnostics> for RiskDiagnosticsV3 {
+    fn from(value: &RiskDiagnostics) -> Self {
+        Self {
+            methods: value.methods.into(),
+            delta_validation: value.delta_validation.map(Into::into),
+            gamma_validation: value.gamma_validation.map(Into::into),
+            vega_validation: value.vega_validation.map(Into::into),
+        }
+    }
+}
+
+impl From<RiskMethodMetadata> for RiskMethodMetadataV3 {
+    fn from(value: RiskMethodMetadata) -> Self {
+        Self {
+            delta: value.delta.map(Into::into),
+            gamma: value.gamma.map(Into::into),
+            vega: value.vega.map(Into::into),
+            smile_dynamics: value.smile_dynamics.into(),
+            gamma_spot_bump: value.gamma_spot_bump,
+            validation_spot_bump: value.validation_spot_bump,
+            validation_volatility_bump: value.validation_volatility_bump,
+            bump_policy_version: value.bump_policy_version,
+            exercise_strategy: value
+                .exercise_strategy
+                .map(|_| ExerciseStrategyRiskV3::FixedExerciseStrategy),
+            stopping_indices: value
+                .stopping_indices
+                .map(|_| StoppingIndexRiskV3::FrozenStoppingIndices),
+            exercise_policy_fingerprint: value
+                .exercise_policy_fingerprint
+                .map(|fingerprint| Fingerprint(*fingerprint.as_bytes()).to_string()),
+        }
+    }
+}
+
+impl From<RiskMethod> for RiskMethodV3 {
+    fn from(value: RiskMethod) -> Self {
+        match value {
+            RiskMethod::AadReverse => Self::AadReverse,
+            RiskMethod::CentralBump => Self::CentralBump,
+            RiskMethod::CentralBumpOfAadDelta => Self::CentralBumpOfAadDelta,
+        }
+    }
+}
+
+impl From<RiskValidation> for RiskValidationV3 {
+    fn from(value: RiskValidation) -> Self {
+        Self {
+            bump_and_revalue: value.bump_and_revalue.into(),
+            bump_minus_primary: value.bump_minus_primary.into(),
+        }
+    }
+}
+
+impl From<&EarlyExerciseDiagnostics> for EarlyExerciseDiagnosticsV3 {
+    fn from(value: &EarlyExerciseDiagnostics) -> Self {
+        Self {
+            policy_fingerprint: Fingerprint(*value.policy_fingerprint.as_bytes()).to_string(),
+            training_random_domain: value.training_random_domain.into(),
+            valuation_random_domain: value.valuation_random_domain.into(),
+            training_direction_checksum: value.training_direction_checksum.map(format_checksum),
+            training_scramble_checksum: value.training_scramble_checksum.map(format_checksum),
+            valuation_direction_checksum: value.valuation_direction_checksum.map(format_checksum),
+            valuation_scramble_checksum: value.valuation_scramble_checksum.map(format_checksum),
+            training_sampling_units: value.training_sampling_units,
+            training_trajectories: value.training_trajectories,
+            valuation_sampling_units: value.valuation_sampling_units,
+            valuation_trajectories: value.valuation_trajectories,
+            in_sample_value: value.in_sample_value,
+            exercise_dates: value
+                .exercise_dates
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+            exercise_counts: value.exercise_counts.to_vec(),
+            exercise_probabilities: value.exercise_probabilities.to_vec(),
+            stopping_indices: value.stopping_indices.to_vec(),
+            dividend_collisions: value.dividend_collisions.to_vec(),
+            regression_diagnostics: value
+                .regression_diagnostics
+                .iter()
+                .map(ExerciseRegressionDiagnosticsV3::from)
+                .collect(),
+            policy_basis: PolynomialBasisReplayV3::from(&value.policy_basis),
+            itm_abs_tolerance: value.itm_abs_tolerance,
+            cpqr: CpqrV3 {
+                abs_rank_tolerance: value.cpqr_config.abs_rank_tolerance(),
+                rel_rank_tolerance: value.cpqr_config.rel_rank_tolerance(),
+            },
+            max_matrix_elements: value.max_matrix_elements,
+            decision_models: value
+                .decision_models
+                .iter()
+                .map(ExerciseDecisionModelV3::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<RandomDomain> for RandomDomainV3 {
+    fn from(value: RandomDomain) -> Self {
+        match value {
+            RandomDomain::Valuation => Self::Valuation,
+            RandomDomain::LsmTrain => Self::LsmTrain,
+            RandomDomain::RqmcScramble => Self::RqmcScramble,
+            RandomDomain::Diagnostics => Self::Diagnostics,
+            RandomDomain::LsvCalibration => Self::LsvCalibration,
+        }
+    }
+}
+
+impl From<&PolynomialBasisSpec> for PolynomialBasisReplayV3 {
+    fn from(value: &PolynomialBasisSpec) -> Self {
+        Self {
+            feature_count: value.feature_count(),
+            max_degree: value.max_degree(),
+            exponents: value.exponents().iter().map(|row| row.to_vec()).collect(),
+        }
+    }
+}
+
+impl From<&ExerciseRegressionDiagnostics> for ExerciseRegressionDiagnosticsV3 {
+    fn from(value: &ExerciseRegressionDiagnostics) -> Self {
+        Self {
+            candidate_rows: value.candidate_rows(),
+            itm_rows: value.itm_rows(),
+            feature_count: value.feature_count(),
+            warnings: value.warnings().iter().copied().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<LsmWarning> for LsmWarningV3 {
+    fn from(value: LsmWarning) -> Self {
+        match value {
+            LsmWarning::ZeroItmTrainingPaths => Self::ZeroItmTrainingPaths,
+            LsmWarning::InactiveFeature { feature } => Self::InactiveFeature { feature },
+            LsmWarning::RankExcludedBasisColumn { column } => {
+                Self::RankExcludedBasisColumn { column }
+            }
+        }
+    }
+}
+
+impl From<&ExerciseDecisionModel> for ExerciseDecisionModelV3 {
+    fn from(value: &ExerciseDecisionModel) -> Self {
+        match value {
+            ExerciseDecisionModel::Regression(model) => Self::Regression {
+                model: Box::new(PolynomialRegressionModelV3::from(model)),
+            },
+            ExerciseDecisionModel::ContinueAll {
+                reason: ContinueAllReason::ZeroItmTrainingPaths,
+            } => Self::ContinueAll {
+                reason: ContinueAllReasonV3::ZeroItmTrainingPaths,
+            },
+        }
+    }
+}
+
+impl From<&PolynomialRegressionModel> for PolynomialRegressionModelV3 {
+    fn from(value: &PolynomialRegressionModel) -> Self {
+        Self {
+            basis: PolynomialBasisReplayV3::from(value.basis()),
+            feature_scalings: value
+                .feature_scalings()
+                .iter()
+                .copied()
+                .map(Into::into)
+                .collect(),
+            active_basis_columns: value.active_basis_columns().to_vec(),
+            pre_excluded_basis_columns: value.pre_excluded_basis_columns().to_vec(),
+            pivot_order: value.pivot_order().to_vec(),
+            diagonal_abs: value.diagonal_abs().to_vec(),
+            rank_threshold: value.rank_threshold(),
+            rank: value.rank(),
+            rank_excluded_basis_columns: value.rank_excluded_basis_columns().to_vec(),
+            coefficients: value.coefficients().to_vec(),
+            residual_sum_squares: value.residual_sum_squares(),
+        }
+    }
+}
+
+impl From<FeatureScaling> for FeatureScalingV3 {
+    fn from(value: FeatureScaling) -> Self {
+        Self {
+            mean: value.mean(),
+            population_variance: value.population_variance(),
+            scale: value.scale(),
+            zero_scale_threshold: value.zero_scale_threshold(),
+            inactive: value.inactive(),
+        }
+    }
+}
+
+fn format_checksum(bytes: [u8; 32]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+impl From<&MigrationProvenance> for MigrationProvenanceV2 {
+    fn from(value: &MigrationProvenance) -> Self {
+        Self {
+            original_schema_version: value.original_schema_version().get(),
+            current_schema_version: value.current_schema_version().get(),
+            migration_ids: value.migration_ids().to_vec(),
+            pre_migration_fingerprint: Fingerprint(*value.pre_migration_fingerprint()).to_string(),
+            post_migration_fingerprint: Fingerprint(*value.post_migration_fingerprint())
+                .to_string(),
+        }
+    }
+}
+
+impl From<ResultV1> for ResultV2 {
+    fn from(value: ResultV1) -> Self {
+        let request_fingerprint = value.replay.request_fingerprint;
+        Self {
+            document_kind: value.document_kind,
+            schema_version: 2,
+            value: value.value,
+            risks: value.risks,
+            diagnostics: value.diagnostics,
+            replay: ReplayV2 {
+                schema_version: 2,
+                migration: MigrationProvenanceV2 {
+                    original_schema_version: 1,
+                    current_schema_version: 2,
+                    migration_ids: vec![MIGRATION_RESULT_V1_TO_V2.to_owned()],
+                    pre_migration_fingerprint: request_fingerprint.clone(),
+                    post_migration_fingerprint: request_fingerprint.clone(),
+                },
+                request_fingerprint,
+                library_version: value.replay.library_version,
+                platform: value.replay.platform,
+            },
+        }
+    }
+}
+
+impl From<ResultV2> for ResultV3 {
+    fn from(value: ResultV2) -> Self {
+        debug_assert_eq!(value.schema_version, 2);
+        let mut migration = value.replay.migration;
+        migration.current_schema_version = 3;
+        migration
+            .migration_ids
+            .push(MIGRATION_RESULT_V2_TO_V3.to_owned());
+        Self {
+            document_kind: value.document_kind,
+            schema_version: 3,
+            value: value.value,
+            risks: value.risks,
+            diagnostics: value.diagnostics,
+            replay: ReplayV2 {
+                schema_version: 3,
+                request_fingerprint: value.replay.request_fingerprint,
+                library_version: value.replay.library_version,
+                platform: value.replay.platform,
+                migration,
+            },
+            monte_carlo: None,
         }
     }
 }
@@ -1585,10 +2794,11 @@ impl From<VegaKtResultUnit> for VegaKtBucketUnitV1 {
     }
 }
 
-impl TryFrom<ResultV1> for PricingResult {
+impl TryFrom<ResultV3> for PricingResult {
     type Error = WireError;
-    fn try_from(value: ResultV1) -> Result<Self, Self::Error> {
+    fn try_from(value: ResultV3) -> Result<Self, Self::Error> {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_RESULT)?;
+        let monte_carlo = value.monte_carlo;
         let replay_version = SchemaVersion::new(value.replay.schema_version)
             .map_err(|error| domain_at("/replay/schema_version", error))?;
         if replay_version != SchemaVersion::CURRENT {
@@ -1601,7 +2811,13 @@ impl TryFrom<ResultV1> for PricingResult {
                 ),
             ));
         }
-        Ok(Self {
+        let request_fingerprint = parse_fingerprint_at(
+            &value.replay.request_fingerprint,
+            "/replay/request_fingerprint",
+        )?;
+        let migration =
+            migration_provenance_from_wire(value.replay.migration, request_fingerprint)?;
+        let result = Self {
             value: estimate_from_wire(value.value, "/value")?,
             risks: RiskReport {
                 delta: value
@@ -1633,17 +2849,97 @@ impl TryFrom<ResultV1> for PricingResult {
                     .map(|w| PricingWarning::new(w.code, w.message))
                     .collect(),
             ),
-            replay: ReplayMetadata::new(
+            replay: ReplayMetadata::with_migration(
                 replay_version,
-                parse_fingerprint_at(
-                    &value.replay.request_fingerprint,
-                    "/replay/request_fingerprint",
-                )?,
+                request_fingerprint,
                 non_empty_string_at(value.replay.library_version, "/replay/library_version")?,
                 non_empty_string_at(value.replay.platform, "/replay/platform")?,
+                migration,
             ),
-        })
+        };
+        if let Some(monte_carlo) = monte_carlo {
+            monte_carlo_price_from_wire(monte_carlo, result.clone())?;
+        }
+        Ok(result)
     }
+}
+
+fn migration_provenance_from_wire(
+    value: MigrationProvenanceV2,
+    request_fingerprint: [u8; 32],
+) -> Result<MigrationProvenance, WireError> {
+    let original_schema_version = SchemaVersion::new(value.original_schema_version)
+        .map_err(|error| domain_at("/replay/migration/original_schema_version", error))?;
+    let current_schema_version = SchemaVersion::new(value.current_schema_version)
+        .map_err(|error| domain_at("/replay/migration/current_schema_version", error))?;
+    if current_schema_version != SchemaVersion::CURRENT {
+        return Err(domain_at(
+            "/replay/migration/current_schema_version",
+            format!(
+                "unsupported current_schema_version {}; expected {}",
+                current_schema_version.get(),
+                SchemaVersion::CURRENT.get()
+            ),
+        ));
+    }
+    if !MigrationRegistry
+        .accepted_source_versions()
+        .contains(&original_schema_version.get())
+    {
+        return Err(domain_at(
+            "/replay/migration/original_schema_version",
+            "original_schema_version is not accepted by the migration registry",
+        ));
+    }
+    let identifiers_valid = match original_schema_version.get() {
+        1 => {
+            value.migration_ids
+                == [MIGRATION_REQUEST_V1_TO_V2, MIGRATION_REQUEST_V2_TO_V3].map(str::to_owned)
+                || value.migration_ids
+                    == [MIGRATION_RESULT_V1_TO_V2, MIGRATION_RESULT_V2_TO_V3].map(str::to_owned)
+        }
+        2 => {
+            value.migration_ids == [MIGRATION_REQUEST_V2_TO_V3.to_owned()]
+                || value.migration_ids == [MIGRATION_RESULT_V2_TO_V3.to_owned()]
+        }
+        3 => value.migration_ids.is_empty(),
+        _ => unreachable!("accepted versions are checked above"),
+    };
+    if !identifiers_valid {
+        return Err(domain_at(
+            "/replay/migration/migration_ids",
+            "migration identifiers do not match the registered schema path",
+        ));
+    }
+    let pre_migration_fingerprint = parse_fingerprint_at(
+        &value.pre_migration_fingerprint,
+        "/replay/migration/pre_migration_fingerprint",
+    )?;
+    let post_migration_fingerprint = parse_fingerprint_at(
+        &value.post_migration_fingerprint,
+        "/replay/migration/post_migration_fingerprint",
+    )?;
+    if post_migration_fingerprint != request_fingerprint {
+        return Err(domain_at(
+            "/replay/migration/post_migration_fingerprint",
+            "post_migration_fingerprint must equal replay.request_fingerprint",
+        ));
+    }
+    if original_schema_version == current_schema_version
+        && pre_migration_fingerprint != post_migration_fingerprint
+    {
+        return Err(domain_at(
+            "/replay/migration/pre_migration_fingerprint",
+            "an unmigrated result must have identical pre/post fingerprints",
+        ));
+    }
+    Ok(MigrationProvenance::new(
+        original_schema_version,
+        current_schema_version,
+        value.migration_ids,
+        pre_migration_fingerprint,
+        post_migration_fingerprint,
+    ))
 }
 
 fn estimate_from_wire(
@@ -1813,17 +3109,755 @@ fn vega_kt_unit_from_wire(value: VegaKtBucketUnitV1) -> VegaKtResultUnit {
     }
 }
 
+fn monte_carlo_price_from_wire(
+    value: MonteCarloResultV3,
+    pricing_result: PricingResult,
+) -> Result<MonteCarloPrice, WireError> {
+    let sampling_variance =
+        non_negative_finite_at(value.sampling_variance, "/monte_carlo/sampling_variance")?;
+    let estimator_variance =
+        non_negative_finite_at(value.estimator_variance, "/monte_carlo/estimator_variance")?;
+    if value.independent_sampling_units == 0 {
+        return Err(domain_at(
+            "/monte_carlo/independent_sampling_units",
+            "independent sampling units must be positive",
+        ));
+    }
+    if value.independent_sampling_units != pricing_result.value.effective_sampling_units().get() {
+        return Err(domain_at(
+            "/monte_carlo/independent_sampling_units",
+            "must equal value.effective_sampling_units",
+        ));
+    }
+    let evaluated_paths =
+        parse_u128_decimal_at(&value.evaluated_paths, "/monte_carlo/evaluated_paths")?;
+    let diagnostics = monte_carlo_diagnostics_from_wire(value.diagnostics)?;
+    if diagnostics.estimator != pricing_result.value.estimator() {
+        return Err(domain_at(
+            "/monte_carlo/diagnostics/estimator",
+            "must equal value.estimator",
+        ));
+    }
+    let risk_diagnostics = risk_diagnostics_from_wire(value.risk_diagnostics)?;
+    let early_exercise_diagnostics = value
+        .early_exercise
+        .map(early_exercise_diagnostics_from_wire)
+        .transpose()?;
+    if let Some(early) = &early_exercise_diagnostics {
+        if diagnostics.direction_checksum != early.valuation_direction_checksum
+            || diagnostics.scramble_checksum != early.valuation_scramble_checksum
+        {
+            return Err(domain_at(
+                "/monte_carlo/early_exercise",
+                "valuation checksums must match Monte Carlo diagnostics",
+            ));
+        }
+        if let Some(risk_fingerprint) = risk_diagnostics.methods.exercise_policy_fingerprint
+            && risk_fingerprint != early.policy_fingerprint
+        {
+            return Err(domain_at(
+                "/monte_carlo/risk_diagnostics/methods/exercise_policy_fingerprint",
+                "must match early-exercise policy fingerprint",
+            ));
+        }
+    }
+    Ok(MonteCarloPrice {
+        pricing_result,
+        sampling_variance,
+        estimator_variance,
+        risk_diagnostics,
+        independent_sampling_units: value.independent_sampling_units,
+        evaluated_paths,
+        diagnostics,
+        early_exercise_diagnostics,
+    })
+}
+
+fn monte_carlo_diagnostics_from_wire(
+    value: MonteCarloDiagnosticsV3,
+) -> Result<MonteCarloDiagnostics, WireError> {
+    if value.worker_threads == 0
+        || value.reduction_block_size == 0
+        || value.aad_tile_capacity == 0
+        || value.checkpoint_interval == 0
+    {
+        return Err(domain_at(
+            "/monte_carlo/diagnostics",
+            "worker, reduction, tile, and checkpoint counts must be positive",
+        ));
+    }
+    Ok(MonteCarloDiagnostics {
+        master_seed: value.master_seed,
+        estimator: value.estimator.into(),
+        scramble_count: value.scramble_count,
+        direction_checksum: value
+            .direction_checksum
+            .map(|item| parse_checksum_at(&item, "/monte_carlo/diagnostics/direction_checksum"))
+            .transpose()?,
+        scramble_checksum: value
+            .scramble_checksum
+            .map(|item| parse_checksum_at(&item, "/monte_carlo/diagnostics/scramble_checksum"))
+            .transpose()?,
+        policy_version: value.policy_version,
+        worker_threads: value.worker_threads,
+        reduction_block_size: value.reduction_block_size,
+        aad_tile_policy_version: value.aad_tile_policy_version,
+        aad_tile_capacity: value.aad_tile_capacity,
+        checkpoint_policy_version: value.checkpoint_policy_version,
+        checkpoint_interval: value.checkpoint_interval,
+        antithetic: value.antithetic,
+        discount_region: value.discount_region.into(),
+        dividend_region: value.dividend_region.into(),
+        payoff_fingerprint: pricing_product::GraphFingerprint::from_bytes(
+            parse_fingerprint_owned_at(
+                &value.payoff_fingerprint,
+                "/monte_carlo/diagnostics/payoff_fingerprint",
+            )?,
+        ),
+        valuation_kind: value.valuation_kind.into(),
+        payoff_smoothing: value
+            .payoff_smoothing
+            .map(payoff_smoothing_diagnostics_from_wire)
+            .transpose()?,
+        path_state: value
+            .path_state
+            .map(path_state_diagnostics_from_wire)
+            .transpose()?,
+        barrier_bridge: value
+            .barrier_bridge
+            .map(barrier_bridge_diagnostics_from_wire)
+            .transpose()?,
+    })
+}
+
+impl From<EstimatorV1> for EstimatorKind {
+    fn from(value: EstimatorV1) -> Self {
+        match value {
+            EstimatorV1::Analytical => Self::Analytical,
+            EstimatorV1::PseudoMonteCarlo => Self::PseudoMonteCarlo,
+            EstimatorV1::RandomizedQuasiMonteCarlo => Self::RandomizedQuasiMonteCarlo,
+        }
+    }
+}
+
+impl From<CurveRegionV3> for pricing_market::CurveRegion {
+    fn from(value: CurveRegionV3) -> Self {
+        match value {
+            CurveRegionV3::Pillar => Self::Pillar,
+            CurveRegionV3::Interpolated => Self::Interpolated,
+            CurveRegionV3::RightExtrapolated => Self::RightExtrapolated,
+        }
+    }
+}
+
+impl From<PayoffValuationKindV3> for PayoffValuationKind {
+    fn from(value: PayoffValuationKindV3) -> Self {
+        match value {
+            PayoffValuationKindV3::ExactContractual => Self::ExactContractual,
+            PayoffValuationKindV3::SmoothedSurrogate => Self::SmoothedSurrogate,
+        }
+    }
+}
+
+fn payoff_smoothing_diagnostics_from_wire(
+    value: PayoffSmoothingDiagnosticsV3,
+) -> Result<PayoffSmoothingDiagnostics, WireError> {
+    let half_width = PositiveF64::new(value.half_width, "half_width").map_err(|error| {
+        domain_at(
+            "/monte_carlo/diagnostics/payoff_smoothing/half_width",
+            error,
+        )
+    })?;
+    let full_transition_width =
+        PositiveF64::new(value.full_transition_width, "full_transition_width").map_err(
+            |error| {
+                domain_at(
+                    "/monte_carlo/diagnostics/payoff_smoothing/full_transition_width",
+                    error,
+                )
+            },
+        )?;
+    if full_transition_width.get() != half_width.get() * 2.0 {
+        return Err(domain_at(
+            "/monte_carlo/diagnostics/payoff_smoothing/full_transition_width",
+            "must equal twice half_width",
+        ));
+    }
+    Ok(PayoffSmoothingDiagnostics {
+        kernel: match value.kernel {
+            PayoffSmoothingKernelV3::CompactC2 => PayoffSmoothingKernel::CompactC2,
+        },
+        policy_version: value.policy_version,
+        half_width,
+        full_transition_width,
+        width_unit: match value.width_unit {
+            PayoffSmoothingWidthUnitV3::Spot => PayoffSmoothingWidthUnit::Spot,
+        },
+        price_and_greeks_share_payoff: value.price_and_greeks_share_payoff,
+        endpoint_count: value.endpoint_count,
+        dividend_jump_count: value.dividend_jump_count,
+    })
+}
+
+fn path_state_diagnostics_from_wire(
+    value: PathStateDiagnosticsV3,
+) -> Result<PathStateDiagnostics, WireError> {
+    match value {
+        PathStateDiagnosticsV3::ArithmeticAsian {
+            known_observation_count,
+            unknown_observation_count,
+            known_weight_sum,
+            unknown_weight_sum,
+            weighted_known_fixing_sum,
+        } => Ok(PathStateDiagnostics::ArithmeticAsian {
+            known_observation_count,
+            unknown_observation_count,
+            known_weight_sum: non_negative_finite_at(
+                known_weight_sum,
+                "/monte_carlo/diagnostics/path_state/known_weight_sum",
+            )?,
+            unknown_weight_sum: non_negative_finite_at(
+                unknown_weight_sum,
+                "/monte_carlo/diagnostics/path_state/unknown_weight_sum",
+            )?,
+            weighted_known_fixing_sum: finite_at(
+                weighted_known_fixing_sum,
+                "/monte_carlo/diagnostics/path_state/weighted_known_fixing_sum",
+            )?,
+        }),
+        PathStateDiagnosticsV3::FixedLookback {
+            past_monitoring_count,
+            future_monitoring_count,
+            historical_extremum,
+        } => Ok(PathStateDiagnostics::FixedLookback {
+            past_monitoring_count,
+            future_monitoring_count,
+            historical_extremum: historical_extremum
+                .map(|item| {
+                    PositiveF64::new(item, "historical_extremum")
+                        .map(PositiveF64::get)
+                        .map_err(|error| {
+                            domain_at(
+                                "/monte_carlo/diagnostics/path_state/historical_extremum",
+                                error,
+                            )
+                        })
+                })
+                .transpose()?,
+        }),
+    }
+}
+
+fn barrier_bridge_diagnostics_from_wire(
+    value: BarrierBridgeDiagnosticsV3,
+) -> Result<BarrierBridgeDiagnostics, WireError> {
+    let fraction = |item, pointer| {
+        let item = non_negative_finite_at(item, pointer)?;
+        if item > 1.0 {
+            return Err(domain_at(pointer, "fraction must not exceed one"));
+        }
+        Ok(item)
+    };
+    Ok(BarrierBridgeDiagnostics {
+        abi: match value.abi {
+            BarrierBridgeAbiV3::ContinuousBarrierBridgeLogSurvivalV1 => {
+                pricing_mc::BARRIER_BRIDGE_ABI
+            }
+        },
+        policy_version: value.policy_version,
+        indicator_mode: match value.indicator_mode {
+            BarrierHitIndicatorModeV3::Exact => BarrierHitIndicatorMode::Exact,
+            BarrierHitIndicatorModeV3::CompactC2 => BarrierHitIndicatorMode::CompactC2,
+        },
+        endpoint_hit_fraction: fraction(
+            value.endpoint_hit_fraction,
+            "/monte_carlo/diagnostics/barrier_bridge/endpoint_hit_fraction",
+        )?,
+        dividend_jump_hit_fraction: fraction(
+            value.dividend_jump_hit_fraction,
+            "/monte_carlo/diagnostics/barrier_bridge/dividend_jump_hit_fraction",
+        )?,
+        mean_conditional_bridge_hit_weight: fraction(
+            value.mean_conditional_bridge_hit_weight,
+            "/monte_carlo/diagnostics/barrier_bridge/mean_conditional_bridge_hit_weight",
+        )?,
+        mean_interval_count: non_negative_finite_at(
+            value.mean_interval_count,
+            "/monte_carlo/diagnostics/barrier_bridge/mean_interval_count",
+        )?,
+        mean_finite_correction_count: non_negative_finite_at(
+            value.mean_finite_correction_count,
+            "/monte_carlo/diagnostics/barrier_bridge/mean_finite_correction_count",
+        )?,
+        mean_zero_variance_count: non_negative_finite_at(
+            value.mean_zero_variance_count,
+            "/monte_carlo/diagnostics/barrier_bridge/mean_zero_variance_count",
+        )?,
+        mean_survival_underflow_count: non_negative_finite_at(
+            value.mean_survival_underflow_count,
+            "/monte_carlo/diagnostics/barrier_bridge/mean_survival_underflow_count",
+        )?,
+        mean_certain_survival_count: non_negative_finite_at(
+            value.mean_certain_survival_count,
+            "/monte_carlo/diagnostics/barrier_bridge/mean_certain_survival_count",
+        )?,
+    })
+}
+
+fn risk_diagnostics_from_wire(value: RiskDiagnosticsV3) -> Result<RiskDiagnostics, WireError> {
+    let methods = value.methods;
+    for (item, pointer) in [
+        (
+            methods.gamma_spot_bump,
+            "/monte_carlo/risk_diagnostics/methods/gamma_spot_bump",
+        ),
+        (
+            methods.validation_spot_bump,
+            "/monte_carlo/risk_diagnostics/methods/validation_spot_bump",
+        ),
+        (
+            methods.validation_volatility_bump,
+            "/monte_carlo/risk_diagnostics/methods/validation_volatility_bump",
+        ),
+    ] {
+        if let Some(item) = item {
+            PositiveF64::new(item, "risk bump").map_err(|error| domain_at(pointer, error))?;
+        }
+    }
+    Ok(RiskDiagnostics {
+        methods: RiskMethodMetadata {
+            delta: methods.delta.map(Into::into),
+            gamma: methods.gamma.map(Into::into),
+            vega: methods.vega.map(Into::into),
+            smile_dynamics: match methods.smile_dynamics {
+                SmileDynamicsV1::LogMoneyness => SmileDynamics::StickyLogMoneyness,
+                SmileDynamicsV1::Strike => SmileDynamics::StickyStrike,
+                SmileDynamicsV1::Delta => SmileDynamics::StickyDelta,
+            },
+            gamma_spot_bump: methods.gamma_spot_bump,
+            validation_spot_bump: methods.validation_spot_bump,
+            validation_volatility_bump: methods.validation_volatility_bump,
+            bump_policy_version: methods.bump_policy_version,
+            exercise_strategy: methods
+                .exercise_strategy
+                .map(|_| ExerciseStrategyRisk::FixedExerciseStrategy),
+            stopping_indices: methods
+                .stopping_indices
+                .map(|_| StoppingIndexRisk::FrozenStoppingIndices),
+            exercise_policy_fingerprint: methods
+                .exercise_policy_fingerprint
+                .map(|item| {
+                    parse_fingerprint_owned_at(
+                        &item,
+                        "/monte_carlo/risk_diagnostics/methods/exercise_policy_fingerprint",
+                    )
+                    .map(ExercisePolicyFingerprint::from_bytes)
+                })
+                .transpose()?,
+        },
+        delta_validation: value
+            .delta_validation
+            .map(|item| {
+                risk_validation_from_wire(item, "/monte_carlo/risk_diagnostics/delta_validation")
+            })
+            .transpose()?,
+        gamma_validation: value
+            .gamma_validation
+            .map(|item| {
+                risk_validation_from_wire(item, "/monte_carlo/risk_diagnostics/gamma_validation")
+            })
+            .transpose()?,
+        vega_validation: value
+            .vega_validation
+            .map(|item| {
+                risk_validation_from_wire(item, "/monte_carlo/risk_diagnostics/vega_validation")
+            })
+            .transpose()?,
+    })
+}
+
+impl From<RiskMethodV3> for RiskMethod {
+    fn from(value: RiskMethodV3) -> Self {
+        match value {
+            RiskMethodV3::AadReverse => Self::AadReverse,
+            RiskMethodV3::CentralBump => Self::CentralBump,
+            RiskMethodV3::CentralBumpOfAadDelta => Self::CentralBumpOfAadDelta,
+        }
+    }
+}
+
+fn risk_validation_from_wire(
+    value: RiskValidationV3,
+    pointer: &'static str,
+) -> Result<RiskValidation, WireError> {
+    Ok(RiskValidation {
+        bump_and_revalue: estimate_from_wire(value.bump_and_revalue, pointer)?,
+        bump_minus_primary: estimate_from_wire(value.bump_minus_primary, pointer)?,
+    })
+}
+
+fn early_exercise_diagnostics_from_wire(
+    value: EarlyExerciseDiagnosticsV3,
+) -> Result<EarlyExerciseDiagnostics, WireError> {
+    let date_count = value.exercise_dates.len();
+    let decision_count = date_count.saturating_sub(1);
+    if date_count == 0
+        || value.exercise_counts.len() != date_count
+        || value.exercise_probabilities.len() != date_count
+        || value.dividend_collisions.len() != date_count
+        || value.regression_diagnostics.len() != decision_count
+        || value.decision_models.len() != decision_count
+        || value.training_sampling_units == 0
+        || value.training_trajectories == 0
+        || value.valuation_sampling_units == 0
+        || value.valuation_trajectories == 0
+        || value.stopping_indices.len() as u128 != u128::from(value.valuation_trajectories)
+        || value.max_matrix_elements == 0
+    {
+        return Err(domain_at(
+            "/monte_carlo/early_exercise",
+            "inconsistent or empty LSM count arrays",
+        ));
+    }
+    let exercise_dates = value
+        .exercise_dates
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            parse_date_owned_at(
+                item,
+                format!("/monte_carlo/early_exercise/exercise_dates/{index}"),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if exercise_dates.windows(2).any(|dates| dates[0] >= dates[1]) {
+        return Err(domain_at(
+            "/monte_carlo/early_exercise/exercise_dates",
+            "exercise dates must be strictly increasing",
+        ));
+    }
+    if value
+        .stopping_indices
+        .iter()
+        .any(|&index| index >= date_count)
+    {
+        return Err(domain_at(
+            "/monte_carlo/early_exercise/stopping_indices",
+            "stopping index is outside the exercise schedule",
+        ));
+    }
+    let exercise_total = value
+        .exercise_counts
+        .iter()
+        .try_fold(0_u128, |sum, &count| sum.checked_add(count as u128));
+    if exercise_total != Some(u128::from(value.valuation_trajectories)) {
+        return Err(domain_at(
+            "/monte_carlo/early_exercise/exercise_counts",
+            "exercise counts must sum to valuation trajectories",
+        ));
+    }
+    for (index, (&count, &probability)) in value
+        .exercise_counts
+        .iter()
+        .zip(&value.exercise_probabilities)
+        .enumerate()
+    {
+        let expected = count as f64 / value.valuation_trajectories as f64;
+        if !probability.is_finite()
+            || probability < 0.0
+            || probability > 1.0
+            || probability != expected
+        {
+            return Err(domain_at(
+                format!("/monte_carlo/early_exercise/exercise_probabilities/{index}"),
+                "probability must equal count divided by valuation trajectories",
+            ));
+        }
+    }
+    let policy_basis = polynomial_basis_from_wire(
+        value.policy_basis,
+        "/monte_carlo/early_exercise/policy_basis",
+    )?;
+    let feature_count = policy_basis.feature_count() as usize;
+    let regression_diagnostics = value
+        .regression_diagnostics
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| {
+            if item.feature_count != feature_count {
+                return Err(domain_at(
+                    format!(
+                        "/monte_carlo/early_exercise/regression_diagnostics/{index}/feature_count"
+                    ),
+                    "must equal policy basis feature count",
+                ));
+            }
+            ExerciseRegressionDiagnostics::from_replay_parts(
+                item.candidate_rows,
+                item.itm_rows,
+                item.feature_count,
+                item.warnings.into_iter().map(Into::into).collect(),
+            )
+            .map_err(|error| {
+                domain_at(
+                    format!("/monte_carlo/early_exercise/regression_diagnostics/{index}"),
+                    error,
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let decision_models = value
+        .decision_models
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| exercise_decision_model_from_wire(item, index, &policy_basis))
+        .collect::<Result<Vec<_>, _>>()?;
+    let cpqr_config = CpqrConfig::new(value.cpqr.abs_rank_tolerance, value.cpqr.rel_rank_tolerance)
+        .map_err(|error| domain_at("/monte_carlo/early_exercise/cpqr", error))?;
+    let itm_abs_tolerance = non_negative_finite_at(
+        value.itm_abs_tolerance,
+        "/monte_carlo/early_exercise/itm_abs_tolerance",
+    )?;
+    Ok(EarlyExerciseDiagnostics {
+        policy_fingerprint: ExercisePolicyFingerprint::from_bytes(parse_fingerprint_owned_at(
+            &value.policy_fingerprint,
+            "/monte_carlo/early_exercise/policy_fingerprint",
+        )?),
+        training_random_domain: value.training_random_domain.into(),
+        valuation_random_domain: value.valuation_random_domain.into(),
+        training_direction_checksum: optional_checksum_from_wire(
+            value.training_direction_checksum,
+            "/monte_carlo/early_exercise/training_direction_checksum",
+        )?,
+        training_scramble_checksum: optional_checksum_from_wire(
+            value.training_scramble_checksum,
+            "/monte_carlo/early_exercise/training_scramble_checksum",
+        )?,
+        valuation_direction_checksum: optional_checksum_from_wire(
+            value.valuation_direction_checksum,
+            "/monte_carlo/early_exercise/valuation_direction_checksum",
+        )?,
+        valuation_scramble_checksum: optional_checksum_from_wire(
+            value.valuation_scramble_checksum,
+            "/monte_carlo/early_exercise/valuation_scramble_checksum",
+        )?,
+        training_sampling_units: value.training_sampling_units,
+        training_trajectories: value.training_trajectories,
+        valuation_sampling_units: value.valuation_sampling_units,
+        valuation_trajectories: value.valuation_trajectories,
+        in_sample_value: finite_at(
+            value.in_sample_value,
+            "/monte_carlo/early_exercise/in_sample_value",
+        )?,
+        exercise_dates: exercise_dates.into_boxed_slice(),
+        exercise_counts: value.exercise_counts.into_boxed_slice(),
+        exercise_probabilities: value.exercise_probabilities.into_boxed_slice(),
+        stopping_indices: value.stopping_indices.into_boxed_slice(),
+        dividend_collisions: value.dividend_collisions.into_boxed_slice(),
+        regression_diagnostics: regression_diagnostics.into_boxed_slice(),
+        policy_basis,
+        itm_abs_tolerance,
+        cpqr_config,
+        max_matrix_elements: value.max_matrix_elements,
+        decision_models: decision_models.into_boxed_slice(),
+    })
+}
+
+impl From<RandomDomainV3> for RandomDomain {
+    fn from(value: RandomDomainV3) -> Self {
+        match value {
+            RandomDomainV3::Valuation => Self::Valuation,
+            RandomDomainV3::LsmTrain => Self::LsmTrain,
+            RandomDomainV3::RqmcScramble => Self::RqmcScramble,
+            RandomDomainV3::Diagnostics => Self::Diagnostics,
+            RandomDomainV3::LsvCalibration => Self::LsvCalibration,
+        }
+    }
+}
+
+impl From<LsmWarningV3> for LsmWarning {
+    fn from(value: LsmWarningV3) -> Self {
+        match value {
+            LsmWarningV3::ZeroItmTrainingPaths => Self::ZeroItmTrainingPaths,
+            LsmWarningV3::InactiveFeature { feature } => Self::InactiveFeature { feature },
+            LsmWarningV3::RankExcludedBasisColumn { column } => {
+                Self::RankExcludedBasisColumn { column }
+            }
+        }
+    }
+}
+
+fn exercise_decision_model_from_wire(
+    value: ExerciseDecisionModelV3,
+    index: usize,
+    policy_basis: &PolynomialBasisSpec,
+) -> Result<ExerciseDecisionModel, WireError> {
+    match value {
+        ExerciseDecisionModelV3::ContinueAll {
+            reason: ContinueAllReasonV3::ZeroItmTrainingPaths,
+        } => Ok(ExerciseDecisionModel::ContinueAll {
+            reason: ContinueAllReason::ZeroItmTrainingPaths,
+        }),
+        ExerciseDecisionModelV3::Regression { model } => {
+            let model = *model;
+            let basis = polynomial_basis_from_wire(
+                model.basis,
+                "/monte_carlo/early_exercise/decision_models/basis",
+            )?;
+            if &basis != policy_basis {
+                return Err(domain_at(
+                    format!("/monte_carlo/early_exercise/decision_models/{index}/model/basis"),
+                    "must equal policy_basis",
+                ));
+            }
+            let feature_scalings = model
+                .feature_scalings
+                .into_iter()
+                .map(|item| {
+                    FeatureScaling::from_replay_parts(
+                        item.mean,
+                        item.population_variance,
+                        item.scale,
+                        item.zero_scale_threshold,
+                        item.inactive,
+                    )
+                    .map_err(|error| {
+                        domain_at(
+                            format!(
+                                "/monte_carlo/early_exercise/decision_models/{index}/model/feature_scalings"
+                            ),
+                            error,
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            PolynomialRegressionModel::from_replay_parts(
+                basis,
+                feature_scalings,
+                model.active_basis_columns,
+                model.pre_excluded_basis_columns,
+                model.pivot_order,
+                model.diagonal_abs,
+                model.rank_threshold,
+                model.rank,
+                model.rank_excluded_basis_columns,
+                model.coefficients,
+                model.residual_sum_squares,
+            )
+            .map(ExerciseDecisionModel::Regression)
+            .map_err(|error| {
+                domain_at(
+                    format!("/monte_carlo/early_exercise/decision_models/{index}/model"),
+                    error,
+                )
+            })
+        }
+    }
+}
+
+fn polynomial_basis_from_wire(
+    value: PolynomialBasisReplayV3,
+    pointer: &'static str,
+) -> Result<PolynomialBasisSpec, WireError> {
+    let basis = PolynomialBasisSpec::new(
+        value.feature_count,
+        value.max_degree,
+        WIRE_MAX_BASIS_COLUMNS,
+        WIRE_MAX_BASIS_EXPONENTS,
+    )
+    .map_err(|error| domain_at(pointer, error))?;
+    if basis.exponents().len() != value.exponents.len()
+        || basis
+            .exponents()
+            .iter()
+            .zip(&value.exponents)
+            .any(|(expected, actual)| expected.as_ref() != actual.as_slice())
+    {
+        return Err(domain_at(
+            pointer,
+            "basis exponents do not match canonical enumeration",
+        ));
+    }
+    Ok(basis)
+}
+
+fn optional_checksum_from_wire(
+    value: Option<String>,
+    pointer: &'static str,
+) -> Result<Option<[u8; 32]>, WireError> {
+    value
+        .map(|item| parse_checksum_at(&item, pointer))
+        .transpose()
+}
+
+fn parse_checksum_at(value: &str, pointer: &'static str) -> Result<[u8; 32], WireError> {
+    if value.len() != 64
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(domain_at(
+            pointer,
+            "checksum must be 64 lowercase hexadecimal digits",
+        ));
+    }
+    let prefixed = format!("blake3-256:{value}");
+    parse_fingerprint(&prefixed).map_err(|error| domain_at(pointer, error))
+}
+
+fn parse_fingerprint_owned_at(value: &str, pointer: &str) -> Result<[u8; 32], WireError> {
+    parse_fingerprint(value).map_err(|error| domain_at(pointer, error))
+}
+
+fn parse_u128_decimal_at(value: &str, pointer: &'static str) -> Result<u128, WireError> {
+    if value.is_empty()
+        || (value.len() > 1 && value.starts_with('0'))
+        || !value.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err(domain_at(
+            pointer,
+            "must be a canonical unsigned decimal string",
+        ));
+    }
+    value
+        .parse::<u128>()
+        .map_err(|error| domain_at(pointer, error))
+}
+
+fn finite_at(value: f64, pointer: impl Into<String>) -> Result<f64, WireError> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(domain_at(pointer, "value must be finite"))
+    }
+}
+
+fn non_negative_finite_at(value: f64, pointer: impl Into<String>) -> Result<f64, WireError> {
+    let pointer = pointer.into();
+    if value.is_finite() && value >= 0.0 {
+        Ok(value)
+    } else {
+        Err(domain_at(pointer, "value must be finite and non-negative"))
+    }
+}
+
 pub fn request_to_json(request: &PricingRequest) -> Result<String, WireError> {
-    serialize(&RequestV1::from(request), false)
+    serialize(&RequestV3::from(request), false)
 }
 pub fn request_to_pretty_json(request: &PricingRequest) -> Result<String, WireError> {
-    serialize(&RequestV1::from(request), true)
+    serialize(&RequestV3::from(request), true)
 }
 pub fn result_to_json(result: &PricingResult) -> Result<String, WireError> {
-    serialize(&ResultV1::from(result), false)
+    serialize(&ResultV3::from(result), false)
 }
 pub fn result_to_pretty_json(result: &PricingResult) -> Result<String, WireError> {
-    serialize(&ResultV1::from(result), true)
+    serialize(&ResultV3::from(result), true)
+}
+pub fn monte_carlo_result_to_json(result: &MonteCarloPrice) -> Result<String, WireError> {
+    serialize(&ResultV3::from(result), false)
+}
+pub fn monte_carlo_result_to_pretty_json(result: &MonteCarloPrice) -> Result<String, WireError> {
+    serialize(&ResultV3::from(result), true)
 }
 
 fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> {
@@ -1839,25 +3873,91 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
     let text = validate_and_decode(input, limits)?;
-    validate_envelope(text, DOCUMENT_REQUEST)?;
-    serde_json::from_str::<RequestV1>(text)
-        .map_err(json)?
-        .try_into()
+    let version = validate_envelope(text, DOCUMENT_REQUEST)?;
+    let source_fingerprint = (version != SchemaVersion::CURRENT.get())
+        .then(|| {
+            serde_json::from_str::<Value>(text)
+                .map_err(json)
+                .and_then(|value| fingerprint_request_value(&value, version))
+        })
+        .transpose()?;
+    let current = match version {
+        1 => RequestV3::from(RequestV2::from(
+            serde_json::from_str::<RequestV1>(text).map_err(json)?,
+        )),
+        2 => RequestV3::from(serde_json::from_str::<RequestV2>(text).map_err(json)?),
+        3 => serde_json::from_str::<RequestV3>(text).map_err(json)?,
+        _ => return Err(WireError::UnsupportedSchemaVersion(version)),
+    };
+    let request = PricingRequest::try_from(current)?;
+    let current_fingerprint = *fingerprint_request(&request)?.as_bytes();
+    let original_schema_version =
+        SchemaVersion::new(version).map_err(|error| WireError::Domain(error.to_string()))?;
+    let migration_ids = match version {
+        1 => vec![
+            MIGRATION_REQUEST_V1_TO_V2.to_owned(),
+            MIGRATION_REQUEST_V2_TO_V3.to_owned(),
+        ],
+        2 => vec![MIGRATION_REQUEST_V2_TO_V3.to_owned()],
+        3 => Vec::new(),
+        _ => unreachable!("accepted versions are checked above"),
+    };
+    Ok(request.with_wire_migration(MigrationProvenance::new(
+        original_schema_version,
+        SchemaVersion::CURRENT,
+        migration_ids,
+        source_fingerprint.map_or(current_fingerprint, |fingerprint| *fingerprint.as_bytes()),
+        current_fingerprint,
+    )))
 }
 
 pub fn parse_result_json(input: &[u8], limits: JsonLimits) -> Result<PricingResult, WireError> {
     let text = validate_and_decode(input, limits)?;
-    validate_envelope(text, DOCUMENT_RESULT)?;
-    serde_json::from_str::<ResultV1>(text)
-        .map_err(json)?
-        .try_into()
+    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    let current = match version {
+        1 => ResultV3::from(ResultV2::from(
+            serde_json::from_str::<ResultV1>(text).map_err(json)?,
+        )),
+        2 => ResultV3::from(serde_json::from_str::<ResultV2>(text).map_err(json)?),
+        3 => serde_json::from_str::<ResultV3>(text).map_err(json)?,
+        _ => return Err(WireError::UnsupportedSchemaVersion(version)),
+    };
+    current.try_into()
+}
+
+pub fn parse_monte_carlo_result_json(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<MonteCarloPrice, WireError> {
+    let text = validate_and_decode(input, limits)?;
+    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    let mut current = match version {
+        1 => ResultV3::from(ResultV2::from(
+            serde_json::from_str::<ResultV1>(text).map_err(json)?,
+        )),
+        2 => ResultV3::from(serde_json::from_str::<ResultV2>(text).map_err(json)?),
+        3 => serde_json::from_str::<ResultV3>(text).map_err(json)?,
+        _ => return Err(WireError::UnsupportedSchemaVersion(version)),
+    };
+    let monte_carlo = current.monte_carlo.take().ok_or_else(|| {
+        domain_at(
+            "/monte_carlo",
+            "Monte Carlo result metadata is required for this operation",
+        )
+    })?;
+    let pricing_result = PricingResult::try_from(current)?;
+    monte_carlo_price_from_wire(monte_carlo, pricing_result)
 }
 
 pub fn fingerprint_request(request: &PricingRequest) -> Result<Fingerprint, WireError> {
-    let value = serde_json::to_value(RequestV1::from(request)).map_err(json)?;
+    let value = serde_json::to_value(RequestV3::from(request)).map_err(json)?;
+    fingerprint_request_value(&value, SchemaVersion::CURRENT.get())
+}
+
+fn fingerprint_request_value(value: &Value, schema_version: u32) -> Result<Fingerprint, WireError> {
     let mut bytes = b"pricing/request\0".to_vec();
-    bytes.extend_from_slice(&SchemaVersion::CURRENT.get().to_be_bytes());
-    encode_value(&value, &mut bytes)?;
+    bytes.extend_from_slice(&schema_version.to_be_bytes());
+    encode_value(value, &mut bytes)?;
     Ok(Fingerprint(*blake3::hash(&bytes).as_bytes()))
 }
 
@@ -2084,7 +4184,7 @@ fn structural_limits(root: &Value, limits: JsonLimits) -> Result<(), WireError> 
         match value {
             Value::Null => {
                 return Err(WireError::Json(
-                    "JSON null is not permitted by schema v1".to_owned(),
+                    "JSON null is not permitted by the pricing schema".to_owned(),
                 ));
             }
             Value::Array(values) => {
@@ -2116,9 +4216,10 @@ fn json(error: serde_json::Error) -> WireError {
     WireError::Json(error.to_string())
 }
 
-fn validate_envelope(text: &str, expected: &'static str) -> Result<(), WireError> {
+fn validate_envelope(text: &str, expected: &'static str) -> Result<u32, WireError> {
     let envelope: Envelope = serde_json::from_str(text).map_err(json)?;
-    check_header(&envelope.document_kind, envelope.schema_version, expected)
+    check_header(&envelope.document_kind, envelope.schema_version, expected)?;
+    Ok(envelope.schema_version)
 }
 
 fn check_header(kind: &str, version: u32, expected: &'static str) -> Result<(), WireError> {
@@ -2167,15 +4268,17 @@ fn non_empty_string_at(value: String, pointer: &'static str) -> Result<String, W
 
 #[must_use]
 pub const fn current_request_schema() -> &'static str {
-    include_str!("../../../schemas/v1/pricing_request.schema.json")
+    include_str!("../../../schemas/v3/pricing_request.schema.json")
 }
 #[must_use]
 pub const fn current_result_schema() -> &'static str {
-    include_str!("../../../schemas/v1/pricing_result.schema.json")
+    include_str!("../../../schemas/v3/pricing_result.schema.json")
 }
 
 #[cfg(test)]
 mod tests {
+    use pricing_mc::ExecutionPolicy;
+
     use super::*;
 
     fn request() -> PricingRequest {
@@ -2213,6 +4316,48 @@ mod tests {
             RiskRequest::price_only(SmileDynamics::StickyLogMoneyness),
         )
         .expect("request")
+    }
+
+    fn american_request() -> PricingRequest {
+        let base = request();
+        let product = ProductSpec::AmericanVanilla(
+            AmericanVanillaSpec::new(
+                base.product().underlying(),
+                base.product().currency(),
+                base.product().expiry(),
+                100.0,
+                1.0,
+                OptionSide::Put,
+                vec![
+                    "2027-03-04".parse().expect("exercise date"),
+                    base.product().expiry(),
+                ],
+            )
+            .expect("American product"),
+        );
+        let training_engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(19, 512, VarianceReduction::new(true, false))
+                .expect("training engine"),
+        );
+        let lsm = LsmConfig::new(
+            training_engine,
+            vec![LsmStateVariable::Spot],
+            PolynomialBasisSpec::new(1, 2, 3, 3).expect("basis"),
+            1.0e-12,
+            CpqrConfig::new(1.0e-12, 1.0e-10).expect("cpqr"),
+            4096,
+        )
+        .expect("lsm");
+        PricingRequest::new_with_lsm(
+            base.valuation_date(),
+            product,
+            base.market().clone(),
+            base.model().clone(),
+            base.engine(),
+            base.risk().clone(),
+            Some(lsm),
+        )
+        .expect("American request")
     }
 
     fn black_76_request() -> PricingRequest {
@@ -2308,6 +4453,7 @@ mod tests {
                 OptionSide::Call,
                 BarrierDirection::Up,
                 BarrierStyle::KnockOut,
+                BarrierMonitoring::Continuous,
                 vec![
                     "2027-03-04".parse().expect("monitoring"),
                     "2027-09-04".parse().expect("expiry"),
@@ -2534,10 +4680,11 @@ mod tests {
         let compact = request_to_json(&request).expect("json");
         assert_eq!(
             compact,
-            include_str!("../../../fixtures/v1/pricing_request.golden.json")
+            include_str!("../../../fixtures/v3/pricing_request.golden.json")
         );
         assert_json_text_contract(&compact);
         let parsed = parse_request_json(compact.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(request, parsed);
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")
@@ -2550,6 +4697,150 @@ mod tests {
             fingerprint_request(&parsed).expect("fingerprint"),
             fingerprint_request(&reparsed).expect("fingerprint")
         );
+    }
+
+    #[test]
+    fn schema_v1_documents_migrate_forward_and_remain_strict() {
+        assert_eq!(MigrationRegistry.accepted_source_versions(), &[1, 2, 3]);
+        let request_v1 = include_str!("../../../fixtures/v1/pricing_request.golden.json");
+        let request = parse_request_json(request_v1.as_bytes(), JsonLimits::DEFAULT)
+            .expect("migrate request");
+        let request_migration = request.wire_migration().expect("request migration");
+        assert_eq!(request_migration.original_schema_version().get(), 1);
+        assert_eq!(request_migration.current_schema_version().get(), 3);
+        assert_eq!(
+            request_migration.migration_ids(),
+            &[
+                MIGRATION_REQUEST_V1_TO_V2.to_owned(),
+                MIGRATION_REQUEST_V2_TO_V3.to_owned(),
+            ]
+        );
+        assert_ne!(
+            request_migration.pre_migration_fingerprint(),
+            request_migration.post_migration_fingerprint()
+        );
+        let migrated_request_result = crate::SimulationPlan::compile(
+            &request,
+            ExecutionPolicy::new(1, Some(256)).expect("policy"),
+        )
+        .expect("plan")
+        .execute()
+        .expect("result");
+        assert_eq!(
+            migrated_request_result.pricing_result.replay.migration(),
+            request_migration
+        );
+        assert_eq!(
+            request_to_json(&request).expect("current request"),
+            include_str!("../../../fixtures/v3/pricing_request.golden.json")
+        );
+        let invalid_v1 = request_v1.replacen(
+            "\"smile_dynamics\"",
+            "\"payoff_smoothing_width_ladder\":[2.0,1.0],\"smile_dynamics\"",
+            1,
+        );
+        assert!(parse_request_json(invalid_v1.as_bytes(), JsonLimits::DEFAULT).is_err());
+
+        let result_v1 = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let result =
+            parse_result_json(result_v1.as_bytes(), JsonLimits::DEFAULT).expect("migrate result");
+        assert_eq!(
+            result_to_json(&result).expect("current result"),
+            include_str!("../../../fixtures/v3/pricing_result_v1_migrated.golden.json")
+        );
+        assert_eq!(result.replay.schema_version(), SchemaVersion::CURRENT);
+        assert_eq!(
+            result.replay.migration().migration_ids(),
+            &[
+                MIGRATION_RESULT_V1_TO_V2.to_owned(),
+                MIGRATION_RESULT_V2_TO_V3.to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn schema_v2_documents_migrate_to_v3_with_adjacent_provenance() {
+        let request_v2 = include_str!("../../../fixtures/v2/pricing_request.golden.json");
+        let request =
+            parse_request_json(request_v2.as_bytes(), JsonLimits::DEFAULT).expect("request");
+        let migration = request.wire_migration().expect("migration");
+        assert_eq!(migration.original_schema_version().get(), 2);
+        assert_eq!(migration.current_schema_version().get(), 3);
+        assert_eq!(
+            migration.migration_ids(),
+            &[MIGRATION_REQUEST_V2_TO_V3.to_owned()]
+        );
+        assert_ne!(
+            migration.pre_migration_fingerprint(),
+            migration.post_migration_fingerprint()
+        );
+        assert_eq!(
+            request_to_json(&request).expect("current request"),
+            include_str!("../../../fixtures/v3/pricing_request.golden.json")
+        );
+
+        let result_v2 = include_str!("../../../fixtures/v2/pricing_result.golden.json");
+        let result = parse_result_json(result_v2.as_bytes(), JsonLimits::DEFAULT).expect("result");
+        assert_eq!(result.replay.migration().original_schema_version().get(), 2);
+        assert_eq!(result.replay.migration().current_schema_version().get(), 3);
+        assert_eq!(
+            result.replay.migration().migration_ids(),
+            &[MIGRATION_RESULT_V2_TO_V3.to_owned()]
+        );
+        assert_eq!(
+            result_to_json(&result).expect("current result"),
+            include_str!("../../../fixtures/v3/pricing_result_v2_migrated.golden.json")
+        );
+    }
+
+    #[test]
+    fn request_json_round_trips_american_product_and_lsm_configuration() {
+        let request = american_request();
+        let expected_lsm_fingerprint = request.lsm().expect("lsm").fingerprint();
+
+        let json = request_to_json(&request).expect("json");
+        assert_eq!(
+            json,
+            include_str!("../../../fixtures/v3/pricing_request_american.golden.json")
+        );
+        assert!(json.contains("\"type\":\"american_vanilla\""));
+        assert!(json.contains("\"exercise_dates\":[\"2027-03-04\",\"2027-09-04\"]"));
+        assert!(json.contains("\"lsm\":{"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+
+        assert_eq!(request, parsed);
+        assert_eq!(
+            parsed.lsm().expect("parsed lsm").fingerprint(),
+            expected_lsm_fingerprint
+        );
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+        assert_eq!(
+            fingerprint_request(&parsed).expect("fingerprint"),
+            fingerprint_request(&request).expect("fingerprint")
+        );
+
+        let mut legacy_value: Value = serde_json::from_str(&json).expect("request value");
+        legacy_value["schema_version"] = 2.into();
+        legacy_value
+            .as_object_mut()
+            .expect("request object")
+            .remove("lsm");
+        assert!(
+            parse_request_json(
+                serde_json::to_string(&legacy_value)
+                    .expect("legacy-shaped JSON")
+                    .as_bytes(),
+                JsonLimits::DEFAULT,
+            )
+            .is_err()
+        );
+
+        let oversized_basis = json.replacen("\"max_degree\":2", "\"max_degree\":4294967295", 1);
+        assert!(matches!(
+            parse_request_json(oversized_basis.as_bytes(), JsonLimits::DEFAULT),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/lsm/basis/max_degree" && message.contains("resource limit")
+        ));
     }
 
     #[test]
@@ -2581,6 +4872,86 @@ mod tests {
     }
 
     #[test]
+    fn request_json_round_trips_digital_payoff_smoothing() {
+        let base = digital_request();
+        let risk = RiskRequest::new(
+            true,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(2.0).expect("smoothing"));
+        let request = PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            base.model().clone(),
+            base.engine(),
+            risk,
+        )
+        .expect("request");
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"payoff_smoothing\":{\"type\":\"compact_c2\",\"half_width\":2.0}"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            parsed.risk().payoff_smoothing(),
+            request.risk().payoff_smoothing()
+        );
+        assert_eq!(fingerprint_request(&parsed), fingerprint_request(&request));
+    }
+
+    #[test]
+    fn request_json_round_trips_payoff_smoothing_width_ladder() {
+        let base = digital_request();
+        let risk = RiskRequest::new(
+            true,
+            None,
+            true,
+            None,
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .expect("risk")
+        .with_payoff_smoothing(PayoffSmoothing::compact_c2(3.0).expect("primary"))
+        .with_payoff_smoothing_width_ladder(
+            PayoffSmoothingWidthLadder::new(vec![4.0, 2.0, 1.0]).expect("ladder"),
+        );
+        let request = PricingRequest::new(
+            base.valuation_date(),
+            base.product().clone(),
+            base.market().clone(),
+            base.model().clone(),
+            base.engine(),
+            risk,
+        )
+        .expect("request");
+
+        let json = request_to_json(&request).expect("json");
+        assert!(json.contains("\"payoff_smoothing_width_ladder\":[4.0,2.0,1.0]"));
+        let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
+        assert_eq!(
+            parsed
+                .risk()
+                .payoff_smoothing_width_ladder()
+                .expect("ladder")
+                .half_widths(),
+            request
+                .risk()
+                .payoff_smoothing_width_ladder()
+                .expect("ladder")
+                .half_widths()
+        );
+        assert_eq!(request_to_json(&parsed).expect("json"), json);
+        assert_eq!(fingerprint_request(&parsed), fingerprint_request(&request));
+    }
+
+    #[test]
     fn digital_request_json_defaults_missing_payment_date_to_expiry() {
         let json = request_to_json(&digital_request()).expect("json");
         let legacy_json = json.replace(",\"payment_date\":\"2027-09-04\"", "");
@@ -2602,9 +4973,14 @@ mod tests {
         assert!(json.contains("\"type\":\"barrier\""));
         assert!(json.contains("\"direction\":{\"type\":\"up\"}"));
         assert!(json.contains("\"style\":{\"type\":\"knock_out\"}"));
+        assert!(json.contains("\"monitoring\":{\"type\":\"continuous\"}"));
         assert!(json.contains("\"rebate\":3.0"));
         let parsed = parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).expect("parse");
-        assert!(matches!(parsed.product(), ProductSpec::Barrier(_)));
+        assert!(matches!(
+            parsed.product(),
+            ProductSpec::Barrier(product)
+                if product.monitoring() == BarrierMonitoring::Continuous
+        ));
         assert_eq!(
             fingerprint_request(&request).expect("fingerprint"),
             fingerprint_request(&parsed).expect("fingerprint")
@@ -2642,6 +5018,39 @@ mod tests {
             fingerprint_request(&parsed).expect("fingerprint")
         );
         assert_eq!(request_to_json(&parsed).expect("json"), json);
+    }
+
+    #[test]
+    fn absent_optional_product_values_are_omitted_instead_of_serialized_as_null() {
+        let barrier = ProductV1::Barrier {
+            underlying_id: 1,
+            currency_id: 2,
+            expiry: "2027-09-04".to_owned(),
+            strike: 100.0,
+            barrier: 120.0,
+            notional: 1.0,
+            side: SideV1::Call,
+            direction: BarrierDirectionV1::Up,
+            style: BarrierStyleV1::KnockOut,
+            monitoring: BarrierMonitoringV1::Discrete,
+            monitoring_dates: vec!["2027-09-04".to_owned()],
+            rebate: None,
+            payment_date: "2027-09-04".to_owned(),
+        };
+        let lookback = ProductV1::FixedLookback {
+            underlying_id: 1,
+            currency_id: 2,
+            strike: 100.0,
+            notional: 1.0,
+            side: SideV1::Put,
+            monitoring_dates: vec!["2027-09-04".to_owned()],
+            historical_extremum: None,
+            payment_date: "2027-09-04".to_owned(),
+        };
+        let barrier_json = serde_json::to_value(barrier).expect("Barrier JSON");
+        let lookback_json = serde_json::to_value(lookback).expect("Lookback JSON");
+        assert!(barrier_json.get("rebate").is_none());
+        assert!(lookback_json.get("historical_extremum").is_none());
     }
 
     #[test]
@@ -2839,10 +5248,10 @@ mod tests {
         assert!(parse_request_json(unknown.as_bytes(), JsonLimits::DEFAULT).is_err());
         let null = json.replacen("\"risk\":{", "\"risk\":{\"aad_tile_capacity\":null,", 1);
         assert!(parse_request_json(null.as_bytes(), JsonLimits::DEFAULT).is_err());
-        let future = json.replacen("\"schema_version\":1", "\"schema_version\":2", 1);
+        let future = json.replacen("\"schema_version\":3", "\"schema_version\":4", 1);
         assert!(matches!(
             parse_request_json(future.as_bytes(), JsonLimits::DEFAULT),
-            Err(WireError::UnsupportedSchemaVersion(2))
+            Err(WireError::UnsupportedSchemaVersion(4))
         ));
         let limits = JsonLimits {
             max_input_bytes: 8,
@@ -2864,7 +5273,7 @@ mod tests {
         }
         for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
             let invalid = json.replacen(
-                "\"schema_version\":1",
+                "\"schema_version\":3",
                 &format!("\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3043,7 +5452,7 @@ mod tests {
         let request_json = request_to_json(&request()).expect("request json");
         let duplicate_request_root = request_json.replacen(
             "\"valuation_date\"",
-            "\"schema_version\":1,\"valuation_date\"",
+            "\"schema_version\":3,\"valuation_date\"",
             1,
         );
         let duplicate_request_nested =
@@ -3303,13 +5712,102 @@ mod tests {
         let json = result_to_json(&result).expect("json");
         assert_eq!(
             json,
-            include_str!("../../../fixtures/v1/pricing_result.golden.json")
+            include_str!("../../../fixtures/v3/pricing_result.golden.json")
         );
         assert_json_text_contract(&json);
         assert_json_text_contract(&result_to_pretty_json(&result).expect("pretty json"));
         assert_eq!(
             parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("round trip"),
             result
+        );
+    }
+
+    #[test]
+    fn schema_v3_rejects_experimental_calibration_domain_on_write() {
+        let mut result = parse_monte_carlo_result_json(
+            include_bytes!("../../../fixtures/v3/pricing_result_american.golden.json"),
+            JsonLimits::DEFAULT,
+        )
+        .expect("accepted American replay fixture");
+        result
+            .early_exercise_diagnostics
+            .as_mut()
+            .expect("LSM diagnostics")
+            .training_random_domain = RandomDomain::LsvCalibration;
+        assert!(monte_carlo_result_to_json(&result).is_err());
+        assert!(monte_carlo_result_to_pretty_json(&result).is_err());
+    }
+
+    #[test]
+    fn monte_carlo_result_round_trips_complete_american_lsm_replay_state() {
+        let result = crate::price_monte_carlo(
+            &american_request(),
+            ExecutionPolicy::new(2, Some(256)).expect("execution policy"),
+        )
+        .expect("American result");
+        let json = monte_carlo_result_to_json(&result).expect("JSON");
+        if std::env::var_os("UPDATE_AMERICAN_RESULT_GOLDEN").is_some() {
+            std::fs::write(
+                concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../fixtures/v3/pricing_result_american.golden.json"
+                ),
+                &json,
+            )
+            .expect("write American result golden");
+        }
+        let golden = include_str!("../../../fixtures/v3/pricing_result_american.golden.json");
+        let frozen_platform = "\"platform\":\"macos-aarch64\"";
+        assert_eq!(golden.matches(frozen_platform).count(), 1);
+        let expected = golden.replacen(
+            frozen_platform,
+            &format!(
+                "\"platform\":{}",
+                serde_json::to_string(result.pricing_result.replay.platform())
+                    .expect("platform JSON string")
+            ),
+            1,
+        );
+        assert_eq!(json, expected);
+        assert_json_text_contract(&json);
+        assert!(json.contains("\"early_exercise\""));
+        assert!(json.contains("\"decision_models\""));
+        assert_eq!(
+            parse_monte_carlo_result_json(json.as_bytes(), JsonLimits::DEFAULT)
+                .expect("round trip"),
+            result
+        );
+        assert_eq!(
+            parse_result_json(json.as_bytes(), JsonLimits::DEFAULT).expect("core result"),
+            result.pricing_result
+        );
+
+        let mut invalid: Value = serde_json::from_str(&json).expect("JSON value");
+        invalid["monte_carlo"]["early_exercise"]["stopping_indices"][0] = serde_json::json!(999);
+        assert!(matches!(
+            parse_monte_carlo_result_json(
+                serde_json::to_string(&invalid).expect("JSON").as_bytes(),
+                JsonLimits::DEFAULT,
+            ),
+            Err(WireError::DomainAt { pointer, .. })
+                if pointer == "/monte_carlo/early_exercise/stopping_indices"
+        ));
+        assert!(
+            parse_result_json(
+                serde_json::to_string(&invalid).expect("JSON").as_bytes(),
+                JsonLimits::DEFAULT,
+            )
+            .is_err()
+        );
+
+        let mut unknown: Value = serde_json::from_str(&json).expect("JSON value");
+        unknown["monte_carlo"]["early_exercise"]["unknown"] = serde_json::json!(true);
+        assert!(
+            parse_monte_carlo_result_json(
+                serde_json::to_string(&unknown).expect("JSON").as_bytes(),
+                JsonLimits::DEFAULT,
+            )
+            .is_err()
         );
     }
 
@@ -3322,7 +5820,7 @@ mod tests {
 
     #[test]
     fn result_json_domain_errors_include_instance_paths() {
-        let json = include_str!("../../../fixtures/v1/pricing_result.golden.json");
+        let json = include_str!("../../../fixtures/v3/pricing_result.golden.json");
         let invalid_estimate =
             json.replacen("\"standard_error\":0.5", "\"standard_error\":-0.5", 1);
         assert!(matches!(
@@ -3353,19 +5851,19 @@ mod tests {
         ));
 
         let future_replay_schema = json.replace(
-            "\"replay\":{\"schema_version\":1",
-            "\"replay\":{\"schema_version\":2",
+            "\"replay\":{\"schema_version\":3",
+            "\"replay\":{\"schema_version\":4",
         );
         assert!(matches!(
             parse_result_json(future_replay_schema.as_bytes(), JsonLimits::DEFAULT),
             Err(WireError::DomainAt { pointer, message })
                 if pointer == "/replay/schema_version"
-                    && message.contains("unsupported replay schema_version 2")
+                    && message.contains("unsupported replay schema_version 4")
         ));
 
         for schema_version in ["1.0", "1e0", "-0", "\"1\""] {
             let invalid_top_level = json.replacen(
-                "\"schema_version\":1",
+                "\"schema_version\":3",
                 &format!("\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3374,7 +5872,7 @@ mod tests {
                 "result JSON accepted schema_version {schema_version}"
             );
             let invalid_replay = json.replacen(
-                "\"replay\":{\"schema_version\":1",
+                "\"replay\":{\"schema_version\":3",
                 &format!("\"replay\":{{\"schema_version\":{schema_version}"),
                 1,
             );
@@ -3419,6 +5917,49 @@ mod tests {
                 "result JSON accepted {constant}"
             );
         }
+    }
+
+    #[test]
+    fn result_json_rejects_inconsistent_migration_provenance() {
+        let json = include_str!("../../../fixtures/v3/pricing_result.golden.json");
+
+        let mut wrong_ids: serde_json::Value = serde_json::from_str(json).expect("fixture");
+        wrong_ids["replay"]["migration"]["original_schema_version"] = 1.into();
+        assert!(matches!(
+            parse_result_json(
+                serde_json::to_string(&wrong_ids).expect("json").as_bytes(),
+                JsonLimits::DEFAULT
+            ),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/migration/migration_ids"
+                    && message.contains("schema path")
+        ));
+
+        let mut wrong_post: serde_json::Value = serde_json::from_str(json).expect("fixture");
+        wrong_post["replay"]["migration"]["post_migration_fingerprint"] =
+            "blake3-256:1111111111111111111111111111111111111111111111111111111111111111".into();
+        assert!(matches!(
+            parse_result_json(
+                serde_json::to_string(&wrong_post).expect("json").as_bytes(),
+                JsonLimits::DEFAULT
+            ),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/migration/post_migration_fingerprint"
+                    && message.contains("request_fingerprint")
+        ));
+
+        let mut wrong_pre: serde_json::Value = serde_json::from_str(json).expect("fixture");
+        wrong_pre["replay"]["migration"]["pre_migration_fingerprint"] =
+            "blake3-256:1111111111111111111111111111111111111111111111111111111111111111".into();
+        assert!(matches!(
+            parse_result_json(
+                serde_json::to_string(&wrong_pre).expect("json").as_bytes(),
+                JsonLimits::DEFAULT
+            ),
+            Err(WireError::DomainAt { pointer, message })
+                if pointer == "/replay/migration/pre_migration_fingerprint"
+                    && message.contains("identical")
+        ));
     }
 
     #[test]
