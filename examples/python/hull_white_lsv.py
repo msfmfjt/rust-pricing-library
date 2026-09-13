@@ -70,9 +70,21 @@ cash_plan = rp.HullWhiteEquityPlan.compile_lsv(
     equity_vol_correlation=-0.5, equity_rate_correlation=0.25,
     vol_rate_correlation=-0.1, particle_count=8192, calibration_seed=712,
     log_bandwidth=0.14, minimum_effective_samples=20.0, worker_threads=2,
-    cash_dividend_model="escrowed",
+    cash_dividend_model="escrowed", retain_reverse_trace=True,
 )
 cash_price = cash_plan.evaluate()
 print("Cash dividend model:", cash_price.cash_dividend_model)
 print("Initial risky equity (after dividend reserve):", cash_plan.risky_spot)
 print("Cash-dividend LSV + HW price / SE:", cash_price.value, cash_price.standard_error)
+
+# AAD includes particle recalibration. Target variance and forward density are
+# separate active inputs; contract both for a smile bump. HW/Bergomi parameters,
+# correlations and payout amounts are held fixed. Curve risk refits the initial
+# HW curve and includes the reserve and payment discount.
+cash_risk = cash_plan.evaluate_aad()
+assert cash_risk.price.value == cash_price.value
+print("Cash AAD Delta:", cash_risk.delta)
+print("Cash AAD signed +1 bp discount-curve DV01:", cash_risk.parallel_discount_dv01)
+print("Discount log-DF node adjoints:", cash_risk.discount_log_df_adjoints)
+print("Paired target risk shape:", (len(cash_risk.time_nodes), len(cash_risk.log_moneyness_nodes)))
+print("AAD method / uncertainty:", cash_risk.method, cash_risk.uncertainty_scope)

@@ -14,6 +14,12 @@ use pricing_models::{
 use pricing_numerics::{NeumaierSum, standard_normal_pdf};
 use std::{error::Error, fmt};
 
+mod reverse;
+pub use reverse::{
+    HULL_WHITE_AAD_METHOD, HullWhiteCalibrationAdjoints, HullWhitePathAdjoints,
+    HullWhiteRecordedPath,
+};
+
 pub const HULL_WHITE_EQUITY_SCHEME: &str = "equity-hw1f-joint-gaussian-log-euler-v1";
 pub const HULL_WHITE_LSV_CALIBRATION: &str = "lsv-hw-discounted-quartic-centered-rate-v1";
 pub const HULL_WHITE_CASH_LSV_CALIBRATION: &str = "lsv-hw-escrowed-quadratic-quartic-v1";
@@ -489,6 +495,7 @@ pub struct CalibratedHullWhiteLsv {
     pub conditional_cross_moments: Box<[f64]>,
     /// Cash-dividend conditional bond variance coefficient.
     pub conditional_rate_variances: Box<[f64]>,
+    reverse_trace: Option<reverse::CalibrationTrace>,
 }
 
 pub fn calibrate_hull_white_lsv(
@@ -519,12 +526,6 @@ pub fn calibrate_hull_white_lsv_with_dividends(
     config: &LsvParticleConfig,
     dividends: Option<&HullWhiteDividendPlan>,
 ) -> Result<CalibratedHullWhiteLsv, HullWhiteMcError> {
-    if config.retain_reverse_trace() {
-        return Err(HullWhiteError::Unsupported {
-            feature: "hybrid calibration reverse trace (price-only API)",
-        }
-        .into());
-    }
     if factor.correlation() != correlation.equity_vol {
         return Err(invalid("equity_vol_correlation_mismatch", 0));
     }
@@ -559,6 +560,7 @@ pub fn calibrate_hull_white_lsv_with_dividends(
     let mut crosses = Vec::with_capacity(values.capacity());
     let mut rate_variances = Vec::with_capacity(values.capacity());
     let mut diagnostics = Vec::new();
+    let mut trace = config.retain_reverse_trace().then(Vec::new);
     for (r, &t) in times.iter().enumerate() {
         let shift = rates.rate_shift(t)?;
         let half_v = 0.5 * rates.integrated_variance(t)?;
@@ -605,6 +607,7 @@ pub fn calibrate_hull_white_lsv_with_dividends(
             suffix_y[i] = sy.total();
         }
         let mut row = vec![None; m];
+        let mut weight_sums = vec![0.0; m];
         let analytic = r == 0 || (rates.is_deterministic() && factor.vol_of_vol() == 0.0);
         for (j, &x) in xs.iter().enumerate() {
             if analytic {
@@ -662,6 +665,7 @@ pub fn calibrate_hull_white_lsv_with_dividends(
                 wc.total() / w.total(),
                 wr.total() / w.total(),
             ));
+            weight_sums[j] = w.total();
         }
         let supported = row
             .iter()
@@ -672,6 +676,7 @@ pub fn calibrate_hull_white_lsv_with_dividends(
             return Err(invalid("no_supported_calibration_node", r));
         }
         let mut fallback = 0;
+        let mut donors = Vec::with_capacity(m);
         let mut max_c: f64 = 0.0;
         let min_ess = supported
             .iter()
@@ -693,6 +698,7 @@ pub fn calibrate_hull_white_lsv_with_dividends(
                     .unwrap()
             };
             let (second, correction, _, cross, rate_variance) = row[donor].unwrap();
+            donors.push(donor);
             let value = corrected_leverage(
                 grid.values()[r * m + j] - correction,
                 second,
@@ -717,6 +723,14 @@ pub fn calibrate_hull_white_lsv_with_dividends(
             mean_discounted_normalized_equity: sdf.total() / n as f64,
             maximum_rate_correction: max_c,
         });
+        if let Some(trace) = &mut trace {
+            trace.push(reverse::TraceRow {
+                states: states.clone().into(),
+                weight_sums: weight_sums.into(),
+                donors: donors.into(),
+                analytic,
+            });
+        }
         if r < steps {
             for (p, state) in states.iter_mut().enumerate() {
                 let x = (target_state(dividends, r, *state)?.0 / initial_spot).ln();
@@ -734,14 +748,34 @@ pub fn calibrate_hull_white_lsv_with_dividends(
             }
         }
     }
-    Ok(CalibratedHullWhiteLsv {
+    let mut calibrated = CalibratedHullWhiteLsv {
         surface: LsvLeverageSurface::new(times.to_vec(), xs.to_vec(), values, initial_spot)?,
         diagnostics: diagnostics.into(),
         conditional_second_moments: moments.into(),
         rate_corrections: corrections.into(),
         conditional_cross_moments: crosses.into(),
         conditional_rate_variances: rate_variances.into(),
-    })
+        reverse_trace: trace.map(|rows| reverse::CalibrationTrace {
+            rows: rows.into(),
+            target: target.clone(),
+            factor,
+            rates: rates.clone(),
+            correlation,
+            config: config.clone(),
+            dividends: dividends.cloned(),
+            kernels: kernels.into(),
+            primal_fingerprint: [0; 32],
+        }),
+    };
+    if config.retain_reverse_trace() {
+        let fingerprint = calibrated.reverse_primal_fingerprint();
+        calibrated
+            .reverse_trace
+            .as_mut()
+            .expect("reverse trace requested")
+            .primal_fingerprint = fingerprint;
+    }
+    Ok(calibrated)
 }
 
 fn target_state(

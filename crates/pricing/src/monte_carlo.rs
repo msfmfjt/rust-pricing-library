@@ -1427,6 +1427,106 @@ impl SimulationPlan {
         &self.observation_times
     }
 
+    /// Exact primal observations of the default proportional-dividend map.
+    pub(crate) fn hybrid_proportional_spots(
+        &self,
+        times: &[f64],
+        equity: &[f64],
+    ) -> Result<Vec<(f64, Option<f64>)>, MonteCarloError> {
+        if times.len() != equity.len() {
+            return Err(pricing_models::HullWhiteError::InvalidInput {
+                field: "hybrid_spot_count",
+                index: equity.len(),
+            }
+            .into());
+        }
+        let mut spots = vec![(0.0, None); times.len()];
+        for (i, t) in self.observation_times.iter().enumerate() {
+            let index = times.binary_search_by(|v| v.total_cmp(t)).map_err(|_| {
+                pricing_models::HullWhiteError::InvalidInput {
+                    field: "missing_observation_time",
+                    index: i,
+                }
+            })?;
+            let c = self.observation_affine_coordinates[i];
+            let f = equity[index] * self.observation_forwards[i] / self.spot;
+            spots[index] = (
+                c.a() * self.spot + c.b() * f,
+                self.observation_pre_dividend_coordinates[i].map(|c| c.a() * self.spot + c.b() * f),
+            );
+        }
+        Ok(spots)
+    }
+
+    /// Evaluate on reconstructed physical Spot without another affine mapping.
+    pub(crate) fn hybrid_spot_payoff_adjoints(
+        &self,
+        times: &[f64],
+        spots: &[(f64, Option<f64>)],
+    ) -> Result<(f64, Vec<(f64, f64)>), MonteCarloError> {
+        if times.len() != spots.len() {
+            return Err(pricing_models::HullWhiteError::InvalidInput {
+                field: "hybrid_spot_count",
+                index: spots.len(),
+            }
+            .into());
+        }
+        let indices = self
+            .observation_times
+            .iter()
+            .map(|t| {
+                times.binary_search_by(|x| x.total_cmp(t)).map_err(|_| {
+                    pricing_models::HullWhiteError::InvalidInput {
+                        field: "missing_observation_time",
+                        index: 0,
+                    }
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let at = |u, d, pre| {
+            if u != self.underlying {
+                return None;
+            }
+            self.observation_dates
+                .iter()
+                .position(|date| *date == d)
+                .and_then(|i| {
+                    if pre {
+                        spots[indices[i]].1
+                    } else {
+                        Some(spots[indices[i]].0)
+                    }
+                })
+        };
+        let payoff = self.payoff.evaluate_single_with_observation_adjoints(
+            |u, d| at(u, d, false),
+            |u, d| at(u, d, true),
+        )?;
+        let mut seeds = vec![(0.0, 0.0); times.len()];
+        for (pre, underlying, date, value) in payoff
+            .terminal_adjoints
+            .iter()
+            .map(|a| (false, a.underlying, a.observation_date, a.value))
+            .chain(
+                payoff
+                    .pre_dividend_adjoints
+                    .iter()
+                    .map(|a| (true, a.underlying, a.observation_date, a.value)),
+            )
+        {
+            if underlying == self.underlying
+                && let Some(i) = self.observation_dates.iter().position(|d| *d == date)
+            {
+                if pre {
+                    seeds[indices[i]].1 += self.discount * value;
+                } else {
+                    seeds[indices[i]].0 += self.discount * value;
+                }
+            }
+        }
+        Ok((self.discount * payoff.value, seeds))
+    }
+
     /// Evaluate on reconstructed physical Spot without another affine mapping.
     pub(crate) fn hybrid_spot_payoff(
         &self,

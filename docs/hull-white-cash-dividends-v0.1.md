@@ -1,8 +1,9 @@
 # Hull–White cash-dividend numerical contracts
 
-Date: 2026-09-13. Status: experimental, price only.
+Date: 2026-09-13. Status: experimental price and coordinate contracts.
 Decision: [ADR 0002](adr/0002-hull-white-cash-dividends.md).
 Base: [HW contracts](hull-white-numerical-contracts-v0.1.md), PR #48.
+First-order risk is specified separately in the [AAD contracts](hull-white-aad-v0.1.md).
 
 ## Explicit model and API
 
@@ -152,7 +153,8 @@ now describe F; its discounted mean is S0 because `E[Dbar*y]=0`.
 - The effective reserve coefficients, event data, initial residual equity and
   model identifier enter the plan fingerprint, including future dividends.
 - Pricing SE excludes calibration noise, kernel bias and log-Euler time bias.
-  Hybrid AAD, DV01, VegaKT and dividend sensitivities remain unsupported.
+  The explicit AAD extension includes initial-curve DV01 and paired target
+  sensitivities. Gamma, market-IV VegaKT and dividend-amount risk remain unsupported.
 
 ## Focused evidence and acceptance boundary
 

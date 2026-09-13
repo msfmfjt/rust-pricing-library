@@ -28,7 +28,7 @@ class HullWhiteTest(unittest.TestCase):
             }
         return rp.PricingRequest.from_json(json.dumps(data))
 
-    def compile_lsv(self, target, workers=1):
+    def compile_lsv(self, target, workers=1, retain_reverse_trace=False):
         return rp.HullWhiteEquityPlan.compile_lsv(
             self.request(target), target, rp.HullWhiteModel(0.2, [0.0], [0.005]),
             vol_mean_reversion=2.0, vol_of_vol=0.25,
@@ -36,7 +36,84 @@ class HullWhiteTest(unittest.TestCase):
             vol_rate_correlation=-0.1, particle_count=256, calibration_seed=712,
             log_bandwidth=0.35, minimum_effective_samples=5.0,
             worker_threads=workers, reduction_block_size=32,
+            retain_reverse_trace=retain_reverse_trace,
         )
+
+    def test_bs_aad_fields_and_finite_difference(self):
+        rates = rp.HullWhiteModel(0.2, [0.0], [0.01])
+        def compile_request(data):
+            return rp.HullWhiteEquityPlan.compile_bs(
+                rp.PricingRequest.from_json(json.dumps(data)), rates,
+                equity_rate_correlation=0.25, maximum_step=0.25, worker_threads=2,
+            )
+        data = self.payload()
+        plan = compile_request(data)
+        risk = plan.evaluate_aad()
+        self.assertIsInstance(risk, rp.HullWhiteAadRisk)
+        self.assertEqual(risk.price.value, plan.evaluate().value)
+        self.assertEqual(risk.parameter_labels[:2], ["spot", "bs_volatility"])
+        self.assertEqual(len(risk.derivatives), len(risk.parameter_labels))
+        self.assertEqual(len(risk.standard_errors), len(risk.derivatives))
+        self.assertTrue(all(math.isfinite(x) and x >= 0.0 for x in risk.standard_errors))
+        self.assertFalse(plan.retains_reverse_trace)
+        self.assertEqual(risk.local_variance_adjoints, [])
+        self.assertEqual(risk.forward_log_density_adjoints, [])
+        self.assertAlmostEqual(risk.parallel_discount_dv01, sum(risk.discount_node_dv01))
+        h = 1e-5
+        data["market"]["spot"] = 100.0 + h
+        up = compile_request(data).evaluate().value
+        data["market"]["spot"] = 100.0 - h
+        down = compile_request(data).evaluate().value
+        self.assertAlmostEqual(risk.delta, (up-down)/(2*h), delta=1e-6)
+        copied = risk.derivatives
+        copied[0] = 999.0
+        self.assertEqual(risk.derivatives[0], risk.delta)
+        with self.assertRaises(AttributeError):
+            risk.delta = 1.0
+
+    def test_lsv_aad_trace_and_paired_target_contract(self):
+        target = rp.HullWhiteLsvTarget.flat(0.2, [0.0, 0.5, 1.0], [-0.5, 0.0, 0.5])
+        no_trace = self.compile_lsv(target)
+        with self.assertRaises(rp.PricingError):
+            no_trace.evaluate_aad()
+        plan = self.compile_lsv(target, retain_reverse_trace=True)
+        self.assertTrue(plan.retains_reverse_trace)
+        self.assertNotEqual(plan.plan_fingerprint, no_trace.plan_fingerprint)
+        self.assertEqual(plan.evaluate().value, no_trace.evaluate().value)
+        risk = plan.evaluate_aad()
+        self.assertIsNone(risk.vega)
+        self.assertEqual(risk.price.value, no_trace.evaluate().value)
+        self.assertEqual(risk.time_nodes, target.time_nodes)
+        self.assertEqual(risk.log_moneyness_nodes, target.log_moneyness_nodes)
+        self.assertEqual(len(risk.local_variance_adjoints), 9)
+        self.assertEqual(len(risk.forward_log_density_adjoints), 9)
+        self.assertEqual(risk.method, "equity-hw-discrete-particle-vjp-v1")
+        self.assertEqual(risk.uncertainty_scope, "pricing_conditional_on_calibration")
+        replay = self.compile_lsv(target, workers=3, retain_reverse_trace=True).evaluate_aad()
+        self.assertEqual(risk.derivatives, replay.derivatives)
+        self.assertEqual(risk.standard_errors, replay.standard_errors)
+
+    def test_cash_aad_zero_volatility_delta_and_signed_dv01(self):
+        data = self.payload()
+        data["model"]["volatility"] = 0.0
+        data["product"]["strike"] = 80.0
+        data["market"]["discrete_dividends"] = [
+            {"event_id": 1, "ex_time": 1.0, "quote": {"type": "fixed_cash", "amount": 10.0}}
+        ]
+        plan = rp.HullWhiteEquityPlan.compile_bs(
+            rp.PricingRequest.from_json(json.dumps(data)), rp.HullWhiteModel(0.2, [0.0], [0.0]),
+            equity_rate_correlation=0.0, maximum_step=1.0, worker_threads=1,
+            cash_dividend_model="escrowed",
+        )
+        risk = plan.evaluate_aad()
+        self.assertAlmostEqual(risk.price.value, 12.5, places=12)
+        self.assertAlmostEqual(risk.delta, 0.98, places=12)
+        self.assertAlmostEqual(risk.vega, 0.0, places=12)
+        self.assertAlmostEqual(risk.parallel_discount_dv01, 0.00855, places=12)
+        self.assertEqual(risk.discount_times, [0.0, 1.0])
+        self.assertEqual(risk.dividend_times, [0.0, 1.0])
+        self.assertEqual(risk.discount_log_df_adjoints[0], 0.0)
+        self.assertEqual(risk.dividend_log_df_adjoints[0], 0.0)
 
     def test_rate_model_curve_fit_bond_parity_and_validation(self):
         curve = rp.DiscountCurve(10, [0.0, 1.0, 5.0], [1.0, 1.01, 0.9])

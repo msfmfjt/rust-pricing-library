@@ -226,7 +226,10 @@ fn calibration_zero_factor_limit_and_unsupported_contracts_are_explicit() {
             LsvParticleConfig::new(128, 71, 0.14, 5.0, true).unwrap(),
             policy(1)
         )
-        .is_err()
+        .unwrap()
+        .calibration()
+        .unwrap()
+        .retains_reverse_trace()
     );
 }
 

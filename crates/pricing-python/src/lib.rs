@@ -984,6 +984,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<hull_white::PyHullWhiteLsvTarget>()?;
     module.add_class::<hull_white::PyHullWhiteEquityPlan>()?;
     module.add_class::<hull_white::PyHullWhitePrice>()?;
+    module.add_class::<hull_white::PyHullWhiteAadRisk>()?;
     module.add_class::<PyRiskEstimate>()?;
     module.add_class::<PyPricingResult>()?;
     module.add_class::<PyVegaKtCoordinate>()?;

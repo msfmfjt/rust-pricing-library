@@ -64,8 +64,11 @@ one-factor Hull–White with BS or particle-recalibrated Bergomi LSV, including
 equity/rate correlation, stochastic discounting, proportional dividends and
 payment lags. Fixed and mixed cash/proportional payouts are available through
 the explicit `cash_dividend_model="escrowed"` option, with stochastic bond
-reserves and a quadratic LSV calibration. The boundary remains price only;
-hybrid AAD is not yet supported. See the [cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
+reserves and a quadratic LSV calibration. Explicit `evaluate_aad()` returns Spot
+Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
+adjoints. LSV AAD requires `retain_reverse_trace=True`; model parameters and
+payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md),
+[cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
 [example](examples/python/hull_white_lsv.py) and
 [numerical contracts](docs/hull-white-numerical-contracts-v0.1.md).
 

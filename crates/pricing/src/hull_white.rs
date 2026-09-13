@@ -1,5 +1,6 @@
 //! Experimental one-currency equity/Hull–White pricing. Calibration input is
-//! explicit, risk requests are rejected, and the stable JSON schema is unchanged.
+//! explicit and the stable JSON schema is unchanged. Compile price-only requests;
+//! use evaluate_aad for the separate first-order hybrid sensitivity contract.
 
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 use pricing_core::DayCountConvention;
@@ -20,6 +21,9 @@ use pricing_models::hull_white_dividends::{HULL_WHITE_CASH_DIVIDEND_MODEL, HullW
 use pricing_models::{
     Bergomi1Factor, HullWhite1Factor, HullWhiteError, HybridCorrelation, ModelSpec,
 };
+
+mod aad;
+pub use aad::HullWhiteAadRisk;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HullWhitePrice {
@@ -45,6 +49,8 @@ pub struct HullWhiteEquityPricingPlan {
     spot: f64,
     payment_time: f64,
     fingerprint: Fingerprint,
+    market: pricing_market::EquityForward,
+    risk_supported: bool,
 }
 
 impl HullWhiteEquityPricingPlan {
@@ -320,6 +326,9 @@ impl HullWhiteEquityPricingPlan {
             ] {
                 hash.update(&v.to_bits().to_be_bytes());
             }
+            if particles.retain_reverse_trace() {
+                hash.update(b"hybrid-aad-trace-v1\0");
+            }
         }
         if let Some(calibration) = &calibration {
             for &v in calibration.surface.squared_leverage() {
@@ -358,6 +367,9 @@ impl HullWhiteEquityPricingPlan {
             payment_time: DayCountConvention::Act365F
                 .year_fraction(request.valuation_date(), request.product().payment_date()),
             fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
+            market: request.market().equity().forward().clone(),
+            risk_supported: request.product().supports_pathwise_risk()
+                || request.risk().payoff_smoothing().is_some(),
         })
     }
     #[must_use]

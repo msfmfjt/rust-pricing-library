@@ -1,6 +1,6 @@
 # Hull–White extension: implementation and acceptance roadmap
 
-Status: experimental. Date: 2026-09-12.
+Status: experimental. Date: 2026-09-12; AAD update 2026-09-13.
 Base: PR #45 at `fde80879fa6ddbe7e6b842890313e421d27ddbe4`, including merged
 LSV PR #47. The earlier stack's acceptance/merge status is unchanged.
 
@@ -30,7 +30,10 @@ The payoff integration supports positive-horizon European, Asian, Lookback,
 Digital and discrete Barrier prices with continuous deterministic carry,
 proportional dividends and payment lags. Fixed-cash dividends now have an
 explicit [escrowed model](hull-white-cash-dividends-v0.1.md); default compilation
-still rejects them. Hybrid Greeks remain explicit errors.
+still rejects them. The explicit [AAD API](hull-white-aad-v0.1.md) adds first-order
+Spot/BS volatility/initial-curve risk and paired-target adjoints through particle
+recalibration. Set `retain_reverse_trace=True` for LSV. Stable request Greek
+flags remain unsupported at the hybrid boundary.
 
 ## Gates
 
@@ -41,7 +44,7 @@ still rejects them. Hybrid Greeks remain explicit errors.
 | H2 | BS+HW, correlations, payment lag, dividends, MC/RQMC | Implemented and focused tests pass |
 | H3 | Discounted Bergomi LSV calibration and Python integration | Implemented; broad calibration acceptance pending |
 | H4 | Fixed-cash dividends with stochastic-bond coordinates | Experimental implementation; broad acceptance pending |
-| H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | Pending |
+| H5 | Hybrid AAD, recalibrated volatility risk and curve DV01 | First-order implementation; broad risk acceptance and market-IV mapping pending |
 | H6 | Rate instrument calibration, stable wire, native replay and benchmark acceptance | Pending |
 
 Initial numerical checks cover exact covariance against independent quadrature
@@ -56,9 +59,11 @@ the public stub/runtime API, all Python tests and the example.
 These are focused implementation checks, not smile-wide calibration acceptance.
 H3 requires retained particle-count, bandwidth and time-step studies with
 independent calibration seeds, adverse smiles, long maturities and measured
-fallback sensitivity. Pricing SE alone is insufficient for that gate. H5 must
-differentiate rate drift/discounting and the discounted calibration, then check
-recalibrated bumps; the deterministic-rate LSV VJP must not be reused unchanged.
+fallback sensitivity. Pricing SE alone is insufficient for that gate. H5 now
+has a dedicated hybrid VJP and recompiled-bump evidence for the initial-curve
+fit/discounting, reserve and discounted calibration. It still requires broader
+risk refinement and branch-stability studies. HW/Bergomi parameters and payout
+quotes are fixed; Gamma and market-IV VegaKT remain future work.
 H6 requires parameter calibration to specified instruments and new native
 hybrid replay/performance fixtures. Existing platform CI remains a regression
 gate for the pre-existing pricing baseline.

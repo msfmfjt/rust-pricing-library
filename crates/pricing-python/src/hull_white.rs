@@ -1,6 +1,6 @@
 use super::builders::{PyDiscountCurve, PyEssviSlice, PyModel};
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
-use pricing::hull_white::{HullWhiteEquityPricingPlan, HullWhitePrice};
+use pricing::hull_white::{HullWhiteAadRisk, HullWhiteEquityPricingPlan, HullWhitePrice};
 use pricing::market::{EssviSurface, SurfaceValidationTolerance};
 use pricing::mc::{ExecutionPolicy, hull_white::HullWhiteLsvTarget, lsv::LsvParticleConfig};
 use pricing::models::{
@@ -220,7 +220,7 @@ impl PyHullWhiteEquityPlan {
     /// Calibrate LSV with stochastic-rate correction, then price independently.
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, target, rate_model, *, vol_mean_reversion, vol_of_vol, equity_vol_correlation, equity_rate_correlation, vol_rate_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, worker_threads, reduction_block_size=None, cash_dividend_model=None))]
+    #[pyo3(signature=(request, target, rate_model, *, vol_mean_reversion, vol_of_vol, equity_vol_correlation, equity_rate_correlation, vol_rate_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, worker_threads, reduction_block_size=None, cash_dividend_model=None, retain_reverse_trace=false))]
     fn compile_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -238,6 +238,7 @@ impl PyHullWhiteEquityPlan {
         worker_threads: u32,
         reduction_block_size: Option<u64>,
         cash_dividend_model: Option<&str>,
+        retain_reverse_trace: bool,
     ) -> PyResult<Self> {
         let cash = match cash_dividend_model {
             None => false,
@@ -259,7 +260,7 @@ impl PyHullWhiteEquityPlan {
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
-            false,
+            retain_reverse_trace,
         )
         .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
@@ -288,6 +289,17 @@ impl PyHullWhiteEquityPlan {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyHullWhitePrice { inner })
             .map_err(pricing_exception)
+    }
+    fn evaluate_aad(&self, py: Python<'_>) -> PyResult<PyHullWhiteAadRisk> {
+        py.detach(|| self.inner.evaluate_aad())
+            .map(|inner| PyHullWhiteAadRisk { inner })
+            .map_err(pricing_exception)
+    }
+    #[getter]
+    fn retains_reverse_trace(&self) -> bool {
+        self.inner
+            .calibration()
+            .is_some_and(|c| c.retains_reverse_trace())
     }
     #[getter]
     fn plan_fingerprint(&self) -> String {
@@ -392,6 +404,93 @@ impl PyHullWhitePrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         if self.inner.calibration_seed.is_some() {
+            "pricing_conditional_on_calibration"
+        } else {
+            "pricing_only"
+        }
+    }
+}
+
+#[pyclass(frozen, name = "HullWhiteAadRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHullWhiteAadRisk {
+    inner: HullWhiteAadRisk,
+}
+#[pymethods]
+impl PyHullWhiteAadRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_labels(&self) -> Vec<String> {
+        self.inner.parameter_labels.to_vec()
+    }
+    #[getter]
+    fn derivatives(&self) -> Vec<f64> {
+        self.inner.derivatives.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Option<Vec<f64>> {
+        self.inner.standard_errors.as_ref().map(|v| v.to_vec())
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta()
+    }
+    #[getter]
+    fn vega(&self) -> Option<f64> {
+        self.inner.vega()
+    }
+    #[getter]
+    fn discount_times(&self) -> Vec<f64> {
+        self.inner.discount_times.to_vec()
+    }
+    #[getter]
+    fn dividend_times(&self) -> Vec<f64> {
+        self.inner.dividend_times.to_vec()
+    }
+    #[getter]
+    fn discount_log_df_adjoints(&self) -> Vec<f64> {
+        self.inner.discount_log_df_adjoints().to_vec()
+    }
+    #[getter]
+    fn dividend_log_df_adjoints(&self) -> Vec<f64> {
+        self.inner.dividend_log_df_adjoints().to_vec()
+    }
+    #[getter]
+    fn discount_node_dv01(&self) -> Vec<f64> {
+        self.inner.discount_node_dv01()
+    }
+    #[getter]
+    fn parallel_discount_dv01(&self) -> f64 {
+        self.inner.parallel_discount_dv01()
+    }
+    #[getter]
+    fn time_nodes(&self) -> Vec<f64> {
+        self.inner.target_time_nodes.to_vec()
+    }
+    #[getter]
+    fn log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.target_log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn local_variance_adjoints(&self) -> Vec<f64> {
+        self.inner.local_variance_adjoints().to_vec()
+    }
+    #[getter]
+    fn forward_log_density_adjoints(&self) -> Vec<f64> {
+        self.inner.forward_log_density_adjoints().to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        if self.inner.price.calibration_seed.is_some() {
             "pricing_conditional_on_calibration"
         } else {
             "pricing_only"

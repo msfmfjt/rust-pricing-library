@@ -1,6 +1,9 @@
 # One-currency Hull–White equity extension
 
 Date: 2026-09-12. Decision: implement an experimental price-only extension.
+
+The follow-on [AAD decision](0003-hull-white-aad.md) extends the risk boundary
+recorded here; the original price model and measure contracts remain in force.
 Authorization: the user requested stochastic rates with Hull–White after the
 LSV change and approved the proposed first implementation.
 
