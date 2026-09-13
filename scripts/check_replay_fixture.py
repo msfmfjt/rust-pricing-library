@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PREFIXES = {
     "european_black_scholes_replay": "european_bs",
     "local_volatility_replay": "local_volatility",
+    "path_dependence_replay": "path_dependence",
+    "early_exercise_replay": "early_exercise",
 }
 EXPECTED_CASE_NAMES = {
     "european_black_scholes_replay": (
@@ -27,6 +29,20 @@ EXPECTED_CASE_NAMES = {
         "pseudo_mc_delta_gamma_vega_vegakt",
         "rqmc_delta_gamma_vega_vegakt",
     ),
+    "path_dependence_replay": (
+        "digital_exact_price_only",
+        "digital_smoothed_full_risk",
+        "discrete_barrier_smoothed_full_risk",
+        "continuous_barrier_smoothed_full_risk",
+        "arithmetic_asian_full_risk",
+        "fixed_lookback_full_risk",
+    ),
+    "early_exercise_replay": (
+        "pseudo_mc_price_only",
+        "rqmc_price_only",
+        "pseudo_mc_fixed_policy_risk",
+        "rqmc_fixed_policy_risk",
+    ),
 }
 SUPPORTED_PLATFORMS = {
     "macos-aarch64",
@@ -36,9 +52,28 @@ FINGERPRINT = re.compile(r"^blake3-256:[0-9a-f]{64}$")
 FLOAT_BITS = re.compile(r"^[0-9a-f]{16}$")
 REPLAY_DOCUMENT_KEYS = ("cases", "fixture_kind", "platform", "schema_version")
 REPLAY_CASE_KEYS = ("execution", "name", "plan", "request", "result")
+PATH_REPLAY_CASE_KEYS = (
+    "execution",
+    "name",
+    "path_diagnostics",
+    "plan",
+    "request",
+    "result",
+)
 REPLAY_REQUEST_KEYS = (
     "document_kind",
     "engine",
+    "market",
+    "model",
+    "product",
+    "risk",
+    "schema_version",
+    "valuation_date",
+)
+EARLY_EXERCISE_REQUEST_KEYS = (
+    "document_kind",
+    "engine",
+    "lsm",
     "market",
     "model",
     "product",
@@ -54,11 +89,28 @@ REPLAY_RESULT_KEYS = (
     "schema_version",
     "value",
 )
+EARLY_EXERCISE_RESULT_KEYS = (
+    "diagnostics",
+    "document_kind",
+    "monte_carlo",
+    "replay",
+    "risks",
+    "schema_version",
+    "value",
+)
 REPLAY_METADATA_KEYS = (
     "library_version",
+    "migration",
     "platform",
     "request_fingerprint",
     "schema_version",
+)
+REPLAY_MIGRATION_KEYS = (
+    "current_schema_version",
+    "migration_ids",
+    "original_schema_version",
+    "post_migration_fingerprint",
+    "pre_migration_fingerprint",
 )
 REPLAY_PLAN_KEYS = (
     "plan_fingerprint",
@@ -116,6 +168,35 @@ REPLAY_ESTIMATE_BITS_KEYS = (
     "effective_sampling_units",
     "standard_error_bits",
     "value_bits",
+)
+PATH_DIAGNOSTICS_KEYS = (
+    "barrier_bridge",
+    "path_state",
+    "payoff_smoothing",
+    "valuation_kind",
+)
+PAYOFF_SMOOTHING_KEYS = (
+    "dividend_jump_count",
+    "endpoint_count",
+    "full_transition_width_bits",
+    "half_width_bits",
+    "kernel",
+    "policy_version",
+    "price_and_greeks_share_payoff",
+    "width_unit",
+)
+BARRIER_BRIDGE_KEYS = (
+    "abi",
+    "dividend_jump_hit_fraction_bits",
+    "endpoint_hit_fraction_bits",
+    "indicator_mode",
+    "mean_certain_survival_count_bits",
+    "mean_conditional_bridge_hit_weight_bits",
+    "mean_finite_correction_count_bits",
+    "mean_interval_count_bits",
+    "mean_survival_underflow_count_bits",
+    "mean_zero_variance_count_bits",
+    "policy_version",
 )
 
 
@@ -199,7 +280,12 @@ def replay_identity(
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             raise SystemExit(f"{path}: cases[{index}] must be an object")
-        require_exact_keys(path, case, REPLAY_CASE_KEYS, f"cases[{index}]")
+        case_keys = (
+            PATH_REPLAY_CASE_KEYS
+            if fixture_kind == "path_dependence_replay"
+            else REPLAY_CASE_KEYS
+        )
+        require_exact_keys(path, case, case_keys, f"cases[{index}]")
         name = case.get("name")
         if not isinstance(name, str) or not name:
             raise SystemExit(f"{path}: cases[{index}].name must be a non-empty string")
@@ -232,9 +318,19 @@ def validate_case(
     plan = require_object(path, case.get("plan"), f"{case_path}.plan")
     require_exact_keys(path, plan, REPLAY_PLAN_KEYS, f"{case_path}.plan")
     request = require_object(path, case.get("request"), f"{case_path}.request")
-    require_exact_keys(path, request, REPLAY_REQUEST_KEYS, f"{case_path}.request")
+    request_keys = (
+        EARLY_EXERCISE_REQUEST_KEYS
+        if fixture_kind == "early_exercise_replay"
+        else REPLAY_REQUEST_KEYS
+    )
+    require_exact_keys(path, request, request_keys, f"{case_path}.request")
     result = require_object(path, case.get("result"), f"{case_path}.result")
-    require_exact_keys(path, result, REPLAY_RESULT_KEYS, f"{case_path}.result")
+    result_keys = (
+        EARLY_EXERCISE_RESULT_KEYS
+        if fixture_kind == "early_exercise_replay"
+        else REPLAY_RESULT_KEYS
+    )
+    require_exact_keys(path, result, result_keys, f"{case_path}.result")
     execution = require_object(path, case.get("execution"), f"{case_path}.execution")
     require_exact_keys(path, execution, REPLAY_EXECUTION_KEYS, f"{case_path}.execution")
     monte_carlo = require_object(
@@ -269,12 +365,12 @@ def validate_case(
     )
     if request.get("document_kind") != "pricing_request":
         raise SystemExit(f"{path}: {case_path}.request.document_kind must be pricing_request")
-    if request.get("schema_version") != 1:
-        raise SystemExit(f"{path}: {case_path}.request.schema_version must be 1")
+    if request.get("schema_version") != 3:
+        raise SystemExit(f"{path}: {case_path}.request.schema_version must be 3")
     if result.get("document_kind") != "pricing_result":
         raise SystemExit(f"{path}: {case_path}.result.document_kind must be pricing_result")
-    if result.get("schema_version") != 1:
-        raise SystemExit(f"{path}: {case_path}.result.schema_version must be 1")
+    if result.get("schema_version") != 3:
+        raise SystemExit(f"{path}: {case_path}.result.schema_version must be 3")
     replay = require_object(path, result.get("replay"), f"{case_path}.result.replay")
     require_exact_keys(path, replay, REPLAY_METADATA_KEYS, f"{case_path}.result.replay")
     result_request_fingerprint = require_fingerprint(
@@ -286,8 +382,38 @@ def validate_case(
         raise SystemExit(
             f"{path}: {case_path} plan/result request fingerprints do not match"
         )
-    if replay.get("schema_version") != 1:
-        raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 1")
+    if replay.get("schema_version") != 3:
+        raise SystemExit(f"{path}: {case_path}.result.replay.schema_version must be 3")
+    migration = require_object(
+        path,
+        replay.get("migration"),
+        f"{case_path}.result.replay.migration",
+    )
+    require_exact_keys(
+        path,
+        migration,
+        REPLAY_MIGRATION_KEYS,
+        f"{case_path}.result.replay.migration",
+    )
+    if (
+        migration.get("original_schema_version") != 3
+        or migration.get("current_schema_version") != 3
+        or migration.get("migration_ids") != []
+    ):
+        raise SystemExit(
+            f"{path}: {case_path}.result.replay.migration must describe an unmigrated v3 request"
+        )
+    for field in ["pre_migration_fingerprint", "post_migration_fingerprint"]:
+        migration_fingerprint = require_fingerprint(
+            path,
+            migration.get(field),
+            f"{case_path}.result.replay.migration.{field}",
+        )
+        if migration_fingerprint != request_fingerprint:
+            raise SystemExit(
+                f"{path}: {case_path}.result.replay.migration.{field} "
+                "must match the plan request fingerprint"
+            )
     replay_library_version = replay.get("library_version")
     if replay_library_version != library_version:
         raise SystemExit(
@@ -299,6 +425,275 @@ def validate_case(
         )
     if fixture_kind == "local_volatility_replay":
         validate_local_vol_case(path, case_path, case["name"], request, result)
+    elif fixture_kind == "path_dependence_replay":
+        validate_path_dependence_case(path, case_path, case["name"], case, request)
+    elif fixture_kind == "early_exercise_replay":
+        validate_early_exercise_case(path, case_path, case["name"], request, result)
+
+
+def validate_early_exercise_case(
+    path: Path,
+    case_path: str,
+    name: object,
+    request: dict[str, object],
+    result: dict[str, object],
+) -> None:
+    product = require_object(path, request.get("product"), f"{case_path}.request.product")
+    if product.get("type") != "american_vanilla":
+        raise SystemExit(f"{path}: {case_path} must contain an American Vanilla request")
+    require_object(path, request.get("lsm"), f"{case_path}.request.lsm")
+    monte_carlo = require_object(
+        path,
+        result.get("monte_carlo"),
+        f"{case_path}.result.monte_carlo",
+    )
+    early = require_object(
+        path,
+        monte_carlo.get("early_exercise"),
+        f"{case_path}.result.monte_carlo.early_exercise",
+    )
+    require_fingerprint(
+        path,
+        early.get("policy_fingerprint"),
+        f"{case_path}.result.monte_carlo.early_exercise.policy_fingerprint",
+    )
+    dates = early.get("exercise_dates")
+    counts = early.get("exercise_counts")
+    probabilities = early.get("exercise_probabilities")
+    stopping_indices = early.get("stopping_indices")
+    decisions = early.get("decision_models")
+    regressions = early.get("regression_diagnostics")
+    arrays = [dates, counts, probabilities, stopping_indices, decisions, regressions]
+    if not all(isinstance(value, list) for value in arrays):
+        raise SystemExit(f"{path}: {case_path} has malformed early-exercise arrays")
+    assert isinstance(dates, list)
+    assert isinstance(counts, list)
+    assert isinstance(probabilities, list)
+    assert isinstance(stopping_indices, list)
+    assert isinstance(decisions, list)
+    assert isinstance(regressions, list)
+    if len(dates) != 4 or len(counts) != 4 or len(probabilities) != 4:
+        raise SystemExit(f"{path}: {case_path} exercise schedule shape changed")
+    if len(decisions) != 3 or len(regressions) != 3:
+        raise SystemExit(f"{path}: {case_path} regression schedule shape changed")
+    trajectories = early.get("valuation_trajectories")
+    if not isinstance(trajectories, int) or trajectories <= 0:
+        raise SystemExit(f"{path}: {case_path} has invalid valuation trajectory count")
+    if len(stopping_indices) != trajectories or sum(counts) != trajectories:
+        raise SystemExit(f"{path}: {case_path} stopping-index counts are inconsistent")
+    if any(
+        not isinstance(index, int) or index < 0 or index >= len(dates)
+        for index in stopping_indices
+    ):
+        raise SystemExit(f"{path}: {case_path} has an invalid stopping index")
+    if str(name).startswith("rqmc"):
+        expected_training_domain = {"type": "rqmc_scramble"}
+        expected_valuation_domain = expected_training_domain
+    else:
+        expected_training_domain = {"type": "lsm_train"}
+        expected_valuation_domain = {"type": "valuation"}
+    if (
+        early.get("training_random_domain") != expected_training_domain
+        or early.get("valuation_random_domain") != expected_valuation_domain
+    ):
+        raise SystemExit(f"{path}: {case_path} random domains changed")
+    risk_diagnostics = require_object(
+        path,
+        monte_carlo.get("risk_diagnostics"),
+        f"{case_path}.result.monte_carlo.risk_diagnostics",
+    )
+    methods = require_object(
+        path,
+        risk_diagnostics.get("methods"),
+        f"{case_path}.result.monte_carlo.risk_diagnostics.methods",
+    )
+    if str(name).endswith("fixed_policy_risk"):
+        if (
+            methods.get("exercise_strategy") != {"type": "fixed_exercise_strategy"}
+            or methods.get("stopping_indices") != {"type": "frozen_stopping_indices"}
+            or methods.get("exercise_policy_fingerprint") != early.get("policy_fingerprint")
+        ):
+            raise SystemExit(f"{path}: {case_path} fixed-policy risk identity changed")
+    elif any(methods.get(field) is not None for field in ["delta", "gamma", "vega"]):
+        raise SystemExit(f"{path}: {case_path} Price-only case contains risk methods")
+
+
+def validate_path_dependence_case(
+    path: Path,
+    case_path: str,
+    name: object,
+    case: dict[str, object],
+    request: dict[str, object],
+) -> None:
+    diagnostics = require_object(
+        path,
+        case.get("path_diagnostics"),
+        f"{case_path}.path_diagnostics",
+    )
+    require_exact_keys(path, diagnostics, PATH_DIAGNOSTICS_KEYS, f"{case_path}.path_diagnostics")
+    valuation_kind = diagnostics.get("valuation_kind")
+    expected_smoothed = name in {
+        "digital_smoothed_full_risk",
+        "discrete_barrier_smoothed_full_risk",
+        "continuous_barrier_smoothed_full_risk",
+    }
+    expected_kind = "smoothed_surrogate" if expected_smoothed else "exact_contractual"
+    if valuation_kind != expected_kind:
+        raise SystemExit(
+            f"{path}: {case_path}.path_diagnostics.valuation_kind must be {expected_kind}"
+        )
+
+    smoothing = diagnostics.get("payoff_smoothing")
+    if expected_smoothed:
+        smoothing = require_object(
+            path,
+            smoothing,
+            f"{case_path}.path_diagnostics.payoff_smoothing",
+        )
+        require_exact_keys(
+            path,
+            smoothing,
+            PAYOFF_SMOOTHING_KEYS,
+            f"{case_path}.path_diagnostics.payoff_smoothing",
+        )
+        if (
+            smoothing.get("kernel") != "compact_c2"
+            or smoothing.get("policy_version") != 1
+            or smoothing.get("width_unit") != "spot"
+            or smoothing.get("price_and_greeks_share_payoff") is not True
+        ):
+            raise SystemExit(f"{path}: {case_path} has invalid smoothing diagnostics")
+        require_float_bits(
+            path,
+            smoothing.get("half_width_bits"),
+            f"{case_path}.path_diagnostics.payoff_smoothing.half_width_bits",
+        )
+        require_float_bits(
+            path,
+            smoothing.get("full_transition_width_bits"),
+            f"{case_path}.path_diagnostics.payoff_smoothing.full_transition_width_bits",
+        )
+        expected_smoothing = {
+            "digital_smoothed_full_risk": ("4000000000000000", "4010000000000000", 1),
+            "discrete_barrier_smoothed_full_risk": (
+                "4008000000000000",
+                "4018000000000000",
+                2,
+            ),
+            "continuous_barrier_smoothed_full_risk": (
+                "4004000000000000",
+                "4014000000000000",
+                3,
+            ),
+        }[name]
+        if (
+            smoothing.get("half_width_bits") != expected_smoothing[0]
+            or smoothing.get("full_transition_width_bits") != expected_smoothing[1]
+            or smoothing.get("endpoint_count") != expected_smoothing[2]
+            or smoothing.get("dividend_jump_count") != 0
+        ):
+            raise SystemExit(f"{path}: {case_path} smoothing policy changed")
+    elif smoothing is not None:
+        raise SystemExit(f"{path}: {case_path} exact valuation must not carry smoothing")
+
+    bridge = diagnostics.get("barrier_bridge")
+    if name == "continuous_barrier_smoothed_full_risk":
+        bridge = require_object(
+            path,
+            bridge,
+            f"{case_path}.path_diagnostics.barrier_bridge",
+        )
+        require_exact_keys(
+            path,
+            bridge,
+            BARRIER_BRIDGE_KEYS,
+            f"{case_path}.path_diagnostics.barrier_bridge",
+        )
+        if (
+            bridge.get("abi") != "continuous-barrier-bridge-log-survival-v2"
+            or bridge.get("indicator_mode") != "compact_c2"
+            or bridge.get("policy_version") != 2
+        ):
+            raise SystemExit(f"{path}: {case_path} has invalid bridge diagnostics")
+        for field in BARRIER_BRIDGE_KEYS:
+            if field.endswith("_bits"):
+                require_float_bits(
+                    path,
+                    bridge.get(field),
+                    f"{case_path}.path_diagnostics.barrier_bridge.{field}",
+                )
+    elif bridge is not None:
+        raise SystemExit(f"{path}: {case_path} must not carry bridge diagnostics")
+
+    product = require_object(path, request.get("product"), f"{case_path}.request.product")
+    product_type = product.get("type")
+    expected_product = {
+        "digital_exact_price_only": "digital",
+        "digital_smoothed_full_risk": "digital",
+        "discrete_barrier_smoothed_full_risk": "barrier",
+        "continuous_barrier_smoothed_full_risk": "barrier",
+        "arithmetic_asian_full_risk": "arithmetic_asian",
+        "fixed_lookback_full_risk": "fixed_lookback",
+    }.get(name)
+    if product_type != expected_product:
+        raise SystemExit(f"{path}: {case_path} has unexpected product type {product_type!r}")
+
+    path_state = diagnostics.get("path_state")
+    if name == "arithmetic_asian_full_risk":
+        path_state = require_object(path, path_state, f"{case_path}.path_diagnostics.path_state")
+        require_exact_keys(
+            path,
+            path_state,
+            (
+                "kind",
+                "known_observation_count",
+                "known_weight_sum_bits",
+                "unknown_observation_count",
+                "unknown_weight_sum_bits",
+                "weighted_known_fixing_sum_bits",
+            ),
+            f"{case_path}.path_diagnostics.path_state",
+        )
+        if path_state.get("kind") != "arithmetic_asian":
+            raise SystemExit(f"{path}: {case_path} has invalid Asian path state")
+        for field in [
+            "known_weight_sum_bits",
+            "unknown_weight_sum_bits",
+            "weighted_known_fixing_sum_bits",
+        ]:
+            require_float_bits(path, path_state.get(field), f"{case_path}.path_state.{field}")
+        if (
+            path_state.get("known_observation_count") != 1
+            or path_state.get("unknown_observation_count") != 2
+        ):
+            raise SystemExit(f"{path}: {case_path} Asian observation counts changed")
+    elif name == "fixed_lookback_full_risk":
+        path_state = require_object(path, path_state, f"{case_path}.path_diagnostics.path_state")
+        require_exact_keys(
+            path,
+            path_state,
+            (
+                "future_monitoring_count",
+                "historical_extremum_bits",
+                "kind",
+                "past_monitoring_count",
+            ),
+            f"{case_path}.path_diagnostics.path_state",
+        )
+        if path_state.get("kind") != "fixed_lookback":
+            raise SystemExit(f"{path}: {case_path} has invalid Lookback path state")
+        require_float_bits(
+            path,
+            path_state.get("historical_extremum_bits"),
+            f"{case_path}.path_state.historical_extremum_bits",
+        )
+        if (
+            path_state.get("past_monitoring_count") != 1
+            or path_state.get("future_monitoring_count") != 2
+        ):
+            raise SystemExit(f"{path}: {case_path} Lookback monitoring counts changed")
+    elif path_state is not None:
+        raise SystemExit(f"{path}: {case_path} must not carry path-state diagnostics")
 
 
 def validate_risk_methods(path: Path, field: str, methods: dict[str, object]) -> None:

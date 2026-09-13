@@ -1,6 +1,6 @@
 {
-  "fixture_version": 1,
-  "policy_version": "path_dependence_v1",
+  "fixture_version": 2,
+  "policy_version": "path_dependence_v2",
   "tolerances": {
     "decimal_abs": "1e-45"
   },
@@ -179,6 +179,103 @@
       }
     }
   ],
+  "smoothed_bridge_cases": [
+    {
+      "id": "up_safe_exterior",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "95",
+      "end_spot": "96",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "0",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "end_effective_log_distance": "0.04082199452025512955457706515531987017721174763352022972856142083068282",
+        "bridge_survival": "0.0994005926000584109781976851572197343014990509254659848872820512243827",
+        "endpoint_survival": "1",
+        "total_survival": "0.0994005926000584109781976851572197343014990509254659848872820512243827",
+        "total_hit_weight": "0.9005994073999415890218023148427802656985009490745340151127179487756173"
+      }
+    },
+    {
+      "id": "up_center_endpoint",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "100",
+      "end_spot": "95",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "0.5",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0.003129893008927659858936451648206142662382392569887992496489887661186314",
+        "end_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "bridge_survival": "0.0079949948297067718731715288314531706181515866735439792842678736741962",
+        "endpoint_survival": "0.5",
+        "total_survival": "0.003997497414853385936585764415726585309075793336771989642133936837098100",
+        "total_hit_weight": "0.9960025025851466140634142355842734146909242066632280103578660631629019"
+      }
+    },
+    {
+      "id": "up_hit_exterior",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "103",
+      "end_spot": "95",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "1",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0",
+        "end_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "bridge_survival": "0",
+        "endpoint_survival": "0",
+        "total_survival": "0",
+        "total_hit_weight": "1"
+      }
+    },
+    {
+      "id": "down_interior_endpoints",
+      "direction": "down",
+      "barrier": "100",
+      "start_spot": "101",
+      "end_spot": "99.5",
+      "half_width": "2",
+      "integrated_variance": "0.04",
+      "expected": {
+        "start_hit_weight": "0.103515625",
+        "end_hit_weight": "0.72479248046875",
+        "start_effective_log_distance": "0.01023069068234149456759777261581319255971931516378408319961964704934181",
+        "end_effective_log_distance": "0.001198164970225995431842688835770081067852448154967906837437591872587065",
+        "bridge_survival": "0.0006127149733103637384875231488483092007201669944976685193681828955907",
+        "endpoint_survival": "0.24671924114227294921875",
+        "total_survival": "0.0001511685732516409652769173410027116560215568467365746731052984874706597",
+        "total_hit_weight": "0.9998488314267483590347230826589972883439784431532634253268947015125293"
+      }
+    },
+    {
+      "id": "up_center_zero_variance",
+      "direction": "up",
+      "barrier": "100",
+      "start_spot": "100",
+      "end_spot": "95",
+      "half_width": "2",
+      "integrated_variance": "0",
+      "expected": {
+        "start_hit_weight": "0.5",
+        "end_hit_weight": "0",
+        "start_effective_log_distance": "0.003129893008927659858936451648206142662382392569887992496489887661186314",
+        "end_effective_log_distance": "0.05129329438755053342619614425468723843922236168989941161604767405167353",
+        "bridge_survival": "1",
+        "endpoint_survival": "0.5",
+        "total_survival": "0.5",
+        "total_hit_weight": "0.5"
+      }
+    }
+  ],
   "jump_cases": [
     {
       "id": "down_crossing",
@@ -218,4 +315,3 @@
     }
   ]
 }
-

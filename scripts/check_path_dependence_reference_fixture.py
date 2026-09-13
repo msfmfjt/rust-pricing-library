@@ -21,6 +21,7 @@ TOP_LEVEL_KEYS = {
     "smoothing_cases",
     "extrema_cases",
     "bridge_cases",
+    "smoothed_bridge_cases",
     "jump_cases",
 }
 SMOOTHING_IDS = {
@@ -38,6 +39,13 @@ BRIDGE_IDS = {
     "down_safe_endpoints",
     "endpoint_touch",
     "zero_variance_safe",
+}
+SMOOTHED_BRIDGE_IDS = {
+    "up_safe_exterior",
+    "up_center_endpoint",
+    "up_hit_exterior",
+    "down_interior_endpoints",
+    "up_center_zero_variance",
 }
 JUMP_IDS = {"down_crossing", "down_safe", "down_near_crossing"}
 
@@ -247,6 +255,99 @@ def signed_distance(direction: str, barrier: D, spot: D) -> D:
     raise AssertionError(f"unknown jump direction {direction!r}")
 
 
+def smoothed_bridge_values(case: dict[str, Any]) -> dict[str, Any]:
+    direction = case["direction"]
+    barrier = D(case["barrier"])
+    start = D(case["start_spot"])
+    end = D(case["end_spot"])
+    half_width = D(case["half_width"])
+    variance = D(case["integrated_variance"])
+    if min(barrier, start, end, half_width) <= 0:
+        raise AssertionError("smoothed bridge levels and width must be positive")
+    if variance < 0:
+        raise AssertionError("integrated_variance must be non-negative")
+
+    distances = [
+        signed_distance(direction, barrier, start),
+        signed_distance(direction, barrier, end),
+    ]
+    hit_weights: list[D] = []
+    log_distances: list[D] = []
+    for distance in distances:
+        hit_weights.append(smoothing_values(distance, half_width)["indicator"])
+        safe_distance = smoothing_values(-distance, half_width)["positive_part"]
+        if direction == "up":
+            log_distances.append(-(D(1) - safe_distance / barrier).ln())
+        elif direction == "down":
+            log_distances.append((D(1) + safe_distance / barrier).ln())
+        else:
+            raise AssertionError(f"unknown bridge direction {direction!r}")
+
+    bridge_survival = (
+        D(1)
+        if variance == 0
+        else D(1) - (-2 * log_distances[0] * log_distances[1] / variance).exp()
+    )
+    endpoint_survival = (D(1) - hit_weights[0]) * (D(1) - hit_weights[1])
+    total_survival = endpoint_survival * bridge_survival
+    return {
+        "hit_weights": hit_weights,
+        "effective_log_distances": log_distances,
+        "bridge_survival": bridge_survival,
+        "endpoint_survival": endpoint_survival,
+        "total_survival": total_survival,
+        "total_hit_weight": D(1) - total_survival,
+    }
+
+
+def check_smoothed_bridges(fixture: dict[str, Any], checks: Checks) -> None:
+    cases = require_case_ids(
+        fixture["smoothed_bridge_cases"],
+        SMOOTHED_BRIDGE_IDS,
+        "smoothed_bridge_cases",
+    )
+    fields = {
+        "id",
+        "direction",
+        "barrier",
+        "start_spot",
+        "end_spot",
+        "half_width",
+        "integrated_variance",
+        "expected",
+    }
+    expected_fields = {
+        "start_hit_weight",
+        "end_hit_weight",
+        "start_effective_log_distance",
+        "end_effective_log_distance",
+        "bridge_survival",
+        "endpoint_survival",
+        "total_survival",
+        "total_hit_weight",
+    }
+    for case in cases:
+        require_keys(case, fields, case["id"])
+        require_keys(case["expected"], expected_fields, f"{case['id']}.expected")
+        actual = smoothed_bridge_values(case)
+        pairs = {
+            "start_hit_weight": actual["hit_weights"][0],
+            "end_hit_weight": actual["hit_weights"][1],
+            "start_effective_log_distance": actual["effective_log_distances"][0],
+            "end_effective_log_distance": actual["effective_log_distances"][1],
+            "bridge_survival": actual["bridge_survival"],
+            "endpoint_survival": actual["endpoint_survival"],
+            "total_survival": actual["total_survival"],
+            "total_hit_weight": actual["total_hit_weight"],
+        }
+        for field, value in pairs.items():
+            checks.decimal(
+                f"smoothed_bridge.{case['id']}.{field}",
+                value,
+                case["expected"][field],
+            )
+
+
 def check_jumps(fixture: dict[str, Any], checks: Checks) -> None:
     cases = require_case_ids(fixture["jump_cases"], JUMP_IDS, "jump_cases")
     fields = {
@@ -288,12 +389,13 @@ def main() -> int:
         raise AssertionError("fixture top level must be an object")
     require_keys(fixture, TOP_LEVEL_KEYS, "fixture")
     checks = Checks(D(fixture["tolerances"]["decimal_abs"]))
-    checks.exact("fixture_version", fixture["fixture_version"], 1)
-    checks.exact("policy_version", fixture["policy_version"], "path_dependence_v1")
+    checks.exact("fixture_version", fixture["fixture_version"], 2)
+    checks.exact("policy_version", fixture["policy_version"], "path_dependence_v2")
     require_keys(fixture["tolerances"], {"decimal_abs"}, "tolerances")
     check_smoothing(fixture, checks)
     check_extrema(fixture, checks)
     check_bridges(fixture, checks)
+    check_smoothed_bridges(fixture, checks)
     check_jumps(fixture, checks)
     print(f"Path Dependence reference fixture passes {checks.count} checks")
     return 0
@@ -301,4 +403,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
