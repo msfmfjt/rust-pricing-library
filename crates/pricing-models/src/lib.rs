@@ -2,7 +2,17 @@
 
 #![forbid(unsafe_code)]
 
+mod bergomi;
+pub mod hull_white;
+pub mod hull_white_dividends;
+mod rough_bergomi;
 mod spec;
+
+pub use bergomi::{Bergomi1Factor, BergomiTransition};
+pub use hull_white::{
+    HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
+};
+pub use rough_bergomi::RoughBergomi;
 
 pub use spec::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
