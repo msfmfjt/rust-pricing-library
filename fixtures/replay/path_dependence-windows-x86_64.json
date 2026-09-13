@@ -1,0 +1,1727 @@
+{
+  "cases": [
+    {
+      "execution": {
+        "estimator_variance_bits": "3f2d4a18dcc836a0",
+        "evaluated_paths": "8192",
+        "independent_sampling_units": 4096,
+        "monte_carlo": {
+          "aad_tile_capacity": 256,
+          "aad_tile_policy_version": 1,
+          "antithetic": true,
+          "checkpoint_interval": 64,
+          "checkpoint_policy_version": 1,
+          "direction_checksum": null,
+          "discount_region": "pillar",
+          "dividend_region": "pillar",
+          "estimator": "pseudo_monte_carlo",
+          "master_seed": "3549216002486605715",
+          "payoff_fingerprint": "blake3-256:8f8fcf6a09cd99d4b365e1c8a641795a12b5dcb116ef7d7d16bb88d0b6acc26e",
+          "policy_version": 1,
+          "reduction_block_size": 256,
+          "scramble_checksum": null,
+          "scramble_count": null,
+          "worker_threads": 2
+        },
+        "risk_methods": {
+          "bump_policy_version": 1,
+          "delta": null,
+          "gamma": null,
+          "gamma_spot_bump_bits": null,
+          "smile_dynamics": "sticky_log_moneyness",
+          "validation_spot_bump_bits": null,
+          "validation_volatility_bump_bits": null,
+          "vega": null
+        },
+        "risk_validation": {
+          "delta": null,
+          "gamma": null,
+          "vega": null
+        },
+        "sampling_variance_bits": "3fed4a18dcc836a0"
+      },
+      "name": "digital_exact_price_only",
+      "path_diagnostics": {
+        "barrier_bridge": null,
+        "path_state": null,
+        "payoff_smoothing": null,
+        "valuation_kind": "exact_contractual"
+      },
+      "plan": {
+        "plan_fingerprint": "blake3-256:7e02d2e27832f2083b370ad392df00e97556a3ce417b5cd618f75a4baa4ad2b7",
+        "reduction_block_size": 256,
+        "request_fingerprint": "blake3-256:50f650fa708c4a1d9733376a6b6b709fcb42e95d35027227d64d9dbe96c2a526",
+        "worker_threads": 2
+      },
+      "request": {
+        "document_kind": "pricing_request",
+        "engine": {
+          "independent_sampling_units": 4096,
+          "master_seed": 3549216002486605715,
+          "type": "pseudo_monte_carlo",
+          "variance_reduction": {
+            "antithetic": true,
+            "brownian_bridge": false
+          }
+        },
+        "market": {
+          "currency_id": 1,
+          "discount_curve": {
+            "curve_id": 1,
+            "discount_factors": [
+              1.0,
+              0.951229424500714
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "dividend_curve": {
+            "curve_id": 2,
+            "discount_factors": [
+              1.0,
+              0.9801986733067553
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "spot": 100.0,
+          "type": "equity",
+          "underlying_id": 1
+        },
+        "model": {
+          "type": "black_scholes",
+          "volatility": 0.2
+        },
+        "product": {
+          "currency_id": 1,
+          "expiry": "2027-09-04",
+          "payment_date": "2027-09-04",
+          "payout": 10.0,
+          "payout_kind": {
+            "type": "cash"
+          },
+          "side": {
+            "type": "call"
+          },
+          "strike": 100.0,
+          "type": "digital",
+          "underlying_id": 1
+        },
+        "risk": {
+          "delta": false,
+          "smile_dynamics": {
+            "type": "sticky_log_moneyness"
+          },
+          "vega": false
+        },
+        "schema_version": 3,
+        "valuation_date": "2026-09-04"
+      },
+      "result": {
+        "diagnostics": {
+          "warnings": []
+        },
+        "document_kind": "pricing_result",
+        "replay": {
+          "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:50f650fa708c4a1d9733376a6b6b709fcb42e95d35027227d64d9dbe96c2a526",
+            "pre_migration_fingerprint": "blake3-256:50f650fa708c4a1d9733376a6b6b709fcb42e95d35027227d64d9dbe96c2a526"
+          },
+          "platform": "windows-x86_64",
+          "request_fingerprint": "blake3-256:50f650fa708c4a1d9733376a6b6b709fcb42e95d35027227d64d9dbe96c2a526",
+          "schema_version": 3
+        },
+        "risks": {},
+        "schema_version": 3,
+        "value": {
+          "confidence_lower": 4.9277305910559495,
+          "confidence_upper": 4.9863280349048615,
+          "effective_sampling_units": 4096,
+          "estimator": {
+            "type": "pseudo_monte_carlo"
+          },
+          "standard_error": 0.014948602196551052,
+          "value": 4.9570293129804055
+        }
+      }
+    },
+    {
+      "execution": {
+        "estimator_variance_bits": "3e48656eb98d6b19",
+        "evaluated_paths": "8192",
+        "independent_sampling_units": 8,
+        "monte_carlo": {
+          "aad_tile_capacity": 128,
+          "aad_tile_policy_version": 1,
+          "antithetic": true,
+          "checkpoint_interval": 16,
+          "checkpoint_policy_version": 1,
+          "direction_checksum": "8705f417eb13dfdcf64930325a266de4149e1a2d97377639b8fa53dae5bce848",
+          "discount_region": "pillar",
+          "dividend_region": "pillar",
+          "estimator": "randomized_quasi_monte_carlo",
+          "master_seed": "2817045651140218949",
+          "payoff_fingerprint": "blake3-256:388fb901341c462daaa74210b041862bf39a0a720553adf830689b81cc42d84a",
+          "policy_version": 1,
+          "reduction_block_size": 256,
+          "scramble_checksum": "a06c2e50438c0cc5f5c9b3901ed63f5552f5ecb10a255945c9be8e7fbb8e8ef9",
+          "scramble_count": 8,
+          "worker_threads": 2
+        },
+        "risk_methods": {
+          "bump_policy_version": 1,
+          "delta": "aad_reverse",
+          "gamma": "central_bump_of_aad_delta",
+          "gamma_spot_bump_bits": "3ff0000000000000",
+          "smile_dynamics": "sticky_log_moneyness",
+          "validation_spot_bump_bits": "3ff0000000000000",
+          "validation_volatility_bump_bits": "3f1a36e2eb1c432d",
+          "vega": "aad_reverse"
+        },
+        "risk_validation": {
+          "delta": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3fc836816c3388f8",
+              "confidence_upper_bits": "3fc83b7132ebf796",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f04265d7dd55bb3",
+              "value_bits": "3fc838f94f8fc047"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf14512ad13f7652",
+              "confidence_upper_bits": "bed84ad7c3c26338",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3ef32ecb3c463e0e",
+              "value_bits": "bf05d5d84d7b9c85"
+            }
+          },
+          "gamma": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "bf6556bc2234caf1",
+              "confidence_upper_bits": "bf60a53a1f04fe13",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f2328342e84100c",
+              "value_bits": "bf62fdfb209ce482"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf0ec5191693625e",
+              "confidence_upper_bits": "3efc4fdf89bd28e8",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3ef6ebfb8d07a1f8",
+              "value_bits": "bef09d2951b4cdea"
+            }
+          },
+          "vega": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "c012f11ba2220fc1",
+              "confidence_upper_bits": "c012ec1965e4da31",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f5471b5ad5eee3a",
+              "value_bits": "c012ee9a840374f9"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "beb0a3ab5f32d585",
+              "confidence_upper_bits": "bea4a21dce853cfb",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3e79ceb29f8c8c94",
+              "value_bits": "beaaf4ba46757403"
+            }
+          }
+        },
+        "sampling_variance_bits": "3e78656eb98d6b19"
+      },
+      "name": "digital_smoothed_full_risk",
+      "path_diagnostics": {
+        "barrier_bridge": null,
+        "path_state": null,
+        "payoff_smoothing": {
+          "dividend_jump_count": 0,
+          "endpoint_count": 1,
+          "full_transition_width_bits": "4010000000000000",
+          "half_width_bits": "4000000000000000",
+          "kernel": "compact_c2",
+          "policy_version": 1,
+          "price_and_greeks_share_payoff": true,
+          "width_unit": "spot"
+        },
+        "valuation_kind": "smoothed_surrogate"
+      },
+      "plan": {
+        "plan_fingerprint": "blake3-256:eacdcde8f07925102b8a16a1370be4419065d097aab07165ca5dc3078cd7f982",
+        "reduction_block_size": 256,
+        "request_fingerprint": "blake3-256:07bc02e4b911ceac05e4280e5c8569b77be3abe7be757e9f5d2d242ceff2ac56",
+        "worker_threads": 2
+      },
+      "request": {
+        "document_kind": "pricing_request",
+        "engine": {
+          "master_scramble_seed": 2817045651140218949,
+          "points_per_scramble": 512,
+          "scramble_count": 8,
+          "type": "randomized_quasi_monte_carlo",
+          "variance_reduction": {
+            "antithetic": true,
+            "brownian_bridge": true
+          }
+        },
+        "market": {
+          "currency_id": 1,
+          "discount_curve": {
+            "curve_id": 1,
+            "discount_factors": [
+              1.0,
+              0.951229424500714
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "dividend_curve": {
+            "curve_id": 2,
+            "discount_factors": [
+              1.0,
+              0.9801986733067553
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "spot": 100.0,
+          "type": "equity",
+          "underlying_id": 1
+        },
+        "model": {
+          "type": "black_scholes",
+          "volatility": 0.2
+        },
+        "product": {
+          "currency_id": 1,
+          "expiry": "2027-09-04",
+          "payment_date": "2027-09-04",
+          "payout": 10.0,
+          "payout_kind": {
+            "type": "cash"
+          },
+          "side": {
+            "type": "call"
+          },
+          "strike": 100.0,
+          "type": "digital",
+          "underlying_id": 1
+        },
+        "risk": {
+          "aad_tile_capacity": 128,
+          "checkpoint_interval": 16,
+          "delta": true,
+          "gamma": {
+            "bump": {
+              "type": "relative",
+              "value": 0.01
+            }
+          },
+          "payoff_smoothing": {
+            "half_width": 2.0,
+            "type": "compact_c2"
+          },
+          "smile_dynamics": {
+            "type": "sticky_log_moneyness"
+          },
+          "vega": true
+        },
+        "schema_version": 3,
+        "valuation_date": "2026-09-04"
+      },
+      "result": {
+        "diagnostics": {
+          "warnings": []
+        },
+        "document_kind": "pricing_result",
+        "replay": {
+          "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:07bc02e4b911ceac05e4280e5c8569b77be3abe7be757e9f5d2d242ceff2ac56",
+            "pre_migration_fingerprint": "blake3-256:07bc02e4b911ceac05e4280e5c8569b77be3abe7be757e9f5d2d242ceff2ac56"
+          },
+          "platform": "windows-x86_64",
+          "request_fingerprint": "blake3-256:07bc02e4b911ceac05e4280e5c8569b77be3abe7be757e9f5d2d242ceff2ac56",
+          "schema_version": 3
+        },
+        "risks": {
+          "delta": {
+            "market_scaled": {
+              "confidence_lower": 0.18918348109499275,
+              "confidence_upper": 0.18937722315903507,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.000049424904123376,
+              "value": 0.1892803521270139
+            },
+            "market_scaled_unit": {
+              "type": "delta_one_percent_spot"
+            },
+            "raw": {
+              "confidence_lower": 0.18918348109499275,
+              "confidence_upper": 0.18937722315903507,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.000049424904123376,
+              "value": 0.1892803521270139
+            },
+            "raw_unit": {
+              "type": "delta_raw"
+            }
+          },
+          "gamma": {
+            "market_scaled": {
+              "confidence_lower": -0.002576699777376049,
+              "confidence_upper": -0.0020283580752945545,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.00013988565769747403,
+              "value": -0.0023025289263353017
+            },
+            "market_scaled_unit": {
+              "type": "gamma_one_percent_spot_squared"
+            },
+            "raw": {
+              "confidence_lower": -0.002576699777376049,
+              "confidence_upper": -0.0020283580752945545,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.00013988565769747403,
+              "value": -0.0023025289263353017
+            },
+            "raw_unit": {
+              "type": "gamma_raw"
+            }
+          },
+          "vega": {
+            "market_scaled": {
+              "confidence_lower": -0.04735456215657829,
+              "confidence_upper": -0.0473056478870812,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.00001247835926652595,
+              "value": -0.047330105021829744
+            },
+            "market_scaled_unit": {
+              "type": "vega_one_vol_point"
+            },
+            "raw": {
+              "confidence_lower": -4.735456215657829,
+              "confidence_upper": -4.73056478870812,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.001247835926652595,
+              "value": -4.7330105021829745
+            },
+            "raw_unit": {
+              "type": "vega_raw"
+            }
+          }
+        },
+        "schema_version": 3,
+        "value": {
+          "confidence_lower": 4.945923090656551,
+          "confidence_upper": 4.946340896424575,
+          "effective_sampling_units": 8,
+          "estimator": {
+            "type": "randomized_quasi_monte_carlo"
+          },
+          "standard_error": 0.00010658506261323538,
+          "value": 4.946131993540563
+        }
+      }
+    },
+    {
+      "execution": {
+        "estimator_variance_bits": "3f630034927f6e31",
+        "evaluated_paths": "8192",
+        "independent_sampling_units": 4096,
+        "monte_carlo": {
+          "aad_tile_capacity": 128,
+          "aad_tile_policy_version": 1,
+          "antithetic": true,
+          "checkpoint_interval": 16,
+          "checkpoint_policy_version": 1,
+          "direction_checksum": null,
+          "discount_region": "pillar",
+          "dividend_region": "pillar",
+          "estimator": "pseudo_monte_carlo",
+          "master_seed": "3549216002486605715",
+          "payoff_fingerprint": "blake3-256:54868ec71c9f98ac93b52d46c12083ae22fda4125c866aae0f6163fb92f25d06",
+          "policy_version": 1,
+          "reduction_block_size": 256,
+          "scramble_checksum": null,
+          "scramble_count": null,
+          "worker_threads": 2
+        },
+        "risk_methods": {
+          "bump_policy_version": 1,
+          "delta": "aad_reverse",
+          "gamma": "central_bump_of_aad_delta",
+          "gamma_spot_bump_bits": "3ff0000000000000",
+          "smile_dynamics": "sticky_log_moneyness",
+          "validation_spot_bump_bits": "3ff0000000000000",
+          "validation_volatility_bump_bits": "3f1a36e2eb1c432d",
+          "vega": "aad_reverse"
+        },
+        "risk_validation": {
+          "delta": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3fb8d59b1bc007bc",
+              "confidence_upper_bits": "3fc30ea150c0bb47",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f8b1a329a195858",
+              "value_bits": "3fbf796edea0bf25"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf7645c7ee8604bc",
+              "confidence_upper_bits": "3f654800d93036ab",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f60caf29bb21311",
+              "value_bits": "bf57438f03dbd2ce"
+            }
+          },
+          "gamma": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "bf98e3e92d0dd0b5",
+              "confidence_upper_bits": "3f86c9274d99f30a",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f82831c82de6605",
+              "value_bits": "bf7afeab0c81ae5f"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf5bb0748f4678a3",
+              "confidence_upper_bits": "3f6ff6941c0507b8",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f575f2ca1299d5e",
+              "value_bits": "3f521e59d461cb67"
+            }
+          },
+          "vega": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "c02d3d0b5c10ccb6",
+              "confidence_upper_bits": "c0243bb64829eb34",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3ff260d8a86b08fa",
+              "value_bits": "c028bc60d21d5bf5"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf043f985a78802b",
+              "confidence_upper_bits": "3f00823dc36e563b",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3ef2c10670983990",
+              "value_bits": "becdead4b8514f7d"
+            }
+          }
+        },
+        "sampling_variance_bits": "40230034927f6e31"
+      },
+      "name": "discrete_barrier_smoothed_full_risk",
+      "path_diagnostics": {
+        "barrier_bridge": null,
+        "path_state": null,
+        "payoff_smoothing": {
+          "dividend_jump_count": 0,
+          "endpoint_count": 2,
+          "full_transition_width_bits": "4018000000000000",
+          "half_width_bits": "4008000000000000",
+          "kernel": "compact_c2",
+          "policy_version": 1,
+          "price_and_greeks_share_payoff": true,
+          "width_unit": "spot"
+        },
+        "valuation_kind": "smoothed_surrogate"
+      },
+      "plan": {
+        "plan_fingerprint": "blake3-256:10733cd6bc9865b97f32afa1fc0a06bcfd0d72b8f1739915240f42e312d14932",
+        "reduction_block_size": 256,
+        "request_fingerprint": "blake3-256:03ded64364a000a6db803c80b480b721cf448c9f56bb74853d27a7fced5ce4f1",
+        "worker_threads": 2
+      },
+      "request": {
+        "document_kind": "pricing_request",
+        "engine": {
+          "independent_sampling_units": 4096,
+          "master_seed": 3549216002486605715,
+          "type": "pseudo_monte_carlo",
+          "variance_reduction": {
+            "antithetic": true,
+            "brownian_bridge": false
+          }
+        },
+        "market": {
+          "currency_id": 1,
+          "discount_curve": {
+            "curve_id": 1,
+            "discount_factors": [
+              1.0,
+              0.951229424500714
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "dividend_curve": {
+            "curve_id": 2,
+            "discount_factors": [
+              1.0,
+              0.9801986733067553
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "spot": 100.0,
+          "type": "equity",
+          "underlying_id": 1
+        },
+        "model": {
+          "type": "black_scholes",
+          "volatility": 0.2
+        },
+        "product": {
+          "barrier": 125.0,
+          "currency_id": 1,
+          "direction": {
+            "type": "up"
+          },
+          "expiry": "2027-09-04",
+          "monitoring": {
+            "type": "discrete"
+          },
+          "monitoring_dates": [
+            "2027-03-05",
+            "2027-09-04"
+          ],
+          "notional": 1.0,
+          "payment_date": "2027-09-04",
+          "rebate": 2.0,
+          "side": {
+            "type": "call"
+          },
+          "strike": 100.0,
+          "style": {
+            "type": "knock_out"
+          },
+          "type": "barrier",
+          "underlying_id": 1
+        },
+        "risk": {
+          "aad_tile_capacity": 128,
+          "checkpoint_interval": 16,
+          "delta": true,
+          "gamma": {
+            "bump": {
+              "type": "relative",
+              "value": 0.01
+            }
+          },
+          "payoff_smoothing": {
+            "half_width": 3.0,
+            "type": "compact_c2"
+          },
+          "smile_dynamics": {
+            "type": "sticky_log_moneyness"
+          },
+          "vega": true
+        },
+        "schema_version": 3,
+        "valuation_date": "2026-09-04"
+      },
+      "result": {
+        "diagnostics": {
+          "warnings": []
+        },
+        "document_kind": "pricing_result",
+        "replay": {
+          "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:03ded64364a000a6db803c80b480b721cf448c9f56bb74853d27a7fced5ce4f1",
+            "pre_migration_fingerprint": "blake3-256:03ded64364a000a6db803c80b480b721cf448c9f56bb74853d27a7fced5ce4f1"
+          },
+          "platform": "windows-x86_64",
+          "request_fingerprint": "blake3-256:03ded64364a000a6db803c80b480b721cf448c9f56bb74853d27a7fced5ce4f1",
+          "schema_version": 3
+        },
+        "risks": {
+          "delta": {
+            "market_scaled": {
+              "confidence_lower": 0.09622166818017651,
+              "confidence_upper": 0.1525115071274329,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.014359916659505855,
+              "value": 0.1243665876538047
+            },
+            "market_scaled_unit": {
+              "type": "delta_one_percent_spot"
+            },
+            "raw": {
+              "confidence_lower": 0.09622166818017651,
+              "confidence_upper": 0.1525115071274329,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.014359916659505855,
+              "value": 0.1243665876538047
+            },
+            "raw_unit": {
+              "type": "delta_raw"
+            }
+          },
+          "gamma": {
+            "market_scaled": {
+              "confidence_lower": -0.023584970395801128,
+              "confidence_upper": 0.0081921788693488,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.008106564588891436,
+              "value": -0.007696395763226165
+            },
+            "market_scaled_unit": {
+              "type": "gamma_one_percent_spot_squared"
+            },
+            "raw": {
+              "confidence_lower": -0.023584970395801128,
+              "confidence_upper": 0.0081921788693488,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.008106564588891436,
+              "value": -0.007696395763226165
+            },
+            "raw_unit": {
+              "type": "gamma_raw"
+            }
+          },
+          "vega": {
+            "market_scaled": {
+              "confidence_lower": -0.1461924298755417,
+              "confidence_upper": -0.10116602247164805,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.011486539487219205,
+              "value": -0.12367922617359488
+            },
+            "market_scaled_unit": {
+              "type": "vega_one_vol_point"
+            },
+            "raw": {
+              "confidence_lower": -14.61924298755417,
+              "confidence_upper": -10.116602247164806,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 1.1486539487219205,
+              "value": -12.367922617359488
+            },
+            "raw_unit": {
+              "type": "vega_raw"
+            }
+          }
+        },
+        "schema_version": 3,
+        "value": {
+          "confidence_lower": 3.8240264293597055,
+          "confidence_upper": 4.012812124413107,
+          "effective_sampling_units": 4096,
+          "estimator": {
+            "type": "pseudo_monte_carlo"
+          },
+          "standard_error": 0.04816050104555976,
+          "value": 3.9184192768864063
+        }
+      }
+    },
+    {
+      "execution": {
+        "estimator_variance_bits": "3ee1415f330fce71",
+        "evaluated_paths": "8192",
+        "independent_sampling_units": 8,
+        "monte_carlo": {
+          "aad_tile_capacity": 128,
+          "aad_tile_policy_version": 1,
+          "antithetic": true,
+          "checkpoint_interval": 16,
+          "checkpoint_policy_version": 1,
+          "direction_checksum": "8705f417eb13dfdcf64930325a266de4149e1a2d97377639b8fa53dae5bce848",
+          "discount_region": "pillar",
+          "dividend_region": "pillar",
+          "estimator": "randomized_quasi_monte_carlo",
+          "master_seed": "2817045651140218949",
+          "payoff_fingerprint": "blake3-256:579110b3c7fb79ca61fdb6feaf1f2b98dabc7f59087c6208d1b10c78e1ace5a9",
+          "policy_version": 1,
+          "reduction_block_size": 256,
+          "scramble_checksum": "eb922e69198be3809e72e4424c46007bf23938116e4175dee689b34ead0ac0fb",
+          "scramble_count": 8,
+          "worker_threads": 2
+        },
+        "risk_methods": {
+          "bump_policy_version": 1,
+          "delta": "aad_reverse",
+          "gamma": "central_bump_of_aad_delta",
+          "gamma_spot_bump_bits": "3ff0000000000000",
+          "smile_dynamics": "sticky_log_moneyness",
+          "validation_spot_bump_bits": "3ff0000000000000",
+          "validation_volatility_bump_bits": "3f1a36e2eb1c432d",
+          "vega": "aad_reverse"
+        },
+        "risk_validation": {
+          "delta": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3fa69db7280943f7",
+              "confidence_upper_bits": "3fa9c1caa53c25fd",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f59a401e3e430da",
+              "value_bits": "3fa82fc0e6a2b4fa"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf5716fbfe77fb81",
+              "confidence_upper_bits": "3f477d81e0d6edde",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f41c5f32f7a6581",
+              "value_bits": "bf36b0761c190925"
+            }
+          },
+          "gamma": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "bf8dd546ba977b57",
+              "confidence_upper_bits": "bf6f44774b48ce3c",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f66774a04e0e3f2",
+              "value_bits": "bf82d33246b4d773"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf63c394477aac2e",
+              "confidence_upper_bits": "3f5353add86d88c6",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f4e074da2050e52",
+              "value_bits": "bf44337ab687cf95"
+            }
+          },
+          "vega": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "c02ecb1f4f104526",
+              "confidence_upper_bits": "c02dabaf2434b3f2",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3fc254f43cdf24ea",
+              "value_bits": "c02e3b6739a27c8c"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bed76af89eab81a9",
+              "confidence_upper_bits": "3edb216bb4109191",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3ec9ca5cb1330178",
+              "value_bits": "3e9db398ab287f46"
+            }
+          }
+        },
+        "sampling_variance_bits": "3f11415f330fce71"
+      },
+      "name": "continuous_barrier_smoothed_full_risk",
+      "path_diagnostics": {
+        "barrier_bridge": {
+          "abi": "continuous-barrier-bridge-log-survival-v2",
+          "dividend_jump_hit_fraction_bits": "0000000000000000",
+          "endpoint_hit_fraction_bits": "3fc4eb4f04806708",
+          "indicator_mode": "compact_c2",
+          "mean_certain_survival_count_bits": "0000000000000000",
+          "mean_conditional_bridge_hit_weight_bits": "3fd1dabc95105672",
+          "mean_finite_correction_count_bits": "3ffd0d8000000000",
+          "mean_interval_count_bits": "4000000000000000",
+          "mean_survival_underflow_count_bits": "0000000000000000",
+          "mean_zero_variance_count_bits": "0000000000000000",
+          "policy_version": 2
+        },
+        "path_state": null,
+        "payoff_smoothing": {
+          "dividend_jump_count": 0,
+          "endpoint_count": 3,
+          "full_transition_width_bits": "4014000000000000",
+          "half_width_bits": "4004000000000000",
+          "kernel": "compact_c2",
+          "policy_version": 1,
+          "price_and_greeks_share_payoff": true,
+          "width_unit": "spot"
+        },
+        "valuation_kind": "smoothed_surrogate"
+      },
+      "plan": {
+        "plan_fingerprint": "blake3-256:ee5592a63e984f96ebb82325a1ad3bf9f44ea79eb87955d604964e0a293e0887",
+        "reduction_block_size": 256,
+        "request_fingerprint": "blake3-256:82375a7bb782fd387dc662ef21e53b2c3bd5338d019eb595e86daa45321b55df",
+        "worker_threads": 2
+      },
+      "request": {
+        "document_kind": "pricing_request",
+        "engine": {
+          "master_scramble_seed": 2817045651140218949,
+          "points_per_scramble": 512,
+          "scramble_count": 8,
+          "type": "randomized_quasi_monte_carlo",
+          "variance_reduction": {
+            "antithetic": true,
+            "brownian_bridge": true
+          }
+        },
+        "market": {
+          "currency_id": 1,
+          "discount_curve": {
+            "curve_id": 1,
+            "discount_factors": [
+              1.0,
+              0.951229424500714
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "dividend_curve": {
+            "curve_id": 2,
+            "discount_factors": [
+              1.0,
+              0.9801986733067553
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "spot": 100.0,
+          "type": "equity",
+          "underlying_id": 1
+        },
+        "model": {
+          "type": "black_scholes",
+          "volatility": 0.2
+        },
+        "product": {
+          "barrier": 125.0,
+          "currency_id": 1,
+          "direction": {
+            "type": "up"
+          },
+          "expiry": "2027-09-04",
+          "monitoring": {
+            "type": "continuous"
+          },
+          "monitoring_dates": [
+            "2027-03-05",
+            "2027-09-04"
+          ],
+          "notional": 1.0,
+          "payment_date": "2027-09-04",
+          "rebate": 2.0,
+          "side": {
+            "type": "call"
+          },
+          "strike": 100.0,
+          "style": {
+            "type": "knock_out"
+          },
+          "type": "barrier",
+          "underlying_id": 1
+        },
+        "risk": {
+          "aad_tile_capacity": 128,
+          "checkpoint_interval": 16,
+          "delta": true,
+          "gamma": {
+            "bump": {
+              "type": "relative",
+              "value": 0.01
+            }
+          },
+          "payoff_smoothing": {
+            "half_width": 2.5,
+            "type": "compact_c2"
+          },
+          "smile_dynamics": {
+            "type": "sticky_log_moneyness"
+          },
+          "vega": true
+        },
+        "schema_version": 3,
+        "valuation_date": "2026-09-04"
+      },
+      "result": {
+        "diagnostics": {
+          "warnings": []
+        },
+        "document_kind": "pricing_result",
+        "replay": {
+          "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:82375a7bb782fd387dc662ef21e53b2c3bd5338d019eb595e86daa45321b55df",
+            "pre_migration_fingerprint": "blake3-256:82375a7bb782fd387dc662ef21e53b2c3bd5338d019eb595e86daa45321b55df"
+          },
+          "platform": "windows-x86_64",
+          "request_fingerprint": "blake3-256:82375a7bb782fd387dc662ef21e53b2c3bd5338d019eb595e86daa45321b55df",
+          "schema_version": 3
+        },
+        "risks": {
+          "delta": {
+            "market_scaled": {
+              "confidence_lower": 0.04369309158469543,
+              "confidence_upper": 0.05147799184492053,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0019859804367915452,
+              "value": 0.04758554171480798
+            },
+            "market_scaled_unit": {
+              "type": "delta_one_percent_spot"
+            },
+            "raw": {
+              "confidence_lower": 0.04369309158469543,
+              "confidence_upper": 0.05147799184492053,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0019859804367915452,
+              "value": 0.04758554171480798
+            },
+            "raw_unit": {
+              "type": "delta_raw"
+            }
+          },
+          "gamma": {
+            "market_scaled": {
+              "confidence_lower": -0.012791956360773503,
+              "confidence_upper": -0.004358842178057534,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0021513441699019214,
+              "value": -0.008575399269415519
+            },
+            "market_scaled_unit": {
+              "type": "gamma_one_percent_spot_squared"
+            },
+            "raw": {
+              "confidence_lower": -0.012791956360773503,
+              "confidence_upper": -0.004358842178057534,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0021513441699019214,
+              "value": -0.008575399269415519
+            },
+            "raw_unit": {
+              "type": "gamma_raw"
+            }
+          },
+          "vega": {
+            "market_scaled": {
+              "confidence_lower": -0.15396728184111116,
+              "confidence_upper": -0.14835316541634033,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0014321988743298984,
+              "value": -0.15116022362872575
+            },
+            "market_scaled_unit": {
+              "type": "vega_one_vol_point"
+            },
+            "raw": {
+              "confidence_lower": -15.396728184111115,
+              "confidence_upper": -14.835316541634032,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.14321988743298983,
+              "value": -15.116022362872574
+            },
+            "raw_unit": {
+              "type": "vega_raw"
+            }
+          }
+        },
+        "schema_version": 3,
+        "value": {
+          "confidence_lower": 2.5875131347304383,
+          "confidence_upper": 2.598757245887874,
+          "effective_sampling_units": 8,
+          "estimator": {
+            "type": "randomized_quasi_monte_carlo"
+          },
+          "standard_error": 0.002868448411840194,
+          "value": 2.593135190309156
+        }
+      }
+    },
+    {
+      "execution": {
+        "estimator_variance_bits": "3f7565b15b147ba2",
+        "evaluated_paths": "8192",
+        "independent_sampling_units": 4096,
+        "monte_carlo": {
+          "aad_tile_capacity": 128,
+          "aad_tile_policy_version": 1,
+          "antithetic": true,
+          "checkpoint_interval": 16,
+          "checkpoint_policy_version": 1,
+          "direction_checksum": null,
+          "discount_region": "pillar",
+          "dividend_region": "pillar",
+          "estimator": "pseudo_monte_carlo",
+          "master_seed": "3549216002486605715",
+          "payoff_fingerprint": "blake3-256:3455554e311480c9f2ec529aa0dbd9f326381dc6858b04cecfd3391ab2448714",
+          "policy_version": 1,
+          "reduction_block_size": 256,
+          "scramble_checksum": null,
+          "scramble_count": null,
+          "worker_threads": 2
+        },
+        "risk_methods": {
+          "bump_policy_version": 1,
+          "delta": "aad_reverse",
+          "gamma": "central_bump_of_aad_delta",
+          "gamma_spot_bump_bits": "3ff0000000000000",
+          "smile_dynamics": "sticky_log_moneyness",
+          "validation_spot_bump_bits": "3ff0000000000000",
+          "validation_volatility_bump_bits": "3f1a36e2eb1c432d",
+          "vega": "aad_reverse"
+        },
+        "risk_validation": {
+          "delta": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3fdcadd12e925c7c",
+              "confidence_upper_bits": "3fdce20d91065208",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f4aa6c543bd0528",
+              "value_bits": "3fdcc7ef5fcc5742"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf5094665e892520",
+              "confidence_upper_bits": "3f54391130a7217a",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f42c6f592317559",
+              "value_bits": "3f1d255690efe2ca"
+            }
+          },
+          "gamma": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3f8f2824cda9720a",
+              "confidence_upper_bits": "3f9450a62a1d11f9",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f535562b8e8a635",
+              "value_bits": "3f91f25c4878e57f"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf4f0583d94cedf6",
+              "confidence_upper_bits": "3f4436c516db506e",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3f3a241ae5c08e0d",
+              "value_bits": "bf259d7d84e33b0e"
+            }
+          },
+          "vega": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "4038121b55406735",
+              "confidence_upper_bits": "4039bfba1d855b4d",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3fdb665642083d8e",
+              "value_bits": "4038e8eab962e141"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "be64a6bd68df3c90",
+              "confidence_upper_bits": "be60cd5841da67d0",
+              "effective_sampling_units": 4096,
+              "standard_error_bits": "3e1f6c308dd08b93",
+              "value_bits": "be62ba0ad55cd230"
+            }
+          }
+        },
+        "sampling_variance_bits": "403565b15b147ba2"
+      },
+      "name": "arithmetic_asian_full_risk",
+      "path_diagnostics": {
+        "barrier_bridge": null,
+        "path_state": {
+          "kind": "arithmetic_asian",
+          "known_observation_count": 1,
+          "known_weight_sum_bits": "3fc999999999999a",
+          "unknown_observation_count": 2,
+          "unknown_weight_sum_bits": "3fe999999999999a",
+          "weighted_known_fixing_sum_bits": "403399999999999a"
+        },
+        "payoff_smoothing": null,
+        "valuation_kind": "exact_contractual"
+      },
+      "plan": {
+        "plan_fingerprint": "blake3-256:353bda212aecfd19bf337757dfe4b5b36d95236a05e3a2b60730b8e3652648eb",
+        "reduction_block_size": 256,
+        "request_fingerprint": "blake3-256:d84d6691f597581c988aa39c20a3ed445b58efb1c34876a11d2d7ee45f16e972",
+        "worker_threads": 2
+      },
+      "request": {
+        "document_kind": "pricing_request",
+        "engine": {
+          "independent_sampling_units": 4096,
+          "master_seed": 3549216002486605715,
+          "type": "pseudo_monte_carlo",
+          "variance_reduction": {
+            "antithetic": true,
+            "brownian_bridge": false
+          }
+        },
+        "market": {
+          "currency_id": 1,
+          "discount_curve": {
+            "curve_id": 1,
+            "discount_factors": [
+              1.0,
+              0.951229424500714
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "dividend_curve": {
+            "curve_id": 2,
+            "discount_factors": [
+              1.0,
+              0.9801986733067553
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "spot": 100.0,
+          "type": "equity",
+          "underlying_id": 1
+        },
+        "model": {
+          "type": "black_scholes",
+          "volatility": 0.2
+        },
+        "product": {
+          "currency_id": 1,
+          "notional": 1.0,
+          "observations": [
+            {
+              "date": "2026-06-04",
+              "value": {
+                "fixing": 98.0,
+                "type": "known"
+              },
+              "weight": 0.2
+            },
+            {
+              "date": "2027-03-05",
+              "value": {
+                "type": "unknown"
+              },
+              "weight": 0.3
+            },
+            {
+              "date": "2027-09-04",
+              "value": {
+                "type": "unknown"
+              },
+              "weight": 0.5
+            }
+          ],
+          "payment_date": "2027-09-04",
+          "side": {
+            "type": "call"
+          },
+          "strike": 100.0,
+          "type": "arithmetic_asian",
+          "underlying_id": 1
+        },
+        "risk": {
+          "aad_tile_capacity": 128,
+          "checkpoint_interval": 16,
+          "delta": true,
+          "gamma": {
+            "bump": {
+              "type": "relative",
+              "value": 0.01
+            }
+          },
+          "smile_dynamics": {
+            "type": "sticky_log_moneyness"
+          },
+          "vega": true
+        },
+        "schema_version": 3,
+        "valuation_date": "2026-09-04"
+      },
+      "result": {
+        "diagnostics": {
+          "warnings": []
+        },
+        "document_kind": "pricing_result",
+        "replay": {
+          "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:d84d6691f597581c988aa39c20a3ed445b58efb1c34876a11d2d7ee45f16e972",
+            "pre_migration_fingerprint": "blake3-256:d84d6691f597581c988aa39c20a3ed445b58efb1c34876a11d2d7ee45f16e972"
+          },
+          "platform": "windows-x86_64",
+          "request_fingerprint": "blake3-256:d84d6691f597581c988aa39c20a3ed445b58efb1c34876a11d2d7ee45f16e972",
+          "schema_version": 3
+        },
+        "risks": {
+          "delta": {
+            "market_scaled": {
+              "confidence_lower": 0.4475359792403374,
+              "confidence_upper": 0.4516477902610757,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.0010489506575558976,
+              "value": 0.44959188475070655
+            },
+            "market_scaled_unit": {
+              "type": "delta_one_percent_spot"
+            },
+            "raw": {
+              "confidence_lower": 0.4475359792403374,
+              "confidence_upper": 0.4516477902610757,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.0010489506575558976,
+              "value": 0.44959188475070655
+            },
+            "raw_unit": {
+              "type": "delta_raw"
+            }
+          },
+          "gamma": {
+            "market_scaled": {
+              "confidence_lower": 0.015569556774723032,
+              "confidence_upper": 0.019812453676612933,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.0010823915478440757,
+              "value": 0.017691005225667984
+            },
+            "market_scaled_unit": {
+              "type": "gamma_one_percent_spot_squared"
+            },
+            "raw": {
+              "confidence_lower": 0.015569556774723032,
+              "confidence_upper": 0.019812453676612933,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.0010823915478440757,
+              "value": 0.017691005225667984
+            },
+            "raw_unit": {
+              "type": "gamma_raw"
+            }
+          },
+          "vega": {
+            "market_scaled": {
+              "confidence_lower": 0.24070729604678318,
+              "confidence_upper": 0.2574893367812854,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.004281211508700371,
+              "value": 0.2490983164140343
+            },
+            "market_scaled_unit": {
+              "type": "vega_one_vol_point"
+            },
+            "raw": {
+              "confidence_lower": 24.070729604678316,
+              "confidence_upper": 25.74893367812854,
+              "effective_sampling_units": 4096,
+              "estimator": {
+                "type": "pseudo_monte_carlo"
+              },
+              "standard_error": 0.42812115087003705,
+              "value": 24.90983164140343
+            },
+            "raw_unit": {
+              "type": "vega_raw"
+            }
+          }
+        },
+        "schema_version": 3,
+        "value": {
+          "confidence_lower": 5.6912050204316795,
+          "confidence_upper": 5.974524846254456,
+          "effective_sampling_units": 4096,
+          "estimator": {
+            "type": "pseudo_monte_carlo"
+          },
+          "standard_error": 0.07227679387416451,
+          "value": 5.8328649333430675
+        }
+      }
+    },
+    {
+      "execution": {
+        "estimator_variance_bits": "3ee51218d163b787",
+        "evaluated_paths": "8192",
+        "independent_sampling_units": 8,
+        "monte_carlo": {
+          "aad_tile_capacity": 128,
+          "aad_tile_policy_version": 1,
+          "antithetic": true,
+          "checkpoint_interval": 16,
+          "checkpoint_policy_version": 1,
+          "direction_checksum": "8705f417eb13dfdcf64930325a266de4149e1a2d97377639b8fa53dae5bce848",
+          "discount_region": "pillar",
+          "dividend_region": "pillar",
+          "estimator": "randomized_quasi_monte_carlo",
+          "master_seed": "2817045651140218949",
+          "payoff_fingerprint": "blake3-256:6ea1461383066182b77fab006cfc3d744d6614a7a71dfe48b3606f90542238e2",
+          "policy_version": 1,
+          "reduction_block_size": 256,
+          "scramble_checksum": "eb922e69198be3809e72e4424c46007bf23938116e4175dee689b34ead0ac0fb",
+          "scramble_count": 8,
+          "worker_threads": 2
+        },
+        "risk_methods": {
+          "bump_policy_version": 1,
+          "delta": "aad_reverse",
+          "gamma": "central_bump_of_aad_delta",
+          "gamma_spot_bump_bits": "3ff0000000000000",
+          "smile_dynamics": "sticky_log_moneyness",
+          "validation_spot_bump_bits": "3ff0000000000000",
+          "validation_volatility_bump_bits": "3f1a36e2eb1c432d",
+          "vega": "aad_reverse"
+        },
+        "risk_validation": {
+          "delta": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3fe3466517671d28",
+              "confidence_upper_bits": "3fe3634b90133702",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f4d7d996c9b808a",
+              "value_bits": "3fe354d853bd2a15"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf46ce7fb8a39ff3",
+              "confidence_upper_bits": "3f5cbb0aff1e49b0",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f447a150e3b22d6",
+              "value_bits": "3f4153cb22cc79b7"
+            }
+          },
+          "gamma": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "3f98957adf4eaca7",
+              "confidence_upper_bits": "3f9a40597be6928f",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f3b396d62383983",
+              "value_bits": "3f996aea2d9a9f9b"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf579b5d7b29bf99",
+              "confidence_upper_bits": "3f3f98b19d7828f9",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f4013257661b67b",
+              "value_bits": "bf3f6a6227976ab5"
+            }
+          },
+          "vega": {
+            "bump_and_revalue": {
+              "confidence_lower_bits": "4048090b76306b39",
+              "confidence_upper_bits": "404811f98ac47011",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f92398e4f8bc67f",
+              "value_bits": "40480d82807a6da5"
+            },
+            "bump_minus_primary": {
+              "confidence_lower_bits": "bf5e83519a25a3de",
+              "confidence_upper_bits": "3f43c9f80f6cdd1d",
+              "effective_sampling_units": 8,
+              "standard_error_bits": "3f449dcd7f22ba54",
+              "value_bits": "bf449e55926f354f"
+            }
+          }
+        },
+        "sampling_variance_bits": "3f151218d163b787"
+      },
+      "name": "fixed_lookback_full_risk",
+      "path_diagnostics": {
+        "barrier_bridge": null,
+        "path_state": {
+          "future_monitoring_count": 2,
+          "historical_extremum_bits": "405a400000000000",
+          "kind": "fixed_lookback",
+          "past_monitoring_count": 1
+        },
+        "payoff_smoothing": null,
+        "valuation_kind": "exact_contractual"
+      },
+      "plan": {
+        "plan_fingerprint": "blake3-256:6cefa0650691a700124c2f33cb53a304b85f462825e28bb2b6fc68e0af38dce5",
+        "reduction_block_size": 256,
+        "request_fingerprint": "blake3-256:ae9f46cc324d10faa2c3e48459423839a6d3034e975b799ad1fb5486e98bc8b8",
+        "worker_threads": 2
+      },
+      "request": {
+        "document_kind": "pricing_request",
+        "engine": {
+          "master_scramble_seed": 2817045651140218949,
+          "points_per_scramble": 512,
+          "scramble_count": 8,
+          "type": "randomized_quasi_monte_carlo",
+          "variance_reduction": {
+            "antithetic": true,
+            "brownian_bridge": true
+          }
+        },
+        "market": {
+          "currency_id": 1,
+          "discount_curve": {
+            "curve_id": 1,
+            "discount_factors": [
+              1.0,
+              0.951229424500714
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "dividend_curve": {
+            "curve_id": 2,
+            "discount_factors": [
+              1.0,
+              0.9801986733067553
+            ],
+            "times": [
+              0.0,
+              1.0
+            ]
+          },
+          "spot": 100.0,
+          "type": "equity",
+          "underlying_id": 1
+        },
+        "model": {
+          "type": "black_scholes",
+          "volatility": 0.2
+        },
+        "product": {
+          "currency_id": 1,
+          "historical_extremum": 105.0,
+          "monitoring_dates": [
+            "2026-06-04",
+            "2027-03-05",
+            "2027-09-04"
+          ],
+          "notional": 1.0,
+          "payment_date": "2027-09-04",
+          "side": {
+            "type": "call"
+          },
+          "strike": 100.0,
+          "type": "fixed_lookback",
+          "underlying_id": 1
+        },
+        "risk": {
+          "aad_tile_capacity": 128,
+          "checkpoint_interval": 16,
+          "delta": true,
+          "gamma": {
+            "bump": {
+              "type": "relative",
+              "value": 0.01
+            }
+          },
+          "smile_dynamics": {
+            "type": "sticky_log_moneyness"
+          },
+          "vega": true
+        },
+        "schema_version": 3,
+        "valuation_date": "2026-09-04"
+      },
+      "result": {
+        "diagnostics": {
+          "warnings": []
+        },
+        "document_kind": "pricing_result",
+        "replay": {
+          "library_version": "0.1.0",
+          "migration": {
+            "current_schema_version": 3,
+            "migration_ids": [],
+            "original_schema_version": 3,
+            "post_migration_fingerprint": "blake3-256:ae9f46cc324d10faa2c3e48459423839a6d3034e975b799ad1fb5486e98bc8b8",
+            "pre_migration_fingerprint": "blake3-256:ae9f46cc324d10faa2c3e48459423839a6d3034e975b799ad1fb5486e98bc8b8"
+          },
+          "platform": "windows-x86_64",
+          "request_fingerprint": "blake3-256:ae9f46cc324d10faa2c3e48459423839a6d3034e975b799ad1fb5486e98bc8b8",
+          "schema_version": 3
+        },
+        "risks": {
+          "delta": {
+            "market_scaled": {
+              "confidence_lower": 0.6007794836510094,
+              "confidence_upper": 0.6063770588697379,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0014279791013716227,
+              "value": 0.6035782712603737
+            },
+            "market_scaled_unit": {
+              "type": "delta_one_percent_spot"
+            },
+            "raw": {
+              "confidence_lower": 0.6007794836510094,
+              "confidence_upper": 0.6063770588697379,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0014279791013716227,
+              "value": 0.6035782712603737
+            },
+            "raw_unit": {
+              "type": "delta_raw"
+            }
+          },
+          "gamma": {
+            "market_scaled": {
+              "confidence_lower": 0.024716798409701996,
+              "confidence_upper": 0.025885748276443323,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0002982069762408523,
+              "value": 0.02530127334307266
+            },
+            "market_scaled_unit": {
+              "type": "gamma_one_percent_spot_squared"
+            },
+            "raw": {
+              "confidence_lower": 0.024716798409701996,
+              "confidence_upper": 0.025885748276443323,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.0002982069762408523,
+              "value": 0.02530127334307266
+            },
+            "raw_unit": {
+              "type": "gamma_raw"
+            }
+          },
+          "vega": {
+            "market_scaled": {
+              "confidence_lower": 0.48071721027987474,
+              "confidence_upper": 0.48140627626879046,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.00017578537012694567,
+              "value": 0.4810617432743326
+            },
+            "market_scaled_unit": {
+              "type": "vega_one_vol_point"
+            },
+            "raw": {
+              "confidence_lower": 48.07172102798747,
+              "confidence_upper": 48.140627626879045,
+              "effective_sampling_units": 8,
+              "estimator": {
+                "type": "randomized_quasi_monte_carlo"
+              },
+              "standard_error": 0.017578537012694566,
+              "value": 48.10617432743326
+            },
+            "raw_unit": {
+              "type": "vega_raw"
+            }
+          }
+        },
+        "schema_version": 3,
+        "value": {
+          "confidence_lower": 12.937031157852715,
+          "confidence_upper": 12.949456333113854,
+          "effective_sampling_units": 8,
+          "estimator": {
+            "type": "randomized_quasi_monte_carlo"
+          },
+          "standard_error": 0.0031697458114401844,
+          "value": 12.943243745483285
+        }
+      }
+    }
+  ],
+  "fixture_kind": "path_dependence_replay",
+  "platform": "windows-x86_64",
+  "schema_version": 1
+}

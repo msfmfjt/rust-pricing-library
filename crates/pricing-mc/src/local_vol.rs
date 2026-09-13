@@ -405,8 +405,9 @@ impl LocalVolLogEulerPlan {
                 local_variance_grid.interpolate_and_record(time, x, &mut boundary_stats)?;
             let local_variance = interpolation.value;
             let local_volatility = local_variance.sqrt();
-            let exponential =
-                (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
+            let forward_ratio = self.forward_normalizers[step + 1] / self.forward_normalizers[step];
+            let exponential = forward_ratio
+                * (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
             step_cache.push(LocalVolStepCache {
                 state_before: state,
                 local_variance,
@@ -562,6 +563,23 @@ impl LocalVolPath {
         grid_value_count: usize,
         grid_log_moneyness_count: usize,
     ) -> Result<LocalVolReverseAdjoints, LocalVolError> {
+        let mut state_adjoints = vec![0.0; self.states.len()];
+        state_adjoints[self.states.len() - 1] = terminal_state_adjoint;
+        self.reverse_state_adjoints(&state_adjoints, grid_value_count, grid_log_moneyness_count)
+    }
+
+    pub fn reverse_state_adjoints(
+        &self,
+        state_seeds: &[f64],
+        grid_value_count: usize,
+        grid_log_moneyness_count: usize,
+    ) -> Result<LocalVolReverseAdjoints, LocalVolError> {
+        if state_seeds.len() != self.states.len() {
+            return Err(LocalVolError::AdjointCountMismatch {
+                expected: self.states.len(),
+                actual: state_seeds.len(),
+            });
+        }
         for cache in self.step_cache.iter().copied() {
             let required = (cache.interpolation.lower_time_index + 2)
                 .checked_mul(grid_log_moneyness_count)
@@ -573,10 +591,9 @@ impl LocalVolPath {
                 });
             }
         }
-        let mut state_adjoints = vec![0.0; self.states.len()];
+        let mut state_adjoints = state_seeds.to_vec();
         let mut shock_adjoints = vec![0.0; self.step_cache.len()];
         let mut local_variance_value_adjoints = vec![0.0; grid_value_count];
-        state_adjoints[self.states.len() - 1] = terminal_state_adjoint;
         for step in (0..self.step_cache.len()).rev() {
             let cache = self.step_cache[step];
             let next_state_adjoint = state_adjoints[step + 1];
@@ -1017,6 +1034,42 @@ mod tests {
     }
 
     #[test]
+    fn log_euler_applies_compiled_forward_carry() {
+        let time_grid = LocalVolTimeGrid::compile(vec![0.5, 1.0], 0.5).expect("time grid");
+        let plan = LocalVolLogEulerPlan::new(time_grid, vec![100.0, 102.0, 105.0]).expect("plan");
+        let variance_grid = LocalVarianceGrid::new(
+            vec![0.0, 1.0],
+            vec![-1.0, 1.0],
+            vec![0.04, 0.04, 0.04, 0.04],
+            0.0001,
+            1.0,
+        )
+        .expect("variance grid");
+        let shocks = [0.1, -0.2];
+        let path = plan
+            .evolve_path(&variance_grid, 100.0, &shocks)
+            .expect("path");
+        let expected = 105.0
+            * (-0.5 * 0.04 + 0.2 * 0.5_f64.sqrt() * shocks.iter().copied().sum::<f64>()).exp();
+        assert!((path.states()[2] - expected).abs() < 1.0e-12);
+
+        let reverse = path
+            .reverse_terminal(1.0, variance_grid.values().len(), 2)
+            .expect("reverse");
+        let bump = 1.0e-4;
+        let down = plan
+            .evolve_path(&variance_grid, 100.0 - bump, &shocks)
+            .expect("down")
+            .states()[2];
+        let up = plan
+            .evolve_path(&variance_grid, 100.0 + bump, &shocks)
+            .expect("up")
+            .states()[2];
+        let finite_difference = (up - down) / (2.0 * bump);
+        assert!((reverse.initial_state_adjoint() - finite_difference).abs() < 1.0e-10);
+    }
+
+    #[test]
     fn log_euler_records_boundary_use_from_grid_interpolation() {
         let time_grid = LocalVolTimeGrid::compile(vec![0.5], 0.5).expect("time grid");
         let plan = LocalVolLogEulerPlan::with_constant_forward(time_grid, 100.0).expect("plan");
@@ -1090,6 +1143,32 @@ mod tests {
                 (actual - finite).abs() < 1.0e-5,
                 "shock {shock_index}: actual={actual:.17e}, finite={finite:.17e}"
             );
+        }
+
+        let state_seeds = [0.0, 0.3, 0.7];
+        let multi = path
+            .reverse_state_adjoints(
+                &state_seeds,
+                variance_grid.values().len(),
+                variance_grid.log_moneyness_nodes().len(),
+            )
+            .expect("multi-state reverse");
+        let objective = |path: &LocalVolPath| 0.3 * path.states()[1] + 0.7 * path.states()[2];
+        let finite_initial = (objective(&up_path) - objective(&down_path)) / (2.0 * bump);
+        assert!((multi.initial_state_adjoint() - finite_initial).abs() < 1.0e-7);
+        for shock_index in 0..shocks.len() {
+            let mut up_shocks = shocks.clone();
+            up_shocks[shock_index] += bump;
+            let mut down_shocks = shocks.clone();
+            down_shocks[shock_index] -= bump;
+            let up_path = plan
+                .evolve_path(&variance_grid, 100.0, &up_shocks)
+                .expect("up shock");
+            let down_path = plan
+                .evolve_path(&variance_grid, 100.0, &down_shocks)
+                .expect("down shock");
+            let finite = (objective(&up_path) - objective(&down_path)) / (2.0 * bump);
+            assert!((multi.shock_adjoints()[shock_index] - finite).abs() < 1.0e-5);
         }
     }
 
