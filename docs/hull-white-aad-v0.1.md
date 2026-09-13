@@ -6,6 +6,8 @@ Quote-backed VegaKT is added by [ADR 0004](adr/0004-hull-white-vegakt.md) and
 the [VegaKT contracts](hull-white-vegakt-v0.1.md).
 These contracts extend the [hybrid](hull-white-numerical-contracts-v0.1.md) and
 [cash-dividend](hull-white-cash-dividends-v0.1.md) price contracts.
+The [rough extension](rough-bergomi-v0.1.md) reuses this VJP with a fixed
+Volterra driver and adds the pure model's `initial_volatility` sensitivity.
 
 ## API and risk coordinates
 

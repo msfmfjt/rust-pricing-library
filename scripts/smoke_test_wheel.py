@@ -144,6 +144,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run(
         [
             str(python),
@@ -1013,6 +1014,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "RoughBergomiModel",
         "HullWhiteModel",
         "HullWhiteLsvTarget",
         "HullWhiteEquityPlan",
@@ -1189,6 +1191,27 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("RoughBergomiModel", "__init__"): {
+            "positional": ["self", "hurst", "vol_of_vol"],
+            "positional_defaults": {},
+            "keyword_only": ["equity_vol_correlation"],
+            "required_keyword_only": ["equity_vol_correlation"],
+            "keyword_only_defaults": {},
+        },
+        ("HullWhiteEquityPlan", "compile_rough_bergomi"): {
+            "positional": ["request", "rough_model", "rate_model"],
+            "positional_defaults": {},
+            "keyword_only": ["equity_rate_correlation", "vol_rate_correlation", "maximum_step", "worker_threads", "reduction_block_size", "cash_dividend_model"],
+            "required_keyword_only": ["equity_rate_correlation", "vol_rate_correlation", "maximum_step", "worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None, "cash_dividend_model": None},
+        },
+        ("HullWhiteEquityPlan", "compile_rough_lsv"): {
+            "positional": ["request", "target", "rough_model", "rate_model"],
+            "positional_defaults": {},
+            "keyword_only": ["equity_rate_correlation", "vol_rate_correlation", "particle_count", "calibration_seed", "log_bandwidth", "minimum_effective_samples", "worker_threads", "reduction_block_size", "cash_dividend_model", "retain_reverse_trace"],
+            "required_keyword_only": ["equity_rate_correlation", "vol_rate_correlation", "particle_count", "calibration_seed", "log_bandwidth", "minimum_effective_samples", "worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None, "cash_dividend_model": None, "retain_reverse_trace": False},
+        },
         ("HullWhiteModel", "__init__"): {
             "positional": ["self", "mean_reversion", "volatility_times", "volatilities"],
             "positional_defaults": {},
@@ -1700,6 +1723,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "RoughBergomiModel": {"__init__", "hurst", "vol_of_vol", "equity_vol_correlation"},
         "HullWhiteModel": {
             "__init__",
             "mean_reversion",
@@ -1720,6 +1744,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "forward_log_densities",
         },
         "HullWhiteEquityPlan": {
+            "compile_rough_bergomi",
+            "compile_rough_lsv",
+            "random_factor_count",
             "cash_dividend_model",
             "risky_spot",
             "compile_bs",
@@ -2070,6 +2097,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("HullWhiteLsvTarget", "flat"),
         ("HullWhiteLsvTarget", "from_essvi"),
         ("HullWhiteLsvTarget", "from_grid"),
+        ("HullWhiteEquityPlan", "compile_rough_bergomi"),
+        ("HullWhiteEquityPlan", "compile_rough_lsv"),
         ("HullWhiteEquityPlan", "compile_bs"),
         ("HullWhiteEquityPlan", "compile_lsv"),
         ("BergomiLsvPlan", "compile"),
@@ -2129,6 +2158,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("HullWhiteEquityPlan", "cash_dividend_model"),
         ("HullWhiteEquityPlan", "risky_spot"),
         ("HullWhitePrice", "cash_dividend_model"),
+        ("RoughBergomiModel", "hurst"),
+        ("RoughBergomiModel", "vol_of_vol"),
+        ("RoughBergomiModel", "equity_vol_correlation"),
+        ("HullWhiteEquityPlan", "random_factor_count"),
         ("HullWhiteModel", "mean_reversion"),
         ("HullWhiteModel", "volatility_times"),
         ("HullWhiteModel", "volatilities"),

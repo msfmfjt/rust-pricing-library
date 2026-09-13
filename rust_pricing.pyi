@@ -37,6 +37,17 @@ RiskUnit = Literal[
 __version__: str
 
 
+class RoughBergomiModel:
+    """Riemann-Liouville rough Bergomi; vol_of_vol is the log-variance coefficient eta."""
+    def __init__(self, hurst: float, vol_of_vol: float, *, equity_vol_correlation: float) -> None: ...
+    @property
+    def hurst(self) -> float: ...
+    @property
+    def vol_of_vol(self) -> float: ...
+    @property
+    def equity_vol_correlation(self) -> float: ...
+
+
 class HullWhiteModel:
     """One-factor HW: constant mean reversion and piecewise constant rate volatility."""
     def __init__(
@@ -93,7 +104,26 @@ class HullWhiteLsvTarget:
 
 
 class HullWhiteEquityPlan:
-    """Experimental BS/LSV + HW with optional escrowed cash dividends."""
+    """Experimental BS/Bergomi/rough Bergomi + HW, LSV and escrowed cash dividends."""
+    @staticmethod
+    def compile_rough_bergomi(
+        request: PricingRequest, rough_model: RoughBergomiModel, rate_model: HullWhiteModel, *,
+        equity_rate_correlation: float, vol_rate_correlation: float, maximum_step: float,
+        worker_threads: int, reduction_block_size: int | None = None,
+        cash_dividend_model: Literal["escrowed"] | None = None,
+    ) -> HullWhiteEquityPlan: ...
+    @staticmethod
+    def compile_rough_lsv(
+        request: PricingRequest, target: HullWhiteLsvTarget,
+        rough_model: RoughBergomiModel, rate_model: HullWhiteModel, *,
+        equity_rate_correlation: float, vol_rate_correlation: float, particle_count: int,
+        calibration_seed: int, log_bandwidth: float, minimum_effective_samples: float,
+        worker_threads: int, reduction_block_size: int | None = None,
+        cash_dividend_model: Literal["escrowed"] | None = None,
+        retain_reverse_trace: bool = False,
+    ) -> HullWhiteEquityPlan: ...
+    @property
+    def random_factor_count(self) -> int: ...
     @staticmethod
     def compile_bs(
         request: PricingRequest, rate_model: HullWhiteModel, *,

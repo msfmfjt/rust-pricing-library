@@ -5,6 +5,7 @@ use pricing::market::{EssviSurface, MarketIvSurface, SurfaceValidationTolerance}
 use pricing::mc::{ExecutionPolicy, hull_white::HullWhiteLsvTarget, lsv::LsvParticleConfig};
 use pricing::models::{
     Bergomi1Factor, HullWhite1Factor, HybridCorrelation, LocalVolatilitySpec, ModelSpec,
+    RoughBergomi,
 };
 use pyo3::prelude::*;
 
@@ -17,6 +18,48 @@ fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
             e.to_string(),
         ),
     )
+}
+
+fn cash_option(py: Python<'_>, value: Option<&str>) -> PyResult<bool> {
+    match value {
+        None => Ok(false),
+        Some("escrowed") => Ok(true),
+        Some(_) => Err(invalid(py, "cash_dividend_model must be escrowed or None")),
+    }
+}
+
+#[pyclass(frozen, name = "RoughBergomiModel", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughBergomiModel {
+    inner: RoughBergomi,
+}
+#[pymethods]
+impl PyRoughBergomiModel {
+    /// eta (vol_of_vol) multiplies log variance; 0 < H <= 1/2.
+    #[new]
+    #[pyo3(signature=(hurst, vol_of_vol, *, equity_vol_correlation))]
+    fn new(
+        py: Python<'_>,
+        hurst: f64,
+        vol_of_vol: f64,
+        equity_vol_correlation: f64,
+    ) -> PyResult<Self> {
+        RoughBergomi::new(hurst, vol_of_vol, equity_vol_correlation)
+            .map(|inner| Self { inner })
+            .map_err(|e| invalid(py, e))
+    }
+    #[getter]
+    fn hurst(&self) -> f64 {
+        self.inner.hurst()
+    }
+    #[getter]
+    fn vol_of_vol(&self) -> f64 {
+        self.inner.vol_of_vol()
+    }
+    #[getter]
+    fn equity_vol_correlation(&self) -> f64 {
+        self.inner.correlation()
+    }
 }
 
 #[pyclass(frozen, name = "HullWhiteModel", skip_from_py_object)]
@@ -207,6 +250,111 @@ pub struct PyHullWhiteEquityPlan {
 }
 #[pymethods]
 impl PyHullWhiteEquityPlan {
+    /// Pure rough Bergomi with flat initial forward variance sigma0^2 from
+    /// the request's BlackScholes volatility. Rate volatility may be zero.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, rough_model, rate_model, *, equity_rate_correlation, vol_rate_correlation, maximum_step, worker_threads, reduction_block_size=None, cash_dividend_model=None))]
+    fn compile_rough_bergomi(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        rough_model: &PyRoughBergomiModel,
+        rate_model: &PyHullWhiteModel,
+        equity_rate_correlation: f64,
+        vol_rate_correlation: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        cash_dividend_model: Option<&str>,
+    ) -> PyResult<Self> {
+        let cash = cash_option(py, cash_dividend_model)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let factor = rough_model.inner;
+        let correlation = HybridCorrelation::new(
+            factor.correlation(),
+            equity_rate_correlation,
+            vol_rate_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            let compile = if cash {
+                HullWhiteEquityPricingPlan::compile_rough_bergomi_with_cash_dividends
+            } else {
+                HullWhiteEquityPricingPlan::compile_rough_bergomi
+            };
+            compile(&request, factor, rates, correlation, maximum_step, policy)
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    /// Rough-LSV particle calibration, with the same AAD/VegaKT target contract.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, target, rough_model, rate_model, *, equity_rate_correlation, vol_rate_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, worker_threads, reduction_block_size=None, cash_dividend_model=None, retain_reverse_trace=false))]
+    fn compile_rough_lsv(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        target: &PyHullWhiteLsvTarget,
+        rough_model: &PyRoughBergomiModel,
+        rate_model: &PyHullWhiteModel,
+        equity_rate_correlation: f64,
+        vol_rate_correlation: f64,
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        cash_dividend_model: Option<&str>,
+        retain_reverse_trace: bool,
+    ) -> PyResult<Self> {
+        let cash = cash_option(py, cash_dividend_model)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let factor = rough_model.inner;
+        let correlation = HybridCorrelation::new(
+            factor.correlation(),
+            equity_rate_correlation,
+            vol_rate_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            retain_reverse_trace,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let target = target.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            let compile = if cash {
+                HullWhiteEquityPricingPlan::compile_rough_lsv_with_cash_dividends
+            } else {
+                HullWhiteEquityPricingPlan::compile_rough_lsv
+            };
+            compile(
+                &request,
+                &target,
+                factor,
+                rates,
+                correlation,
+                particles,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    #[getter]
+    fn random_factor_count(&self) -> usize {
+        self.inner.random_factor_count()
+    }
     /// Compile price-only BS+HW. Opt into cash dividends with cash_dividend_model="escrowed".
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]

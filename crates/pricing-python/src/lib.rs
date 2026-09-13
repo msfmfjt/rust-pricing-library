@@ -980,6 +980,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<lsv::PyBergomiLsvPlan>()?;
     module.add_class::<lsv::PyLsvPrice>()?;
     module.add_class::<lsv::PyLsvLocalVarianceRisk>()?;
+    module.add_class::<hull_white::PyRoughBergomiModel>()?;
     module.add_class::<hull_white::PyHullWhiteModel>()?;
     module.add_class::<hull_white::PyHullWhiteLsvTarget>()?;
     module.add_class::<hull_white::PyHullWhiteEquityPlan>()?;

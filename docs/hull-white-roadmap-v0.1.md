@@ -17,6 +17,11 @@ Python provides `HullWhiteModel`, `HullWhiteLsvTarget`, `HullWhiteEquityPlan`
 and immutable `HullWhitePrice`. See the
 [runnable example](../examples/python/hull_white_lsv.py).
 
+The [rough Bergomi extension](rough-bergomi-v0.1.md) adds pure rough and
+rough-LSV constructors to the same plan, including cash, AAD and quote-node
+VegaKT at fixed H/eta. It has separate five-block RNG and Volterra discretization
+contracts; the H3/H5/H6 acceptance scope below remains open.
+
 Supply one currency's discount curve and explicit Hull–White parameters:
 constant a and piecewise constant sigma_r. `compile_bs` takes a price-only
 Black–Scholes request, equity/rate correlation and maximum equity step.

@@ -41,6 +41,7 @@ remains rejected; continuous Barrier monitoring is not yet supported.
 - [LSV numerical contracts](docs/lsv-numerical-contracts-v0.1.md)
 - [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
 - [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
+- [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
 - [Release readiness](docs/release-readiness-v0.1.md)
 
 ## Status
@@ -76,6 +77,15 @@ payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md)
 [example](examples/python/hull_white_lsv.py) and
 [numerical contracts](docs/hull-white-numerical-contracts-v0.1.md).
 
+The same engine now supports experimental rough Bergomi and particle-calibrated
+rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
+`RoughBergomiModel`. A nonuniform Volterra hybrid scheme connects the rough
+driver to Hull–White, escrowed cash dividends, first-order AAD and quote-node
+VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
+target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
+per path. See the [example](examples/python/rough_bergomi.py) and
+[numerical/API contracts](docs/rough-bergomi-v0.1.md).
+
 | Crate | Responsibility |
 | --- | --- |
 | `pricing-core` | Fundamental IDs, dates, errors, configuration, and result primitives |
@@ -83,7 +93,7 @@ payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md)
 | `pricing-aad` | Simulation reverse-mode and adjoint execution infrastructure |
 | `pricing-market` | Curves, dividends, implied/local-volatility market objects |
 | `pricing-product` | Built-in products and compiled Event/Payoff graphs |
-| `pricing-models` | Black–Scholes, Black-76, and Local Volatility kernels |
+| `pricing-models` | Black–Scholes, Black-76, Local Volatility, Bergomi, rough Bergomi and Hull–White kernels |
 | `pricing-mc` | MC/QMC simulation, path execution, and LSM |
 | `pricing-risk` | AAD orchestration, bump validation, and VegaKT |
 | `pricing` | Stable public Rust facade |
