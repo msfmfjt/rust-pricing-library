@@ -115,6 +115,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
+    subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
     subprocess.run(
         [
@@ -991,6 +992,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'MultiAssetPlan',
         'MultiAssetPrice',
         'MultiAssetRisk',
+        'MultiAssetLsvConfig',
+        'MultiAssetLsvCalibration',
+        'MultiAssetLsvRisk',
 
         "RoughBergomiModel",
         "HullWhiteModel",
@@ -1199,6 +1203,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('MultiAssetLsvConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
         ('CorrelationSchedule', '__init__'): {'positional': ['self', 'underlying_ids', 'effective_dates', 'matrices'],
          'positional_defaults': {},
          'keyword_only': ['symmetry_abs_tol',
@@ -1246,9 +1251,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
          'keyword_only_defaults': {'currency_id': 1, 'smoothing_half_width': None}},
         ('MultiAssetPlan', 'compile'): {'positional': ['valuation_date', 'product', 'markets', 'models', 'correlations', 'engine'],
          'positional_defaults': {},
-         'keyword_only': ['maximum_step', 'worker_threads', 'reduction_block_size'],
+         'keyword_only': ['maximum_step', 'worker_threads', 'reduction_block_size', 'lsv_configs', 'driver_correlations'],
          'required_keyword_only': ['maximum_step'],
-         'keyword_only_defaults': {'worker_threads': 1, 'reduction_block_size': 4096}},
+         'keyword_only_defaults': {'worker_threads': 1, 'reduction_block_size': 4096, 'lsv_configs': None, 'driver_correlations': None}},
         ('MultiAssetPlan', 'evaluate'): {'positional': ['self'],
          'positional_defaults': {},
          'keyword_only': [],
@@ -1835,12 +1840,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'MultiAssetLsvConfig': {'__init__', 'mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
+        'MultiAssetLsvCalibration': {'calibration_seed', 'time_nodes', 'log_moneyness_nodes', 'squared_leverage', 'effective_samples', 'donor_nodes', 'extrapolated', 'minimum_effective_samples', 'extrapolated_nodes', 'particle_mean_normalized_f', 'method'},
+        'MultiAssetLsvRisk': {'time_nodes', 'log_moneyness_nodes', 'node_adjoints', 'standard_errors', 'method'},
         'CorrelationSchedule': {'matrices', 'maximum_adjustments', 'lower_factors', 'ranks', 'zero_pivots', 'effective_dates', 'pivots', '__init__', 'underlying_ids', 'raw_matrices'},
         'AutocallObservation': {'__init__'},
         'MultiAssetProduct': {'underlying_ids', 'basket', 'worst_of', 'autocallable'},
-        'MultiAssetPlan': {'evaluate_aad', 'correlation_entry_indices', 'compile', 'time_nodes', 'evaluate', 'fingerprint', 'underlying_ids'},
-        'MultiAssetRisk': {'underlying_id', 'delta_per_one_percent_spot', 'bs_vega_per_vol_point', 'local_variance_time_nodes', 'bs_vega', 'local_variance', 'delta', 'local_variance_log_moneyness_nodes'},
-        'MultiAssetPrice': {'local_variance_boundary_counts', 'price', 'scramble_checksum', 'value', 'standard_error', 'evaluated_paths', 'reduction_block_size', 'risks', 'gamma_relative_bump', 'worker_threads', 'fingerprint', 'gamma', 'direction_checksum', 'underlying_ids'},
+        'MultiAssetPlan': {'random_factor_count', 'lsv_calibrations', 'lsv_driver_correlations', 'lsv_transition_covariances', 'evaluate_aad', 'correlation_entry_indices', 'compile', 'time_nodes', 'evaluate', 'fingerprint', 'underlying_ids'},
+        'MultiAssetRisk': {'lsv_local_variance', 'underlying_id', 'delta_per_one_percent_spot', 'bs_vega_per_vol_point', 'local_variance_time_nodes', 'bs_vega', 'local_variance', 'delta', 'local_variance_log_moneyness_nodes'},
+        'MultiAssetPrice': {'lsv_leverage_boundary_counts', 'local_variance_boundary_counts', 'price', 'scramble_checksum', 'value', 'standard_error', 'evaluated_paths', 'reduction_block_size', 'risks', 'gamma_relative_bump', 'worker_threads', 'fingerprint', 'gamma', 'direction_checksum', 'underlying_ids'},
 
         "RoughBergomiModel": {"__init__", "hurst", "vol_of_vol", "equity_vol_correlation"},
         "HullWhiteModel": {
@@ -2378,6 +2386,36 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('MultiAssetPlan', 'random_factor_count'),
+        ('MultiAssetPlan', 'lsv_calibrations'),
+        ('MultiAssetPlan', 'lsv_driver_correlations'),
+        ('MultiAssetPlan', 'lsv_transition_covariances'),
+        ('MultiAssetRisk', 'lsv_local_variance'),
+        ('MultiAssetPrice', 'lsv_leverage_boundary_counts'),
+        ('MultiAssetLsvConfig', 'mean_reversion'),
+        ('MultiAssetLsvConfig', 'vol_of_vol'),
+        ('MultiAssetLsvConfig', 'correlation'),
+        ('MultiAssetLsvConfig', 'particle_count'),
+        ('MultiAssetLsvConfig', 'calibration_seed'),
+        ('MultiAssetLsvConfig', 'log_bandwidth'),
+        ('MultiAssetLsvConfig', 'minimum_effective_samples'),
+        ('MultiAssetLsvConfig', 'retain_reverse_trace'),
+        ('MultiAssetLsvCalibration', 'calibration_seed'),
+        ('MultiAssetLsvCalibration', 'time_nodes'),
+        ('MultiAssetLsvCalibration', 'log_moneyness_nodes'),
+        ('MultiAssetLsvCalibration', 'squared_leverage'),
+        ('MultiAssetLsvCalibration', 'effective_samples'),
+        ('MultiAssetLsvCalibration', 'donor_nodes'),
+        ('MultiAssetLsvCalibration', 'extrapolated'),
+        ('MultiAssetLsvCalibration', 'minimum_effective_samples'),
+        ('MultiAssetLsvCalibration', 'extrapolated_nodes'),
+        ('MultiAssetLsvCalibration', 'particle_mean_normalized_f'),
+        ('MultiAssetLsvCalibration', 'method'),
+        ('MultiAssetLsvRisk', 'time_nodes'),
+        ('MultiAssetLsvRisk', 'log_moneyness_nodes'),
+        ('MultiAssetLsvRisk', 'node_adjoints'),
+        ('MultiAssetLsvRisk', 'standard_errors'),
+        ('MultiAssetLsvRisk', 'method'),
         ('CorrelationSchedule', 'underlying_ids'),
         ('CorrelationSchedule', 'effective_dates'),
         ('CorrelationSchedule', 'matrices'),

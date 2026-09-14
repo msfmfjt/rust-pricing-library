@@ -9,6 +9,11 @@ correlation schedule, a multi-asset product, and the existing MC/RQMC and
 execution policies. Different assets may use different BS/LV models, curves
 for continuous dividends, and cash/proportional dividend schedules.
 
+The [Bergomi LSV extension](multi-asset-lsv-v0.1.md) adds optional per-asset
+particle calibration of those LV targets, full spot/volatility correlations,
+joint OU transitions, Delta/cross Gamma and recalibrated target-grid AAD.
+The BS/LV contracts below apply when no LSV configuration is supplied.
+
 All assets share one currency and exactly one discount curve (including its
 identity). Three crates remain: `pricing-python -> pricing -> pricing-numerics`.
 The implementation reuses the existing payoff compiler/reverse tape, normal
@@ -160,7 +165,7 @@ reduction-block size.
 
 ## Current boundaries and validation
 
-Multi-asset Hull-White, Bergomi/rough-LSV calibration, multiple currencies/FX,
+Multi-asset Hull-White, rough-LSV calibration, multiple currencies/FX,
 correlation Greeks, initial-curve risk, American exercise and continuous
 barrier monitoring are not connected to this API. The existing single-asset
 adapters retain their own behavior. Local variance adjoints are available;

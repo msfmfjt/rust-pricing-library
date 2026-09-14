@@ -53,6 +53,7 @@ stable numerical-branch counts.
 - [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
 - [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
 - [Multi-asset pricing contracts](docs/multi-asset-v0.1.md)
+- [Multi-asset Bergomi LSV contracts](docs/multi-asset-lsv-v0.1.md)
 - [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
@@ -123,14 +124,20 @@ per path. See the [example](examples/python/rough_bergomi.py) and
 
 Experimental multi-asset pricing is available through Rust
 `multi_asset::MultiAssetPricingPlan` and Python `MultiAssetPlan`. Correlated
-BS/Local Volatility assets support Basket, Worst-of and unseasoned memory/no-memory
+BS/Local Volatility/Bergomi LSV assets support Basket, Worst-of and unseasoned memory/no-memory
 Autocallables, per-asset affine dividends, dated PSD correlations, MC/RQMC,
 asset-labelled Delta/BS Vega/Local variance adjoints and optional cross Gamma.
 The API uses the shared payoff tape, with explicit smoothing for discontinuous
 Autocallable AAD. It is single-currency with deterministic rates; multi-asset
-HW/LSV and market-IV VegaKT are not yet connected. See the
+Hull-White, rough-LSV and market-IV VegaKT are not yet connected. LSV assets use
+their LV model as a marginal particle-calibration target, with optional full
+spot/volatility Brownian correlations and exact joint OU transitions. AAD
+includes particle recalibration; target-risk standard errors are available for
+RQMC and conditional on the calibration. See the
 [contracts](docs/multi-asset-v0.1.md) and
-[example](examples/python/multi_asset.py).
+[example](examples/python/multi_asset.py), plus the
+[LSV contracts](docs/multi-asset-lsv-v0.1.md) and
+[LSV example](examples/python/multi_asset_lsv.py).
 
 The experimental LSV/Hull–White adapters reject American exercise,
 continuous Barrier monitoring and smoothing-width ladders; these features

@@ -1,5 +1,8 @@
 use crate::builders::{PyEngine, PyMarket, PyModel, date_from_python, option_side};
 use crate::diagnostics::PyDiagnosticEstimate;
+use crate::multi_asset_lsv::{
+    PyMultiAssetLsvCalibration, PyMultiAssetLsvConfig, PyMultiAssetLsvRisk,
+};
 use crate::{PyValidationIssue, pricing_exception, validation_exception};
 use pricing::core::{CurrencyId, UnderlyingId};
 use pricing::market::{CorrelationTermStructure, CorrelationToleranceConfig};
@@ -11,7 +14,7 @@ use pricing::multi_asset::{
 };
 use pricing::product::CompactC2Smoothing;
 use pyo3::prelude::*;
-fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
+pub(crate) fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
     validation_exception(
         py,
         PyValidationIssue::domain(
@@ -340,7 +343,7 @@ pub struct PyMultiAssetPlan {
 impl PyMultiAssetPlan {
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(valuation_date,product,markets,models,correlations,engine,*,maximum_step,worker_threads=1,reduction_block_size=4096))]
+    #[pyo3(signature=(valuation_date,product,markets,models,correlations,engine,*,maximum_step,worker_threads=1,reduction_block_size=4096,lsv_configs=None,driver_correlations=None))]
     fn compile(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -352,26 +355,44 @@ impl PyMultiAssetPlan {
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: u64,
+        lsv_configs: Option<Vec<Option<Py<PyMultiAssetLsvConfig>>>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
     ) -> PyResult<Self> {
         let date = date_from_python(py, valuation_date, "/multi_asset/valuation_date")?;
         let execution = ExecutionPolicy::new(worker_threads, Some(reduction_block_size))
             .map_err(|e| invalid(py, e))?;
-        MultiAssetPricingPlan::compile(
-            date,
-            product.inner.clone(),
-            markets
-                .into_iter()
-                .map(|m| m.borrow(py).inner.equity().clone())
-                .collect(),
-            models
-                .into_iter()
-                .map(|m| m.borrow(py).inner.clone())
-                .collect(),
-            correlations.inner.clone(),
-            engine.inner,
-            execution,
-            maximum_step,
-        )
+        let lsv = lsv_configs
+            .map(|v| {
+                v.into_iter()
+                    .map(|c| c.map(|c| c.borrow(py).inner.clone()))
+                    .collect()
+            })
+            .unwrap_or_else(|| vec![None; models.len()]);
+        let product = product.inner.clone();
+        let markets = markets
+            .into_iter()
+            .map(|m| m.borrow(py).inner.equity().clone())
+            .collect();
+        let models = models
+            .into_iter()
+            .map(|m| m.borrow(py).inner.clone())
+            .collect();
+        let correlation = correlations.inner.clone();
+        let engine = engine.inner;
+        py.detach(|| {
+            MultiAssetPricingPlan::compile_with_lsv(
+                date,
+                product,
+                markets,
+                models,
+                correlation,
+                engine,
+                execution,
+                maximum_step,
+                lsv,
+                driver_correlations,
+            )
+        })
         .map(|inner| Self { inner })
         .map_err(|e| invalid(py, e))
     }
@@ -410,6 +431,35 @@ impl PyMultiAssetPlan {
     fn underlying_ids(&self) -> Vec<u32> {
         self.inner.underlyings().iter().map(|u| u.get()).collect()
     }
+    #[getter]
+    fn random_factor_count(&self) -> usize {
+        self.inner.random_factor_count()
+    }
+    #[getter]
+    fn lsv_calibrations(&self) -> Vec<Option<PyMultiAssetLsvCalibration>> {
+        self.inner
+            .lsv_calibrations()
+            .into_iter()
+            .map(|c| c.map(Into::into))
+            .collect()
+    }
+    #[getter]
+    fn lsv_driver_correlations(&self) -> Vec<Vec<Vec<f64>>> {
+        self.inner
+            .lsv_driver_correlations()
+            .iter()
+            .map(|c| {
+                c.canonical()
+                    .chunks(c.dimension())
+                    .map(|r| r.to_vec())
+                    .collect()
+            })
+            .collect()
+    }
+    #[getter]
+    fn lsv_transition_covariances(&self) -> Vec<Vec<Vec<f64>>> {
+        self.inner.lsv_transition_covariances()
+    }
 }
 #[pyclass(frozen, name = "MultiAssetRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -418,6 +468,13 @@ pub struct PyMultiAssetRisk {
 }
 #[pymethods]
 impl PyMultiAssetRisk {
+    #[getter]
+    fn lsv_local_variance(&self) -> Option<PyMultiAssetLsvRisk> {
+        self.inner
+            .lsv_local_variance
+            .clone()
+            .map(|inner| PyMultiAssetLsvRisk { inner })
+    }
     #[getter]
     fn underlying_id(&self) -> u32 {
         self.inner.underlying.get()
@@ -526,6 +583,10 @@ impl PyMultiAssetPrice {
     #[getter]
     fn local_variance_boundary_counts(&self) -> Vec<f64> {
         self.inner.local_variance_boundary_counts.clone()
+    }
+    #[getter]
+    fn lsv_leverage_boundary_counts(&self) -> Vec<f64> {
+        self.inner.lsv_leverage_boundary_counts.clone()
     }
     #[getter]
     fn direction_checksum(&self) -> Option<String> {

@@ -19,8 +19,49 @@ impl MultiAssetPricingPlan {
         execution: ExecutionPolicy,
         maximum_step: f64,
     ) -> Result<Self, E> {
+        let lsv = vec![None; models.len()];
+        Self::compile_with_lsv(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv,
+            None,
+        )
+    }
+
+    /// An optional LSV configuration per asset turns its LV model into a calibration
+    /// target. Full Brownian matrices are optional and align with the correlation
+    /// dates: all spot drivers first, then the configured LSV volatility drivers.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_lsv(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+    ) -> Result<Self, E> {
         if markets.is_empty() || markets.len() != models.len() {
             return Err(E::Invalid("market/model dimensions differ"));
+        }
+        if lsv_configs.len() != models.len() {
+            return Err(E::Invalid("LSV configuration count must equal asset count"));
+        }
+        for (config, model) in lsv_configs.iter().zip(&models) {
+            if config.is_some() && !matches!(model, ModelSpec::LocalVolatility(_)) {
+                return Err(E::Invalid(
+                    "each LSV asset requires a LocalVolatility target model",
+                ));
+            }
         }
         let order: Vec<_> = markets.iter().map(|m| m.forward().underlying()).collect();
         if order != product.underlyings || order != correlation.underlyings() {
@@ -141,6 +182,8 @@ impl MultiAssetPricingPlan {
         let times = grid.nodes().to_vec();
         let dimension = markets
             .len()
+            .checked_add(lsv_configs.iter().filter(|c| c.is_some()).count())
+            .ok_or(E::Invalid("random factor count overflow"))?
             .checked_mul(grid.step_count())
             .and_then(|v| u32::try_from(v).ok())
             .ok_or(E::Invalid("random dimension overflow"))?;
@@ -172,7 +215,7 @@ impl MultiAssetPricingPlan {
         } else {
             None
         };
-        let interval_correlations = times[..times.len() - 1]
+        let interval_correlations: Vec<_> = times[..times.len() - 1]
             .iter()
             .map(|t| {
                 correlation
@@ -181,8 +224,15 @@ impl MultiAssetPricingPlan {
                     - 1
             })
             .collect();
+        let lsv_drivers = lsv::LsvDrivers::compile(
+            &correlation,
+            &times,
+            &interval_correlations,
+            &lsv_configs,
+            driver_correlations,
+        )?;
         let mut assets = Vec::new();
-        for (market, model) in markets.into_iter().zip(models) {
+        for ((market, model), lsv_config) in markets.into_iter().zip(models).zip(lsv_configs) {
             let forward = market.forward().clone();
             let timeline = forward
                 .discrete_dividends()
@@ -205,12 +255,25 @@ impl MultiAssetPricingPlan {
             }
             let process =
                 LocalVolLogEulerPlan::new(grid.clone(), forwards).map_err(E::numerical)?;
+            let lsv = if let Some(config) = lsv_config {
+                let ModelSpec::LocalVolatility(lv) = &model else {
+                    unreachable!("validated LSV target")
+                };
+                Some(std::sync::Arc::new(lsv::LsvAsset::compile(
+                    lv.local_variance_grid(),
+                    &grid,
+                    config,
+                )?))
+            } else {
+                None
+            };
             assets.push(Asset {
                 forward,
                 model,
                 process,
                 coordinates,
                 pre_coordinates,
+                lsv,
             });
         }
         let mut plan = Self {
@@ -225,6 +288,7 @@ impl MultiAssetPricingPlan {
             bridge,
             qmc,
             fingerprint: String::new(),
+            lsv_drivers,
         };
         plan.fingerprint = plan.make_fingerprint(&product, maximum_step);
         Ok(plan)
@@ -291,6 +355,26 @@ impl MultiAssetPricingPlan {
                 }
                 _ => unreachable!("models validated"),
             }
+            if let Some(lsv) = &a.lsv {
+                h.update(b"multi-asset-bergomi-lsv-unit-martingale-joint-ou-v1");
+                let c = &lsv.calibration;
+                let f = c.factor();
+                let p = c.config();
+                floats(
+                    &mut h,
+                    &[
+                        f.mean_reversion(),
+                        f.vol_of_vol(),
+                        f.correlation(),
+                        p.log_bandwidth(),
+                        p.minimum_effective_samples(),
+                    ],
+                );
+                h.update(&(p.particle_count() as u64).to_be_bytes());
+                h.update(&p.seed().to_be_bytes());
+                h.update(&[u8::from(p.retain_reverse_trace())]);
+                floats(&mut h, c.surface().squared_leverage());
+            }
         }
         let t = self.correlation.tolerances();
         floats(
@@ -309,6 +393,19 @@ impl MultiAssetPricingPlan {
             floats(&mut h, c.raw());
             floats(&mut h, c.canonical());
             floats(&mut h, c.lower());
+        }
+        if let Some(d) = &self.lsv_drivers {
+            h.update(b"joint-spot-ou-inputs-v1");
+            for c in &d.entries {
+                floats(&mut h, c.raw());
+                floats(&mut h, c.canonical());
+                floats(&mut h, c.lower());
+            }
+            for (c, scale) in d.intervals.iter().zip(&d.scales) {
+                floats(&mut h, c.canonical());
+                floats(&mut h, c.lower());
+                floats(&mut h, scale);
+            }
         }
         floats(&mut h, &self.times);
         match self.engine {

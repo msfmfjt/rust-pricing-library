@@ -413,9 +413,56 @@ impl BergomiLsvPlan {
     pub fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<BergomiLsvPath, LsvError> {
         let n = self.transitions.len();
         length("shocks", 2 * n, shocks.len())?;
-        valid(initial_f, "initial_f", 0, true)?;
         for (i, &z) in shocks.iter().enumerate() {
             valid(z, "shock", i, false)?;
+        }
+        self.evolve_with_factor(
+            initial_f,
+            &shocks[..n],
+            |i, x| self.transitions[i].evolve(x, shocks[i], shocks[n + i]),
+            self.transitions.clone(),
+        )
+    }
+
+    /// Internal joint-driver entry. The global sampler supplies OU innovations
+    /// with their full cross-asset covariance, after its independent-factor bridge.
+    /// Here shock adjoints refer to (spot normal, OU innovation), so the second
+    /// loading is one and the spot-to-OU loading is zero. Target VJPs are unchanged.
+    pub(in crate::engine) fn evolve_with_ou_innovations(
+        &self,
+        initial_f: f64,
+        spot_shocks: &[f64],
+        innovations: &[f64],
+    ) -> Result<BergomiLsvPath, LsvError> {
+        length("OU innovations", self.transitions.len(), innovations.len())?;
+        for (i, &z) in innovations.iter().enumerate() {
+            valid(z, "OU innovation", i, false)?;
+        }
+        let mut transitions = self.transitions.clone();
+        for t in &mut transitions {
+            t.spot_loading = 0.0;
+            t.orthogonal_loading = 1.0;
+        }
+        self.evolve_with_factor(
+            initial_f,
+            spot_shocks,
+            |i, x| self.transitions[i].decay * x + innovations[i],
+            transitions,
+        )
+    }
+
+    fn evolve_with_factor(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        next_factor: impl Fn(usize, f64) -> f64,
+        reverse_transitions: Box<[BergomiTransition]>,
+    ) -> Result<BergomiLsvPath, LsvError> {
+        let n = self.transitions.len();
+        length("spot shocks", n, shocks.len())?;
+        valid(initial_f, "initial_f", 0, true)?;
+        for (i, &z) in shocks.iter().enumerate() {
+            valid(z, "spot shock", i, false)?;
         }
         let mut states = vec![initial_f];
         let mut factors = vec![0.0];
@@ -426,7 +473,7 @@ impl BergomiLsvPlan {
             let multiplier_squared = (2.0 * self.factor.vol_of_vol() * factors[i]).exp();
             let variance = lookup.value * multiplier_squared;
             let next = advance(states[i], variance, dt, shocks[i], i, 0)?;
-            let x = self.transitions[i].evolve(factors[i], shocks[i], shocks[n + i]);
+            let x = next_factor(i, factors[i]);
             if !x.is_finite() {
                 return Err(LsvError::NonFiniteState {
                     time_index: i + 1,
@@ -447,7 +494,7 @@ impl BergomiLsvPlan {
             states: states.into_boxed_slice(),
             factors: factors.into_boxed_slice(),
             steps: steps.into_boxed_slice(),
-            transitions: self.transitions.clone(),
+            transitions: reverse_transitions,
             factor: self.factor,
             value_count: self.surface.values.len(),
         })
