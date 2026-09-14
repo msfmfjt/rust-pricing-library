@@ -2,7 +2,11 @@
 
 #![forbid(unsafe_code)]
 
+mod correlation;
 mod normal;
+pub use correlation::{
+    CorrelationDiagnostics, CorrelationError, CorrelationFactor, CorrelationToleranceConfig,
+};
 mod reduction;
 
 pub use normal::{standard_normal_cdf, standard_normal_pdf};

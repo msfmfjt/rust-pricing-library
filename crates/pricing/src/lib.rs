@@ -8,6 +8,7 @@ use api::{error, request, result};
 pub mod hull_white;
 pub mod lsv;
 mod monte_carlo;
+pub mod multi_asset;
 mod plan;
 mod wire;
 

@@ -9,3 +9,5 @@ pub(crate) mod plan;
 pub(crate) mod processes;
 pub(crate) mod risk;
 pub(crate) mod sampling;
+
+pub(crate) mod multi_asset;

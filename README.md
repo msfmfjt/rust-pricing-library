@@ -52,6 +52,7 @@ stable numerical-branch counts.
 - [LSV numerical contracts](docs/lsv-numerical-contracts-v0.1.md)
 - [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
 - [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
+- [Multi-asset pricing contracts](docs/multi-asset-v0.1.md)
 - [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
@@ -120,6 +121,17 @@ target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
 per path. See the [example](examples/python/rough_bergomi.py) and
 [numerical/API contracts](docs/rough-bergomi-v0.1.md).
 
+Experimental multi-asset pricing is available through Rust
+`multi_asset::MultiAssetPricingPlan` and Python `MultiAssetPlan`. Correlated
+BS/Local Volatility assets support Basket, Worst-of and unseasoned memory/no-memory
+Autocallables, per-asset affine dividends, dated PSD correlations, MC/RQMC,
+asset-labelled Delta/BS Vega/Local variance adjoints and optional cross Gamma.
+The API uses the shared payoff tape, with explicit smoothing for discontinuous
+Autocallable AAD. It is single-currency with deterministic rates; multi-asset
+HW/LSV and market-IV VegaKT are not yet connected. See the
+[contracts](docs/multi-asset-v0.1.md) and
+[example](examples/python/multi_asset.py).
+
 The experimental LSV/Hull–White adapters reject American exercise,
 continuous Barrier monitoring and smoothing-width ladders; these features
 remain available through the general BS/Local Volatility facade. The
@@ -128,7 +140,7 @@ the shared observation and schema boundaries.
 
 | Crate | Responsibility |
 | --- | --- |
-| `pricing-numerics` | Financially independent normal-distribution functions and deterministic reduction |
+| `pricing-numerics` | Financially independent normal functions, PSD correlation factorization and deterministic reduction |
 | `pricing` | Financial definitions and valuation, with private execution modules |
 | `pricing-python` | Python conversion, exceptions and bindings to `pricing` |
 

@@ -6,6 +6,7 @@ mod builders;
 mod diagnostics;
 mod hull_white;
 mod lsv;
+mod multi_asset;
 
 use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
@@ -1217,6 +1218,12 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<multi_asset::PyCorrelationSchedule>()?;
+    module.add_class::<multi_asset::PyAutocallObservation>()?;
+    module.add_class::<multi_asset::PyMultiAssetProduct>()?;
+    module.add_class::<multi_asset::PyMultiAssetPlan>()?;
+    module.add_class::<multi_asset::PyMultiAssetPrice>()?;
+    module.add_class::<multi_asset::PyMultiAssetRisk>()?;
     module.add_class::<lsv::PyBergomiLsvPlan>()?;
     module.add_class::<lsv::PyLsvPrice>()?;
     module.add_class::<lsv::PyLsvLocalVarianceRisk>()?;
