@@ -158,11 +158,13 @@ pricing check conditional on the finite calibrated leverage surface.
 
 These establish the implemented finite-grid algorithm. Production acceptance
 still requires particle/bandwidth/step/seed refinement for the intended smiles
-and products. Multi-asset Hull-White, rough-LSV, market-IV VegaKT, model-parameter
-and correlation Greeks, curve risk, multiple currencies, seasoned products,
-American exercise and continuous barriers remain outside this extension.
-Supplying an LV reporting basis does not enable market-IV risk. Existing
-single-asset adapters retain their own capabilities and conventions.
+and products. The separate [Bergomi + HW extension](bergomi-hull-white-v0.1.md)
+adds a shared stochastic rate, paired target calibration, market-IV VegaKT from
+retained quotes and initial-curve risk. Supplying an LV reporting basis alone
+does not enable market-IV risk. Multi-asset rough-LSV, model-parameter and
+correlation Greeks, multiple currencies, seasoned products, American exercise
+and continuous barriers remain outside these extensions. Existing single-asset
+adapters retain their own capabilities and conventions.
 
 See the [runnable example](../examples/python/multi_asset_lsv.py),
 [Rust regressions](../crates/pricing/tests/multi_asset.rs) and

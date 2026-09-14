@@ -1,5 +1,9 @@
 use crate::builders::{PyEngine, PyMarket, PyModel, date_from_python, option_side};
 use crate::diagnostics::PyDiagnosticEstimate;
+use crate::hull_white::{PyHullWhiteLsvTarget, PyHullWhiteModel};
+use crate::multi_asset_hw::{
+    PyMultiAssetHullWhiteCalibration, PyMultiAssetHullWhiteCurveRisk, PyMultiAssetHullWhiteLsvRisk,
+};
 use crate::multi_asset_lsv::{PyMultiAssetLsvCalibration, PyMultiAssetLsvRisk, extract_lsv_config};
 use crate::{PyValidationIssue, pricing_exception, validation_exception};
 use pricing::core::{CurrencyId, UnderlyingId};
@@ -341,7 +345,7 @@ pub struct PyMultiAssetPlan {
 impl PyMultiAssetPlan {
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(valuation_date,product,markets,models,correlations,engine,*,maximum_step,worker_threads=1,reduction_block_size=4096,lsv_configs=None,driver_correlations=None))]
+    #[pyo3(signature=(valuation_date,product,markets,models,correlations,engine,*,maximum_step,worker_threads=1,reduction_block_size=4096,lsv_configs=None,driver_correlations=None,rate_model=None,rate_correlations=None,lsv_targets=None))]
     fn compile(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -355,6 +359,9 @@ impl PyMultiAssetPlan {
         reduction_block_size: u64,
         lsv_configs: Option<Vec<Option<Py<PyAny>>>>,
         driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+        rate_model: Option<&PyHullWhiteModel>,
+        rate_correlations: Option<Vec<f64>>,
+        lsv_targets: Option<Vec<Option<Py<PyHullWhiteLsvTarget>>>>,
     ) -> PyResult<Self> {
         let date = date_from_python(py, valuation_date, "/multi_asset/valuation_date")?;
         let execution = ExecutionPolicy::new(worker_threads, Some(reduction_block_size))
@@ -367,6 +374,28 @@ impl PyMultiAssetPlan {
             })
             .transpose()?
             .unwrap_or_else(|| vec![None; models.len()]);
+        let hw = if let Some(rates) = rate_model {
+            Some(pricing::multi_asset::MultiAssetHullWhiteConfig {
+                rate_model: rates.inner.clone(),
+                rate_correlations: rate_correlations
+                    .ok_or_else(|| invalid(py, "rate_correlations is required with rate_model"))?,
+                lsv_targets: lsv_targets
+                    .map(|v| {
+                        v.into_iter()
+                            .map(|t| t.map(|t| t.borrow(py).inner.clone()))
+                            .collect()
+                    })
+                    .unwrap_or_else(|| vec![None; models.len()]),
+            })
+        } else {
+            if rate_correlations.is_some() || lsv_targets.is_some() {
+                return Err(invalid(
+                    py,
+                    "rate_correlations and lsv_targets require rate_model",
+                ));
+            }
+            None
+        };
         let product = product.inner.clone();
         let markets = markets
             .into_iter()
@@ -379,18 +408,34 @@ impl PyMultiAssetPlan {
         let correlation = correlations.inner.clone();
         let engine = engine.inner;
         py.detach(|| {
-            MultiAssetPricingPlan::compile_with_bergomi_lsv(
-                date,
-                product,
-                markets,
-                models,
-                correlation,
-                engine,
-                execution,
-                maximum_step,
-                lsv,
-                driver_correlations,
-            )
+            if let Some(hw) = hw {
+                MultiAssetPricingPlan::compile_with_hull_white(
+                    date,
+                    product,
+                    markets,
+                    models,
+                    correlation,
+                    engine,
+                    execution,
+                    maximum_step,
+                    lsv,
+                    driver_correlations,
+                    hw,
+                )
+            } else {
+                MultiAssetPricingPlan::compile_with_bergomi_lsv(
+                    date,
+                    product,
+                    markets,
+                    models,
+                    correlation,
+                    engine,
+                    execution,
+                    maximum_step,
+                    lsv,
+                    driver_correlations,
+                )
+            }
         })
         .map(|inner| Self { inner })
         .map_err(|e| invalid(py, e))
@@ -444,6 +489,19 @@ impl PyMultiAssetPlan {
             .collect()
     }
     #[getter]
+    fn hull_white_calibrations(&self) -> Vec<Option<PyMultiAssetHullWhiteCalibration>> {
+        self.inner
+            .hull_white_lsv_calibrations()
+            .into_iter()
+            .zip(self.inner.lsv_volatility_factor_counts())
+            .map(|(c, n)| c.map(|c| PyMultiAssetHullWhiteCalibration::new(c, n)))
+            .collect()
+    }
+    #[getter]
+    fn has_hull_white(&self) -> bool {
+        self.inner.hull_white_model().is_some()
+    }
+    #[getter]
     fn lsv_driver_correlations(&self) -> Vec<Vec<Vec<f64>>> {
         self.inner
             .lsv_driver_correlations()
@@ -468,6 +526,13 @@ pub struct PyMultiAssetRisk {
 }
 #[pymethods]
 impl PyMultiAssetRisk {
+    #[getter]
+    fn hull_white_lsv(&self) -> Option<PyMultiAssetHullWhiteLsvRisk> {
+        self.inner
+            .hull_white_lsv
+            .clone()
+            .map(|inner| PyMultiAssetHullWhiteLsvRisk { inner })
+    }
     #[getter]
     fn lsv_local_variance(&self) -> Option<PyMultiAssetLsvRisk> {
         self.inner
@@ -522,6 +587,13 @@ pub struct PyMultiAssetPrice {
 }
 #[pymethods]
 impl PyMultiAssetPrice {
+    #[getter]
+    fn hull_white_curve_risk(&self) -> Option<PyMultiAssetHullWhiteCurveRisk> {
+        self.inner
+            .hull_white_curve_risk
+            .clone()
+            .map(|inner| PyMultiAssetHullWhiteCurveRisk { inner })
+    }
     #[getter]
     fn value(&self) -> f64 {
         self.inner.price.value().get()

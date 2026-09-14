@@ -15,6 +15,7 @@ pub(super) struct AssetPath {
     pub bs_vega: Vec<f64>,
     pub local: Option<LocalVolPath>,
     pub lsv: Option<LsvPath>,
+    pub hw: Option<super::hull_white::HwAssetPath>,
 }
 impl MultiAssetPricingPlan {
     pub(super) fn shocks(&self, scramble: Option<u32>, point: u64) -> Result<Vec<Vec<f64>>, E> {
@@ -45,6 +46,20 @@ impl MultiAssetPricingPlan {
         }
         let mut correlated = vec![vec![0.0; steps]; n];
         for step in 0..steps {
+            if let Some(d) = &self.lsv_drivers
+                && let Some(permutations) = &d.permutations
+            {
+                let order = &permutations[step];
+                let l = d.intervals[step].lower();
+                for (i, &row) in order.iter().enumerate() {
+                    let mut value = 0.0;
+                    for k in 0..=i {
+                        value += l[i * n + k] * independent[order[k]][step];
+                    }
+                    correlated[row][step] = value * d.scales[step][row];
+                }
+                continue;
+            }
             let l = if let Some(d) = &self.lsv_drivers {
                 d.intervals[step].lower()
             } else {
@@ -63,6 +78,9 @@ impl MultiAssetPricingPlan {
         Ok(correlated)
     }
     pub(super) fn paths(&self, shocks: &[Vec<f64>]) -> Result<Vec<AssetPath>, E> {
+        if self.hull_white.is_some() {
+            return self.hw_paths(shocks);
+        }
         self.assets
             .iter()
             .zip(shocks)
@@ -162,6 +180,7 @@ impl MultiAssetPricingPlan {
                     bs_vega: vega,
                     local,
                     lsv,
+                    hw: None,
                 })
             })
             .collect()
@@ -216,6 +235,9 @@ impl MultiAssetPricingPlan {
                     ));
                 }
             }
+        }
+        if self.hull_white.is_some() {
+            return self.hw_payoff_adjoints(paths, bump);
         }
         Ok(self.payoff.evaluate_single_with_observation_adjoints(
             |u, d| self.observe(paths, u, d, false, bump),

@@ -124,6 +124,7 @@ pub fn calibrate_hybrid_lsv_with_dividends(
         .rough()
         .map(|f| RoughBergomiDriverPlan::compile(f, rates, correlation, times))
         .transpose()?;
+    let two_factor_driver = factor.two_factor_driver(rates, correlation, times)?;
     let rough_values = rough_driver
         .as_ref()
         .map(|driver| {
@@ -141,10 +142,32 @@ pub fn calibrate_hybrid_lsv_with_dividends(
                 .collect::<Result<Vec<_>, HullWhiteMcError>>()
         })
         .transpose()?;
+    let factor_values = if let Some(driver) = &two_factor_driver {
+        Some(
+            (0..n)
+                .map(|p| {
+                    let shocks = hybrid_shocks(
+                        config.seed(),
+                        p as u64,
+                        kernels.len(),
+                        5,
+                        RandomDomain::LsvCalibration,
+                    )?;
+                    driver.evolve(&shocks)
+                })
+                .collect::<Result<Vec<_>, HullWhiteMcError>>()?,
+        )
+    } else {
+        rough_values
+    };
     let rng = Philox4x32::from_seed(config.seed());
     let steps = kernels.len();
     steps
-        .checked_mul(if rough_driver.is_some() { 5 } else { 4 })
+        .checked_mul(if rough_driver.is_some() || two_factor_driver.is_some() {
+            5
+        } else {
+            4
+        })
         .and_then(|n| u32::try_from(n).ok())
         .ok_or_else(|| invalid("random_dimension", steps))?;
     let mut values = Vec::with_capacity(grid.values().len());
@@ -338,7 +361,7 @@ pub fn calibrate_hybrid_lsv_with_dividends(
                     ))
                 });
                 *state = kernels[r].advance(*state, l2, factor.vol_of_vol(), z, r)?;
-                if let Some(values) = &rough_values {
+                if let Some(values) = &factor_values {
                     state.volatility_factor = values[p][r + 1];
                 }
             }

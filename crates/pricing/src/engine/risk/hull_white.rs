@@ -22,7 +22,7 @@ use crate::models::{
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
 mod aad;
-mod affine;
+pub(in crate::engine) mod affine;
 pub use aad::HullWhiteAadRisk;
 use affine::{AffineDividendPlan, HULL_WHITE_AFFINE_DIVIDEND_MODEL};
 
@@ -230,6 +230,86 @@ impl HullWhiteEquityPricingPlan {
             true,
         )
     }
+    /// Two volatility OU factors and one common HW short-rate factor.
+    /// Vol/rate correlations are ordered as the model's two OU factors.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_lsv_two_factor(
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        factor: crate::models::Bergomi2Factor,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile_lsv_two_factor_impl(
+            request,
+            target,
+            factor,
+            rates,
+            equity_rate_correlation,
+            vol_rate_correlations,
+            particles,
+            policy,
+            false,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_lsv_two_factor_with_cash_dividends(
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        factor: crate::models::Bergomi2Factor,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile_lsv_two_factor_impl(
+            request,
+            target,
+            factor,
+            rates,
+            equity_rate_correlation,
+            vol_rate_correlations,
+            particles,
+            policy,
+            true,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn compile_lsv_two_factor_impl(
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        factor: crate::models::Bergomi2Factor,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+        cash: bool,
+    ) -> Result<Self, MonteCarloError> {
+        let correlation = HybridCorrelation::new(
+            factor.spot_correlations()[0],
+            equity_rate_correlation,
+            vol_rate_correlations[0],
+        )?;
+        let factor = HybridVolatilityFactor::BergomiTwoFactor {
+            factor,
+            second_vol_rate_correlation: vol_rate_correlations[1],
+        };
+        Self::compile_lsv_impl(
+            request,
+            target,
+            factor,
+            rates,
+            correlation,
+            particles,
+            policy,
+            cash,
+        )
+    }
     pub fn compile_rough_lsv(
         request: &PricingRequest,
         target: &HullWhiteLsvTarget,
@@ -357,6 +437,14 @@ impl HullWhiteEquityPricingPlan {
         let volatility = match factor {
             HybridVolatilityFactor::Bergomi(factor) => HybridEquityVolatility::BergomiLsv {
                 factor,
+                leverage: calibration.surface.clone(),
+            },
+            HybridVolatilityFactor::BergomiTwoFactor {
+                factor,
+                second_vol_rate_correlation,
+            } => HybridEquityVolatility::Bergomi2FactorLsv {
+                factor,
+                second_vol_rate_correlation,
                 leverage: calibration.surface.clone(),
             },
             HybridVolatilityFactor::Rough(factor) => HybridEquityVolatility::RoughBergomiLsv {

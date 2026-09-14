@@ -5,8 +5,10 @@ use crate::mc::{DeterministicExecutor, DeterministicStatistics};
 use crate::multi_asset::MultiAssetError as E;
 use crate::{EstimatorKind, product::CompiledOpcode};
 
-struct Layout {
-    vega: Vec<(usize, usize)>,
+pub(super) struct Layout {
+    pub(super) vega: Vec<(usize, usize)>,
+    pub(super) discount: (usize, usize),
+    pub(super) dividends: Vec<(usize, usize)>,
     gamma: usize,
     boundary: usize,
     total: usize,
@@ -18,7 +20,9 @@ impl Layout {
         let mut vega = Vec::new();
         if risk.is_some() {
             for a in &plan.assets {
-                let count = if let Some(lsv) = &a.lsv {
+                let count = if let Some(c) = a.hw.as_ref().and_then(|h| h.calibration.as_ref()) {
+                    c.surface.squared_leverage().len()
+                } else if let Some(lsv) = &a.lsv {
                     lsv.calibration.surface().squared_leverage().len()
                 } else {
                     match &a.model {
@@ -30,6 +34,17 @@ impl Layout {
                 offset += count;
             }
         }
+        let mut discount = (offset, 0);
+        let mut dividends = Vec::new();
+        if risk.is_some() && plan.hull_white.is_some() {
+            discount.1 = plan.assets[0].forward.discount_curve().times().len();
+            offset += discount.1;
+            for a in &plan.assets {
+                let count = a.forward.dividend_curve().times().len();
+                dividends.push((offset, count));
+                offset += count;
+            }
+        }
         let gamma = offset;
         if risk.is_some_and(|r| r.gamma_relative_bump.is_some()) {
             offset += n * n;
@@ -38,6 +53,8 @@ impl Layout {
         offset += n;
         Self {
             vega,
+            discount,
+            dividends,
             gamma,
             boundary,
             total: offset,
@@ -50,9 +67,12 @@ impl MultiAssetPricingPlan {
     }
     pub fn evaluate_aad(&self, config: MultiAssetRiskConfig) -> Result<MultiAssetPrice, E> {
         if self.assets.iter().any(|a| {
-            a.lsv
-                .as_ref()
-                .is_some_and(|l| !l.calibration.config().retain_reverse_trace())
+            a.hw.as_ref()
+                .and_then(|h| h.calibration.as_ref())
+                .is_some_and(|c| !c.retains_reverse_trace())
+                || a.lsv
+                    .as_ref()
+                    .is_some_and(|l| !l.calibration.config().retain_reverse_trace())
         }) {
             return Err(E::Invalid(
                 "LSV target AAD requires retain_reverse_trace=true for every LSV asset",
@@ -112,7 +132,9 @@ impl MultiAssetPricingPlan {
                     .into_iter()
                     .enumerate()
                     .map(|(i, v)| {
-                        v.map(|values| self.assets[i].lsv.as_ref().expect("LSV").risk(values, None))
+                        v.map_or((None, None), |values| {
+                            self.make_target_risks(i, values, None)
+                        })
                     })
                     .collect::<Vec<_>>();
                 (
@@ -155,7 +177,7 @@ impl MultiAssetPricingPlan {
                     } else {
                         1
                     };
-                let mut lsv_risks = vec![None; self.assets.len()];
+                let mut lsv_risks = vec![(None, None); self.assets.len()];
                 for (i, samples) in target_samples
                     .iter()
                     .enumerate()
@@ -176,13 +198,7 @@ impl MultiAssetPricingPlan {
                         values.push(e.value().get());
                         errors.push(e.standard_error().get());
                     }
-                    lsv_risks[i] = Some(
-                        self.assets[i]
-                            .lsv
-                            .as_ref()
-                            .expect("LSV")
-                            .risk(values, Some(errors)),
-                    );
+                    lsv_risks[i] = self.make_target_risks(i, values, Some(errors));
                 }
                 (
                     stats,
@@ -202,7 +218,7 @@ impl MultiAssetPricingPlan {
         if let Some(config) = risk {
             for (i, a) in self.assets.iter().enumerate() {
                 let (offset, count) = layout.vega[i];
-                let (bs_vega, bs_scaled, local) = if a.lsv.is_some() {
+                let (bs_vega, bs_scaled, local) = if a.has_lsv() {
                     (None, None, Vec::new())
                 } else {
                     match a.model {
@@ -228,18 +244,19 @@ impl MultiAssetPricingPlan {
                     bs_vega_per_vol_point: bs_scaled,
                     local_variance: local,
                     local_variance_time_nodes: match &a.model {
-                        ModelSpec::LocalVolatility(lv) if a.lsv.is_none() => {
+                        ModelSpec::LocalVolatility(lv) if !a.has_lsv() => {
                             lv.local_variance_grid().time_nodes().to_vec()
                         }
                         _ => Vec::new(),
                     },
                     local_variance_log_moneyness_nodes: match &a.model {
-                        ModelSpec::LocalVolatility(lv) if a.lsv.is_none() => {
+                        ModelSpec::LocalVolatility(lv) if !a.has_lsv() => {
                             lv.local_variance_grid().log_moneyness_nodes().to_vec()
                         }
                         _ => Vec::new(),
                     },
-                    lsv_local_variance: lsv_risks[i].clone(),
+                    lsv_local_variance: lsv_risks[i].0.clone(),
+                    hull_white_lsv: lsv_risks[i].1.clone(),
                 });
             }
             if config.gamma_relative_bump.is_some() {
@@ -266,7 +283,39 @@ impl MultiAssetPricingPlan {
                 }
             }
         }
+        let hull_white_curve_risk = if risk.is_some() && self.hull_white.is_some() {
+            let (offset, count) = layout.discount;
+            let times = self.assets[0].forward.discount_curve().times().to_vec();
+            Some(MultiAssetHullWhiteCurveRisk {
+                discount_time_nodes: times.clone(),
+                discount_log_df_adjoints: (offset..offset + count)
+                    .map(|i| estimate(i, 1.0))
+                    .collect::<Result<_, _>>()?,
+                discount_node_dv01: times
+                    .iter()
+                    .enumerate()
+                    .map(|(i, t)| estimate(offset + i, -1e-4 * t))
+                    .collect::<Result<_, _>>()?,
+                dividend_time_nodes: self
+                    .assets
+                    .iter()
+                    .map(|a| a.forward.dividend_curve().times().to_vec())
+                    .collect(),
+                dividend_log_df_adjoints: layout
+                    .dividends
+                    .iter()
+                    .map(|&(o, n)| {
+                        (o..o + n)
+                            .map(|i| estimate(i, 1.0))
+                            .collect::<Result<Vec<_>, _>>()
+                    })
+                    .collect::<Result<_, _>>()?,
+            })
+        } else {
+            None
+        };
         Ok(MultiAssetPrice {
+            hull_white_curve_risk,
             price: estimate(0, 1.0)?,
             risks,
             gamma,
@@ -280,7 +329,7 @@ impl MultiAssetPricingPlan {
             scramble_checksum: self.qmc.as_ref().map(|q| q.scramble_checksum()),
             local_variance_boundary_counts: (0..self.assets.len())
                 .map(|i| {
-                    if self.assets[i].lsv.is_some() {
+                    if self.assets[i].has_lsv() {
                         0.0
                     } else {
                         statistics[layout.boundary + i].sum().total() / units as f64
@@ -289,7 +338,7 @@ impl MultiAssetPricingPlan {
                 .collect(),
             lsv_leverage_boundary_counts: (0..self.assets.len())
                 .map(|i| {
-                    if self.assets[i].lsv.is_none() {
+                    if !self.assets[i].has_lsv() {
                         0.0
                     } else {
                         statistics[layout.boundary + i].sum().total() / units as f64
@@ -312,15 +361,17 @@ impl MultiAssetPricingPlan {
             .iter()
             .enumerate()
             .map(|(i, a)| {
-                if let Some(lsv) = &a.lsv
-                    && risk
-                {
+                if risk && a.has_lsv() {
                     let (offset, count) = layout.vega[i];
                     let mean: Vec<_> = statistics[offset..offset + count]
                         .iter()
                         .map(|s| s.sum().total() / units as f64)
                         .collect();
-                    Ok(Some(lsv.target_reverse(&mean)?))
+                    Ok(Some(if let Some(hw) = &a.hw {
+                        hw.target_reverse(&mean)?
+                    } else {
+                        a.lsv.as_ref().expect("LSV").target_reverse(&mean)?
+                    }))
                 } else {
                     Ok(None)
                 }
@@ -339,6 +390,21 @@ impl MultiAssetPricingPlan {
                 .local
                 .as_ref()
                 .map_or(0.0, |p| p.boundary_stats().total_flat_count() as f64);
+            if let Some(c) = self.assets[i]
+                .hw
+                .as_ref()
+                .and_then(|h| h.calibration.as_ref())
+            {
+                let xs = c.surface.log_nodes();
+                values[layout.boundary + i] = p.hw.as_ref().expect("HW path").states
+                    [..self.times.len() - 1]
+                    .iter()
+                    .filter(|s| {
+                        let x = s.normalized_equity.ln();
+                        x < xs[0] || x > xs[xs.len() - 1]
+                    })
+                    .count() as f64;
+            }
             if let Some(lsv) = &p.lsv {
                 let xs = self.assets[i]
                     .lsv
@@ -357,71 +423,72 @@ impl MultiAssetPricingPlan {
             }
         }
         let Some(config) = risk else {
-            values[0] = self.payoff.evaluate_with_pre_dividend_spots(
-                |u, d| self.observe(paths, u, d, false, None),
-                |u, d| self.observe(paths, u, d, true, None),
-            )?[0];
+            values[0] = self.payoff_value(paths)?;
             return Ok(values);
         };
         let payoff = self.payoff_adjoints(paths, None)?;
         values[0] = payoff.value;
         let deltas = self.delta(paths, &payoff);
         values[1..1 + paths.len()].copy_from_slice(&deltas);
-        let mut seeds = vec![vec![0.0; self.times.len()]; paths.len()];
-        for (pre, u, d, value) in payoff
-            .terminal_adjoints
-            .iter()
-            .map(|s| (false, s.underlying, s.observation_date, s.value))
-            .chain(
-                payoff
-                    .pre_dividend_adjoints
-                    .iter()
-                    .map(|s| (true, s.underlying, s.observation_date, s.value)),
-            )
-        {
-            let (i, j) = self.indices(u, d).expect("validated observation");
-            let a = &self.assets[i];
-            seeds[i][j] += value
-                * if pre {
-                    a.pre_coordinates[j].b()
-                } else {
-                    a.coordinates[j].b()
-                };
-        }
-        for (i, (p, a)) in paths.iter().zip(&self.assets).enumerate() {
-            let (offset, count) = layout.vega[i];
-            if let Some(lsv_path) = &p.lsv {
-                let normalized_seeds: Vec<_> = seeds[i]
-                    .iter()
-                    .zip(a.process.forward_normalizers())
-                    .map(|(s, f)| s * f)
-                    .collect();
-                let adj = lsv_path
-                    .reverse_leverage(&normalized_seeds)
-                    .map_err(E::numerical)?;
-                values[offset..offset + count].copy_from_slice(&adj);
-                continue;
+        if self.hull_white.is_some() {
+            self.hw_path_risk(paths, &payoff, layout, &mut values)?;
+        } else {
+            let mut seeds = vec![vec![0.0; self.times.len()]; paths.len()];
+            for (pre, u, d, value) in payoff
+                .terminal_adjoints
+                .iter()
+                .map(|s| (false, s.underlying, s.observation_date, s.value))
+                .chain(
+                    payoff
+                        .pre_dividend_adjoints
+                        .iter()
+                        .map(|s| (true, s.underlying, s.observation_date, s.value)),
+                )
+            {
+                let (i, j) = self.indices(u, d).expect("validated observation");
+                let a = &self.assets[i];
+                seeds[i][j] += value
+                    * if pre {
+                        a.pre_coordinates[j].b()
+                    } else {
+                        a.coordinates[j].b()
+                    };
             }
-            match &a.model {
-                ModelSpec::BlackScholes(_) => {
-                    values[offset] = seeds[i].iter().zip(&p.bs_vega).map(|(s, v)| s * v).sum();
-                }
-                ModelSpec::LocalVolatility(lv) => {
-                    let g = lv.local_variance_grid();
-                    let adj = p
-                        .local
-                        .as_ref()
-                        .expect("LV path")
-                        .reverse_state_adjoints(
-                            &seeds[i],
-                            g.values().len(),
-                            g.log_moneyness_nodes().len(),
-                        )
+            for (i, (p, a)) in paths.iter().zip(&self.assets).enumerate() {
+                let (offset, count) = layout.vega[i];
+                if let Some(lsv_path) = &p.lsv {
+                    let normalized_seeds: Vec<_> = seeds[i]
+                        .iter()
+                        .zip(a.process.forward_normalizers())
+                        .map(|(s, f)| s * f)
+                        .collect();
+                    let adj = lsv_path
+                        .reverse_leverage(&normalized_seeds)
                         .map_err(E::numerical)?;
-                    values[offset..offset + count]
-                        .copy_from_slice(adj.local_variance_value_adjoints());
+                    values[offset..offset + count].copy_from_slice(&adj);
+                    continue;
                 }
-                _ => unreachable!("validated model"),
+                match &a.model {
+                    ModelSpec::BlackScholes(_) => {
+                        values[offset] = seeds[i].iter().zip(&p.bs_vega).map(|(s, v)| s * v).sum();
+                    }
+                    ModelSpec::LocalVolatility(lv) => {
+                        let g = lv.local_variance_grid();
+                        let adj = p
+                            .local
+                            .as_ref()
+                            .expect("LV path")
+                            .reverse_state_adjoints(
+                                &seeds[i],
+                                g.values().len(),
+                                g.log_moneyness_nodes().len(),
+                            )
+                            .map_err(E::numerical)?;
+                        values[offset..offset + count]
+                            .copy_from_slice(adj.local_variance_value_adjoints());
+                    }
+                    _ => unreachable!("validated model"),
+                }
             }
         }
         if let Some(relative) = config.gamma_relative_bump {

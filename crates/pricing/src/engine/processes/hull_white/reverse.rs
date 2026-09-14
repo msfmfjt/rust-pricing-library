@@ -30,7 +30,7 @@ pub struct HullWhiteCalibrationAdjoints {
 pub struct HullWhiteRecordedPath<'a> {
     pub(in crate::engine) plan: &'a HullWhiteEquityPlan,
     pub(in crate::engine) spot: f64,
-    pub(in crate::engine) shocks: Vec<f64>,
+    pub(in crate::engine) equity_increments: Vec<f64>,
     pub(in crate::engine) states: Vec<HybridState>,
 }
 
@@ -40,11 +40,17 @@ impl HullWhiteEquityPlan {
         spot: f64,
         shocks: &[f64],
     ) -> Result<HullWhiteRecordedPath<'_>, HullWhiteMcError> {
+        let states = self.evolve_path(spot, shocks)?;
         Ok(HullWhiteRecordedPath {
             plan: self,
             spot,
-            shocks: shocks.to_vec(),
-            states: self.evolve_path(spot, shocks)?,
+            equity_increments: self
+                .kernels
+                .iter()
+                .enumerate()
+                .map(|(i, k)| k.loading[0][0] * shocks[i])
+                .collect(),
+            states,
         })
     }
 }
@@ -114,73 +120,87 @@ impl HullWhiteRecordedPath<'_> {
     /// Seeds are on normalized residual equity. Reverse the physical dividend
     /// observations separately. Rate/factor parameters and normal draws are fixed.
     pub fn reverse(&self, state_seeds: &[f64]) -> Result<HullWhitePathAdjoints, HullWhiteMcError> {
-        if state_seeds.len() != self.states.len() {
-            return Err(invalid("hybrid_state_seed_shape", state_seeds.len()));
-        }
-        for &v in state_seeds {
-            hw_valid(v, "hybrid_state_seed", 0, false)?;
-        }
-        let plan = self.plan;
-        let n = plan.kernels.len();
-        let mut out = HullWhitePathAdjoints {
-            initial_spot: 0.0,
-            bs_volatility: plan.volatility.direct_volatility().map(|_| 0.0),
-            squared_leverage: plan
-                .volatility
-                .lsv()
-                .map_or_else(Vec::new, |(_, leverage)| {
-                    vec![0.0; leverage.squared_leverage().len()]
-                }),
-            dividends: plan
-                .dividends
-                .as_ref()
-                .map(HullWhiteDividendPlan::zero_adjoints),
-        };
-        let mut bar = state_seeds[n];
-        for i in (0..n).rev() {
-            let state = self.states[i];
-            let next = self.states[i + 1].normalized_equity;
-            let dt = plan.kernels[i].dt;
-            let dw = plan.kernels[i].loading[0][0] * self.shocks[i];
-            let exponent_bar = bar * next;
-            let direct = bar * next / state.normalized_equity;
-            let feedback = if let Some(sigma) = plan.volatility.direct_volatility() {
-                let a2 =
-                    (2.0 * plan.volatility.log_vol_coefficient() * state.volatility_factor).exp();
-                *out.bs_volatility.as_mut().unwrap() +=
-                    exponent_bar * (-sigma * a2 * dt + a2.sqrt() * dw);
-                0.0
-            } else {
-                let (factor, leverage) = plan.volatility.lsv().expect("LSV variant");
-                let f = target_state(plan.dividends.as_ref(), i, state)?.0;
-                let row = leverage
-                    .times()
-                    .partition_point(|t| *t <= plan.times[i])
-                    .saturating_sub(1);
-                let l = lookup(leverage, row, f);
-                let a2 = (2.0 * factor.vol_of_vol() * state.volatility_factor).exp();
-                let v = l.value * a2;
-                let lbar = exponent_bar * (-0.5 * dt + dw / (2.0 * v.sqrt())) * a2;
-                transpose_lookup(l, lbar, &mut out.squared_leverage);
-                out.initial_spot -= lbar * l.slope / self.spot;
-                target_reverse(
-                    plan.dividends.as_ref(),
-                    i,
-                    state,
-                    lbar * l.slope / f,
-                    0.0,
-                    &mut out.dividends,
-                )?
-            };
-            bar = state_seeds[i] + direct + feedback;
-        }
-        out.initial_spot += bar;
-        for &v in std::iter::once(&out.initial_spot)
-            .chain(out.bs_volatility.iter())
-            .chain(&out.squared_leverage)
-        {
-            hw_valid(v, "hybrid_path_adjoint", 0, false)?;
-        }
-        Ok(out)
+        reverse_hybrid_states(
+            self.plan,
+            self.spot,
+            &self.states,
+            &self.equity_increments,
+            state_seeds,
+        )
     }
+}
+
+pub(in crate::engine) fn reverse_hybrid_states(
+    plan: &HullWhiteEquityPlan,
+    spot: f64,
+    states: &[HybridState],
+    equity_increments: &[f64],
+    state_seeds: &[f64],
+) -> Result<HullWhitePathAdjoints, HullWhiteMcError> {
+    if state_seeds.len() != states.len() {
+        return Err(invalid("hybrid_state_seed_shape", state_seeds.len()));
+    }
+    for &v in state_seeds {
+        hw_valid(v, "hybrid_state_seed", 0, false)?;
+    }
+    let n = plan.kernels.len();
+    let mut out = HullWhitePathAdjoints {
+        initial_spot: 0.0,
+        bs_volatility: plan.volatility.direct_volatility().map(|_| 0.0),
+        squared_leverage: plan
+            .volatility
+            .lsv()
+            .map_or_else(Vec::new, |(_, leverage)| {
+                vec![0.0; leverage.squared_leverage().len()]
+            }),
+        dividends: plan
+            .dividends
+            .as_ref()
+            .map(HullWhiteDividendPlan::zero_adjoints),
+    };
+    let mut bar = state_seeds[n];
+    for i in (0..n).rev() {
+        let state = states[i];
+        let next = states[i + 1].normalized_equity;
+        let dt = plan.kernels[i].dt;
+        let dw = equity_increments[i];
+        let exponent_bar = bar * next;
+        let direct = bar * next / state.normalized_equity;
+        let feedback = if let Some(sigma) = plan.volatility.direct_volatility() {
+            let a2 = (2.0 * plan.volatility.log_vol_coefficient() * state.volatility_factor).exp();
+            *out.bs_volatility.as_mut().unwrap() +=
+                exponent_bar * (-sigma * a2 * dt + a2.sqrt() * dw);
+            0.0
+        } else {
+            let (factor, leverage) = plan.volatility.lsv().expect("LSV variant");
+            let f = target_state(plan.dividends.as_ref(), i, state)?.0;
+            let row = leverage
+                .times()
+                .partition_point(|t| *t <= plan.times[i])
+                .saturating_sub(1);
+            let l = lookup(leverage, row, f);
+            let a2 = (2.0 * factor.vol_of_vol() * state.volatility_factor).exp();
+            let v = l.value * a2;
+            let lbar = exponent_bar * (-0.5 * dt + dw / (2.0 * v.sqrt())) * a2;
+            transpose_lookup(l, lbar, &mut out.squared_leverage);
+            out.initial_spot -= lbar * l.slope / spot;
+            target_reverse(
+                plan.dividends.as_ref(),
+                i,
+                state,
+                lbar * l.slope / f,
+                0.0,
+                &mut out.dividends,
+            )?
+        };
+        bar = state_seeds[i] + direct + feedback;
+    }
+    out.initial_spot += bar;
+    for &v in std::iter::once(&out.initial_spot)
+        .chain(out.bs_volatility.iter())
+        .chain(&out.squared_leverage)
+    {
+        hw_valid(v, "hybrid_path_adjoint", 0, false)?;
+    }
+    Ok(out)
 }

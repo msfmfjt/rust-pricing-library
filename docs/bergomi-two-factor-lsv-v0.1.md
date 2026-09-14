@@ -136,9 +136,12 @@ exchange price checked against independent five-dimensional Gauss-Hermite
 quadrature with an analytically integrated final step.
 
 These checks validate the finite implementation. Product-specific particle,
-bandwidth and time-step refinement is still required. Two-factor stochastic-rate
-hybrids, market-IV VegaKT and rough-LSV multi-asset support remain outside this
-extension; existing single-asset adapters keep their prior capabilities.
+bandwidth and time-step refinement is still required. The separate
+[Bergomi + HW extension](bergomi-hull-white-v0.1.md) connects two-factor
+single-asset and multi-asset plans to stochastic rates, paired target AAD,
+market-IV VegaKT and initial-curve risk. The deterministic-rate interfaces
+described here retain their effective-variance risk convention. Multi-asset
+rough-LSV remains outside this extension.
 
 Local verification on 2026-09-14: all **469** default Rust workspace tests,
 all **5** explicit statistical acceptance tests and all **73** installed-wheel

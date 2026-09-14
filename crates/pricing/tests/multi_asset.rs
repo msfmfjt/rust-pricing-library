@@ -1604,3 +1604,6 @@ fn multi_two_factor_covariance_dates_default_marginals_and_rejection_contract() 
     assert!(build(dated, Some(bad)).is_err());
     assert!(build(corr(2, 0.4), Some(vec![vec![vec![1.0; 5]; 5]])).is_err());
 }
+
+#[path = "cases/multi_asset_hull_white.rs"]
+mod hull_white_cases;

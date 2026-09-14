@@ -25,6 +25,8 @@ use pricing_numerics::{NeumaierSum, standard_normal_pdf};
 use std::{error::Error, fmt};
 
 mod rough;
+mod two_factor;
+pub use two_factor::{BERGOMI_TWO_FACTOR_HW_SCHEME, Bergomi2FactorHullWhiteDriverPlan};
 
 pub use rough::{
     HybridVolatilityFactor, ROUGH_BERGOMI_SCHEME, ROUGH_CASH_LSV_CALIBRATION,
@@ -163,6 +165,16 @@ impl Kernel {
         for (i, value) in noise.iter_mut().enumerate() {
             *value = self.loading[i].iter().zip(shocks).map(|(l, z)| l * z).sum();
         }
+        self.advance_innovations(state, leverage_squared, nu, noise, step)
+    }
+    pub(in crate::engine) fn advance_innovations(
+        &self,
+        state: HybridState,
+        leverage_squared: f64,
+        nu: f64,
+        noise: [f64; 4],
+        step: usize,
+    ) -> Result<HybridState, HullWhiteMcError> {
         let variance = leverage_squared * (2.0 * nu * state.volatility_factor).exp();
         let integral = self.transition.integral_loading * state.rate_factor + noise[3];
         let next = HybridState {
@@ -236,6 +248,11 @@ pub enum HybridEquityVolatility {
         factor: RoughBergomi,
         leverage: LsvLeverageSurface,
     },
+    Bergomi2FactorLsv {
+        factor: crate::models::Bergomi2Factor,
+        second_vol_rate_correlation: f64,
+        leverage: LsvLeverageSurface,
+    },
     BergomiLsv {
         factor: Bergomi1Factor,
         leverage: LsvLeverageSurface,
@@ -245,6 +262,17 @@ pub enum HybridEquityVolatility {
 impl HybridEquityVolatility {
     pub(in crate::engine) fn lsv(&self) -> Option<(HybridVolatilityFactor, &LsvLeverageSurface)> {
         match self {
+            Self::Bergomi2FactorLsv {
+                factor,
+                leverage,
+                second_vol_rate_correlation,
+            } => Some((
+                HybridVolatilityFactor::BergomiTwoFactor {
+                    factor: *factor,
+                    second_vol_rate_correlation: *second_vol_rate_correlation,
+                },
+                leverage,
+            )),
             Self::BergomiLsv { factor, leverage } => Some(((*factor).into(), leverage)),
             Self::RoughBergomiLsv { factor, leverage } => Some(((*factor).into(), leverage)),
             _ => None,
@@ -285,6 +313,7 @@ pub struct HullWhiteEquityPlan {
     pub(in crate::engine) kernels: Box<[Kernel]>,
     pub(in crate::engine) dividends: Option<HullWhiteDividendPlan>,
     pub(in crate::engine) rough_driver: Option<RoughBergomiDriverPlan>,
+    pub(in crate::engine) two_factor_driver: Option<Bergomi2FactorHullWhiteDriverPlan>,
 }
 
 impl HullWhiteEquityPlan {
@@ -328,6 +357,11 @@ impl HullWhiteEquityPlan {
             .rough()
             .map(|factor| RoughBergomiDriverPlan::new(factor, &rates, correlation, grid))
             .transpose()?;
+        let two_factor_driver = volatility
+            .lsv()
+            .map(|(f, _)| f.two_factor_driver(&rates, correlation, grid.nodes()))
+            .transpose()?
+            .flatten();
         let kernels = grid
             .nodes()
             .windows(2)
@@ -341,6 +375,7 @@ impl HullWhiteEquityPlan {
             kernels: kernels.into(),
             dividends: None,
             rough_driver,
+            two_factor_driver,
         })
     }
     pub fn with_dividends(
@@ -398,6 +433,16 @@ impl HullWhiteEquityPlan {
                 factor.vol_of_vol(),
                 factor.correlation(),
             ],
+            HybridEquityVolatility::Bergomi2FactorLsv {
+                factor,
+                second_vol_rate_correlation,
+                ..
+            } => {
+                use crate::models::BergomiDynamics;
+                let mut values = vec![4.0, *second_vol_rate_correlation];
+                values.extend(factor.parameters());
+                values
+            }
             HybridEquityVolatility::BergomiLsv { factor, .. } => vec![
                 1.0,
                 factor.mean_reversion(),
@@ -409,6 +454,67 @@ impl HullWhiteEquityPlan {
             .into_iter()
             .flat_map(|v| v.to_bits().to_be_bytes())
             .collect()
+    }
+    /// Evolve already correlated innovations [dW_S, OU_V1, OU_r, integral_r,
+    /// OU_V2]. The final entry is zero/unused for a one-factor or BS asset.
+    /// This shares one centered rate path across a multi-asset simulation.
+    pub fn evolve_with_innovations(
+        &self,
+        spot: f64,
+        innovations: &[[f64; 5]],
+    ) -> Result<Vec<HybridState>, HullWhiteMcError> {
+        if self.is_rough()
+            || innovations.len() != self.kernels.len()
+            || innovations.iter().flatten().any(|v| !v.is_finite())
+        {
+            return Err(invalid("hybrid_external_innovations", innovations.len()));
+        }
+        if self
+            .volatility
+            .lsv()
+            .is_some_and(|(_, l)| l.initial_f() != spot)
+            || self
+                .dividends
+                .as_ref()
+                .is_some_and(|d| d.initial_spot() != spot)
+        {
+            return Err(invalid("hybrid_external_initial_spot", 0));
+        }
+        let mut state = HybridState::initial(spot)?;
+        let mut states = vec![state];
+        let mut x = [0.0; 2];
+        for (i, (kernel, noise)) in self.kernels.iter().zip(innovations).enumerate() {
+            let l2 = if let Some((_, leverage)) = self.volatility.lsv() {
+                leverage.squared_leverage_at(
+                    self.times[i],
+                    target_state(self.dividends.as_ref(), i, state)?.0,
+                )?
+            } else {
+                self.volatility.direct_volatility().unwrap().powi(2)
+            };
+            state = kernel.advance_innovations(
+                state,
+                l2,
+                self.volatility.log_vol_coefficient(),
+                [noise[0], noise[1], noise[2], noise[3]],
+                i,
+            )?;
+            if let HybridEquityVolatility::Bergomi2FactorLsv { factor, .. } = self.volatility {
+                let k = factor.mean_reversions();
+                x[0] = (-k[0] * kernel.dt).exp() * x[0] + noise[1];
+                x[1] = (-k[1] * kernel.dt).exp() * x[1] + noise[4];
+                let w = factor.normalized_weights();
+                state.volatility_factor = w[0] * x[0] + w[1] * x[1];
+                hw_valid(
+                    state.volatility_factor,
+                    "hybrid_external_volatility",
+                    i,
+                    false,
+                )?;
+            }
+            states.push(state);
+        }
+        Ok(states)
     }
     pub fn pseudo_shocks(
         &self,
@@ -426,7 +532,11 @@ impl HullWhiteEquityPlan {
     }
     #[must_use]
     pub fn random_factor_count(&self) -> usize {
-        if self.rough_driver.is_some() { 5 } else { 4 }
+        if self.rough_driver.is_some() || self.two_factor_driver.is_some() {
+            5
+        } else {
+            4
+        }
     }
     #[must_use]
     pub fn is_rough(&self) -> bool {
@@ -438,7 +548,9 @@ impl HullWhiteEquityPlan {
     }
     #[must_use]
     pub fn scheme(&self) -> &'static str {
-        if self.is_rough() {
+        if self.two_factor_driver.is_some() {
+            BERGOMI_TWO_FACTOR_HW_SCHEME
+        } else if self.is_rough() {
             ROUGH_BERGOMI_SCHEME
         } else {
             HULL_WHITE_EQUITY_SCHEME
@@ -455,7 +567,7 @@ impl HullWhiteEquityPlan {
                 (false, false) => HULL_WHITE_LSV_CALIBRATION,
             })
     }
-    /// Four factor-major blocks (five for rough). All blocks must be
+    /// Four factor-major blocks (five for rough or two-factor Bergomi). All blocks must be
     /// sign-reversed for an antithetic path; Brownian bridge acts on each block.
     pub fn evolve_path(
         &self,
@@ -484,6 +596,11 @@ impl HullWhiteEquityPlan {
             .as_ref()
             .map(|driver| driver.normalized(shocks))
             .transpose()?;
+        let factor_values = if let Some(driver) = &self.two_factor_driver {
+            Some(driver.evolve(shocks)?)
+        } else {
+            rough_values
+        };
         let mut states = vec![state];
         for (i, kernel) in self.kernels.iter().enumerate() {
             let l2 = if let Some((_, leverage)) = self.volatility.lsv() {
@@ -496,7 +613,7 @@ impl HullWhiteEquityPlan {
             };
             let nu = self.volatility.log_vol_coefficient();
             state = kernel.advance(state, l2, nu, std::array::from_fn(|j| shocks[j * n + i]), i)?;
-            if let Some(values) = &rough_values {
+            if let Some(values) = &factor_values {
                 state.volatility_factor = values[i + 1];
             }
             states.push(state);

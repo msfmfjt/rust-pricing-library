@@ -117,6 +117,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
+    subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
     subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
     subprocess.run(
         [
@@ -987,6 +988,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        'MultiAssetHullWhiteCalibration',
+        'MultiAssetHullWhiteLsvRisk',
+        'MultiAssetHullWhiteCurveRisk',
+
         'CorrelationSchedule',
         'AutocallObservation',
         'MultiAssetProduct',
@@ -1255,9 +1260,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
          'keyword_only_defaults': {'currency_id': 1, 'smoothing_half_width': None}},
         ('MultiAssetPlan', 'compile'): {'positional': ['valuation_date', 'product', 'markets', 'models', 'correlations', 'engine'],
          'positional_defaults': {},
-         'keyword_only': ['maximum_step', 'worker_threads', 'reduction_block_size', 'lsv_configs', 'driver_correlations'],
+         'keyword_only': ['maximum_step', 'worker_threads', 'reduction_block_size', 'lsv_configs', 'driver_correlations', 'rate_model', 'rate_correlations', 'lsv_targets'],
          'required_keyword_only': ['maximum_step'],
-         'keyword_only_defaults': {'worker_threads': 1, 'reduction_block_size': 4096, 'lsv_configs': None, 'driver_correlations': None}},
+         'keyword_only_defaults': {'worker_threads': 1, 'reduction_block_size': 4096, 'lsv_configs': None, 'driver_correlations': None, 'rate_model': None, 'rate_correlations': None, 'lsv_targets': None}},
         ('MultiAssetPlan', 'evaluate'): {'positional': ['self'],
          'positional_defaults': {},
          'keyword_only': [],
@@ -1364,6 +1369,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "required_keyword_only": ["equity_rate_correlation", "maximum_step", "worker_threads"],
             "keyword_only_defaults": {"reduction_block_size": None, "cash_dividend_model": None},
         },
+        ("HullWhiteEquityPlan", "compile_lsv_two_factor"): {'positional': ['request', 'target', 'rate_model'], 'positional_defaults': {}, 'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'equity_rate_correlation', 'vol_rate_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'worker_threads', 'reduction_block_size', 'cash_dividend_model', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'equity_rate_correlation', 'vol_rate_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None, 'cash_dividend_model': None, 'retain_reverse_trace': False}},
         ("HullWhiteEquityPlan", "compile_lsv"): {
             "positional": ["request", "target", "rate_model"],
             "positional_defaults": {},
@@ -1876,6 +1882,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'MultiAssetHullWhiteCalibration': {'volatility_factor_count', 'time_nodes', 'log_moneyness_nodes', 'squared_leverage', 'minimum_effective_samples', 'fallback_nodes', 'mean_relative_discount', 'mean_discounted_normalized_equity', 'conditional_second_moments', 'rate_corrections', 'retains_reverse_trace'},
+        'MultiAssetHullWhiteLsvRisk': {'forward_log_density_adjoints', 'density_standard_errors', 'vega_kt_raw', 'vega_kt_market_scaled', 'vega_kt_standard_errors', 'vega_kt_maturity_nodes', 'vega_kt_log_moneyness_nodes', 'parallel_vega', 'parallel_vega_standard_error', 'method'},
+        'MultiAssetHullWhiteCurveRisk': {'discount_time_nodes', 'discount_log_df_adjoints', 'discount_node_dv01', 'dividend_time_nodes', 'dividend_log_df_adjoints'},
+
         'MultiAssetLsvConfig': {'__init__', 'mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
         'MultiAssetLsv2FactorConfig': {'__init__', 'mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'normalized_weights', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
         'MultiAssetLsvCalibration': {'volatility_factor_count', 'calibration_seed', 'time_nodes', 'log_moneyness_nodes', 'squared_leverage', 'effective_samples', 'donor_nodes', 'extrapolated', 'minimum_effective_samples', 'extrapolated_nodes', 'particle_mean_normalized_f', 'method'},
@@ -1883,9 +1893,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'CorrelationSchedule': {'matrices', 'maximum_adjustments', 'lower_factors', 'ranks', 'zero_pivots', 'effective_dates', 'pivots', '__init__', 'underlying_ids', 'raw_matrices'},
         'AutocallObservation': {'__init__'},
         'MultiAssetProduct': {'underlying_ids', 'basket', 'worst_of', 'autocallable'},
-        'MultiAssetPlan': {'random_factor_count', 'lsv_calibrations', 'lsv_driver_correlations', 'lsv_transition_covariances', 'evaluate_aad', 'correlation_entry_indices', 'compile', 'time_nodes', 'evaluate', 'fingerprint', 'underlying_ids'},
-        'MultiAssetRisk': {'lsv_local_variance', 'underlying_id', 'delta_per_one_percent_spot', 'bs_vega_per_vol_point', 'local_variance_time_nodes', 'bs_vega', 'local_variance', 'delta', 'local_variance_log_moneyness_nodes'},
-        'MultiAssetPrice': {'lsv_leverage_boundary_counts', 'local_variance_boundary_counts', 'price', 'scramble_checksum', 'value', 'standard_error', 'evaluated_paths', 'reduction_block_size', 'risks', 'gamma_relative_bump', 'worker_threads', 'fingerprint', 'gamma', 'direction_checksum', 'underlying_ids'},
+        'MultiAssetPlan': {'has_hull_white', 'hull_white_calibrations', 'random_factor_count', 'lsv_calibrations', 'lsv_driver_correlations', 'lsv_transition_covariances', 'evaluate_aad', 'correlation_entry_indices', 'compile', 'time_nodes', 'evaluate', 'fingerprint', 'underlying_ids'},
+        'MultiAssetRisk': {'hull_white_lsv', 'lsv_local_variance', 'underlying_id', 'delta_per_one_percent_spot', 'bs_vega_per_vol_point', 'local_variance_time_nodes', 'bs_vega', 'local_variance', 'delta', 'local_variance_log_moneyness_nodes'},
+        'MultiAssetPrice': {'hull_white_curve_risk', 'lsv_leverage_boundary_counts', 'local_variance_boundary_counts', 'price', 'scramble_checksum', 'value', 'standard_error', 'evaluated_paths', 'reduction_block_size', 'risks', 'gamma_relative_bump', 'worker_threads', 'fingerprint', 'gamma', 'direction_checksum', 'underlying_ids'},
 
         "RoughBergomiModel": {"__init__", "hurst", "vol_of_vol", "equity_vol_correlation"},
         "HullWhiteModel": {
@@ -1908,6 +1918,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "forward_log_densities",
         },
         "HullWhiteEquityPlan": {
+            "compile_lsv_two_factor",
             "compile_rough_bergomi",
             "compile_rough_lsv",
             "random_factor_count",
@@ -2394,6 +2405,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("HullWhiteEquityPlan", "compile_lsv_two_factor"),
         ('MultiAssetProduct', 'basket'),
         ('MultiAssetProduct', 'worst_of'),
         ('MultiAssetProduct', 'autocallable'),
@@ -2435,6 +2447,37 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('MultiAssetHullWhiteCalibration', 'volatility_factor_count'),
+        ('MultiAssetHullWhiteCalibration', 'time_nodes'),
+        ('MultiAssetHullWhiteCalibration', 'log_moneyness_nodes'),
+        ('MultiAssetHullWhiteCalibration', 'squared_leverage'),
+        ('MultiAssetHullWhiteCalibration', 'minimum_effective_samples'),
+        ('MultiAssetHullWhiteCalibration', 'fallback_nodes'),
+        ('MultiAssetHullWhiteCalibration', 'mean_relative_discount'),
+        ('MultiAssetHullWhiteCalibration', 'mean_discounted_normalized_equity'),
+        ('MultiAssetHullWhiteCalibration', 'conditional_second_moments'),
+        ('MultiAssetHullWhiteCalibration', 'rate_corrections'),
+        ('MultiAssetHullWhiteCalibration', 'retains_reverse_trace'),
+        ('MultiAssetHullWhiteLsvRisk', 'forward_log_density_adjoints'),
+        ('MultiAssetHullWhiteLsvRisk', 'density_standard_errors'),
+        ('MultiAssetHullWhiteLsvRisk', 'vega_kt_raw'),
+        ('MultiAssetHullWhiteLsvRisk', 'vega_kt_market_scaled'),
+        ('MultiAssetHullWhiteLsvRisk', 'vega_kt_standard_errors'),
+        ('MultiAssetHullWhiteLsvRisk', 'vega_kt_maturity_nodes'),
+        ('MultiAssetHullWhiteLsvRisk', 'vega_kt_log_moneyness_nodes'),
+        ('MultiAssetHullWhiteLsvRisk', 'parallel_vega'),
+        ('MultiAssetHullWhiteLsvRisk', 'parallel_vega_standard_error'),
+        ('MultiAssetHullWhiteLsvRisk', 'method'),
+        ('MultiAssetHullWhiteCurveRisk', 'discount_time_nodes'),
+        ('MultiAssetHullWhiteCurveRisk', 'discount_log_df_adjoints'),
+        ('MultiAssetHullWhiteCurveRisk', 'discount_node_dv01'),
+        ('MultiAssetHullWhiteCurveRisk', 'dividend_time_nodes'),
+        ('MultiAssetHullWhiteCurveRisk', 'dividend_log_df_adjoints'),
+        ('MultiAssetPlan', 'has_hull_white'),
+        ('MultiAssetPlan', 'hull_white_calibrations'),
+        ('MultiAssetRisk', 'hull_white_lsv'),
+        ('MultiAssetPrice', 'hull_white_curve_risk'),
+
         ('MultiAssetPlan', 'random_factor_count'),
         ('MultiAssetPlan', 'lsv_calibrations'),
         ('MultiAssetPlan', 'lsv_driver_correlations'),

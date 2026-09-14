@@ -7,6 +7,7 @@ mod diagnostics;
 mod hull_white;
 mod lsv;
 mod multi_asset;
+mod multi_asset_hw;
 mod multi_asset_lsv;
 
 use pricing::market::CurveRegion;
@@ -1222,6 +1223,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<multi_asset::PyCorrelationSchedule>()?;
     module.add_class::<multi_asset::PyAutocallObservation>()?;
     module.add_class::<multi_asset::PyMultiAssetProduct>()?;
+    module.add_class::<multi_asset_hw::PyMultiAssetHullWhiteCalibration>()?;
+    module.add_class::<multi_asset_hw::PyMultiAssetHullWhiteLsvRisk>()?;
+    module.add_class::<multi_asset_hw::PyMultiAssetHullWhiteCurveRisk>()?;
     module.add_class::<multi_asset::PyMultiAssetPlan>()?;
     module.add_class::<multi_asset::PyMultiAssetPrice>()?;
     module.add_class::<multi_asset::PyMultiAssetRisk>()?;

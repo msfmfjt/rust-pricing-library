@@ -43,7 +43,7 @@ impl MultiAssetBergomiLsvConfig {
             Self::TwoFactor(_) => 2,
         }
     }
-    fn components(&self) -> Vec<Bergomi1Factor> {
+    pub(super) fn components(&self) -> Vec<Bergomi1Factor> {
         match self {
             Self::OneFactor(c) => vec![c.factor],
             Self::TwoFactor(c) => c.factor.components().to_vec(),
@@ -141,8 +141,11 @@ impl LsvAsset {
 pub(super) struct LsvDrivers {
     pub entries: Vec<CorrelationFactor>,
     pub intervals: Vec<CorrelationFactor>,
-    /// Standard deviations of OU innovations. Spot entries are one because the
-    /// stock log-Euler kernel consumes normalized Brownian increments.
+    /// HW-only factorization order -> external driver order. The spot prefix is
+    /// fixed; the OU/rate suffix is pivoted without dropping Gaussian columns.
+    pub permutations: Option<Vec<Vec<usize>>>,
+    /// Standard deviations of OU/rate innovations. Spot entries are one for
+    /// deterministic-rate kernels, sqrt(dt) for HW kernels consuming dW.
     pub scales: Vec<Vec<f64>>,
     pub asset_indices: Vec<usize>,
 }
@@ -283,6 +286,7 @@ impl LsvDrivers {
         Ok(Some(Self {
             entries,
             intervals,
+            permutations: None,
             scales,
             asset_indices: assets.iter().map(|x| x.0).collect(),
         }))
@@ -292,6 +296,7 @@ impl LsvDrivers {
 impl MultiAssetPricingPlan {
     pub fn random_factor_count(&self) -> usize {
         self.assets.len()
+            + usize::from(self.hull_white.is_some()) * 2
             + self
                 .lsv_drivers
                 .as_ref()
@@ -328,15 +333,22 @@ impl MultiAssetPricingPlan {
     pub fn lsv_volatility_factor_counts(&self) -> Vec<usize> {
         self.assets
             .iter()
-            .map(|a| a.lsv.as_ref().map_or(0, |l| l.calibration.factor_count()))
+            .map(|a| {
+                a.hw.as_ref().map_or_else(
+                    || a.lsv.as_ref().map_or(0, |l| l.calibration.factor_count()),
+                    |h| h.factor_count(),
+                )
+            })
             .collect()
     }
-    /// Rows: all spot Brownian drivers, then LSV volatility drivers in asset order.
+    /// Rows: all spot Brownian drivers, then LSV volatility drivers in asset order,
+    /// with the shared rate Brownian appended in HW mode.
     /// Entries have the dates of `correlation()`; includes out-of-horizon entries.
     pub fn lsv_driver_correlations(&self) -> &[CorrelationFactor] {
         self.lsv_drivers.as_ref().map_or(&[], |d| &d.entries)
     }
     /// Per-interval covariance of (dW_spots, OU innovations), in driver order.
+    /// HW mode appends the rate OU state and integrated-rate innovations.
     pub fn lsv_transition_covariances(&self) -> Vec<Vec<Vec<f64>>> {
         let Some(d) = &self.lsv_drivers else {
             return Vec::new();
@@ -349,13 +361,17 @@ impl MultiAssetPricingPlan {
             .map(|(s, c)| {
                 let mut scale = d.scales[s].clone();
                 scale[..n].fill((self.times[s + 1] - self.times[s]).sqrt());
-                (0..width)
-                    .map(|i| {
-                        (0..width)
-                            .map(|j| c.canonical()[i * width + j] * scale[i] * scale[j])
-                            .collect()
-                    })
-                    .collect()
+                let order = d.permutations.as_ref().map(|p| &p[s]);
+                let mut covariance = vec![vec![0.0; width]; width];
+                for i in 0..width {
+                    let row = order.map_or(i, |p| p[i]);
+                    for j in 0..width {
+                        let col = order.map_or(j, |p| p[j]);
+                        covariance[row][col] =
+                            c.canonical()[i * width + j] * scale[row] * scale[col];
+                    }
+                }
+                covariance
             })
             .collect()
     }
