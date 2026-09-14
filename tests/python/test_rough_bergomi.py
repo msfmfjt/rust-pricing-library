@@ -64,8 +64,10 @@ class RoughBergomiTest(unittest.TestCase):
                     maximum_step=0.25, worker_threads=1)
         request = self.request(rp.Model.black_scholes(0.2), cash=True)
         rates = rp.HullWhiteModel(0.2, [0.0], [0.005])
-        with self.assertRaises(rp.PricingError):
-            rp.HullWhiteEquityPlan.compile_rough_bergomi(request, model, rates, **args)
+        affine = rp.HullWhiteEquityPlan.compile_rough_bergomi(request, model, rates, **args)
+        self.assertEqual(affine.cash_dividend_model, "affine-paid-cash-realized-carry-v1")
+        self.assertEqual(affine.risky_spot, 100.0)
+        self.assertEqual(affine.evaluate_aad().price.value, affine.evaluate().value)
         with self.assertRaises(rp.ValidationError):
             rp.HullWhiteEquityPlan.compile_rough_bergomi(
                 request, model, rates, **args, cash_dividend_model="unknown")

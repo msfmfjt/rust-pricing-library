@@ -1,6 +1,7 @@
 use crate::core::{EventId, PathIndex, PositiveF64, UnderlyingId};
 
-use crate::market::MarketError;
+use crate::market::{DiscountCurve, LogLinearDiscountCurve, MarketError};
+use std::sync::Arc;
 
 pub const DIVIDEND_EVENT_ORDER: &str = "dividend_before_expiry_v1";
 
@@ -251,6 +252,7 @@ pub struct AffineDividendTransform {
     underlying: UnderlyingId,
     spot: PositiveF64,
     events: Box<[CompiledDividendEvent]>,
+    carry_curves: Option<(Arc<LogLinearDiscountCurve>, Arc<LogLinearDiscountCurve>)>,
 }
 
 impl AffineDividendTransform {
@@ -268,7 +270,46 @@ impl AffineDividendTransform {
             underlying,
             spot,
             events: compiled,
+            carry_curves: None,
         })
+    }
+
+    /// Attach deterministic carry for the affine cash offset. The continuous
+    /// f coordinate already carries at r-q, so only A (not B) is propagated.
+    /// A standalone transform created with `new` retains zero-carry semantics.
+    pub(crate) fn with_carry_curves(
+        mut self,
+        discount: Arc<LogLinearDiscountCurve>,
+        dividend: Arc<LogLinearDiscountCurve>,
+    ) -> Self {
+        self.carry_curves = Some((discount, dividend));
+        self
+    }
+
+    fn carry(
+        &self,
+        mut coordinate: AffineDividendCoordinate,
+        start: f64,
+        end: f64,
+    ) -> Result<AffineDividendCoordinate, MarketError> {
+        if coordinate.a == 0.0 || start == end {
+            return Ok(coordinate);
+        }
+        if let Some((discount, dividend)) = &self.carry_curves {
+            let log_growth = dividend.evaluate(end)?.log_discount
+                - discount.evaluate(end)?.log_discount
+                - dividend.evaluate(start)?.log_discount
+                + discount.evaluate(start)?.log_discount;
+            coordinate.a *= log_growth.exp();
+            if !coordinate.a.is_finite() {
+                return Err(MarketError::NonFiniteDividendTransform {
+                    event: EventId::new(0),
+                    field: "carried_affine_A",
+                    bits: coordinate.a.to_bits(),
+                });
+            }
+        }
+        Ok(coordinate)
     }
 
     #[must_use]
@@ -302,7 +343,9 @@ impl AffineDividendTransform {
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Self::new(self.underlying, spot, events)
+        let mut bumped = Self::new(self.underlying, spot, events)?;
+        bumped.carry_curves = self.carry_curves.clone();
+        Ok(bumped)
     }
 
     pub fn coordinate_after_time(
@@ -317,12 +360,13 @@ impl AffineDividendTransform {
             });
         }
         let mut coordinate = AffineDividendCoordinate::identity();
-        for event in &self.events {
-            if event.ex_time <= time {
-                coordinate = coordinate.after(*event)?;
-            }
+        let mut previous_time = 0.0;
+        for event in self.events.iter().take_while(|e| e.ex_time <= time) {
+            coordinate = self.carry(coordinate, previous_time, event.ex_time)?;
+            coordinate = coordinate.after(*event)?;
+            previous_time = event.ex_time;
         }
-        Ok(coordinate)
+        self.carry(coordinate, previous_time, time)
     }
 
     pub fn coordinate_before_event(
@@ -331,9 +375,13 @@ impl AffineDividendTransform {
     ) -> Result<AffineDividendCoordinate, MarketError> {
         let event = self.events[event_index];
         let mut coordinate = AffineDividendCoordinate::identity();
+        let mut previous_time = 0.0;
         for earlier in &self.events[..event_index] {
+            coordinate = self.carry(coordinate, previous_time, earlier.ex_time)?;
             coordinate = coordinate.after(*earlier)?;
+            previous_time = earlier.ex_time;
         }
+        coordinate = self.carry(coordinate, previous_time, event.ex_time)?;
         if coordinate.a.is_finite() && coordinate.b.is_finite() {
             Ok(coordinate)
         } else {
@@ -348,8 +396,9 @@ impl AffineDividendTransform {
     pub fn event_timeline(&self) -> Result<Box<[AffineDividendTimelineEntry]>, MarketError> {
         let mut entries = Vec::with_capacity(self.events.len());
         let mut coordinate = AffineDividendCoordinate::identity();
+        let mut previous_time = 0.0;
         for event in &self.events {
-            let before = coordinate;
+            let before = self.carry(coordinate, previous_time, event.ex_time)?;
             let after = before.after(*event)?;
             entries.push(AffineDividendTimelineEntry {
                 event: event.event,
@@ -358,6 +407,7 @@ impl AffineDividendTransform {
                 after,
             });
             coordinate = after;
+            previous_time = event.ex_time;
         }
         Ok(entries.into_boxed_slice())
     }

@@ -294,8 +294,10 @@ class HullWhiteTest(unittest.TestCase):
         request = rp.PricingRequest.from_json(json.dumps(data))
         rates = rp.HullWhiteModel(0.2, [0.0], [0.0])
         kwargs = dict(equity_rate_correlation=0.0, maximum_step=1.0, worker_threads=1)
-        with self.assertRaises(rp.PricingError):
-            rp.HullWhiteEquityPlan.compile_bs(request, rates, **kwargs)
+        affine = rp.HullWhiteEquityPlan.compile_bs(request, rates, **kwargs)
+        self.assertEqual(affine.cash_dividend_model, "affine-paid-cash-realized-carry-v1")
+        self.assertEqual(affine.risky_spot, 100.0)
+        self.assertAlmostEqual(affine.evaluate().value, 12.5, places=12)
         plan = rp.HullWhiteEquityPlan.compile_bs(
             request, rates, cash_dividend_model="escrowed", **kwargs
         )

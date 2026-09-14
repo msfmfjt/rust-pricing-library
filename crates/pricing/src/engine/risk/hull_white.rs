@@ -1,6 +1,8 @@
 //! Experimental one-currency equity/Hull–White pricing. Calibration input is
 //! explicit and the stable JSON schema is unchanged. Compile price-only requests;
 //! use evaluate_aad for the separate first-order hybrid sensitivity contract.
+//! The default cash-dividend model uses paid-cash affine carry. The explicitly
+//! named cash-dividend constructors retain the legacy escrowed model.
 
 use crate::core::DayCountConvention;
 use crate::mc::hull_white::{
@@ -20,7 +22,9 @@ use crate::models::{
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
 mod aad;
+mod affine;
 pub use aad::HullWhiteAadRisk;
+use affine::{AffineDividendPlan, HULL_WHITE_AFFINE_DIVIDEND_MODEL};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HullWhitePrice {
@@ -39,6 +43,7 @@ pub struct HullWhitePrice {
 pub struct HullWhiteEquityPricingPlan {
     base: SimulationPlan,
     path: HullWhiteEquityPlan,
+    affine_dividends: Option<AffineDividendPlan>,
     calibration: Option<CalibratedHullWhiteLsv>,
     calibration_seed: Option<u64>,
     engine: EngineConfig,
@@ -52,6 +57,8 @@ pub struct HullWhiteEquityPricingPlan {
 }
 
 impl HullWhiteEquityPricingPlan {
+    /// Volatility applies to the continuous equity coordinate. Fixed cash is
+    /// subtracted at ex-dates and its affine offset carries at realized r-q.
     pub fn compile_bs(
         request: &PricingRequest,
         rates: HullWhite1Factor,
@@ -69,7 +76,8 @@ impl HullWhiteEquityPricingPlan {
             None,
         )
     }
-    /// Explicit escrowed model: volatility applies to the residual risky equity.
+    /// Explicit legacy escrowed model: volatility applies to residual equity.
+    /// Prefer compile_bs for the common paid-cash affine convention.
     pub fn compile_bs_with_cash_dividends(
         request: &PricingRequest,
         rates: HullWhite1Factor,
@@ -107,6 +115,7 @@ impl HullWhiteEquityPricingPlan {
             Some(factor),
         )
     }
+    /// Explicit legacy escrowed cash model.
     pub fn compile_rough_bergomi_with_cash_dividends(
         request: &PricingRequest,
         factor: RoughBergomi,
@@ -140,11 +149,14 @@ impl HullWhiteEquityPricingPlan {
             }
             .into());
         };
-        let base = compile_base(request, policy, cash)?;
+        let base = compile_base(request, policy)?;
         let expiry = expiry_time(request);
         let mut events = base.hybrid_observation_times().to_vec();
         events.push(expiry);
-        if cash && let Some(d) = request.market().equity().forward().discrete_dividends() {
+        let market = request.market().equity().forward();
+        if (cash || has_fixed_cash(market, expiry))
+            && let Some(d) = market.discrete_dividends()
+        {
             events.extend(
                 d.events()
                     .iter()
@@ -155,11 +167,7 @@ impl HullWhiteEquityPricingPlan {
         let grid = LocalVolTimeGrid::compile(events, maximum_step)
             .map_err(|e| MonteCarloError::HullWhite(e.into()))?;
         let dividends = if cash {
-            Some(HullWhiteDividendPlan::new(
-                &rates,
-                request.market().equity().forward(),
-                grid.nodes(),
-            )?)
+            Some(HullWhiteDividendPlan::new(&rates, market, grid.nodes())?)
         } else {
             None
         };
@@ -178,8 +186,9 @@ impl HullWhiteEquityPricingPlan {
     }
 
     /// The density/variance target must match the request model and contain all
-    /// contractual observation times, including expiry. This avoids silently
-    /// interpolating a singular t=0 density or changing the calibrated scheme.
+    /// contractual observation times, including ex-dates and expiry. For the
+    /// default affine model it describes the continuous equity coordinate, not
+    /// an unconverted physical-spot smile or an escrowed residual-equity smile.
     pub fn compile_lsv(
         request: &PricingRequest,
         target: &HullWhiteLsvTarget,
@@ -200,7 +209,7 @@ impl HullWhiteEquityPricingPlan {
             false,
         )
     }
-    /// Calibrate the deterministic escrow-coordinate smile with bond covariance.
+    /// Explicit legacy escrow-coordinate smile with bond covariance.
     pub fn compile_lsv_with_cash_dividends(
         request: &PricingRequest,
         target: &HullWhiteLsvTarget,
@@ -241,6 +250,7 @@ impl HullWhiteEquityPricingPlan {
             false,
         )
     }
+    /// Explicit legacy escrowed cash model.
     pub fn compile_rough_lsv_with_cash_dividends(
         request: &PricingRequest,
         target: &HullWhiteLsvTarget,
@@ -285,7 +295,7 @@ impl HullWhiteEquityPricingPlan {
             }
             .into());
         }
-        let base = compile_base(request, policy, cash)?;
+        let base = compile_base(request, policy)?;
         let expiry = expiry_time(request);
         for &t in base
             .hybrid_observation_times()
@@ -300,6 +310,20 @@ impl HullWhiteEquityPricingPlan {
                 .into());
             }
         }
+        // Validate the affine event grid before starting particle calibration.
+        if !cash && has_fixed_cash(request.market().equity().forward(), expiry) {
+            AffineDividendPlan::new(
+                request.market().equity().forward(),
+                &rates,
+                &target
+                    .grid()
+                    .time_nodes()
+                    .iter()
+                    .copied()
+                    .filter(|t| *t <= expiry)
+                    .collect::<Vec<_>>(),
+            )?;
+        }
         let dividends = if cash {
             Some(HullWhiteDividendPlan::new(
                 &rates,
@@ -309,6 +333,9 @@ impl HullWhiteEquityPricingPlan {
         } else {
             None
         };
+        // Affine cash affects physical observations, not U or its leverage.
+        // Therefore use the continuous-coordinate discounted-particle equation
+        // (no reserve loading, cross term or escrowed quadratic calibration).
         let calibration = calibrate_hybrid_lsv_with_dividends(
             target,
             factor,
@@ -371,9 +398,19 @@ impl HullWhiteEquityPricingPlan {
         if let EngineConfig::RandomizedQuasiMonteCarlo(config) = request.engine() {
             RqmcPlan::compile(config, dimension)?;
         }
+        let market = request.market().equity().forward();
+        let has_cash = has_fixed_cash(market, *path.times().last().unwrap());
+        let affine_dividends = if path.dividends().is_none() && has_cash {
+            Some(AffineDividendPlan::new(market, path.rates(), path.times())?)
+        } else {
+            None
+        };
         let mut hash = blake3::Hasher::new();
         hash.update(b"pricing/equity-hull-white-plan/v1\0");
         hash.update(base.plan_fingerprint().as_bytes());
+        if affine_dividends.is_some() {
+            hash.update(HULL_WHITE_AFFINE_DIVIDEND_MODEL.as_bytes());
+        }
         hash.update(&path.rates().mean_reversion().to_bits().to_be_bytes());
         for values in [
             path.rates().volatility_times(),
@@ -448,15 +485,16 @@ impl HullWhiteEquityPricingPlan {
         Ok(Self {
             base,
             path,
+            affine_dividends,
             calibration,
             calibration_seed: particles.map(LsvParticleConfig::seed),
             engine: request.engine(),
             policy,
-            spot: request.market().equity().forward().spot().get(),
+            spot: market.spot().get(),
             payment_time: DayCountConvention::Act365F
                 .year_fraction(request.valuation_date(), request.product().payment_date()),
             fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
-            market: request.market().equity().forward().clone(),
+            market: market.clone(),
             risk_supported: request.product().supports_pathwise_risk()
                 || request.risk().payoff_smoothing().is_some(),
             market_iv_target: target.filter(|t| t.market_iv_surface().is_some()).cloned(),
@@ -480,10 +518,16 @@ impl HullWhiteEquityPricingPlan {
     }
     #[must_use]
     pub fn cash_dividend_model(&self) -> Option<&'static str> {
-        self.path
-            .dividends()
-            .map(|_| HULL_WHITE_CASH_DIVIDEND_MODEL)
+        if self.affine_dividends.is_some() {
+            Some(HULL_WHITE_AFFINE_DIVIDEND_MODEL)
+        } else {
+            self.path
+                .dividends()
+                .map(|_| HULL_WHITE_CASH_DIVIDEND_MODEL)
+        }
     }
+    /// The affine model starts U at the full Spot; only explicit escrowed mode
+    /// subtracts a future-dividend reserve from the risky initial state.
     #[must_use]
     pub fn risky_spot(&self) -> f64 {
         self.path
@@ -623,11 +667,11 @@ impl HullWhiteEquityPricingPlan {
                     self.payment_time,
                     last.rate_factor,
                 )?;
-            let equity = states
-                .iter()
-                .map(|s| s.normalized_equity)
-                .collect::<Vec<_>>();
-            let payoff = if let Some(d) = self.path.dividends() {
+            let payoff = if let Some(d) = &self.affine_dividends {
+                let observations = d.record(&states)?;
+                self.base
+                    .hybrid_spot_payoff(self.path.times(), &observations.spots)?
+            } else if let Some(d) = self.path.dividends() {
                 let spots = d
                     .nodes()
                     .iter()
@@ -636,12 +680,24 @@ impl HullWhiteEquityPricingPlan {
                     .collect::<Result<Vec<_>, _>>()?;
                 self.base.hybrid_spot_payoff(self.path.times(), &spots)?
             } else {
+                let equity = states
+                    .iter()
+                    .map(|s| s.normalized_equity)
+                    .collect::<Vec<_>>();
                 self.base.hybrid_payoff(self.path.times(), &equity)?
             };
             value += payoff * relative_discount;
         }
         Ok(value / if antithetic { 2.0 } else { 1.0 })
     }
+}
+
+fn has_fixed_cash(market: &crate::market::EquityForward, horizon: f64) -> bool {
+    market.discrete_dividends().is_some_and(|d| {
+        d.events()
+            .iter()
+            .any(|e| e.ex_time() <= horizon && e.fixed_cash() != 0.0)
+    })
 }
 
 fn expiry_time(request: &PricingRequest) -> f64 {
@@ -670,7 +726,6 @@ fn matching_target_grid(
 fn compile_base(
     request: &PricingRequest,
     policy: ExecutionPolicy,
-    cash: bool,
 ) -> Result<SimulationPlan, MonteCarloError> {
     let risk = request.risk();
     if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
@@ -684,18 +739,6 @@ fn compile_base(
         return Err(HullWhiteError::InvalidInput {
             field: "positive_horizon",
             index: 0,
-        }
-        .into());
-    }
-    if !cash
-        && let Some(dividends) = request.market().equity().forward().discrete_dividends()
-        && dividends
-            .events()
-            .iter()
-            .any(|d| d.ex_time() <= expiry && d.fixed_cash() != 0.0)
-    {
-        return Err(HullWhiteError::Unsupported {
-            feature: "fixed-cash dividends under stochastic rates",
         }
         .into());
     }
