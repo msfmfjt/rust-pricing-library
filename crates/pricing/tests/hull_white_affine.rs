@@ -295,7 +295,8 @@ fn future_only_cash_does_not_change_proportional_grid_or_create_an_aad_reserve()
     ]);
     let a = bs(v.clone(), 1);
     let dividends = v["market"]["discrete_dividends"].as_array_mut().unwrap();
-    dividends.push(json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":10000.0}}));
+    dividends
+        .push(json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":10000.0}}));
     let b = bs(v, 1);
     assert_eq!(a.time_nodes(), b.time_nodes());
     assert_eq!(a.random_factor_count(), b.random_factor_count());
@@ -303,5 +304,8 @@ fn future_only_cash_does_not_change_proportional_grid_or_create_an_aad_reserve()
     let ab = b.evaluate_aad().unwrap();
     assert_eq!(aa.price.value.to_bits(), ab.price.value.to_bits());
     assert_eq!(aa.derivatives, ab.derivatives);
-    assert_eq!(ab.price.value.to_bits(), b.evaluate().unwrap().value.to_bits());
+    assert_eq!(
+        ab.price.value.to_bits(),
+        b.evaluate().unwrap().value.to_bits()
+    );
 }
