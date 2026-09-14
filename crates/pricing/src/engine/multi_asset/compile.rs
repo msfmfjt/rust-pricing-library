@@ -19,8 +19,135 @@ impl MultiAssetPricingPlan {
         execution: ExecutionPolicy,
         maximum_step: f64,
     ) -> Result<Self, E> {
+        let lsv = vec![None; models.len()];
+        Self::compile_with_lsv(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv,
+            None,
+        )
+    }
+
+    /// An optional LSV configuration per asset turns its LV model into a calibration
+    /// target. Full Brownian matrices are optional and align with the correlation
+    /// dates: all spot drivers first, then the configured LSV volatility drivers.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_lsv(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+    ) -> Result<Self, E> {
+        Self::compile_with_bergomi_lsv(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv_configs.into_iter().map(|c| c.map(Into::into)).collect(),
+            driver_correlations,
+        )
+    }
+
+    /// Mixed one- and two-factor LSV. Driver order is all spots, followed by each
+    /// asset's volatility factors in configured order. Each marginal block is fixed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_bergomi_lsv(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+    ) -> Result<Self, E> {
+        Self::compile_impl(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv_configs,
+            driver_correlations,
+            None,
+        )
+    }
+    /// Shared one-factor HW with mixed BS and one-/two-factor Bergomi LSV.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_hull_white(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+        hull_white: MultiAssetHullWhiteConfig,
+    ) -> Result<Self, E> {
+        Self::compile_impl(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv_configs,
+            driver_correlations,
+            Some(hull_white),
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn compile_impl(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+        hull_white: Option<MultiAssetHullWhiteConfig>,
+    ) -> Result<Self, E> {
         if markets.is_empty() || markets.len() != models.len() {
             return Err(E::Invalid("market/model dimensions differ"));
+        }
+        if lsv_configs.len() != models.len() {
+            return Err(E::Invalid("LSV configuration count must equal asset count"));
+        }
+        for (config, model) in lsv_configs.iter().zip(&models) {
+            if config.is_some() && !matches!(model, ModelSpec::LocalVolatility(_)) {
+                return Err(E::Invalid(
+                    "each LSV asset requires a LocalVolatility target model",
+                ));
+            }
         }
         let order: Vec<_> = markets.iter().map(|m| m.forward().underlying()).collect();
         if order != product.underlyings || order != correlation.underlyings() {
@@ -141,6 +268,15 @@ impl MultiAssetPricingPlan {
         let times = grid.nodes().to_vec();
         let dimension = markets
             .len()
+            .checked_add(
+                usize::from(hull_white.is_some()) * 2
+                    + lsv_configs
+                        .iter()
+                        .flatten()
+                        .map(MultiAssetBergomiLsvConfig::factor_count)
+                        .sum::<usize>(),
+            )
+            .ok_or(E::Invalid("random factor count overflow"))?
             .checked_mul(grid.step_count())
             .and_then(|v| u32::try_from(v).ok())
             .ok_or(E::Invalid("random dimension overflow"))?;
@@ -172,7 +308,7 @@ impl MultiAssetPricingPlan {
         } else {
             None
         };
-        let interval_correlations = times[..times.len() - 1]
+        let interval_correlations: Vec<_> = times[..times.len() - 1]
             .iter()
             .map(|t| {
                 correlation
@@ -181,8 +317,29 @@ impl MultiAssetPricingPlan {
                     - 1
             })
             .collect();
+        let lsv_drivers = if let Some(hw) = &hull_white {
+            Some(hull_white::compile_drivers(
+                &correlation,
+                &times,
+                &interval_correlations,
+                &lsv_configs,
+                driver_correlations,
+                hw,
+            )?)
+        } else {
+            lsv::LsvDrivers::compile(
+                &correlation,
+                &times,
+                &interval_correlations,
+                &lsv_configs,
+                driver_correlations,
+            )?
+        };
+        let mut driver_offset = markets.len();
         let mut assets = Vec::new();
-        for (market, model) in markets.into_iter().zip(models) {
+        for (asset_index, ((market, model), lsv_config)) in
+            markets.into_iter().zip(models).zip(lsv_configs).enumerate()
+        {
             let forward = market.forward().clone();
             let timeline = forward
                 .discrete_dividends()
@@ -205,14 +362,59 @@ impl MultiAssetPricingPlan {
             }
             let process =
                 LocalVolLogEulerPlan::new(grid.clone(), forwards).map_err(E::numerical)?;
+            let hw = hull_white
+                .as_ref()
+                .map(|config| {
+                    hull_white::HwAsset::compile(
+                        &forward,
+                        &model,
+                        &grid,
+                        lsv_config.clone(),
+                        config,
+                        asset_index,
+                        driver_offset,
+                    )
+                })
+                .transpose()?
+                .map(std::sync::Arc::new);
+            driver_offset += lsv_config
+                .as_ref()
+                .map_or(0, MultiAssetBergomiLsvConfig::factor_count);
+            let lsv = if hull_white.is_some() {
+                None
+            } else if let Some(config) = lsv_config {
+                let ModelSpec::LocalVolatility(lv) = &model else {
+                    unreachable!("validated LSV target")
+                };
+                Some(std::sync::Arc::new(lsv::LsvAsset::compile(
+                    lv.local_variance_grid(),
+                    &grid,
+                    config,
+                )?))
+            } else {
+                None
+            };
             assets.push(Asset {
                 forward,
                 model,
                 process,
                 coordinates,
                 pre_coordinates,
+                lsv,
+                hw,
             });
         }
+        let hull_white = hull_white
+            .map(|config| {
+                hull_white::HwContext::new(
+                    config,
+                    &product,
+                    valuation_date,
+                    &times,
+                    &assets[0].forward,
+                )
+            })
+            .transpose()?;
         let mut plan = Self {
             valuation_date,
             assets,
@@ -225,6 +427,8 @@ impl MultiAssetPricingPlan {
             bridge,
             qmc,
             fingerprint: String::new(),
+            lsv_drivers,
+            hull_white,
         };
         plan.fingerprint = plan.make_fingerprint(&product, maximum_step);
         Ok(plan)
@@ -291,6 +495,22 @@ impl MultiAssetPricingPlan {
                 }
                 _ => unreachable!("models validated"),
             }
+            if let Some(lsv) = &a.lsv {
+                h.update(if lsv.calibration.factor_count() == 1 {
+                    b"multi-asset-bergomi-lsv-unit-martingale-joint-ou-v1"
+                } else {
+                    b"multi-asset-bergomi-two-factor-lsv-unit-martingale-joint-ou-v1"
+                });
+                let c = &lsv.calibration;
+                let mut parameters = c.parameters();
+                let p = c.config();
+                parameters.extend([p.log_bandwidth(), p.minimum_effective_samples()]);
+                floats(&mut h, &parameters);
+                h.update(&(p.particle_count() as u64).to_be_bytes());
+                h.update(&p.seed().to_be_bytes());
+                h.update(&[u8::from(p.retain_reverse_trace())]);
+                floats(&mut h, c.surface().squared_leverage());
+            }
         }
         let t = self.correlation.tolerances();
         floats(
@@ -309,6 +529,30 @@ impl MultiAssetPricingPlan {
             floats(&mut h, c.raw());
             floats(&mut h, c.canonical());
             floats(&mut h, c.lower());
+        }
+        if let Some(d) = &self.lsv_drivers {
+            h.update(b"joint-spot-ou-inputs-v1");
+            for c in &d.entries {
+                floats(&mut h, c.raw());
+                floats(&mut h, c.canonical());
+                floats(&mut h, c.lower());
+            }
+            for (c, scale) in d.intervals.iter().zip(&d.scales) {
+                floats(&mut h, c.canonical());
+                floats(&mut h, c.lower());
+                floats(&mut h, scale);
+            }
+            if let Some(permutations) = &d.permutations {
+                h.update(b"hw-spot-prefix-pivoted-ou-rate-v1");
+                for order in permutations {
+                    for &index in order {
+                        h.update(&(index as u64).to_be_bytes());
+                    }
+                }
+            }
+        }
+        if let Some(hw) = &self.hull_white {
+            hw.fingerprint(&mut h, &self.assets);
         }
         floats(&mut h, &self.times);
         match self.engine {
@@ -338,7 +582,7 @@ impl MultiAssetPricingPlan {
         h.finalize().to_hex().to_string()
     }
 }
-fn floats(h: &mut blake3::Hasher, values: &[f64]) {
+pub(super) fn floats(h: &mut blake3::Hasher, values: &[f64]) {
     h.update(&(values.len() as u64).to_be_bytes());
     for v in values {
         h.update(&v.to_bits().to_be_bytes());

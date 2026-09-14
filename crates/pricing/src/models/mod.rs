@@ -3,12 +3,20 @@
 #![forbid(unsafe_code)]
 
 mod bergomi;
+mod bergomi_dynamics;
+mod bergomi_two_factor;
 pub mod hull_white;
 pub mod hull_white_dividends;
 mod rough_bergomi;
 mod spec;
 
 pub use bergomi::{Bergomi1Factor, BergomiTransition};
+pub use bergomi_dynamics::BergomiDynamics;
+pub(crate) use bergomi_two_factor::ou_kernel_correlation;
+pub use bergomi_two_factor::{
+    BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES, Bergomi2Factor, Bergomi2FactorTransition,
+    BergomiError,
+};
 pub use hull_white::{
     HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
 };

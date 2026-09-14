@@ -65,7 +65,7 @@ impl PyRoughBergomiModel {
 #[pyclass(frozen, name = "HullWhiteModel", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteModel {
-    inner: HullWhite1Factor,
+    pub(crate) inner: HullWhite1Factor,
 }
 #[pymethods]
 impl PyHullWhiteModel {
@@ -124,7 +124,7 @@ impl PyHullWhiteModel {
 #[pyclass(frozen, name = "HullWhiteLsvTarget", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteLsvTarget {
-    inner: HullWhiteLsvTarget,
+    pub(crate) inner: HullWhiteLsvTarget,
 }
 #[pymethods]
 impl PyHullWhiteLsvTarget {
@@ -456,6 +456,77 @@ impl PyHullWhiteEquityPlan {
                 factor,
                 rates,
                 correlation,
+                particles,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    /// Two-factor Bergomi LSV with all spot/volatility/rate correlations explicit.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request,target,rate_model,*,mean_reversions,vol_of_vol,mixing_weight,spot_correlations,factor_correlation,equity_rate_correlation,vol_rate_correlations,particle_count,calibration_seed,log_bandwidth,minimum_effective_samples,worker_threads,reduction_block_size=None,cash_dividend_model=None,retain_reverse_trace=false))]
+    fn compile_lsv_two_factor(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        target: &PyHullWhiteLsvTarget,
+        rate_model: &PyHullWhiteModel,
+        mean_reversions: [f64; 2],
+        vol_of_vol: f64,
+        mixing_weight: f64,
+        spot_correlations: [f64; 2],
+        factor_correlation: f64,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        cash_dividend_model: Option<&str>,
+        retain_reverse_trace: bool,
+    ) -> PyResult<Self> {
+        let cash = match cash_dividend_model {
+            None => false,
+            Some("escrowed") => true,
+            Some(_) => return Err(invalid(py, "cash_dividend_model must be escrowed or None")),
+        };
+        let factor = pricing::models::Bergomi2Factor::new(
+            mean_reversions,
+            vol_of_vol,
+            mixing_weight,
+            spot_correlations,
+            factor_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            retain_reverse_trace,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let target = target.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            let compile = if cash {
+                HullWhiteEquityPricingPlan::compile_lsv_two_factor_with_cash_dividends
+            } else {
+                HullWhiteEquityPricingPlan::compile_lsv_two_factor
+            };
+            compile(
+                &request,
+                &target,
+                factor,
+                rates,
+                equity_rate_correlation,
+                vol_rate_correlations,
                 particles,
                 policy,
             )

@@ -430,7 +430,7 @@ pub(in crate::engine) fn estimate_from_statistics(
     let inverse_count = 1.0 / independent_units as f64;
     let value = statistics.sum().total() * inverse_count * scale;
     let sampling_variance = statistics.moments().sample_variance().unwrap_or(0.0);
-    let standard_error = (sampling_variance * inverse_count).sqrt() * scale;
+    let standard_error = (sampling_variance * inverse_count).sqrt() * scale.abs();
     let half_width = NORMAL_95 * standard_error;
     Estimate::new(
         value,

@@ -1,6 +1,8 @@
 //! Shared multi-asset compiler, sampling, path evolution and risk execution.
 mod compile;
 mod evaluate;
+mod hull_white;
+mod lsv;
 mod path;
 use crate::Estimate;
 use crate::core::{Date, UnderlyingId};
@@ -10,6 +12,13 @@ use crate::mc::{
 };
 use crate::models::ModelSpec;
 use crate::product::CompiledPayoff;
+pub use hull_white::{
+    MultiAssetHullWhiteConfig, MultiAssetHullWhiteCurveRisk, MultiAssetHullWhiteLsvRisk,
+};
+mod lsv_kernels;
+pub use lsv::{
+    MultiAssetBergomiLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
+};
 
 #[derive(Clone, Debug)]
 pub struct MultiAssetPricingPlan {
@@ -24,6 +33,8 @@ pub struct MultiAssetPricingPlan {
     bridge: Option<BrownianBridgePlan>,
     qmc: Option<RqmcPlan>,
     fingerprint: String,
+    lsv_drivers: Option<lsv::LsvDrivers>,
+    hull_white: Option<hull_white::HwContext>,
 }
 #[derive(Clone, Debug)]
 struct Asset {
@@ -32,6 +43,8 @@ struct Asset {
     process: LocalVolLogEulerPlan,
     coordinates: Vec<AffineDividendCoordinate>,
     pre_coordinates: Vec<AffineDividendCoordinate>,
+    lsv: Option<std::sync::Arc<lsv::LsvAsset>>,
+    hw: Option<std::sync::Arc<hull_white::HwAsset>>,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MultiAssetRiskConfig {
@@ -50,10 +63,14 @@ pub struct MultiAssetRisk {
     pub local_variance: Vec<Estimate>,
     pub local_variance_time_nodes: Vec<f64>,
     pub local_variance_log_moneyness_nodes: Vec<f64>,
+    /// Effective target-grid risk through particle recalibration, when this asset is LSV.
+    pub lsv_local_variance: Option<MultiAssetLsvRisk>,
+    pub hull_white_lsv: Option<MultiAssetHullWhiteLsvRisk>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct MultiAssetPrice {
     pub price: Estimate,
+    pub hull_white_curve_risk: Option<MultiAssetHullWhiteCurveRisk>,
     pub risks: Vec<MultiAssetRisk>,
     /// Rows are Delta underlyings; columns are bumped Spot underlyings.
     /// Unsymmetrized central differences of pathwise Delta.
@@ -68,4 +85,12 @@ pub struct MultiAssetPrice {
     pub scramble_checksum: Option<[u8; 32]>,
     /// Mean counts per evaluated path, one per asset. Flat wing interpolation is explicit.
     pub local_variance_boundary_counts: Vec<f64>,
+    /// Mean flat-space leverage lookups per path; zero for non-LSV assets.
+    pub lsv_leverage_boundary_counts: Vec<f64>,
+}
+
+impl Asset {
+    fn has_lsv(&self) -> bool {
+        self.lsv.is_some() || self.hw.as_ref().is_some_and(|a| a.calibration.is_some())
+    }
 }

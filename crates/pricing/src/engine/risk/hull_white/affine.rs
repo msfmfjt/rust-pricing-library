@@ -10,10 +10,11 @@ use crate::mc::hull_white::HybridState;
 use crate::models::hull_white_dividends::transpose_log_curve;
 use crate::models::{HullWhite1Factor, HullWhiteError};
 
-pub(super) const HULL_WHITE_AFFINE_DIVIDEND_MODEL: &str = "affine-paid-cash-realized-carry-v1";
+pub(in crate::engine) const HULL_WHITE_AFFINE_DIVIDEND_MODEL: &str =
+    "affine-paid-cash-realized-carry-v1";
 
 #[derive(Clone, Debug)]
-pub(super) struct AffineDividendPlan {
+pub(in crate::engine) struct AffineDividendPlan {
     market: EquityForward,
     times: Box<[f64]>,
     log_carry: Box<[f64]>,
@@ -22,16 +23,17 @@ pub(super) struct AffineDividendPlan {
     events: Box<[Option<(f64, f64)>]>,
 }
 
-pub(super) struct AffineDividendPath {
-    pub(super) spots: Vec<(f64, Option<f64>)>,
+#[derive(Debug)]
+pub(in crate::engine) struct AffineDividendPath {
+    pub(in crate::engine) spots: Vec<(f64, Option<f64>)>,
     growth: Vec<f64>,
     before_offsets: Vec<f64>,
 }
 
-pub(super) struct AffineDividendAdjoints {
-    pub(super) equity: Vec<f64>,
-    pub(super) discount_log_df: Vec<f64>,
-    pub(super) dividend_log_df: Vec<f64>,
+pub(in crate::engine) struct AffineDividendAdjoints {
+    pub(in crate::engine) equity: Vec<f64>,
+    pub(in crate::engine) discount_log_df: Vec<f64>,
+    pub(in crate::engine) dividend_log_df: Vec<f64>,
 }
 
 fn invalid(field: &'static str, index: usize) -> HullWhiteError {
@@ -39,7 +41,7 @@ fn invalid(field: &'static str, index: usize) -> HullWhiteError {
 }
 
 impl AffineDividendPlan {
-    pub(super) fn new(
+    pub(in crate::engine) fn new(
         market: &EquityForward,
         rates: &HullWhite1Factor,
         times: &[f64],
@@ -97,7 +99,15 @@ impl AffineDividendPlan {
         })
     }
 
-    pub(super) fn record(
+    pub(in crate::engine) fn scale(&self, node: usize, pre: bool) -> f64 {
+        self.scales[node]
+            / if pre {
+                self.events[node].map_or(1.0, |(_, beta)| 1.0 - beta)
+            } else {
+                1.0
+            }
+    }
+    pub(in crate::engine) fn record(
         &self,
         states: &[HybridState],
     ) -> Result<AffineDividendPath, HullWhiteError> {
@@ -146,7 +156,7 @@ impl AffineDividendPlan {
     /// and grid. HW model parameters/correlations are not part of this risk API.
     /// Curve refits leave the centered state unchanged but change both G0 and
     /// the carry of every already-paid cash dividend.
-    pub(super) fn reverse(
+    pub(in crate::engine) fn reverse(
         &self,
         path: &AffineDividendPath,
         states: &[HybridState],

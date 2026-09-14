@@ -5,7 +5,9 @@ use pricing::core::{
 use pricing::market::{
     DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
 };
+use pricing::mc::lsv::LsvParticleConfig;
 use pricing::mc::{EngineConfig, ExecutionPolicy, PseudoMcConfig, RqmcConfig, VarianceReduction};
+use pricing::models::{Bergomi1Factor, Bergomi2Factor};
 use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
 use pricing::multi_asset::*;
 use pricing::product::{CompactC2Smoothing, OptionSide, SourceGraphBuilder, SourceOpcode};
@@ -991,3 +993,617 @@ fn future_cash_does_not_reserve_spot_or_extend_the_simulated_horizon() {
     assert_eq!(a.price, b.price);
     assert_eq!(a.risks, b.risks);
 }
+
+fn lsv_config(k: f64, nu: f64, rho: f64, seed: u64, trace: bool) -> MultiAssetLsvConfig {
+    MultiAssetLsvConfig {
+        factor: Bergomi1Factor::new(k, nu, rho).unwrap(),
+        particles: LsvParticleConfig::new(512, seed, 0.8, 2.0, trace).unwrap(),
+    }
+}
+fn lsv_configs(nu: f64) -> Vec<Option<MultiAssetLsvConfig>> {
+    vec![
+        Some(lsv_config(0.8, nu, -0.65, 401, true)),
+        Some(lsv_config(2.2, nu * 0.8, -0.35, 402, true)),
+    ]
+}
+fn full_lsv_correlation() -> Vec<Vec<Vec<f64>>> {
+    vec![vec![
+        vec![1.0, 0.4, -0.65, 0.1],
+        vec![0.4, 1.0, -0.15, -0.35],
+        vec![-0.65, -0.15, 1.0, 0.3],
+        vec![0.1, -0.35, 0.3, 1.0],
+    ]]
+}
+#[allow(clippy::too_many_arguments)]
+fn compile_lsv(
+    product: MultiAssetProduct,
+    markets: Vec<EquityMarket>,
+    models: Vec<ModelSpec>,
+    correlation: CorrelationTermStructure,
+    engine: EngineConfig,
+    workers: u32,
+    configs: Vec<Option<MultiAssetLsvConfig>>,
+    drivers: Option<Vec<Vec<Vec<f64>>>>,
+) -> Result<MultiAssetPricingPlan, MultiAssetError> {
+    MultiAssetPricingPlan::compile_with_lsv(
+        today(),
+        product,
+        markets,
+        models,
+        correlation,
+        engine,
+        ExecutionPolicy::new(workers, Some(256)).unwrap(),
+        0.25,
+        configs,
+        drivers,
+    )
+}
+fn lsv_targets() -> Vec<Vec<f64>> {
+    vec![
+        vec![0.048, 0.04, 0.035, 0.06, 0.048, 0.039, 0.065, 0.05, 0.041],
+        vec![0.1, 0.09, 0.08, 0.11, 0.095, 0.075, 0.12, 0.10, 0.075],
+    ]
+}
+
+#[test]
+fn multi_lsv_zero_nu_recovers_nonflat_lv_and_target_chain_rule_with_carry() {
+    let markets = vec![
+        market(1, 100.0, 0.04, 0.01, vec![]),
+        market(2, 90.0, 0.04, 0.02, vec![]),
+    ];
+    let targets = lsv_targets().into_iter().map(lv).collect::<Vec<_>>();
+    let plain = compile(
+        basket(&[0.5, 0.5], 96.0, Some(2.0)),
+        markets.clone(),
+        targets.clone(),
+        corr(2, 0.4),
+        rqmc(256, true),
+        1,
+    );
+    let plan = compile_lsv(
+        basket(&[0.5, 0.5], 96.0, Some(2.0)),
+        markets,
+        targets,
+        corr(2, 0.4),
+        rqmc(256, true),
+        2,
+        lsv_configs(0.0),
+        None,
+    )
+    .unwrap();
+    assert_eq!(plan.random_factor_count(), 4);
+    let config = MultiAssetRiskConfig {
+        gamma_relative_bump: Some(0.001),
+    };
+    let a = plain.evaluate_aad(config).unwrap();
+    let b = plan.evaluate_aad(config).unwrap();
+    near(a.price.value().get(), b.price.value().get(), 2e-12);
+    for i in 0..2 {
+        near(
+            a.risks[i].delta.value().get(),
+            b.risks[i].delta.value().get(),
+            2e-13,
+        );
+        let l = b.risks[i].lsv_local_variance.as_ref().unwrap();
+        assert_eq!(l.time_nodes, vec![0.0, 0.5, 1.0]);
+        for (x, y) in a.risks[i].local_variance.iter().zip(&l.node_adjoints) {
+            near(x.value().get(), *y, 3e-11);
+        }
+        for j in 0..2 {
+            near(
+                a.gamma[i][j].value().get(),
+                b.gamma[i][j].value().get(),
+                1e-11,
+            );
+        }
+    }
+}
+
+#[test]
+fn multi_lsv_exact_joint_covariance_matches_independent_quadrature_on_dated_grid() {
+    let mut matrices = full_lsv_correlation();
+    let second = vec![
+        vec![1.0, -0.2, -0.65, 0.1],
+        vec![-0.2, 1.0, -0.15, -0.35],
+        vec![-0.65, -0.15, 1.0, 0.3],
+        vec![0.1, -0.35, 0.3, 1.0],
+    ];
+    matrices.push(second);
+    let c = CorrelationTermStructure::new(
+        vec![u(1), u(2)],
+        vec![
+            (today(), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+            (d("2026-07-01"), vec![vec![1.0, -0.2], vec![-0.2, 1.0]]),
+        ],
+        tol(),
+    )
+    .unwrap();
+    let plan = compile_lsv(
+        basket(&[0.5, 0.5], 95.0, None),
+        vec![
+            market(1, 100.0, 0.0, 0.0, vec![]),
+            market(2, 90.0, 0.0, 0.0, vec![]),
+        ],
+        vec![lv(vec![0.04; 9]), lv(vec![0.09; 9])],
+        c,
+        rqmc(16, false),
+        1,
+        lsv_configs(0.3),
+        Some(matrices.clone()),
+    )
+    .unwrap();
+    let k = [0.0, 0.0, 0.8, 2.2];
+    for (step, w) in plan.time_nodes().windows(2).enumerate() {
+        let dt = w[1] - w[0];
+        let r = &matrices[plan.correlation_entry_indices()[step]];
+        let covariance = &plan.lsv_transition_covariances()[step];
+        for i in 0..4 {
+            for j in 0..4 {
+                // Simpson quadrature of the two deterministic kernels, independently
+                // of transition(), its stable analytic integrals, or Cholesky.
+                let m = 1000;
+                let h = dt / m as f64;
+                let integral = (0..=m)
+                    .map(|p| {
+                        let weight = if p == 0 || p == m {
+                            1.0
+                        } else if p % 2 == 0 {
+                            2.0
+                        } else {
+                            4.0
+                        };
+                        weight * (-(k[i] + k[j]) * p as f64 * h).exp()
+                    })
+                    .sum::<f64>()
+                    * h
+                    / 3.0;
+                near(covariance[i][j], r[i][j] * integral, 2e-13);
+            }
+        }
+    }
+    assert!(plan.correlation_entry_indices().contains(&1));
+}
+
+#[test]
+fn multi_lsv_recalibrated_all_target_buckets_spot_and_cross_gamma_match_crn() {
+    check_recalibrated_lsv(
+        lsv_configs(0.3)
+            .into_iter()
+            .map(|c| c.map(Into::into))
+            .collect(),
+        full_lsv_correlation(),
+    );
+}
+
+#[test]
+fn multi_two_factor_recalibrated_buckets_spot_gamma_and_worker_replay() {
+    check_recalibrated_lsv(two_factor_configs(0.3), vec![two_factor_full()]);
+}
+
+fn check_recalibrated_lsv(
+    configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+    full: Vec<Vec<Vec<f64>>>,
+) {
+    let targets = lsv_targets();
+    let markets = vec![
+        market(
+            1,
+            100.0,
+            0.04,
+            0.01,
+            vec![
+                DividendEvent::new(
+                    EventId::new(1),
+                    0.25,
+                    DividendQuote::fixed_cash(2.0, EventId::new(1)).unwrap(),
+                )
+                .unwrap(),
+            ],
+        ),
+        market(
+            2,
+            90.0,
+            0.04,
+            0.02,
+            vec![
+                DividendEvent::new(
+                    EventId::new(2),
+                    0.5,
+                    DividendQuote::proportional(0.03, EventId::new(2)).unwrap(),
+                )
+                .unwrap(),
+            ],
+        ),
+    ];
+    let build = |m: Vec<EquityMarket>, v: Vec<Vec<f64>>, workers| {
+        MultiAssetPricingPlan::compile_with_bergomi_lsv(
+            today(),
+            basket(&[0.6, 0.4], 96.0, Some(3.0)),
+            m,
+            v.into_iter().map(lv).collect(),
+            corr(2, 0.4),
+            rqmc(128, true),
+            ExecutionPolicy::new(workers, Some(256)).unwrap(),
+            0.25,
+            configs.clone(),
+            Some(full.clone()),
+        )
+        .unwrap()
+    };
+    let plan = build(markets.clone(), targets.clone(), 1);
+    let r = plan
+        .evaluate_aad(MultiAssetRiskConfig {
+            gamma_relative_bump: Some(0.001),
+        })
+        .unwrap();
+    assert_eq!(plan.evaluate().unwrap().price, r.price);
+    let parallel = build(markets.clone(), targets.clone(), 3)
+        .evaluate_aad(MultiAssetRiskConfig {
+            gamma_relative_bump: Some(0.001),
+        })
+        .unwrap();
+    assert_eq!(r.risks, parallel.risks);
+    assert_eq!(r.gamma, parallel.gamma);
+    assert_eq!(r.fingerprint, parallel.fingerprint);
+    for i in 0..2 {
+        let l = r.risks[i].lsv_local_variance.as_ref().unwrap();
+        assert!(r.risks[i].local_variance.is_empty());
+        assert_eq!(l.standard_errors.as_ref().unwrap().len(), 9);
+        for j in 0..9 {
+            let h = 1e-6;
+            let mut up = targets.clone();
+            let mut down = targets.clone();
+            up[i][j] += h;
+            down[i][j] -= h;
+            let fd = (build(markets.clone(), up, 1)
+                .evaluate()
+                .unwrap()
+                .price
+                .value()
+                .get()
+                - build(markets.clone(), down, 1)
+                    .evaluate()
+                    .unwrap()
+                    .price
+                    .value()
+                    .get())
+                / (2.0 * h);
+            near(l.node_adjoints[j], fd, 2e-5 * (1.0 + fd.abs()));
+        }
+        let mut up = markets.clone();
+        let mut down = markets.clone();
+        let spot = markets[i].forward().spot().get();
+        let h = 0.001;
+        up[i] = bump_market(&markets[i], spot + h);
+        down[i] = bump_market(&markets[i], spot - h);
+        let fd = (build(up, targets.clone(), 1)
+            .evaluate()
+            .unwrap()
+            .price
+            .value()
+            .get()
+            - build(down, targets.clone(), 1)
+                .evaluate()
+                .unwrap()
+                .price
+                .value()
+                .get())
+            / (2.0 * h);
+        near(r.risks[i].delta.value().get(), fd, 1e-7);
+        let h = spot * 0.001;
+        let mut up = markets.clone();
+        let mut down = markets.clone();
+        up[i] = bump_market(&markets[i], spot + h);
+        down[i] = bump_market(&markets[i], spot - h);
+        let a = build(up, targets.clone(), 1)
+            .evaluate_aad(MultiAssetRiskConfig::default())
+            .unwrap();
+        let b = build(down, targets.clone(), 1)
+            .evaluate_aad(MultiAssetRiskConfig::default())
+            .unwrap();
+        for j in 0..2 {
+            near(
+                r.gamma[j][i].value().get(),
+                (a.risks[j].delta.value().get() - b.risks[j].delta.value().get()) / (2.0 * h),
+                2e-12,
+            );
+        }
+    }
+}
+
+#[test]
+fn multi_lsv_mixed_bs_lv_lsv_mc_risk_and_trace_contract() {
+    let configs = vec![None, Some(lsv_config(0.8, 0.3, -0.65, 401, true)), None];
+    let plan = compile_lsv(
+        basket(&[0.3, 0.4, 0.3], 95.0, Some(2.0)),
+        (1..=3)
+            .map(|i| market(i, 100.0, 0.02, 0.01, vec![]))
+            .collect(),
+        vec![bs(0.2), lv(vec![0.05; 9]), lv(vec![0.08; 9])],
+        corr(3, 0.25),
+        pseudo(),
+        2,
+        configs,
+        None,
+    )
+    .unwrap();
+    assert_eq!(plan.random_factor_count(), 4);
+    let r = plan.evaluate_aad(MultiAssetRiskConfig::default()).unwrap();
+    assert!(r.risks[0].bs_vega.is_some());
+    assert!(
+        r.risks[1]
+            .lsv_local_variance
+            .as_ref()
+            .unwrap()
+            .standard_errors
+            .is_none()
+    );
+    assert_eq!(r.risks[2].local_variance.len(), 9);
+    assert!(plan.lsv_calibrations()[0].is_none());
+    assert!(plan.lsv_calibrations()[1].is_some());
+    let no_trace = compile_lsv(
+        basket(&[1.0], 100.0, Some(2.0)),
+        vec![market(1, 100.0, 0.0, 0.0, vec![])],
+        vec![lv(vec![0.04; 9])],
+        corr(1, 0.0),
+        rqmc(16, false),
+        1,
+        vec![Some(lsv_config(0.8, 0.3, -0.65, 401, false))],
+        None,
+    )
+    .unwrap();
+    assert!(no_trace.evaluate().is_ok());
+    assert!(
+        no_trace
+            .evaluate_aad(MultiAssetRiskConfig::default())
+            .unwrap_err()
+            .to_string()
+            .contains("retain_reverse_trace")
+    );
+}
+
+#[test]
+fn multi_lsv_singular_drivers_keep_exact_ou_time_residual_and_duplicate_assets() {
+    for k in [0.0, 0.8] {
+        let cfg = Some(lsv_config(k, 0.3, -1.0, 401, true));
+        let full = vec![vec![
+            vec![1.0, 1.0, -1.0, -1.0],
+            vec![1.0, 1.0, -1.0, -1.0],
+            vec![-1.0, -1.0, 1.0, 1.0],
+            vec![-1.0, -1.0, 1.0, 1.0],
+        ]];
+        let build = |weights: &[f64]| {
+            compile_lsv(
+                basket(weights, 100.0, Some(2.0)),
+                vec![
+                    market(1, 100.0, 0.0, 0.0, vec![]),
+                    market(2, 100.0, 0.0, 0.0, vec![]),
+                ],
+                vec![lv(vec![0.04; 9]); 2],
+                corr(2, 1.0),
+                rqmc(128, true),
+                2,
+                vec![cfg.clone(); 2],
+                Some(full.clone()),
+            )
+            .unwrap()
+        };
+        let one = build(&[1.0, 0.0]);
+        let duplicate = build(&[0.5, 0.5]);
+        assert_eq!(one.lsv_driver_correlations()[0].diagnostics().rank, 1);
+        assert_eq!(one.random_factor_count(), 4);
+        let a = one.evaluate_aad(MultiAssetRiskConfig::default()).unwrap();
+        let b = duplicate
+            .evaluate_aad(MultiAssetRiskConfig::default())
+            .unwrap();
+        near(a.price.value().get(), b.price.value().get(), 1e-13);
+        near(
+            a.risks[0].delta.value().get(),
+            2.0 * b.risks[1].delta.value().get(),
+            1e-13,
+        );
+        if k > 0.0 {
+            let c = &one.lsv_transition_covariances()[0];
+            assert!(c[2][2] - c[0][2].powi(2) / c[0][0] > 0.0);
+        }
+    }
+}
+
+#[test]
+fn multi_lsv_validates_joint_inputs_future_entries_and_no_lsv_compatibility() {
+    let markets = vec![
+        market(1, 100.0, 0.0, 0.0, vec![]),
+        market(2, 90.0, 0.0, 0.0, vec![]),
+    ];
+    let models = vec![lv(vec![0.04; 9]), lv(vec![0.09; 9])];
+    let build = |configs, drivers| {
+        compile_lsv(
+            basket(&[0.5, 0.5], 95.0, None),
+            markets.clone(),
+            models.clone(),
+            corr(2, 0.4),
+            rqmc(16, false),
+            1,
+            configs,
+            drivers,
+        )
+    };
+    assert!(build(vec![None], None).is_err());
+    assert!(build(vec![None; 2], Some(full_lsv_correlation())).is_err());
+    assert!(build(lsv_configs(0.3), Some(vec![])).is_err());
+    for (i, j, value) in [(0, 1, 0.3), (0, 2, -0.6), (2, 3, 1.0)] {
+        let mut c = full_lsv_correlation();
+        c[0][i][j] = value;
+        c[0][j][i] = value;
+        assert!(build(lsv_configs(0.3), Some(c)).is_err());
+    }
+    let plain = compile(
+        basket(&[0.5, 0.5], 95.0, None),
+        markets.clone(),
+        models.clone(),
+        corr(2, 0.4),
+        rqmc(16, false),
+        1,
+    );
+    let optional = build(vec![None; 2], None).unwrap();
+    assert_eq!(plain.fingerprint(), optional.fingerprint());
+    assert_eq!(plain.evaluate().unwrap(), optional.evaluate().unwrap());
+    assert!(
+        compile_lsv(
+            basket(&[0.5, 0.5], 95.0, None),
+            markets.clone(),
+            vec![bs(0.2), bs(0.3)],
+            corr(2, 0.4),
+            rqmc(16, false),
+            1,
+            lsv_configs(0.3),
+            None
+        )
+        .is_err()
+    );
+    let c = CorrelationTermStructure::new(
+        vec![u(1), u(2)],
+        vec![
+            (today(), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+            (d("2028-01-01"), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+        ],
+        tol(),
+    )
+    .unwrap();
+    let mut full = full_lsv_correlation();
+    let mut bad = full[0].clone();
+    bad[2][3] = f64::NAN;
+    full.push(bad);
+    assert!(
+        compile_lsv(
+            basket(&[0.5, 0.5], 95.0, None),
+            markets,
+            models,
+            c,
+            rqmc(16, false),
+            1,
+            lsv_configs(0.3),
+            Some(full)
+        )
+        .is_err()
+    );
+}
+
+fn two_factor_configs(nu: f64) -> Vec<Option<MultiAssetBergomiLsvConfig>> {
+    [
+        ([4.0, 0.35], nu, 0.3, [-0.65, -0.25], 0.5),
+        ([2.2, 0.12], 0.8 * nu, 0.65, [-0.35, -0.1], 0.25),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, (k, nu, theta, r, r12))| {
+        Some(
+            MultiAssetLsv2FactorConfig {
+                factor: Bergomi2Factor::new(k, nu, theta, r, r12).unwrap(),
+                particles: LsvParticleConfig::new(512, 401 + i as u64, 0.8, 2.0, true).unwrap(),
+            }
+            .into(),
+        )
+    })
+    .collect()
+}
+fn two_factor_full() -> Vec<Vec<f64>> {
+    vec![
+        vec![1.0, 0.4, -0.65, -0.25, 0.1, -0.05],
+        vec![0.4, 1.0, -0.15, -0.05, -0.35, -0.1],
+        vec![-0.65, -0.15, 1.0, 0.5, 0.2, 0.04],
+        vec![-0.25, -0.05, 0.5, 1.0, 0.03, 0.15],
+        vec![0.1, -0.35, 0.2, 0.03, 1.0, 0.25],
+        vec![-0.05, -0.1, 0.04, 0.15, 0.25, 1.0],
+    ]
+}
+#[test]
+fn multi_two_factor_covariance_dates_default_marginals_and_rejection_contract() {
+    let build = |c, full| {
+        MultiAssetPricingPlan::compile_with_bergomi_lsv(
+            today(),
+            basket(&[0.6, 0.4], 96.0, Some(3.0)),
+            vec![
+                market(1, 100.0, 0.0, 0.0, vec![]),
+                market(2, 90.0, 0.0, 0.0, vec![]),
+            ],
+            lsv_targets().into_iter().map(lv).collect(),
+            c,
+            rqmc(32, true),
+            ExecutionPolicy::new(1, Some(64)).unwrap(),
+            0.25,
+            two_factor_configs(0.3),
+            full,
+        )
+    };
+    let default = build(corr(2, 0.4), None).unwrap();
+    assert_eq!(default.random_factor_count(), 6);
+    assert_eq!(default.lsv_volatility_factor_counts(), vec![2, 2]);
+    assert!(default.lsv_calibrations().iter().all(Option::is_none));
+    assert!(
+        default
+            .lsv_two_factor_calibrations()
+            .iter()
+            .all(Option::is_some)
+    );
+    let c = default.lsv_driver_correlations()[0].canonical();
+    assert_eq!(c[2 * 6 + 3], 0.5);
+    assert_eq!(c[4 * 6 + 5], 0.25);
+    near(c[2 * 6 + 4], (-0.65) * (-0.35) * 0.4, 1e-16);
+    near(c[5], (-0.1) * 0.4, 1e-16);
+    let dated = CorrelationTermStructure::new(
+        vec![u(1), u(2)],
+        vec![
+            (today(), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+            (d("2026-07-01"), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+            (d("2028-01-01"), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+        ],
+        tol(),
+    )
+    .unwrap();
+    let mut full = vec![two_factor_full(); 3];
+    full[1][0][4] = 0.05;
+    full[1][4][0] = 0.05;
+    let plan = build(dated.clone(), Some(full.clone())).unwrap();
+    let k = [0.0, 0.0, 4.0, 0.35, 2.2, 0.12];
+    for (step, w) in plan.time_nodes().windows(2).enumerate() {
+        let dt = w[1] - w[0];
+        let r = &full[plan.correlation_entry_indices()[step]];
+        let cov = &plan.lsv_transition_covariances()[step];
+        for i in 0..6 {
+            for j in 0..6 {
+                let n = 1000;
+                let h = dt / n as f64;
+                let integral = (0..=n)
+                    .map(|p| {
+                        let weight = if p == 0 || p == n {
+                            1.0
+                        } else if p % 2 == 0 {
+                            2.0
+                        } else {
+                            4.0
+                        };
+                        weight * (-(k[i] + k[j]) * p as f64 * h).exp()
+                    })
+                    .sum::<f64>()
+                    * h
+                    / 3.0;
+                near(cov[i][j], r[i][j] * integral, 2e-13);
+            }
+        }
+    }
+    assert!(plan.correlation_entry_indices().contains(&1));
+    for (i, j) in [(0, 2), (0, 3), (1, 4), (1, 5), (2, 3), (4, 5)] {
+        let mut bad = full.clone();
+        bad[2][i][j] += 0.01;
+        bad[2][j][i] += 0.01;
+        assert!(build(dated.clone(), Some(bad)).is_err());
+    }
+    let mut bad = full.clone();
+    bad[2][2][4] = f64::NAN;
+    assert!(build(dated, Some(bad)).is_err());
+    assert!(build(corr(2, 0.4), Some(vec![vec![vec![1.0; 5]; 5]])).is_err());
+}
+
+#[path = "cases/multi_asset_hull_white.rs"]
+mod hull_white_cases;

@@ -53,6 +53,10 @@ stable numerical-branch counts.
 - [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
 - [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
 - [Multi-asset pricing contracts](docs/multi-asset-v0.1.md)
+- [Multi-asset Bergomi LSV contracts](docs/multi-asset-lsv-v0.1.md)
+- [Bergomi and common Hull–White contracts](docs/bergomi-hull-white-v0.1.md)
+
+Two-factor Bergomi LSV is available for single-asset and mixed multi-asset plans, including calibrated target-variance AAD. See [the two-factor contract](docs/bergomi-two-factor-lsv-v0.1.md) and [the Python example](examples/python/multi_asset_bergomi_two_factor.py).
 - [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
@@ -78,8 +82,9 @@ Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 
-An experimental one-factor Bergomi LSV extension is available through Rust
-`pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan`. It calibrates
+An experimental one- or two-factor Bergomi LSV extension is available through Rust
+`pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan` /
+`Bergomi2FactorLsvPlan`. It calibrates
 an existing Local Volatility target with particles, prices with independent
 MC/RQMC paths, and differentiates the finite calibration to effective Dupire
 Local-variance nodes. It reuses the existing payoff graphs and affine dividends.
@@ -89,7 +94,7 @@ See the [LSV example](examples/python/bergomi_lsv.py) and
 
 Experimental one-currency stochastic-rate pricing is available through Rust
 `HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
-one-factor Hull–White with BS or particle-recalibrated Bergomi LSV, including
+one-factor Hull–White with BS or particle-recalibrated one-/two-factor Bergomi LSV, including
 equity/rate correlation, stochastic discounting, proportional dividends and
 payment lags. Fixed and mixed cash/proportional payouts now use the paid-cash
 **affine** convention by default (`cash_dividend_model=None`): the continuous
@@ -123,14 +128,27 @@ per path. See the [example](examples/python/rough_bergomi.py) and
 
 Experimental multi-asset pricing is available through Rust
 `multi_asset::MultiAssetPricingPlan` and Python `MultiAssetPlan`. Correlated
-BS/Local Volatility assets support Basket, Worst-of and unseasoned memory/no-memory
+BS/Local Volatility/Bergomi LSV assets support Basket, Worst-of and unseasoned memory/no-memory
 Autocallables, per-asset affine dividends, dated PSD correlations, MC/RQMC,
 asset-labelled Delta/BS Vega/Local variance adjoints and optional cross Gamma.
 The API uses the shared payoff tape, with explicit smoothing for discontinuous
-Autocallable AAD. It is single-currency with deterministic rates; multi-asset
-HW/LSV and market-IV VegaKT are not yet connected. See the
+Autocallable AAD. It is single-currency and supports deterministic rates or a
+common Hull–White rate with BS and one-/two-factor Bergomi LSV. The HW mode adds
+explicit price/rate and volatility/rate correlations, exact integrated-rate
+innovations, per-cashflow stochastic discounting, paired variance/density AAD,
+market-IV VegaKT from retained quotes and initial-curve risk. See the
+[HW contracts](docs/bergomi-hull-white-v0.1.md) and
+[three-product example](examples/python/bergomi_hull_white.py).
+Deterministic-rate LSV assets use their LV model as a marginal particle-calibration
+target; HW LSV additionally requires the matching paired target. Optional full
+spot/volatility/rate Brownian correlations and exact joint OU transitions are
+available. AAD
+includes particle recalibration; target-risk standard errors are available for
+RQMC and conditional on the calibration. See the
 [contracts](docs/multi-asset-v0.1.md) and
-[example](examples/python/multi_asset.py).
+[example](examples/python/multi_asset.py), plus the
+[LSV contracts](docs/multi-asset-lsv-v0.1.md) and
+[LSV example](examples/python/multi_asset_lsv.py).
 
 The experimental LSV/Hull–White adapters reject American exercise,
 continuous Barrier monitoring and smoothing-width ladders; these features

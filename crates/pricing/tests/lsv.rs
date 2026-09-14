@@ -1,6 +1,6 @@
 use pricing::lsv::BergomiLsvPricingPlan;
 use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
-use pricing::models::Bergomi1Factor;
+use pricing::models::{Bergomi1Factor, Bergomi2Factor};
 use pricing::{JsonLimits, PricingRequest, parse_request_json};
 use serde_json::{Value, json};
 
@@ -96,4 +96,42 @@ fn unsupported_quote_risk_is_rejected_before_valuation() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn two_factor_single_asset_facade_reprices_and_reverses_calibration() {
+    for qmc in [false, true] {
+        let build = |bump, workers, trace| {
+            BergomiLsvPricingPlan::compile(
+                &request(qmc, bump),
+                Bergomi2Factor::new([4.0, 0.3], 0.6, 0.4, [-0.65, -0.25], 0.5).unwrap(),
+                LsvParticleConfig::new(256, 429, 0.35, 5.0, trace).unwrap(),
+                ExecutionPolicy::new(workers, Some(64)).unwrap(),
+            )
+            .unwrap()
+        };
+        let p = build(0.0, 1, true);
+        let r = p.evaluate_local_variance_risk().unwrap();
+        let other = build(0.0, 3, true).evaluate_local_variance_risk().unwrap();
+        assert_eq!(r.price.value, p.evaluate().unwrap().value);
+        assert_eq!(r.price.value, other.price.value);
+        assert_eq!(r.node_adjoints, other.node_adjoints);
+        assert_eq!(r.standard_errors, other.standard_errors);
+        assert_eq!(r.standard_errors.is_some(), qmc);
+        assert_eq!(
+            r.price.scheme,
+            "bergomi-two-factor-lsv-log-euler-exact-ou-v1"
+        );
+        let fd = (build(1e-7, 1, false).evaluate().unwrap().value
+            - build(-1e-7, 1, false).evaluate().unwrap().value)
+            / 2e-7;
+        let aad = r
+            .node_adjoints
+            .iter()
+            .enumerate()
+            .map(|(i, a)| a * (0.7 * i as f64).cos())
+            .sum::<f64>();
+        assert!((aad - fd).abs() < 2e-5 * (1.0 + fd.abs()), "{aad} vs {fd}");
+        assert!(build(0.0, 1, false).evaluate_local_variance_risk().is_err());
+    }
 }

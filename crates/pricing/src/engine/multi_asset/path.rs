@@ -1,3 +1,4 @@
+use super::lsv_kernels::LsvPath;
 use super::*;
 use crate::core::DayCountConvention;
 use crate::mc::{
@@ -13,10 +14,12 @@ pub(super) struct AssetPath {
     pub pre_spot_derivatives: Vec<f64>,
     pub bs_vega: Vec<f64>,
     pub local: Option<LocalVolPath>,
+    pub lsv: Option<LsvPath>,
+    pub hw: Option<super::hull_white::HwAssetPath>,
 }
 impl MultiAssetPricingPlan {
     pub(super) fn shocks(&self, scramble: Option<u32>, point: u64) -> Result<Vec<Vec<f64>>, E> {
-        let n = self.assets.len();
+        let n = self.random_factor_count();
         let steps = self.times.len() - 1;
         let mut independent = vec![vec![0.0; steps]; n];
         for (factor, values) in independent.iter_mut().enumerate() {
@@ -43,56 +46,100 @@ impl MultiAssetPricingPlan {
         }
         let mut correlated = vec![vec![0.0; steps]; n];
         for step in 0..steps {
-            let l = self.correlation.entries()[self.interval_correlations[step]]
-                .1
-                .lower();
+            if let Some(d) = &self.lsv_drivers
+                && let Some(permutations) = &d.permutations
+            {
+                let order = &permutations[step];
+                let l = d.intervals[step].lower();
+                for (i, &row) in order.iter().enumerate() {
+                    let mut value = 0.0;
+                    for k in 0..=i {
+                        value += l[i * n + k] * independent[order[k]][step];
+                    }
+                    correlated[row][step] = value * d.scales[step][row];
+                }
+                continue;
+            }
+            let l = if let Some(d) = &self.lsv_drivers {
+                d.intervals[step].lower()
+            } else {
+                self.correlation.entries()[self.interval_correlations[step]]
+                    .1
+                    .lower()
+            };
             for (i, row) in correlated.iter_mut().enumerate() {
                 let mut value = 0.0;
                 for k in 0..=i {
                     value += l[i * n + k] * independent[k][step];
                 }
-                row[step] = value;
+                row[step] = value * self.lsv_drivers.as_ref().map_or(1.0, |d| d.scales[step][i]);
             }
         }
         Ok(correlated)
     }
     pub(super) fn paths(&self, shocks: &[Vec<f64>]) -> Result<Vec<AssetPath>, E> {
+        if self.hull_white.is_some() {
+            return self.hw_paths(shocks);
+        }
         self.assets
             .iter()
             .zip(shocks)
-            .map(|(a, z)| {
+            .enumerate()
+            .map(|(asset, (a, z))| {
                 let spot = a.forward.spot().get();
                 let mut vega = vec![0.0; self.times.len()];
-                let (f, local) = match &a.model {
-                    ModelSpec::BlackScholes(model) => {
-                        let vol = model.volatility().get();
-                        let mut f = vec![spot];
-                        let mut score = 0.0;
-                        let forwards = a.process.forward_normalizers();
-                        for (step, &z) in z.iter().enumerate() {
-                            let dt = self.times[step + 1] - self.times[step];
-                            let next = f[step]
-                                * (forwards[step + 1] / forwards[step])
-                                * (-0.5 * vol * vol * dt + vol * dt.sqrt() * z).exp();
-                            if !next.is_finite() || next <= 0.0 {
-                                return Err(E::Invalid(
-                                    "nonpositive or nonfinite continuous equity state",
-                                ));
+                let (f, local, lsv) = if let Some(lsv) = &a.lsv {
+                    let drivers = self.lsv_drivers.as_ref().expect("LSV drivers");
+                    let index = self.assets.len()
+                        + drivers
+                            .asset_indices
+                            .iter()
+                            .position(|i| *i == asset)
+                            .expect("LSV asset");
+                    let path = lsv
+                        .process
+                        .evolve(z, &shocks[index..index + lsv.calibration.factor_count()])
+                        .map_err(E::numerical)?;
+                    let f = path
+                        .states()
+                        .iter()
+                        .zip(a.process.forward_normalizers())
+                        .map(|(m, forward)| m * forward)
+                        .collect();
+                    (f, None, Some(path))
+                } else {
+                    let (f, local) = match &a.model {
+                        ModelSpec::BlackScholes(model) => {
+                            let vol = model.volatility().get();
+                            let mut f = vec![spot];
+                            let mut score = 0.0;
+                            let forwards = a.process.forward_normalizers();
+                            for (step, &z) in z.iter().enumerate() {
+                                let dt = self.times[step + 1] - self.times[step];
+                                let next = f[step]
+                                    * (forwards[step + 1] / forwards[step])
+                                    * (-0.5 * vol * vol * dt + vol * dt.sqrt() * z).exp();
+                                if !next.is_finite() || next <= 0.0 {
+                                    return Err(E::Invalid(
+                                        "nonpositive or nonfinite continuous equity state",
+                                    ));
+                                }
+                                score += dt.sqrt() * z - vol * dt;
+                                f.push(next);
+                                vega[step + 1] = next * score;
                             }
-                            score += dt.sqrt() * z - vol * dt;
-                            f.push(next);
-                            vega[step + 1] = next * score;
+                            (f, None)
                         }
-                        (f, None)
-                    }
-                    ModelSpec::LocalVolatility(model) => {
-                        let path = a
-                            .process
-                            .evolve_path(model.local_variance_grid(), spot, z)
-                            .map_err(E::numerical)?;
-                        (path.states().to_vec(), Some(path))
-                    }
-                    _ => unreachable!("validated model"),
+                        ModelSpec::LocalVolatility(model) => {
+                            let path = a
+                                .process
+                                .evolve_path(model.local_variance_grid(), spot, z)
+                                .map_err(E::numerical)?;
+                            (path.states().to_vec(), Some(path))
+                        }
+                        _ => unreachable!("validated model"),
+                    };
+                    (f, local, None)
                 };
                 let spots: Vec<_> = f
                     .iter()
@@ -132,6 +179,8 @@ impl MultiAssetPricingPlan {
                     pre_spot_derivatives,
                     bs_vega: vega,
                     local,
+                    lsv,
+                    hw: None,
                 })
             })
             .collect()
@@ -186,6 +235,9 @@ impl MultiAssetPricingPlan {
                     ));
                 }
             }
+        }
+        if self.hull_white.is_some() {
+            return self.hw_payoff_adjoints(paths, bump);
         }
         Ok(self.payoff.evaluate_single_with_observation_adjoints(
             |u, d| self.observe(paths, u, d, false, bump),

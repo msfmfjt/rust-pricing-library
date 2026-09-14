@@ -9,6 +9,14 @@ correlation schedule, a multi-asset product, and the existing MC/RQMC and
 execution policies. Different assets may use different BS/LV models, curves
 for continuous dividends, and cash/proportional dividend schedules.
 
+The [Bergomi LSV extension](multi-asset-lsv-v0.1.md) adds optional per-asset
+particle calibration of those LV targets, full spot/volatility correlations,
+joint OU transitions, Delta/cross Gamma and recalibrated target-grid AAD.
+The [common Hull–White extension](bergomi-hull-white-v0.1.md) adds stochastic
+rates to BS and one-/two-factor Bergomi LSV, with paired target AAD, market-IV
+VegaKT and initial-curve risk. The BS/LV contracts below describe the original
+deterministic-rate interface when no LSV configuration is supplied.
+
 All assets share one currency and exactly one discount curve (including its
 identity). Three crates remain: `pricing-python -> pricing -> pricing-numerics`.
 The implementation reuses the existing payoff compiler/reverse tape, normal
@@ -160,13 +168,13 @@ reduction-block size.
 
 ## Current boundaries and validation
 
-Multi-asset Hull-White, Bergomi/rough-LSV calibration, multiple currencies/FX,
-correlation Greeks, initial-curve risk, American exercise and continuous
-barrier monitoring are not connected to this API. The existing single-asset
-adapters retain their own behavior. Local variance adjoints are available;
-market-IV VegaKT projection and sticky-strike/sticky-delta conventions remain
-future integration work. Supplying an LV reporting basis does not enable
-VegaKT at this boundary.
+Multi-asset rough-LSV, multiple currencies/FX, correlation Greeks, American
+exercise and continuous barrier monitoring are not connected to this API.
+Initial-curve risk and market-IV VegaKT are available through the separate
+[HW mode](bergomi-hull-white-v0.1.md); the deterministic-rate path retains
+effective local-variance adjoints. Supplying an LV reporting basis alone does
+not enable VegaKT. Sticky-strike/sticky-delta conventions remain future work.
+The existing single-asset adapters retain their own behavior.
 
 The new integration suite checks BS analytical limits, perfectly correlated
 duplicates, Margrabe's exchange-option formula with dated correlations and

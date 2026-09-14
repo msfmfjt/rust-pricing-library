@@ -1,4 +1,4 @@
-//! Particle-calibrated one-factor Bergomi LSV in the continuous `f` coordinate.
+//! Particle-calibrated one- or two-factor Bergomi LSV in the continuous `f` coordinate.
 //!
 //! Calibration uses a compact quartic kernel in `log(f / f0)`, a versioned
 //! variation of SSRN 1885032 (20)-(21). Time interpolation is left-constant;
@@ -8,10 +8,11 @@
 
 use crate::market::MarketError;
 use crate::mc::{LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
-use crate::models::{Bergomi1Factor, BergomiTransition};
+use crate::models::{Bergomi1Factor, BergomiDynamics, BergomiError};
 use std::{error::Error, fmt};
 
 pub const BERGOMI_LSV_SCHEME: &str = "bergomi-lsv-log-euler-exact-ou-v1";
+pub const BERGOMI_TWO_FACTOR_LSV_SCHEME: &str = "bergomi-two-factor-lsv-log-euler-exact-ou-v1";
 pub const LSV_PARTICLE_CALIBRATION: &str = "lsv-quartic-log-f-left-time-v1";
 pub const LSV_CALIBRATION_REVERSE: &str = "lsv-discrete-particle-vjp-v1";
 
@@ -37,6 +38,7 @@ pub enum LsvError {
     ReverseTraceNotRetained,
     Core(crate::core::CoreError),
     Market(MarketError),
+    Bergomi(BergomiError),
 }
 
 impl fmt::Display for LsvError {
@@ -67,10 +69,19 @@ impl fmt::Display for LsvError {
             ),
             Self::Core(e) => e.fmt(f),
             Self::Market(e) => e.fmt(f),
+            Self::Bergomi(e) => e.fmt(f),
         }
     }
 }
 impl Error for LsvError {}
+impl From<BergomiError> for LsvError {
+    fn from(e: BergomiError) -> Self {
+        match e {
+            BergomiError::Core(e) => Self::Core(e),
+            e => Self::Bergomi(e),
+        }
+    }
+}
 impl From<MarketError> for LsvError {
     fn from(e: MarketError) -> Self {
         Self::Market(e)
@@ -316,11 +327,11 @@ impl LsvLeverageSurface {
 }
 
 #[derive(Clone, Debug)]
-pub struct BergomiLsvPlan {
-    pub(in crate::engine) factor: Bergomi1Factor,
+pub struct BergomiLsvPlan<F: BergomiDynamics = Bergomi1Factor> {
+    pub(in crate::engine) factor: F,
     pub(in crate::engine) surface: LsvLeverageSurface,
     pub(in crate::engine) times: Box<[f64]>,
-    pub(in crate::engine) transitions: Box<[BergomiTransition]>,
+    pub(in crate::engine) transitions: Box<[F::Transition]>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -333,29 +344,30 @@ pub(in crate::engine) struct Step {
 }
 
 #[derive(Clone, Debug)]
-pub struct BergomiLsvPath {
+pub struct BergomiLsvPath<F: BergomiDynamics = Bergomi1Factor> {
     pub(in crate::engine) states: Box<[f64]>,
-    pub(in crate::engine) factors: Box<[f64]>,
+    pub(in crate::engine) factors: Box<[F::State]>,
     pub(in crate::engine) steps: Box<[Step]>,
-    pub(in crate::engine) transitions: Box<[BergomiTransition]>,
-    pub(in crate::engine) factor: Bergomi1Factor,
+    pub(in crate::engine) transitions: Box<[F::Transition]>,
+    pub(in crate::engine) factor: F,
     pub(in crate::engine) value_count: usize,
+    external_innovations: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct LsvPathAdjoints {
+pub struct LsvPathAdjoints<S = f64> {
     pub initial_f: f64,
-    pub initial_factor: f64,
+    pub initial_factor: S,
     pub squared_leverage: Box<[f64]>,
     pub spot_shocks: Box<[f64]>,
     pub orthogonal_shocks: Box<[f64]>,
 }
 
-impl BergomiLsvPlan {
+impl<F: BergomiDynamics> BergomiLsvPlan<F> {
     /// The execution grid may insert payoff and dividend observations, but must
     /// contain every leverage knot inside its horizon. It cannot cross a knot.
     pub fn new(
-        factor: Bergomi1Factor,
+        factor: F,
         surface: LsvLeverageSurface,
         time_grid: &LocalVolTimeGrid,
     ) -> Result<Self, LsvError> {
@@ -395,11 +407,12 @@ impl BergomiLsvPlan {
         &self.times
     }
     #[must_use]
-    pub const fn factor(&self) -> Bergomi1Factor {
+    pub const fn factor(&self) -> F {
         self.factor
     }
 
-    /// Factor-major layout: first n spot normals, then n independent OU normals.
+    /// Factor-major layout: first n spot normals, then one n-normal block per
+    /// volatility factor. The blocks are independent before the joint OU map.
     /// Keeping spot dimensions first preserves the LV random coordinates at nu=0.
     pub fn pseudo_shocks(
         &self,
@@ -407,27 +420,107 @@ impl BergomiLsvPlan {
         path: u64,
         domain: RandomDomain,
     ) -> Result<Vec<f64>, LsvError> {
-        lsv_shocks(seed, path, self.transitions.len(), domain)
+        lsv_shocks_with_factors(
+            seed,
+            path,
+            self.transitions.len(),
+            domain,
+            1 + F::FACTOR_COUNT,
+        )
     }
 
-    pub fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<BergomiLsvPath, LsvError> {
+    pub fn evolve_path(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+    ) -> Result<BergomiLsvPath<F>, LsvError> {
         let n = self.transitions.len();
-        length("shocks", 2 * n, shocks.len())?;
-        valid(initial_f, "initial_f", 0, true)?;
+        length("shocks", (1 + F::FACTOR_COUNT) * n, shocks.len())?;
         for (i, &z) in shocks.iter().enumerate() {
             valid(z, "shock", i, false)?;
         }
+        self.evolve_with_factor(
+            initial_f,
+            &shocks[..n],
+            |i, x| {
+                self.factor.evolve(
+                    self.transitions[i],
+                    x,
+                    shocks[i],
+                    [
+                        shocks[n + i],
+                        if F::FACTOR_COUNT == 2 {
+                            shocks[2 * n + i]
+                        } else {
+                            0.0
+                        },
+                    ],
+                )
+            },
+            false,
+        )
+    }
+
+    /// Internal joint-driver entry. The global sampler supplies OU innovations
+    /// with their full cross-asset covariance, after its independent-factor bridge.
+    /// Shock adjoints refer to the spot normal and supplied OU innovations, so
+    /// the OU loading is the identity and the spot-to-OU loading is zero.
+    pub(in crate::engine) fn evolve_with_ou_innovations(
+        &self,
+        initial_f: f64,
+        spot_shocks: &[f64],
+        innovations: &[f64],
+    ) -> Result<BergomiLsvPath<F>, LsvError> {
+        let n = self.transitions.len();
+        length("OU innovations", F::FACTOR_COUNT * n, innovations.len())?;
+        for (i, &z) in innovations.iter().enumerate() {
+            valid(z, "OU innovation", i, false)?;
+        }
+        self.evolve_with_factor(
+            initial_f,
+            spot_shocks,
+            |i, x| {
+                self.factor.evolve_ou(
+                    self.transitions[i],
+                    x,
+                    [
+                        innovations[i],
+                        if F::FACTOR_COUNT == 2 {
+                            innovations[n + i]
+                        } else {
+                            0.0
+                        },
+                    ],
+                )
+            },
+            true,
+        )
+    }
+
+    fn evolve_with_factor(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        next_factor: impl Fn(usize, F::State) -> F::State,
+        external_innovations: bool,
+    ) -> Result<BergomiLsvPath<F>, LsvError> {
+        let n = self.transitions.len();
+        length("spot shocks", n, shocks.len())?;
+        valid(initial_f, "initial_f", 0, true)?;
+        for (i, &z) in shocks.iter().enumerate() {
+            valid(z, "spot shock", i, false)?;
+        }
         let mut states = vec![initial_f];
-        let mut factors = vec![0.0];
+        let mut factors = vec![F::State::default()];
         let mut steps = Vec::with_capacity(n);
         for i in 0..n {
             let dt = self.times[i + 1] - self.times[i];
             let lookup = self.surface.lookup(self.times[i], states[i])?;
-            let multiplier_squared = (2.0 * self.factor.vol_of_vol() * factors[i]).exp();
+            let multiplier_squared = self.factor.multiplier_squared(factors[i]);
             let variance = lookup.value * multiplier_squared;
             let next = advance(states[i], variance, dt, shocks[i], i, 0)?;
-            let x = self.transitions[i].evolve(factors[i], shocks[i], shocks[n + i]);
-            if !x.is_finite() {
+            let x = next_factor(i, factors[i]);
+            if !F::finite(x) {
                 return Err(LsvError::NonFiniteState {
                     time_index: i + 1,
                     path: 0,
@@ -448,6 +541,7 @@ impl BergomiLsvPlan {
             factors: factors.into_boxed_slice(),
             steps: steps.into_boxed_slice(),
             transitions: self.transitions.clone(),
+            external_innovations,
             factor: self.factor,
             value_count: self.surface.values.len(),
         })
@@ -472,14 +566,15 @@ pub(in crate::engine) fn advance(
     Ok(next)
 }
 
-pub(in crate::engine) fn lsv_shocks(
+fn lsv_shocks_with_factors(
     seed: u64,
     path: u64,
     steps: usize,
     domain: RandomDomain,
+    factors: usize,
 ) -> Result<Vec<f64>, LsvError> {
     let count = steps
-        .checked_mul(2)
+        .checked_mul(factors)
         .and_then(|n| u32::try_from(n).ok())
         .ok_or(LsvError::InvalidInput {
             field: "random_dimension",
@@ -491,40 +586,47 @@ pub(in crate::engine) fn lsv_shocks(
         .collect())
 }
 
-impl BergomiLsvPath {
+impl<F: BergomiDynamics> BergomiLsvPath<F> {
     #[must_use]
     pub fn states(&self) -> &[f64] {
         &self.states
     }
     #[must_use]
-    pub fn factors(&self) -> &[f64] {
+    pub fn factors(&self) -> &[F::State] {
         &self.factors
     }
 
     /// Price-only callers never allocate adjoint buffers. Seeds may be placed at
     /// any path observation; affine Spot seeds must first be multiplied by B(t).
-    pub fn reverse(&self, state_seeds: &[f64]) -> Result<LsvPathAdjoints, LsvError> {
+    pub fn reverse(&self, state_seeds: &[f64]) -> Result<LsvPathAdjoints<F::State>, LsvError> {
         length("state_seeds", self.states.len(), state_seeds.len())?;
         for (i, &s) in state_seeds.iter().enumerate() {
             valid(s, "state_seed", i, false)?;
         }
         let n = self.steps.len();
         let mut fbar = state_seeds[n];
-        let mut xbar = 0.0;
+        let mut xbar = F::State::default();
         let mut values = vec![0.0; self.value_count];
         let mut spot = vec![0.0; n];
-        let mut orth = vec![0.0; n];
+        let mut orth = vec![0.0; F::FACTOR_COUNT * n];
         for i in (0..n).rev() {
             let c = self.steps[i];
             let exponent_bar = fbar * self.states[i + 1];
             let vbar = exponent_bar * (-0.5 * c.dt + c.dt.sqrt() * c.z / (2.0 * c.variance.sqrt()));
             let leverage_bar = vbar * c.multiplier_squared;
             c.lookup.transpose(leverage_bar, &mut values);
-            spot[i] = exponent_bar * c.variance.sqrt() * c.dt.sqrt()
-                + xbar * self.transitions[i].spot_loading;
-            orth[i] = xbar * self.transitions[i].orthogonal_loading;
-            xbar = xbar * self.transitions[i].decay
-                + vbar * 2.0 * self.factor.vol_of_vol() * c.variance;
+            let (prev, spot_factor_bar, orth_bar) = self.factor.reverse_factor(
+                self.transitions[i],
+                xbar,
+                vbar,
+                c.variance,
+                self.external_innovations,
+            );
+            spot[i] = exponent_bar * c.variance.sqrt() * c.dt.sqrt() + spot_factor_bar;
+            for j in 0..F::FACTOR_COUNT {
+                orth[j * n + i] = orth_bar[j];
+            }
+            xbar = prev;
             fbar = state_seeds[i]
                 + fbar * self.states[i + 1] / self.states[i]
                 + leverage_bar * c.lookup.derivative_log_f / self.states[i];
@@ -533,10 +635,16 @@ impl BergomiLsvPath {
             .iter()
             .chain(spot.iter())
             .chain(orth.iter())
-            .chain([fbar, xbar].iter())
+            .chain([fbar].iter())
             .enumerate()
         {
             valid(v, "path_adjoint", i, false)?;
+        }
+        if !F::finite(xbar) {
+            return Err(LsvError::InvalidInput {
+                field: "factor_adjoint",
+                index: 0,
+            });
         }
         Ok(LsvPathAdjoints {
             initial_f: fbar,

@@ -664,3 +664,126 @@ fn market_iv_rqmc_uncertainty_and_deterministic_factor_limit() {
     );
     assert!(deterministic.vega().unwrap() > 0.0);
 }
+
+#[test]
+fn two_factor_hw_aad_recalibrates_both_targets_quotes_curves_and_dividend_modes() {
+    let compile = |mut v: Value, target: &HullWhiteLsvTarget, escrow: bool, trace, workers| {
+        let g = target.grid();
+        v["engine"]["independent_sampling_units"] = json!(256);
+        v["model"] = json!({"type":"local_volatility","local_variance_grid":{"time_nodes":g.time_nodes(),"log_forward_moneyness_nodes":g.log_moneyness_nodes(),"shape":[g.time_nodes().len(),g.log_moneyness_nodes().len()],"values":g.values(),"floor":g.floor(),"cap":g.cap()}});
+        let f = pricing::models::Bergomi2Factor::new([2.0, 0.15], 0.35, 0.4, [-0.5, -0.2], 0.4)
+            .unwrap();
+        let build = if escrow {
+            Plan::compile_lsv_two_factor_with_cash_dividends
+        } else {
+            Plan::compile_lsv_two_factor
+        };
+        build(
+            &request(v),
+            target,
+            f,
+            rates(0.012),
+            0.3,
+            [-0.1, 0.05],
+            LsvParticleConfig::new(2048, 711, 0.32, 20.0, trace).unwrap(),
+            policy(workers),
+        )
+        .unwrap()
+    };
+    let target = quoted_target(quotes());
+    let v = payload(true);
+    for escrow in [false, true] {
+        let plan = compile(v.clone(), &target, escrow, true, 1);
+        assert_eq!(plan.random_factor_count(), 5);
+        let risk = plan.evaluate_aad().unwrap();
+        assert_eq!(risk.price.value, plan.evaluate().unwrap().value);
+        assert_eq!(
+            risk.derivatives,
+            compile(v.clone(), &target, escrow, true, 3)
+                .evaluate_aad()
+                .unwrap()
+                .derivatives
+        );
+        assert!(
+            compile(v.clone(), &target, escrow, false, 1)
+                .evaluate_aad()
+                .is_err()
+        );
+        for (name, index, bar, h) in [
+            ("spot", 0, risk.delta(), 1e-5),
+            (
+                "discount_curve",
+                2,
+                risk.discount_log_df_adjoints()[2],
+                1e-7,
+            ),
+            (
+                "dividend_curve",
+                1,
+                risk.dividend_log_df_adjoints()[1],
+                1e-7,
+            ),
+        ] {
+            let up = compile(shock(&v, name, index, h), &target, escrow, false, 1)
+                .evaluate()
+                .unwrap()
+                .value;
+            let dn = compile(shock(&v, name, index, -h), &target, escrow, false, 1)
+                .evaluate()
+                .unwrap()
+                .value;
+            close(name, bar, (up - dn) / (2.0 * h));
+        }
+        for density in [false, true] {
+            let index = 10;
+            let h = 1e-7;
+            let up = compile(
+                v.clone(),
+                &target_shock(&target, density, index, h),
+                escrow,
+                false,
+                1,
+            )
+            .evaluate()
+            .unwrap()
+            .value;
+            let dn = compile(
+                v.clone(),
+                &target_shock(&target, density, index, -h),
+                escrow,
+                false,
+                1,
+            )
+            .evaluate()
+            .unwrap()
+            .value;
+            let bar = if density {
+                risk.forward_log_density_adjoints()[index]
+            } else {
+                risk.local_variance_adjoints()[index]
+            };
+            close("two-factor paired target", bar, (up - dn) / (2.0 * h));
+        }
+        for j in 0..quotes().len() {
+            let shifted = |h| {
+                let mut q = quotes();
+                q[j] += h;
+                quoted_target(q)
+            };
+            let h = 1e-7;
+            let up = compile(v.clone(), &shifted(h), escrow, false, 1)
+                .evaluate()
+                .unwrap()
+                .value;
+            let dn = compile(v.clone(), &shifted(-h), escrow, false, 1)
+                .evaluate()
+                .unwrap()
+                .value;
+            close(
+                "two-factor market IV",
+                risk.vega_kt_raw().unwrap()[j],
+                (up - dn) / (2.0 * h),
+            );
+        }
+    }
+}

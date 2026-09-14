@@ -11,6 +11,10 @@ pub const ROUGH_CASH_LSV_CALIBRATION: &str = "rough-lsv-hw-escrowed-quadratic-v1
 pub enum HybridVolatilityFactor {
     Bergomi(Bergomi1Factor),
     Rough(RoughBergomi),
+    BergomiTwoFactor {
+        factor: crate::models::Bergomi2Factor,
+        second_vol_rate_correlation: f64,
+    },
 }
 impl From<Bergomi1Factor> for HybridVolatilityFactor {
     fn from(v: Bergomi1Factor) -> Self {
@@ -28,6 +32,7 @@ impl HybridVolatilityFactor {
         match self {
             Self::Bergomi(v) => v.mean_reversion(),
             Self::Rough(_) => 0.0,
+            Self::BergomiTwoFactor { factor, .. } => factor.mean_reversions()[0],
         }
     }
     /// Coefficient of log volatility, half eta for rough Bergomi.
@@ -36,6 +41,7 @@ impl HybridVolatilityFactor {
         match self {
             Self::Bergomi(v) => v.vol_of_vol(),
             Self::Rough(v) => 0.5 * v.vol_of_vol(),
+            Self::BergomiTwoFactor { factor, .. } => factor.vol_of_vol(),
         }
     }
     #[must_use]
@@ -43,6 +49,27 @@ impl HybridVolatilityFactor {
         match self {
             Self::Bergomi(v) => v.correlation(),
             Self::Rough(v) => v.correlation(),
+            Self::BergomiTwoFactor { factor, .. } => factor.spot_correlations()[0],
+        }
+    }
+    pub(in crate::engine) fn two_factor_driver(
+        self,
+        rates: &HullWhite1Factor,
+        correlation: HybridCorrelation,
+        times: &[f64],
+    ) -> Result<Option<Bergomi2FactorHullWhiteDriverPlan>, HullWhiteMcError> {
+        match self {
+            Self::BergomiTwoFactor {
+                factor,
+                second_vol_rate_correlation,
+            } => Ok(Some(Bergomi2FactorHullWhiteDriverPlan::compile(
+                factor,
+                rates,
+                correlation.equity_rate,
+                [correlation.vol_rate, second_vol_rate_correlation],
+                times,
+            )?)),
+            _ => Ok(None),
         }
     }
     #[must_use]
