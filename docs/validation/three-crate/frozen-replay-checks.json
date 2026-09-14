@@ -1,0 +1,90 @@
+[
+  {
+    "side": "before",
+    "name": "replay_european_bs",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_european_bs.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_european_bs.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "before",
+    "name": "replay_local_vol",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_local_vol.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_local_vol.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "before",
+    "name": "replay_path_dependence",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_path_dependence.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_path_dependence.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "before",
+    "name": "replay_early_exercise",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_early_exercise.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_early_exercise.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "after",
+    "name": "replay_european_bs",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_european_bs.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_european_bs.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "after",
+    "name": "replay_local_vol",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_local_vol.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_local_vol.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "after",
+    "name": "replay_path_dependence",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_path_dependence.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_path_dependence.json: unsupported replay platform: 'linux-x86_64'\n"
+  },
+  {
+    "side": "after",
+    "name": "replay_early_exercise",
+    "command": [
+      "python",
+      "scripts/check_replay_fixture.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_early_exercise.json"
+    ],
+    "exit_code": 1,
+    "output": "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_early_exercise.json: unsupported replay platform: 'linux-x86_64'\n"
+  }
+]

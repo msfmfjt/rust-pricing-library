@@ -43,19 +43,33 @@ REQUIRED_FILES = {
     "docs/release-readiness-v0.1.md",
     "docs/requirements-change-template.md",
     "docs/requirements-v1.0.md",
+    "docs/validation/three-crate/after-commands.json",
+    "docs/validation/three-crate/after-targets.json",
+    "docs/validation/three-crate/baseline-commands.json",
+    "docs/validation/three-crate/baseline-corrected-commands.json",
+    "docs/validation/three-crate/baseline-targets.json",
+    "docs/validation/three-crate/boundary-probes.json",
+    "docs/validation/three-crate/ci-acceptance.json",
+    "docs/validation/three-crate/commands.json",
+    "docs/validation/three-crate/comparison.json",
+    "docs/validation/three-crate/final-structure-commands.json",
+    "docs/validation/three-crate/frozen-replay-checks.json",
+    "docs/validation/three-crate/lsm-confirmation.json",
+    "docs/validation/three-crate/mechanical-audit.json",
+    "docs/validation/three-crate/public-api.json",
+    "docs/validation/three-crate/replay-comparison.json",
+    "docs/validation/three-crate/run-artifacts.tar.gz",
+    "docs/validation/three-crate/test-moves.json",
+    "docs/validation/three-crate/unchanged-contract-hashes.json",
     "docs/wire-schema-compatibility.md",
-    "crates/pricing-aad/Cargo.toml",
-    "crates/pricing-core/Cargo.toml",
-    "crates/pricing-market/Cargo.toml",
-    "crates/pricing-mc/Cargo.toml",
-    "crates/pricing-models/Cargo.toml",
     "crates/pricing-numerics/Cargo.toml",
-    "crates/pricing-product/Cargo.toml",
     "crates/pricing-python/Cargo.toml",
-    "crates/pricing-risk/Cargo.toml",
     "crates/pricing/Cargo.toml",
-    "crates/pricing-mc/data/README.md",
-    "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin",
+    "crates/pricing/src/engine/mod.rs",
+    "crates/pricing/tests/facade_compatibility.rs",
+    "docs/three-crate-migration.md",
+    "crates/pricing/data/README.md",
+    "crates/pricing/data/joe-kuo-6.21201-u32be.bin",
     "schemas/v1/pricing_request.schema.json",
     "schemas/v1/pricing_result.schema.json",
     "schemas/v2/pricing_request.schema.json",
@@ -123,14 +137,7 @@ CRATE_MANIFESTS = {
 }
 
 INTERNAL_WORKSPACE_DEPENDENCIES = {
-    "pricing-core": "crates/pricing-core",
     "pricing-numerics": "crates/pricing-numerics",
-    "pricing-aad": "crates/pricing-aad",
-    "pricing-market": "crates/pricing-market",
-    "pricing-product": "crates/pricing-product",
-    "pricing-models": "crates/pricing-models",
-    "pricing-mc": "crates/pricing-mc",
-    "pricing-risk": "crates/pricing-risk",
     "pricing": "crates/pricing",
 }
 
@@ -383,8 +390,8 @@ REQUIRED_BENCHMARK_CHECK_SNIPPETS = {
 }
 
 REQUIRED_DEPENDENCY_DIRECTION_SNIPPETS = {
-    "\"pricing-core\": 0",
-    "\"pricing-python\": 7",
+    "\"pricing-numerics\": 0",
+    "\"pricing-python\": 2",
     "missing workspace crates",
     "unclassified workspace crates",
     "depends upward on",
@@ -554,8 +561,8 @@ TEXT_SOURCE_NAMES = {
     ".gitignore",
 }
 
-JOE_KUO_DIRECTION_DATA = "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin"
-JOE_KUO_DIRECTION_DATA_README = "crates/pricing-mc/data/README.md"
+JOE_KUO_DIRECTION_DATA = "crates/pricing/data/joe-kuo-6.21201-u32be.bin"
+JOE_KUO_DIRECTION_DATA_README = "crates/pricing/data/README.md"
 JOE_KUO_DIRECTION_DATA_MAGIC = b"JK621201"
 JOE_KUO_DIRECTION_DATA_VERSION = 1
 JOE_KUO_DIRECTION_DATA_DIMENSIONS = 21_201

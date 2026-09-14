@@ -1,0 +1,333 @@
+[
+  {
+    "name": "toolchain",
+    "command": [
+      "rustc",
+      "-vV"
+    ],
+    "exit_code": 0,
+    "seconds": 0.06431090200203471
+  },
+  {
+    "name": "cargo",
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "exit_code": 0,
+    "seconds": 0.03210837499500485
+  },
+  {
+    "name": "metadata",
+    "command": [
+      "cargo",
+      "metadata",
+      "--no-deps",
+      "--format-version",
+      "1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.0318738409987418
+  },
+  {
+    "name": "features",
+    "command": [
+      "cargo",
+      "tree",
+      "--workspace",
+      "-e",
+      "features"
+    ],
+    "exit_code": 0,
+    "seconds": 19.680636416000198
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exit_code": 0,
+    "seconds": 0.7160620610011392
+  },
+  {
+    "name": "check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--all-targets"
+    ],
+    "exit_code": 0,
+    "seconds": 9.186459210999601
+  },
+  {
+    "name": "tests-list",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace",
+      "--",
+      "--list"
+    ],
+    "exit_code": 101,
+    "seconds": 16.257207347000076
+  },
+  {
+    "name": "tests-default",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace"
+    ],
+    "exit_code": 101,
+    "seconds": 0.6656642839952838
+  },
+  {
+    "name": "tests-all",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace",
+      "--all-features",
+      "--exclude",
+      "pricing-python"
+    ],
+    "exit_code": 0,
+    "seconds": 42.76939760100504
+  },
+  {
+    "name": "tests-python",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing-python"
+    ],
+    "exit_code": 101,
+    "seconds": 0.7161773510015337
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "seconds": 6.943087498999375
+  },
+  {
+    "name": "doc",
+    "command": [
+      "cargo",
+      "doc",
+      "--locked",
+      "--workspace",
+      "--no-deps"
+    ],
+    "exit_code": 0,
+    "seconds": 1.621781029003614
+  },
+  {
+    "name": "doc-all",
+    "command": [
+      "cargo",
+      "doc",
+      "--locked",
+      "--workspace",
+      "--all-features",
+      "--no-deps"
+    ],
+    "exit_code": 0,
+    "seconds": 0.9665968109984533
+  },
+  {
+    "name": "numerics",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing-numerics"
+    ],
+    "exit_code": 0,
+    "seconds": 0.06557574700127589
+  },
+  {
+    "name": "minimal",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing",
+      "--no-default-features"
+    ],
+    "exit_code": 0,
+    "seconds": 26.40558353900269
+  },
+  {
+    "name": "statistical_acceptance",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing",
+      "--release",
+      "--test",
+      "statistical_acceptance",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 34.36093671799608
+  },
+  {
+    "name": "path_dependence_acceptance",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing",
+      "--release",
+      "--test",
+      "path_dependence_acceptance",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 4.745368664996931
+  },
+  {
+    "name": "early_exercise_acceptance",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing",
+      "--release",
+      "--test",
+      "early_exercise_acceptance",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 6.397720746004779
+  },
+  {
+    "name": "check_local_vol_reference_fixture",
+    "command": [
+      "python",
+      "scripts/check_local_vol_reference_fixture.py"
+    ],
+    "exit_code": 0,
+    "seconds": 0.03207272999861743
+  },
+  {
+    "name": "check_path_dependence_reference_fixture",
+    "command": [
+      "python",
+      "scripts/check_path_dependence_reference_fixture.py"
+    ],
+    "exit_code": 0,
+    "seconds": 0.03215568599989638
+  },
+  {
+    "name": "check_early_exercise_reference_fixture",
+    "command": [
+      "python",
+      "scripts/check_early_exercise_reference_fixture.py"
+    ],
+    "exit_code": 0,
+    "seconds": 0.032075158997031394
+  },
+  {
+    "name": "check_schemas",
+    "command": [
+      "python",
+      "scripts/check_schemas.py"
+    ],
+    "exit_code": 0,
+    "seconds": 0.16990124699805165
+  },
+  {
+    "name": "check_markdown_links",
+    "command": [
+      "python",
+      "scripts/check_markdown_links.py"
+    ],
+    "exit_code": 0,
+    "seconds": 0.11506207100319443
+  },
+  {
+    "name": "wheel",
+    "command": [
+      "python",
+      "-m",
+      "maturin",
+      "build",
+      "--locked",
+      "--release",
+      "--out",
+      "dist"
+    ],
+    "exit_code": 0,
+    "seconds": 53.55764341399481
+  },
+  {
+    "name": "wheel-smoke",
+    "command": [
+      "python",
+      "scripts/smoke_test_wheel.py"
+    ],
+    "exit_code": 0,
+    "seconds": 30.148181606004073
+  },
+  {
+    "name": "benchmarks",
+    "command": [
+      "python",
+      "scripts/run_benchmark_suite.py"
+    ],
+    "exit_code": 1,
+    "seconds": 4.982497263001278
+  },
+  {
+    "name": "replay-local-vol",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--release",
+      "-p",
+      "pricing",
+      "--example",
+      "replay_local_vol",
+      "--",
+      "/workspace/scratch/52574c483dd5/evidence/baseline/local-vol-replay.json"
+    ],
+    "exit_code": 0,
+    "seconds": 6.088734058001137
+  }
+]

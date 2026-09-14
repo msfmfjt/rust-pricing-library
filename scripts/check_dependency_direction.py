@@ -10,16 +10,20 @@ from typing import Any
 
 
 LEVEL = {
-    "pricing-core": 0,
-    "pricing-numerics": 1,
-    "pricing-product": 1,
-    "pricing-aad": 2,
-    "pricing-market": 2,
-    "pricing-models": 3,
-    "pricing-mc": 4,
-    "pricing-risk": 5,
-    "pricing": 6,
-    "pricing-python": 7,
+    "pricing-numerics": 0,
+    "pricing": 1,
+    "pricing-python": 2,
+}
+
+EXPECTED_DEPENDENCIES = {
+    "pricing-numerics": set(),
+    "pricing": {"pricing-numerics"},
+    "pricing-python": {"pricing"},
+}
+
+REMOVED_CRATES = {
+    "pricing-core", "pricing-aad", "pricing-market", "pricing-product",
+    "pricing-models", "pricing-mc", "pricing-risk",
 }
 
 EXPECTED_MANIFEST_PATHS = {
@@ -74,6 +78,16 @@ def main() -> int:
                     f"{dependency_name} (level {LEVEL[dependency_name]})"
                 )
 
+    for name, package in packages.items():
+        dependencies = {entry["name"] for entry in package["dependencies"]}
+        if dependencies & REMOVED_CRATES:
+            errors.append(f"{name} depends on removed crates: {sorted(dependencies & REMOVED_CRATES)}")
+        if name in EXPECTED_DEPENDENCIES and dependencies & set(LEVEL) != EXPECTED_DEPENDENCIES[name]:
+            errors.append(f"{name} must depend on exactly {sorted(EXPECTED_DEPENDENCIES[name])}")
+        if name != "pricing-python" and dependencies & {"pyo3", "numpy"}:
+            errors.append(f"{name} must not depend on Python bindings")
+    check_internal_boundaries(workspace_root, errors)
+
     if errors:
         for error in errors:
             print(f"dependency-direction error: {error}", file=sys.stderr)
@@ -81,6 +95,32 @@ def main() -> int:
 
     print("workspace dependency direction is valid")
     return 0
+
+
+def check_internal_boundaries(workspace_root: Path, errors: list[str]) -> None:
+    """Small source guard in addition to Rust privacy, not a general Rust parser.
+
+    Compatibility re-exports in mod.rs are intentional. Domain definitions may
+    not import execution state; MC/process/sampling/payoff implementations may
+    not call report assembly. Inherent compatibility methods live in engine.
+    """
+    import re
+
+    source = workspace_root / "crates/pricing/src"
+    if re.search(r"(?m)^pub(?:\([^)]*\))?\s+mod\s+engine", (source / "lib.rs").read_text()):
+        errors.append("engine module must remain private")
+    for folder in ["core", "market", "models", "product", "risk"]:
+        for path in (source / folder).rglob("*.rs"):
+            if path.name == "mod.rs":
+                continue  # Existing public compatibility re-exports.
+            code = re.sub(r"//[^\n]*", "", path.read_text())
+            if re.search(r"crate::engine::|\b(?:DeterministicExecutor|SoaWorkspace)\b", code):
+                errors.append(f"domain definition imports execution state: {path.relative_to(source)}")
+    for folder in ["mc", "sampling", "processes", "payoff"]:
+        for path in (source / "engine" / folder).rglob("*.rs"):
+            code = re.sub(r"//[^\n]*", "", path.read_text())
+            if re.search(r"crate::engine::risk::|\b(?:RiskReport|VegaKtResult)\b|\.build_(?:risk_report|vega_kt_result)\(", code):
+                errors.append(f"lower execution layer assembles risk reports: {path.relative_to(source)}")
 
 
 def load_metadata() -> dict[str, Any]:

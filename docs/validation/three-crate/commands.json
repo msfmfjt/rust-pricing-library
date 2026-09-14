@@ -1,0 +1,378 @@
+[
+  {
+    "side": "before",
+    "name": "build-examples",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "-p",
+      "pricing",
+      "--examples"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "build-examples",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "-p",
+      "pricing",
+      "--examples"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_european_bs-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_european_bs-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_european_bs-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_european_bs-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_local_vol-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_local_vol-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_local_vol-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_local_vol-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_path_dependence-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_path_dependence-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_path_dependence-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_path_dependence-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_early_exercise-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_early_exercise-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_early_exercise-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_early_exercise-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "python_european_bs-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/.wheel-smoke-venv/bin/python",
+      "benchmarks/python_european_bs.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-python_european_bs-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "python_european_bs-0",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/.wheel-smoke-venv/bin/python",
+      "benchmarks/python_european_bs.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-python_european_bs-0.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_european_bs-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_european_bs-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_european_bs-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_european_bs-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_local_vol-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_local_vol-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_local_vol-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_local_vol-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_path_dependence-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_path_dependence-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_path_dependence-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_path_dependence-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_early_exercise-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_early_exercise-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_early_exercise-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_early_exercise-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "python_european_bs-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/.wheel-smoke-venv/bin/python",
+      "benchmarks/python_european_bs.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-python_european_bs-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "python_european_bs-1",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/.wheel-smoke-venv/bin/python",
+      "benchmarks/python_european_bs.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-python_european_bs-1.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_european_bs-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_european_bs-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_european_bs-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_european_bs-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_local_vol-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_local_vol-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_local_vol-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_local_vol-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_path_dependence-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_path_dependence-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_path_dependence-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_path_dependence-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "benchmark_early_exercise-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/benchmark_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-benchmark_early_exercise-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "benchmark_early_exercise-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/benchmark_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-benchmark_early_exercise-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "python_european_bs-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/.wheel-smoke-venv/bin/python",
+      "benchmarks/python_european_bs.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-python_european_bs-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "python_european_bs-2",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/.wheel-smoke-venv/bin/python",
+      "benchmarks/python_european_bs.py",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-python_european_bs-2.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "replay_european_bs",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/replay_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_european_bs.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "replay_european_bs",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/replay_european_bs",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_european_bs.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "replay_local_vol",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/replay_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_local_vol.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "replay_local_vol",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/replay_local_vol",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_local_vol.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "replay_path_dependence",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/replay_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_path_dependence.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "replay_path_dependence",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/replay_path_dependence",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_path_dependence.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "before",
+    "name": "replay_early_exercise",
+    "command": [
+      "/workspace/scratch/52574c483dd5/pricing-baseline/target/release/examples/replay_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/before-replay_early_exercise.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "side": "after",
+    "name": "replay_early_exercise",
+    "command": [
+      "/workspace/scratch/52574c483dd5/rust-pricing-library/target/release/examples/replay_early_exercise",
+      "/workspace/scratch/52574c483dd5/evidence/comparison/after-replay_early_exercise.json"
+    ],
+    "exit_code": 0
+  }
+]

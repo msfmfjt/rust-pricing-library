@@ -1,0 +1,38 @@
+[
+  {
+    "name": "tests-list",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace",
+      "--",
+      "--list"
+    ],
+    "exit_code": 0,
+    "seconds": 2.184046918999229
+  },
+  {
+    "name": "tests-default",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace"
+    ],
+    "exit_code": 0,
+    "seconds": 29.65579903300386
+  },
+  {
+    "name": "tests-python",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "pricing-python"
+    ],
+    "exit_code": 0,
+    "seconds": 0.36492128299869364
+  }
+]

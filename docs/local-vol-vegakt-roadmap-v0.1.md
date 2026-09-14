@@ -128,7 +128,7 @@ Gate:
 Deliverables:
 
 - introduce `ImpliedVarianceSurface` and `TotalVarianceDerivatives` in
-  `pricing-market`;
+  `pricing::market`;
 - implement Standard SSVI using one global surface, non-decreasing C1 PCHIP
   `theta(T)`, one `rho`, and `PhiSpec::{PowerLaw,HestonLike}`;
 - implement stable analytic `w`, `dw/dk`, `d2w/dk2`, and `dw/dT` evaluation;

@@ -3,26 +3,26 @@ use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 
-use pricing_core::{CurrencyId, CurveId, Date, EventId, PositiveF64, SchemaVersion, UnderlyingId};
-use pricing_market::{
+use crate::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, SchemaVersion, UnderlyingId};
+use crate::market::{
     DividendEvent, DividendQuote, EquityForward, EquityMarket, LogLinearDiscountCurve,
     MarketContext,
 };
-use pricing_mc::{
+use crate::mc::{
     ContinueAllReason, CpqrConfig, EngineConfig, ExerciseDecisionModel, ExercisePolicyFingerprint,
     ExerciseRegressionDiagnostics, FeatureScaling, LsmConfig, LsmStateVariable, LsmWarning,
     PolynomialBasisSpec, PolynomialRegressionModel, PseudoMcConfig, RandomDomain, RqmcConfig,
     VarianceReduction,
 };
-use pricing_models::{
+use crate::models::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
 };
-use pricing_product::{
+use crate::product::{
     AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, AsianObservationValue,
     BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, DigitalPayout, DigitalSpec,
     EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
 };
-use pricing_risk::{
+use crate::risk::{
     GammaConfig, PayoffSmoothing, PayoffSmoothingWidthLadder, RiskRequest, SmileDynamics, SpotBump,
     VegaKtConfig,
 };
@@ -796,8 +796,8 @@ impl From<&MarketContext> for MarketV1 {
     }
 }
 
-impl From<pricing_market::CompiledDividendEvent> for DividendQuoteV1 {
-    fn from(event: pricing_market::CompiledDividendEvent) -> Self {
+impl From<crate::market::CompiledDividendEvent> for DividendQuoteV1 {
+    fn from(event: crate::market::CompiledDividendEvent) -> Self {
         match (event.fixed_cash(), event.beta()) {
             (fixed_cash, 0.0) => Self::FixedCash { amount: fixed_cash },
             (0.0, beta) => Self::Proportional { beta },
@@ -833,8 +833,8 @@ impl From<&ModelSpec> for ModelV1 {
     }
 }
 
-impl From<&pricing_market::LocalVarianceGrid> for LocalVarianceGridV1 {
-    fn from(grid: &pricing_market::LocalVarianceGrid) -> Self {
+impl From<&crate::market::LocalVarianceGrid> for LocalVarianceGridV1 {
+    fn from(grid: &crate::market::LocalVarianceGrid) -> Self {
         Self {
             time_nodes: grid.time_nodes().to_vec(),
             log_forward_moneyness_nodes: grid.log_moneyness_nodes().to_vec(),
@@ -2270,12 +2270,12 @@ impl From<MonteCarloDiagnostics> for MonteCarloDiagnosticsV3 {
     }
 }
 
-impl From<pricing_market::CurveRegion> for CurveRegionV3 {
-    fn from(value: pricing_market::CurveRegion) -> Self {
+impl From<crate::market::CurveRegion> for CurveRegionV3 {
+    fn from(value: crate::market::CurveRegion) -> Self {
         match value {
-            pricing_market::CurveRegion::Pillar => Self::Pillar,
-            pricing_market::CurveRegion::Interpolated => Self::Interpolated,
-            pricing_market::CurveRegion::RightExtrapolated => Self::RightExtrapolated,
+            crate::market::CurveRegion::Pillar => Self::Pillar,
+            crate::market::CurveRegion::Interpolated => Self::Interpolated,
+            crate::market::CurveRegion::RightExtrapolated => Self::RightExtrapolated,
         }
     }
 }
@@ -2339,7 +2339,7 @@ impl From<PathStateDiagnostics> for PathStateDiagnosticsV3 {
 
 impl From<BarrierBridgeDiagnostics> for BarrierBridgeDiagnosticsV3 {
     fn from(value: BarrierBridgeDiagnostics) -> Self {
-        debug_assert_eq!(value.abi, pricing_mc::BARRIER_BRIDGE_ABI);
+        debug_assert_eq!(value.abi, crate::mc::BARRIER_BRIDGE_ABI);
         Self {
             abi: BarrierBridgeAbiV3::ContinuousBarrierBridgeLogSurvivalV1,
             policy_version: value.policy_version,
@@ -3208,7 +3208,7 @@ fn monte_carlo_diagnostics_from_wire(
         antithetic: value.antithetic,
         discount_region: value.discount_region.into(),
         dividend_region: value.dividend_region.into(),
-        payoff_fingerprint: pricing_product::GraphFingerprint::from_bytes(
+        payoff_fingerprint: crate::product::GraphFingerprint::from_bytes(
             parse_fingerprint_owned_at(
                 &value.payoff_fingerprint,
                 "/monte_carlo/diagnostics/payoff_fingerprint",
@@ -3240,7 +3240,7 @@ impl From<EstimatorV1> for EstimatorKind {
     }
 }
 
-impl From<CurveRegionV3> for pricing_market::CurveRegion {
+impl From<CurveRegionV3> for crate::market::CurveRegion {
     fn from(value: CurveRegionV3) -> Self {
         match value {
             CurveRegionV3::Pillar => Self::Pillar,
@@ -3361,7 +3361,7 @@ fn barrier_bridge_diagnostics_from_wire(
     Ok(BarrierBridgeDiagnostics {
         abi: match value.abi {
             BarrierBridgeAbiV3::ContinuousBarrierBridgeLogSurvivalV1 => {
-                pricing_mc::BARRIER_BRIDGE_ABI
+                crate::mc::BARRIER_BRIDGE_ABI
             }
         },
         policy_version: value.policy_version,
@@ -4277,7 +4277,7 @@ pub const fn current_result_schema() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use pricing_mc::ExecutionPolicy;
+    use crate::mc::ExecutionPolicy;
 
     use super::*;
 

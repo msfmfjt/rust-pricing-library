@@ -1,0 +1,31 @@
+{
+  "baseline": "0488c415c03f93bcbf7a5bfff43c3a948938e2cf",
+  "baseline_function_definitions": 2717,
+  "identical_after_import_path_visibility_and_trailing_comma_normalization": 2716,
+  "changed_function": {
+    "path": "crates/pricing-numerics/src/lib.rs",
+    "name": "foundation_role",
+    "before": "pricing_core::role()",
+    "after": "\"core\"",
+    "reason": "Remove financial dependency while preserving the returned legacy marker."
+  },
+  "preserved_tests": 430,
+  "additional_tests": 1,
+  "ignored_by_default": 5,
+  "public_names_pinned": 377,
+  "public_module_paths": 14,
+  "unchanged_files": {
+    "fixtures": 28,
+    "schemas": 6,
+    "pricing_python": 6,
+    "python_tests": 5,
+    "python_examples": 7
+  },
+  "unchanged_other_contracts": [
+    "rust_pricing.pyi",
+    "pyproject.toml",
+    "rust-toolchain.toml",
+    "Joe-Kuo direction binary",
+    "Cargo.lock registry package versions/checksums/dependencies"
+  ]
+}

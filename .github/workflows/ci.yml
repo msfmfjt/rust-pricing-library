@@ -59,6 +59,13 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
+      - name: Check default and minimal feature configurations
+        run: |
+          cargo check --locked --workspace --all-targets
+          cargo test --locked --workspace
+          cargo test --locked -p pricing --no-default-features
+          cargo test --locked -p pricing-numerics
+
       - name: Run tests
         run: |
           cargo test --locked --workspace --all-features --exclude pricing-python

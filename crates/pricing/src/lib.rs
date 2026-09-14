@@ -2,13 +2,13 @@
 
 #![forbid(unsafe_code)]
 
-mod error;
+mod api;
+mod engine;
+use api::{error, request, result};
 pub mod hull_white;
 pub mod lsv;
 mod monte_carlo;
 mod plan;
-mod request;
-mod result;
 mod wire;
 
 #[doc(hidden)]
@@ -25,12 +25,12 @@ pub use monte_carlo::{
 pub use plan::{
     PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,
 };
-pub use pricing_core as core;
-pub use pricing_market as market;
-pub use pricing_mc as mc;
-pub use pricing_models as models;
-pub use pricing_product as product;
-pub use pricing_risk as risk;
+pub mod core;
+pub mod market;
+pub mod mc;
+pub mod models;
+pub mod product;
+pub mod risk;
 pub use request::PricingRequest;
 pub use result::{
     ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, MigrationProvenance, PricingResult,

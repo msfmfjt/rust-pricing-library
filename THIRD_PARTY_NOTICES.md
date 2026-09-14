@@ -2,7 +2,7 @@
 
 ## SciPy Sobol direction-number data
 
-The binary asset `crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin` was
+The binary asset `crates/pricing/data/joe-kuo-6.21201-u32be.bin` was
 generated from SciPy's `_sobol_direction_numbers.npz`. SciPy attributes the
 underlying direction numbers to Frances Y. Kuo's UNSW Sobol sequence resource.
 SciPy is distributed under the BSD 3-Clause License.

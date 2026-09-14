@@ -1,0 +1,2582 @@
+[
+  {
+    "name": "cdf_matches_reference_values_and_symmetry",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "regular_price_and_greeks_match_reference",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "black_76_forward_price_and_greeks_match_reference",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "put_call_parity_holds_over_regular_grid",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "deterministic_limits_are_explicit",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "black_76_deterministic_limits_are_explicit",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytical_greeks_match_central_differences",
+    "before": "crates/pricing/src/analytical.rs",
+    "after": "crates/pricing/src/engine/analytic/closed_form.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "facade_connects_to_risk_execution",
+    "before": "crates/pricing/src/lib.rs",
+    "after": "crates/pricing/src/lib.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bucket_sample_capacity_rejects_overflow",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_zero_volatility_exercises_at_deterministic_optimal_date",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_pseudo_replays_across_worker_counts",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_rqmc_uses_between_scramble_uncertainty_and_replays",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_rqmc_seed_changes_policy_and_valuation_replicates",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_american_pseudo_replays_and_matches_constant_volatility",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_american_rqmc_replays_with_brownian_bridge",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_fixed_policy_risks_replay_and_preserve_stopping_indices",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_american_pseudo_vega_kt_replays_with_frozen_stopping_indices",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_american_rqmc_vega_kt_uses_scramble_uncertainty",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_rqmc_fixed_policy_risks_use_between_scramble_uncertainty",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_american_fixed_policy_risks_replay_and_match_constant_variance",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_american_rqmc_fixed_policy_risks_replay",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "no_dividend_american_call_agrees_with_european_call",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_put_respects_intrinsic_and_european_lower_bounds",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "constant_vol_paths_separate_training_and_valuation_domains",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "mc_converges_to_the_analytical_oracle_with_reported_error",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "black_76_mc_converges_to_the_analytical_oracle_with_reported_error",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_price_only_matches_constant_variance_black_scholes_limit",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_rqmc_price_only_matches_constant_variance_black_scholes_limit",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_delta_and_gamma_use_common_random_number_bumps",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_rqmc_delta_and_gamma_use_between_scramble_uncertainty",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_vega_and_vega_kt_are_reported",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_rqmc_vega_kt_uses_between_scramble_bucket_uncertainty",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "seeded_replay_is_bitwise_equal_across_worker_counts",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "zero_volatility_obeys_exact_forward_discounting",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_zero_volatility_obeys_exact_indicator_payoff_discounting",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_digital_reports_aad_risk_and_crn_validation",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_zero_volatility_discounts_to_explicit_payment_date",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "barrier_zero_volatility_uses_declared_monitoring_knock_out",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_zero_variance_has_deterministic_bridge_limits",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_bridge_matches_independent_quadrature_reference",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_continuous_barrier_reports_matched_aad_and_diagnostics",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_continuous_up_barrier_rejects_width_outside_log_domain",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_continuous_barrier_local_vol_matches_constant_variance_limit",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_in_out_parity_covers_directions_and_rebates",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_replays_across_worker_counts_for_pseudo_mc_and_rqmc",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_splits_affine_dividend_jump_without_extra_coordinate",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_local_vol_matches_constant_variance_limit",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_local_vol_time_step_refinement_converges",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_local_vol_monitoring_refinement_converges",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_local_vol_reverse_matches_parallel_volatility_bump",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "continuous_barrier_local_vol_reports_vega_kt",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "barrier_dividend_collision_uses_pre_and_post_spot_without_an_extra_dimension",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_barrier_dividend_jump_aad_matches_common_random_number_bumps",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_exact_barrier_detects_pre_dividend_hit",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vol_barrier_dividend_jump_uses_event_node_and_reports_risks",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_discrete_barrier_reports_all_risks_and_endpoint_diagnostics",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "arithmetic_asian_zero_volatility_uses_all_declared_observation_dates",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "arithmetic_asian_price_respects_geometric_lower_and_convexity_upper_bounds",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "asian_and_lookback_dividend_collisions_observe_post_jump_spot",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fully_fixed_arithmetic_asian_prices_as_discounted_cashflow",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fixed_lookback_zero_volatility_uses_declared_monitoring_extremum",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fully_fixed_lookback_prices_as_discounted_cashflow",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fully_fixed_asian_and_lookback_report_exact_zero_market_risks",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "path_state_diagnostics_retain_fixed_asian_and_lookback_state",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "partially_fixed_history_is_invariant_under_all_market_risks",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "higher_call_strike_cannot_increase_seeded_pathwise_price",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "aad_delta_vega_and_bumped_aad_gamma_match_the_oracle",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "adding_risks_does_not_change_seeded_price_bits",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "asian_risks_do_not_change_seeded_price_bits",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "asian_and_lookback_pathwise_risks_are_reported",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "asian_and_lookback_local_vol_risks_match_constant_variance_limit",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "asian_pathwise_risks_work_under_rqmc",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "price_only_result_has_no_risk_methods_or_validations",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "risk_replay_is_bitwise_equal_across_worker_counts",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "aad_delta_and_vega_reconcile_with_common_random_number_bumps",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "gamma_bump_must_leave_a_positive_down_spot",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rqmc_price_and_error_use_independent_scrambles",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rqmc_risks_replay_across_worker_counts",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rqmc_seed_changes_randomization_but_replays_exactly",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pseudo_only_entry_point_rejects_rqmc",
+    "before": "crates/pricing/src/monte_carlo.rs",
+    "after": "crates/pricing/src/engine/plan/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "public_compile_and_evaluate_replay_pseudo_mc",
+    "before": "crates/pricing/src/plan.rs",
+    "after": "crates/pricing/src/engine/risk/pricing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "normalized_json_and_rust_requests_compile_to_the_same_plan",
+    "before": "crates/pricing/src/plan.rs",
+    "after": "crates/pricing/src/engine/risk/pricing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "execution_configuration_changes_plan_but_not_request_fingerprint",
+    "before": "crates/pricing/src/plan.rs",
+    "after": "crates/pricing/src/engine/risk/pricing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "width_ladder_preserves_order_primary_and_common_random_coordinates",
+    "before": "crates/pricing/src/plan.rs",
+    "after": "crates/pricing/src/engine/risk/pricing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_accepts_consistent_single_currency_equity_inputs",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_request_requires_independent_lsm_configuration",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_rejects_currency_mismatch",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_rejects_pathwise_risk_for_discontinuous_products",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_accepts_pathwise_risk_for_supported_path_products",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_requires_primary_smoothing_for_width_ladder",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_rejects_vega_kt_for_constant_volatility_models",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_validates_asian_observation_fixing_status_against_valuation_date",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_accepts_fully_fixed_asian_with_future_payment",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_rejects_payment_before_valuation",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_rejects_barrier_past_monitoring_without_state",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_validates_lookback_historical_extremum_against_valuation_date",
+    "before": "crates/pricing/src/request.rs",
+    "after": "crates/pricing/src/api/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "estimate_requires_finite_ordered_interval_and_samples",
+    "before": "crates/pricing/src/result.rs",
+    "after": "crates/pricing/src/api/result.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "diagnostics_preserve_warning_order",
+    "before": "crates/pricing/src/result.rs",
+    "after": "crates/pricing/src/api/result.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "vega_kt_result_requires_covariance_to_match_layout",
+    "before": "crates/pricing/src/result.rs",
+    "after": "crates/pricing/src/api/result.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "vega_kt_full_covariance_len_rejects_overflow",
+    "before": "crates/pricing/src/result.rs",
+    "after": "crates/pricing/src/api/result.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_round_trip_and_noncanonical_input_have_same_fingerprint",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "schema_v1_documents_migrate_forward_and_remain_strict",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "schema_v2_documents_migrate_to_v3_with_adjacent_provenance",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_american_product_and_lsm_configuration",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_black_76_model",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_digital_product",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_digital_payoff_smoothing",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_payoff_smoothing_width_ladder",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_request_json_defaults_missing_payment_date_to_expiry",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_barrier_product",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_arithmetic_asian_product",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_fixed_lookback_product",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "absent_optional_product_values_are_omitted_instead_of_serialized_as_null",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_discrete_dividends",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_rejects_coincident_discrete_dividend_events",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_local_volatility_grid_shape",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_local_volatility_reporting_iv_basis",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_rejects_mismatched_reporting_iv_basis_shape",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_rejects_mismatched_local_volatility_grid_shape",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_domain_date_errors_include_instance_path",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "request_json_round_trips_local_volatility_vega_kt_request",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "strict_reader_rejects_unknown_null_future_and_limits",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "strict_reader_rejects_malformed_tagged_union_types",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "strict_reader_rejects_duplicate_object_members_recursively",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "strict_reader_rejects_bom_comments_and_trailing_tokens",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "json_limits_report_stable_resource_names",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "json_limits_have_stable_default_and_hard_cap_values",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "json_limit_overrides_reject_each_hard_cap_excess",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bundled_schemas_are_draft_2020_12_json",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "result_compact_json_matches_golden_and_round_trips",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "schema_v3_rejects_experimental_calibration_domain_on_write",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "monte_carlo_result_round_trips_complete_american_lsm_replay_state",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "result_json_domain_errors_include_instance_paths",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "result_json_rejects_inconsistent_migration_provenance",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "result_json_round_trips_vega_kt_report_without_null_covariance_entries",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "result_writer_preserves_negative_zero",
+    "before": "crates/pricing/src/wire.rs",
+    "after": "crates/pricing/src/wire.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytical_oracle_matches_frozen_acceptance_grid",
+    "before": "crates/pricing/tests/analytical_acceptance.rs",
+    "after": "crates/pricing/tests/analytical_acceptance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "zero_variance_american_call_put_grid_uses_optimal_declared_date",
+    "before": "crates/pricing/tests/early_exercise_acceptance.rs",
+    "after": "crates/pricing/tests/early_exercise_acceptance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pseudo_and_rqmc_call_put_grids_match_independent_binomial_reference",
+    "before": "crates/pricing/tests/early_exercise_acceptance.rs",
+    "after": "crates/pricing/tests/early_exercise_acceptance.rs",
+    "ignored_by_default": true
+  },
+  {
+    "name": "independent_training_replicates_bound_in_sample_optimism",
+    "before": "crates/pricing/tests/early_exercise_acceptance.rs",
+    "after": "crates/pricing/tests/early_exercise_acceptance.rs",
+    "ignored_by_default": true
+  },
+  {
+    "name": "bs_hw_matches_gaussian_closed_form_including_payment_lag_and_correlation",
+    "before": "crates/pricing/tests/hull_white.rs",
+    "after": "crates/pricing/tests/hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "replay_and_zero_rate_volatility_match_bs_limit",
+    "before": "crates/pricing/tests/hull_white.rs",
+    "after": "crates/pricing/tests/hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "discounted_particle_calibration_reprices_an_independent_vanilla",
+    "before": "crates/pricing/tests/hull_white.rs",
+    "after": "crates/pricing/tests/hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "calibration_zero_factor_limit_and_unsupported_contracts_are_explicit",
+    "before": "crates/pricing/tests/hull_white.rs",
+    "after": "crates/pricing/tests/hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "proportional_dividend_barrier_observes_pre_and_post_jump",
+    "before": "crates/pricing/tests/hull_white.rs",
+    "after": "crates/pricing/tests/hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "target_mismatch_missing_times_and_unsupported_density_fail_explicitly",
+    "before": "crates/pricing/tests/hull_white.rs",
+    "after": "crates/pricing/tests/hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bs_aad_reverses_cash_reserve_curve_fit_and_payment_lag",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "lsv_aad_matches_full_recalibration_for_spot_curves_and_paired_target",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rqmc_hybrid_risk_matches_gaussian_greeks_and_worker_replay",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_cash_barrier_reverses_both_sides_of_jump",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "zero_rate_and_vol_factor_aad_limit_and_rqmc_density_contract",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "paired_market_iv_transpose_includes_density_and_time_zero_variance",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "market_iv_vegakt_matches_every_recalibrated_bucket_with_cash_and_proportional_dividends",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "market_iv_rqmc_uncertainty_and_deterministic_factor_limit",
+    "before": "crates/pricing/tests/hull_white_aad.rs",
+    "after": "crates/pricing/tests/hull_white_aad.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "stochastic_reserve_has_correct_jump_and_rate_loading",
+    "before": "crates/pricing/tests/hull_white_dividends.rs",
+    "after": "crates/pricing/tests/hull_white_dividends.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bs_escrowed_dividends_match_gaussian_reference_and_worker_replay",
+    "before": "crates/pricing/tests/hull_white_dividends.rs",
+    "after": "crates/pricing/tests/hull_white_dividends.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cash_barrier_jump_and_immediate_ex_date_are_observed",
+    "before": "crates/pricing/tests/hull_white_dividends.rs",
+    "after": "crates/pricing/tests/hull_white_dividends.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cash_lsv_reprices_the_shifted_market_target_with_future_dividends",
+    "before": "crates/pricing/tests/hull_white_dividends.rs",
+    "after": "crates/pricing/tests/hull_white_dividends.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "zero_rate_and_vol_factor_limits_and_bad_cash_inputs",
+    "before": "crates/pricing/tests/hull_white_dividends.rs",
+    "after": "crates/pricing/tests/hull_white_dividends.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cash_leverage_rejects_incompatible_bond_variance",
+    "before": "crates/pricing/tests/hull_white_dividends.rs",
+    "after": "crates/pricing/tests/hull_white_dividends.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "facade_reuses_dividend_grid_and_replays_across_worker_counts",
+    "before": "crates/pricing/tests/lsv.rs",
+    "after": "crates/pricing/tests/lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "unsupported_quote_risk_is_rejected_before_valuation",
+    "before": "crates/pricing/tests/lsv.rs",
+    "after": "crates/pricing/tests/lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "zero_variance_path_product_grid_has_deterministic_prices",
+    "before": "crates/pricing/tests/path_dependence_acceptance.rs",
+    "after": "crates/pricing/tests/path_dependence_acceptance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pseudo_and_rqmc_path_product_grid_agree_with_reported_uncertainty",
+    "before": "crates/pricing/tests/path_dependence_acceptance.rs",
+    "after": "crates/pricing/tests/path_dependence_acceptance.rs",
+    "ignored_by_default": true
+  },
+  {
+    "name": "smoothed_digital_and_barrier_aad_agree_with_crn_validation",
+    "before": "crates/pricing/tests/path_dependence_acceptance.rs",
+    "after": "crates/pricing/tests/path_dependence_acceptance.rs",
+    "ignored_by_default": true
+  },
+  {
+    "name": "pure_rough_aad_matches_crn_spot_volatility_curves_and_worker_replay",
+    "before": "crates/pricing/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rough_lsv_recalibrated_aad_vegakt_and_trace_contract",
+    "before": "crates/pricing/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rough_zero_eta_matches_bs_and_brownian_lsv_matches_markovian_limit",
+    "before": "crates/pricing/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reported_uncertainty_is_calibrated_across_fixed_seeds",
+    "before": "crates/pricing/tests/statistical_acceptance.rs",
+    "after": "crates/pricing/tests/statistical_acceptance.rs",
+    "ignored_by_default": true
+  },
+  {
+    "name": "tile_and_checkpoint_policies_resolve_explicitly",
+    "before": "crates/pricing-aad/src/workspace.rs",
+    "after": "crates/pricing/src/engine/aad/workspace.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "aligned_buffer_uses_eight_lane_padding_and_masks_access",
+    "before": "crates/pricing-aad/src/workspace.rs",
+    "after": "crates/pricing/src/engine/aad/workspace.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "soa_slots_have_distinct_aligned_primal_and_adjoint_rows",
+    "before": "crates/pricing-aad/src/workspace.rs",
+    "after": "crates/pricing/src/engine/aad/workspace.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "custom_holidays_are_sorted_and_deduplicated",
+    "before": "crates/pricing-core/src/calendar.rs",
+    "after": "crates/pricing/src/core/calendar.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "adjustments_follow_weekends_and_holidays",
+    "before": "crates/pricing-core/src/calendar.rs",
+    "after": "crates/pricing/src/core/calendar.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "parser_is_strict_and_validates_calendar_dates",
+    "before": "crates/pricing-core/src/date.rs",
+    "after": "crates/pricing/src/core/date.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "ordinal_difference_handles_leap_years_and_direction",
+    "before": "crates/pricing-core/src/date.rs",
+    "after": "crates/pricing/src/core/date.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "weekdays_have_a_fixed_gregorian_anchor",
+    "before": "crates/pricing-core/src/date.rs",
+    "after": "crates/pricing/src/core/date.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "next_and_previous_day_cross_boundaries",
+    "before": "crates/pricing-core/src/date.rs",
+    "after": "crates/pricing/src/core/date.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "day_counts_use_actual_calendar_days",
+    "before": "crates/pricing-core/src/date.rs",
+    "after": "crates/pricing/src/core/date.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "issue_collection_is_bounded_and_ordered",
+    "before": "crates/pricing-core/src/error.rs",
+    "after": "crates/pricing/src/core/error.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "empty_issue_collection_has_no_error",
+    "before": "crates/pricing-core/src/error.rs",
+    "after": "crates/pricing/src/core/error.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "ids_preserve_values_and_stop_at_capacity",
+    "before": "crates/pricing-core/src/ids.rs",
+    "after": "crates/pricing/src/core/ids.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "schema_version_is_strictly_positive",
+    "before": "crates/pricing-core/src/ids.rs",
+    "after": "crates/pricing/src/core/ids.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "finite_value_preserves_signed_zero",
+    "before": "crates/pricing-core/src/number.rs",
+    "after": "crates/pricing/src/core/number.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "wrappers_enforce_their_domains",
+    "before": "crates/pricing-core/src/number.rs",
+    "after": "crates/pricing/src/core/number.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "root_and_tokens_follow_rfc_6901",
+    "before": "crates/pricing-core/src/pointer.rs",
+    "after": "crates/pricing/src/core/pointer.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "malformed_pointers_are_rejected",
+    "before": "crates/pricing-core/src/pointer.rs",
+    "after": "crates/pricing/src/core/pointer.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "validation_rejects_invalid_pillars",
+    "before": "crates/pricing-market/src/curve.rs",
+    "after": "crates/pricing/src/market/curve.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "interpolation_is_linear_in_log_discount",
+    "before": "crates/pricing-market/src/curve.rs",
+    "after": "crates/pricing/src/market/curve.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "right_extrapolation_extends_boundary_forward",
+    "before": "crates/pricing-market/src/curve.rs",
+    "after": "crates/pricing/src/market/curve.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_query_times_are_errors",
+    "before": "crates/pricing-market/src/curve.rs",
+    "after": "crates/pricing/src/market/curve.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "extrapolation_statistics_are_explicit",
+    "before": "crates/pricing-market/src/curve.rs",
+    "after": "crates/pricing/src/market/curve.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "affine_transform_preserves_event_formula_and_spot_strike_mapping",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "event_timeline_records_pre_and_post_jump_coordinates",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "f_state_post_dividend_check_uses_affine_coordinates",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fixed_cash_is_held_constant_when_spot_is_bumped",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dividend_events_validate_quotes_and_order",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "non_positive_post_dividend_spot_is_typed_error",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "matching_condition_uses_absolute_and_relative_tolerances",
+    "before": "crates/pricing-market/src/dividend.rs",
+    "after": "crates/pricing/src/market/dividend.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "interpolation_and_extrapolation_follow_v1_policy",
+    "before": "crates/pricing-market/src/essvi.rs",
+    "after": "crates/pricing/src/market/essvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_slices_and_inconsistent_pairs_are_rejected",
+    "before": "crates/pricing-market/src/essvi.rs",
+    "after": "crates/pricing/src/market/essvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_time_derivative_matches_central_difference",
+    "before": "crates/pricing-market/src/essvi.rs",
+    "after": "crates/pricing/src/market/essvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "forward_uses_one_canonical_carry_identity",
+    "before": "crates/pricing-market/src/forward.rs",
+    "after": "crates/pricing/src/market/forward.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "discrete_dividends_keep_f_forward_canonical_and_map_spot_contract_forward",
+    "before": "crates/pricing-market/src/forward.rs",
+    "after": "crates/pricing/src/market/forward.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bumped_spot_recompiles_discrete_dividends_with_fixed_cash_held_constant",
+    "before": "crates/pricing-market/src/forward.rs",
+    "after": "crates/pricing/src/market/forward.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "curve_regions_are_retained_for_diagnostics",
+    "before": "crates/pricing-market/src/forward.rs",
+    "after": "crates/pricing/src/market/forward.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_variance_value_count_rejects_overflow",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dupire_grid_reproduces_constant_variance_surface",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dupire_grid_initial_row_uses_first_positive_surface_time",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "raw_local_variance_is_repaired_in_priority_order",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "finite_repairs_are_recorded_in_row_major_order",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bilinear_interpolation_and_transpose_use_same_weights",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "horizontal_extrapolation_is_flat_at_boundary",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "boundary_stats_record_counts_and_maximum_excursions",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "piecewise_sinh_nodes_are_strictly_ordered_with_exact_atm",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "piecewise_sinh_nodes_reject_invalid_boundaries_counts_and_shapes",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "density_helper_materializes_rectangular_tail_covering_nodes",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "density_helper_rejects_invalid_tail_inputs",
+    "before": "crates/pricing-market/src/local_variance.rs",
+    "after": "crates/pricing/src/market/local_variance.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pchip_preserves_knots_and_monotonicity",
+    "before": "crates/pricing-market/src/pchip.rs",
+    "after": "crates/pricing/src/market/pchip.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pchip_derivative_matches_central_difference",
+    "before": "crates/pricing-market/src/pchip.rs",
+    "after": "crates/pricing/src/market/pchip.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "extrapolation_rules_are_explicit",
+    "before": "crates/pricing-market/src/pchip.rs",
+    "after": "crates/pricing/src/market/pchip.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_theta_curves_are_rejected",
+    "before": "crates/pricing-market/src/pchip.rs",
+    "after": "crates/pricing/src/market/pchip.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "plateau_has_zero_adjacent_derivatives",
+    "before": "crates/pricing-market/src/pchip.rs",
+    "after": "crates/pricing/src/market/pchip.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "heston_small_theta_branch_has_stable_limit",
+    "before": "crates/pricing-market/src/ssvi.rs",
+    "after": "crates/pricing/src/market/ssvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_family_parameters_are_rejected",
+    "before": "crates/pricing-market/src/ssvi.rs",
+    "after": "crates/pricing/src/market/ssvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_derivatives_match_finite_differences",
+    "before": "crates/pricing-market/src/ssvi.rs",
+    "after": "crates/pricing/src/market/ssvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_queries_are_rejected",
+    "before": "crates/pricing-market/src/ssvi.rs",
+    "after": "crates/pricing/src/market/ssvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "non_positive_density_factor_is_rejected",
+    "before": "crates/pricing-market/src/ssvi.rs",
+    "after": "crates/pricing/src/market/ssvi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "essvi_matches_v1_interpolation_fixture",
+    "before": "crates/pricing-market/tests/essvi_reference.rs",
+    "after": "crates/pricing/tests/market_essvi_reference.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cubic_quote_transpose_matches_every_quote_bump_and_spatial_derivatives",
+    "before": "crates/pricing-market/tests/market_iv.rs",
+    "after": "crates/pricing/tests/market_market_iv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "market_iv_interpolates_quotes_and_rejects_invalid_domains",
+    "before": "crates/pricing-market/tests/market_iv.rs",
+    "after": "crates/pricing/tests/market_market_iv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "standard_ssvi_matches_v1_reference_fixture",
+    "before": "crates/pricing-market/tests/standard_ssvi_reference.rs",
+    "after": "crates/pricing/tests/market_standard_ssvi_reference.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "interval_matches_log_brownian_bridge_formula",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "up_and_down_are_symmetric_under_reciprocal_coordinates",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_endpoint_matches_p0_amendment_reference_points",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_endpoint_reverse_matches_central_differences",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_up_endpoint_rejects_an_invalid_log_domain",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_interval_matches_exact_bridge_outside_the_band",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_interval_reverse_matches_central_differences",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reverse_matches_central_differences",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "endpoint_touch_and_zero_variance_are_deterministic",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "extreme_exponents_have_typed_deterministic_outcomes",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "transformed_barrier_uses_affine_f_coordinate",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "path_accumulates_in_log_space_and_reverses_every_interval",
+    "before": "crates/pricing-mc/src/barrier_bridge.rs",
+    "after": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "uniform_grid_uses_variance_then_earlier_time_order",
+    "before": "crates/pricing-mc/src/bridge.rs",
+    "after": "crates/pricing/src/engine/sampling/bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "nonuniform_coefficients_are_compiled_once",
+    "before": "crates/pricing-mc/src/bridge.rs",
+    "after": "crates/pricing/src/engine/sampling/bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "forward_transform_matches_known_uniform_bridge",
+    "before": "crates/pricing-mc/src/bridge.rs",
+    "after": "crates/pricing/src/engine/sampling/bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "factors_are_rank_major_on_input_and_interval_major_on_output",
+    "before": "crates/pricing-mc/src/bridge.rs",
+    "after": "crates/pricing/src/engine/sampling/bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reverse_is_the_exact_transpose_of_forward_linear_map",
+    "before": "crates/pricing-mc/src/bridge.rs",
+    "after": "crates/pricing/src/engine/sampling/bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_grids_dimensions_and_lengths_are_rejected",
+    "before": "crates/pricing-mc/src/bridge.rs",
+    "after": "crates/pricing/src/engine/sampling/bridge.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pseudo_path_count_means_independent_units",
+    "before": "crates/pricing-mc/src/config.rs",
+    "after": "crates/pricing/src/engine/mc/config.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rqmc_requires_power_of_two_and_defaults_to_sixteen_scrambles",
+    "before": "crates/pricing-mc/src/config.rs",
+    "after": "crates/pricing/src/engine/mc/config.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rounding_helper_does_not_mutate_explicit_input",
+    "before": "crates/pricing-mc/src/config.rs",
+    "after": "crates/pricing/src/engine/mc/config.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "policy_validates_and_records_resolved_values",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fixed_blocks_are_contiguous_and_independent_of_worker_count",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "worker_count_and_completion_order_do_not_change_result_bits",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "empty_execution_has_positive_zero_bits",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fallible_statistics_keep_sampling_unit_order_and_centered_moments",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "tiled_array_reduction_is_bitwise_stable_across_workers_and_tiles",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "aad_workspace_is_aligned_zeroed_and_reused_by_logical_lane",
+    "before": "crates/pricing-mc/src/execution.rs",
+    "after": "crates/pricing/src/engine/mc/execution.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "event_substep_grid_preserves_events_and_maximum_step",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "event_substep_grid_rejects_missing_or_invalid_inputs",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dividend_event_times_are_checkpoint_nodes_with_coordinates",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dividend_checkpoint_schedule_rejects_missing_event_nodes",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "log_euler_validates_dividend_spots_without_jumping_f_state",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "log_euler_returns_typed_error_for_non_positive_post_dividend_spot",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dividend_reverse_cache_uses_post_jump_affine_f_derivative",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "log_euler_matches_constant_variance_closed_form_for_frozen_shocks",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "log_euler_applies_compiled_forward_carry",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "log_euler_records_boundary_use_from_grid_interpolation",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reverse_terminal_preserves_primal_and_matches_finite_differences",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reverse_deposits_local_variance_adjoint_with_interpolation_weights",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "path_shocks_are_stable_by_path_and_dimension",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "brownian_bridge_shocks_reuse_compiled_nonuniform_grid_convention",
+    "before": "crates/pricing-mc/src/local_vol.rs",
+    "after": "crates/pricing/src/engine/processes/local_vol.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "lsm_config_preserves_training_count_semantics",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "lsm_config_validates_state_variable_contract",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "training_metadata_rejects_non_training_random_domains",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "lsm_config_rejects_overlapping_rqmc_scrambles",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "lsm_configuration_fingerprint_is_canonical_and_complete",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "polynomial_basis_matches_e0_order_and_evaluation",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "polynomial_basis_checks_resource_limits_and_inputs",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "feature_scaling_matches_e0_fixture",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_and_itm_comparisons_are_strict_and_finite",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cpqr_matches_e0_reference_cases",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cpqr_rejects_invalid_shapes_values_and_tolerances",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "polynomial_regression_scales_features_and_predicts_in_original_basis_order",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "polynomial_regression_pre_excludes_inactive_feature_columns",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "polynomial_regression_checks_matrix_shape_and_limit_before_allocation",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_decision_fits_only_strictly_itm_training_rows",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_decision_stores_continue_all_for_zero_itm_rows",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_decision_reports_inactive_features_and_rank_exclusions",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_decision_application_uses_strict_comparison",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_decision_validates_every_candidate_before_zero_itm_shortcut",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "policy_training_runs_backward_and_preserves_ascending_decisions",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "policy_training_does_not_reuse_a_later_model_at_zero_itm_date",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "policy_training_supports_terminal_only_schedule_and_validates_shapes",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "frozen_policy_values_independent_paths_and_records_stopping_indices",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "frozen_policy_honors_continue_all_on_out_of_sample_itm_path",
+    "before": "crates/pricing-mc/src/lsm.rs",
+    "after": "crates/pricing/src/engine/mc/lsm.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "joe_kuo_words_match_known_first_three_dimensions",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "full_direction_range_is_available_and_strict",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "lms_rows_are_msb_first_unit_lower_triangular",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "compile_materializes_exact_scramble_dimension_product",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "point_zero_is_shift_and_midpoint_mapping_stays_open",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "replay_is_stable_and_coordinates_are_independent",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "scramble_abi_matches_known_answer_words",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "plan_rejects_invalid_coordinates_and_dimensions",
+    "before": "crates/pricing-mc/src/qmc.rs",
+    "after": "crates/pricing/src/engine/sampling/qmc.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "philox_matches_random123_zero_vector",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "seed_counter_and_lane_layout_are_explicit",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "adjacent_dimensions_use_the_four_output_lanes",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "domain_separates_streams_and_repeated_coordinates_are_stable",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "midpoint_mapping_is_open_at_both_ends",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "as241_matches_reference_quantiles_and_symmetry",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "antithetic_is_an_exact_sign_change",
+    "before": "crates/pricing-mc/src/random.rs",
+    "after": "crates/pricing/src/engine/sampling/random.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "simulated_innovations_reconstruct_all_joint_covariances",
+    "before": "crates/pricing-mc/tests/hull_white.rs",
+    "after": "crates/pricing/tests/mc_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "discount_curve_and_discounted_equity_are_martingales",
+    "before": "crates/pricing-mc/tests/hull_white.rs",
+    "after": "crates/pricing/tests/mc_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "singular_and_deterministic_limits_remain_valid",
+    "before": "crates/pricing-mc/tests/hull_white.rs",
+    "after": "crates/pricing/tests/mc_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "incompatible_small_market_variance_is_rejected_without_clipping",
+    "before": "crates/pricing-mc/tests/hull_white.rs",
+    "after": "crates/pricing/tests/mc_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "zero_vol_of_vol_reduces_to_lv_with_identical_spot_shocks",
+    "before": "crates/pricing-mc/tests/lsv.rs",
+    "after": "crates/pricing/tests/mc_lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "path_reverse_matches_spot_grid_and_both_gaussian_factors",
+    "before": "crates/pricing-mc/tests/lsv.rs",
+    "after": "crates/pricing/tests/mc_lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "calibration_vjp_matches_recalibration_and_includes_feedback",
+    "before": "crates/pricing-mc/tests/lsv.rs",
+    "after": "crates/pricing/tests/mc_lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "complete_price_path_to_target_vjp_matches_bump_recalibrate_reprice",
+    "before": "crates/pricing-mc/tests/lsv.rs",
+    "after": "crates/pricing/tests/mc_lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "independent_vanilla_repricing_and_martingale_check",
+    "before": "crates/pricing-mc/tests/lsv.rs",
+    "after": "crates/pricing/tests/mc_lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "time_knot_insertion_tail_policies_and_bad_inputs_are_explicit",
+    "before": "crates/pricing-mc/tests/lsv.rs",
+    "after": "crates/pricing/tests/mc_lsv.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rough_driver_covariance_adaptedness_and_singular_correlations",
+    "before": "crates/pricing-mc/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/mc_rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "hybrid_variance_refines_towards_the_volterra_variance",
+    "before": "crates/pricing-mc/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/mc_rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exact_ou_moments_and_brownian_limit",
+    "before": "crates/pricing-models/src/bergomi.rs",
+    "after": "crates/pricing/src/models/bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "parameter_boundaries_are_explicit",
+    "before": "crates/pricing-models/src/bergomi.rs",
+    "after": "crates/pricing/src/models/bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "black_scholes_allows_zero_volatility_limit",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "black_76_uses_same_constant_volatility_validation",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_volatility_explicit_grid_preserves_row_major_shape",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_volatility_can_retain_reporting_iv_basis",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reporting_iv_value_count_rejects_overflow",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_volatility_can_materialize_from_implied_variance_surface",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_volatility_can_materialize_reporting_basis_from_surface",
+    "before": "crates/pricing-models/src/spec.rs",
+    "after": "crates/pricing/src/models/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "joint_covariance_matches_independent_kernel_quadrature",
+    "before": "crates/pricing-models/tests/hull_white.rs",
+    "after": "crates/pricing/tests/models_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "ho_lee_limit_and_curve_fit_include_piecewise_volatility",
+    "before": "crates/pricing-models/tests/hull_white.rs",
+    "after": "crates/pricing/tests/models_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "validation_rejects_inconsistent_grids_and_correlations",
+    "before": "crates/pricing-models/tests/hull_white.rs",
+    "after": "crates/pricing/tests/models_hull_white.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rough_covariance_matches_independent_quadrature_and_ho_lee_limit",
+    "before": "crates/pricing-models/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/models_rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "rough_parameter_domains_and_kernel_cancellation_are_explicit",
+    "before": "crates/pricing-models/tests/rough_bergomi.rs",
+    "after": "crates/pricing/tests/models_rough_bergomi.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cdf_matches_reference_values_and_symmetry",
+    "before": "crates/pricing-numerics/src/normal.rs",
+    "after": "crates/pricing-numerics/src/normal.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "pdf_is_symmetric_and_has_known_atm_value",
+    "before": "crates/pricing-numerics/src/normal.rs",
+    "after": "crates/pricing-numerics/src/normal.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "infinities_have_distribution_limits",
+    "before": "crates/pricing-numerics/src/normal.rs",
+    "after": "crates/pricing-numerics/src/normal.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "neumaier_recovers_small_terms_and_has_fixed_merge_order",
+    "before": "crates/pricing-numerics/src/reduction.rs",
+    "after": "crates/pricing-numerics/src/reduction.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "two_pass_moments_use_the_compensated_mean",
+    "before": "crates/pricing-numerics/src/reduction.rs",
+    "after": "crates/pricing-numerics/src/reduction.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "balanced_tree_carries_an_unpaired_rightmost_partial",
+    "before": "crates/pricing-numerics/src/reduction.rs",
+    "after": "crates/pricing-numerics/src/reduction.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "centered_moment_merge_matches_known_sample",
+    "before": "crates/pricing-numerics/src/reduction.rs",
+    "after": "crates/pricing-numerics/src/reduction.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "centered_covariance_merge_matches_known_sample",
+    "before": "crates/pricing-numerics/src/reduction.rs",
+    "after": "crates/pricing-numerics/src/reduction.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "european_builder_executes_exact_call_and_put_payoffs",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_builder_emits_intrinsic_values_in_exercise_order",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_reverse_selects_one_exercise_output",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "european_reverse_returns_exact_terminal_adjoint",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_builder_executes_exact_cash_and_asset_payoffs",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_builder_executes_smoothed_cash_and_asset_payoffs_with_adjoints",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_exact_and_smoothed_graphs_remain_distinct",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "barrier_builder_executes_discrete_knock_out_and_knock_in_payoffs",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "barrier_builder_pays_rebate_when_vanilla_branch_is_inactive",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "barrier_hit_state_is_monotone_inclusive_and_limit_checked",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_barrier_knock_parity_and_reverse_hold_for_up_and_down",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smoothed_barrier_dividend_jump_matches_p0_fixture_and_reverse",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "arithmetic_asian_builder_executes_weighted_average_payoff",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "arithmetic_asian_is_invariant_to_weighted_observation_pair_permutation",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fixed_lookback_builder_executes_running_extremum_payoff",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fixed_lookback_payoff_is_monotone_under_monitoring_refinement",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "manual_and_standard_graphs_have_identical_fingerprints",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "input_order_does_not_change_kahn_order_or_fingerprints",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "dead_nodes_are_validated_before_removal",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "cycles_duplicate_ids_unknown_references_and_limits_are_errors",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "constant_fold_preserves_node_identity_and_signed_zero",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smooth_indicator_executes_and_reverses_the_p0_kernel",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smooth_extrema_execute_and_reverse_as_a_paired_partition",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "smooth_constant_folding_and_fingerprints_include_half_width",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "existing_exact_payoff_fingerprint_is_unchanged",
+    "before": "crates/pricing-product/src/graph.rs",
+    "after": "crates/pricing/src/engine/payoff/tests.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "indicator_and_positive_part_match_p0_reference_points",
+    "before": "crates/pricing-product/src/smoothing.rs",
+    "after": "crates/pricing/src/product/smoothing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "indicator_and_positive_part_obey_exterior_branches",
+    "before": "crates/pricing-product/src/smoothing.rs",
+    "after": "crates/pricing/src/product/smoothing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "extrema_are_symmetric_translation_equivariant_and_partition_the_sum",
+    "before": "crates/pricing-product/src/smoothing.rs",
+    "after": "crates/pricing/src/product/smoothing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_derivatives_match_central_differences_inside_the_band",
+    "before": "crates/pricing-product/src/smoothing.rs",
+    "after": "crates/pricing/src/product/smoothing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "invalid_half_widths_are_rejected",
+    "before": "crates/pricing-product/src/smoothing.rs",
+    "after": "crates/pricing/src/product/smoothing.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "american_contract_requires_strict_schedule_ending_at_expiry",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "business_day_schedule_materializes_adjusted_boundaries_and_holidays",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "exercise_events_record_post_dividend_collision_order",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "european_contract_requires_positive_strike_and_notional",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "digital_contract_requires_positive_strike_and_payout",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "barrier_contract_validates_monitoring_and_payment_dates",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "arithmetic_asian_contract_validates_schedule_and_weights",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "fixed_lookback_contract_validates_monitoring_and_payment_dates",
+    "before": "crates/pricing-product/src/spec.rs",
+    "after": "crates/pricing/src/product/spec.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "boundary_uses_facade_version",
+    "before": "crates/pricing-python/src/lib.rs",
+    "after": "crates/pricing-python/src/lib.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "python_schema_helpers_return_bundled_schemas",
+    "before": "crates/pricing-python/src/lib.rs",
+    "after": "crates/pricing-python/src/lib.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "wire_errors_have_stable_issue_codes",
+    "before": "crates/pricing-python/src/lib.rs",
+    "after": "crates/pricing-python/src/lib.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "gamma_bump_and_aad_overrides_are_positive",
+    "before": "crates/pricing-risk/src/request.rs",
+    "after": "crates/pricing/src/risk/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "payoff_smoothing_is_explicit_and_positive",
+    "before": "crates/pricing-risk/src/request.rs",
+    "after": "crates/pricing/src/risk/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "payoff_smoothing_width_ladder_preserves_strict_user_order",
+    "before": "crates/pricing-risk/src/request.rs",
+    "after": "crates/pricing/src/risk/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "vega_kt_grid_is_explicit_and_strictly_increasing",
+    "before": "crates/pricing-risk/src/request.rs",
+    "after": "crates/pricing/src/risk/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "gamma_ladder_preserves_bump_kind_and_scales",
+    "before": "crates/pricing-risk/src/request.rs",
+    "after": "crates/pricing/src/risk/request.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "active_domain_is_connected_component_containing_forward",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "forward_node_uses_lower_index_on_absolute_tie",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "active_domain_errors_when_forward_does_not_qualify",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "active_domain_rejects_invalid_density_grid",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_call_density_row_samples_surface_and_reports_excluded_mass",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_call_density_row_propagates_surface_errors",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_call_density_rows_materialize_every_operator_maturity",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "analytic_call_density_rows_reject_forward_shape_mismatch",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "mass_lumped_hat_areas_match_piecewise_linear_basis_integrals",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "local_vega_density_divides_node_adjoints_by_hat_areas",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "equation_11_recovers_local_gamma_with_metadata",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "equation_11_converts_log_moneyness_density_to_strike_density",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "equation_11_rejects_invalid_positive_inputs",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "equation_11_refinement_diagnostics_reports_first_order_behavior",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "equation_11_refinement_diagnostics_rejects_invalid_shapes_and_steps",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "transition_cells_conserve_probability_and_match_lognormal_first_moment",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "transition_cells_reject_invalid_strikes",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "transition_operator_preserves_constant_gamma_with_kernel_normalization",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "transition_operator_matches_linear_gamma_reconstruction",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "transition_operator_rejects_gamma_length_mismatch",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reporting_iv_basis_interpolates_bilinearly_and_projects_transpose_weights",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reporting_iv_basis_samples_implied_volatility_surface_row_major",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reporting_iv_basis_propagates_surface_sampling_errors",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reporting_iv_basis_assigns_out_of_range_log_moneyness_to_edges",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "reporting_iv_basis_rejects_invalid_shapes_and_time_queries",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "projection_keeps_outside_active_domain_in_residual",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "projection_records_reporting_edge_assignments_for_active_nodes",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "projection_exposes_market_scaled_buckets",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "report_preserves_coordinates_units_projection_and_optional_covariance",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "report_omits_full_covariance_unless_requested_and_validates_shapes",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "report_rejects_projection_that_does_not_reconcile",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "report_from_samples_builds_estimates_and_respects_covariance_request",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "report_from_samples_rejects_incomplete_ordered_sample_rows",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bucket_estimates_report_raw_market_scaled_variance_and_price_covariance",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "bucket_estimates_reject_empty_or_mismatched_samples",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "full_bucket_covariance_is_row_major_and_symmetric",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  },
+  {
+    "name": "full_bucket_covariance_requires_ordered_complete_rows",
+    "before": "crates/pricing-risk/src/vegakt.rs",
+    "after": "crates/pricing/src/engine/risk/vegakt.rs",
+    "ignored_by_default": false
+  }
+]

@@ -34,9 +34,9 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 | Included requirement | Direct evidence | Result |
 |---|---|---|
 | Explicit increasing American Call/Put exercise schedule containing expiry | `AmericanVanillaSpec` validation and product tests | Covered |
-| Calendar-aware Weekend-plus-Custom-holidays schedule materialization | schedule construction and adjustment-collision tests in `pricing-product` | Covered |
+| Calendar-aware Weekend-plus-Custom-holidays schedule materialization | schedule construction and adjustment-collision tests in `pricing::product` | Covered |
 | Post-dividend exercise at a collision | `exercise_events_record_post_dividend_collision_order` and compiled `dividend_collisions` diagnostics | Covered |
-| Strict exercise and ITM comparisons with equality continuing | independent Decimal fixture and `pricing-mc::lsm` decision tests | Covered |
+| Strict exercise and ITM comparisons with equality continuing | independent Decimal fixture and `pricing::engine::mc::lsm` decision tests | Covered |
 | Deterministic total-degree basis and original-order coefficients | basis fixture, exponent tests, regression model diagnostics | Covered |
 | Training-ITM scaling and pure-Rust deterministic CPQR | Decimal reference checker plus scaling, pivot, rank, and residual tests | Covered |
 | Checked dimensions, tolerances, and allocations | LSM error tests and configured matrix-element limit | Covered |

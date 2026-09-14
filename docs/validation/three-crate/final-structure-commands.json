@@ -1,0 +1,55 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exit_code": 0,
+    "seconds": 0.7663629049930023
+  },
+  {
+    "name": "tests-default",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace"
+    ],
+    "exit_code": 0,
+    "seconds": 34.93808728099975
+  },
+  {
+    "name": "tests-all",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--workspace",
+      "--all-features",
+      "--exclude",
+      "pricing-python"
+    ],
+    "exit_code": 0,
+    "seconds": 35.89425160999963
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "seconds": 3.2378363749958226
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "case": "valid",
+    "exit_code": 0,
+    "output": "workspace dependency direction is valid\n"
+  },
+  {
+    "case": "numerics_depends_on_pricing",
+    "exit_code": 1,
+    "output": "dependency-direction error: pricing-numerics (level 0) depends upward on pricing (level 1)\ndependency-direction error: pricing-numerics must depend on exactly []\n"
+  },
+  {
+    "case": "old_crate_dependency",
+    "exit_code": 1,
+    "output": "dependency-direction error: pricing depends on removed crates: ['pricing-core']\n"
+  },
+  {
+    "case": "python_in_pricing",
+    "exit_code": 1,
+    "output": "dependency-direction error: pricing must not depend on Python bindings\n"
+  }
+]
