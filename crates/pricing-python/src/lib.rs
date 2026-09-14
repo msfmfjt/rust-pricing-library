@@ -1226,9 +1226,11 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<multi_asset::PyMultiAssetPrice>()?;
     module.add_class::<multi_asset::PyMultiAssetRisk>()?;
     module.add_class::<multi_asset_lsv::PyMultiAssetLsvConfig>()?;
+    module.add_class::<multi_asset_lsv::PyMultiAssetLsv2FactorConfig>()?;
     module.add_class::<multi_asset_lsv::PyMultiAssetLsvCalibration>()?;
     module.add_class::<multi_asset_lsv::PyMultiAssetLsvRisk>()?;
     module.add_class::<lsv::PyBergomiLsvPlan>()?;
+    module.add_class::<lsv::PyBergomi2FactorLsvPlan>()?;
     module.add_class::<lsv::PyLsvPrice>()?;
     module.add_class::<lsv::PyLsvLocalVarianceRisk>()?;
     module.add_class::<hull_white::PyRoughBergomiModel>()?;

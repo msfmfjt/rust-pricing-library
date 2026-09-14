@@ -7,7 +7,7 @@ use pricing::market::{
 };
 use pricing::mc::lsv::LsvParticleConfig;
 use pricing::mc::{EngineConfig, ExecutionPolicy, PseudoMcConfig, RqmcConfig, VarianceReduction};
-use pricing::models::Bergomi1Factor;
+use pricing::models::{Bergomi1Factor, Bergomi2Factor};
 use pricing::models::{BlackScholesSpec, LocalVolatilitySpec, ModelSpec};
 use pricing::multi_asset::*;
 use pricing::product::{CompactC2Smoothing, OptionSide, SourceGraphBuilder, SourceOpcode};
@@ -1166,6 +1166,24 @@ fn multi_lsv_exact_joint_covariance_matches_independent_quadrature_on_dated_grid
 
 #[test]
 fn multi_lsv_recalibrated_all_target_buckets_spot_and_cross_gamma_match_crn() {
+    check_recalibrated_lsv(
+        lsv_configs(0.3)
+            .into_iter()
+            .map(|c| c.map(Into::into))
+            .collect(),
+        full_lsv_correlation(),
+    );
+}
+
+#[test]
+fn multi_two_factor_recalibrated_buckets_spot_gamma_and_worker_replay() {
+    check_recalibrated_lsv(two_factor_configs(0.3), vec![two_factor_full()]);
+}
+
+fn check_recalibrated_lsv(
+    configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+    full: Vec<Vec<Vec<f64>>>,
+) {
     let targets = lsv_targets();
     let markets = vec![
         market(
@@ -1198,15 +1216,17 @@ fn multi_lsv_recalibrated_all_target_buckets_spot_and_cross_gamma_match_crn() {
         ),
     ];
     let build = |m: Vec<EquityMarket>, v: Vec<Vec<f64>>, workers| {
-        compile_lsv(
+        MultiAssetPricingPlan::compile_with_bergomi_lsv(
+            today(),
             basket(&[0.6, 0.4], 96.0, Some(3.0)),
             m,
             v.into_iter().map(lv).collect(),
             corr(2, 0.4),
             rqmc(128, true),
-            workers,
-            lsv_configs(0.3),
-            Some(full_lsv_correlation()),
+            ExecutionPolicy::new(workers, Some(256)).unwrap(),
+            0.25,
+            configs.clone(),
+            Some(full.clone()),
         )
         .unwrap()
     };
@@ -1467,4 +1487,120 @@ fn multi_lsv_validates_joint_inputs_future_entries_and_no_lsv_compatibility() {
         )
         .is_err()
     );
+}
+
+fn two_factor_configs(nu: f64) -> Vec<Option<MultiAssetBergomiLsvConfig>> {
+    [
+        ([4.0, 0.35], nu, 0.3, [-0.65, -0.25], 0.5),
+        ([2.2, 0.12], 0.8 * nu, 0.65, [-0.35, -0.1], 0.25),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, (k, nu, theta, r, r12))| {
+        Some(
+            MultiAssetLsv2FactorConfig {
+                factor: Bergomi2Factor::new(k, nu, theta, r, r12).unwrap(),
+                particles: LsvParticleConfig::new(512, 401 + i as u64, 0.8, 2.0, true).unwrap(),
+            }
+            .into(),
+        )
+    })
+    .collect()
+}
+fn two_factor_full() -> Vec<Vec<f64>> {
+    vec![
+        vec![1.0, 0.4, -0.65, -0.25, 0.1, -0.05],
+        vec![0.4, 1.0, -0.15, -0.05, -0.35, -0.1],
+        vec![-0.65, -0.15, 1.0, 0.5, 0.2, 0.04],
+        vec![-0.25, -0.05, 0.5, 1.0, 0.03, 0.15],
+        vec![0.1, -0.35, 0.2, 0.03, 1.0, 0.25],
+        vec![-0.05, -0.1, 0.04, 0.15, 0.25, 1.0],
+    ]
+}
+#[test]
+fn multi_two_factor_covariance_dates_default_marginals_and_rejection_contract() {
+    let build = |c, full| {
+        MultiAssetPricingPlan::compile_with_bergomi_lsv(
+            today(),
+            basket(&[0.6, 0.4], 96.0, Some(3.0)),
+            vec![
+                market(1, 100.0, 0.0, 0.0, vec![]),
+                market(2, 90.0, 0.0, 0.0, vec![]),
+            ],
+            lsv_targets().into_iter().map(lv).collect(),
+            c,
+            rqmc(32, true),
+            ExecutionPolicy::new(1, Some(64)).unwrap(),
+            0.25,
+            two_factor_configs(0.3),
+            full,
+        )
+    };
+    let default = build(corr(2, 0.4), None).unwrap();
+    assert_eq!(default.random_factor_count(), 6);
+    assert_eq!(default.lsv_volatility_factor_counts(), vec![2, 2]);
+    assert!(default.lsv_calibrations().iter().all(Option::is_none));
+    assert!(
+        default
+            .lsv_two_factor_calibrations()
+            .iter()
+            .all(Option::is_some)
+    );
+    let c = default.lsv_driver_correlations()[0].canonical();
+    assert_eq!(c[2 * 6 + 3], 0.5);
+    assert_eq!(c[4 * 6 + 5], 0.25);
+    near(c[2 * 6 + 4], (-0.65) * (-0.35) * 0.4, 1e-16);
+    near(c[5], (-0.1) * 0.4, 1e-16);
+    let dated = CorrelationTermStructure::new(
+        vec![u(1), u(2)],
+        vec![
+            (today(), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+            (d("2026-07-01"), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+            (d("2028-01-01"), vec![vec![1.0, 0.4], vec![0.4, 1.0]]),
+        ],
+        tol(),
+    )
+    .unwrap();
+    let mut full = vec![two_factor_full(); 3];
+    full[1][0][4] = 0.05;
+    full[1][4][0] = 0.05;
+    let plan = build(dated.clone(), Some(full.clone())).unwrap();
+    let k = [0.0, 0.0, 4.0, 0.35, 2.2, 0.12];
+    for (step, w) in plan.time_nodes().windows(2).enumerate() {
+        let dt = w[1] - w[0];
+        let r = &full[plan.correlation_entry_indices()[step]];
+        let cov = &plan.lsv_transition_covariances()[step];
+        for i in 0..6 {
+            for j in 0..6 {
+                let n = 1000;
+                let h = dt / n as f64;
+                let integral = (0..=n)
+                    .map(|p| {
+                        let weight = if p == 0 || p == n {
+                            1.0
+                        } else if p % 2 == 0 {
+                            2.0
+                        } else {
+                            4.0
+                        };
+                        weight * (-(k[i] + k[j]) * p as f64 * h).exp()
+                    })
+                    .sum::<f64>()
+                    * h
+                    / 3.0;
+                near(cov[i][j], r[i][j] * integral, 2e-13);
+            }
+        }
+    }
+    assert!(plan.correlation_entry_indices().contains(&1));
+    for (i, j) in [(0, 2), (0, 3), (1, 4), (1, 5), (2, 3), (4, 5)] {
+        let mut bad = full.clone();
+        bad[2][i][j] += 0.01;
+        bad[2][j][i] += 0.01;
+        assert!(build(dated.clone(), Some(bad)).is_err());
+    }
+    let mut bad = full.clone();
+    bad[2][2][4] = f64::NAN;
+    assert!(build(dated, Some(bad)).is_err());
+    assert!(build(corr(2, 0.4), Some(vec![vec![vec![1.0; 5]; 5]])).is_err());
 }

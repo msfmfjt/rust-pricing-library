@@ -11,7 +11,10 @@ use crate::mc::{
 };
 use crate::models::ModelSpec;
 use crate::product::CompiledPayoff;
-pub use lsv::{MultiAssetLsvConfig, MultiAssetLsvRisk};
+mod lsv_kernels;
+pub use lsv::{
+    MultiAssetBergomiLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
+};
 
 #[derive(Clone, Debug)]
 pub struct MultiAssetPricingPlan {

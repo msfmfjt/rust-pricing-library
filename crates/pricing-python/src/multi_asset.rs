@@ -1,8 +1,6 @@
 use crate::builders::{PyEngine, PyMarket, PyModel, date_from_python, option_side};
 use crate::diagnostics::PyDiagnosticEstimate;
-use crate::multi_asset_lsv::{
-    PyMultiAssetLsvCalibration, PyMultiAssetLsvConfig, PyMultiAssetLsvRisk,
-};
+use crate::multi_asset_lsv::{PyMultiAssetLsvCalibration, PyMultiAssetLsvRisk, extract_lsv_config};
 use crate::{PyValidationIssue, pricing_exception, validation_exception};
 use pricing::core::{CurrencyId, UnderlyingId};
 use pricing::market::{CorrelationTermStructure, CorrelationToleranceConfig};
@@ -355,7 +353,7 @@ impl PyMultiAssetPlan {
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: u64,
-        lsv_configs: Option<Vec<Option<Py<PyMultiAssetLsvConfig>>>>,
+        lsv_configs: Option<Vec<Option<Py<PyAny>>>>,
         driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
     ) -> PyResult<Self> {
         let date = date_from_python(py, valuation_date, "/multi_asset/valuation_date")?;
@@ -364,9 +362,10 @@ impl PyMultiAssetPlan {
         let lsv = lsv_configs
             .map(|v| {
                 v.into_iter()
-                    .map(|c| c.map(|c| c.borrow(py).inner.clone()))
-                    .collect()
+                    .map(|c| c.map(|c| extract_lsv_config(py, c.bind(py))).transpose())
+                    .collect::<PyResult<Vec<_>>>()
             })
+            .transpose()?
             .unwrap_or_else(|| vec![None; models.len()]);
         let product = product.inner.clone();
         let markets = markets
@@ -380,7 +379,7 @@ impl PyMultiAssetPlan {
         let correlation = correlations.inner.clone();
         let engine = engine.inner;
         py.detach(|| {
-            MultiAssetPricingPlan::compile_with_lsv(
+            MultiAssetPricingPlan::compile_with_bergomi_lsv(
                 date,
                 product,
                 markets,
@@ -440,7 +439,8 @@ impl PyMultiAssetPlan {
         self.inner
             .lsv_calibrations()
             .into_iter()
-            .map(|c| c.map(Into::into))
+            .zip(self.inner.lsv_two_factor_calibrations())
+            .map(|(one, two)| one.map(Into::into).or_else(|| two.map(Into::into)))
             .collect()
     }
     #[getter]

@@ -50,6 +50,35 @@ impl MultiAssetPricingPlan {
         lsv_configs: Vec<Option<MultiAssetLsvConfig>>,
         driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
     ) -> Result<Self, E> {
+        Self::compile_with_bergomi_lsv(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv_configs.into_iter().map(|c| c.map(Into::into)).collect(),
+            driver_correlations,
+        )
+    }
+
+    /// Mixed one- and two-factor LSV. Driver order is all spots, followed by each
+    /// asset's volatility factors in configured order. Each marginal block is fixed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_bergomi_lsv(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+    ) -> Result<Self, E> {
         if markets.is_empty() || markets.len() != models.len() {
             return Err(E::Invalid("market/model dimensions differ"));
         }
@@ -182,7 +211,13 @@ impl MultiAssetPricingPlan {
         let times = grid.nodes().to_vec();
         let dimension = markets
             .len()
-            .checked_add(lsv_configs.iter().filter(|c| c.is_some()).count())
+            .checked_add(
+                lsv_configs
+                    .iter()
+                    .flatten()
+                    .map(MultiAssetBergomiLsvConfig::factor_count)
+                    .sum(),
+            )
             .ok_or(E::Invalid("random factor count overflow"))?
             .checked_mul(grid.step_count())
             .and_then(|v| u32::try_from(v).ok())
@@ -356,20 +391,16 @@ impl MultiAssetPricingPlan {
                 _ => unreachable!("models validated"),
             }
             if let Some(lsv) = &a.lsv {
-                h.update(b"multi-asset-bergomi-lsv-unit-martingale-joint-ou-v1");
+                h.update(if lsv.calibration.factor_count() == 1 {
+                    b"multi-asset-bergomi-lsv-unit-martingale-joint-ou-v1"
+                } else {
+                    b"multi-asset-bergomi-two-factor-lsv-unit-martingale-joint-ou-v1"
+                });
                 let c = &lsv.calibration;
-                let f = c.factor();
+                let mut parameters = c.parameters();
                 let p = c.config();
-                floats(
-                    &mut h,
-                    &[
-                        f.mean_reversion(),
-                        f.vol_of_vol(),
-                        f.correlation(),
-                        p.log_bandwidth(),
-                        p.minimum_effective_samples(),
-                    ],
-                );
+                parameters.extend([p.log_bandwidth(), p.minimum_effective_samples()]);
+                floats(&mut h, &parameters);
                 h.update(&(p.particle_count() as u64).to_be_bytes());
                 h.update(&p.seed().to_be_bytes());
                 h.update(&[u8::from(p.retain_reverse_trace())]);

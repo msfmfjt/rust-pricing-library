@@ -2,8 +2,8 @@
 //! BS, Local Volatility and Bergomi LSV share correlated drivers and the payoff tape.
 //! The stable single-asset JSON request is unchanged; see `docs/multi-asset-v0.1.md`.
 pub use crate::engine::multi_asset::{
-    MultiAssetLsvConfig, MultiAssetLsvRisk, MultiAssetPrice, MultiAssetPricingPlan, MultiAssetRisk,
-    MultiAssetRiskConfig,
+    MultiAssetBergomiLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
+    MultiAssetPrice, MultiAssetPricingPlan, MultiAssetRisk, MultiAssetRiskConfig,
 };
 pub use crate::market::{CorrelationTermStructure, CorrelationToleranceConfig};
 pub use crate::product::multi_asset::{

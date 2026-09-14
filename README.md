@@ -54,6 +54,8 @@ stable numerical-branch counts.
 - [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
 - [Multi-asset pricing contracts](docs/multi-asset-v0.1.md)
 - [Multi-asset Bergomi LSV contracts](docs/multi-asset-lsv-v0.1.md)
+
+Two-factor Bergomi LSV is available for single-asset and mixed multi-asset plans, including calibrated target-variance AAD. See [the two-factor contract](docs/bergomi-two-factor-lsv-v0.1.md) and [the Python example](examples/python/multi_asset_bergomi_two_factor.py).
 - [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
@@ -79,8 +81,9 @@ Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 
-An experimental one-factor Bergomi LSV extension is available through Rust
-`pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan`. It calibrates
+An experimental one- or two-factor Bergomi LSV extension is available through Rust
+`pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan` /
+`Bergomi2FactorLsvPlan`. It calibrates
 an existing Local Volatility target with particles, prices with independent
 MC/RQMC paths, and differentiates the finite calibration to effective Dupire
 Local-variance nodes. It reuses the existing payoff graphs and affine dividends.

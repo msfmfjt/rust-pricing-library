@@ -1,7 +1,7 @@
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 use pricing::lsv::{BergomiLsvPricingPlan, LsvLocalVarianceRisk, LsvPrice};
 use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
-use pricing::models::Bergomi1Factor;
+use pricing::models::{Bergomi1Factor, Bergomi2Factor};
 use pyo3::prelude::*;
 
 #[pyclass(frozen, name = "BergomiLsvPlan", skip_from_py_object)]
@@ -39,6 +39,115 @@ impl PyBergomiLsvPlan {
         };
         let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
             .map_err(|e| issue(e.to_string()))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            retain_reverse_trace,
+        )
+        .map_err(|e| issue(e.to_string()))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| issue(e.to_string()))?;
+        let request = target_request.inner.clone();
+        py.detach(|| BergomiLsvPricingPlan::compile(&request, factor, particles, policy))
+            .map(|inner| Self { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
+        py.detach(|| self.inner.evaluate())
+            .map(|inner| PyLsvPrice { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_local_variance_risk(&self, py: Python<'_>) -> PyResult<PyLsvLocalVarianceRisk> {
+        py.detach(|| self.inner.evaluate_local_variance_risk())
+            .map(|inner| PyLsvLocalVarianceRisk { inner })
+            .map_err(pricing_exception)
+    }
+    #[getter]
+    fn plan_fingerprint(&self) -> String {
+        self.inner.plan_fingerprint().to_string()
+    }
+    #[getter]
+    fn time_nodes(&self) -> Vec<f64> {
+        self.inner.calibration().surface().times().to_vec()
+    }
+    #[getter]
+    fn log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.calibration().surface().log_nodes().to_vec()
+    }
+    #[getter]
+    fn squared_leverage(&self) -> Vec<f64> {
+        self.inner
+            .calibration()
+            .surface()
+            .squared_leverage()
+            .to_vec()
+    }
+    /// Per-time count of moment nodes using a supported neighbouring estimate.
+    #[getter]
+    fn extrapolated_moment_nodes(&self) -> Vec<usize> {
+        self.inner
+            .calibration()
+            .diagnostics()
+            .iter()
+            .map(|r| r.extrapolated_nodes)
+            .collect()
+    }
+    #[getter]
+    fn minimum_effective_samples(&self) -> Vec<f64> {
+        self.inner
+            .calibration()
+            .diagnostics()
+            .iter()
+            .map(|r| r.minimum_effective_samples)
+            .collect()
+    }
+}
+
+#[pyclass(frozen, name = "Bergomi2FactorLsvPlan", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyBergomi2FactorLsvPlan {
+    inner: BergomiLsvPricingPlan<Bergomi2Factor>,
+}
+
+#[pymethods]
+impl PyBergomi2FactorLsvPlan {
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(target_request, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, particle_count,
+        calibration_seed, log_bandwidth, minimum_effective_samples, retain_reverse_trace,
+        worker_threads, reduction_block_size=None))]
+    fn compile(
+        py: Python<'_>,
+        target_request: &PyPricingRequest,
+        mean_reversions: [f64; 2],
+        vol_of_vol: f64,
+        mixing_weight: f64,
+        spot_correlations: [f64; 2],
+        factor_correlation: f64,
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        retain_reverse_trace: bool,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let issue = |message: String| {
+            validation_exception(
+                py,
+                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
+            )
+        };
+        let factor = Bergomi2Factor::new(
+            mean_reversions,
+            vol_of_vol,
+            mixing_weight,
+            spot_correlations,
+            factor_correlation,
+        )
+        .map_err(|e| issue(e.to_string()))?;
         let particles = LsvParticleConfig::new(
             particle_count,
             calibration_seed,

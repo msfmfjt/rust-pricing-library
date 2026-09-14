@@ -1,7 +1,8 @@
 # Multi-asset Bergomi LSV v0.1
 
 This extends the [multi-asset API](multi-asset-v0.1.md) with particle-calibrated
-one-factor Bergomi LSV. BS, LV and LSV assets may coexist in one Basket,
+one- or two-factor Bergomi LSV. The [two-factor extension](bergomi-two-factor-lsv-v0.1.md)
+defines its parameters, mixed-factor APIs and marginal correlation blocks. BS, LV and LSV assets may coexist in one Basket,
 Worst-of or unseasoned Autocallable contract. The three-crate structure,
 single-asset APIs and stable JSON schemas are preserved. Rates remain
 deterministic; all assets use one currency and the same discount curve.
@@ -16,6 +17,7 @@ Rust: `MultiAssetPricingPlan::compile_with_lsv` takes the existing eight
 `None` retains that asset's BS/LV model. The original `compile` delegates with
 no LSV configurations and preserves its existing fingerprints and random draws.
 
+The following constructor description is for the original one-factor configuration.
 Python adds optional keywords `lsv_configs` and `driver_correlations` to
 `MultiAssetPlan.compile`. Supply one `MultiAssetLsvConfig` or `None` per asset.
 The immutable configuration requires `mean_reversion`, `vol_of_vol`,
@@ -61,7 +63,7 @@ mean flat-space leverage lookups, separately from LV boundary counts.
 
 ## Full driver correlations and exact joint transitions
 
-For N assets and M LSV assets, Brownian order is
+For the one-factor configuration with N assets and M LSV assets, Brownian order is
 `[W_1, ..., W_N, V_lsv1, ..., V_lsvM]`, with LSV assets in market order.
 `driver_correlations` contains one (N+M)-square matrix for **each** existing
 spot-correlation date, including dates beyond the pricing horizon. The dates
@@ -167,7 +169,8 @@ See the [runnable example](../examples/python/multi_asset_lsv.py),
 [Python verification](../tests/python/test_multi_asset_lsv.py). PR CI records
 native Linux/macOS/Windows validation for the published revision.
 
-Local verification on 2026-09-14, from main `b8b5d62`: Rust 1.98.1 on Linux
+Local verification of the initial one-factor revision `11fbd20` on 2026-09-14,
+from main `b8b5d62`: Rust 1.98.1 on Linux
 x86-64 passed all **461** default workspace tests and all **5** statistical
 acceptance tests. The installed release CPython 3.12 wheel passed the strict
 metadata/stub/runtime contract, all **69 Python tests**, and the three-product

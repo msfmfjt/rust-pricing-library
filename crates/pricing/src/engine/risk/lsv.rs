@@ -5,14 +5,14 @@
 use crate::core::PathIndex;
 use crate::market::LocalVarianceGrid;
 use crate::mc::lsv::{
-    BERGOMI_LSV_SCHEME, BergomiLsvPlan, CalibratedBergomiLsv, LSV_CALIBRATION_REVERSE, LsvError,
-    LsvParticleConfig, calibrate_bergomi_lsv,
+    BERGOMI_LSV_SCHEME, BERGOMI_TWO_FACTOR_LSV_SCHEME, BergomiLsvPlan, CalibratedBergomiLsv,
+    LSV_CALIBRATION_REVERSE, LsvError, LsvParticleConfig, calibrate_bergomi_lsv,
 };
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, RandomDomain, RqmcPlan, VarianceReduction, inverse_standard_normal,
 };
-use crate::models::{Bergomi1Factor, ModelSpec};
+use crate::models::{Bergomi1Factor, BergomiDynamics, ModelSpec};
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,10 +43,10 @@ pub struct LsvLocalVarianceRisk {
 type RiskOutput = Option<(Vec<f64>, Option<Vec<f64>>)>;
 
 #[derive(Clone, Debug)]
-pub struct BergomiLsvPricingPlan {
+pub struct BergomiLsvPricingPlan<F: BergomiDynamics = Bergomi1Factor> {
     base: SimulationPlan,
-    calibration: CalibratedBergomiLsv,
-    path_plan: BergomiLsvPlan,
+    calibration: CalibratedBergomiLsv<F>,
+    path_plan: BergomiLsvPlan<F>,
     original_target: LocalVarianceGrid,
     engine: EngineConfig,
     policy: ExecutionPolicy,
@@ -54,14 +54,14 @@ pub struct BergomiLsvPricingPlan {
     fingerprint: Fingerprint,
 }
 
-impl BergomiLsvPricingPlan {
+impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
     /// `target_request.model` is the Dupire LocalVolatility target. The request
     /// must be Price-only: use `evaluate_local_variance_risk` explicitly for the
     /// new derivative contract. All product, smoothing and dividend semantics
     /// are compiled by the existing public request path.
     pub fn compile(
         target_request: &PricingRequest,
-        factor: Bergomi1Factor,
+        factor: F,
         particles: LsvParticleConfig,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
@@ -98,15 +98,16 @@ impl BergomiLsvPricingPlan {
         let calibration = calibrate_bergomi_lsv(&refined, factor, initial_f, particles)?;
         let path_plan = calibration.pricing_plan(grid)?;
         let mut hash = blake3::Hasher::new();
-        hash.update(b"pricing/bergomi-lsv-plan/v1\0");
+        hash.update(if F::FACTOR_COUNT == 1 {
+            b"pricing/bergomi-lsv-plan/v1\0"
+        } else {
+            b"pricing/bergomi-two-factor-lsv-plan/v1\0"
+        });
         hash.update(base.plan_fingerprint().as_bytes());
-        for v in [
-            factor.mean_reversion(),
-            factor.vol_of_vol(),
-            factor.correlation(),
+        for v in factor.parameters().into_iter().chain([
             calibration.config().log_bandwidth(),
             calibration.config().minimum_effective_samples(),
-        ] {
+        ]) {
             hash.update(&v.to_bits().to_be_bytes());
         }
         hash.update(&(calibration.config().particle_count() as u64).to_be_bytes());
@@ -131,7 +132,7 @@ impl BergomiLsvPricingPlan {
     }
 
     #[must_use]
-    pub fn calibration(&self) -> &CalibratedBergomiLsv {
+    pub fn calibration(&self) -> &CalibratedBergomiLsv<F> {
         &self.calibration
     }
     #[must_use]
@@ -202,15 +203,15 @@ impl BergomiLsvPricingPlan {
         bridge: Option<&BrownianBridgePlan>,
     ) -> Result<Vec<f64>, MonteCarloError> {
         if let Some(bridge) = bridge {
-            let n = shocks.len() / 2;
-            let mut out = bridge
-                .apply_one_factor(&shocks[..n])
-                .map_err(|e| MonteCarloError::LocalVol(e.into()))?;
-            out.extend(
-                bridge
-                    .apply_one_factor(&shocks[n..])
-                    .map_err(|e| MonteCarloError::LocalVol(e.into()))?,
-            );
+            let n = self.path_plan.times().len() - 1;
+            let mut out = Vec::with_capacity(shocks.len());
+            for block in shocks.chunks_exact(n) {
+                out.extend(
+                    bridge
+                        .apply_one_factor(block)
+                        .map_err(|e| MonteCarloError::LocalVol(e.into()))?,
+                );
+            }
             Ok(out)
         } else {
             Ok(shocks)
@@ -282,12 +283,11 @@ impl BergomiLsvPricingPlan {
             }
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
                 let dimension =
-                    u32::try_from(2 * (self.path_plan.times().len() - 1)).map_err(|_| {
-                        LsvError::InvalidInput {
+                    u32::try_from((1 + F::FACTOR_COUNT) * (self.path_plan.times().len() - 1))
+                        .map_err(|_| LsvError::InvalidInput {
                             field: "random_dimension",
                             index: 0,
-                        }
-                    })?;
+                        })?;
                 let qmc = RqmcPlan::compile(engine, dimension)?;
                 let bridge = self.bridge(engine.variance_reduction())?;
                 let n = engine.points_per_scramble().get();
@@ -365,7 +365,11 @@ impl BergomiLsvPricingPlan {
             evaluated_paths: paths,
             calibration_seed: self.calibration.config().seed(),
             plan_fingerprint: self.fingerprint,
-            scheme: BERGOMI_LSV_SCHEME,
+            scheme: if F::FACTOR_COUNT == 1 {
+                BERGOMI_LSV_SCHEME
+            } else {
+                BERGOMI_TWO_FACTOR_LSV_SCHEME
+            },
         };
         Ok((price, risk_output))
     }

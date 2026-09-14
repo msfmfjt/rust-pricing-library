@@ -1,5 +1,5 @@
 //! Bergomi particle calibration and its discrete reverse.
-//! Particle-calibrated one-factor Bergomi LSV in the continuous `f` coordinate.
+//! Particle-calibrated one- or two-factor Bergomi LSV in the continuous `f` coordinate.
 //!
 //! Calibration uses a compact quartic kernel in `log(f / f0)`, a versioned
 //! variation of SSRN 1885032 (20)-(21). Time interpolation is left-constant;
@@ -10,7 +10,7 @@
 use crate::engine::processes::lsv::*;
 use crate::market::LocalVarianceGrid;
 use crate::mc::{LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
-use crate::models::Bergomi1Factor;
+use crate::models::{Bergomi1Factor, BergomiDynamics};
 use pricing_numerics::NeumaierSum;
 
 #[derive(Clone, Debug)]
@@ -21,8 +21,8 @@ struct TraceRow {
 }
 
 #[derive(Clone, Debug)]
-pub struct CalibratedBergomiLsv {
-    factor: Bergomi1Factor,
+pub struct CalibratedBergomiLsv<F: BergomiDynamics = Bergomi1Factor> {
+    factor: F,
     config: LsvParticleConfig,
     target: LocalVarianceGrid,
     surface: LsvLeverageSurface,
@@ -49,12 +49,12 @@ fn quartic_derivative(u: f64) -> f64 {
 
 /// Sequential time march; the immutable calibrated object can subsequently be
 /// shared by Rayon pricing workers. Fixed particle identity determines reductions.
-pub fn calibrate_bergomi_lsv(
+pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
     target: &LocalVarianceGrid,
-    factor: Bergomi1Factor,
+    factor: F,
     initial_f: f64,
     config: LsvParticleConfig,
-) -> Result<CalibratedBergomiLsv, LsvError> {
+) -> Result<CalibratedBergomiLsv<F>, LsvError> {
     valid(initial_f, "initial_f", 0, true)?;
     if target.time_nodes()[0].to_bits() != 0.0f64.to_bits() {
         return Err(LsvError::InvalidInput {
@@ -70,7 +70,7 @@ pub fn calibrate_bergomi_lsv(
     let nstep = nt - 1;
     let rng = Philox4x32::from_seed(config.seed);
     let last_dimension = nstep
-        .checked_mul(2)
+        .checked_mul(1 + F::FACTOR_COUNT)
         .and_then(|n| u32::try_from(n).ok())
         .ok_or(LsvError::InvalidInput {
             field: "random_dimension",
@@ -80,7 +80,7 @@ pub fn calibrate_bergomi_lsv(
     let mut surface =
         LsvLeverageSurface::new(times.to_vec(), nodes.to_vec(), vec![1.0; nt * m], initial_f)?;
     let mut states = vec![initial_f; np];
-    let mut factors = vec![0.0; np];
+    let mut factors = vec![F::State::default(); np];
     let mut moments = Vec::with_capacity(nt * m);
     let mut diagnostics = Vec::with_capacity(nt);
     let mut trace = if config.retain_reverse_trace {
@@ -91,7 +91,7 @@ pub fn calibrate_bergomi_lsv(
     for r in 0..nt {
         let a = factors
             .iter()
-            .map(|x| (factor.vol_of_vol() * x).exp())
+            .map(|&x| factor.multiplier(x))
             .collect::<Vec<_>>();
         for (i, &v) in a.iter().enumerate() {
             valid(v.powi(4), "particle_fourth_moment", i, true)?;
@@ -207,8 +207,17 @@ pub fn calibrate_bergomi_lsv(
                 ));
                 let lookup = surface.lookup_row(r, (states[i] / initial_f).ln());
                 states[i] = advance(states[i], lookup.value * a[i] * a[i], dt, z, r, i)?;
-                factors[i] = transition.evolve(factors[i], z, z2);
-                if !factors[i].is_finite() {
+                let z3 = if F::FACTOR_COUNT == 2 {
+                    rng.standard_normal(RandomCoordinate::new(
+                        i as u64,
+                        (2 * nstep + r) as u32,
+                        RandomDomain::LsvCalibration,
+                    ))
+                } else {
+                    0.0
+                };
+                factors[i] = factor.evolve(transition, factors[i], z, [z2, z3]);
+                if !F::finite(factors[i]) {
                     return Err(LsvError::NonFiniteState {
                         time_index: r + 1,
                         path: i,
@@ -228,7 +237,7 @@ pub fn calibrate_bergomi_lsv(
     })
 }
 
-impl CalibratedBergomiLsv {
+impl<F: BergomiDynamics> CalibratedBergomiLsv<F> {
     #[must_use]
     pub fn surface(&self) -> &LsvLeverageSurface {
         &self.surface
@@ -238,7 +247,7 @@ impl CalibratedBergomiLsv {
         &self.target
     }
     #[must_use]
-    pub const fn factor(&self) -> Bergomi1Factor {
+    pub const fn factor(&self) -> F {
         self.factor
     }
     #[must_use]
@@ -254,7 +263,10 @@ impl CalibratedBergomiLsv {
         &self.diagnostics
     }
 
-    pub fn pricing_plan(&self, time_grid: &LocalVolTimeGrid) -> Result<BergomiLsvPlan, LsvError> {
+    pub fn pricing_plan(
+        &self,
+        time_grid: &LocalVolTimeGrid,
+    ) -> Result<BergomiLsvPlan<F>, LsvError> {
         BergomiLsvPlan::new(self.factor, self.surface.clone(), time_grid)
     }
 

@@ -396,8 +396,10 @@ impl MultiAssetPricingPlan {
                     .zip(a.process.forward_normalizers())
                     .map(|(s, f)| s * f)
                     .collect();
-                let adj = lsv_path.reverse(&normalized_seeds).map_err(E::numerical)?;
-                values[offset..offset + count].copy_from_slice(&adj.squared_leverage);
+                let adj = lsv_path
+                    .reverse_leverage(&normalized_seeds)
+                    .map_err(E::numerical)?;
+                values[offset..offset + count].copy_from_slice(&adj);
                 continue;
             }
             match &a.model {

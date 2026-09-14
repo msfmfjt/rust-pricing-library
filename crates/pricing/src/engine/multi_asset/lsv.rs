@@ -1,12 +1,10 @@
 //! Marginal particle calibration and the exact joint spot/OU Gaussian law.
+use super::lsv_kernels::{LsvCalibration, LsvProcess};
 use super::*;
 use crate::market::{CorrelationFactor, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
-use crate::mc::lsv::{
-    BergomiLsvPlan, CalibratedBergomiLsv, LSV_CALIBRATION_REVERSE, LsvParticleConfig,
-    calibrate_bergomi_lsv,
-};
-use crate::models::Bergomi1Factor;
+use crate::mc::lsv::{CalibratedBergomiLsv, LSV_CALIBRATION_REVERSE, LsvParticleConfig};
+use crate::models::{Bergomi1Factor, Bergomi2Factor, ou_kernel_correlation};
 use crate::multi_asset::MultiAssetError as E;
 
 /// Apply a marginal Bergomi particle calibration to this asset's LV target.
@@ -14,6 +12,49 @@ use crate::multi_asset::MultiAssetError as E;
 pub struct MultiAssetLsvConfig {
     pub factor: Bergomi1Factor,
     pub particles: LsvParticleConfig,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MultiAssetLsv2FactorConfig {
+    pub factor: Bergomi2Factor,
+    pub particles: LsvParticleConfig,
+}
+
+/// Per-asset choice for a mixture of one- and two-factor Bergomi LSV assets.
+#[derive(Clone, Debug, PartialEq)]
+pub enum MultiAssetBergomiLsvConfig {
+    OneFactor(MultiAssetLsvConfig),
+    TwoFactor(MultiAssetLsv2FactorConfig),
+}
+impl From<MultiAssetLsvConfig> for MultiAssetBergomiLsvConfig {
+    fn from(c: MultiAssetLsvConfig) -> Self {
+        Self::OneFactor(c)
+    }
+}
+impl From<MultiAssetLsv2FactorConfig> for MultiAssetBergomiLsvConfig {
+    fn from(c: MultiAssetLsv2FactorConfig) -> Self {
+        Self::TwoFactor(c)
+    }
+}
+impl MultiAssetBergomiLsvConfig {
+    pub fn factor_count(&self) -> usize {
+        match self {
+            Self::OneFactor(_) => 1,
+            Self::TwoFactor(_) => 2,
+        }
+    }
+    fn components(&self) -> Vec<Bergomi1Factor> {
+        match self {
+            Self::OneFactor(c) => vec![c.factor],
+            Self::TwoFactor(c) => c.factor.components().to_vec(),
+        }
+    }
+    fn factor_correlation(&self) -> f64 {
+        match self {
+            Self::OneFactor(_) => 1.0,
+            Self::TwoFactor(c) => c.factor.factor_correlation(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,15 +70,15 @@ pub struct MultiAssetLsvRisk {
 
 #[derive(Clone, Debug)]
 pub(super) struct LsvAsset {
-    pub calibration: CalibratedBergomiLsv,
-    pub process: BergomiLsvPlan,
+    pub calibration: LsvCalibration,
+    pub process: LsvProcess,
     pub target: LocalVarianceGrid,
 }
 impl LsvAsset {
     pub fn compile(
         target: &LocalVarianceGrid,
         grid: &LocalVolTimeGrid,
-        config: MultiAssetLsvConfig,
+        config: MultiAssetBergomiLsvConfig,
     ) -> Result<Self, E> {
         let xs = target.log_moneyness_nodes();
         let mut values = Vec::with_capacity(grid.nodes().len() * xs.len());
@@ -55,8 +96,7 @@ impl LsvAsset {
         )?;
         // m=f/F starts at one and is a martingale. This fixes log(f/F) under
         // Spot/curve carry changes without introducing drift into calibration.
-        let calibration = calibrate_bergomi_lsv(&refined, config.factor, 1.0, config.particles)
-            .map_err(E::numerical)?;
+        let calibration = LsvCalibration::compile(&refined, config).map_err(E::numerical)?;
         let process = calibration.pricing_plan(grid).map_err(E::numerical)?;
         Ok(Self {
             calibration,
@@ -111,14 +151,20 @@ impl LsvDrivers {
         correlation: &CorrelationTermStructure,
         times: &[f64],
         interval_indices: &[usize],
-        configs: &[Option<MultiAssetLsvConfig>],
+        configs: &[Option<MultiAssetBergomiLsvConfig>],
         supplied: Option<Vec<Vec<Vec<f64>>>>,
     ) -> Result<Option<Self>, E> {
         let n = configs.len();
         let assets: Vec<_> = configs
             .iter()
             .enumerate()
-            .filter_map(|(i, c)| c.as_ref().map(|c| (i, c.factor)))
+            .flat_map(|(i, c)| {
+                c.as_ref()
+                    .map(|c| c.components())
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(move |f| (i, f))
+            })
             .collect();
         if assets.is_empty() {
             if supplied.is_some() {
@@ -145,8 +191,9 @@ impl LsvDrivers {
             let matrix = if let Some(supplied) = &supplied {
                 supplied[e].clone()
             } else {
-                // dV_i = rho_i dW_i + sqrt(1-rho_i^2) dZ_i, with Z independent
-                // across assets and of every W. Integrate the OU kernels jointly.
+                // dV_i = rho_i dW_i + H_i dZ_i, with Z independent across assets
+                // and of every W. H_i H_i^T = C_vol - rho_i rho_i^T retains each
+                // asset's specified marginal. Integrate the OU kernels jointly.
                 let mut matrix = vec![vec![0.0; dimension]; dimension];
                 for i in 0..n {
                     matrix[i][..n].copy_from_slice(&r[i * n..(i + 1) * n]);
@@ -159,6 +206,8 @@ impl LsvDrivers {
                     for (b, &(j, other)) in assets.iter().enumerate() {
                         matrix[n + a][n + b] = if a == b {
                             1.0
+                        } else if i == j {
+                            configs[i].as_ref().expect("LSV").factor_correlation()
                         } else {
                             factor.correlation() * other.correlation() * r[i * n + j]
                         };
@@ -185,6 +234,17 @@ impl LsvDrivers {
                         "own spot/volatility driver correlation must equal the calibration factor",
                     ));
                 }
+                for (b, &(j, _)) in assets.iter().enumerate() {
+                    if a != b
+                        && i == j
+                        && full.canonical()[(n + a) * dimension + n + b]
+                            != configs[i].as_ref().expect("LSV").factor_correlation()
+                    {
+                        return Err(E::Invalid(
+                            "own volatility/volatility correlation must equal the calibration factor",
+                        ));
+                    }
+                }
             }
             entries.push(full);
         }
@@ -203,8 +263,8 @@ impl LsvDrivers {
                 scale[n + a] = transition.variance.sqrt();
                 let ka = factor.mean_reversion() * dt;
                 for j in 0..n {
-                    joint[j][n + a] =
-                        brownian[j * dimension + n + a] * kernel_correlation(0.0, ka)?;
+                    joint[j][n + a] = brownian[j * dimension + n + a]
+                        * ou_kernel_correlation(0.0, ka).map_err(E::numerical)?;
                     joint[n + a][j] = joint[j][n + a];
                 }
                 for (b, &(_, other)) in assets.iter().enumerate() {
@@ -212,7 +272,8 @@ impl LsvDrivers {
                         1.0
                     } else {
                         brownian[(n + a) * dimension + n + b]
-                            * kernel_correlation(ka, other.mean_reversion() * dt)?
+                            * ou_kernel_correlation(ka, other.mean_reversion() * dt)
+                                .map_err(E::numerical)?
                     };
                 }
             }
@@ -228,28 +289,6 @@ impl LsvDrivers {
     }
 }
 
-// Normalized integral of two exponential kernels on the unit interval.
-fn kernel_correlation(a: f64, b: f64) -> Result<f64, E> {
-    if !a.is_finite()
-        || !b.is_finite()
-        || !(a + b).is_finite()
-        || !(2.0 * a).is_finite()
-        || !(2.0 * b).is_finite()
-    {
-        return Err(E::Invalid("unrepresentable OU kernel interval"));
-    }
-    if a == b {
-        return Ok(1.0);
-    }
-    let phi = |x: f64| if x == 0.0 { 1.0 } else { -(-x).exp_m1() / x };
-    let value = phi(a + b) / (phi(2.0 * a).sqrt() * phi(2.0 * b).sqrt());
-    if !value.is_finite() || value <= 0.0 || value > 1.0 + 32.0 * f64::EPSILON {
-        return Err(E::Invalid("invalid normalized OU kernel covariance"));
-    }
-    // Only roundoff in the analytic Cauchy--Schwarz bound, never user correlations.
-    Ok(value.min(1.0))
-}
-
 impl MultiAssetPricingPlan {
     pub fn random_factor_count(&self) -> usize {
         self.assets.len()
@@ -258,10 +297,38 @@ impl MultiAssetPricingPlan {
                 .as_ref()
                 .map_or(0, |d| d.asset_indices.len())
     }
+    /// One-factor calibrations in asset order; None for BS/LV/two-factor assets.
+    /// Use `lsv_two_factor_calibrations` for the complementary two-factor objects.
     pub fn lsv_calibrations(&self) -> Vec<Option<&CalibratedBergomiLsv>> {
         self.assets
             .iter()
-            .map(|a| a.lsv.as_ref().map(|l| &l.calibration))
+            .map(|a| {
+                a.lsv.as_ref().and_then(|l| match &l.calibration {
+                    LsvCalibration::One(c) => Some(c.as_ref()),
+                    LsvCalibration::Two(_) => None,
+                })
+            })
+            .collect()
+    }
+    /// Two-factor calibrations in asset order. The existing `lsv_calibrations`
+    /// accessor continues to expose only one-factor calibrations.
+    pub fn lsv_two_factor_calibrations(
+        &self,
+    ) -> Vec<Option<&CalibratedBergomiLsv<Bergomi2Factor>>> {
+        self.assets
+            .iter()
+            .map(|a| {
+                a.lsv.as_ref().and_then(|l| match &l.calibration {
+                    LsvCalibration::One(_) => None,
+                    LsvCalibration::Two(c) => Some(c.as_ref()),
+                })
+            })
+            .collect()
+    }
+    pub fn lsv_volatility_factor_counts(&self) -> Vec<usize> {
+        self.assets
+            .iter()
+            .map(|a| a.lsv.as_ref().map_or(0, |l| l.calibration.factor_count()))
             .collect()
     }
     /// Rows: all spot Brownian drivers, then LSV volatility drivers in asset order.

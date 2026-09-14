@@ -1,6 +1,6 @@
+use super::lsv_kernels::LsvPath;
 use super::*;
 use crate::core::DayCountConvention;
-use crate::mc::lsv::BergomiLsvPath;
 use crate::mc::{
     LocalVolPath, Philox4x32, RandomCoordinate, RandomDomain, inverse_standard_normal,
 };
@@ -14,7 +14,7 @@ pub(super) struct AssetPath {
     pub pre_spot_derivatives: Vec<f64>,
     pub bs_vega: Vec<f64>,
     pub local: Option<LocalVolPath>,
-    pub lsv: Option<BergomiLsvPath>,
+    pub lsv: Option<LsvPath>,
 }
 impl MultiAssetPricingPlan {
     pub(super) fn shocks(&self, scramble: Option<u32>, point: u64) -> Result<Vec<Vec<f64>>, E> {
@@ -80,7 +80,7 @@ impl MultiAssetPricingPlan {
                             .expect("LSV asset");
                     let path = lsv
                         .process
-                        .evolve_with_ou_innovations(1.0, z, &shocks[index])
+                        .evolve(z, &shocks[index..index + lsv.calibration.factor_count()])
                         .map_err(E::numerical)?;
                     let f = path
                         .states()
