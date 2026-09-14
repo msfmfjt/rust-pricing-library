@@ -359,6 +359,17 @@ impl SimulationPlan {
             aad_tile_policy,
             checkpoint_policy,
         );
+        let plan_fingerprint = if market_forward
+            .discrete_dividends()
+            .is_some_and(|d| d.events().iter().any(|e| e.fixed_cash() != 0.0))
+        {
+            let mut hash = blake3::Hasher::new();
+            hash.update(plan_fingerprint.as_bytes());
+            hash.update(b"affine-paid-cash-deterministic-carry-v2");
+            Fingerprint::from_bytes(*hash.finalize().as_bytes())
+        } else {
+            plan_fingerprint
+        };
         if let Some(gamma) = request.risk().gamma() {
             let bump = resolve_spot_bump(gamma, spot);
             if !bump.is_finite() || bump >= spot {

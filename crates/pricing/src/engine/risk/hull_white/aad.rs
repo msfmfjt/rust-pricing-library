@@ -167,7 +167,32 @@ impl Context {
             }
             times.sort_by(f64::total_cmp);
             times.dedup();
-            HullWhiteDividendPlan::new(plan.path.rates(), &plan.market, &times)?
+            // This legacy observation context is used only when the default
+            // affine path has no cash in its pricing horizon. Future cash must
+            // not accidentally create an escrow reserve for AAD alone.
+            let schedule = plan.market.discrete_dividends();
+            let events = schedule.map_or(&[][..], |d| d.events());
+            let market = crate::market::EquityForward::with_discrete_dividends(
+                plan.market.underlying(),
+                plan.market.spot(),
+                std::sync::Arc::new(plan.market.discount_curve().clone()),
+                std::sync::Arc::new(plan.market.dividend_curve().clone()),
+                events
+                    .iter()
+                    .filter(|e| e.ex_time() <= *plan.time_nodes().last().unwrap())
+                    .map(|e| {
+                        crate::market::DividendEvent::new(
+                            e.event(),
+                            e.ex_time(),
+                            crate::market::DividendQuote::FixedCashAndProportional {
+                                fixed_cash: e.fixed_cash(),
+                                beta: e.beta(),
+                            },
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            )?;
+            HullWhiteDividendPlan::new(plan.path.rates(), &market, &times)?
         };
         let node_indices = plan
             .time_nodes()

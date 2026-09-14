@@ -211,7 +211,7 @@ fn calibration_zero_factor_limit_and_unsupported_contracts_are_explicit() {
         json!([{"event_id":1,"ex_time":0.5,"quote":{"type":"fixed_cash","amount":1.5}}]);
     assert!(
         HullWhiteEquityPricingPlan::compile_bs(&request(v), rates(0.01), 0.0, 0.2, policy(1))
-            .is_err()
+            .is_ok()
     );
     let mut densities = target.log_densities().to_vec();
     densities[40] = -1.0;

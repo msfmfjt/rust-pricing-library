@@ -90,14 +90,21 @@ Experimental one-currency stochastic-rate pricing is available through Rust
 `HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
 one-factor Hull–White with BS or particle-recalibrated Bergomi LSV, including
 equity/rate correlation, stochastic discounting, proportional dividends and
-payment lags. Fixed and mixed cash/proportional payouts are available through
-the explicit `cash_dividend_model="escrowed"` option, with stochastic bond
-reserves and a quadratic LSV calibration. Explicit `evaluate_aad()` returns Spot
+payment lags. Fixed and mixed cash/proportional payouts now use the paid-cash
+**affine** convention by default (`cash_dividend_model=None`): the continuous
+equity state has no payout jump, while the paid-cash offset carries at realized
+r-q. Future payouts are not reserved. The explicit `cash_dividend_model="escrowed"`
+option retains the legacy stochastic bond reserve and quadratic LSV calibration.
+See the [affine migration contract](docs/hull-white-affine-dividends-v0.1.md)
+and [ADR 0007](docs/adr/0007-affine-paid-cash-dividends.md).
+Explicit `evaluate_aad()` returns Spot
 Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
 adjoints. Targets built with `HullWhiteLsvTarget.from_market_iv` additionally
 return quote-node VegaKT, market scaling and a parallel IV Vega, reversing both
-variance and density through explicit cubic/time interpolation. Cash-mode quotes
-refer to the converted escrow F coordinate. See the
+variance and density through explicit cubic/time interpolation. Default affine
+quotes refer to the continuous normalized equity coordinate U, whereas explicit
+escrowed-mode quotes refer to its converted escrow F coordinate. Neither mode
+automatically converts physical-spot market quotes. See the
 [VegaKT contracts](docs/hull-white-vegakt-v0.1.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
 payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md),
 [cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
@@ -107,7 +114,7 @@ payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md)
 The same engine now supports experimental rough Bergomi and particle-calibrated
 rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
 `RoughBergomiModel`. A nonuniform Volterra hybrid scheme connects the rough
-driver to Hull–White, escrowed cash dividends, first-order AAD and quote-node
+driver to Hull–White, default affine or explicit escrowed dividends, first-order AAD and quote-node
 VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
 target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
 per path. See the [example](examples/python/rough_bergomi.py) and

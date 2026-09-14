@@ -154,7 +154,9 @@ impl HullWhiteEquityPricingPlan {
         let mut events = base.hybrid_observation_times().to_vec();
         events.push(expiry);
         let market = request.market().equity().forward();
-        if (cash || has_fixed_cash(market)) && let Some(d) = market.discrete_dividends() {
+        if (cash || has_fixed_cash(market, expiry))
+            && let Some(d) = market.discrete_dividends()
+        {
             events.extend(
                 d.events()
                     .iter()
@@ -309,11 +311,17 @@ impl HullWhiteEquityPricingPlan {
             }
         }
         // Validate the affine event grid before starting particle calibration.
-        if !cash && has_fixed_cash(request.market().equity().forward()) {
+        if !cash && has_fixed_cash(request.market().equity().forward(), expiry) {
             AffineDividendPlan::new(
                 request.market().equity().forward(),
                 &rates,
-                &target.grid().time_nodes().iter().copied().filter(|t| *t <= expiry).collect::<Vec<_>>(),
+                &target
+                    .grid()
+                    .time_nodes()
+                    .iter()
+                    .copied()
+                    .filter(|t| *t <= expiry)
+                    .collect::<Vec<_>>(),
             )?;
         }
         let dividends = if cash {
@@ -391,7 +399,8 @@ impl HullWhiteEquityPricingPlan {
             RqmcPlan::compile(config, dimension)?;
         }
         let market = request.market().equity().forward();
-        let affine_dividends = if path.dividends().is_none() && has_fixed_cash(market) {
+        let has_cash = has_fixed_cash(market, *path.times().last().unwrap());
+        let affine_dividends = if path.dividends().is_none() && has_cash {
             Some(AffineDividendPlan::new(market, path.rates(), path.times())?)
         } else {
             None
@@ -512,7 +521,9 @@ impl HullWhiteEquityPricingPlan {
         if self.affine_dividends.is_some() {
             Some(HULL_WHITE_AFFINE_DIVIDEND_MODEL)
         } else {
-            self.path.dividends().map(|_| HULL_WHITE_CASH_DIVIDEND_MODEL)
+            self.path
+                .dividends()
+                .map(|_| HULL_WHITE_CASH_DIVIDEND_MODEL)
         }
     }
     /// The affine model starts U at the full Spot; only explicit escrowed mode
@@ -658,7 +669,8 @@ impl HullWhiteEquityPricingPlan {
                 )?;
             let payoff = if let Some(d) = &self.affine_dividends {
                 let observations = d.record(&states)?;
-                self.base.hybrid_spot_payoff(self.path.times(), &observations.spots)?
+                self.base
+                    .hybrid_spot_payoff(self.path.times(), &observations.spots)?
             } else if let Some(d) = self.path.dividends() {
                 let spots = d
                     .nodes()
@@ -668,7 +680,10 @@ impl HullWhiteEquityPricingPlan {
                     .collect::<Result<Vec<_>, _>>()?;
                 self.base.hybrid_spot_payoff(self.path.times(), &spots)?
             } else {
-                let equity = states.iter().map(|s| s.normalized_equity).collect::<Vec<_>>();
+                let equity = states
+                    .iter()
+                    .map(|s| s.normalized_equity)
+                    .collect::<Vec<_>>();
                 self.base.hybrid_payoff(self.path.times(), &equity)?
             };
             value += payoff * relative_discount;
@@ -677,10 +692,12 @@ impl HullWhiteEquityPricingPlan {
     }
 }
 
-fn has_fixed_cash(market: &crate::market::EquityForward) -> bool {
-    market
-        .discrete_dividends()
-        .is_some_and(|d| d.events().iter().any(|e| e.fixed_cash() != 0.0))
+fn has_fixed_cash(market: &crate::market::EquityForward, horizon: f64) -> bool {
+    market.discrete_dividends().is_some_and(|d| {
+        d.events()
+            .iter()
+            .any(|e| e.ex_time() <= horizon && e.fixed_cash() != 0.0)
+    })
 }
 
 fn expiry_time(request: &PricingRequest) -> f64 {

@@ -90,7 +90,13 @@ fn bs_escrowed_dividends_match_gaussian_reference_and_worker_replay() {
         pa.standard_error
     );
     assert_eq!(pa.cash_dividend_model, Some("escrowed-hw-bonds-v1"));
-    assert!(Plan::compile_bs(&req, hw, 0.4, 0.25, policy(1)).is_err());
+    let affine = Plan::compile_bs(&req, hw, 0.4, 0.25, policy(1)).unwrap();
+    assert_eq!(affine.risky_spot(), 100.0);
+    assert_eq!(
+        affine.cash_dividend_model(),
+        Some("affine-paid-cash-realized-carry-v1")
+    );
+    assert_ne!(affine.plan_fingerprint(), a.plan_fingerprint());
 }
 
 #[test]

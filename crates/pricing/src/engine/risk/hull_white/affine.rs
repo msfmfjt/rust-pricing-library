@@ -128,10 +128,7 @@ impl AffineDividendPlan {
             }
             let post = self.scales[i] * state.normalized_equity + offset;
             let pre = self.events[i].map(|(cash, beta)| (post + cash) / (1.0 - beta));
-            if !post.is_finite()
-                || post <= 0.0
-                || pre.is_some_and(|v| !v.is_finite() || v <= 0.0)
-            {
+            if !post.is_finite() || post <= 0.0 || pre.is_some_and(|v| !v.is_finite() || v <= 0.0) {
                 // Never floor, resample, or silently switch dividend models.
                 return Err(HullWhiteError::NonPositiveState { step: i });
             }
@@ -268,7 +265,11 @@ mod tests {
 
     #[test]
     fn deterministic_rate_limit_matches_common_forward_and_event_order() {
-        let m = market(&[(0.0, 2.0, 0.02), (0.5, 4.0, 0.1), (1.0, 1.0, 0.03)], 0.05, 0.02);
+        let m = market(
+            &[(0.0, 2.0, 0.02), (0.5, 4.0, 0.1), (1.0, 1.0, 0.03)],
+            0.05,
+            0.02,
+        );
         let times = [0.0, 0.25, 0.5, 1.0];
         let plan = AffineDividendPlan::new(&m, &rates(0.0), &times).unwrap();
         let states = vec![HybridState::initial(100.0).unwrap(); times.len()];
@@ -285,20 +286,28 @@ mod tests {
 
     #[test]
     fn zero_equity_vol_discounted_gains_are_pathwise_constant() {
-        let m = market(&[(0.0, 2.0, 0.02), (0.5, 4.0, 0.1), (1.0, 1.0, 0.03)], 0.05, 0.0);
+        let m = market(
+            &[(0.0, 2.0, 0.02), (0.5, 4.0, 0.1), (1.0, 1.0, 0.03)],
+            0.05,
+            0.0,
+        );
         let times = [0.0, 0.25, 0.5, 1.0];
         let rates = rates(0.03);
         let plan = AffineDividendPlan::new(&m, &rates, &times).unwrap();
         let mut states = states();
         for (state, &t) in states.iter_mut().zip(&times) {
             state.normalized_equity = 100.0
-                / rates.relative_discount(t, state.integrated_rate_factor).unwrap();
+                / rates
+                    .relative_discount(t, state.integrated_rate_factor)
+                    .unwrap();
         }
         let path = plan.record(&states).unwrap();
         let mut dividends = 0.0;
         for (i, &t) in times.iter().enumerate() {
             let df = m.discount_curve().discount(t).unwrap()
-                * rates.relative_discount(t, states[i].integrated_rate_factor).unwrap();
+                * rates
+                    .relative_discount(t, states[i].integrated_rate_factor)
+                    .unwrap();
             if let Some((cash, beta)) = plan.events[i] {
                 dividends += df * (cash + beta * path.spots[i].1.unwrap());
             }
@@ -346,7 +355,11 @@ mod tests {
                 objective(&p, &states)
             };
             let fd = (bump(h) - bump(-h)) / (2.0 * h);
-            let bars = if discount { &adj.discount_log_df } else { &adj.dividend_log_df };
+            let bars = if discount {
+                &adj.discount_log_df
+            } else {
+                &adj.dividend_log_df
+            };
             let expected: f64 = bars
                 .iter()
                 .zip(m.discount_curve().times())
@@ -365,7 +378,10 @@ mod tests {
         let b = market(&[(0.5, 4.0, 0.1), (2.0, 1000.0, 0.2)], 0.05, 0.02);
         let a = AffineDividendPlan::new(&a, &rates, &times).unwrap();
         let b = AffineDividendPlan::new(&b, &rates, &times).unwrap();
-        assert_eq!(a.record(&states()).unwrap().spots, b.record(&states()).unwrap().spots);
+        assert_eq!(
+            a.record(&states()).unwrap().spots,
+            b.record(&states()).unwrap().spots
+        );
     }
 
     #[test]
@@ -373,6 +389,9 @@ mod tests {
         let m = market(&[(0.5, 200.0, 0.0)], 0.05, 0.02);
         assert!(AffineDividendPlan::new(&m, &rates(0.02), &[0.0, 1.0]).is_err());
         let plan = AffineDividendPlan::new(&m, &rates(0.02), &[0.0, 0.25, 0.5, 1.0]).unwrap();
-        assert!(matches!(plan.record(&states()), Err(HullWhiteError::NonPositiveState { step: 2 })));
+        assert!(matches!(
+            plan.record(&states()),
+            Err(HullWhiteError::NonPositiveState { step: 2 })
+        ));
     }
 }
