@@ -4,7 +4,9 @@
 use super::*;
 use crate::mc::hull_white::HULL_WHITE_AAD_METHOD;
 use crate::mc::lsv::LsvError;
-use crate::models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, transpose_log_curve};
+use crate::models::hull_white_dividends::{
+    HullWhiteDividendMarketAdjoints, HullWhiteDividendNodeAdjoints, transpose_log_curve,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HullWhiteAadRisk {
@@ -128,7 +130,7 @@ impl HullWhiteAadRisk {
 }
 
 struct Context {
-    dividends: HullWhiteDividendPlan,
+    dividends: Option<HullWhiteDividendPlan>,
     node_indices: Vec<usize>,
     coefficient_count: usize,
     leverage_count: usize,
@@ -136,6 +138,19 @@ struct Context {
 }
 impl Context {
     fn new(plan: &HullWhiteEquityPricingPlan) -> Result<Self, MonteCarloError> {
+        if plan.affine_dividends.is_some() {
+            return Ok(Self {
+                dividends: None,
+                node_indices: Vec::new(),
+                coefficient_count: plan.market.discount_curve().times().len()
+                    + plan.market.dividend_curve().times().len(),
+                leverage_count: plan
+                    .calibration
+                    .as_ref()
+                    .map_or(0, |c| c.surface.squared_leverage().len()),
+                is_bs: plan.calibration.is_none(),
+            });
+        }
         let dividends = if let Some(d) = plan.path.dividends() {
             d.clone()
         } else {
@@ -170,7 +185,7 @@ impl Context {
             .map(|n| 2 + n.bond_amounts.len())
             .sum();
         Ok(Self {
-            dividends,
+            dividends: Some(dividends),
             node_indices,
             coefficient_count,
             leverage_count: plan
@@ -189,7 +204,10 @@ impl Context {
         plan: &HullWhiteEquityPricingPlan,
         mean: &[f64],
     ) -> Result<Vec<f64>, MonteCarloError> {
-        let mut coefficients = self.dividends.zero_adjoints();
+        let mut coefficients = self
+            .dividends
+            .as_ref()
+            .map_or_else(Vec::new, HullWhiteDividendPlan::zero_adjoints);
         let mut offset = 3;
         for n in &mut coefficients {
             n.scale = mean[offset];
@@ -200,6 +218,9 @@ impl Context {
                 .copy_from_slice(&mean[offset..offset + count]);
             offset += count;
         }
+        // Affine observations accumulate curve pillars directly; legacy escrow
+        // observations accumulate deterministic reserve/scale coefficients.
+        let offset = 3 + self.coefficient_count;
         let mut spot = mean[1];
         let mut target = Vec::new();
         let mut quotes = Vec::new();
@@ -220,7 +241,16 @@ impl Context {
             target.extend(adj.local_variance);
             target.extend(adj.forward_log_density);
         }
-        let mut market = self.dividends.reverse_market(&coefficients)?;
+        let mut market = if let Some(dividends) = &self.dividends {
+            dividends.reverse_market(&coefficients)?
+        } else {
+            let split = 3 + plan.market.discount_curve().times().len();
+            HullWhiteDividendMarketAdjoints {
+                spot: 0.0,
+                discount_log_df: mean[3..split].to_vec(),
+                dividend_log_df: mean[split..offset].to_vec(),
+            }
+        };
         // The exact relative HW discount/bond is curve-independent. Re-fitting
         // to a changed initial curve differentiates its P0(payment) prefactor.
         transpose_log_curve(
@@ -494,12 +524,38 @@ impl HullWhiteEquityPricingPlan {
                     .path
                     .rates()
                     .relative_bond(time, self.payment_time, last.rate_factor)?;
+            if let Some(dividends) = &self.affine_dividends {
+                let observations = dividends.record(states)?;
+                let (payoff, seeds) = self
+                    .base
+                    .hybrid_spot_payoff_adjoints(self.time_nodes(), &observations.spots)?;
+                let adjoints =
+                    dividends.reverse(&observations, states, &seeds, relative_discount)?;
+                let reverse = path.reverse(&adjoints.equity)?;
+                out[0] += payoff * relative_discount;
+                out[1] += reverse.initial_spot;
+                out[2] += reverse.bs_volatility.unwrap_or(0.0);
+                for (target, source) in out[3..].iter_mut().zip(
+                    adjoints
+                        .discount_log_df
+                        .iter()
+                        .chain(&adjoints.dividend_log_df),
+                ) {
+                    *target += source;
+                }
+                let offset = 3 + context.coefficient_count;
+                for (target, source) in out[offset..].iter_mut().zip(reverse.squared_leverage) {
+                    *target += source;
+                }
+                continue;
+            }
+            let dividends = context.dividends.as_ref().expect("legacy dividend context");
             let spots = if self.path.dividends().is_some() {
                 states
                     .iter()
                     .enumerate()
                     .map(|(i, s)| {
-                        context.dividends.nodes()[context.node_indices[i]]
+                        dividends.nodes()[context.node_indices[i]]
                             .spots(s.normalized_equity, s.rate_factor)
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -516,11 +572,11 @@ impl HullWhiteEquityPricingPlan {
                 .base
                 .hybrid_spot_payoff_adjoints(self.time_nodes(), &spots)?;
             out[0] += payoff * relative_discount;
-            let mut coefficients = context.dividends.zero_adjoints();
+            let mut coefficients = dividends.zero_adjoints();
             let mut state_seeds = Vec::with_capacity(states.len());
             for (i, (s, &(post, pre))) in states.iter().zip(&payoff_seeds).enumerate() {
                 let node = context.node_indices[i];
-                state_seeds.push(context.dividends.nodes()[node].reverse_spots(
+                state_seeds.push(dividends.nodes()[node].reverse_spots(
                     s.normalized_equity,
                     s.rate_factor,
                     post * relative_discount,
