@@ -1,0 +1,34 @@
+[
+  {
+    "name": "replay_european_bs",
+    "cases": 2,
+    "bytes": 19650,
+    "sha256_before": "d92cce0d128a2eb7b38083ff559c2b736b41b159b2c90297c257f46349c53b5d",
+    "sha256_after": "d92cce0d128a2eb7b38083ff559c2b736b41b159b2c90297c257f46349c53b5d",
+    "byte_equal": true
+  },
+  {
+    "name": "replay_local_vol",
+    "cases": 4,
+    "bytes": 44419,
+    "sha256_before": "8e4488e4135dd2a4948b9a0420a1f1417012dc2f074474f9c178660b6c1627a7",
+    "sha256_after": "8e4488e4135dd2a4948b9a0420a1f1417012dc2f074474f9c178660b6c1627a7",
+    "byte_equal": true
+  },
+  {
+    "name": "replay_path_dependence",
+    "cases": 6,
+    "bytes": 58794,
+    "sha256_before": "620aacadd863ed1b6b1590b425b0d8c3fe08a3b14e2f633f79ceec566cad28ad",
+    "sha256_after": "620aacadd863ed1b6b1590b425b0d8c3fe08a3b14e2f633f79ceec566cad28ad",
+    "byte_equal": true
+  },
+  {
+    "name": "replay_early_exercise",
+    "cases": 4,
+    "bytes": 130585,
+    "sha256_before": "992970e82dc432db08abeb8c3245a6789a1f4f32edbe3794403be1e491bcf9f5",
+    "sha256_after": "992970e82dc432db08abeb8c3245a6789a1f4f32edbe3794403be1e491bcf9f5",
+    "byte_equal": true
+  }
+]

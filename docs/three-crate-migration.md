@@ -46,7 +46,11 @@ fully nonbreaking workspace change. For example:
 pricing-market = { path = "../rust-pricing-library/crates/pricing-market" }
 pricing-product = { path = "../rust-pricing-library/crates/pricing-product" }
 
-# After (replace the preceding dependency entries)
+```
+
+After replacing the preceding dependency entries:
+
+```toml
 [dependencies]
 pricing = { path = "../rust-pricing-library/crates/pricing" }
 ```
@@ -102,7 +106,7 @@ archive and wheel SBOM checkers now require the three-crate graph and moved asse
 
 ## Deliberate layout choices
 
-The former 10,708-line `monte_carlo.rs` is a five-line compatibility entry.
+The former 10,708-line `monte_carlo.rs` is a four-line compatibility entry.
 Compiled state, compile, sampling, constant-volatility path/AAD calculations,
 local-volatility forward/reverse, payoff/barrier handling, LSM path matrices and
 risk reporting have separate implementation files. The engine remains private.

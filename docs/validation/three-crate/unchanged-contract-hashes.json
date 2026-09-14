@@ -1,0 +1,282 @@
+[
+  {
+    "before": "crates/pricing-mc/data/joe-kuo-6.21201-u32be.bin",
+    "after": "crates/pricing/data/joe-kuo-6.21201-u32be.bin",
+    "sha256": "189f65c4e4fcf7455efb7618f3dafbbbaf70303fc35ecd380fa28a67ab896900"
+  },
+  {
+    "before": "crates/pricing-python/Cargo.toml",
+    "after": "crates/pricing-python/Cargo.toml",
+    "sha256": "37ef2f6e59c882b7ace88fb9809b012ba1f508ef300221ffb950a7c91093e72f"
+  },
+  {
+    "before": "crates/pricing-python/src/builders.rs",
+    "after": "crates/pricing-python/src/builders.rs",
+    "sha256": "36147c0f962e280f56c1f9f1f2b6f57e6025b3b2ba960e3c45d7b96a6887500a"
+  },
+  {
+    "before": "crates/pricing-python/src/diagnostics.rs",
+    "after": "crates/pricing-python/src/diagnostics.rs",
+    "sha256": "11c86e3c91c66904ae35fd324a7f82df2016541394eea663c95e3e2c0af47297"
+  },
+  {
+    "before": "crates/pricing-python/src/hull_white.rs",
+    "after": "crates/pricing-python/src/hull_white.rs",
+    "sha256": "b0b7deba3c83ebbc1d54176297e0705876000c0151c49904f8ffe65456a5f745"
+  },
+  {
+    "before": "crates/pricing-python/src/lib.rs",
+    "after": "crates/pricing-python/src/lib.rs",
+    "sha256": "f5b6166803f21b4808d3dd78b1b5c677a1bb1d4c1dfd22eceeeca08bee1d4e5d"
+  },
+  {
+    "before": "crates/pricing-python/src/lsv.rs",
+    "after": "crates/pricing-python/src/lsv.rs",
+    "sha256": "d1a8ba44b6ca8664835195e5c5052e6a817707eaf2d2d49ab7501b89fa74fad8"
+  },
+  {
+    "before": "examples/python/american_lsm.py",
+    "after": "examples/python/american_lsm.py",
+    "sha256": "b023b6317ff337a31faf964297822f795f363b3d1877e4ef4a46faed6fec1711"
+  },
+  {
+    "before": "examples/python/bergomi_lsv.py",
+    "after": "examples/python/bergomi_lsv.py",
+    "sha256": "4527d864693898fb6a9192865d409a08fa1208c62216baaf95e0895c90296c43"
+  },
+  {
+    "before": "examples/python/european_bs.py",
+    "after": "examples/python/european_bs.py",
+    "sha256": "8a9f9902cb25e16df2cc193c4c5beb2a8b09aa0a22da85e7bbaf5175a3bc5a07"
+  },
+  {
+    "before": "examples/python/hull_white_lsv.py",
+    "after": "examples/python/hull_white_lsv.py",
+    "sha256": "d27dbd6ef44069a23aaa7ac163456464d380be11eccab983529771402767f8fa"
+  },
+  {
+    "before": "examples/python/local_vol_vegakt.py",
+    "after": "examples/python/local_vol_vegakt.py",
+    "sha256": "c67993c0598c209a6d1b3eac0056419cd221ff8418745ad93ad8b02321b3f5f2"
+  },
+  {
+    "before": "examples/python/path_dependence.py",
+    "after": "examples/python/path_dependence.py",
+    "sha256": "ceaeb37215ba902c3c3d2889b073fda9f0a7639c0fe2885ef06f4995acfc3316"
+  },
+  {
+    "before": "examples/python/rough_bergomi.py",
+    "after": "examples/python/rough_bergomi.py",
+    "sha256": "0d8b5d5e1860b4660be5e38c2334d0b099e7c2bff24ee824f2d904672353db91"
+  },
+  {
+    "before": "fixtures/acceptance/README.md",
+    "after": "fixtures/acceptance/README.md",
+    "sha256": "98960fc52110ca8ee3b8f8f2ea0c2f394b88ffa3a47c317b6bd789091285d00d"
+  },
+  {
+    "before": "fixtures/acceptance/european_bs_analytical.csv",
+    "after": "fixtures/acceptance/european_bs_analytical.csv",
+    "sha256": "ad37b0730a2751445827f41f44664029e049b56548aad8576a389ce540060744"
+  },
+  {
+    "before": "fixtures/early-exercise/README.md",
+    "after": "fixtures/early-exercise/README.md",
+    "sha256": "026360b8d0b768f934d484556b0e7bc1953a67c5baae2cc5170b1dad0cd0242e"
+  },
+  {
+    "before": "fixtures/early-exercise/reference-cases-v0.1.json",
+    "after": "fixtures/early-exercise/reference-cases-v0.1.json",
+    "sha256": "f37e289af30805d17cd231506653e80d8fb19c08eb0dcfeb0d3a146e6c72f134"
+  },
+  {
+    "before": "fixtures/local-vol/README.md",
+    "after": "fixtures/local-vol/README.md",
+    "sha256": "71631231bc8e4f8d32f908c98a1ba0b094e5ae156e97fa7d645adc33e523bb77"
+  },
+  {
+    "before": "fixtures/local-vol/reference-cases-v0.1.json",
+    "after": "fixtures/local-vol/reference-cases-v0.1.json",
+    "sha256": "c00c2ac1a5c7f4a3606728644ea4d655243b3ad40c93ab175010d27ffbb95974"
+  },
+  {
+    "before": "fixtures/path-dependence/README.md",
+    "after": "fixtures/path-dependence/README.md",
+    "sha256": "6f3a04b40f1cea1326a60565d99aee22e6487189a74d8b5b41a44f2801cda1f4"
+  },
+  {
+    "before": "fixtures/path-dependence/reference-cases-v0.1.json",
+    "after": "fixtures/path-dependence/reference-cases-v0.1.json",
+    "sha256": "4cc3825ccf4ab76eff8bcb37448327743b6551aebfed8784eeae6571455b492d"
+  },
+  {
+    "before": "fixtures/replay/README.md",
+    "after": "fixtures/replay/README.md",
+    "sha256": "8c4c1a5eb56b68c97c6d6c4c0e986eba35c23e613709d5381856451b8b2e480b"
+  },
+  {
+    "before": "fixtures/replay/early_exercise-macos-aarch64.json",
+    "after": "fixtures/replay/early_exercise-macos-aarch64.json",
+    "sha256": "8c36bd488402748a68d7abb7c8af4716187d78a936c11d9a142b790c79e81185"
+  },
+  {
+    "before": "fixtures/replay/early_exercise-windows-x86_64.json",
+    "after": "fixtures/replay/early_exercise-windows-x86_64.json",
+    "sha256": "e9577f1a0f865a487a9b2ecd7df24e76c5860723967b64f73deb255d83c84f41"
+  },
+  {
+    "before": "fixtures/replay/european_bs-macos-aarch64.json",
+    "after": "fixtures/replay/european_bs-macos-aarch64.json",
+    "sha256": "6eaa4b839f8d1327af305c1031ebaca2122f0c220b7f1468f9fe41422cbd4b57"
+  },
+  {
+    "before": "fixtures/replay/european_bs-windows-x86_64.json",
+    "after": "fixtures/replay/european_bs-windows-x86_64.json",
+    "sha256": "069106fb45888cdd1053be69b053eaeae8fd04a843a88fdd16ecc23871b74484"
+  },
+  {
+    "before": "fixtures/replay/local_volatility-macos-aarch64.json",
+    "after": "fixtures/replay/local_volatility-macos-aarch64.json",
+    "sha256": "fb7ed896878bbcf048a80be3944bf26dfb6a023cb2a9519505d3d940bbb146d7"
+  },
+  {
+    "before": "fixtures/replay/local_volatility-windows-x86_64.json",
+    "after": "fixtures/replay/local_volatility-windows-x86_64.json",
+    "sha256": "2e72eaeb1f790c1ee0d26e312c9bace7d5d477c5bcb2dec5ba4b053a0a320325"
+  },
+  {
+    "before": "fixtures/replay/path_dependence-macos-aarch64.json",
+    "after": "fixtures/replay/path_dependence-macos-aarch64.json",
+    "sha256": "054c1f7733be86c61fc1a6f3c390101091439cbbcc233b4278eb863422e3ae3a"
+  },
+  {
+    "before": "fixtures/replay/path_dependence-windows-x86_64.json",
+    "after": "fixtures/replay/path_dependence-windows-x86_64.json",
+    "sha256": "6687b38e4d423c5cfac5724254c2f4110fc21864dcdce80da616583608481824"
+  },
+  {
+    "before": "fixtures/v1/pricing_request.golden.json",
+    "after": "fixtures/v1/pricing_request.golden.json",
+    "sha256": "9b0698603f4b535801fde630ae265992108f01780926782e4aecaebcf8ab7ecc"
+  },
+  {
+    "before": "fixtures/v1/pricing_result.golden.json",
+    "after": "fixtures/v1/pricing_result.golden.json",
+    "sha256": "731e2d3c497d72dd620ad0e7a775d2fae3a48d6f8bd7f00cd855fd16a07fab51"
+  },
+  {
+    "before": "fixtures/v2/pricing_request.golden.json",
+    "after": "fixtures/v2/pricing_request.golden.json",
+    "sha256": "2a333b4badeae3b3a0bc1f9f015f1b805765d43599d14676f9060861188356eb"
+  },
+  {
+    "before": "fixtures/v2/pricing_result.golden.json",
+    "after": "fixtures/v2/pricing_result.golden.json",
+    "sha256": "c207c664fb75eaf366be095b092c14fb443b72096280d4ab7f6af9ca0193b13d"
+  },
+  {
+    "before": "fixtures/v2/pricing_result_v1_migrated.golden.json",
+    "after": "fixtures/v2/pricing_result_v1_migrated.golden.json",
+    "sha256": "4fb14aa7db626f9ceeac728dcbc0647c1c3b018fde4dd4ad58f90c197eb1da38"
+  },
+  {
+    "before": "fixtures/v3/pricing_request.golden.json",
+    "after": "fixtures/v3/pricing_request.golden.json",
+    "sha256": "e96636af528e97b82091fcf4e226db27ede451e83f1862bacb3f019874869181"
+  },
+  {
+    "before": "fixtures/v3/pricing_request_american.golden.json",
+    "after": "fixtures/v3/pricing_request_american.golden.json",
+    "sha256": "57843ba99addcc5a11ab8bfbc4d32ddff6e0893af40888bf40e87e8ef8d68312"
+  },
+  {
+    "before": "fixtures/v3/pricing_result.golden.json",
+    "after": "fixtures/v3/pricing_result.golden.json",
+    "sha256": "68e054561ec50c059c7f0cb57eb508cb7b68710290905e3bc7c2f85757d59429"
+  },
+  {
+    "before": "fixtures/v3/pricing_result_american.golden.json",
+    "after": "fixtures/v3/pricing_result_american.golden.json",
+    "sha256": "a0908f3ebb64f8975dc2ea59fe66654a740613b40e97844cb43e2ca3441a0f40"
+  },
+  {
+    "before": "fixtures/v3/pricing_result_v1_migrated.golden.json",
+    "after": "fixtures/v3/pricing_result_v1_migrated.golden.json",
+    "sha256": "7225dfc45681525b7945114796bd9c4c837c7a39a71802e9b6a65b8a5672663d"
+  },
+  {
+    "before": "fixtures/v3/pricing_result_v2_migrated.golden.json",
+    "after": "fixtures/v3/pricing_result_v2_migrated.golden.json",
+    "sha256": "901a0ac7b9ce3ae82049d5fd74c1492ccb59ee66b1744cf00fe21221b372591c"
+  },
+  {
+    "before": "pyproject.toml",
+    "after": "pyproject.toml",
+    "sha256": "eb88f95e8453a6a79f24f9c838226aee1163b2c2c9865f1635de588acecc30a5"
+  },
+  {
+    "before": "rust-toolchain.toml",
+    "after": "rust-toolchain.toml",
+    "sha256": "c910997cb152c6dc8ed13b1fdf9fa28a4ed30d6776123e27dd6170e5c66067a0"
+  },
+  {
+    "before": "rust_pricing.pyi",
+    "after": "rust_pricing.pyi",
+    "sha256": "001d009454ded3ab8a8447979e0a108a93b5ec000cbb7052b0e56bb33045a582"
+  },
+  {
+    "before": "schemas/v1/pricing_request.schema.json",
+    "after": "schemas/v1/pricing_request.schema.json",
+    "sha256": "dd0afdd78204bf40a4ae497fb578939751c7dfcd892edd868172e8e9b8344de5"
+  },
+  {
+    "before": "schemas/v1/pricing_result.schema.json",
+    "after": "schemas/v1/pricing_result.schema.json",
+    "sha256": "cef84864362b2dd2245450a7a4b52c9362e7a03cfd5116982e5933353c0c791f"
+  },
+  {
+    "before": "schemas/v2/pricing_request.schema.json",
+    "after": "schemas/v2/pricing_request.schema.json",
+    "sha256": "9bb9b0b7612eb07376fa7abd10bc970573ce67e4b2ef21fb8727f88ecb144b8c"
+  },
+  {
+    "before": "schemas/v2/pricing_result.schema.json",
+    "after": "schemas/v2/pricing_result.schema.json",
+    "sha256": "3dc9f1dc3cb5a71a31cdd94fe9f1aab05b171a959170546d2d54aba008c3d0db"
+  },
+  {
+    "before": "schemas/v3/pricing_request.schema.json",
+    "after": "schemas/v3/pricing_request.schema.json",
+    "sha256": "b52bc600a9e9d6a710f8a3321353caef6050cb47cdd9dc021647b3d207f8406d"
+  },
+  {
+    "before": "schemas/v3/pricing_result.schema.json",
+    "after": "schemas/v3/pricing_result.schema.json",
+    "sha256": "50ca9f966ba6cda318c58a2eb692ffe61eef90df80d1e914497c601776bd6332"
+  },
+  {
+    "before": "tests/python/test_hull_white.py",
+    "after": "tests/python/test_hull_white.py",
+    "sha256": "70bd360fe101f05abaf36b9ebbbd304f1dd981ec59275f53c86838bb2349277a"
+  },
+  {
+    "before": "tests/python/test_integrated_models.py",
+    "after": "tests/python/test_integrated_models.py",
+    "sha256": "5b1e131275a98a727c518fc3043f317adcb053a296e3cfdab876fe6c6dba221b"
+  },
+  {
+    "before": "tests/python/test_lsv.py",
+    "after": "tests/python/test_lsv.py",
+    "sha256": "7da57264c5665746e4028bdbe587cbb6b09765d35fdf8b6ed4ea63af2e5863d8"
+  },
+  {
+    "before": "tests/python/test_rough_bergomi.py",
+    "after": "tests/python/test_rough_bergomi.py",
+    "sha256": "7e770bb601768fcaeece973fcc34578ec3850a96a9ca0c74177ee48e204d6a6f"
+  },
+  {
+    "before": "tests/python/test_smoke.py",
+    "after": "tests/python/test_smoke.py",
+    "sha256": "8a5a2f71c38e05e7beaba04400110418b86ed7713d36680fe9481431077d856e"
+  }
+]

@@ -1,0 +1,622 @@
+[
+  {
+    "name": "pricing-core",
+    "features": {},
+    "dependencies": [],
+    "targets": [
+      {
+        "name": "pricing_core",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  },
+  {
+    "name": "pricing-numerics",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_numerics",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  },
+  {
+    "name": "pricing-aad",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_aad",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  },
+  {
+    "name": "pricing-market",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "serde_json",
+        "kind": "dev",
+        "optional": false,
+        "features": [
+          "float_roundtrip"
+        ]
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_market",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      },
+      {
+        "name": "essvi_reference",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "market_iv",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "standard_ssvi_reference",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      }
+    ]
+  },
+  {
+    "name": "pricing-product",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "blake3",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "serde_json",
+        "kind": "dev",
+        "optional": false,
+        "features": [
+          "float_roundtrip"
+        ]
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_product",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  },
+  {
+    "name": "pricing-models",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-market",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_models",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      },
+      {
+        "name": "hull_white",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "rough_bergomi",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      }
+    ]
+  },
+  {
+    "name": "pricing-mc",
+    "features": {
+      "aad": [
+        "dep:pricing-aad"
+      ],
+      "default": []
+    },
+    "dependencies": [
+      {
+        "name": "blake3",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-aad",
+        "kind": null,
+        "optional": true,
+        "features": []
+      },
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-market",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-models",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-product",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "rayon",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_mc",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      },
+      {
+        "name": "hull_white",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "lsv",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "rough_bergomi",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      }
+    ]
+  },
+  {
+    "name": "pricing-risk",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "pricing-aad",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-market",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-mc",
+        "kind": null,
+        "optional": false,
+        "features": [
+          "aad"
+        ]
+      },
+      {
+        "name": "pricing-models",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-product",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing_risk",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  },
+  {
+    "name": "pricing",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "blake3",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-aad",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-core",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-market",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-mc",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-models",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-product",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-risk",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "serde",
+        "kind": null,
+        "optional": false,
+        "features": [
+          "derive"
+        ]
+      },
+      {
+        "name": "serde_json",
+        "kind": null,
+        "optional": false,
+        "features": [
+          "float_roundtrip"
+        ]
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      },
+      {
+        "name": "benchmark_early_exercise",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "benchmark_european_bs",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "benchmark_local_vol",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "benchmark_path_dependence",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_early_exercise",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_european_bs",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_local_vol",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_path_dependence",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "analytical_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "early_exercise_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "hull_white",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "hull_white_aad",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "hull_white_dividends",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "lsv",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "path_dependence_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "rough_bergomi",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "statistical_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      }
+    ]
+  },
+  {
+    "name": "pricing-python",
+    "features": {
+      "default": [],
+      "extension-module": [
+        "pyo3/extension-module"
+      ]
+    },
+    "dependencies": [
+      {
+        "name": "pricing",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pyo3",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "rust_pricing",
+        "kind": [
+          "cdylib",
+          "rlib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  }
+]

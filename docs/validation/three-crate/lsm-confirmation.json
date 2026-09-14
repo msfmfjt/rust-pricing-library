@@ -1,0 +1,122 @@
+[
+  {
+    "measurement": "compile_fixed_policy_full_risk",
+    "before_median_seconds": 2.611e-05,
+    "after_median_seconds": 2.5809e-05,
+    "percent_change": -1.1528150134048287,
+    "before_runs": [
+      2.5418e-05,
+      2.643e-05,
+      2.5819e-05,
+      2.669e-05,
+      2.5859e-05,
+      2.625e-05,
+      2.611e-05
+    ],
+    "after_runs": [
+      2.7641e-05,
+      2.5809e-05,
+      2.5369e-05,
+      2.5639e-05,
+      2.5539e-05,
+      2.62e-05,
+      2.5839e-05
+    ]
+  },
+  {
+    "measurement": "compile_price",
+    "before_median_seconds": 2.5398e-05,
+    "after_median_seconds": 2.5128e-05,
+    "percent_change": -1.0630758327427325,
+    "before_runs": [
+      2.5398e-05,
+      2.5589e-05,
+      2.5959e-05,
+      2.638e-05,
+      2.4747e-05,
+      2.5038e-05,
+      2.5198e-05
+    ],
+    "after_runs": [
+      2.4567e-05,
+      2.5569e-05,
+      2.5068e-05,
+      2.5138e-05,
+      3.6535e-05,
+      2.5128e-05,
+      2.4607e-05
+    ]
+  },
+  {
+    "measurement": "evaluate_fixed_policy_aad_with_crn_validation",
+    "before_median_seconds": 0.01928118,
+    "after_median_seconds": 0.018089944,
+    "percent_change": -6.178231830209557,
+    "before_runs": [
+      0.019567308,
+      0.019089502,
+      0.01928118,
+      0.023140724,
+      0.023211416,
+      0.017918295,
+      0.018642067
+    ],
+    "after_runs": [
+      0.018399301,
+      0.017695669,
+      0.017869942,
+      0.018479271,
+      0.025006053,
+      0.018089944,
+      0.017571953
+    ]
+  },
+  {
+    "measurement": "evaluate_training_dominant_price",
+    "before_median_seconds": 0.010433522,
+    "after_median_seconds": 0.010249204,
+    "percent_change": -1.7665942526406853,
+    "before_runs": [
+      0.010433522,
+      0.0099353,
+      0.011342884,
+      0.01047855,
+      0.010027259,
+      0.010452631,
+      0.01019359
+    ],
+    "after_runs": [
+      0.010111756,
+      0.010403817,
+      0.01003465,
+      0.010249204,
+      0.010748688,
+      0.010278097,
+      0.00960464
+    ]
+  },
+  {
+    "measurement": "evaluate_valuation_dominant_price",
+    "before_median_seconds": 0.006058911,
+    "after_median_seconds": 0.006149689,
+    "percent_change": 1.4982560397404754,
+    "before_runs": [
+      0.005608292,
+      0.006125593,
+      0.006136589,
+      0.00596504,
+      0.006042738,
+      0.006058911,
+      0.006155407
+    ],
+    "after_runs": [
+      0.006237801,
+      0.005996918,
+      0.006149689,
+      0.006149559,
+      0.006575481,
+      0.006991789,
+      0.005482762
+    ]
+  }
+]

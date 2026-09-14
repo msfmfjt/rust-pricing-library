@@ -1,0 +1,309 @@
+[
+  {
+    "name": "pricing-numerics",
+    "features": {},
+    "dependencies": [],
+    "targets": [
+      {
+        "name": "pricing_numerics",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  },
+  {
+    "name": "pricing",
+    "features": {},
+    "dependencies": [
+      {
+        "name": "blake3",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pricing-numerics",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "rayon",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "serde",
+        "kind": null,
+        "optional": false,
+        "features": [
+          "derive"
+        ]
+      },
+      {
+        "name": "serde_json",
+        "kind": null,
+        "optional": false,
+        "features": [
+          "float_roundtrip"
+        ]
+      }
+    ],
+    "targets": [
+      {
+        "name": "pricing",
+        "kind": [
+          "lib"
+        ],
+        "test": true,
+        "doctest": true
+      },
+      {
+        "name": "benchmark_early_exercise",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "benchmark_european_bs",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "benchmark_local_vol",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "benchmark_path_dependence",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_early_exercise",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_european_bs",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_local_vol",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "replay_path_dependence",
+        "kind": [
+          "example"
+        ],
+        "test": false,
+        "doctest": false
+      },
+      {
+        "name": "analytical_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "early_exercise_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "facade_compatibility",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "hull_white",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "hull_white_aad",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "hull_white_dividends",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "lsv",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "market_essvi_reference",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "market_market_iv",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "market_standard_ssvi_reference",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "mc_hull_white",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "mc_lsv",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "mc_rough_bergomi",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "models_hull_white",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "models_rough_bergomi",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "path_dependence_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "rough_bergomi",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      },
+      {
+        "name": "statistical_acceptance",
+        "kind": [
+          "test"
+        ],
+        "test": true,
+        "doctest": false
+      }
+    ]
+  },
+  {
+    "name": "pricing-python",
+    "features": {
+      "default": [],
+      "extension-module": [
+        "pyo3/extension-module"
+      ]
+    },
+    "dependencies": [
+      {
+        "name": "pricing",
+        "kind": null,
+        "optional": false,
+        "features": []
+      },
+      {
+        "name": "pyo3",
+        "kind": null,
+        "optional": false,
+        "features": []
+      }
+    ],
+    "targets": [
+      {
+        "name": "rust_pricing",
+        "kind": [
+          "cdylib",
+          "rlib"
+        ],
+        "test": true,
+        "doctest": true
+      }
+    ]
+  }
+]
