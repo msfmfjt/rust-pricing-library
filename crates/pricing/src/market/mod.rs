@@ -43,3 +43,9 @@ pub use ssvi::{
 pub const fn foundation_role() -> &'static str {
     pricing_numerics::foundation_role()
 }
+
+mod correlation;
+pub use correlation::{
+    CorrelationDiagnostics, CorrelationError, CorrelationFactor, CorrelationTermStructure,
+    CorrelationToleranceConfig,
+};

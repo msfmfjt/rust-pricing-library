@@ -1378,7 +1378,11 @@ fn asian_observations_from_python(
     Ok(observations)
 }
 
-fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Date> {
+pub(crate) fn date_from_python(
+    py: Python<'_>,
+    value: &Bound<'_, PyAny>,
+    pointer: &str,
+) -> PyResult<Date> {
     let text = if value.cast::<PyString>().is_ok() {
         value.extract::<String>()?
     } else {
@@ -1407,7 +1411,7 @@ fn date_from_python(py: Python<'_>, value: &Bound<'_, PyAny>, pointer: &str) -> 
         .map_err(|error| domain_error(py, "invalid_date", pointer, error))
 }
 
-fn option_side(py: Python<'_>, value: &str) -> PyResult<OptionSide> {
+pub(crate) fn option_side(py: Python<'_>, value: &str) -> PyResult<OptionSide> {
     match value {
         "call" => Ok(OptionSide::Call),
         "put" => Ok(OptionSide::Put),

@@ -26,3 +26,5 @@ pub use spec::{
 pub const fn foundation_role() -> &'static str {
     crate::core::role()
 }
+
+pub mod multi_asset;
