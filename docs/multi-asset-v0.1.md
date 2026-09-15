@@ -169,6 +169,11 @@ reduction-block size.
 ## Current boundaries and validation
 
 [Rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) is also available.
+[Particle Local Correlation](local-correlation-v0.1.md) adds state-dependent
+PSD correlations and recalibrated volatility risk for deterministic-rate BS/LV.
+Its normalized-basket target and two independent endpoint shock blocks have
+their own explicit contracts; the fixed-correlation replay described above
+continues to apply when this adapter is absent.
 Multiple currencies/FX, correlation Greeks, American
 exercise and continuous barrier monitoring are not connected to this API.
 Initial-curve risk and market-IV VegaKT are available through the separate

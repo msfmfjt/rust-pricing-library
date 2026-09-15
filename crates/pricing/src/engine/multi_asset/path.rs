@@ -16,6 +16,7 @@ pub(super) struct AssetPath {
     pub local: Option<LocalVolPath>,
     pub lsv: Option<LsvPath>,
     pub hw: Option<super::hull_white::HwAssetPath>,
+    pub local_correlation: Option<std::sync::Arc<super::local_correlation::LocalCorrelationPath>>,
 }
 impl MultiAssetPricingPlan {
     pub(super) fn shocks(&self, scramble: Option<u32>, point: u64) -> Result<Vec<Vec<f64>>, E> {
@@ -43,6 +44,9 @@ impl MultiAssetPricingPlan {
             if let Some(bridge) = &self.bridge {
                 *values = bridge.apply_one_factor(values).map_err(E::numerical)?;
             }
+        }
+        if self.local_correlation.is_some() {
+            return Ok(independent);
         }
         let mut correlated = vec![vec![0.0; steps]; n];
         for step in 0..steps {
@@ -78,6 +82,9 @@ impl MultiAssetPricingPlan {
         Ok(correlated)
     }
     pub(super) fn paths(&self, shocks: &[Vec<f64>]) -> Result<Vec<AssetPath>, E> {
+        if self.local_correlation.is_some() {
+            return self.local_correlation_paths(shocks);
+        }
         if self.hull_white.is_some() {
             return self.hw_paths(shocks);
         }
@@ -181,6 +188,7 @@ impl MultiAssetPricingPlan {
                     local,
                     lsv,
                     hw: None,
+                    local_correlation: None,
                 })
             })
             .collect()

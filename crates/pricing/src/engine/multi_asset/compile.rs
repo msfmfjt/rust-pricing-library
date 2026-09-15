@@ -91,6 +91,7 @@ impl MultiAssetPricingPlan {
             lsv_configs,
             driver_correlations,
             None,
+            None,
         )
     }
     /// Shared one-factor HW with mixed BS and one-/two-factor Bergomi LSV.
@@ -120,6 +121,37 @@ impl MultiAssetPricingPlan {
             lsv_configs,
             driver_correlations,
             Some(hull_white),
+            None,
+        )
+    }
+    /// Calibrate one positive basket of normalized BS/LV equities by particle
+    /// projection between two PSD correlation schedules, with deterministic rates.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_local_correlation(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        local_correlation: LocalCorrelationConfig,
+    ) -> Result<Self, E> {
+        let configs = vec![None; models.len()];
+        Self::compile_impl(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            configs,
+            None,
+            None,
+            Some(local_correlation),
         )
     }
     #[allow(clippy::too_many_arguments)]
@@ -135,6 +167,7 @@ impl MultiAssetPricingPlan {
         lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
         driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
         hull_white: Option<MultiAssetHullWhiteConfig>,
+        local_correlation: Option<LocalCorrelationConfig>,
     ) -> Result<Self, E> {
         if markets.is_empty() || markets.len() != models.len() {
             return Err(E::Invalid("market/model dimensions differ"));
@@ -240,6 +273,15 @@ impl MultiAssetPricingPlan {
             ));
         }
         let mut events: Vec<_> = dates.iter().map(|&d| fraction(d)).collect();
+        if let Some(c) = &local_correlation {
+            events.extend(
+                c.target
+                    .time_nodes()
+                    .iter()
+                    .copied()
+                    .filter(|t| *t <= horizon),
+            );
+        }
         for (date, _) in correlation.entries() {
             let t = fraction(*date);
             if t > 0.0 && t < horizon {
@@ -280,6 +322,7 @@ impl MultiAssetPricingPlan {
             .len()
             .checked_add(
                 usize::from(hull_white.is_some()) * 2
+                    + usize::from(local_correlation.is_some()) * markets.len()
                     + rough_count
                     + lsv_configs
                         .iter()
@@ -440,7 +483,13 @@ impl MultiAssetPricingPlan {
             fingerprint: String::new(),
             lsv_drivers,
             hull_white,
+            local_correlation: None,
         };
+        plan.local_correlation = local_correlation
+            .map(|config| {
+                LocalCorrelationCalibration::compile(&plan, config).map(std::sync::Arc::new)
+            })
+            .transpose()?;
         plan.fingerprint = plan.make_fingerprint(&product, maximum_step);
         Ok(plan)
     }
@@ -570,6 +619,9 @@ impl MultiAssetPricingPlan {
         }
         if let Some(hw) = &self.hull_white {
             hw.fingerprint(&mut h, &self.assets);
+        }
+        if let Some(c) = &self.local_correlation {
+            c.fingerprint(&mut h);
         }
         floats(&mut h, &self.times);
         match self.engine {
