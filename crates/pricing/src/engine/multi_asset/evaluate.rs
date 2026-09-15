@@ -9,6 +9,7 @@ pub(super) struct Layout {
     pub(super) vega: Vec<(usize, usize)>,
     pub(super) discount: (usize, usize),
     pub(super) dividends: Vec<(usize, usize)>,
+    pub(super) local_correlation: (usize, usize),
     gamma: usize,
     boundary: usize,
     total: usize,
@@ -34,6 +35,17 @@ impl Layout {
                 offset += count;
             }
         }
+        let local_correlation = (
+            offset,
+            if risk.is_some() {
+                plan.local_correlation
+                    .as_ref()
+                    .map_or(0, |c| c.mixing_coefficients().len())
+            } else {
+                0
+            },
+        );
+        offset += local_correlation.1;
         let mut discount = (offset, 0);
         let mut dividends = Vec::new();
         if risk.is_some() && plan.hull_white.is_some() {
@@ -55,6 +67,7 @@ impl Layout {
             vega,
             discount,
             dividends,
+            local_correlation,
             gamma,
             boundary,
             total: offset,
@@ -66,6 +79,9 @@ impl MultiAssetPricingPlan {
         self.run(None)
     }
     pub fn evaluate_aad(&self, config: MultiAssetRiskConfig) -> Result<MultiAssetPrice, E> {
+        if let Some(c) = &self.local_correlation {
+            c.validate_reverse()?;
+        }
         if self.assets.iter().any(|a| {
             a.hw.as_ref()
                 .and_then(|h| h.calibration.as_ref())
@@ -123,10 +139,15 @@ impl MultiAssetPricingPlan {
                 })
                 .map_err(E::numerical)
         };
-        let (statistics, units, estimator, paths, lsv_risks) = match self.engine {
+        let (statistics, units, estimator, paths, lsv_risks, local_correlation_risk) = match self
+            .engine
+        {
             EngineConfig::PseudoMonteCarlo(c) => {
                 let units = c.independent_sampling_units().get();
                 let statistics = reduce(None, units, c.variance_reduction().antithetic())?;
+                let local_correlation_risk = self
+                    .local_correlation_target_means(&statistics, units, &layout, risk.is_some())?
+                    .map(|v| self.make_local_correlation_risk(v, None));
                 let lsv_risks = self
                     .target_means(&statistics, units, &layout, risk.is_some())?
                     .into_iter()
@@ -143,6 +164,7 @@ impl MultiAssetPricingPlan {
                     EstimatorKind::PseudoMonteCarlo,
                     c.evaluated_paths(),
                     lsv_risks,
+                    local_correlation_risk,
                 )
             }
             EngineConfig::RandomizedQuasiMonteCarlo(c) => {
@@ -150,8 +172,17 @@ impl MultiAssetPricingPlan {
                 let scrambles = c.scramble_count().get();
                 let mut means = vec![Vec::with_capacity(scrambles as usize); layout.total];
                 let mut target_samples: Vec<Vec<Vec<f64>>> = vec![Vec::new(); self.assets.len()];
+                let mut correlation_samples = Vec::new();
                 for s in 0..scrambles {
                     let stats = reduce(Some(s), points, c.variance_reduction().antithetic())?;
+                    if let Some(v) = self.local_correlation_target_means(
+                        &stats,
+                        points,
+                        &layout,
+                        risk.is_some(),
+                    )? {
+                        correlation_samples.push(v);
+                    }
                     for (samples, values) in target_samples.iter_mut().zip(self.target_means(
                         &stats,
                         points,
@@ -200,12 +231,33 @@ impl MultiAssetPricingPlan {
                     }
                     lsv_risks[i] = self.make_target_risks(i, values, Some(errors));
                 }
+                let local_correlation_risk = if correlation_samples.is_empty() {
+                    None
+                } else {
+                    let mut values = Vec::new();
+                    let mut errors = Vec::new();
+                    for j in 0..correlation_samples[0].len() {
+                        let ordered: Vec<_> = correlation_samples.iter().map(|s| s[j]).collect();
+                        let stat = DeterministicStatistics::from_ordered_values_two_pass(&ordered);
+                        let estimate = estimate_from_statistics(
+                            stat,
+                            u64::from(scrambles),
+                            1.0,
+                            EstimatorKind::RandomizedQuasiMonteCarlo,
+                        )
+                        .map_err(E::numerical)?;
+                        values.push(estimate.value().get());
+                        errors.push(estimate.standard_error().get());
+                    }
+                    Some(self.make_local_correlation_risk(values, Some(errors)))
+                };
                 (
                     stats,
                     u64::from(scrambles),
                     EstimatorKind::RandomizedQuasiMonteCarlo,
                     paths,
                     lsv_risks,
+                    local_correlation_risk,
                 )
             }
         };
@@ -218,7 +270,8 @@ impl MultiAssetPricingPlan {
         if let Some(config) = risk {
             for (i, a) in self.assets.iter().enumerate() {
                 let (offset, count) = layout.vega[i];
-                let (bs_vega, bs_scaled, local) = if a.has_lsv() {
+                let (bs_vega, bs_scaled, local) = if a.has_lsv() || self.local_correlation.is_some()
+                {
                     (None, None, Vec::new())
                 } else {
                     match a.model {
@@ -244,13 +297,17 @@ impl MultiAssetPricingPlan {
                     bs_vega_per_vol_point: bs_scaled,
                     local_variance: local,
                     local_variance_time_nodes: match &a.model {
-                        ModelSpec::LocalVolatility(lv) if !a.has_lsv() => {
+                        ModelSpec::LocalVolatility(lv)
+                            if !a.has_lsv() && self.local_correlation.is_none() =>
+                        {
                             lv.local_variance_grid().time_nodes().to_vec()
                         }
                         _ => Vec::new(),
                     },
                     local_variance_log_moneyness_nodes: match &a.model {
-                        ModelSpec::LocalVolatility(lv) if !a.has_lsv() => {
+                        ModelSpec::LocalVolatility(lv)
+                            if !a.has_lsv() && self.local_correlation.is_none() =>
+                        {
                             lv.local_variance_grid().log_moneyness_nodes().to_vec()
                         }
                         _ => Vec::new(),
@@ -315,6 +372,7 @@ impl MultiAssetPricingPlan {
             None
         };
         Ok(MultiAssetPrice {
+            local_correlation_risk,
             hull_white_curve_risk,
             price: estimate(0, 1.0)?,
             risks,
@@ -390,6 +448,9 @@ impl MultiAssetPricingPlan {
                 .local
                 .as_ref()
                 .map_or(0.0, |p| p.boundary_stats().total_flat_count() as f64);
+            if let Some(path) = &p.local_correlation {
+                values[layout.boundary + i] = path.boundary_counts[i];
+            }
             if let Some(c) = self.assets[i]
                 .hw
                 .as_ref()
@@ -454,40 +515,45 @@ impl MultiAssetPricingPlan {
                         a.coordinates[j].b()
                     };
             }
-            for (i, (p, a)) in paths.iter().zip(&self.assets).enumerate() {
-                let (offset, count) = layout.vega[i];
-                if let Some(lsv_path) = &p.lsv {
-                    let normalized_seeds: Vec<_> = seeds[i]
-                        .iter()
-                        .zip(a.process.forward_normalizers())
-                        .map(|(s, f)| s * f)
-                        .collect();
-                    let adj = lsv_path
-                        .reverse_leverage(&normalized_seeds)
-                        .map_err(E::numerical)?;
-                    values[offset..offset + count].copy_from_slice(&adj);
-                    continue;
-                }
-                match &a.model {
-                    ModelSpec::BlackScholes(_) => {
-                        values[offset] = seeds[i].iter().zip(&p.bs_vega).map(|(s, v)| s * v).sum();
-                    }
-                    ModelSpec::LocalVolatility(lv) => {
-                        let g = lv.local_variance_grid();
-                        let adj = p
-                            .local
-                            .as_ref()
-                            .expect("LV path")
-                            .reverse_state_adjoints(
-                                &seeds[i],
-                                g.values().len(),
-                                g.log_moneyness_nodes().len(),
-                            )
+            if self.local_correlation.is_some() {
+                self.local_correlation_path_risk(paths, &seeds, layout, &mut values)?;
+            } else {
+                for (i, (p, a)) in paths.iter().zip(&self.assets).enumerate() {
+                    let (offset, count) = layout.vega[i];
+                    if let Some(lsv_path) = &p.lsv {
+                        let normalized_seeds: Vec<_> = seeds[i]
+                            .iter()
+                            .zip(a.process.forward_normalizers())
+                            .map(|(s, f)| s * f)
+                            .collect();
+                        let adj = lsv_path
+                            .reverse_leverage(&normalized_seeds)
                             .map_err(E::numerical)?;
-                        values[offset..offset + count]
-                            .copy_from_slice(adj.local_variance_value_adjoints());
+                        values[offset..offset + count].copy_from_slice(&adj);
+                        continue;
                     }
-                    _ => unreachable!("validated model"),
+                    match &a.model {
+                        ModelSpec::BlackScholes(_) => {
+                            values[offset] =
+                                seeds[i].iter().zip(&p.bs_vega).map(|(s, v)| s * v).sum();
+                        }
+                        ModelSpec::LocalVolatility(lv) => {
+                            let g = lv.local_variance_grid();
+                            let adj = p
+                                .local
+                                .as_ref()
+                                .expect("LV path")
+                                .reverse_state_adjoints(
+                                    &seeds[i],
+                                    g.values().len(),
+                                    g.log_moneyness_nodes().len(),
+                                )
+                                .map_err(E::numerical)?;
+                            values[offset..offset + count]
+                                .copy_from_slice(adj.local_variance_value_adjoints());
+                        }
+                        _ => unreachable!("validated model"),
+                    }
                 }
             }
         }

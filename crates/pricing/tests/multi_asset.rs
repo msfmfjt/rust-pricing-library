@@ -1607,3 +1607,6 @@ fn multi_two_factor_covariance_dates_default_marginals_and_rejection_contract() 
 
 #[path = "cases/multi_asset_hull_white.rs"]
 mod hull_white_cases;
+
+#[path = "cases/local_correlation.rs"]
+mod local_correlation_cases;

@@ -417,6 +417,7 @@ impl MultiAssetPricingPlan {
                     bs_vega: Vec::new(),
                     local: None,
                     lsv: None,
+                    local_correlation: None,
                     hw: Some(HwAssetPath {
                         states,
                         physical_states,

@@ -2,6 +2,7 @@
 mod compile;
 mod evaluate;
 mod hull_white;
+mod local_correlation;
 mod lsv;
 mod path;
 use crate::Estimate;
@@ -16,6 +17,10 @@ pub use hull_white::{
     MultiAssetHullWhiteConfig, MultiAssetHullWhiteCurveRisk, MultiAssetHullWhiteLsvRisk,
 };
 mod lsv_kernels;
+pub use local_correlation::{
+    LocalCorrelationCalibration, LocalCorrelationConfig, LocalCorrelationFeasibility,
+    LocalCorrelationNodeDiagnostics, LocalCorrelationRisk,
+};
 pub use lsv::{
     MultiAssetBergomiLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
     MultiAssetRoughLsvConfig,
@@ -36,6 +41,7 @@ pub struct MultiAssetPricingPlan {
     fingerprint: String,
     lsv_drivers: Option<lsv::LsvDrivers>,
     hull_white: Option<hull_white::HwContext>,
+    local_correlation: Option<std::sync::Arc<LocalCorrelationCalibration>>,
 }
 #[derive(Clone, Debug)]
 struct Asset {
@@ -71,6 +77,7 @@ pub struct MultiAssetRisk {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MultiAssetPrice {
     pub price: Estimate,
+    pub local_correlation_risk: Option<LocalCorrelationRisk>,
     pub hull_white_curve_risk: Option<MultiAssetHullWhiteCurveRisk>,
     pub risks: Vec<MultiAssetRisk>,
     /// Rows are Delta underlyings; columns are bumped Spot underlyings.

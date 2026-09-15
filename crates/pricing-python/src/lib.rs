@@ -5,6 +5,7 @@
 mod builders;
 mod diagnostics;
 mod hull_white;
+mod local_correlation;
 mod lsv;
 mod multi_asset;
 mod multi_asset_hw;
@@ -1233,6 +1234,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<multi_asset_lsv::PyMultiAssetLsvConfig>()?;
     module.add_class::<multi_asset_lsv::PyMultiAssetLsv2FactorConfig>()?;
     module.add_class::<multi_asset_rough::PyMultiAssetRoughLsvConfig>()?;
+    module.add_class::<local_correlation::PyLocalCorrelationConfig>()?;
+    module.add_class::<local_correlation::PyLocalCorrelationCalibration>()?;
+    module.add_class::<local_correlation::PyLocalCorrelationRisk>()?;
     module.add_class::<multi_asset_lsv::PyMultiAssetLsvCalibration>()?;
     module.add_class::<multi_asset_lsv::PyMultiAssetLsvRisk>()?;
     module.add_class::<lsv::PyBergomiLsvPlan>()?;

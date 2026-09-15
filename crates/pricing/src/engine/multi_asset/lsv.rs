@@ -327,6 +327,9 @@ impl LsvDrivers {
 
 impl MultiAssetPricingPlan {
     pub fn random_factor_count(&self) -> usize {
+        if self.local_correlation.is_some() {
+            return self.assets.len() * 2;
+        }
         self.assets.len()
             + usize::from(self.hull_white.is_some()) * 2
             + self
