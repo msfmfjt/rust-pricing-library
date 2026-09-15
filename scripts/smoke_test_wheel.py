@@ -120,6 +120,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/local_correlation.py"], check=True)
+    subprocess.run([str(python), "examples/python/local_correlation_lsv_hw.py"], check=True)
     subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
     subprocess.run(
         [
@@ -1218,8 +1219,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
 
     expected_signature_shapes = {
         ('MultiAssetLsvConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
-        ('LocalCorrelationConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'feasibility', 'minimum_variance_span', 'retain_reverse_trace'], 'required_keyword_only': ['basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'feasibility': 'reject', 'minimum_variance_span': 1e-12, 'retain_reverse_trace': False}},
+        ('LocalCorrelationConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'feasibility', 'minimum_variance_span', 'retain_reverse_trace', 'second_driver_correlations', 'hull_white_target'], 'required_keyword_only': ['basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'feasibility': 'reject', 'minimum_variance_span': 1e-12, 'retain_reverse_trace': False, 'second_driver_correlations': None, 'hull_white_target': None}},
         ('LocalCorrelationCalibration', 'correlation_at'): {'positional': ['self', 'time', 'log_basket'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('LocalCorrelationCalibration', 'driver_correlation_at'): {'positional': ['self', 'time', 'log_basket'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('MultiAssetRoughLsvConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
         ('MultiAssetLsv2FactorConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
         ('CorrelationSchedule', '__init__'): {'positional': ['self', 'underlying_ids', 'effective_dates', 'matrices'],
@@ -1896,9 +1898,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'MultiAssetHullWhiteCurveRisk': {'discount_time_nodes', 'discount_log_df_adjoints', 'discount_node_dv01', 'dividend_time_nodes', 'dividend_log_df_adjoints'},
 
         'MultiAssetLsvConfig': {'__init__', 'mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
-        'LocalCorrelationConfig': {'__init__', 'basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'feasibility', 'minimum_variance_span', 'retain_reverse_trace'},
-        'LocalCorrelationCalibration': {'time_nodes', 'log_nodes', 'mixing_coefficients', 'endpoint_variances', 'target_variances', 'attained_variances', 'variance_residuals', 'raw_mixing', 'effective_samples', 'source_nodes', 'fallback_nodes', 'projected_nodes', 'unidentifiable_nodes', 'particle_means', 'retains_reverse_trace', 'correlation_at'},
-        'LocalCorrelationRisk': {'basket_time_nodes', 'basket_log_nodes', 'basket_variance_adjoints', 'basket_standard_errors', 'asset_adjoints', 'asset_standard_errors', 'asset_time_nodes', 'asset_log_nodes', 'method'},
+        'LocalCorrelationConfig': {'__init__', 'basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'feasibility', 'minimum_variance_span', 'retain_reverse_trace', 'second_driver_correlations', 'hull_white_target'},
+        'LocalCorrelationCalibration': {'time_nodes', 'log_nodes', 'mixing_coefficients', 'endpoint_variances', 'target_variances', 'attained_variances', 'variance_residuals', 'raw_mixing', 'effective_samples', 'source_nodes', 'fallback_nodes', 'projected_nodes', 'unidentifiable_nodes', 'particle_means', 'retains_reverse_trace', 'correlation_at', 'driver_correlation_at', 'rate_corrections'},
+        'LocalCorrelationRisk': {'basket_time_nodes', 'basket_log_nodes', 'basket_variance_adjoints', 'basket_standard_errors', 'asset_adjoints', 'asset_standard_errors', 'asset_time_nodes', 'asset_log_nodes', 'method', 'basket_hull_white', 'asset_hull_white'},
         'MultiAssetRoughLsvConfig': {'__init__', 'hurst', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
         'MultiAssetLsv2FactorConfig': {'__init__', 'mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'normalized_weights', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
         'MultiAssetLsvCalibration': {'volatility_factor_count', 'calibration_seed', 'time_nodes', 'log_moneyness_nodes', 'squared_leverage', 'effective_samples', 'donor_nodes', 'extrapolated', 'minimum_effective_samples', 'extrapolated_nodes', 'particle_mean_normalized_f', 'method'},
@@ -2498,6 +2500,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('LocalCorrelationConfig', 'feasibility'),
         ('LocalCorrelationConfig', 'minimum_variance_span'),
         ('LocalCorrelationConfig', 'retain_reverse_trace'),
+        ('LocalCorrelationConfig', 'second_driver_correlations'),
+        ('LocalCorrelationConfig', 'hull_white_target'),
         ('LocalCorrelationCalibration', 'time_nodes'),
         ('LocalCorrelationCalibration', 'log_nodes'),
         ('LocalCorrelationCalibration', 'mixing_coefficients'),
@@ -2513,6 +2517,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('LocalCorrelationCalibration', 'unidentifiable_nodes'),
         ('LocalCorrelationCalibration', 'particle_means'),
         ('LocalCorrelationCalibration', 'retains_reverse_trace'),
+        ('LocalCorrelationCalibration', 'rate_corrections'),
         ('LocalCorrelationRisk', 'basket_time_nodes'),
         ('LocalCorrelationRisk', 'basket_log_nodes'),
         ('LocalCorrelationRisk', 'basket_variance_adjoints'),
@@ -2522,6 +2527,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('LocalCorrelationRisk', 'asset_time_nodes'),
         ('LocalCorrelationRisk', 'asset_log_nodes'),
         ('LocalCorrelationRisk', 'method'),
+        ('LocalCorrelationRisk', 'basket_hull_white'),
+        ('LocalCorrelationRisk', 'asset_hull_white'),
         ('MultiAssetPlan', 'has_hull_white'),
         ('MultiAssetPlan', 'hull_white_calibrations'),
         ('MultiAssetRisk', 'hull_white_lsv'),

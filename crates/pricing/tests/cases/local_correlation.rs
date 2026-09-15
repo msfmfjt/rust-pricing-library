@@ -447,3 +447,6 @@ fn local_correlation_three_assets_dated_psd_endpoints_and_marginals() {
         );
     }
 }
+
+#[path = "local_correlation_joint.rs"]
+mod joint_cases;

@@ -419,7 +419,7 @@ impl MultiAssetPricingPlan {
             .iter()
             .enumerate()
             .map(|(i, a)| {
-                if risk && a.has_lsv() {
+                if risk && a.has_lsv() && self.local_correlation.is_none() {
                     let (offset, count) = layout.vega[i];
                     let mean: Vec<_> = statistics[offset..offset + count]
                         .iter()
@@ -491,7 +491,9 @@ impl MultiAssetPricingPlan {
         values[0] = payoff.value;
         let deltas = self.delta(paths, &payoff);
         values[1..1 + paths.len()].copy_from_slice(&deltas);
-        if self.hull_white.is_some() {
+        if self.hull_white.is_some() && self.local_correlation.is_some() {
+            self.joint_hw_path_risk(paths, &payoff, layout, &mut values)?;
+        } else if self.hull_white.is_some() {
             self.hw_path_risk(paths, &payoff, layout, &mut values)?;
         } else {
             let mut seeds = vec![vec![0.0; self.times.len()]; paths.len()];

@@ -32,6 +32,7 @@ pub(in crate::engine) struct AffineDividendPath {
 
 pub(in crate::engine) struct AffineDividendAdjoints {
     pub(in crate::engine) equity: Vec<f64>,
+    pub(in crate::engine) integrated_rate: Vec<f64>,
     pub(in crate::engine) discount_log_df: Vec<f64>,
     pub(in crate::engine) dividend_log_df: Vec<f64>,
 }
@@ -172,6 +173,7 @@ impl AffineDividendPlan {
         }
         let mut equity = vec![0.0; n];
         let mut carry_seeds = vec![0.0; n];
+        let mut integrated_rate = vec![0.0; n];
         let mut offset_seed = 0.0;
         for i in (0..n).rev() {
             let (post, pre) = seeds[i];
@@ -193,6 +195,8 @@ impl AffineDividendPlan {
             }
             if i > 0 {
                 let weight = offset_seed * path.before_offsets[i];
+                integrated_rate[i] += weight;
+                integrated_rate[i - 1] -= weight;
                 carry_seeds[i] += weight;
                 carry_seeds[i - 1] -= weight;
                 offset_seed *= path.growth[i];
@@ -214,6 +218,7 @@ impl AffineDividendPlan {
         }
         Ok(AffineDividendAdjoints {
             equity,
+            integrated_rate,
             discount_log_df,
             dividend_log_df,
         })
