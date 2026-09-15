@@ -13,7 +13,7 @@ use crate::multi_asset::MultiAssetError as E;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LocalCorrelationFeasibility {
     Reject,
-    /// Project onto [0,1] and expose the unprojected coefficient and variance residual.
+    /// Project onto `[0,1]` and expose the unprojected coefficient and variance residual.
     ProjectAndReport,
 }
 
