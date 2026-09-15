@@ -400,18 +400,7 @@ impl PyMultiAssetPlan {
             }
             None
         };
-        let local_correlation = local_correlation.map(|c| c.inner.clone());
-        if local_correlation.is_some()
-            && (hw.is_some()
-                || driver_correlations.is_some()
-                || lsv.len() != models.len()
-                || lsv.iter().any(Option::is_some))
-        {
-            return Err(invalid(
-                py,
-                "local correlation v0.1 supports BS/LV with deterministic rates; LSV/HW/full driver matrices cannot be combined",
-            ));
-        }
+        let local_correlation = local_correlation.map(|c| (c.inner.clone(), c.extensions.clone()));
         let product = product.inner.clone();
         let markets = markets
             .into_iter()
@@ -424,8 +413,8 @@ impl PyMultiAssetPlan {
         let correlation = correlations.inner.clone();
         let engine = engine.inner;
         py.detach(|| {
-            if let Some(config) = local_correlation {
-                MultiAssetPricingPlan::compile_with_local_correlation(
+            if let Some((config, extensions)) = local_correlation {
+                MultiAssetPricingPlan::compile_with_joint_local_correlation(
                     date,
                     product,
                     markets,
@@ -434,7 +423,11 @@ impl PyMultiAssetPlan {
                     engine,
                     execution,
                     maximum_step,
+                    lsv,
+                    driver_correlations,
+                    hw,
                     config,
+                    extensions,
                 )
             } else if let Some(hw) = hw {
                 MultiAssetPricingPlan::compile_with_hull_white(

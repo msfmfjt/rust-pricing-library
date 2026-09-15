@@ -6,6 +6,8 @@ impl LocalCorrelationCalibration {
     pub(in crate::engine::multi_asset) fn compile(
         plan: &MultiAssetPricingPlan,
         config: LocalCorrelationConfig,
+        extensions: LocalCorrelationExtensions,
+        configs: &[Option<MultiAssetBergomiLsvConfig>],
     ) -> Result<Self, E> {
         let n = plan.assets.len();
         let weights = &config.basket_weights;
@@ -17,11 +19,6 @@ impl LocalCorrelationCalibration {
         {
             return Err(E::Invalid(
                 "local correlation requires at least two positive basket weights summing to one",
-            ));
-        }
-        if plan.hull_white.is_some() || plan.assets.iter().any(Asset::has_lsv) {
-            return Err(E::Invalid(
-                "local correlation v0.1 supports deterministic-rate BS/LV; stochastic-volatility and HW joint drivers are not connected",
             ));
         }
         if config.minimum_variance_span <= 0.0 || !config.minimum_variance_span.is_finite() {
@@ -76,7 +73,9 @@ impl LocalCorrelationCalibration {
             .particles
             .retain_reverse_trace()
             .then(|| std::sync::Arc::new(Vec::new()));
+        let joint = joint::Joint::compile(plan, &config, extensions, configs)?;
         let mut result = Self {
+            joint,
             config,
             times: plan.times.clone(),
             models: plan.assets.iter().map(|a| a.model.clone()).collect(),
@@ -88,6 +87,9 @@ impl LocalCorrelationCalibration {
             particle_means: Vec::new(),
             trace,
         };
+        if result.joint.is_some() {
+            return result.calibrate_joint();
+        }
         let mut states = vec![vec![1.0; n]; np];
         for row in 0..nt {
             result.calibrate_row(row, &states)?;
@@ -202,6 +204,7 @@ impl LocalCorrelationCalibration {
                 endpoint_variances: [a, b],
                 target_variance: target,
                 attained_variance: a + lambda * span,
+                rate_correction: 0.0,
                 raw_mixing: raw,
                 effective_samples: if row == 0 { np as f64 } else { effective[j] },
                 source_node: source,

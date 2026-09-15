@@ -1,11 +1,13 @@
 //! Immutable particle local-correlation configuration, diagnostics and joint risk.
 use crate::builders::PyModel;
+use crate::hull_white::PyHullWhiteLsvTarget;
 use crate::multi_asset::{PyCorrelationSchedule, invalid};
+use crate::multi_asset_hw::PyMultiAssetHullWhiteLsvRisk;
 use pricing::mc::lsv::LsvParticleConfig;
 use pricing::models::ModelSpec;
 use pricing::multi_asset::{
-    LocalCorrelationCalibration, LocalCorrelationConfig, LocalCorrelationFeasibility,
-    LocalCorrelationRisk,
+    LocalCorrelationCalibration, LocalCorrelationConfig, LocalCorrelationExtensions,
+    LocalCorrelationFeasibility, LocalCorrelationRisk,
 };
 use pyo3::prelude::*;
 
@@ -13,13 +15,14 @@ use pyo3::prelude::*;
 #[derive(Clone, Debug)]
 pub struct PyLocalCorrelationConfig {
     pub(crate) inner: LocalCorrelationConfig,
+    pub(crate) extensions: LocalCorrelationExtensions,
     target: ModelSpec,
 }
 #[pymethods]
 impl PyLocalCorrelationConfig {
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(*,basket_weights,target_model,second_correlations,particle_count,calibration_seed,log_bandwidth,minimum_effective_samples,feasibility="reject",minimum_variance_span=1e-12,retain_reverse_trace=false))]
+    #[pyo3(signature=(*,basket_weights,target_model,second_correlations,particle_count,calibration_seed,log_bandwidth,minimum_effective_samples,feasibility="reject",minimum_variance_span=1e-12,retain_reverse_trace=false,second_driver_correlations=None,hull_white_target=None))]
     fn new(
         py: Python<'_>,
         basket_weights: Vec<f64>,
@@ -32,6 +35,8 @@ impl PyLocalCorrelationConfig {
         feasibility: &str,
         minimum_variance_span: f64,
         retain_reverse_trace: bool,
+        second_driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+        hull_white_target: Option<&PyHullWhiteLsvTarget>,
     ) -> PyResult<Self> {
         let ModelSpec::LocalVolatility(target) = &target_model.inner else {
             return Err(invalid(
@@ -62,6 +67,10 @@ impl PyLocalCorrelationConfig {
         };
         Ok(Self {
             target: target_model.inner.clone(),
+            extensions: LocalCorrelationExtensions {
+                second_driver_correlations,
+                hull_white_target: hull_white_target.map(|t| t.inner.clone()),
+            },
             inner: LocalCorrelationConfig {
                 basket_weights,
                 target: target.local_variance_grid().clone(),
@@ -78,6 +87,17 @@ impl PyLocalCorrelationConfig {
                 minimum_variance_span,
             },
         })
+    }
+    #[getter]
+    fn second_driver_correlations(&self) -> Option<Vec<Vec<Vec<f64>>>> {
+        self.extensions.second_driver_correlations.clone()
+    }
+    #[getter]
+    fn hull_white_target(&self) -> Option<PyHullWhiteLsvTarget> {
+        self.extensions
+            .hull_white_target
+            .clone()
+            .map(|inner| PyHullWhiteLsvTarget { inner })
     }
     #[getter]
     fn basket_weights(&self) -> Vec<f64> {
@@ -235,6 +255,24 @@ impl PyLocalCorrelationCalibration {
     fn retains_reverse_trace(&self) -> bool {
         self.inner.retains_reverse_trace()
     }
+    fn driver_correlation_at(
+        &self,
+        py: Python<'_>,
+        time: f64,
+        log_basket: f64,
+    ) -> PyResult<Vec<Vec<f64>>> {
+        self.inner
+            .driver_correlation_at(time, log_basket)
+            .map_err(|e| invalid(py, e))
+    }
+    #[getter]
+    fn rate_corrections(&self) -> Vec<f64> {
+        self.inner
+            .diagnostics()
+            .iter()
+            .map(|d| d.rate_correction)
+            .collect()
+    }
     fn correlation_at(
         &self,
         py: Python<'_>,
@@ -254,6 +292,24 @@ pub struct PyLocalCorrelationRisk {
 }
 #[pymethods]
 impl PyLocalCorrelationRisk {
+    #[getter]
+    fn basket_hull_white(&self) -> Option<PyMultiAssetHullWhiteLsvRisk> {
+        self.inner
+            .basket_hull_white
+            .clone()
+            .map(|inner| PyMultiAssetHullWhiteLsvRisk { inner })
+    }
+    #[getter]
+    fn asset_hull_white(&self) -> Vec<Option<PyMultiAssetHullWhiteLsvRisk>> {
+        self.inner
+            .asset_hull_white
+            .iter()
+            .map(|r| {
+                r.clone()
+                    .map(|inner| PyMultiAssetHullWhiteLsvRisk { inner })
+            })
+            .collect()
+    }
     #[getter]
     fn basket_time_nodes(&self) -> Vec<f64> {
         self.inner.basket_time_nodes.clone()

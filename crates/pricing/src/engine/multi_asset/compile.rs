@@ -151,7 +151,39 @@ impl MultiAssetPricingPlan {
             configs,
             None,
             None,
-            Some(local_correlation),
+            Some((local_correlation, LocalCorrelationExtensions::default())),
+        )
+    }
+    /// Particle local correlation with fixed marginal LSV/HW driver blocks.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_with_joint_local_correlation(
+        valuation_date: Date,
+        product: MultiAssetProduct,
+        markets: Vec<EquityMarket>,
+        models: Vec<ModelSpec>,
+        correlation: CorrelationTermStructure,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        maximum_step: f64,
+        lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
+        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+        hull_white: Option<MultiAssetHullWhiteConfig>,
+        local_correlation: LocalCorrelationConfig,
+        extensions: LocalCorrelationExtensions,
+    ) -> Result<Self, E> {
+        Self::compile_impl(
+            valuation_date,
+            product,
+            markets,
+            models,
+            correlation,
+            engine,
+            execution,
+            maximum_step,
+            lsv_configs,
+            driver_correlations,
+            hull_white,
+            Some((local_correlation, extensions)),
         )
     }
     #[allow(clippy::too_many_arguments)]
@@ -167,7 +199,7 @@ impl MultiAssetPricingPlan {
         lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
         driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
         hull_white: Option<MultiAssetHullWhiteConfig>,
-        local_correlation: Option<LocalCorrelationConfig>,
+        local_correlation: Option<(LocalCorrelationConfig, LocalCorrelationExtensions)>,
     ) -> Result<Self, E> {
         if markets.is_empty() || markets.len() != models.len() {
             return Err(E::Invalid("market/model dimensions differ"));
@@ -273,7 +305,7 @@ impl MultiAssetPricingPlan {
             ));
         }
         let mut events: Vec<_> = dates.iter().map(|&d| fraction(d)).collect();
-        if let Some(c) = &local_correlation {
+        if let Some((c, _)) = &local_correlation {
             events.extend(
                 c.target
                     .time_nodes()
@@ -322,7 +354,6 @@ impl MultiAssetPricingPlan {
             .len()
             .checked_add(
                 usize::from(hull_white.is_some()) * 2
-                    + usize::from(local_correlation.is_some()) * markets.len()
                     + rough_count
                     + lsv_configs
                         .iter()
@@ -331,7 +362,8 @@ impl MultiAssetPricingPlan {
                         .sum::<usize>(),
             )
             .ok_or(E::Invalid("random factor count overflow"))?
-            .checked_mul(grid.step_count())
+            .checked_mul(1 + usize::from(local_correlation.is_some()))
+            .and_then(|n| n.checked_mul(grid.step_count()))
             .and_then(|v| u32::try_from(v).ok())
             .ok_or(E::Invalid("random dimension overflow"))?;
         let variance_reduction = match engine {
@@ -389,6 +421,7 @@ impl MultiAssetPricingPlan {
                 driver_correlations,
             )?
         };
+        let joint_configs = lsv_configs.clone();
         let mut driver_offset = markets.len();
         let mut assets = Vec::new();
         for (asset_index, ((market, model), lsv_config)) in
@@ -486,8 +519,9 @@ impl MultiAssetPricingPlan {
             local_correlation: None,
         };
         plan.local_correlation = local_correlation
-            .map(|config| {
-                LocalCorrelationCalibration::compile(&plan, config).map(std::sync::Arc::new)
+            .map(|(config, extensions)| {
+                LocalCorrelationCalibration::compile(&plan, config, extensions, &joint_configs)
+                    .map(std::sync::Arc::new)
             })
             .transpose()?;
         plan.fingerprint = plan.make_fingerprint(&product, maximum_step);

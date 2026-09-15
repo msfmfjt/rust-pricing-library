@@ -18,8 +18,8 @@ pub use hull_white::{
 };
 mod lsv_kernels;
 pub use local_correlation::{
-    LocalCorrelationCalibration, LocalCorrelationConfig, LocalCorrelationFeasibility,
-    LocalCorrelationNodeDiagnostics, LocalCorrelationRisk,
+    LocalCorrelationCalibration, LocalCorrelationConfig, LocalCorrelationExtensions,
+    LocalCorrelationFeasibility, LocalCorrelationNodeDiagnostics, LocalCorrelationRisk,
 };
 pub use lsv::{
     MultiAssetBergomiLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,

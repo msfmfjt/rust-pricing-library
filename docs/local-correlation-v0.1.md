@@ -1,11 +1,16 @@
 # Particle Local Correlation v0.1
 
 This experimental adapter prices Basket, Worst-of and unseasoned Autocallable
-payoffs with deterministic rates and BS/Local Volatility constituents. Rust
-uses `MultiAssetPricingPlan::compile_with_local_correlation`; Python uses
+payoffs with BS/Local Volatility and one-/two-factor Bergomi LSV constituents,
+including common Hull–White rates and rough-LSV. Rust uses
+`MultiAssetPricingPlan::compile_with_local_correlation` for BS/LV or
+`compile_with_joint_local_correlation` for joint LSV/HW configurations. Python uses
 `MultiAssetPlan.compile(..., local_correlation=LocalCorrelationConfig(...))`.
 The [example](../examples/python/local_correlation.py) runs all three products.
 Existing fixed-correlation plans keep their random dimensions and fingerprints.
+
+The deterministic-rate equations below also apply to LSV with its stochastic
+instantaneous sigma. The shared-rate extension is specified separately below.
 
 ## Coordinates and identification
 
@@ -159,8 +164,10 @@ contribute to each constituent's volatility risk.
 Old per-asset BS Vega and LV-adjoint fields are empty for Local Correlation
 plans; the joint result is the authoritative volatility-risk output. Basket
 and LV axes identify the original input grids, not the refined time grid.
-BS axis lists are empty. These are **effective variance** risks, even if an LV
-grid originated from market IV; source-quote VegaKT is not implemented here.
+BS axis lists are empty. Deterministic LV/LSV inputs expose **effective variance**
+risk, even if their grids originated from market IV. Paired HW targets retain
+source quote VegaKT as specified below. With Local Correlation enabled, the old
+per-asset LSV target-risk fields are also empty; use the joint result.
 
 Reverse holds endpoints, weights, axes, bandwidth, seeds, ESS donor choices,
 variance-span and projection branches fixed. Strictly projected and
@@ -176,16 +183,106 @@ contributions. These errors exclude calibration sampling error and numerical
 discretization bias. Vary particles, bandwidth, grid and calibration seed to
 assess those separately.
 
+## Joint LSV and Hull–White extension
+
+Configure the marginal LSV models as usual with `lsv_configs`. With HW, also
+supply `rate_model`, `rate_correlations`, and marginal `lsv_targets` to
+`MultiAssetPlan.compile`. Add these optional fields to `LocalCorrelationConfig`:
+
+| Input | Contract |
+| --- | --- |
+| `second_driver_correlations` | Full Brownian matrices for endpoint 1, with the same dates as the spot schedules. Order: all spots, each asset's vol factors, then the common rate Brownian when present. |
+| `hull_white_target` | Required with HW: paired basket variance and T-forward log-density. Its grid must equal `target_model`'s grid. Forbidden without HW. |
+
+Endpoint 0 continues to use `driver_correlations` on the plan compiler. Omitted
+full endpoints use the existing independent-residual construction at their
+respective spot correlation endpoint. Cross-asset spot/vol and vol/vol blocks
+can differ between endpoints; each asset's own spot/vol, within-asset vol/vol,
+and every spot/vol versus rate correlation must retain its configured value.
+Both full endpoints must be PSD. Invalid matrices, including future schedule
+entries, are rejected without modifying the supplied cross correlations.
+
+The entire Gaussian transition is mixed, using independent normal blocks:
+
+\[
+\epsilon=\sqrt{1-\lambda}\,A_0z_0+\sqrt{\lambda}\,A_1z_1,
+\qquad A_eA_e^\top=Q_e.
+\]
+
+Here Q_e integrates the Brownian endpoint through the existing exact OU,
+rate-state/integrated-rate, and rough near-cell kernels. Each marginal block
+of Q_0 and Q_1 is identical. Consequently each asset retains its separately
+calibrated spot/vol/rate law; its leverage surface needs no joint recalibration.
+The leverage **input sensitivities** do include both marginal and basket
+recalibration. Rough paths use the complete discrete Volterra history, with
+an exact Brownian limit at H=1/2. Lambda is frozen over each simulation interval.
+
+The random factor count becomes twice the existing joint Gaussian count,
+including the two HW coordinates and rough near-cell auxiliaries. The
+`lsv_driver_correlations` / `lsv_transition_covariances` snapshots still show
+endpoint 0. Use `local_correlation_calibration.driver_correlation_at(t,x)` for
+the effective full Brownian correlation; `correlation_at` returns its spot block.
+
+With centered rate X, initial instantaneous forward rate f_0, relative discount
+\(\bar D=D/P(0,t)\), and normalized equities U_i,
+
+\[
+dU_i/U_i=(r-f_0)dt+\sigma_i dW_i,\quad B=\sum_i w_iU_i,
+\quad c_e=\frac{E[\bar D q_e\mid\log B=x]}{E[\bar D\mid\log B=x]},
+\]
+\[
+\lambda_{raw}=\frac{v_B-c_0-\mathcal R}{c_1-c_0},\qquad
+\mathcal R=\frac{2E[\bar D(r-f_0)1_{\log B>x}]}{p_{\log B}^{\,t}(x)}.
+\]
+
+The density is a **T-forward density of log B**, not a log of a density. It
+uses the existing `HullWhiteLsvTarget` convention. Rate tails are empirically
+centered as in marginal HW calibration: replace their numerator by
+`(sum_above Dbar*(r-f0) - sum_above Dbar/sum_all Dbar * sum_all Dbar*(r-f0))/P`.
+At time zero or zero rate volatility the rate correction vanishes. Regression
+weights and ESS use `Dbar*K`. Cells with zero positive-time density under
+stochastic rates are unsupported. Fallback borrows both moments and the rate
+correction from the donor; the query retains its own variance target.
+`rate_corrections` exposes the contribution, and `attained_variances` includes
+it. Under HW, `particle_means` reports mean discounted normalized U_i.
+
+Explicit paired targets must contain every common grid time. Targets built
+with `HullWhiteLsvTarget.from_market_iv` are regenerated from their retained
+quote surface at refined times; both variance and density adjoints transpose
+to those source quotes. Marginal targets obey the same existing contract.
+
+`local_correlation_risk.basket_hull_white` and `asset_hull_white[i]` expose
+paired density adjoints, raw/scaled VegaKT, parallel Vega, and conditional RQMC
+errors. The variance adjoints remain in `basket_variance_adjoints` and
+`asset_adjoints`. Their time/log axes describe the risk target: original nodes
+for explicit targets, common refined times for retained market-IV targets.
+MC joint volatility/density/quote standard errors are absent.
+
+The reverse propagates lambda feedback through every spot, OU, rough history,
+rate state, integrated rate, discounted regression weight and centered rate
+tail. Physical cash dividends include the derivative of realized stochastic
+carry; payment lags include the conditional bond discount derivative. Tail
+membership, support donors and active sets are held fixed. As for marginal
+HW particle calibration, this is the finite-program derivative away from tail
+indicator ties, not a smoothed density derivative of a moving indicator.
+Endpoints and HW/Bergomi model parameters remain fixed. State trace memory is
+O(P*K*D); the rough history adds O(P*K squared) forward/reverse work. Both the
+basket and all marginal LSV calibrations must retain their reverse traces.
+
+The normalized-basket locality is the paper's §9 choice a=0, b=1, with the
+stochastic-volatility/rate projection extended as in §11.2 of Julien Guyon's
+“A New Class of Local Correlation Models” (SSRN 2283419). It remains one scalar
+function lambda(t,log B), rather than a freely calibrated correlation matrix.
+
 ## Scope and validation
 
-This adapter accepts deterministic-rate BS/LV only. It explicitly rejects
-LSV/Bergomi/rough configurations, Hull–White and full spot/vol/rate driver
-matrices. Extending it to those models requires a joint driver construction
-that preserves constituent spot/vol/rate marginals while changing cross-asset
-correlation, and a consistent coupled particle calibration/reverse. The
-existing fixed-correlation LSV/HW adapters remain available independently.
-Multiple basket targets, physical-index quote conversion, correlation Greeks,
-and source-IV VegaKT are not included. The adapter has no JSON schema boundary.
+The adapter supports BS/LV, one-/two-factor Bergomi LSV, and shared HW with
+BS/Bergomi/rough-LSV. As in the existing HW adapter, HW + LV requires a zero
+vol-of-vol LSV configuration and a paired marginal target. Rough-LSV uses the
+HW adapter, allowing zero rate volatility for deterministic rates. Multiple
+basket targets, physical-index quote conversion, correlation/model-parameter
+Greeks, and deterministic-LSV source-IV VegaKT are not included. There is no
+JSON schema boundary.
 
 The acceptance tests check independently recalibrated finite differences for
 all basket and constituent volatility nodes, dividends and cross Gamma,

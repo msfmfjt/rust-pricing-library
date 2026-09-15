@@ -14,6 +14,9 @@ impl MultiAssetPricingPlan {
     ) -> Result<Vec<AssetPath>, E> {
         let calibration = self.local_correlation.as_ref().expect("local correlation");
         let path = Arc::new(calibration.evolve(shocks)?);
+        if self.hull_white.is_some() {
+            return self.joint_hw_paths(path);
+        }
         self.assets.iter().enumerate().map(|(i, a)| {
             let initial = a.forward.spot().get();
             let f: Vec<_> = path.states.iter().zip(a.process.forward_normalizers())
@@ -87,6 +90,16 @@ impl MultiAssetPricingPlan {
                 *value += stat.sum().total() / units as f64;
             }
         }
+        for (i, values) in assets.iter_mut().enumerate() {
+            let a = &self.assets[i];
+            if a.has_lsv() {
+                *values = if let Some(hw) = &a.hw {
+                    hw.target_reverse(values)?
+                } else {
+                    a.lsv.as_ref().unwrap().target_reverse(values)?
+                };
+            }
+        }
         Ok(Some(
             basket
                 .into_iter()
@@ -100,6 +113,9 @@ impl MultiAssetPricingPlan {
         errors: Option<Vec<f64>>,
     ) -> LocalCorrelationRisk {
         let c = self.local_correlation.as_ref().expect("local correlation");
+        if c.joint.is_some() {
+            return self.make_joint_correlation_risk(values, errors);
+        }
         let nb = c.config.target.values().len();
         let split = |v: &[f64]| {
             let mut cursor = nb;
@@ -141,6 +157,8 @@ impl MultiAssetPricingPlan {
                     }
                 })
                 .collect(),
+            basket_hull_white: None,
+            asset_hull_white: vec![None; self.assets.len()],
             method: "local-correlation-finite-particle-reverse-v1",
         }
     }
@@ -190,6 +208,23 @@ impl LocalCorrelationCalibration {
         for (_, endpoint) in self.config.second_correlation.entries() {
             floats(h, endpoint.raw());
             floats(h, endpoint.canonical());
+        }
+        if let Some(j) = &self.joint {
+            h.update(b"joint-lsv-hw-local-correlation-v1");
+            for d in &j.drivers[1].entries {
+                floats(h, d.raw());
+                floats(h, d.canonical());
+            }
+            if let Some(t) = &j.target {
+                floats(h, t.grid().time_nodes());
+                floats(h, t.grid().values());
+                floats(h, t.log_densities());
+                if let Some(iv) = t.market_iv_surface() {
+                    floats(h, iv.maturity_nodes());
+                    floats(h, iv.log_moneyness_nodes());
+                    floats(h, iv.implied_volatilities());
+                }
+            }
         }
         floats(h, &self.mixing);
         for d in &self.diagnostics {
