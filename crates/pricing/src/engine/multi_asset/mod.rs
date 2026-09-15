@@ -18,6 +18,7 @@ pub use hull_white::{
 mod lsv_kernels;
 pub use lsv::{
     MultiAssetBergomiLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
+    MultiAssetRoughLsvConfig,
 };
 
 #[derive(Clone, Debug)]

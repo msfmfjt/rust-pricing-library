@@ -181,11 +181,29 @@ impl RoughBergomiDriverPlan {
                     .sum::<f64>(),
             );
         }
+        self.evolve_with_innovations(&dw, &near)
+    }
+    /// Raw Volterra history from already jointly sampled Brownian increments
+    /// and near-cell integrals. The caller supplies their full joint covariance.
+    /// At H=0.5 the near integral equals dW; its extra normal block is retained.
+    pub fn evolve_with_innovations(
+        &self,
+        dw: &[f64],
+        near: &[f64],
+    ) -> Result<Vec<f64>, HullWhiteMcError> {
+        let n = self.times.len() - 1;
+        if dw.len() != n || near.len() != n || dw.iter().chain(near).any(|v| !v.is_finite()) {
+            return Err(invalid("rough_external_innovations", dw.len()));
+        }
         let mut values = vec![0.0];
         for i in 1..=n {
             let mut value = NeumaierSum::new();
-            value.add(near[i - 1]);
-            for (&w, &z) in self.weights[i].iter().zip(&dw) {
+            value.add(if self.model.hurst() == 0.5 {
+                dw[i - 1]
+            } else {
+                near[i - 1]
+            });
+            for (&w, &z) in self.weights[i].iter().zip(dw) {
                 value.add(w * z);
             }
             hw_valid(value.total(), "rough_driver_state", i, false)?;
@@ -198,7 +216,16 @@ impl RoughBergomiDriverPlan {
         &self,
         shocks: &[f64],
     ) -> Result<Vec<f64>, HullWhiteMcError> {
-        let mut values = self.evolve(shocks)?;
+        self.center(self.evolve(shocks)?)
+    }
+    pub(in crate::engine) fn normalized_with_innovations(
+        &self,
+        dw: &[f64],
+        near: &[f64],
+    ) -> Result<Vec<f64>, HullWhiteMcError> {
+        self.center(self.evolve_with_innovations(dw, near)?)
+    }
+    fn center(&self, mut values: Vec<f64>) -> Result<Vec<f64>, HullWhiteMcError> {
         for (i, (x, &var)) in values.iter_mut().zip(&self.variances).enumerate() {
             *x -= 0.5 * self.model.vol_of_vol() * var;
             hw_valid(*x, "rough_normalized_state", i, false)?;

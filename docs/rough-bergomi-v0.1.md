@@ -3,6 +3,10 @@
 Date: 2026-09-13. Status: experimental implementation.
 Decision: [ADR 0005](adr/0005-rough-bergomi.md).
 
+[Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) extends
+this nonuniform hybrid scheme to jointly driven rough and Markovian assets.
+The single-equity entry points and conventions below remain available.
+
 ## Model and input conventions
 
 The Riemann–Liouville driver and unit-mean variance multiplier are

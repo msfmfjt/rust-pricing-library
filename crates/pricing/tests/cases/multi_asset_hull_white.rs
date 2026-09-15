@@ -299,7 +299,10 @@ fn hw_eight_coordinate_covariance_matches_quadrature_and_checks_future_marginals
 
 #[test]
 fn hw_two_factor_all_paired_buckets_spot_gamma_and_curves_match_recalibration() {
-    let mut c = Case::new();
+    check_paired_spot_gamma_curve_risks(Case::new());
+}
+
+fn check_paired_spot_gamma_curve_risks(mut c: Case) {
     c.markets = vec![
         market(
             1,
@@ -579,3 +582,6 @@ fn hw_quote_refinement_vega_kt_mc_trace_and_mixed_factors_are_explicit() {
     assert_eq!(p.lsv_volatility_factor_counts(), vec![2, 0]);
     assert!(p.evaluate().is_ok());
 }
+
+#[path = "multi_asset_rough.rs"]
+mod rough_cases;

@@ -5,6 +5,8 @@
 This experimental extension connects one- and two-factor Bergomi LSV to a
 single shared one-factor Hull–White rate process. It supports a single equity
 or a mixture of BS, one-factor LSV and two-factor LSV equities in one currency.
+The [rough-LSV extension](multi-asset-rough-bergomi-v0.1.md) adds non-Markov
+assets with per-asset H and eta to this same adapter.
 Multi-asset Basket, Worst-of and memory/no-memory Autocallable payoffs use the
 existing payoff tape, dated observations, payment lags and affine dividends.
 
@@ -42,7 +44,9 @@ solves `dx = -a x dt + sigma_r(t) dW_r`; its deterministic shift reproduces
 the input discount curve.
 
 There are N spot Brownian drivers, F volatility Brownian drivers, and one rate
-Brownian driver. An exact step also requires the integrated rate innovation:
+Brownian driver. An exact step also requires the integrated rate innovation.
+The orders below describe Markovian plans; M rough assets append M newest-cell
+power integrals after the rate integral (N+F+2+M total Gaussian blocks):
 
 | Plan | Brownian matrix | Exact Gaussian innovation order |
 | --- | --- | --- |
@@ -193,7 +197,7 @@ using Gauss–Hermite quadrature and an analytically integrated final step.
 
 Existing one-factor HW, rough-HW, deterministic-rate one-/two-factor LSV and
 their JSON/request conventions retain their behavior. Multi-currency/FX,
-multiple rate factors, multi-asset rough-LSV, correlation/model-parameter
+multiple rate factors, correlation/model-parameter
 Greeks, sticky-strike/sticky-delta smile dynamics, seasoned products, American
 exercise and continuous barriers are outside this extension. Target construction
 and particle/bandwidth/time-step refinement remain product-specific acceptance

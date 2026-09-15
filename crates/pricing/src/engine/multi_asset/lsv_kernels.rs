@@ -40,6 +40,12 @@ impl LsvCalibration {
                 1.0,
                 c.particles,
             )?)),
+            MultiAssetBergomiLsvConfig::Rough(_) => {
+                return Err(LsvError::InvalidInput {
+                    field: "rough_lsv_requires_paired_hw_target",
+                    index: 0,
+                });
+            }
         })
     }
     pub fn surface(&self) -> &LsvLeverageSurface {

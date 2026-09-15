@@ -142,6 +142,16 @@ impl MultiAssetPricingPlan {
         if lsv_configs.len() != models.len() {
             return Err(E::Invalid("LSV configuration count must equal asset count"));
         }
+        let rough_count = lsv_configs
+            .iter()
+            .flatten()
+            .filter(|c| c.rough().is_some())
+            .count();
+        if hull_white.is_none() && rough_count > 0 {
+            return Err(E::Invalid(
+                "rough-LSV requires the shared HW adapter and paired targets; use a zero-volatility HW model for deterministic rates",
+            ));
+        }
         for (config, model) in lsv_configs.iter().zip(&models) {
             if config.is_some() && !matches!(model, ModelSpec::LocalVolatility(_)) {
                 return Err(E::Invalid(
@@ -270,6 +280,7 @@ impl MultiAssetPricingPlan {
             .len()
             .checked_add(
                 usize::from(hull_white.is_some()) * 2
+                    + rough_count
                     + lsv_configs
                         .iter()
                         .flatten()
@@ -532,6 +543,12 @@ impl MultiAssetPricingPlan {
         }
         if let Some(d) = &self.lsv_drivers {
             h.update(b"joint-spot-ou-inputs-v1");
+            if !d.rough_asset_indices.is_empty() {
+                h.update(b"multi-asset-rough-hw-kappa1-joint-power-ou-v1");
+                for &asset in &d.rough_asset_indices {
+                    h.update(&(asset as u64).to_be_bytes());
+                }
+            }
             for c in &d.entries {
                 floats(&mut h, c.raw());
                 floats(&mut h, c.canonical());

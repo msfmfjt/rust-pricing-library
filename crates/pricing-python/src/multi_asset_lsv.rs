@@ -277,8 +277,13 @@ pub(crate) fn extract_lsv_config(
     if let Ok(c) = value.extract::<PyRef<'_, PyMultiAssetLsv2FactorConfig>>() {
         return Ok(c.inner.clone().into());
     }
+    if let Ok(c) =
+        value.extract::<PyRef<'_, crate::multi_asset_rough::PyMultiAssetRoughLsvConfig>>()
+    {
+        return Ok(c.inner.clone().into());
+    }
     Err(invalid(
         py,
-        "lsv_configs requires MultiAssetLsvConfig, MultiAssetLsv2FactorConfig or None",
+        "lsv_configs requires MultiAssetLsvConfig, MultiAssetLsv2FactorConfig, MultiAssetRoughLsvConfig or None",
     ))
 }

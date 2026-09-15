@@ -457,14 +457,14 @@ impl HullWhiteEquityPlan {
     }
     /// Evolve already correlated innovations [dW_S, OU_V1, OU_r, integral_r,
     /// OU_V2]. The final entry is zero/unused for a one-factor or BS asset.
+    /// For rough models, entries 1 and 4 are dW_vol and the near-cell integral.
     /// This shares one centered rate path across a multi-asset simulation.
     pub fn evolve_with_innovations(
         &self,
         spot: f64,
         innovations: &[[f64; 5]],
     ) -> Result<Vec<HybridState>, HullWhiteMcError> {
-        if self.is_rough()
-            || innovations.len() != self.kernels.len()
+        if innovations.len() != self.kernels.len()
             || innovations.iter().flatten().any(|v| !v.is_finite())
         {
             return Err(invalid("hybrid_external_innovations", innovations.len()));
@@ -483,6 +483,15 @@ impl HullWhiteEquityPlan {
         let mut state = HybridState::initial(spot)?;
         let mut states = vec![state];
         let mut x = [0.0; 2];
+        let rough = self
+            .rough_driver
+            .as_ref()
+            .map(|driver| {
+                let dw: Vec<_> = innovations.iter().map(|z| z[1]).collect();
+                let near: Vec<_> = innovations.iter().map(|z| z[4]).collect();
+                driver.normalized_with_innovations(&dw, &near)
+            })
+            .transpose()?;
         for (i, (kernel, noise)) in self.kernels.iter().zip(innovations).enumerate() {
             let l2 = if let Some((_, leverage)) = self.volatility.lsv() {
                 leverage.squared_leverage_at(
@@ -511,6 +520,9 @@ impl HullWhiteEquityPlan {
                     i,
                     false,
                 )?;
+            }
+            if let Some(values) = &rough {
+                state.volatility_factor = values[i + 1];
             }
             states.push(state);
         }

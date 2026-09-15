@@ -161,7 +161,8 @@ still requires particle/bandwidth/step/seed refinement for the intended smiles
 and products. The separate [Bergomi + HW extension](bergomi-hull-white-v0.1.md)
 adds a shared stochastic rate, paired target calibration, market-IV VegaKT from
 retained quotes and initial-curve risk. Supplying an LV reporting basis alone
-does not enable market-IV risk. Multi-asset rough-LSV, model-parameter and
+does not enable market-IV risk. The [rough-LSV extension](multi-asset-rough-bergomi-v0.1.md)
+adds non-Markov assets through the same HW adapter. Model-parameter and
 correlation Greeks, multiple currencies, seasoned products, American exercise
 and continuous barriers remain outside these extensions. Existing single-asset
 adapters retain their own capabilities and conventions.
