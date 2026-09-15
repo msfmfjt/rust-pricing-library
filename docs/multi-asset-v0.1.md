@@ -168,7 +168,8 @@ reduction-block size.
 
 ## Current boundaries and validation
 
-Multi-asset rough-LSV, multiple currencies/FX, correlation Greeks, American
+[Rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) is also available.
+Multiple currencies/FX, correlation Greeks, American
 exercise and continuous barrier monitoring are not connected to this API.
 Initial-curve risk and market-IV VegaKT are available through the separate
 [HW mode](bergomi-hull-white-v0.1.md); the deterministic-rate path retains

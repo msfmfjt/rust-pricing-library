@@ -118,6 +118,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
+    subprocess.run([str(python), "examples/python/multi_asset_rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
     subprocess.run(
         [
@@ -999,6 +1000,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'MultiAssetPrice',
         'MultiAssetRisk',
         'MultiAssetLsvConfig',
+        'MultiAssetRoughLsvConfig',
         'MultiAssetLsv2FactorConfig',
         'MultiAssetLsvCalibration',
         'MultiAssetLsvRisk',
@@ -1212,6 +1214,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
 
     expected_signature_shapes = {
         ('MultiAssetLsvConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
+        ('MultiAssetRoughLsvConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
         ('MultiAssetLsv2FactorConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
         ('CorrelationSchedule', '__init__'): {'positional': ['self', 'underlying_ids', 'effective_dates', 'matrices'],
          'positional_defaults': {},
@@ -1887,6 +1890,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'MultiAssetHullWhiteCurveRisk': {'discount_time_nodes', 'discount_log_df_adjoints', 'discount_node_dv01', 'dividend_time_nodes', 'dividend_log_df_adjoints'},
 
         'MultiAssetLsvConfig': {'__init__', 'mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
+        'MultiAssetRoughLsvConfig': {'__init__', 'hurst', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
         'MultiAssetLsv2FactorConfig': {'__init__', 'mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'normalized_weights', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'},
         'MultiAssetLsvCalibration': {'volatility_factor_count', 'calibration_seed', 'time_nodes', 'log_moneyness_nodes', 'squared_leverage', 'effective_samples', 'donor_nodes', 'extrapolated', 'minimum_effective_samples', 'extrapolated_nodes', 'particle_mean_normalized_f', 'method'},
         'MultiAssetLsvRisk': {'time_nodes', 'log_moneyness_nodes', 'node_adjoints', 'standard_errors', 'method'},
@@ -2485,23 +2489,31 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('MultiAssetRisk', 'lsv_local_variance'),
         ('MultiAssetPrice', 'lsv_leverage_boundary_counts'),
         ('MultiAssetLsvConfig', 'mean_reversion'),
+        ('MultiAssetRoughLsvConfig', 'hurst'),
         ('MultiAssetLsv2FactorConfig', 'mean_reversions'),
         ('MultiAssetLsvConfig', 'vol_of_vol'),
+        ('MultiAssetRoughLsvConfig', 'vol_of_vol'),
         ('MultiAssetLsv2FactorConfig', 'vol_of_vol'),
         ('MultiAssetLsvConfig', 'correlation'),
+        ('MultiAssetRoughLsvConfig', 'correlation'),
         ('MultiAssetLsv2FactorConfig', 'spot_correlations'),
         ('MultiAssetLsv2FactorConfig', 'mixing_weight'),
         ('MultiAssetLsv2FactorConfig', 'factor_correlation'),
         ('MultiAssetLsv2FactorConfig', 'normalized_weights'),
         ('MultiAssetLsvConfig', 'particle_count'),
+        ('MultiAssetRoughLsvConfig', 'particle_count'),
         ('MultiAssetLsv2FactorConfig', 'particle_count'),
         ('MultiAssetLsvConfig', 'calibration_seed'),
+        ('MultiAssetRoughLsvConfig', 'calibration_seed'),
         ('MultiAssetLsv2FactorConfig', 'calibration_seed'),
         ('MultiAssetLsvConfig', 'log_bandwidth'),
+        ('MultiAssetRoughLsvConfig', 'log_bandwidth'),
         ('MultiAssetLsv2FactorConfig', 'log_bandwidth'),
         ('MultiAssetLsvConfig', 'minimum_effective_samples'),
+        ('MultiAssetRoughLsvConfig', 'minimum_effective_samples'),
         ('MultiAssetLsv2FactorConfig', 'minimum_effective_samples'),
         ('MultiAssetLsvConfig', 'retain_reverse_trace'),
+        ('MultiAssetRoughLsvConfig', 'retain_reverse_trace'),
         ('MultiAssetLsv2FactorConfig', 'retain_reverse_trace'),
         ('MultiAssetLsvCalibration', 'calibration_seed'),
         ('MultiAssetLsvCalibration', 'volatility_factor_count'),

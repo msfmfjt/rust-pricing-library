@@ -58,6 +58,7 @@ stable numerical-branch counts.
 
 Two-factor Bergomi LSV is available for single-asset and mixed multi-asset plans, including calibrated target-variance AAD. See [the two-factor contract](docs/bergomi-two-factor-lsv-v0.1.md) and [the Python example](examples/python/multi_asset_bergomi_two_factor.py).
 - [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
+- [Multi-asset rough-LSV with common HW](docs/multi-asset-rough-bergomi-v0.1.md)
 - [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
 - [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
 - [Early Exercise implementation roadmap](docs/early-exercise-roadmap-v0.1.md)
@@ -133,15 +134,20 @@ Autocallables, per-asset affine dividends, dated PSD correlations, MC/RQMC,
 asset-labelled Delta/BS Vega/Local variance adjoints and optional cross Gamma.
 The API uses the shared payoff tape, with explicit smoothing for discontinuous
 Autocallable AAD. It is single-currency and supports deterministic rates or a
-common Hull–White rate with BS and one-/two-factor Bergomi LSV. The HW mode adds
+common Hull–White rate with BS, one-/two-factor Bergomi LSV and rough-LSV. The HW mode adds
 explicit price/rate and volatility/rate correlations, exact integrated-rate
 innovations, per-cashflow stochastic discounting, paired variance/density AAD,
 market-IV VegaKT from retained quotes and initial-curve risk. See the
 [HW contracts](docs/bergomi-hull-white-v0.1.md) and
 [three-product example](examples/python/bergomi_hull_white.py).
+Rough assets select `MultiAssetRoughLsvConfig` with per-asset H and eta. Their
+non-Markov Volterra histories are driven jointly with all spot, OU and rate
+innovations, including explicit cross-asset correlations. See the
+[rough multi-asset contracts](docs/multi-asset-rough-bergomi-v0.1.md) and
+[rough three-product example](examples/python/multi_asset_rough_bergomi.py).
 Deterministic-rate LSV assets use their LV model as a marginal particle-calibration
 target; HW LSV additionally requires the matching paired target. Optional full
-spot/volatility/rate Brownian correlations and exact joint OU transitions are
+spot/volatility/rate Brownian correlations and joint OU/power-kernel transitions are
 available. AAD
 includes particle recalibration; target-risk standard errors are available for
 RQMC and conditional on the calibration. See the

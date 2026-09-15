@@ -5,6 +5,7 @@ pub use crate::engine::multi_asset::{
     MultiAssetBergomiLsvConfig, MultiAssetHullWhiteConfig, MultiAssetHullWhiteCurveRisk,
     MultiAssetHullWhiteLsvRisk, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
     MultiAssetPrice, MultiAssetPricingPlan, MultiAssetRisk, MultiAssetRiskConfig,
+    MultiAssetRoughLsvConfig,
 };
 pub use crate::market::{CorrelationTermStructure, CorrelationToleranceConfig};
 pub use crate::product::multi_asset::{

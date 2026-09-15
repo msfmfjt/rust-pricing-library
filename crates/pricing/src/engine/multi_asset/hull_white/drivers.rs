@@ -1,5 +1,5 @@
-//! Exact joint covariance for spots, all volatility OU states and the common
-//! HW state/integral. Rate volatility knots are integrated inside every step.
+//! Exact joint covariance for spots, volatility OU states / rough increments,
+//! the common HW state/integral and newest-cell rough power integrals. Rate volatility knots are integrated inside every step.
 use super::super::lsv::LsvDrivers;
 use super::*;
 use crate::market::{CorrelationFactor, CorrelationToleranceConfig};
@@ -26,6 +26,17 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
         })
         .collect();
     let d = n + components.len();
+    let rough: Vec<_> = components
+        .iter()
+        .enumerate()
+        .filter_map(|(j, (asset, _))| {
+            configs[*asset]
+                .as_ref()
+                .and_then(|c| c.rough())
+                .map(|model| (*asset, n + j, model))
+        })
+        .collect();
+    let width = d + 2 + rough.len();
     if hw.lsv_targets.len() != n
         || hw.rate_correlations.len() != d
         || hw
@@ -101,7 +112,7 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
     let mut permutations = Vec::new();
     for (step, pair) in times.windows(2).enumerate() {
         let brownian = entries[intervals[step]].canonical();
-        let mut covariance = vec![vec![0.0; d + 2]; d + 2];
+        let mut covariance = vec![vec![0.0; width]; width];
         let dt = pair[1] - pair[0];
         let rate = rates
             .transition(
@@ -134,10 +145,49 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
                 covariance[col][i] = covariance[i][col];
             }
         }
-        let scale: Vec<_> = (0..d + 2).map(|i| covariance[i][i].sqrt()).collect();
-        let mut normalized = vec![vec![0.0; d + 2]; d + 2];
-        for i in 0..d + 2 {
-            for j in 0..d + 2 {
+        for (a, &(_, carrier, model)) in rough.iter().enumerate() {
+            let row = d + 2 + a;
+            for j in 0..d {
+                let value = brownian[carrier * (d + 1) + j]
+                    * model
+                        .near_ou_covariance(reversions[j], dt)
+                        .map_err(E::numerical)?;
+                covariance[row][j] = value;
+                covariance[j][row] = value;
+            }
+            // Existing singularity-safe power/rate quadrature includes every
+            // rate-volatility knot, including knots inside this equity step.
+            // Compute the unit-correlation rate loading using an independent
+            // spot marginal; only the volatility/rate pair enters these terms.
+            let unit = crate::models::RoughBergomi::new(model.hurst(), model.vol_of_vol(), 0.0)
+                .map_err(E::numerical)?
+                .hybrid_covariance(
+                    rates,
+                    pair[0],
+                    pair[1],
+                    HybridCorrelation::new(0.0, 0.0, 1.0).map_err(E::numerical)?,
+                )
+                .map_err(E::numerical)?;
+            covariance[row][row] = unit[4][4];
+            for (col, source) in [(d, 2), (d + 1, 3)] {
+                let value = brownian[carrier * (d + 1) + d] * unit[4][source];
+                covariance[row][col] = value;
+                covariance[col][row] = value;
+            }
+            for (b, &(_, other_carrier, other)) in rough.iter().take(a).enumerate() {
+                let col = d + 2 + b;
+                let value = brownian[carrier * (d + 1) + other_carrier]
+                    * model
+                        .near_near_covariance(other, dt)
+                        .map_err(E::numerical)?;
+                covariance[row][col] = value;
+                covariance[col][row] = value;
+            }
+        }
+        let scale: Vec<_> = (0..width).map(|i| covariance[i][i].sqrt()).collect();
+        let mut normalized = vec![vec![0.0; width]; width];
+        for i in 0..width {
+            for j in 0..width {
                 normalized[i][j] = if i == j {
                     1.0
                 } else if scale[i] == 0.0 || scale[j] == 0.0 {
@@ -145,6 +195,18 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
                 } else {
                     covariance[i][j] / scale[i] / scale[j]
                 };
+            }
+        }
+        // The Brownian boundary is an exact identity, including its singular
+        // loading. Preserve it before PSD validation and retain the extra draw.
+        for (a, &(_, carrier, model)) in rough.iter().enumerate() {
+            if model.hurst() == 0.5 {
+                let row = d + 2 + a;
+                normalized[row] = normalized[carrier].clone();
+                for values in &mut normalized {
+                    values[row] = values[carrier];
+                }
+                normalized[row][row] = 1.0;
             }
         }
         let (factor, order) = pivoted_suffix(normalized, n, correlation.tolerances())?;
@@ -158,6 +220,7 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
         permutations: Some(permutations),
         scales,
         asset_indices: components.iter().map(|(i, _)| *i).collect(),
+        rough_asset_indices: rough.iter().map(|(i, _, _)| *i).collect(),
     })
 }
 

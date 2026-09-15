@@ -180,6 +180,11 @@ impl HwAsset {
                     &c.particles,
                     c.factor.spot_correlations()[0],
                 ),
+                MultiAssetBergomiLsvConfig::Rough(c) => (
+                    HybridVolatilityFactor::Rough(c.factor),
+                    &c.particles,
+                    c.factor.correlation(),
+                ),
             };
             let corr = HybridCorrelation::new(rho_v, rho_s, hw.rate_correlations[driver_offset])
                 .map_err(E::numerical)?;
@@ -204,7 +209,9 @@ impl HwAsset {
                     second_vol_rate_correlation,
                     leverage,
                 },
-                _ => unreachable!("Bergomi config"),
+                HybridVolatilityFactor::Rough(factor) => {
+                    HybridEquityVolatility::RoughBergomiLsv { factor, leverage }
+                }
             };
             (volatility, Some(calibration), corr)
         } else {
@@ -304,6 +311,7 @@ impl HwContext {
                 let p = match c {
                     MultiAssetBergomiLsvConfig::OneFactor(c) => &c.particles,
                     MultiAssetBergomiLsvConfig::TwoFactor(c) => &c.particles,
+                    MultiAssetBergomiLsvConfig::Rough(c) => &c.particles,
                 };
                 floats(h, &[p.log_bandwidth(), p.minimum_effective_samples()]);
                 h.update(&(p.particle_count() as u64).to_be_bytes());
@@ -342,12 +350,18 @@ impl MultiAssetPricingPlan {
             .collect()
     }
     pub(super) fn hw_paths(&self, shocks: &[Vec<f64>]) -> Result<Vec<super::path::AssetPath>, E> {
-        let rate_index = self.random_factor_count() - 2;
+        let drivers = self.lsv_drivers.as_ref().expect("HW drivers");
+        let rate_index = self.assets.len() + drivers.asset_indices.len();
         self.assets
             .iter()
             .enumerate()
             .map(|(i, a)| {
                 let h = a.hw.as_ref().expect("HW asset");
+                let near_index = drivers
+                    .rough_asset_indices
+                    .iter()
+                    .position(|a| *a == i)
+                    .map(|j| rate_index + 2 + j);
                 let n = self.times.len() - 1;
                 let innovations: Vec<_> = (0..n)
                     .map(|s| {
@@ -360,7 +374,9 @@ impl MultiAssetPricingPlan {
                             },
                             shocks[rate_index][s],
                             shocks[rate_index + 1][s],
-                            if h.factor_count() == 2 {
+                            if let Some(near) = near_index {
+                                shocks[near][s]
+                            } else if h.factor_count() == 2 {
                                 shocks[h.driver_offset + 1][s]
                             } else {
                                 0.0

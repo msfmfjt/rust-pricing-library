@@ -86,3 +86,112 @@ fn hybrid_variance_refines_towards_the_volterra_variance() {
         }
     }
 }
+
+#[test]
+#[allow(clippy::needless_range_loop)] // Explicit small covariance matrices in the independent oracle.
+fn external_rough_histories_preserve_dated_cross_time_covariance() {
+    let times = [0.0, 0.07, 0.3, 0.55, 1.0];
+    let correlations = [0.6, -0.2, 0.4, -0.5];
+    let grid = LocalVolTimeGrid::compile(times.to_vec(), 1.0).unwrap();
+    let rates = HullWhite1Factor::new(0.0, vec![0.0], vec![0.0]).unwrap();
+    let corr = HybridCorrelation::new(0.0, 0.0, 0.0).unwrap();
+    for hs in [[0.1, 0.35], [0.499, 0.03]] {
+        let plans = hs.map(|h| {
+            RoughBergomiDriverPlan::new(
+                RoughBergomi::new(h, 0.8, 0.0).unwrap(),
+                &rates,
+                corr,
+                &grid,
+            )
+            .unwrap()
+        });
+        let mut actual = [[0.0; 5]; 5];
+        for step in 0..4 {
+            let dt = times[step + 1] - times[step];
+            // Independent power-kernel covariance for [dV_A,dV_B,J_A,J_B].
+            let powers = [0.0, 0.0, hs[0] - 0.5, hs[1] - 0.5];
+            let coeffs = [1.0, 1.0, (2.0 * hs[0]).sqrt(), (2.0 * hs[1]).sqrt()];
+            let mut lower = [[0.0; 4]; 4];
+            for i in 0..4 {
+                for j in 0..=i {
+                    let rho = if i % 2 == j % 2 {
+                        1.0
+                    } else {
+                        correlations[step]
+                    };
+                    let power = 1.0 + powers[i] + powers[j];
+                    let cov = rho * coeffs[i] * coeffs[j] * dt.powf(power) / power;
+                    let residual = cov - (0..j).map(|k| lower[i][k] * lower[j][k]).sum::<f64>();
+                    lower[i][j] = if i == j {
+                        residual.sqrt()
+                    } else {
+                        residual / lower[j][j]
+                    };
+                }
+            }
+            for basis in 0..4 {
+                let paths: [Vec<f64>; 2] = std::array::from_fn(|asset| {
+                    let mut dw = [0.0; 4];
+                    let mut near = [0.0; 4];
+                    dw[step] = lower[asset][basis];
+                    near[step] = lower[asset + 2][basis];
+                    let x = plans[asset].evolve_with_innovations(&dw, &near).unwrap();
+                    assert!(x[..=step].iter().all(|&v| v == 0.0), "future noise used");
+                    let opposite = plans[asset]
+                        .evolve_with_innovations(&dw.map(|v| -v), &near.map(|v| -v))
+                        .unwrap();
+                    assert!(x.iter().zip(opposite).all(|(a, b)| *a == -b));
+                    x
+                });
+                for i in 0..5 {
+                    for j in 0..5 {
+                        actual[i][j] += paths[0][i] * paths[1][j];
+                    }
+                }
+            }
+        }
+        let average = |h: f64, t: f64, k: usize| {
+            let p = h + 0.5;
+            (2.0 * h).sqrt() * ((t - times[k]).powf(p) - (t - times[k + 1]).powf(p))
+                / (p * (times[k + 1] - times[k]))
+        };
+        for i in 1..5 {
+            for j in 1..5 {
+                let expected: f64 = (0..i.min(j))
+                    .map(|k| {
+                        let dt = times[k + 1] - times[k];
+                        let c = if k + 1 == i && k + 1 == j {
+                            2.0 * (hs[0] * hs[1]).sqrt() * dt.powf(hs[0] + hs[1]) / (hs[0] + hs[1])
+                        } else {
+                            average(hs[0], times[i], k) * average(hs[1], times[j], k) * dt
+                        };
+                        correlations[k] * c
+                    })
+                    .sum();
+                assert!((actual[i][j] - expected).abs() < 3e-12);
+            }
+        }
+        assert!(
+            plans[0]
+                .evolve_with_innovations(&[0.0; 3], &[0.0; 4])
+                .is_err()
+        );
+        assert!(
+            plans[0]
+                .evolve_with_innovations(&[0.0; 4], &[f64::NAN; 4])
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn rough_joint_kernel_input_validation() {
+    let model = RoughBergomi::new(0.1, 0.8, -0.6).unwrap();
+    for dt in [0.0, -0.1, f64::NAN, f64::INFINITY] {
+        assert!(model.near_near_covariance(model, dt).is_err());
+        assert!(model.near_ou_covariance(0.3, dt).is_err());
+    }
+    for k in [-0.1, f64::NAN, f64::INFINITY] {
+        assert!(model.near_ou_covariance(k, 0.2).is_err());
+    }
+}

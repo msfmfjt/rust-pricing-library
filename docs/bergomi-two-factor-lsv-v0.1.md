@@ -140,8 +140,9 @@ bandwidth and time-step refinement is still required. The separate
 [Bergomi + HW extension](bergomi-hull-white-v0.1.md) connects two-factor
 single-asset and multi-asset plans to stochastic rates, paired target AAD,
 market-IV VegaKT and initial-curve risk. The deterministic-rate interfaces
-described here retain their effective-variance risk convention. Multi-asset
-rough-LSV remains outside this extension.
+described here retain their effective-variance risk convention.
+[Multi-asset rough-LSV](multi-asset-rough-bergomi-v0.1.md) is available through
+the shared HW adapter and can be mixed with two-factor assets.
 
 Local verification on 2026-09-14: all **469** default Rust workspace tests,
 all **5** explicit statistical acceptance tests and all **73** installed-wheel

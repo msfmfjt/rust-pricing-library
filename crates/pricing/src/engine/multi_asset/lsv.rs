@@ -1,10 +1,10 @@
-//! Marginal particle calibration and the exact joint spot/OU Gaussian law.
+//! Marginal particle calibration and joint spot/OU/rough Gaussian innovations.
 use super::lsv_kernels::{LsvCalibration, LsvProcess};
 use super::*;
 use crate::market::{CorrelationFactor, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::lsv::{CalibratedBergomiLsv, LSV_CALIBRATION_REVERSE, LsvParticleConfig};
-use crate::models::{Bergomi1Factor, Bergomi2Factor, ou_kernel_correlation};
+use crate::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi, ou_kernel_correlation};
 use crate::multi_asset::MultiAssetError as E;
 
 /// Apply a marginal Bergomi particle calibration to this asset's LV target.
@@ -20,11 +20,20 @@ pub struct MultiAssetLsv2FactorConfig {
     pub particles: LsvParticleConfig,
 }
 
-/// Per-asset choice for a mixture of one- and two-factor Bergomi LSV assets.
+/// Rough-LSV through the shared HW adapter (zero rate volatility is allowed).
+/// H and eta are fixed during target/Spot/curve risk; eta is log-variance vol-of-vol.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MultiAssetRoughLsvConfig {
+    pub factor: RoughBergomi,
+    pub particles: LsvParticleConfig,
+}
+
+/// Per-asset choice of one-/two-factor or rough Bergomi LSV.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MultiAssetBergomiLsvConfig {
     OneFactor(MultiAssetLsvConfig),
     TwoFactor(MultiAssetLsv2FactorConfig),
+    Rough(MultiAssetRoughLsvConfig),
 }
 impl From<MultiAssetLsvConfig> for MultiAssetBergomiLsvConfig {
     fn from(c: MultiAssetLsvConfig) -> Self {
@@ -36,10 +45,17 @@ impl From<MultiAssetLsv2FactorConfig> for MultiAssetBergomiLsvConfig {
         Self::TwoFactor(c)
     }
 }
+impl From<MultiAssetRoughLsvConfig> for MultiAssetBergomiLsvConfig {
+    fn from(c: MultiAssetRoughLsvConfig) -> Self {
+        Self::Rough(c)
+    }
+}
 impl MultiAssetBergomiLsvConfig {
+    /// Number of volatility Brownian drivers; a rough driver also needs one
+    /// near-cell Gaussian innovation and its complete history convolution.
     pub fn factor_count(&self) -> usize {
         match self {
-            Self::OneFactor(_) => 1,
+            Self::OneFactor(_) | Self::Rough(_) => 1,
             Self::TwoFactor(_) => 2,
         }
     }
@@ -47,12 +63,25 @@ impl MultiAssetBergomiLsvConfig {
         match self {
             Self::OneFactor(c) => vec![c.factor],
             Self::TwoFactor(c) => c.factor.components().to_vec(),
+            // Only the Brownian history increment uses this k=0 carrier.
+            // The separate near-cell integral and Volterra convolution supply
+            // the rough state; it is never approximated by this OU component.
+            Self::Rough(c) => vec![
+                Bergomi1Factor::new(0.0, 0.0, c.factor.correlation())
+                    .expect("validated rough correlation"),
+            ],
         }
     }
     fn factor_correlation(&self) -> f64 {
         match self {
-            Self::OneFactor(_) => 1.0,
+            Self::OneFactor(_) | Self::Rough(_) => 1.0,
             Self::TwoFactor(c) => c.factor.factor_correlation(),
+        }
+    }
+    pub(super) fn rough(&self) -> Option<RoughBergomi> {
+        match self {
+            Self::Rough(c) => Some(c.factor),
+            _ => None,
         }
     }
 }
@@ -148,6 +177,8 @@ pub(super) struct LsvDrivers {
     /// deterministic-rate kernels, sqrt(dt) for HW kernels consuming dW.
     pub scales: Vec<Vec<f64>>,
     pub asset_indices: Vec<usize>,
+    /// Assets whose near-cell integrals follow the two HW coordinates.
+    pub rough_asset_indices: Vec<usize>,
 }
 impl LsvDrivers {
     pub fn compile(
@@ -289,6 +320,7 @@ impl LsvDrivers {
             permutations: None,
             scales,
             asset_indices: assets.iter().map(|x| x.0).collect(),
+            rough_asset_indices: Vec::new(),
         }))
     }
 }
@@ -300,7 +332,7 @@ impl MultiAssetPricingPlan {
             + self
                 .lsv_drivers
                 .as_ref()
-                .map_or(0, |d| d.asset_indices.len())
+                .map_or(0, |d| d.asset_indices.len() + d.rough_asset_indices.len())
     }
     /// One-factor calibrations in asset order; None for BS/LV/two-factor assets.
     /// Use `lsv_two_factor_calibrations` for the complementary two-factor objects.
@@ -348,7 +380,8 @@ impl MultiAssetPricingPlan {
         self.lsv_drivers.as_ref().map_or(&[], |d| &d.entries)
     }
     /// Per-interval covariance of (dW_spots, OU innovations), in driver order.
-    /// HW mode appends the rate OU state and integrated-rate innovations.
+    /// HW mode uses dV for rough history carriers, then appends the rate OU
+    /// state, integrated rate, and near-cell rough integrals in asset order.
     pub fn lsv_transition_covariances(&self) -> Vec<Vec<Vec<f64>>> {
         let Some(d) = &self.lsv_drivers else {
             return Vec::new();

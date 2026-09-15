@@ -51,6 +51,44 @@ impl RoughBergomi {
         Ok(value)
     }
 
+    /// Covariance of a near-cell power integral and an OU innovation driven by
+    /// the same Brownian motion. Multiply by the specified Brownian correlation
+    /// for different drivers; k=0 gives the covariance with a Brownian increment.
+    pub fn near_ou_covariance(self, mean_reversion: f64, dt: f64) -> Result<f64, HullWhiteError> {
+        hw_valid(mean_reversion, "rough_cross_mean_reversion", 0, true)?;
+        if !dt.is_finite() || dt <= 0.0 {
+            return Err(invalid("rough_cross_time_step"));
+        }
+        if self.hurst == 0.5 {
+            return Ok(b(mean_reversion, dt));
+        }
+        let p = self.hurst + 0.5;
+        let scale = (2.0 * self.hurst).sqrt();
+        let value = if mean_reversion == 0.0 {
+            scale * dt.powf(p) / p
+        } else {
+            scale * weighted_rate_integrals(p, mean_reversion, 0.0, dt)?.0
+        };
+        hw_valid(value, "rough_near_ou_covariance", 0, true)?;
+        Ok(value)
+    }
+
+    /// Same-cell power integrals with different H, before multiplying by the
+    /// correlation of their Brownian drivers. No Markovian approximation is used.
+    pub fn near_near_covariance(self, other: Self, dt: f64) -> Result<f64, HullWhiteError> {
+        if !dt.is_finite() || dt <= 0.0 {
+            return Err(invalid("rough_cross_time_step"));
+        }
+        let value = if self.hurst == other.hurst {
+            dt.powf(2.0 * self.hurst)
+        } else {
+            let ratio = self.hurst.min(other.hurst) / self.hurst.max(other.hurst);
+            2.0 * ratio.sqrt() / (1.0 + ratio) * dt.powf(self.hurst + other.hurst)
+        };
+        hw_valid(value, "rough_near_near_covariance", 0, true)?;
+        Ok(value)
+    }
+
     /// Variables: (dW_S, dW_vol, OU_rate, integrated_OU_rate, J_near), where
     /// J_near=int_start^end sqrt(2H)*(end-s)^(H-1/2) dW_vol(s).
     /// All rate volatility breakpoints inside the interval are included.
