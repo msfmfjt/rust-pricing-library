@@ -1,66 +1,57 @@
-# Model reference
+# Model and calculation reference
 
-Published sources for the models and numerical methods are collected in the
-[model and numerical-method bibliography](../references.md). Each detailed
-page repeats the entries relevant to its own scope.
+This section is organized by reusable model components and calculation
+methods. Pages describing combinations of components are kept separately as
+composition guides.
 
-[Documentation](../README.md) · [Library guide](../library/README.md)
+[Documentation](../README.md) · [Library guide](../library/README.md) ·
+[Bibliography](../references.md)
 
-These documents describe the implemented model conventions, calibration,
-simulation, risk outputs and limitations. The accepted BS/Local Volatility
-baselines and the experimental model adapters have different support boundaries;
-consult the individual contracts for the selected product and plan.
+## Model components
 
-## Constant and local volatility
+The component index is the starting point when selecting an asset, rate,
+surface, correlation or cash-flow component.
 
-| Model | Reference | Runnable Python example |
-| --- | --- | --- |
-| Black–Scholes and Black-76 | [European diagnostics](european-bs-diagnostics.md), [constant-volatility product contracts](../library/path-dependence-numerical-contracts.md) | [European Black–Scholes](../../examples/python/european_bs.py), [path dependence](../../examples/python/path_dependence.py) |
-| Local Volatility, SSVI/eSSVI, Dupire and VegaKT | [Numerical contracts](local-vol-vegakt-numerical-contracts.md), [diagnostics](local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
+[Open the model component index](components/README.md)
 
-For analytical reference functions, see the
-[Rust analytical API](../../crates/pricing/src/analytical.rs) and its
-[implementation](../../crates/pricing/src/engine/analytic/closed_form.rs).
+| Component family | Main topics |
+| --- | --- |
+| Equity dynamics | Black–Scholes/Black-76, Local Volatility, LSV, Bergomi and rough Bergomi |
+| Rate dynamics | Hull–White short-rate model and integrated-rate simulation |
+| Volatility surfaces | SVI/SSVI/eSSVI, Dupire local variance and market-IV coordinates |
+| Multi-asset and correlation | Basket state, PSD correlations and Particle Local Correlation |
+| Cash flows | Paid-cash and escrowed cash-dividend coordinates |
 
-## Stochastic and rough volatility
+## Calculation methods
 
-| Model | Reference | Runnable Python example |
-| --- | --- | --- |
-| One-factor Bergomi LSV | [Coordinates, particle calibration and risk](lsv-numerical-contracts.md) | [Bergomi LSV](../../examples/python/bergomi_lsv.py) |
-| Two-factor Bergomi LSV | [Factor, correlation and calibration contracts](bergomi-two-factor-lsv.md) | [Two-factor Bergomi](../../examples/python/multi_asset_bergomi_two_factor.py) |
-| Rough Bergomi and rough-LSV | [Volterra scheme, calibration and risk](rough-bergomi.md) | [Rough Bergomi](../../examples/python/rough_bergomi.py) |
+The calculation-method index collects simulation, calibration, differentiation
+and path-treatment methods independently of the model that uses them.
 
-## Hull–White hybrids
+[Open the calculation-method index](methods/README.md)
 
-Start with the [equity/Hull–White numerical contracts](hull-white-numerical-contracts.md)
-and the [Python example](../../examples/python/hull_white_lsv.py).
-The current default paid-cash convention is documented in
-[affine dividends](hull-white-affine-dividends.md); the older
-[escrowed cash-dividend contract](hull-white-cash-dividends.md) applies when
-explicitly selected.
+| Method family | Main topics |
+| --- | --- |
+| Monte Carlo and RQMC | Philox streams, antithetic sampling, Sobol' sequences and uncertainty |
+| Calibration | Particle calibration, leverage fitting and surface interpolation |
+| Early exercise | Least-squares Monte Carlo, regression QR and fixed-policy valuation |
+| Differentiation and risk | AAD, finite-difference validation and VegaKT |
+| Path treatment | Smoothing, barrier bridges and discrete-event handling |
 
-- [First-order AAD](hull-white-aad.md): Spot, volatility, curve and
-  recalibrated paired-target sensitivities.
-- [Market-IV VegaKT](hull-white-vegakt.md): quote coordinates, interpolation,
-  risk units and limitations.
-- [Bergomi and common Hull–White](bergomi-hull-white.md): joint one-/two-factor
-  volatility and stochastic-rate transitions for single- and multi-asset plans.
+## Composition guides
 
-## Multi-asset models
+These pages describe supported combinations of otherwise independent
+components. They are useful for implementation limits and runnable examples,
+but are not the primary organization of the reference.
 
-| Configuration | Reference | Runnable Python example |
-| --- | --- | --- |
-| BS and Local Volatility | [Products, correlations and risk](multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
-| One-/two-factor Bergomi LSV | [Marginal calibration and joint drivers](multi-asset-lsv.md) | [Multi-asset LSV](../../examples/python/multi_asset_lsv.py) |
-| Bergomi LSV with a shared Hull–White rate | [Common-rate contracts](bergomi-hull-white.md) | [Bergomi/Hull–White](../../examples/python/bergomi_hull_white.py) |
-| Rough-LSV with a shared Hull–White rate | [Rough joint-process contracts](multi-asset-rough-bergomi.md) | [Multi-asset rough-LSV](../../examples/python/multi_asset_rough_bergomi.py) |
+[Open the composition-guide index](compositions/README.md)
 
-## Local Correlation
+| Composition | Guide |
+| --- | --- |
+| Bergomi with Hull–White | [Common-rate contracts](bergomi-hull-white.md) |
+| Multi-asset Bergomi LSV | [Marginal calibration and joint drivers](multi-asset-lsv.md) |
+| Multi-asset rough Bergomi LSV with Hull–White | [Rough joint-process contracts](multi-asset-rough-bergomi.md) |
+| Two-factor Bergomi LSV | [Factor and calibration contracts](bergomi-two-factor-lsv.md) |
 
-[Particle Local Correlation](local-correlation.md) calibrates a
-state-dependent mixture of two PSD correlation schedules to a normalized basket
-variance target. It supports deterministic-rate BS/LV and Bergomi LSV assets,
-and shared Hull–White configurations with BS, Bergomi LSV or rough-LSV.
-See the [BS/LV example](../../examples/python/local_correlation.py) and the
-[LSV/Hull–White example](../../examples/python/local_correlation_lsv_hw.py)
-for calibration, pricing and joint basket/constituent volatility risk.
+Product-specific path dependence and early-exercise contracts remain in the
+[library reference](../library/README.md), because they are calculation and
+payoff contracts rather than model components.
