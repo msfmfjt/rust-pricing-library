@@ -135,6 +135,17 @@ RQMC and conditional on the calibration. See the
 [LSV contracts](docs/models/multi-asset-lsv-v0.1.md) and
 [LSV example](examples/python/multi_asset_lsv.py).
 
+Particle-calibrated **Local Correlation** is available for deterministic-rate
+BS/LV assets through `MultiAssetPlan.compile(..., local_correlation=...)`.
+It fits one positive basket of normalized continuous equity martingales by
+varying a scalar mixture of two supplied PSD correlation schedules. It exposes
+support/feasibility diagnostics and joint basket/constituent volatility AAD
+through the finite particle recalibration. See the
+[numerical and coordinate contracts](docs/models/local-correlation-v0.1.md) and
+[three-product example](examples/python/local_correlation.py).
+This initial adapter does not combine Local Correlation with LSV, Bergomi,
+rough Bergomi or Hull–White.
+
 The experimental LSV/Hull–White adapters reject American exercise,
 continuous Barrier monitoring and smoothing-width ladders; these features
 remain available through the general BS/Local Volatility facade. The

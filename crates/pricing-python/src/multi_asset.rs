@@ -1,6 +1,9 @@
 use crate::builders::{PyEngine, PyMarket, PyModel, date_from_python, option_side};
 use crate::diagnostics::PyDiagnosticEstimate;
 use crate::hull_white::{PyHullWhiteLsvTarget, PyHullWhiteModel};
+use crate::local_correlation::{
+    PyLocalCorrelationCalibration, PyLocalCorrelationConfig, PyLocalCorrelationRisk,
+};
 use crate::multi_asset_hw::{
     PyMultiAssetHullWhiteCalibration, PyMultiAssetHullWhiteCurveRisk, PyMultiAssetHullWhiteLsvRisk,
 };
@@ -43,7 +46,7 @@ fn termination(py: Python<'_>, s: &str) -> PyResult<MemoryTermination> {
 #[pyclass(frozen, name = "CorrelationSchedule", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyCorrelationSchedule {
-    inner: CorrelationTermStructure,
+    pub(crate) inner: CorrelationTermStructure,
 }
 #[pymethods]
 impl PyCorrelationSchedule {
@@ -345,7 +348,7 @@ pub struct PyMultiAssetPlan {
 impl PyMultiAssetPlan {
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(valuation_date,product,markets,models,correlations,engine,*,maximum_step,worker_threads=1,reduction_block_size=4096,lsv_configs=None,driver_correlations=None,rate_model=None,rate_correlations=None,lsv_targets=None))]
+    #[pyo3(signature=(valuation_date,product,markets,models,correlations,engine,*,maximum_step,worker_threads=1,reduction_block_size=4096,lsv_configs=None,driver_correlations=None,rate_model=None,rate_correlations=None,lsv_targets=None,local_correlation=None))]
     fn compile(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -362,6 +365,7 @@ impl PyMultiAssetPlan {
         rate_model: Option<&PyHullWhiteModel>,
         rate_correlations: Option<Vec<f64>>,
         lsv_targets: Option<Vec<Option<Py<PyHullWhiteLsvTarget>>>>,
+        local_correlation: Option<&PyLocalCorrelationConfig>,
     ) -> PyResult<Self> {
         let date = date_from_python(py, valuation_date, "/multi_asset/valuation_date")?;
         let execution = ExecutionPolicy::new(worker_threads, Some(reduction_block_size))
@@ -396,6 +400,18 @@ impl PyMultiAssetPlan {
             }
             None
         };
+        let local_correlation = local_correlation.map(|c| c.inner.clone());
+        if local_correlation.is_some()
+            && (hw.is_some()
+                || driver_correlations.is_some()
+                || lsv.len() != models.len()
+                || lsv.iter().any(Option::is_some))
+        {
+            return Err(invalid(
+                py,
+                "local correlation v0.1 supports BS/LV with deterministic rates; LSV/HW/full driver matrices cannot be combined",
+            ));
+        }
         let product = product.inner.clone();
         let markets = markets
             .into_iter()
@@ -408,7 +424,19 @@ impl PyMultiAssetPlan {
         let correlation = correlations.inner.clone();
         let engine = engine.inner;
         py.detach(|| {
-            if let Some(hw) = hw {
+            if let Some(config) = local_correlation {
+                MultiAssetPricingPlan::compile_with_local_correlation(
+                    date,
+                    product,
+                    markets,
+                    models,
+                    correlation,
+                    engine,
+                    execution,
+                    maximum_step,
+                    config,
+                )
+            } else if let Some(hw) = hw {
                 MultiAssetPricingPlan::compile_with_hull_white(
                     date,
                     product,
@@ -462,6 +490,13 @@ impl PyMultiAssetPlan {
     #[getter]
     fn fingerprint(&self) -> &str {
         self.inner.fingerprint()
+    }
+    #[getter]
+    fn local_correlation_calibration(&self) -> Option<PyLocalCorrelationCalibration> {
+        self.inner
+            .local_correlation_calibration()
+            .cloned()
+            .map(|inner| PyLocalCorrelationCalibration { inner })
     }
     #[getter]
     fn time_nodes(&self) -> Vec<f64> {
@@ -587,6 +622,13 @@ pub struct PyMultiAssetPrice {
 }
 #[pymethods]
 impl PyMultiAssetPrice {
+    #[getter]
+    fn local_correlation_risk(&self) -> Option<PyLocalCorrelationRisk> {
+        self.inner
+            .local_correlation_risk
+            .clone()
+            .map(|inner| PyLocalCorrelationRisk { inner })
+    }
     #[getter]
     fn hull_white_curve_risk(&self) -> Option<PyMultiAssetHullWhiteCurveRisk> {
         self.inner

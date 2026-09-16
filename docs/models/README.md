@@ -51,5 +51,13 @@ explicitly selected.
 | Bergomi LSV with a shared Hull–White rate | [Common-rate contracts](bergomi-hull-white-v0.1.md) | [Bergomi/Hull–White](../../examples/python/bergomi_hull_white.py) |
 | Rough-LSV with a shared Hull–White rate | [Rough joint-process contracts](multi-asset-rough-bergomi-v0.1.md) | [Multi-asset rough-LSV](../../examples/python/multi_asset_rough_bergomi.py) |
 
+## Local Correlation
+
+[Particle Local Correlation](local-correlation-v0.1.md) calibrates a
+state-dependent mixture of two PSD correlation schedules to a normalized basket
+variance target. The initial adapter supports deterministic-rate BS/LV assets;
+see the [Python example](../../examples/python/local_correlation.py) for
+calibration, pricing and joint basket/constituent volatility risk.
+
 Requirements, ADRs, implementation roadmaps and historical acceptance evidence
 are indexed separately under [design](../../design/README.md).
