@@ -2,7 +2,24 @@
 
 ## Baselines
 
-The frozen requirements, architecture, and accepted implementation roadmap govern changes. A normative requirement change needs a recorded decision and impact analysis covering API compatibility, serialized data, numerical behavior, reproducibility, tests, and roadmap Gates.
+The [frozen requirements](design/requirements-v1.0.md),
+[architecture](design/architecture-v0.1.md), and accepted implementation roadmap
+govern changes. A normative requirement change needs a recorded decision and
+impact analysis covering API compatibility, serialized data, numerical behavior,
+reproducibility, tests, and roadmap Gates.
+
+## Documentation layout
+
+Keep user-facing library guidance in [docs/library](docs/library/README.md) and
+model conventions, numerical contracts and diagnostics in
+[docs/models](docs/models/README.md). Requirements, architecture, ADRs,
+implementation roadmaps and validation records belong in
+[design](design/README.md). Update the corresponding index and all relative links
+when moving or adding a document.
+
+The Markdown link checker and source-archive checker cover both documentation
+trees. Preserve captured validation evidence as historical data; update the
+surrounding report's links instead of rewriting recorded paths in raw artifacts.
 
 ## Pull requests
 
@@ -54,7 +71,7 @@ mismatches before installation.
 ## Internal boundaries after crate consolidation
 
 Use `pricing` for all financial Rust APIs. See the
-[three-crate migration guide](docs/three-crate-migration.md) for moved test targets,
+[three-crate migration guide](docs/library/three-crate-migration.md) for moved test targets,
 public paths and feature behavior. Keep execution in the private `engine` modules;
 do not expose that module to solve visibility problems. Preserve source/domain
 objects independently of execution workspaces and keep risk-report construction

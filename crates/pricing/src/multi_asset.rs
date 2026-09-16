@@ -1,6 +1,6 @@
 //! Experimental multi-underlying, single-currency pricing with deterministic rates.
 //! BS, Local Volatility and Bergomi LSV share correlated drivers and the payoff tape.
-//! The stable single-asset JSON request is unchanged; see `docs/multi-asset-v0.1.md`.
+//! The stable single-asset JSON request is unchanged; see `docs/models/multi-asset-v0.1.md`.
 pub use crate::engine::multi_asset::{
     MultiAssetBergomiLsvConfig, MultiAssetHullWhiteConfig, MultiAssetHullWhiteCurveRisk,
     MultiAssetHullWhiteLsvRisk, MultiAssetLsv2FactorConfig, MultiAssetLsvConfig, MultiAssetLsvRisk,
