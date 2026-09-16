@@ -1,7 +1,7 @@
-# Multi-asset Bergomi LSV v0.1
+# Multi-asset Bergomi LSV
 
-This extends the [multi-asset API](multi-asset-v0.1.md) with particle-calibrated
-one- or two-factor Bergomi LSV. The [two-factor extension](bergomi-two-factor-lsv-v0.1.md)
+This extends the [multi-asset API](multi-asset.md) with particle-calibrated
+one- or two-factor Bergomi LSV. The [two-factor extension](bergomi-two-factor-lsv.md)
 defines its parameters, mixed-factor APIs and marginal correlation blocks. BS, LV and LSV assets may coexist in one Basket,
 Worst-of or unseasoned Autocallable contract. The three-crate structure,
 single-asset APIs and stable JSON schemas are preserved. Rates remain
@@ -43,7 +43,7 @@ The simulation and calibration use
 `dm_i/m_i = L_i(t,m_i) exp(nu_i X_i) dW_i`,
 `dX_i = -k_i X_i dt + dV_i`, `m_i(0)=1`, `X_i(0)=0`.
 
-The existing [particle calibration and discrete VJP](lsv-numerical-contracts-v0.1.md)
+The existing [particle calibration and discrete VJP](lsv-numerical-contracts.md)
 are reused in `x=log(m_i)`. Every original target time knot, contractual
 observation, in-horizon dividend and correlation date contributes to the common
 grid before maximum-step subdivision. Interpolate each original effective LV
@@ -158,10 +158,10 @@ pricing check conditional on the finite calibrated leverage surface.
 
 These establish the implemented finite-grid algorithm. Production acceptance
 still requires particle/bandwidth/step/seed refinement for the intended smiles
-and products. The separate [Bergomi + HW extension](bergomi-hull-white-v0.1.md)
+and products. The separate [Bergomi + HW extension](bergomi-hull-white.md)
 adds a shared stochastic rate, paired target calibration, market-IV VegaKT from
 retained quotes and initial-curve risk. Supplying an LV reporting basis alone
-does not enable market-IV risk. The [rough-LSV extension](multi-asset-rough-bergomi-v0.1.md)
+does not enable market-IV risk. The [rough-LSV extension](multi-asset-rough-bergomi.md)
 adds non-Markov assets through the same HW adapter. Model-parameter and
 correlation Greeks, multiple currencies, seasoned products, American exercise
 and continuous barriers remain outside these extensions. Existing single-asset
@@ -180,3 +180,11 @@ metadata/stub/runtime contract, all **69 Python tests**, and the three-product
 LSV example (also added to the wheel CI gate). Formatting, all-target/all-feature
 Clippy with warnings denied, Rust API docs, all three reference fixtures,
 schemas, Markdown links and dependency-direction checks passed locally.
+
+## References
+
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for multi-factor stochastic-volatility factors and their joint correlations.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for marginal local-stochastic-volatility calibration with particles.
+- [Jourdain and Zhou, *Existence of a calibrated regime switching local volatility model and new fake Brownian motions*](https://arxiv.org/abs/1607.00077), for the conditional-expectation and interacting-particle calibration context.
+- [Margrabe, *The Value of an Option to Exchange One Asset for Another*](https://doi.org/10.1111/j.1540-6261.1978.tb03397.x), for the exchange-option reference used by the mixed-asset validation.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for multi-asset Monte Carlo, antithetic sampling and common-random-number checks.

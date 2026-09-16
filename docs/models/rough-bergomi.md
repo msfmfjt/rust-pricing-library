@@ -1,9 +1,8 @@
 # Rough Bergomi and rough-LSV contracts
 
 Date: 2026-09-13. Status: experimental implementation.
-Decision: [ADR 0005](../../design/adr/0005-rough-bergomi.md).
 
-[Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) extends
+[Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi.md) extends
 this nonuniform hybrid scheme to jointly driven rough and Markovian assets.
 The single-equity entry points and conventions below remain available.
 
@@ -27,9 +26,9 @@ Rough-LSV uses `v_t=L(t,F_t)^2*a_t^2`, where L is determined by the existing
 discounted particle calibration. Without fixed cash, between proportional
 dividend events, `dS/S=(r-q)dt+sqrt(v_t)dW_S`. With escrowed cash, volatility
 applies to the residual risky equity, with the same stochastic reserve and
-target F coordinate as the [cash model](hull-white-cash-dividends-v0.1.md).
+target F coordinate as the [cash model](hull-white-cash-dividends.md).
 Hull–White rates, continuous carry and payment discounting retain the
-[hybrid contract](hull-white-numerical-contracts-v0.1.md).
+[hybrid contract](hull-white-numerical-contracts.md).
 
 Require finite `0 < H <= 0.5`, finite `eta >= 0`, and a positive-semidefinite
 three-driver correlation matrix for `(W_S,W_v,W_r)`. H=0.5 is the Brownian
@@ -167,8 +166,8 @@ contribute to the plan fingerprint. `random_factor_count` reports five.
 
 ## AAD and VegaKT
 
-The existing [AAD](hull-white-aad-v0.1.md) and
-[quote-node VegaKT](hull-white-vegakt-v0.1.md) contracts apply, with H/eta fixed.
+The existing [AAD](hull-white-aad.md) and
+[quote-node VegaKT](hull-white-vegakt.md) contracts apply, with H/eta fixed.
 There is no derivative of the Volterra weights or Cholesky loadings: the driver
 is independent of the active Spot, initial-curve and target inputs. Reversing
 the particle leverage calibration still includes its effect on all subsequent
@@ -237,3 +236,12 @@ retained performance/replay fixtures for rough models. The existing H3/H5/H6
 acceptance gates are not promoted by this extension. Nonflat initial forward
 variance, rough Heston, fast convolution/lifts and H/eta calibration/risk remain
 future extensions.
+
+## References
+
+- [Bayer, Friz and Gatheral, *Pricing under rough volatility*](https://doi.org/10.1080/14697688.2015.1099717), for the rough Bergomi model and its Riemann–Liouville volatility driver.
+- [Bennedsen, Lunde and Pakkanen, *Hybrid scheme for Brownian semistationary processes*](https://arxiv.org/abs/1507.03004), for the near-cell/older-cell Volterra discretization.
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the Markovian Bergomi factor used in the H=0.5 comparison.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for the particle-calibrated rough-LSV leverage construction.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the retained LSV target-risk convention.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the common one-factor stochastic-rate component.

@@ -1,4 +1,4 @@
-# Multi-asset pricing v0.1
+# Multi-asset pricing
 
 ## Scope and entry points
 
@@ -9,10 +9,10 @@ correlation schedule, a multi-asset product, and the existing MC/RQMC and
 execution policies. Different assets may use different BS/LV models, curves
 for continuous dividends, and cash/proportional dividend schedules.
 
-The [Bergomi LSV extension](multi-asset-lsv-v0.1.md) adds optional per-asset
+The [Bergomi LSV extension](multi-asset-lsv.md) adds optional per-asset
 particle calibration of those LV targets, full spot/volatility correlations,
 joint OU transitions, Delta/cross Gamma and recalibrated target-grid AAD.
-The [common Hull–White extension](bergomi-hull-white-v0.1.md) adds stochastic
+The [common Hull–White extension](bergomi-hull-white.md) adds stochastic
 rates to BS and one-/two-factor Bergomi LSV, with paired target AAD, market-IV
 VegaKT and initial-curve risk. The BS/LV contracts below describe the original
 deterministic-rate interface when no LSV configuration is supplied.
@@ -168,8 +168,8 @@ reduction-block size.
 
 ## Current boundaries and validation
 
-[Rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) is also available.
-[Particle Local Correlation](local-correlation-v0.1.md) adds state-dependent
+[Rough-LSV with common HW](multi-asset-rough-bergomi.md) is also available.
+[Particle Local Correlation](local-correlation.md) adds state-dependent
 PSD correlations and recalibrated volatility risk for BS/LV and Bergomi LSV,
 including two factors, rough-LSV and shared HW.
 Its normalized-basket target and two independent endpoint shock blocks have
@@ -178,7 +178,7 @@ continues to apply when this adapter is absent.
 Multiple currencies/FX, correlation Greeks, American
 exercise and continuous barrier monitoring are not connected to this API.
 Initial-curve risk and market-IV VegaKT are available through the separate
-[HW mode](bergomi-hull-white-v0.1.md); the deterministic-rate path retains
+[HW mode](bergomi-hull-white.md); the deterministic-rate path retains
 effective local-variance adjoints. Supplying an LV reporting basis alone does
 not enable VegaKT. Sticky-strike/sticky-delta conventions remain future work.
 The existing single-asset adapters retain their own behavior.
@@ -226,3 +226,12 @@ no repository dependency, CI gate or test was changed to work around it.
 Remote CI and native macOS/Windows replay results are tracked on the pull
 request for this branch; local results above do not assert native-platform
 acceptance.
+
+## References
+
+- [Black and Scholes, *The Pricing of Options and Corporate Liabilities*](https://doi.org/10.1086/260062), for the constant-volatility equity benchmark.
+- [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile), for the Local Volatility coordinate reused by each LV asset.
+- [Margrabe, *The Value of an Option to Exchange One Asset for Another*](https://doi.org/10.1111/j.1540-6261.1978.tb03397.x), for the exchange-option formula used in the multi-asset validation.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for correlated Monte Carlo, antithetic sampling and common-random-number risk checks.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for randomized Sobol' paths and direction numbers.
+- [Broadie, Glasserman and Kou, *A Continuity Correction for Discrete Barrier Options*](https://doi.org/10.1111/1467-9965.00035), for the conditional barrier-bridge reference used by continuous monitoring.

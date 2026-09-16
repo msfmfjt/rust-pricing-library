@@ -1,8 +1,6 @@
-# LSV numerical contracts v0.1
+# LSV numerical contracts
 
 Status: Implemented experimental numerical boundary, 2026-09-12.
-See the [roadmap](../../design/roadmaps/lsv-roadmap-v0.1.md) for implementation status and references.
-
 ## 1. Coordinates and stochastic factor
 
 Use the continuous martingale f and the existing deterministic affine map
@@ -114,7 +112,7 @@ The calibration VJP differentiates every row and all preceding particles:
 
 Here `w_i'` means the derivative of `(1-u^2)^2` with respect to u; it vanishes
 outside support and at its boundary. Moment adjoints from fallback cells flow
-to their donor node. The frozen support/fallback decisions yield an almost-
+to their donor node. The frozen support/fallback choices yield an almost-
 everywhere derivative; crossing an ESS selection boundary is non-smooth.
 The VJP holds factor parameters, f0, grid axes, bandwidth and seed fixed.
 The time-refinement interpolation is also transposed, returning adjoints on the
@@ -159,3 +157,15 @@ worker-count reproducibility. The LSV plan fingerprint extends the base plan
 with the factor parameters, particle count, seed, bandwidth, ESS threshold,
 trace policy and realized leverage. Stable LSV JSON migration and retained
 native-platform replay fixtures are later acceptance work.
+
+## References
+
+- [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile), for the call-surface-to-local-volatility target.
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the mean-reverting Bergomi volatility factor and factor correlations.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for the particle calibration of local-stochastic volatility and affine dividends.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the LSV path-adjoint and calibration-sensitivity context.
+- [Jourdain and Zhou, *Existence of a calibrated regime switching local volatility model and new fake Brownian motions*](https://arxiv.org/abs/1607.00077), for the conditional-expectation and interacting-particle calibration context.
+
+The quartic log-coordinate kernel, finite-grid fallback rules and discrete VJP
+are repository-specific policies; the cited results do not imply those exact
+discretization choices.

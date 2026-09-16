@@ -1,10 +1,9 @@
 # Market-IV VegaKT for the equity/Hull–White LSV hybrid
 
 Date: 2026-09-13. Status: experimental extension of the
-[first-order AAD contract](hull-white-aad-v0.1.md).
-Decision: [ADR 0004](../../design/adr/0004-hull-white-vegakt.md).
+[first-order AAD contract](hull-white-aad.md).
 The same quote transpose is available for
-[rough-LSV](rough-bergomi-v0.1.md) with fixed H/eta.
+[rough-LSV](rough-bergomi.md) with fixed H/eta.
 
 ## Input and interpolation contract
 
@@ -121,7 +120,7 @@ appends `market_iv[i]` in row-major quote order, then `parallel_market_iv`.
 Multiply raw bucket SE by 0.01 for market-scaled SE. Adding bucket SEs does not
 give the parallel SE. All risk SEs are conditional on the realized calibration;
 they exclude calibration noise, time/kernel bias and branch-selection effects.
-The calibration's hard digital, ESS/support, donor and interpolation decisions
+The calibration's hard digital, ESS/support, donor and interpolation choices
 have the same almost-everywhere derivative convention as the original AAD.
 Finite differences must be checked for branch stability; these tests do not
 establish unbiased continuum Greeks or complete the broad H5 acceptance gate.
@@ -147,3 +146,13 @@ parallel input-IV Vega of 35.30466796 (0.35304668 per vol point), with condition
 RQMC SE 0.03246359 in raw units across 15 quote buckets.
 
 See the [runnable Python example](../../examples/python/hull_white_lsv.py).
+
+## References
+
+- [Adrien et al., *Vega KT for the Local Volatility Model: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4107770), for the Local Vega path adjoint, reporting-basis projection and equation (11) recovery used by the quote transpose.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the LSV variance/density transpose and recalibrated target risk.
+- [Gatheral and Jacquier, *Arbitrage-free SVI volatility surfaces*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2033323), for the SVI/eSSVI surface and density conventions accepted by the target builders.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the stochastic-rate hybrid in which the quote transpose is applied.
+
+Natural-cubic interpolation, row-major quote ordering and the reverse branch
+conventions are implementation-specific contracts documented above.

@@ -1,10 +1,6 @@
-# Early Exercise diagnostics catalogue v0.1
+# Early Exercise diagnostics catalogue
 
 Status: accepted catalogue
-
-Requirements: [requirements-v1.0.md](../../design/requirements-v1.0.md)
-
-Roadmap: [early-exercise-roadmap-v0.1.md](../../design/roadmaps/early-exercise-roadmap-v0.1.md)
 
 This catalogue records the stable diagnostics for American Vanilla valuation,
 LSM policy training, independent out-of-sample valuation, and fixed-policy
@@ -58,7 +54,7 @@ Each non-terminal exercise date has one diagnostics record:
 | `feature_count` | State features supplied to the regression |
 | `warnings` | Ordered zero-ITM, inactive-feature, and rank-excluded-column events |
 
-Each date also retains either a `Regression` decision model or an explicit
+Each date also retains either a `Regression` model or an explicit
 `ContinueAll` model. Regression models record feature means, population
 variances, scales, zero-scale thresholds, active and pre-excluded columns,
 pivot order, diagonal magnitudes, rank threshold, numerical rank,
@@ -100,3 +96,10 @@ Valid degenerate fits remain successful and produce structured warnings:
 
 The v3 result JSON preserves the complete diagnostics and rejects unknown,
 malformed, non-finite, or cross-field-inconsistent replay state.
+
+## References
+
+- [Longstaff and Schwartz, *Valuing American Options by Simulation: A Simple Least-Squares Approach*](https://doi.org/10.1093/rfs/14.1.113), for the LSM training/valuation separation and continuation regression.
+- Golub and Van Loan, *Matrix Computations*, 4th ed., Johns Hopkins University Press (2013), chapters 5.2–5.4, for the column-pivoted Householder QR diagnostics.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for fixed-policy reverse sensitivities and bump validation.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for the RQMC training and valuation domains.

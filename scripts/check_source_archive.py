@@ -28,21 +28,21 @@ REQUIRED_FILES = {
     "design/README.md",
     "design/adr/0000-template.md",
     "design/architecture-v0.1.md",
-    "docs/library/benchmarking-v0.1.md",
+    "docs/library/benchmarking.md",
     "design/validation/european-bs-conformance-v0.1.md",
-    "docs/models/european-bs-diagnostics-v0.1.md",
+    "docs/models/european-bs-diagnostics.md",
     "design/roadmaps/european-bs-roadmap-v0.1.md",
     "design/roadmaps/early-exercise-roadmap-v0.1.md",
-    "docs/library/early-exercise-diagnostics-v0.1.md",
+    "docs/library/early-exercise-diagnostics.md",
     "design/validation/early-exercise-conformance-v0.1.md",
-    "docs/library/early-exercise-numerical-contracts-v0.1.md",
+    "docs/library/early-exercise-numerical-contracts.md",
     "design/validation/local-vol-vegakt-conformance-v0.1.md",
-    "docs/models/local-vol-vegakt-diagnostics-v0.1.md",
-    "docs/models/local-vol-vegakt-numerical-contracts-v0.1.md",
+    "docs/models/local-vol-vegakt-diagnostics.md",
+    "docs/models/local-vol-vegakt-numerical-contracts.md",
     "design/roadmaps/local-vol-vegakt-roadmap-v0.1.md",
     "design/roadmaps/path-dependence-roadmap-v0.1.md",
-    "docs/library/path-dependence-numerical-contracts-v0.1.md",
-    "docs/library/path-dependence-diagnostics-v0.1.md",
+    "docs/library/path-dependence-numerical-contracts.md",
+    "docs/library/path-dependence-diagnostics.md",
     "design/validation/path-dependence-conformance-v0.1.md",
     "design/release-readiness-v0.1.md",
     "design/requirements-change-template.md",
@@ -1022,7 +1022,7 @@ def check_wire_schema_compatibility(package: tarfile.TarFile, archive: str) -> N
 
 
 def check_local_vol_diagnostics(package: tarfile.TarFile, archive: str) -> None:
-    diagnostics = read_text(package, "docs/models/local-vol-vegakt-diagnostics-v0.1.md")
+    diagnostics = read_text(package, "docs/models/local-vol-vegakt-diagnostics.md")
     missing = sorted(
         snippet
         for snippet in REQUIRED_LOCAL_VOL_DIAGNOSTICS_SNIPPETS

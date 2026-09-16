@@ -20,7 +20,7 @@ repo and dividend conventions remain those of the existing continuous-f model.
 
 The supplied PDFs were read. They are not redistributed in this public repository.
 Our coordinate and derivative conventions, including two printed-equation
-normalization questions, are recorded in the [numerical contracts](../../docs/models/lsv-numerical-contracts-v0.1.md).
+normalization questions, are recorded in the [numerical contracts](../../docs/models/lsv-numerical-contracts.md).
 
 ## Available now
 

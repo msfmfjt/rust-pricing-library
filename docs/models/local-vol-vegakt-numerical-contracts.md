@@ -1,10 +1,8 @@
-# Local Volatility and VegaKT Numerical Contracts v0.1
+# Local Volatility and VegaKT Numerical Contracts
 
 Status: Accepted for Gate L0
 Date: 2026-09-08
 Policy identifier: `local_vol_vegakt_v1`
-Requirements baseline: [requirements-v1.0.md](../../design/requirements-v1.0.md) (Frozen)
-
 ## 1. Purpose and authority
 
 This document freezes the numerical meaning of the first Local Volatility and
@@ -408,3 +406,10 @@ No later performance result may weaken one of these numerical contracts.
 - [Corbetta et al., *Robust calibration and arbitrage-free interpolation of SSVI slices*](https://arxiv.org/abs/1804.04924)
 - [Adrien et al., *Vega KT for the Local Volatility Model: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4107770)
 - [Guyon and Henry-Labordere, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032)
+- [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile)
+- [Black and Scholes, *The Pricing of Options and Corporate Liabilities*](https://doi.org/10.1086/260062), for the Black–Scholes gamma kernel and constant-volatility limit.
+
+The SSVI/eSSVI formulas, Dupire transformation, VegaKT operators and affine
+dividend matching are linked to the corresponding implementation sections
+above. Grid generation, floors/caps, branch ownership and finite precision
+policies remain repository-specific contracts.

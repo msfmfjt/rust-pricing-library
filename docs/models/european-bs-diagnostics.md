@@ -1,4 +1,4 @@
-# European Black–Scholes diagnostics catalogue v0.1
+# European Black–Scholes diagnostics catalogue
 
 Status: frozen for the first vertical slice
 
@@ -63,3 +63,12 @@ market/graph/RQMC/AAD failures, and wire validation failures terminate the
 calculation. They do not return a partial result. Python converts validation
 failures to one `ValidationError` containing an immutable ordered `issues` list
 with stable code, RFC 6901 pointer, and message.
+
+## References
+
+- [Black and Scholes, *The Pricing of Options and Corporate Liabilities*](https://doi.org/10.1086/260062), the continuous-volatility Black–Scholes formula used for analytical checks.
+- [Black, *The Pricing of Commodity Contracts*](https://doi.org/10.1016/0304-405X(76)90024-6), the forward-price Black-76 formula used for forward and bond-option checks.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for Monte Carlo estimators, antithetic pairs, confidence intervals and common-random-number validation.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for randomized Sobol' execution and direction numbers.
+- [Salmon, Moraes, Pfau and Frey, *Parallel Random Numbers: As Easy as 1, 2, 3*](https://doi.org/10.1145/2063384.2063405), for the counter-based Philox stream used in replayable Monte Carlo.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse pathwise AAD and the bump validation comparison.

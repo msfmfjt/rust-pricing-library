@@ -261,7 +261,7 @@ Gate:
 
 Deliver:
 
-- [path-dependence-diagnostics-v0.1.md](../../docs/library/path-dependence-diagnostics-v0.1.md);
+- [path-dependence-diagnostics.md](../../docs/library/path-dependence-diagnostics.md);
 - [path-dependence-conformance-v0.1.md](../validation/path-dependence-conformance-v0.1.md) mapping every requirement to evidence;
 - release-readiness and README status updates;
 - frozen diagnostics, numerical policy, schemas, examples, and replay artifacts.

@@ -1,10 +1,6 @@
-# Early Exercise Numerical Contracts v0.1
+# Early Exercise Numerical Contracts
 
 Status: Frozen for roadmap Gate E0
-
-Requirements: [requirements-v1.0.md](../../design/requirements-v1.0.md) Section 5.3
-
-Roadmap: [early-exercise-roadmap-v0.1.md](../../design/roadmaps/early-exercise-roadmap-v0.1.md)
 
 ## 1. Policy Identity
 
@@ -18,7 +14,7 @@ finite non-negative binary64 value. Numerical failures return typed errors;
 the implementation never changes a tolerance, repairs a matrix, or selects an
 alternate solver.
 
-## 2. Exercise and ITM Decisions
+## 2. Exercise and ITM Rules
 
 At a non-terminal exercise date, a valuation path exercises exactly when
 
@@ -31,7 +27,7 @@ equal signed zeros, continues. NaN or infinity in either value is a numerical
 error before comparison. At final expiry, non-negative intrinsic value is paid
 directly and no continuation comparison is evaluated.
 
-Training-path ITM membership is a separate decision:
+Training-path ITM membership is a separate classification:
 
 ```text
 is_itm = immediate_value > itm_abs_tol
@@ -202,7 +198,7 @@ hashes the stream, and the displayed form is lowercase
 
 ## 8. Reference Artifact
 
-`../fixtures/early-exercise/reference-cases-v0.1.json` freezes decision, basis,
+`../fixtures/early-exercise/reference-cases-v0.1.json` freezes exercise outcome, basis,
 scaling, pivot, rank, coefficient, and residual cases. The independent
 `../scripts/check_early_exercise_reference_fixture.py` evaluator uses Decimal
 arithmetic and does not import production Rust or Python bindings.
@@ -210,3 +206,15 @@ arithmetic and does not import production Rust or Python bindings.
 Decimal fixtures validate the mathematical policy at 80-digit precision.
 Production binary64 tests additionally freeze operation-order bit patterns and
 compare finite differences using separately declared tolerances.
+
+## References
+
+- [Longstaff and Schwartz, *Valuing American Options by Simulation: A Simple Least-Squares Approach*](https://doi.org/10.1093/rfs/14.1.113), for least-squares Monte Carlo and continuation-value regression.
+- Golub and Van Loan, *Matrix Computations*, 4th ed., Johns Hopkins University Press (2013), chapters 5.2–5.4, for Householder QR and column-pivoted QR used by the regression solver.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for simulation-based American-option valuation and common-random-number validation.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for randomized Sobol' training and valuation paths.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse differentiation through the fixed fitted policy.
+
+The policy identifiers, feature scaling, pivot tie-breaks and fixed-stopping
+convention are repository-specific numerical contracts rather than claims made
+by the cited literature.

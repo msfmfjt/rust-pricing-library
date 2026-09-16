@@ -1,11 +1,11 @@
-# Bergomi and common Hull–White v0.1
+# Bergomi and common Hull–White
 
 ## Scope and API
 
 This experimental extension connects one- and two-factor Bergomi LSV to a
 single shared one-factor Hull–White rate process. It supports a single equity
 or a mixture of BS, one-factor LSV and two-factor LSV equities in one currency.
-The [rough-LSV extension](multi-asset-rough-bergomi-v0.1.md) adds non-Markov
+The [rough-LSV extension](multi-asset-rough-bergomi.md) adds non-Markov
 assets with per-asset H and eta to this same adapter.
 Multi-asset Basket, Worst-of and memory/no-memory Autocallable payoffs use the
 existing payoff tape, dated observations, payment lags and affine dividends.
@@ -38,7 +38,7 @@ are unchanged.
 
 For asset i, the two volatility states solve `dX_ij = -k_ij X_ij dt + dV_ij`.
 The normalized weights and factor normalization are those of the existing
-[two-factor Bergomi contract](bergomi-two-factor-lsv-v0.1.md). The stock's
+[two-factor Bergomi contract](bergomi-two-factor-lsv.md). The stock's
 diffusion is `L_i(t, log m_i) exp(nu_i * weighted_X_i)`. The shared rate state
 solves `dx = -a x dt + sigma_r(t) dW_r`; its deterministic shift reproduces
 the input discount curve.
@@ -66,7 +66,7 @@ Cross-asset blocks may vary with the correlation date.
 
 If full matrices are omitted, the existing conditional-independent-residual
 construction supplies only the price/volatility block, as documented in the
-[multi-asset LSV contract](multi-asset-lsv-v0.1.md). The explicitly provided
+[multi-asset LSV contract](multi-asset-lsv.md). The explicitly provided
 rate vector is appended and the resulting matrix is checked. In particular,
 `Corr(W_A, V_B) = R_AB * rho_B` is a selectable modeling assumption of that
 default construction, not a requirement of Bergomi or HW. Supply full matrices
@@ -123,14 +123,14 @@ correlation changes and maximum-step subdivision. There are two target rules:
 Use retained IV provenance when dated product events or a finer maximum step
 introduce new calibration times. Quotes refer to the continuous normalized
 equity, not automatically to physical spot in the presence of cash dividends.
-See the existing [HW VegaKT contract](hull-white-vegakt-v0.1.md).
+See the existing [HW VegaKT contract](hull-white-vegakt.md).
 
 ## Cash flows and dividends
 
 Every asset sees the same rate and integrated-rate innovations. The continuous
 equity state has no payout jump; each asset's paid-cash offset carries at the
 same realized rate minus its own dividend yield. Proportional and fixed payouts
-follow the [default affine convention](hull-white-affine-dividends-v0.1.md),
+follow the [default affine convention](hull-white-affine-dividends.md),
 including pre-dividend observations. Future cash is not reserved.
 
 Each payoff output is valued at its own latest dependent observation time t.
@@ -213,3 +213,11 @@ equation fixtures, Markdown links and dependency-direction checks passed.
 Single-asset one-factor HW and rough-HW, plus deterministic-rate one- and
 two-factor multi-asset prices, risk arrays, leverage surfaces and fingerprints
 exactly matched the prior `2d13dcc` release wheel on the same platform.
+
+## References
+
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the one-/two-factor Bergomi volatility factors and joint-driver correlations.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the one-factor stochastic-rate model and curve-fitting shift.
+- [Fries, *A Short Note on the Exact Stochastic Simulation Scheme of the Hull-White Model and Its Implementation*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2737091), for exact rate and integrated-rate innovations.
+- [Cozma, Mariapragassam and Reisinger, *Calibration of a Hybrid Local-Stochastic Volatility Stochastic Rates Model with a Control Variate Particle Method*](https://arxiv.org/abs/1701.06001), for hybrid stochastic-rate/LSV calibration.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for particle leverage calibration and the affine-dividend extension.

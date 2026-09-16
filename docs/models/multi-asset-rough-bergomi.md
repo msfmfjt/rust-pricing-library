@@ -31,7 +31,7 @@ prices three products with two different H values and a full correlation matrix.
 
 This entry point is calibrated rough-LSV. Uncalibrated pure rough Bergomi with
 flat initial forward variance remains available through the existing
-[single-equity API](rough-bergomi-v0.1.md).
+[single-equity API](rough-bergomi.md).
 
 ## Rough state and finite-grid normalization
 
@@ -92,7 +92,7 @@ entries must match the explicit constant rate vector. Cross-asset entries may
 vary by date. If a full matrix is omitted, the existing independent-residual
 construction is used: `Corr(W_A,V_B)=R_AB*rho_B` remains a modeling assumption
 of that default, not a restriction of rough Bergomi. See the
-[correlation contract](multi-asset-lsv-v0.1.md).
+[correlation contract](multi-asset-lsv.md).
 
 For a cell of length h and Brownian correlation R, the new exact covariances
 are integrated from the two time kernels:
@@ -130,7 +130,7 @@ Brownian driver, not a one-factor Markov approximation.
 Retained market-IV sources regenerate both target variance and density on the
 common event grid. Direct paired targets must include every common time node
 exactly; in particular, time-zero Dirac density is not interpolated to positive
-times. See the [HW target rules](bergomi-hull-white-v0.1.md).
+times. See the [HW target rules](bergomi-hull-white.md).
 
 With `retain_reverse_trace=True`, AAD includes particle recalibration for every
 effective target-variance and forward-density node. Retained IV sources also
@@ -176,3 +176,11 @@ products require particle/bandwidth/step/seed refinement. Multi-currency/FX,
 multiple rate factors, pure multi-asset rough without calibration, nonflat pure
 initial forward variance, correlation/H/eta Greeks, seasoned products, American
 exercise and continuous barriers remain outside this extension.
+
+## References
+
+- [Bayer, Friz and Gatheral, *Pricing under rough volatility*](https://doi.org/10.1080/14697688.2015.1099717), for the rough Bergomi model and rough-volatility covariance.
+- [Bennedsen, Lunde and Pakkanen, *Hybrid scheme for Brownian semistationary processes*](https://arxiv.org/abs/1507.03004), for the nonuniform near-cell/older-cell Volterra scheme.
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the Markovian Bergomi factors and multi-asset correlation structure.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for particle-calibrated LSV marginals and the hybrid calibration setting.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the common one-factor rate process.

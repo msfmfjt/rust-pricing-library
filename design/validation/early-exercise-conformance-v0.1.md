@@ -53,8 +53,8 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 
 ## Current retained evidence
 
-- numerical policy: [early-exercise-numerical-contracts-v0.1.md](../../docs/library/early-exercise-numerical-contracts-v0.1.md);
-- diagnostics catalogue: [early-exercise-diagnostics-v0.1.md](../../docs/library/early-exercise-diagnostics-v0.1.md);
+- numerical policy: [early-exercise-numerical-contracts.md](../../docs/library/early-exercise-numerical-contracts.md);
+- diagnostics catalogue: [early-exercise-diagnostics.md](../../docs/library/early-exercise-diagnostics.md);
 - independent reference artifact:
   `fixtures/early-exercise/reference-cases-v0.1.json`;
 - Apple Silicon macOS replay artifact:

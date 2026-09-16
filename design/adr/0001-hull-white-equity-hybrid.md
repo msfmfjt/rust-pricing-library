@@ -40,5 +40,5 @@ until their stochastic-rate contracts are implemented. Preserve existing APIs.
 
 This decision does not claim production acceptance of the hybrid calibration or
 extend the existing LSV calibration VJP to stochastic rates. See the
-[numerical contracts](../../docs/models/hull-white-numerical-contracts-v0.1.md) for the model,
+[numerical contracts](../../docs/models/hull-white-numerical-contracts.md) for the model,
 estimator and finite-sample limitations.

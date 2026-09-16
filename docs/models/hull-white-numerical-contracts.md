@@ -1,12 +1,10 @@
 # Equity/Hull–White numerical contracts
 
 Status: experimental price contracts. Date: 2026-09-12; AAD extension 2026-09-13.
-Decision: [ADR 0001](../../design/adr/0001-hull-white-equity-hybrid.md).
-
 These are the default no-cash contracts. The explicit
-[escrowed cash-dividend mode](hull-white-cash-dividends-v0.1.md) extends the
+[escrowed cash-dividend mode](hull-white-cash-dividends.md) extends the
 coordinate, pricing map and calibration equation without changing the default.
-The [AAD contracts](hull-white-aad-v0.1.md) define the explicit first-order risk API.
+The [AAD contracts](hull-white-aad.md) define the explicit first-order risk API.
 
 ## Model and deterministic curve shift
 
@@ -177,21 +175,24 @@ across particle count, bandwidth, seeds, smiles and maturities is still required
   independent scramble means. LSV errors are conditional on one calibration;
   they exclude calibration randomness, kernel bias and time discretization.
 - Stable request risk flags remain unsupported for hybrid pricing. Use the
-  explicit [AAD API](hull-white-aad-v0.1.md) for Delta, BS Vega, initial-curve
+  explicit [AAD API](hull-white-aad.md) for Delta, BS Vega, initial-curve
   DV01 and paired target adjoints; LSV requires a retained calibration trace.
-  Explicit quote-node [VegaKT](hull-white-vegakt-v0.1.md) extends that API.
+  Explicit quote-node [VegaKT](hull-white-vegakt.md) extends that API.
   Gamma and model-parameter risk remain outside this boundary.
 - Stable JSON is unchanged and does not serialize the hybrid configuration.
   Persist explicit compile inputs as well as the request to reproduce a plan.
 
 ## References
 
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the one-factor short-rate dynamics and deterministic curve-fitting shift.
 - Fries, [A Short Note on the Exact Stochastic Simulation Scheme of the
   Hull-White Model and Its Implementation](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2737091),
   exact joint short-rate and numeraire simulation.
 - Cozma, Mariapragassam and Reisinger, [Calibration of a Hybrid Local-Stochastic
   Volatility Stochastic Rates Model with a Control Variate Particle Method](https://arxiv.org/abs/1701.06001),
   discounted hybrid calibration and particle variance reduction.
+- [Black, *The Pricing of Commodity Contracts*](https://doi.org/10.1016/0304-405X(76)90024-6), for the forward Black formula used for the bond-option reference.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for the Monte Carlo and common-random-number validation methodology.
 
 The implemented specialization and empirical centering policy are specified
 above; the references do not establish acceptance of this implementation.
