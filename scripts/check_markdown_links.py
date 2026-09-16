@@ -1,4 +1,4 @@
-"""Validate repository-local Markdown links used by docs."""
+"""Validate repository-local links in reference and design documentation."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MARKDOWN_ROOTS = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "docs", ROOT / "fixtures"]
+MARKDOWN_ROOTS = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "docs", ROOT / "design", ROOT / "fixtures"]
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
