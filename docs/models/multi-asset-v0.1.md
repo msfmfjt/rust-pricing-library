@@ -170,7 +170,8 @@ reduction-block size.
 
 [Rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) is also available.
 [Particle Local Correlation](local-correlation-v0.1.md) adds state-dependent
-PSD correlations and recalibrated volatility risk for deterministic-rate BS/LV.
+PSD correlations and recalibrated volatility risk for BS/LV and Bergomi LSV,
+including two factors, rough-LSV and shared HW.
 Its normalized-basket target and two independent endpoint shock blocks have
 their own explicit contracts; the fixed-correlation replay described above
 continues to apply when this adapter is absent.

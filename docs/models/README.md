@@ -55,9 +55,11 @@ explicitly selected.
 
 [Particle Local Correlation](local-correlation-v0.1.md) calibrates a
 state-dependent mixture of two PSD correlation schedules to a normalized basket
-variance target. The initial adapter supports deterministic-rate BS/LV assets;
-see the [Python example](../../examples/python/local_correlation.py) for
-calibration, pricing and joint basket/constituent volatility risk.
+variance target. It supports deterministic-rate BS/LV and Bergomi LSV assets,
+and shared Hull–White configurations with BS, Bergomi LSV or rough-LSV.
+See the [BS/LV example](../../examples/python/local_correlation.py) and the
+[LSV/Hull–White example](../../examples/python/local_correlation_lsv_hw.py)
+for calibration, pricing and joint basket/constituent volatility risk.
 
 Requirements, ADRs, implementation roadmaps and historical acceptance evidence
 are indexed separately under [design](../../design/README.md).

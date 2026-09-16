@@ -2,12 +2,25 @@
 //! R(t,m)=(1-lambda(t,log B)) R0(t)+lambda(t,log B) R1(t) preserves PSD.
 mod calibration;
 mod integration;
+mod joint;
+mod joint_calibration;
+mod joint_integration;
+mod joint_reverse;
 mod reverse;
 use super::*;
 use crate::market::{CorrelationFactor, LocalVarianceGrid};
 use crate::mc::lsv::LsvParticleConfig;
 use crate::mc::{Philox4x32, RandomCoordinate, RandomDomain};
 use crate::multi_asset::MultiAssetError as E;
+
+/// Joint endpoint and stochastic-rate basket inputs. The full Brownian order is
+/// spots, each asset's volatility factors, then the shared rate Brownian.
+#[derive(Clone, Debug, Default)]
+pub struct LocalCorrelationExtensions {
+    pub second_driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
+    /// Paired variance / T-forward log-density target for the normalized basket.
+    pub hull_white_target: Option<crate::mc::hull_white::HullWhiteLsvTarget>,
+}
 
 /// Treatment of basket targets outside the chosen correlation family's range.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -36,6 +49,8 @@ pub struct LocalCorrelationNodeDiagnostics {
     pub endpoint_variances: [f64; 2],
     pub target_variance: f64,
     pub attained_variance: f64,
+    /// Stochastic-rate correction included in attained_variance.
+    pub rate_correction: f64,
     pub raw_mixing: f64,
     pub effective_samples: f64,
     pub source_node: usize,
@@ -57,11 +72,14 @@ pub struct LocalCorrelationRisk {
     pub asset_standard_errors: Option<Vec<Vec<f64>>>,
     pub asset_time_nodes: Vec<Vec<f64>>,
     pub asset_log_nodes: Vec<Vec<f64>>,
+    pub basket_hull_white: Option<MultiAssetHullWhiteLsvRisk>,
+    pub asset_hull_white: Vec<Option<MultiAssetHullWhiteLsvRisk>>,
     pub method: &'static str,
 }
 
 #[derive(Clone, Debug)]
 pub struct LocalCorrelationCalibration {
+    joint: Option<joint::Joint>,
     config: LocalCorrelationConfig,
     times: Vec<f64>,
     models: Vec<ModelSpec>,
@@ -182,6 +200,9 @@ impl LocalCorrelationCalibration {
         }
     }
     fn parameter_counts(&self) -> Vec<usize> {
+        if let Some(j) = &self.joint {
+            return j.parameter_counts();
+        }
         self.models
             .iter()
             .map(|m| match m {
@@ -231,7 +252,10 @@ impl LocalCorrelationCalibration {
     }
     fn calibration_normals(&self, particle: usize, row: usize) -> Result<Vec<f64>, E> {
         let rng = Philox4x32::from_seed(self.config.particles.seed());
-        (0..2 * self.models.len())
+        (0..self
+            .joint
+            .as_ref()
+            .map_or(2 * self.models.len(), |j| 2 * j.width))
             .map(|j| {
                 let dimension = j
                     .checked_mul(self.times.len() - 1)
@@ -266,6 +290,9 @@ impl LocalCorrelationCalibration {
         }))
     }
     fn evolve(&self, independent: &[Vec<f64>]) -> Result<LocalCorrelationPath, E> {
+        if self.joint.is_some() {
+            return self.evolve_joint(independent);
+        }
         let n = self.models.len();
         let steps = self.times.len() - 1;
         if independent.len() != 2 * n

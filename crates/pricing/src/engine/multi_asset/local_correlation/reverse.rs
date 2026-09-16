@@ -1,7 +1,7 @@
 use super::*;
 
 impl LocalCorrelationCalibration {
-    fn reverse_sigma(
+    pub(super) fn reverse_sigma(
         &self,
         asset: usize,
         row: usize,
@@ -78,6 +78,9 @@ impl LocalCorrelationCalibration {
         path: &LocalCorrelationPath,
         seeds: &[Vec<f64>],
     ) -> Result<(Vec<Vec<f64>>, Vec<f64>), E> {
+        if self.joint.is_some() {
+            return self.reverse_joint_path(path, seeds);
+        }
         let n = self.models.len();
         let nt = self.times.len();
         if seeds.len() != n || seeds.iter().any(|v| v.len() != nt) {
@@ -109,6 +112,9 @@ impl LocalCorrelationCalibration {
         &self,
         seeds: &[f64],
     ) -> Result<(Vec<Vec<f64>>, Vec<f64>), E> {
+        if self.joint.is_some() {
+            return self.reverse_joint_calibration(seeds);
+        }
         let trace = self.trace.as_ref().ok_or(E::Invalid(
             "local correlation AAD requires retain_reverse_trace=true",
         ))?;

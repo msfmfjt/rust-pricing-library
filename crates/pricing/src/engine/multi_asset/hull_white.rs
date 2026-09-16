@@ -490,7 +490,10 @@ impl MultiAssetPricingPlan {
 /// Regenerate both paired inputs from retained IV quotes on the common grid.
 /// Explicit paired samples must already contain every time node: interpolating
 /// a time-zero Dirac density would change the calibration identity.
-fn refine_target(target: &HullWhiteLsvTarget, times: &[f64]) -> Result<HullWhiteLsvTarget, E> {
+pub(super) fn refine_target(
+    target: &HullWhiteLsvTarget,
+    times: &[f64],
+) -> Result<HullWhiteLsvTarget, E> {
     let g = target.grid();
     if times[0] != 0.0 || times[times.len() - 1] > g.time_nodes()[g.time_nodes().len() - 1] {
         return Err(E::Invalid("HW target must cover the pricing grid"));
