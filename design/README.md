@@ -1,0 +1,66 @@
+# Design and development records
+
+This directory contains requirements, architecture, decisions, implementation
+plans and acceptance evidence. The [library guide](../docs/library/README.md)
+and [model reference](../docs/models/README.md) describe the usable APIs and
+numerical contracts.
+
+## Baselines and change process
+
+- [Frozen MVP requirements](requirements-v1.0.md)
+- [Architecture](architecture-v0.1.md)
+- [Requirements change template](requirements-change-template.md)
+- [ADR template](adr/0000-template.md)
+- [Release readiness](release-readiness-v0.1.md)
+- [Contributor workflow and checks](../CONTRIBUTING.md)
+
+Requirements and ADRs retain their recorded scope and chronology. Older records
+may describe earlier crate names, defaults or extension boundaries. Follow the
+model contracts and their explicit superseding decisions for current behavior;
+the [three-crate migration guide](../docs/library/three-crate-migration.md)
+documents the public API migration.
+
+## Architecture decisions
+
+| ADR | Decision |
+| --- | --- |
+| [0001](adr/0001-hull-white-equity-hybrid.md) | Equity/Hull–White hybrid |
+| [0002](adr/0002-hull-white-cash-dividends.md) | Hull–White cash dividends |
+| [0003](adr/0003-hull-white-aad.md) | Hull–White AAD |
+| [0004](adr/0004-hull-white-vegakt.md) | Hull–White market-IV VegaKT |
+| [0005](adr/0005-rough-bergomi.md) | Rough Bergomi |
+| [0006](adr/0006-integrate-completed-baseline.md) | Integration of completed baselines |
+| [0007](adr/0007-affine-paid-cash-dividends.md) | Default affine paid-cash dividends |
+
+## Implementation roadmaps and acceptance
+
+| Stage | Roadmap | Acceptance evidence |
+| --- | --- | --- |
+| European Black–Scholes | [G0–G8](roadmaps/european-bs-roadmap-v0.1.md) | [Conformance report](validation/european-bs-conformance-v0.1.md) |
+| Local Volatility / VegaKT | [L0–L8](roadmaps/local-vol-vegakt-roadmap-v0.1.md) | [Conformance report](validation/local-vol-vegakt-conformance-v0.1.md) |
+| Path dependence | [P0–P8](roadmaps/path-dependence-roadmap-v0.1.md) | [Conformance report](validation/path-dependence-conformance-v0.1.md) |
+| Early exercise | [E0–E8](roadmaps/early-exercise-roadmap-v0.1.md) | [Conformance report](validation/early-exercise-conformance-v0.1.md) |
+| Bergomi LSV | [Implementation and remaining acceptance](roadmaps/lsv-roadmap-v0.1.md) | Experimental status and evidence recorded in the roadmap |
+| Hull–White | [Implementation and acceptance](roadmaps/hull-white-roadmap-v0.1.md) | Experimental status and evidence recorded in the roadmap |
+
+The [three-crate validation report](validation/three-crate-validation.md) links
+the preserved [raw evidence](validation/three-crate/). Captured JSON and the
+compressed run archive retain their original bytes, including paths and command
+output from the revisions they validated. Those historical paths are not a
+directory map for the current checkout.
+
+## Where new documentation belongs
+
+| Content | Location |
+| --- | --- |
+| Usage, product behavior, serialization, migration and benchmarking | `docs/library/` |
+| Model equations, calibration, simulation, risk and model diagnostics | `docs/models/` |
+| Requirements, architecture and release planning | `design/` |
+| Architecture decisions | `design/adr/` |
+| Implementation plans and remaining work | `design/roadmaps/` |
+| Conformance reports and captured validation evidence | `design/validation/` |
+
+Keep numerical contracts linked from the library or model index, even when a
+design decision introduces them. Update the relevant index when adding a page.
+Repository-local links in both `docs/` and `design/` are checked by
+`python3 scripts/check_markdown_links.py`.

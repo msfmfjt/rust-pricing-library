@@ -35,37 +35,16 @@ Result diagnostics report endpoint and dividend-jump hit fractions separately
 from the mean conditional bridge hit weight, together with bridge interval and
 stable numerical-branch counts.
 
-## Design baselines
+## Documentation
 
-- [Frozen MVP requirements](docs/requirements-v1.0.md)
-- [Architecture](docs/architecture-v0.1.md)
-- [European Black–Scholes implementation roadmap](docs/european-bs-roadmap-v0.1.md)
-- [European Black–Scholes conformance report](docs/european-bs-conformance-v0.1.md)
-- [European Black–Scholes diagnostics catalogue](docs/european-bs-diagnostics-v0.1.md)
-- [Local Volatility and VegaKT implementation roadmap](docs/local-vol-vegakt-roadmap-v0.1.md)
-- [Local Volatility and VegaKT numerical contracts](docs/local-vol-vegakt-numerical-contracts-v0.1.md)
-- [Local Volatility and VegaKT diagnostics catalogue](docs/local-vol-vegakt-diagnostics-v0.1.md)
-- [Local Volatility and VegaKT conformance report](docs/local-vol-vegakt-conformance-v0.1.md)
-- [Path Dependence implementation roadmap](docs/path-dependence-roadmap-v0.1.md)
-- [Path Dependence numerical contracts](docs/path-dependence-numerical-contracts-v0.1.md)
-- [LSV extension and implementation status](docs/lsv-roadmap-v0.1.md)
-- [LSV numerical contracts](docs/lsv-numerical-contracts-v0.1.md)
-- [Hull–White extension and acceptance roadmap](docs/hull-white-roadmap-v0.1.md)
-- [Hull–White numerical contracts](docs/hull-white-numerical-contracts-v0.1.md)
-- [Multi-asset pricing contracts](docs/multi-asset-v0.1.md)
-- [Multi-asset Bergomi LSV contracts](docs/multi-asset-lsv-v0.1.md)
-- [Bergomi and common Hull–White contracts](docs/bergomi-hull-white-v0.1.md)
+| Topic | Start here |
+| --- | --- |
+| Library usage, APIs, products, diagnostics and compatibility | [Library guide](docs/library/README.md) |
+| Models, calibration, simulation and risk conventions | [Model reference](docs/models/README.md) |
+| Requirements, architecture, ADRs, roadmaps and acceptance evidence | [Design and development records](design/README.md) |
 
-Two-factor Bergomi LSV is available for single-asset and mixed multi-asset plans, including calibrated target-variance AAD. See [the two-factor contract](docs/bergomi-two-factor-lsv-v0.1.md) and [the Python example](examples/python/multi_asset_bergomi_two_factor.py).
-- [Rough Bergomi and rough-LSV contracts](docs/rough-bergomi-v0.1.md)
-- [Multi-asset rough-LSV with common HW](docs/multi-asset-rough-bergomi-v0.1.md)
-- [Path Dependence diagnostics catalogue](docs/path-dependence-diagnostics-v0.1.md)
-- [Path Dependence conformance report](docs/path-dependence-conformance-v0.1.md)
-- [Early Exercise implementation roadmap](docs/early-exercise-roadmap-v0.1.md)
-- [Early Exercise numerical contracts](docs/early-exercise-numerical-contracts-v0.1.md)
-- [Early Exercise diagnostics catalogue](docs/early-exercise-diagnostics-v0.1.md)
-- [Early Exercise conformance report](docs/early-exercise-conformance-v0.1.md)
-- [Release readiness](docs/release-readiness-v0.1.md)
+The [documentation index](docs/README.md) links the library and model guides.
+Design documents are maintained separately in `design/`.
 
 ## Status
 
@@ -91,7 +70,7 @@ MC/RQMC paths, and differentiates the finite calibration to effective Dupire
 Local-variance nodes. It reuses the existing payoff graphs and affine dividends.
 Market-IV VegaKT and sticky-smile Spot Greeks are not enabled at this boundary.
 See the [LSV example](examples/python/bergomi_lsv.py) and
-[acceptance roadmap](docs/lsv-roadmap-v0.1.md).
+[acceptance roadmap](design/roadmaps/lsv-roadmap-v0.1.md).
 
 Experimental one-currency stochastic-rate pricing is available through Rust
 `HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
@@ -102,8 +81,8 @@ payment lags. Fixed and mixed cash/proportional payouts now use the paid-cash
 equity state has no payout jump, while the paid-cash offset carries at realized
 r-q. Future payouts are not reserved. The explicit `cash_dividend_model="escrowed"`
 option retains the legacy stochastic bond reserve and quadratic LSV calibration.
-See the [affine migration contract](docs/hull-white-affine-dividends-v0.1.md)
-and [ADR 0007](docs/adr/0007-affine-paid-cash-dividends.md).
+See the [affine migration contract](docs/models/hull-white-affine-dividends-v0.1.md)
+and [ADR 0007](design/adr/0007-affine-paid-cash-dividends.md).
 Explicit `evaluate_aad()` returns Spot
 Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
 adjoints. Targets built with `HullWhiteLsvTarget.from_market_iv` additionally
@@ -112,11 +91,11 @@ variance and density through explicit cubic/time interpolation. Default affine
 quotes refer to the continuous normalized equity coordinate U, whereas explicit
 escrowed-mode quotes refer to its converted escrow F coordinate. Neither mode
 automatically converts physical-spot market quotes. See the
-[VegaKT contracts](docs/hull-white-vegakt-v0.1.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
-payout quotes remain fixed. See the [AAD contracts](docs/hull-white-aad-v0.1.md),
-[cash-dividend contracts](docs/hull-white-cash-dividends-v0.1.md),
+[VegaKT contracts](docs/models/hull-white-vegakt-v0.1.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
+payout quotes remain fixed. See the [AAD contracts](docs/models/hull-white-aad-v0.1.md),
+[cash-dividend contracts](docs/models/hull-white-cash-dividends-v0.1.md),
 [example](examples/python/hull_white_lsv.py) and
-[numerical contracts](docs/hull-white-numerical-contracts-v0.1.md).
+[numerical contracts](docs/models/hull-white-numerical-contracts-v0.1.md).
 
 The same engine now supports experimental rough Bergomi and particle-calibrated
 rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
@@ -125,7 +104,7 @@ driver to Hull–White, default affine or explicit escrowed dividends, first-ord
 VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
 target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
 per path. See the [example](examples/python/rough_bergomi.py) and
-[numerical/API contracts](docs/rough-bergomi-v0.1.md).
+[numerical/API contracts](docs/models/rough-bergomi-v0.1.md).
 
 Experimental multi-asset pricing is available through Rust
 `multi_asset::MultiAssetPricingPlan` and Python `MultiAssetPlan`. Correlated
@@ -138,12 +117,12 @@ common Hull–White rate with BS, one-/two-factor Bergomi LSV and rough-LSV. The
 explicit price/rate and volatility/rate correlations, exact integrated-rate
 innovations, per-cashflow stochastic discounting, paired variance/density AAD,
 market-IV VegaKT from retained quotes and initial-curve risk. See the
-[HW contracts](docs/bergomi-hull-white-v0.1.md) and
+[HW contracts](docs/models/bergomi-hull-white-v0.1.md) and
 [three-product example](examples/python/bergomi_hull_white.py).
 Rough assets select `MultiAssetRoughLsvConfig` with per-asset H and eta. Their
 non-Markov Volterra histories are driven jointly with all spot, OU and rate
 innovations, including explicit cross-asset correlations. See the
-[rough multi-asset contracts](docs/multi-asset-rough-bergomi-v0.1.md) and
+[rough multi-asset contracts](docs/models/multi-asset-rough-bergomi-v0.1.md) and
 [rough three-product example](examples/python/multi_asset_rough_bergomi.py).
 Deterministic-rate LSV assets use their LV model as a marginal particle-calibration
 target; HW LSV additionally requires the matching paired target. Optional full
@@ -151,9 +130,9 @@ spot/volatility/rate Brownian correlations and joint OU/power-kernel transitions
 available. AAD
 includes particle recalibration; target-risk standard errors are available for
 RQMC and conditional on the calibration. See the
-[contracts](docs/multi-asset-v0.1.md) and
+[contracts](docs/models/multi-asset-v0.1.md) and
 [example](examples/python/multi_asset.py), plus the
-[LSV contracts](docs/multi-asset-lsv-v0.1.md) and
+[LSV contracts](docs/models/multi-asset-lsv-v0.1.md) and
 [LSV example](examples/python/multi_asset_lsv.py).
 
 Particle-calibrated **Local Correlation** is available for deterministic-rate
@@ -162,7 +141,7 @@ It fits one positive basket of normalized continuous equity martingales by
 varying a scalar mixture of two supplied PSD correlation schedules. It exposes
 support/feasibility diagnostics and joint basket/constituent volatility AAD
 through the finite particle recalibration. See the
-[numerical and coordinate contracts](docs/local-correlation-v0.1.md) and
+[numerical and coordinate contracts](docs/models/local-correlation-v0.1.md) and
 [three-product example](examples/python/local_correlation.py).
 This initial adapter does not combine Local Correlation with LSV, Bergomi,
 rough Bergomi or Hull–White.
@@ -170,7 +149,7 @@ rough Bergomi or Hull–White.
 The experimental LSV/Hull–White adapters reject American exercise,
 continuous Barrier monitoring and smoothing-width ladders; these features
 remain available through the general BS/Local Volatility facade. The
-[integration decision](docs/adr/0006-integrate-completed-baseline.md) records
+[integration decision](design/adr/0006-integrate-completed-baseline.md) records
 the shared observation and schema boundaries.
 
 | Crate | Responsibility |
@@ -184,7 +163,7 @@ both the Cargo graph and selected internal boundaries. `pricing::core`, `market`
 `product`, `models`, `mc`, `risk`, `hull_white`, `lsv`, `analytical`, and the root
 entry points retain their existing public paths. The former seven financial
 subcrates are removed; direct users must follow the
-[three-crate migration guide](docs/three-crate-migration.md).
+[three-crate migration guide](docs/library/three-crate-migration.md).
 
 ## Development
 
@@ -273,7 +252,7 @@ fresh virtual environment before the Python API smoke suite runs. CI also
 retains a source archive for the exact commit, including the locked Rust
 dependency metadata required to consume the Rust crates privately.
 
-The [benchmark baseline protocol](docs/benchmarking-v0.1.md) records native
+The [benchmark baseline protocol](docs/library/benchmarking-v0.1.md) records native
 Rust and installed-wheel Python timings and the host/build metadata required to
 interpret them.
 

@@ -22,52 +22,56 @@ REQUIRED_FILES = {
     "rustfmt.toml",
     "pyproject.toml",
     ".github/workflows/ci.yml",
-    "docs/adr/0000-template.md",
-    "docs/architecture-v0.1.md",
-    "docs/benchmarking-v0.1.md",
-    "docs/european-bs-conformance-v0.1.md",
-    "docs/european-bs-diagnostics-v0.1.md",
-    "docs/european-bs-roadmap-v0.1.md",
-    "docs/early-exercise-roadmap-v0.1.md",
-    "docs/early-exercise-diagnostics-v0.1.md",
-    "docs/early-exercise-conformance-v0.1.md",
-    "docs/early-exercise-numerical-contracts-v0.1.md",
-    "docs/local-vol-vegakt-conformance-v0.1.md",
-    "docs/local-vol-vegakt-diagnostics-v0.1.md",
-    "docs/local-vol-vegakt-numerical-contracts-v0.1.md",
-    "docs/local-vol-vegakt-roadmap-v0.1.md",
-    "docs/path-dependence-roadmap-v0.1.md",
-    "docs/path-dependence-numerical-contracts-v0.1.md",
-    "docs/path-dependence-diagnostics-v0.1.md",
-    "docs/path-dependence-conformance-v0.1.md",
-    "docs/release-readiness-v0.1.md",
-    "docs/requirements-change-template.md",
-    "docs/requirements-v1.0.md",
-    "docs/validation/three-crate/after-commands.json",
-    "docs/validation/three-crate/after-targets.json",
-    "docs/validation/three-crate/baseline-commands.json",
-    "docs/validation/three-crate/baseline-corrected-commands.json",
-    "docs/validation/three-crate/baseline-targets.json",
-    "docs/validation/three-crate/boundary-probes.json",
-    "docs/validation/three-crate/ci-acceptance.json",
-    "docs/validation/three-crate/commands.json",
-    "docs/validation/three-crate/comparison.json",
-    "docs/validation/three-crate/final-structure-commands.json",
-    "docs/validation/three-crate/frozen-replay-checks.json",
-    "docs/validation/three-crate/lsm-confirmation.json",
-    "docs/validation/three-crate/mechanical-audit.json",
-    "docs/validation/three-crate/public-api.json",
-    "docs/validation/three-crate/replay-comparison.json",
-    "docs/validation/three-crate/run-artifacts.tar.gz",
-    "docs/validation/three-crate/test-moves.json",
-    "docs/validation/three-crate/unchanged-contract-hashes.json",
-    "docs/wire-schema-compatibility.md",
+    "docs/README.md",
+    "docs/library/README.md",
+    "docs/models/README.md",
+    "design/README.md",
+    "design/adr/0000-template.md",
+    "design/architecture-v0.1.md",
+    "docs/library/benchmarking-v0.1.md",
+    "design/validation/european-bs-conformance-v0.1.md",
+    "docs/models/european-bs-diagnostics-v0.1.md",
+    "design/roadmaps/european-bs-roadmap-v0.1.md",
+    "design/roadmaps/early-exercise-roadmap-v0.1.md",
+    "docs/library/early-exercise-diagnostics-v0.1.md",
+    "design/validation/early-exercise-conformance-v0.1.md",
+    "docs/library/early-exercise-numerical-contracts-v0.1.md",
+    "design/validation/local-vol-vegakt-conformance-v0.1.md",
+    "docs/models/local-vol-vegakt-diagnostics-v0.1.md",
+    "docs/models/local-vol-vegakt-numerical-contracts-v0.1.md",
+    "design/roadmaps/local-vol-vegakt-roadmap-v0.1.md",
+    "design/roadmaps/path-dependence-roadmap-v0.1.md",
+    "docs/library/path-dependence-numerical-contracts-v0.1.md",
+    "docs/library/path-dependence-diagnostics-v0.1.md",
+    "design/validation/path-dependence-conformance-v0.1.md",
+    "design/release-readiness-v0.1.md",
+    "design/requirements-change-template.md",
+    "design/requirements-v1.0.md",
+    "design/validation/three-crate/after-commands.json",
+    "design/validation/three-crate/after-targets.json",
+    "design/validation/three-crate/baseline-commands.json",
+    "design/validation/three-crate/baseline-corrected-commands.json",
+    "design/validation/three-crate/baseline-targets.json",
+    "design/validation/three-crate/boundary-probes.json",
+    "design/validation/three-crate/ci-acceptance.json",
+    "design/validation/three-crate/commands.json",
+    "design/validation/three-crate/comparison.json",
+    "design/validation/three-crate/final-structure-commands.json",
+    "design/validation/three-crate/frozen-replay-checks.json",
+    "design/validation/three-crate/lsm-confirmation.json",
+    "design/validation/three-crate/mechanical-audit.json",
+    "design/validation/three-crate/public-api.json",
+    "design/validation/three-crate/replay-comparison.json",
+    "design/validation/three-crate/run-artifacts.tar.gz",
+    "design/validation/three-crate/test-moves.json",
+    "design/validation/three-crate/unchanged-contract-hashes.json",
+    "docs/library/wire-schema-compatibility.md",
     "crates/pricing-numerics/Cargo.toml",
     "crates/pricing-python/Cargo.toml",
     "crates/pricing/Cargo.toml",
     "crates/pricing/src/engine/mod.rs",
     "crates/pricing/tests/facade_compatibility.rs",
-    "docs/three-crate-migration.md",
+    "docs/library/three-crate-migration.md",
     "crates/pricing/data/README.md",
     "crates/pricing/data/joe-kuo-6.21201-u32be.bin",
     "schemas/v1/pricing_request.schema.json",
@@ -445,7 +449,7 @@ REQUIRED_EARLY_EXERCISE_REFERENCE_CHECK_SNIPPETS = {
 }
 
 REQUIRED_MARKDOWN_LINK_CHECK_SNIPPETS = {
-    "MARKDOWN_ROOTS = [ROOT / \"README.md\", ROOT / \"CONTRIBUTING.md\", ROOT / \"docs\", ROOT / \"fixtures\"]",
+    "MARKDOWN_ROOTS = [ROOT / \"README.md\", ROOT / \"CONTRIBUTING.md\", ROOT / \"docs\", ROOT / \"design\", ROOT / \"fixtures\"]",
     "LINK_PATTERN = re.compile",
     "escapes repository root",
     "target does not exist",
@@ -708,6 +712,7 @@ def repository_source_files() -> set[str]:
         ("crates", "*.rs"),
         ("benchmarks", "*.py"),
         ("docs", "*.md"),
+        ("design", "*.md"),
         ("examples/python", "*.py"),
         ("fixtures", "*.csv"),
         ("fixtures", "*.json"),
@@ -986,7 +991,7 @@ def check_contributing_release_gates(package: tarfile.TarFile, archive: str) -> 
 
 
 def check_architecture_contract(package: tarfile.TarFile, archive: str) -> None:
-    architecture = read_text(package, "docs/architecture-v0.1.md")
+    architecture = read_text(package, "design/architecture-v0.1.md")
     missing = sorted(
         snippet for snippet in REQUIRED_ARCHITECTURE_SNIPPETS if snippet not in architecture
     )
@@ -995,7 +1000,7 @@ def check_architecture_contract(package: tarfile.TarFile, archive: str) -> None:
 
 
 def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
-    readiness = read_text(package, "docs/release-readiness-v0.1.md")
+    readiness = read_text(package, "design/release-readiness-v0.1.md")
     missing = sorted(
         snippet for snippet in REQUIRED_RELEASE_READINESS_SNIPPETS if snippet not in readiness
     )
@@ -1004,7 +1009,7 @@ def check_release_readiness(package: tarfile.TarFile, archive: str) -> None:
 
 
 def check_wire_schema_compatibility(package: tarfile.TarFile, archive: str) -> None:
-    compatibility = read_text(package, "docs/wire-schema-compatibility.md")
+    compatibility = read_text(package, "docs/library/wire-schema-compatibility.md")
     missing = sorted(
         snippet
         for snippet in REQUIRED_WIRE_SCHEMA_COMPATIBILITY_SNIPPETS
@@ -1017,7 +1022,7 @@ def check_wire_schema_compatibility(package: tarfile.TarFile, archive: str) -> N
 
 
 def check_local_vol_diagnostics(package: tarfile.TarFile, archive: str) -> None:
-    diagnostics = read_text(package, "docs/local-vol-vegakt-diagnostics-v0.1.md")
+    diagnostics = read_text(package, "docs/models/local-vol-vegakt-diagnostics-v0.1.md")
     missing = sorted(
         snippet
         for snippet in REQUIRED_LOCAL_VOL_DIAGNOSTICS_SNIPPETS
