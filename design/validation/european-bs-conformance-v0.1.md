@@ -49,7 +49,7 @@ policies, and direction/scramble checksums.
 ## Diagnostics and warnings
 
 The complete successful-result diagnostic surface and the two currently emitted
-warning codes are frozen in [european-bs-diagnostics-v0.1.md](../../docs/models/european-bs-diagnostics-v0.1.md). Errors remain
+warning codes are frozen in [european-bs-diagnostics.md](../../docs/models/european-bs-diagnostics.md). Errors remain
 fail-fast and do not produce partial pricing objects.
 
 ## Performance interpretation

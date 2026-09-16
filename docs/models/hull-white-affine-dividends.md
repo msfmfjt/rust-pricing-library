@@ -1,8 +1,8 @@
 # Hull–White paid-cash affine dividends
 
-Date: 2026-09-14. Experimental. Decision: [ADR 0007](../../design/adr/0007-affine-paid-cash-dividends.md).
+Date: 2026-09-14. Experimental.
 This is the current default dividend contract. The older
-[escrowed contract](hull-white-cash-dividends-v0.1.md) still applies only when
+[escrowed contract](hull-white-cash-dividends.md) still applies only when
 explicitly selected; its statements that default cash is rejected are superseded.
 
 ## Model and API
@@ -84,7 +84,7 @@ particle calibration. Initial curves also affect the payment discount prefactor.
 Spot bumps keep each D and beta fixed; no derivative of a frozen D/S0 is used.
 
 First-order risk remains conditional on fixed grids, model parameters, RNG and
-calibration branch decisions. LSV AAD needs `retain_reverse_trace=True`.
+calibration branch choices. LSV AAD needs `retain_reverse_trace=True`.
 RQMC errors use independent scrambles and retain cross-bucket covariance for
 parallel Vega. Price-only and AAD use the same physical observations.
 

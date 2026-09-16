@@ -1,10 +1,6 @@
-# Early Exercise Numerical Contracts v0.1
+# Early Exercise Numerical Contracts
 
 Status: Frozen for roadmap Gate E0
-
-Requirements: [requirements-v1.0.md](../../design/requirements-v1.0.md) Section 5.3
-
-Roadmap: [early-exercise-roadmap-v0.1.md](../../design/roadmaps/early-exercise-roadmap-v0.1.md)
 
 ## 1. Policy Identity
 
@@ -18,7 +14,7 @@ finite non-negative binary64 value. Numerical failures return typed errors;
 the implementation never changes a tolerance, repairs a matrix, or selects an
 alternate solver.
 
-## 2. Exercise and ITM Decisions
+## 2. Exercise and ITM Rules
 
 At a non-terminal exercise date, a valuation path exercises exactly when
 
@@ -31,7 +27,7 @@ equal signed zeros, continues. NaN or infinity in either value is a numerical
 error before comparison. At final expiry, non-negative intrinsic value is paid
 directly and no continuation comparison is evaluated.
 
-Training-path ITM membership is a separate decision:
+Training-path ITM membership is a separate classification:
 
 ```text
 is_itm = immediate_value > itm_abs_tol
@@ -202,7 +198,7 @@ hashes the stream, and the displayed form is lowercase
 
 ## 8. Reference Artifact
 
-`../fixtures/early-exercise/reference-cases-v0.1.json` freezes decision, basis,
+`../fixtures/early-exercise/reference-cases-v0.1.json` freezes exercise outcome, basis,
 scaling, pivot, rank, coefficient, and residual cases. The independent
 `../scripts/check_early_exercise_reference_fixture.py` evaluator uses Decimal
 arithmetic and does not import production Rust or Python bindings.

@@ -1,8 +1,6 @@
-# LSV numerical contracts v0.1
+# LSV numerical contracts
 
 Status: Implemented experimental numerical boundary, 2026-09-12.
-See the [roadmap](../../design/roadmaps/lsv-roadmap-v0.1.md) for implementation status and references.
-
 ## 1. Coordinates and stochastic factor
 
 Use the continuous martingale f and the existing deterministic affine map
@@ -114,7 +112,7 @@ The calibration VJP differentiates every row and all preceding particles:
 
 Here `w_i'` means the derivative of `(1-u^2)^2` with respect to u; it vanishes
 outside support and at its boundary. Moment adjoints from fallback cells flow
-to their donor node. The frozen support/fallback decisions yield an almost-
+to their donor node. The frozen support/fallback choices yield an almost-
 everywhere derivative; crossing an ESS selection boundary is non-smooth.
 The VJP holds factor parameters, f0, grid axes, bandwidth and seed fixed.
 The time-refinement interpolation is also transposed, returning adjoints on the

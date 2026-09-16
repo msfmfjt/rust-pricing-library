@@ -1,4 +1,4 @@
-# Local Volatility and VegaKT diagnostics catalogue v0.1
+# Local Volatility and VegaKT diagnostics catalogue
 
 Status: accepted catalogue for the Local Volatility/VegaKT slice
 

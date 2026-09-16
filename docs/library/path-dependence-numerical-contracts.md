@@ -1,10 +1,6 @@
-# Path Dependence Numerical Contracts v0.1
+# Path Dependence Numerical Contracts
 
 Status: Frozen for roadmap Gate P0, including the continuous smoothing amendment
-
-Requirements: [requirements-v1.0.md](../../design/requirements-v1.0.md) Sections 6 and 7.3
-
-Roadmap: [path-dependence-roadmap-v0.1.md](../../design/roadmaps/path-dependence-roadmap-v0.1.md)
 
 ## 1. Policy Identity
 

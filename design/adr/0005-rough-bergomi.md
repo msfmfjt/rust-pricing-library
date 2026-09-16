@@ -31,6 +31,6 @@ forward-variance curve, rough Heston, H/eta fitting and sensitivities, and broad
 calibration/risk refinement are future work. Stable JSON model/risk selection
 and the previous acceptance gates remain as documented.
 
-See the [numerical and API contracts](../../docs/models/rough-bergomi-v0.1.md), including
+See the [numerical and API contracts](../../docs/models/rough-bergomi.md), including
 the independent covariance/conditional-price references and full-recalibration
 VegaKT tests. This extends [ADR 0004](0004-hull-white-vegakt.md).

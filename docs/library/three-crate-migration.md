@@ -124,7 +124,7 @@ Shared `SimulationPlan` state is in `engine/plan`.
 The dependency checker retains its existing manifest/path/version checks, adds
 the exact three-crate graph and scans selected source boundaries. It is a small
 text guard supplementing Rust visibility, not a complete dependency parser.
-Historical requirements and ADRs retain their original crate names; current
+Historical reference records retain their original crate names; current
 architecture and conformance references use the new modules.
 
 ## Validation and follow-up

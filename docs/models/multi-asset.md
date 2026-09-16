@@ -1,4 +1,4 @@
-# Multi-asset pricing v0.1
+# Multi-asset pricing
 
 ## Scope and entry points
 
@@ -9,10 +9,10 @@ correlation schedule, a multi-asset product, and the existing MC/RQMC and
 execution policies. Different assets may use different BS/LV models, curves
 for continuous dividends, and cash/proportional dividend schedules.
 
-The [Bergomi LSV extension](multi-asset-lsv-v0.1.md) adds optional per-asset
+The [Bergomi LSV extension](multi-asset-lsv.md) adds optional per-asset
 particle calibration of those LV targets, full spot/volatility correlations,
 joint OU transitions, Delta/cross Gamma and recalibrated target-grid AAD.
-The [common Hull–White extension](bergomi-hull-white-v0.1.md) adds stochastic
+The [common Hull–White extension](bergomi-hull-white.md) adds stochastic
 rates to BS and one-/two-factor Bergomi LSV, with paired target AAD, market-IV
 VegaKT and initial-curve risk. The BS/LV contracts below describe the original
 deterministic-rate interface when no LSV configuration is supplied.
@@ -168,8 +168,8 @@ reduction-block size.
 
 ## Current boundaries and validation
 
-[Rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) is also available.
-[Particle Local Correlation](local-correlation-v0.1.md) adds state-dependent
+[Rough-LSV with common HW](multi-asset-rough-bergomi.md) is also available.
+[Particle Local Correlation](local-correlation.md) adds state-dependent
 PSD correlations and recalibrated volatility risk for BS/LV and Bergomi LSV,
 including two factors, rough-LSV and shared HW.
 Its normalized-basket target and two independent endpoint shock blocks have
@@ -178,7 +178,7 @@ continues to apply when this adapter is absent.
 Multiple currencies/FX, correlation Greeks, American
 exercise and continuous barrier monitoring are not connected to this API.
 Initial-curve risk and market-IV VegaKT are available through the separate
-[HW mode](bergomi-hull-white-v0.1.md); the deterministic-rate path retains
+[HW mode](bergomi-hull-white.md); the deterministic-rate path retains
 effective local-variance adjoints. Supplying an LV reporting basis alone does
 not enable VegaKT. Sticky-strike/sticky-delta conventions remain future work.
 The existing single-asset adapters retain their own behavior.

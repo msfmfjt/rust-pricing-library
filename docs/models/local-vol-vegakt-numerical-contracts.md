@@ -1,10 +1,8 @@
-# Local Volatility and VegaKT Numerical Contracts v0.1
+# Local Volatility and VegaKT Numerical Contracts
 
 Status: Accepted for Gate L0
 Date: 2026-09-08
 Policy identifier: `local_vol_vegakt_v1`
-Requirements baseline: [requirements-v1.0.md](../../design/requirements-v1.0.md) (Frozen)
-
 ## 1. Purpose and authority
 
 This document freezes the numerical meaning of the first Local Volatility and

@@ -1,10 +1,6 @@
-# Early Exercise diagnostics catalogue v0.1
+# Early Exercise diagnostics catalogue
 
 Status: accepted catalogue
-
-Requirements: [requirements-v1.0.md](../../design/requirements-v1.0.md)
-
-Roadmap: [early-exercise-roadmap-v0.1.md](../../design/roadmaps/early-exercise-roadmap-v0.1.md)
 
 This catalogue records the stable diagnostics for American Vanilla valuation,
 LSM policy training, independent out-of-sample valuation, and fixed-policy
@@ -58,7 +54,7 @@ Each non-terminal exercise date has one diagnostics record:
 | `feature_count` | State features supplied to the regression |
 | `warnings` | Ordered zero-ITM, inactive-feature, and rank-excluded-column events |
 
-Each date also retains either a `Regression` decision model or an explicit
+Each date also retains either a `Regression` model or an explicit
 `ContinueAll` model. Regression models record feature means, population
 variances, scales, zero-scale thresholds, active and pre-excluded columns,
 pivot order, diagonal magnitudes, rank threshold, numerical rank,

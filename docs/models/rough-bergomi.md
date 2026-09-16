@@ -1,9 +1,8 @@
 # Rough Bergomi and rough-LSV contracts
 
 Date: 2026-09-13. Status: experimental implementation.
-Decision: [ADR 0005](../../design/adr/0005-rough-bergomi.md).
 
-[Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi-v0.1.md) extends
+[Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi.md) extends
 this nonuniform hybrid scheme to jointly driven rough and Markovian assets.
 The single-equity entry points and conventions below remain available.
 
@@ -27,9 +26,9 @@ Rough-LSV uses `v_t=L(t,F_t)^2*a_t^2`, where L is determined by the existing
 discounted particle calibration. Without fixed cash, between proportional
 dividend events, `dS/S=(r-q)dt+sqrt(v_t)dW_S`. With escrowed cash, volatility
 applies to the residual risky equity, with the same stochastic reserve and
-target F coordinate as the [cash model](hull-white-cash-dividends-v0.1.md).
+target F coordinate as the [cash model](hull-white-cash-dividends.md).
 Hull–White rates, continuous carry and payment discounting retain the
-[hybrid contract](hull-white-numerical-contracts-v0.1.md).
+[hybrid contract](hull-white-numerical-contracts.md).
 
 Require finite `0 < H <= 0.5`, finite `eta >= 0`, and a positive-semidefinite
 three-driver correlation matrix for `(W_S,W_v,W_r)`. H=0.5 is the Brownian
@@ -167,8 +166,8 @@ contribute to the plan fingerprint. `random_factor_count` reports five.
 
 ## AAD and VegaKT
 
-The existing [AAD](hull-white-aad-v0.1.md) and
-[quote-node VegaKT](hull-white-vegakt-v0.1.md) contracts apply, with H/eta fixed.
+The existing [AAD](hull-white-aad.md) and
+[quote-node VegaKT](hull-white-vegakt.md) contracts apply, with H/eta fixed.
 There is no derivative of the Volterra weights or Cholesky loadings: the driver
 is independent of the active Spot, initial-curve and target inputs. Reversing
 the particle leverage calibration still includes its effect on all subsequent

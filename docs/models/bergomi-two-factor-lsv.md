@@ -1,7 +1,7 @@
-# Two-factor Bergomi LSV v0.1
+# Two-factor Bergomi LSV
 
-This extends the [multi-asset LSV API](multi-asset-lsv-v0.1.md) and the
-[single-asset LSV API](lsv-numerical-contracts-v0.1.md) to two volatility
+This extends the [multi-asset LSV API](multi-asset-lsv.md) and the
+[single-asset LSV API](lsv-numerical-contracts.md) to two volatility
 factors per asset. Deterministic rates, the existing affine dividend coordinate,
 particle calibration and its discrete target-variance VJP are retained.
 One-factor entry points, random coordinates and numerical scheme identifiers
@@ -137,11 +137,11 @@ quadrature with an analytically integrated final step.
 
 These checks validate the finite implementation. Product-specific particle,
 bandwidth and time-step refinement is still required. The separate
-[Bergomi + HW extension](bergomi-hull-white-v0.1.md) connects two-factor
+[Bergomi + HW extension](bergomi-hull-white.md) connects two-factor
 single-asset and multi-asset plans to stochastic rates, paired target AAD,
 market-IV VegaKT and initial-curve risk. The deterministic-rate interfaces
 described here retain their effective-variance risk convention.
-[Multi-asset rough-LSV](multi-asset-rough-bergomi-v0.1.md) is available through
+[Multi-asset rough-LSV](multi-asset-rough-bergomi.md) is available through
 the shared HW adapter and can be mixed with two-factor assets.
 
 Local verification on 2026-09-14: all **469** default Rust workspace tests,

@@ -1,10 +1,6 @@
-# Path Dependence diagnostics catalogue v0.1
+# Path Dependence diagnostics catalogue
 
 Status: accepted catalogue
-
-Requirements: [requirements-v1.0.md](../../design/requirements-v1.0.md)
-
-Roadmap: [path-dependence-roadmap-v0.1.md](../../design/roadmaps/path-dependence-roadmap-v0.1.md)
 
 This catalogue records the stable diagnostic surfaces for Digital, Barrier,
 arithmetic average-price Asian, and fixed-strike Lookback calculations. It

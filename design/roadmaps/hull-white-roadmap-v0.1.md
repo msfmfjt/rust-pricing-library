@@ -6,7 +6,7 @@ LSV PR #47. The earlier stack's acceptance/merge status is unchanged.
 
 The [decision](../adr/0001-hull-white-equity-hybrid.md) records the extension to
 the deterministic-rate requirements. The
-[numerical contracts](../../docs/models/hull-white-numerical-contracts-v0.1.md) define the model,
+[numerical contracts](../../docs/models/hull-white-numerical-contracts.md) define the model,
 discounted measure, calibration estimator and reproducibility boundary.
 
 ## Available API
@@ -17,7 +17,7 @@ Python provides `HullWhiteModel`, `HullWhiteLsvTarget`, `HullWhiteEquityPlan`
 and immutable `HullWhitePrice`. See the
 [runnable example](../../examples/python/hull_white_lsv.py).
 
-The [rough Bergomi extension](../../docs/models/rough-bergomi-v0.1.md) adds pure rough and
+The [rough Bergomi extension](../../docs/models/rough-bergomi.md) adds pure rough and
 rough-LSV constructors to the same plan, including cash, AAD and quote-node
 VegaKT at fixed H/eta. It has separate five-block RNG and Volterra discretization
 contracts; the H3/H5/H6 acceptance scope below remains open.
@@ -34,8 +34,8 @@ example; no rate option calibration has been performed.
 The payoff integration supports positive-horizon European, Asian, Lookback,
 Digital and discrete Barrier prices with continuous deterministic carry,
 proportional dividends and payment lags. Fixed-cash dividends now have an
-explicit [escrowed model](../../docs/models/hull-white-cash-dividends-v0.1.md); default compilation
-still rejects them. The explicit [AAD API](../../docs/models/hull-white-aad-v0.1.md) adds first-order
+explicit [escrowed model](../../docs/models/hull-white-cash-dividends.md); default compilation
+still rejects them. The explicit [AAD API](../../docs/models/hull-white-aad.md) adds first-order
 Spot/BS volatility/initial-curve risk and paired-target adjoints through particle
 recalibration. Set `retain_reverse_trace=True` for LSV. Stable request Greek
 flags remain unsupported at the hybrid boundary.
@@ -68,7 +68,7 @@ fallback sensitivity. Pricing SE alone is insufficient for that gate. H5 now
 has a dedicated hybrid VJP and recompiled-bump evidence for the initial-curve
 fit/discounting, reserve and discounted calibration. It still requires broader
 risk refinement and branch-stability studies. HW/Bergomi parameters and payout
-quotes are fixed. [Quote-node VegaKT](../../docs/models/hull-white-vegakt-v0.1.md) is available for
+quotes are fixed. [Quote-node VegaKT](../../docs/models/hull-white-vegakt.md) is available for
 `from_market_iv` targets; Gamma and physical quote/fitting adjoints remain future work.
 H6 requires parameter calibration to specified instruments and new native
 hybrid replay/performance fixtures. Existing platform CI remains a regression

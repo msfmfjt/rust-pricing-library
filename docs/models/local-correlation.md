@@ -1,4 +1,4 @@
-# Particle Local Correlation v0.1
+# Particle Local Correlation
 
 This experimental adapter prices Basket, Worst-of and unseasoned Autocallable
 payoffs with BS/Local Volatility and one-/two-factor Bergomi LSV constituents,
@@ -137,7 +137,7 @@ existing MC or randomized Sobol domain. Calibration reductions have fixed
 particle order with compensated sums. Valuation uses deterministic block
 reduction, so worker-count changes preserve exact replay. The fingerprint
 includes the coordinate/algorithm tag, both endpoint schedules, basket target,
-weights, all particle options, lambda surface and donor/projection decisions.
+weights, all particle options, lambda surface and donor/projection choices.
 
 For K steps, P particles, N assets and X basket nodes, calibration is
 O(K*P*(X+N squared)). Valuation is O(K*N squared) per path. Retaining the

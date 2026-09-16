@@ -1,10 +1,9 @@
 # Market-IV VegaKT for the equity/Hull–White LSV hybrid
 
 Date: 2026-09-13. Status: experimental extension of the
-[first-order AAD contract](hull-white-aad-v0.1.md).
-Decision: [ADR 0004](../../design/adr/0004-hull-white-vegakt.md).
+[first-order AAD contract](hull-white-aad.md).
 The same quote transpose is available for
-[rough-LSV](rough-bergomi-v0.1.md) with fixed H/eta.
+[rough-LSV](rough-bergomi.md) with fixed H/eta.
 
 ## Input and interpolation contract
 
@@ -121,7 +120,7 @@ appends `market_iv[i]` in row-major quote order, then `parallel_market_iv`.
 Multiply raw bucket SE by 0.01 for market-scaled SE. Adding bucket SEs does not
 give the parallel SE. All risk SEs are conditional on the realized calibration;
 they exclude calibration noise, time/kernel bias and branch-selection effects.
-The calibration's hard digital, ESS/support, donor and interpolation decisions
+The calibration's hard digital, ESS/support, donor and interpolation choices
 have the same almost-everywhere derivative convention as the original AAD.
 Finite differences must be checked for branch stability; these tests do not
 establish unbiased continuum Greeks or complete the broad H5 acceptance gate.

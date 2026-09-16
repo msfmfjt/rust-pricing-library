@@ -1,12 +1,10 @@
 # Equity/Hull–White numerical contracts
 
 Status: experimental price contracts. Date: 2026-09-12; AAD extension 2026-09-13.
-Decision: [ADR 0001](../../design/adr/0001-hull-white-equity-hybrid.md).
-
 These are the default no-cash contracts. The explicit
-[escrowed cash-dividend mode](hull-white-cash-dividends-v0.1.md) extends the
+[escrowed cash-dividend mode](hull-white-cash-dividends.md) extends the
 coordinate, pricing map and calibration equation without changing the default.
-The [AAD contracts](hull-white-aad-v0.1.md) define the explicit first-order risk API.
+The [AAD contracts](hull-white-aad.md) define the explicit first-order risk API.
 
 ## Model and deterministic curve shift
 
@@ -177,9 +175,9 @@ across particle count, bandwidth, seeds, smiles and maturities is still required
   independent scramble means. LSV errors are conditional on one calibration;
   they exclude calibration randomness, kernel bias and time discretization.
 - Stable request risk flags remain unsupported for hybrid pricing. Use the
-  explicit [AAD API](hull-white-aad-v0.1.md) for Delta, BS Vega, initial-curve
+  explicit [AAD API](hull-white-aad.md) for Delta, BS Vega, initial-curve
   DV01 and paired target adjoints; LSV requires a retained calibration trace.
-  Explicit quote-node [VegaKT](hull-white-vegakt-v0.1.md) extends that API.
+  Explicit quote-node [VegaKT](hull-white-vegakt.md) extends that API.
   Gamma and model-parameter risk remain outside this boundary.
 - Stable JSON is unchanged and does not serialize the hybrid configuration.
   Persist explicit compile inputs as well as the request to reproduce a plan.

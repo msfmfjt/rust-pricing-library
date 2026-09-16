@@ -29,4 +29,4 @@ covariance and stochastic-rate drift correction.
 | Tests | Jump continuity, rate loading, BS analytical value, LSV repricing with a post-expiry payout, worker replay, deterministic limits, barrier order and explicit failures |
 | Pending | Hybrid AAD/DV01/VegaKT, dividend amount risk/calibration, separate dividend payment dates, broad H3/H4 refinement and stable hybrid wire format |
 
-See the [cash-dividend numerical contracts](../../docs/models/hull-white-cash-dividends-v0.1.md).
+See the [cash-dividend numerical contracts](../../docs/models/hull-white-cash-dividends.md).

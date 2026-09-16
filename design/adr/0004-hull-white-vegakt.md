@@ -24,6 +24,6 @@ Retain the interpolation source in plan fingerprints, and compute parallel
 RQMC uncertainty from scramble sums so that bucket covariance is included.
 
 The first-order AAD's branch conventions and conditional uncertainty remain.
-See the [VegaKT contracts](../../docs/models/hull-white-vegakt-v0.1.md) for units, limitations,
+See the [VegaKT contracts](../../docs/models/hull-white-vegakt.md) for units, limitations,
 API and full-recalibration validation. This extends the VegaKT boundary of
 [ADR 0003](0003-hull-white-aad.md); broader H5 acceptance remains open.

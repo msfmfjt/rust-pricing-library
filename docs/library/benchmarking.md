@@ -1,4 +1,4 @@
-# European Black–Scholes benchmark baseline v0.1
+# European Black–Scholes benchmark baseline
 
 Status: baseline harness; measured artifacts are produced by CI
 
@@ -28,7 +28,7 @@ sample count, and kernel Path evaluations per second where applicable.
 
 ## Current measurement boundary
 
-The v0.1 full-risk executor computes AAD Delta/Vega, central-bumped AAD Delta
+The full-risk executor computes AAD Delta/Vega, central-bumped AAD Delta
 for Gamma, and common-random-number validation bumps in one kernel invocation.
 The harness therefore labels the integrated measurement
 `evaluate_aad_with_crn_bump_validation` and explicitly records that AAD and
@@ -81,4 +81,4 @@ process. The Local Volatility replay peak is present exactly when
 `local-volatility-replay.json` is retained. Allocation counters require an
 instrumented allocator and remain recorded explicitly as unavailable rather
 than silently omitted. Later instrumentation must add fields without silently
-changing the v0.1 workload.
+changing the workload.

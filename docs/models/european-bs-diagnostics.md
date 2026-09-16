@@ -1,4 +1,4 @@
-# European Black–Scholes diagnostics catalogue v0.1
+# European Black–Scholes diagnostics catalogue
 
 Status: frozen for the first vertical slice
 

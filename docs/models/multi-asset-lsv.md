@@ -1,7 +1,7 @@
-# Multi-asset Bergomi LSV v0.1
+# Multi-asset Bergomi LSV
 
-This extends the [multi-asset API](multi-asset-v0.1.md) with particle-calibrated
-one- or two-factor Bergomi LSV. The [two-factor extension](bergomi-two-factor-lsv-v0.1.md)
+This extends the [multi-asset API](multi-asset.md) with particle-calibrated
+one- or two-factor Bergomi LSV. The [two-factor extension](bergomi-two-factor-lsv.md)
 defines its parameters, mixed-factor APIs and marginal correlation blocks. BS, LV and LSV assets may coexist in one Basket,
 Worst-of or unseasoned Autocallable contract. The three-crate structure,
 single-asset APIs and stable JSON schemas are preserved. Rates remain
@@ -43,7 +43,7 @@ The simulation and calibration use
 `dm_i/m_i = L_i(t,m_i) exp(nu_i X_i) dW_i`,
 `dX_i = -k_i X_i dt + dV_i`, `m_i(0)=1`, `X_i(0)=0`.
 
-The existing [particle calibration and discrete VJP](lsv-numerical-contracts-v0.1.md)
+The existing [particle calibration and discrete VJP](lsv-numerical-contracts.md)
 are reused in `x=log(m_i)`. Every original target time knot, contractual
 observation, in-horizon dividend and correlation date contributes to the common
 grid before maximum-step subdivision. Interpolate each original effective LV
@@ -158,10 +158,10 @@ pricing check conditional on the finite calibrated leverage surface.
 
 These establish the implemented finite-grid algorithm. Production acceptance
 still requires particle/bandwidth/step/seed refinement for the intended smiles
-and products. The separate [Bergomi + HW extension](bergomi-hull-white-v0.1.md)
+and products. The separate [Bergomi + HW extension](bergomi-hull-white.md)
 adds a shared stochastic rate, paired target calibration, market-IV VegaKT from
 retained quotes and initial-curve risk. Supplying an LV reporting basis alone
-does not enable market-IV risk. The [rough-LSV extension](multi-asset-rough-bergomi-v0.1.md)
+does not enable market-IV risk. The [rough-LSV extension](multi-asset-rough-bergomi.md)
 adds non-Markov assets through the same HW adapter. Model-parameter and
 correlation Greeks, multiple currencies, seasoned products, American exercise
 and continuous barriers remain outside these extensions. Existing single-asset

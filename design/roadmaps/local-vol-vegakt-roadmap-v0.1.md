@@ -88,7 +88,7 @@ policy is compiled and fingerprinted before it is used by a path kernel.
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| L0 Numerical contracts | Accepted | [local-vol-vegakt-numerical-contracts-v0.1.md](../../docs/models/local-vol-vegakt-numerical-contracts-v0.1.md) and `fixtures/local-vol/reference-cases-v0.1.json` |
+| L0 Numerical contracts | Accepted | [local-vol-vegakt-numerical-contracts.md](../../docs/models/local-vol-vegakt-numerical-contracts.md) and `fixtures/local-vol/reference-cases-v0.1.json` |
 | L1-L8 | Accepted | [local-vol-vegakt-conformance-v0.1.md](../validation/local-vol-vegakt-conformance-v0.1.md) |
 
 ## 4. Gate plan

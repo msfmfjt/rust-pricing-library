@@ -81,7 +81,7 @@ payment lags. Fixed and mixed cash/proportional payouts now use the paid-cash
 equity state has no payout jump, while the paid-cash offset carries at realized
 r-q. Future payouts are not reserved. The explicit `cash_dividend_model="escrowed"`
 option retains the legacy stochastic bond reserve and quadratic LSV calibration.
-See the [affine migration contract](docs/models/hull-white-affine-dividends-v0.1.md)
+See the [affine migration contract](docs/models/hull-white-affine-dividends.md)
 and [ADR 0007](design/adr/0007-affine-paid-cash-dividends.md).
 Explicit `evaluate_aad()` returns Spot
 Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
@@ -91,11 +91,11 @@ variance and density through explicit cubic/time interpolation. Default affine
 quotes refer to the continuous normalized equity coordinate U, whereas explicit
 escrowed-mode quotes refer to its converted escrow F coordinate. Neither mode
 automatically converts physical-spot market quotes. See the
-[VegaKT contracts](docs/models/hull-white-vegakt-v0.1.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
-payout quotes remain fixed. See the [AAD contracts](docs/models/hull-white-aad-v0.1.md),
-[cash-dividend contracts](docs/models/hull-white-cash-dividends-v0.1.md),
+[VegaKT contracts](docs/models/hull-white-vegakt.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
+payout quotes remain fixed. See the [AAD contracts](docs/models/hull-white-aad.md),
+[cash-dividend contracts](docs/models/hull-white-cash-dividends.md),
 [example](examples/python/hull_white_lsv.py) and
-[numerical contracts](docs/models/hull-white-numerical-contracts-v0.1.md).
+[numerical contracts](docs/models/hull-white-numerical-contracts.md).
 
 The same engine now supports experimental rough Bergomi and particle-calibrated
 rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
@@ -104,7 +104,7 @@ driver to Hull–White, default affine or explicit escrowed dividends, first-ord
 VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
 target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
 per path. See the [example](examples/python/rough_bergomi.py) and
-[numerical/API contracts](docs/models/rough-bergomi-v0.1.md).
+[numerical/API contracts](docs/models/rough-bergomi.md).
 
 Experimental multi-asset pricing is available through Rust
 `multi_asset::MultiAssetPricingPlan` and Python `MultiAssetPlan`. Correlated
@@ -117,12 +117,12 @@ common Hull–White rate with BS, one-/two-factor Bergomi LSV and rough-LSV. The
 explicit price/rate and volatility/rate correlations, exact integrated-rate
 innovations, per-cashflow stochastic discounting, paired variance/density AAD,
 market-IV VegaKT from retained quotes and initial-curve risk. See the
-[HW contracts](docs/models/bergomi-hull-white-v0.1.md) and
+[HW contracts](docs/models/bergomi-hull-white.md) and
 [three-product example](examples/python/bergomi_hull_white.py).
 Rough assets select `MultiAssetRoughLsvConfig` with per-asset H and eta. Their
 non-Markov Volterra histories are driven jointly with all spot, OU and rate
 innovations, including explicit cross-asset correlations. See the
-[rough multi-asset contracts](docs/models/multi-asset-rough-bergomi-v0.1.md) and
+[rough multi-asset contracts](docs/models/multi-asset-rough-bergomi.md) and
 [rough three-product example](examples/python/multi_asset_rough_bergomi.py).
 Deterministic-rate LSV assets use their LV model as a marginal particle-calibration
 target; HW LSV additionally requires the matching paired target. Optional full
@@ -130,9 +130,9 @@ spot/volatility/rate Brownian correlations and joint OU/power-kernel transitions
 available. AAD
 includes particle recalibration; target-risk standard errors are available for
 RQMC and conditional on the calibration. See the
-[contracts](docs/models/multi-asset-v0.1.md) and
+[contracts](docs/models/multi-asset.md) and
 [example](examples/python/multi_asset.py), plus the
-[LSV contracts](docs/models/multi-asset-lsv-v0.1.md) and
+[LSV contracts](docs/models/multi-asset-lsv.md) and
 [LSV example](examples/python/multi_asset_lsv.py).
 
 Particle-calibrated **Local Correlation** is available for BS/LV and Bergomi LSV,
@@ -141,7 +141,7 @@ It fits one positive basket of normalized continuous equity martingales by
 varying a scalar mixture of two supplied PSD correlation schedules. It exposes
 support/feasibility diagnostics and joint basket/constituent volatility AAD
 through the finite particle recalibration. See the
-[numerical and coordinate contracts](docs/models/local-correlation-v0.1.md) and
+[numerical and coordinate contracts](docs/models/local-correlation.md) and
 [three-product example](examples/python/local_correlation.py).
 Joint LSV/HW endpoints preserve each asset's spot/vol/rate marginal block.
 HW basket calibration requires a paired variance/density target and includes
@@ -254,7 +254,7 @@ fresh virtual environment before the Python API smoke suite runs. CI also
 retains a source archive for the exact commit, including the locked Rust
 dependency metadata required to consume the Rust crates privately.
 
-The [benchmark baseline protocol](docs/library/benchmarking-v0.1.md) records native
+The [benchmark baseline protocol](docs/library/benchmarking.md) records native
 Rust and installed-wheel Python timings and the host/build metadata required to
 interpret them.
 

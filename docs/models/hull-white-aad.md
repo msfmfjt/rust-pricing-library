@@ -1,12 +1,10 @@
 # Equity/Hull–White AAD numerical contracts
 
 Date: 2026-09-13. Status: experimental first-order implementation of H5.
-Decision: [ADR 0003](../../design/adr/0003-hull-white-aad.md).
-Quote-backed VegaKT is added by [ADR 0004](../../design/adr/0004-hull-white-vegakt.md) and
-the [VegaKT contracts](hull-white-vegakt-v0.1.md).
-These contracts extend the [hybrid](hull-white-numerical-contracts-v0.1.md) and
-[cash-dividend](hull-white-cash-dividends-v0.1.md) price contracts.
-The [rough extension](rough-bergomi-v0.1.md) reuses this VJP with a fixed
+Quote-backed VegaKT is described in the [VegaKT contracts](hull-white-vegakt.md).
+These contracts extend the [hybrid](hull-white-numerical-contracts.md) and
+[cash-dividend](hull-white-cash-dividends.md) price contracts.
+The [rough extension](rough-bergomi.md) reuses this VJP with a fixed
 Volterra driver and adds the pure model's `initial_volatility` sensitivity.
 
 ## API and risk coordinates
@@ -31,7 +29,7 @@ The immutable Python `HullWhiteAadRisk` contains a price, `parameter_labels`,
 
 Quote-backed targets append row-major `market_iv[i]` and `parallel_market_iv`
 derivatives. Their axes, units and interpolation are specified in the
-[VegaKT contracts](hull-white-vegakt-v0.1.md).
+[VegaKT contracts](hull-white-vegakt.md).
 
 Both target arrays use row-major `(time_nodes, log_moneyness_nodes)` order.
 Convenience properties expose `delta`, `vega`, the four node-adjoint arrays,
@@ -132,7 +130,7 @@ indicator derivatives are zero between crossings. Sorting, support/ESS selection
 fallback donors and interpolation branches are likewise held fixed. The result
 is the almost-everywhere derivative of the realized finite algorithm; it is not
 an unbiased continuum sensitivity. Recalibrated finite differences can jump when
-a digital or support decision changes. Calibration-seed, particle/bandwidth/time
+a digital or support branch changes. Calibration-seed, particle/bandwidth/time
 refinement and branch-stability studies remain necessary for H5 acceptance.
 
 Both effective variance and forward-density adjoints are returned. For a smile
