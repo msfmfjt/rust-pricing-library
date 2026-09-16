@@ -180,3 +180,11 @@ metadata/stub/runtime contract, all **69 Python tests**, and the three-product
 LSV example (also added to the wheel CI gate). Formatting, all-target/all-feature
 Clippy with warnings denied, Rust API docs, all three reference fixtures,
 schemas, Markdown links and dependency-direction checks passed locally.
+
+## References
+
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for multi-factor stochastic-volatility factors and their joint correlations.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for marginal local-stochastic-volatility calibration with particles.
+- [Jourdain and Zhou, *Existence of a calibrated regime switching local volatility model and new fake Brownian motions*](https://arxiv.org/abs/1607.00077), for the conditional-expectation and interacting-particle calibration context.
+- [Margrabe, *The Value of an Option to Exchange One Asset for Another*](https://doi.org/10.1111/j.1540-6261.1978.tb03397.x), for the exchange-option reference used by the mixed-asset validation.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for multi-asset Monte Carlo, antithetic sampling and common-random-number checks.

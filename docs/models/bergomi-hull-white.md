@@ -213,3 +213,11 @@ equation fixtures, Markdown links and dependency-direction checks passed.
 Single-asset one-factor HW and rough-HW, plus deterministic-rate one- and
 two-factor multi-asset prices, risk arrays, leverage surfaces and fingerprints
 exactly matched the prior `2d13dcc` release wheel on the same platform.
+
+## References
+
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the one-/two-factor Bergomi volatility factors and joint-driver correlations.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the one-factor stochastic-rate model and curve-fitting shift.
+- [Fries, *A Short Note on the Exact Stochastic Simulation Scheme of the Hull-White Model and Its Implementation*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2737091), for exact rate and integrated-rate innovations.
+- [Cozma, Mariapragassam and Reisinger, *Calibration of a Hybrid Local-Stochastic Volatility Stochastic Rates Model with a Control Variate Particle Method*](https://arxiv.org/abs/1701.06001), for hybrid stochastic-rate/LSV calibration.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for particle leverage calibration and the affine-dividend extension.

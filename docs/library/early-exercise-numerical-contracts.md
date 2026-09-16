@@ -206,3 +206,15 @@ arithmetic and does not import production Rust or Python bindings.
 Decimal fixtures validate the mathematical policy at 80-digit precision.
 Production binary64 tests additionally freeze operation-order bit patterns and
 compare finite differences using separately declared tolerances.
+
+## References
+
+- [Longstaff and Schwartz, *Valuing American Options by Simulation: A Simple Least-Squares Approach*](https://doi.org/10.1093/rfs/14.1.113), for least-squares Monte Carlo and continuation-value regression.
+- Golub and Van Loan, *Matrix Computations*, 4th ed., Johns Hopkins University Press (2013), chapters 5.2–5.4, for Householder QR and column-pivoted QR used by the regression solver.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for simulation-based American-option valuation and common-random-number validation.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for randomized Sobol' training and valuation paths.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse differentiation through the fixed fitted policy.
+
+The policy identifiers, feature scaling, pivot tie-breaks and fixed-stopping
+convention are repository-specific numerical contracts rather than claims made
+by the cited literature.

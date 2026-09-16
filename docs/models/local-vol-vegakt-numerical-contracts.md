@@ -406,3 +406,10 @@ No later performance result may weaken one of these numerical contracts.
 - [Corbetta et al., *Robust calibration and arbitrage-free interpolation of SSVI slices*](https://arxiv.org/abs/1804.04924)
 - [Adrien et al., *Vega KT for the Local Volatility Model: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4107770)
 - [Guyon and Henry-Labordere, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032)
+- [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile)
+- [Black and Scholes, *The Pricing of Options and Corporate Liabilities*](https://doi.org/10.1086/260062), for the Black–Scholes gamma kernel and constant-volatility limit.
+
+The SSVI/eSSVI formulas, Dupire transformation, VegaKT operators and affine
+dividend matching are linked to the corresponding implementation sections
+above. Grid generation, floors/caps, branch ownership and finite precision
+policies remain repository-specific contracts.

@@ -1,5 +1,9 @@
 # Library guide
 
+Published sources for the calculation methods are collected in the
+[model and numerical-method bibliography](../references.md). The numerical
+contract pages repeat the entries relevant to their own scope.
+
 [Documentation](../README.md) · [Model reference](../models/README.md)
 
 The library exposes Rust APIs through the `pricing` crate and typed Python APIs

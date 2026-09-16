@@ -2,6 +2,9 @@
 
 This directory contains the library and model reference documentation.
 
+The [model and numerical-method bibliography](references.md) records the
+published sources for the models and calculation methods described below.
+
 | Start here | Contents |
 | --- | --- |
 | [Library guide](library/README.md) | Rust and Python entry points, runnable examples, product contracts, diagnostics, serialization, migration and benchmarking |

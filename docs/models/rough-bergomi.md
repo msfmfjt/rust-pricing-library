@@ -236,3 +236,12 @@ retained performance/replay fixtures for rough models. The existing H3/H5/H6
 acceptance gates are not promoted by this extension. Nonflat initial forward
 variance, rough Heston, fast convolution/lifts and H/eta calibration/risk remain
 future extensions.
+
+## References
+
+- [Bayer, Friz and Gatheral, *Pricing under rough volatility*](https://doi.org/10.1080/14697688.2015.1099717), for the rough Bergomi model and its Riemann–Liouville volatility driver.
+- [Bennedsen, Lunde and Pakkanen, *Hybrid scheme for Brownian semistationary processes*](https://arxiv.org/abs/1507.03004), for the near-cell/older-cell Volterra discretization.
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the Markovian Bergomi factor used in the H=0.5 comparison.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for the particle-calibrated rough-LSV leverage construction.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the retained LSV target-risk convention.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the common one-factor stochastic-rate component.

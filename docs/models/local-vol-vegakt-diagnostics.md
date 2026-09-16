@@ -93,3 +93,11 @@ mismatches, and bucket-plus-residual reconciliation failures.
 Python maps these failures through the existing `ValidationError` surface for
 request construction and the existing runtime error surface for failed
 evaluation. Successful warning ordering remains deterministic.
+
+## References
+
+- [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile), for the Local Volatility construction from a call surface.
+- [Gatheral and Jacquier, *Arbitrage-free SVI volatility surfaces*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2033323), for SSVI admissibility and density conventions.
+- [Corbetta et al., *Robust calibration and arbitrage-free interpolation of SSVI slices*](https://arxiv.org/abs/1804.04924), for eSSVI interpolation consistency.
+- [Adrien et al., *Vega KT for the Local Volatility Model: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4107770), for Local Vega, VegaKT and equation (11) diagnostics.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for affine-dividend surface matching.

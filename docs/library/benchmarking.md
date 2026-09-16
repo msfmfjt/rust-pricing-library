@@ -82,3 +82,11 @@ process. The Local Volatility replay peak is present exactly when
 instrumented allocator and remain recorded explicitly as unavailable rather
 than silently omitted. Later instrumentation must add fields without silently
 changing the workload.
+
+## References
+
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for Monte Carlo estimators, antithetic variates, confidence intervals and common-random-number comparisons.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for the randomized QMC sequence and direction-number provenance.
+- [Salmon, Moraes, Pfau and Frey, *Parallel Random Numbers: As Easy as 1, 2, 3*](https://doi.org/10.1145/2063384.2063405), for the counter-based Philox stream used in reproducible benchmark workers.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse pathwise Greeks and the integrated AAD/bump measurement boundary.
+- [Bennedsen, Lunde and Pakkanen, *Hybrid scheme for Brownian semistationary processes*](https://arxiv.org/abs/1507.03004), for the rough-volatility workload's Volterra scheme.

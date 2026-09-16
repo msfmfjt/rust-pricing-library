@@ -167,3 +167,12 @@ arithmetic and does not import production Rust or Python bindings.
 The fixture stores decimal strings to avoid JSON binary64 parsing becoming the
 reference. Absolute comparison tolerance is `1e-45` at 70-digit Decimal
 precision.
+
+## References
+
+- [Broadie, Glasserman and Kou, *A Continuity Correction for Discrete Barrier Options*](https://doi.org/10.1111/1467-9965.00035), for discrete-monitoring barrier corrections and the conditional diffusion-bridge probability.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for barrier-option Monte Carlo and variance-reduction context.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse differentiation through the smoothed payoff graph.
+
+The compact quintic kernel, transformed-barrier coordinates, affine-jump score
+and endpoint branch ownership are repository-specific contracts.

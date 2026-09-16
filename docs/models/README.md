@@ -1,5 +1,9 @@
 # Model reference
 
+Published sources for the models and numerical methods are collected in the
+[model and numerical-method bibliography](../references.md). Each detailed
+page repeats the entries relevant to its own scope.
+
 [Documentation](../README.md) · [Library guide](../library/README.md)
 
 These documents describe the implemented model conventions, calibration,

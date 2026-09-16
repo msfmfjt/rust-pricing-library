@@ -104,3 +104,12 @@ This is not a physical-spot smile calibration, nor a new global positivity model
 American exercise, continuous Barrier monitoring and smoothing-width ladders
 remain unsupported in the experimental HW adapters. No Gamma, dividend-amount
 sensitivity, HW calibration/parameter risk or quote-conversion chain rule is added.
+
+## References
+
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for the continuous-equity coordinate, affine-dividend matching condition and dividend-aware local-volatility construction.
+- [Buehler, *Volatility Modelling with Cash Dividends and Simple Credit Risk*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1141877), for the future-cash reserve decomposition that motivates the affine map.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for stochastic carry and discounting in the default hybrid implementation.
+
+The realized-carry recurrence and fixed-cash risk coordinates are this
+repository's specialization of those references.

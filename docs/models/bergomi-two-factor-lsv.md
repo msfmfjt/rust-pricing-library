@@ -152,3 +152,10 @@ passed. Clippy, formatting, Rust API docs, schema/reference fixtures and depende
 direction checks passed. On the same Linux platform, prices, target adjoints,
 calibrated leverage and fingerprints for one-factor single- and multi-asset
 cases exactly matched the previously published `11fbd20` release wheel.
+
+## References
+
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the two-factor forward-variance/Bergomi construction and factor correlations.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for particle calibration of the local-stochastic-volatility leverage.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the LSV calibration reverse and target-risk setting.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for Monte Carlo, antithetic sampling and common-random-number checks.

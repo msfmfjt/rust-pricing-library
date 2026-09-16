@@ -173,3 +173,14 @@ reported Price 5.8096869279, Delta 0.4709235557 and signed parallel discount-cur
 DV01 0.0040055518, with paired target risk on a 33-by-31 grid. These values use
 the example's one calibration seed and illustrate the stated finite-algorithm
 risk coordinates.
+
+## References
+
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse pathwise AAD and the reuse of one reverse pass for many sensitivities.
+- [Capriotti, *Algorithmic Differentiation: Adjoint Greeks Made Easy*](https://www.luca-capriotti.net/pdfs/Finance/GD11LucaCapriotti.pdf), for practical AAD implementation patterns in financial Monte Carlo.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the LSV calibration VJP and the variance/density target transpose.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the stochastic-rate state that is differentiated through the physical-coordinate and discounting maps.
+
+The retained trace, fixed branch set and finite-program derivative are
+implementation contracts; the references do not imply a continuum or
+re-optimized-exercise sensitivity.

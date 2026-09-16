@@ -298,3 +298,14 @@ discusses state-dependent PSD correlation families and non-uniqueness.
 calibration and kernel particle methods in the related LSV setting. The
 specific convex family and finite regression/reverse conventions implemented
 here are defined by the equations above.
+
+## References
+
+- [Langnau, *Introduction into “Local Correlation Modelling”*](https://arxiv.org/abs/0909.3441), for state-dependent correlation calibrated to an index/basket volatility target.
+- [Guyon, *A New Class of Local Correlation Models*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2283419), for the normalized-basket locality and the scalar correlation-mixture projection.
+- [Jourdain and Zhou, *Existence of a calibrated regime switching local volatility model and new fake Brownian motions*](https://arxiv.org/abs/1607.00077), for the conditional-expectation and interacting-particle calibration context.
+- [Margrabe, *The Value of an Option to Exchange One Asset for Another*](https://doi.org/10.1111/j.1540-6261.1978.tb03397.x), for the exchange-option validation used by the adapter.
+- [Salmon, Moraes, Pfau and Frey, *Parallel Random Numbers: As Easy as 1, 2, 3*](https://doi.org/10.1145/2063384.2063405), for the independent counter-based calibration streams.
+
+The endpoint schedules, quartic kernel, feasibility policies and reverse
+conventions are repository-specific finite-particle contracts.

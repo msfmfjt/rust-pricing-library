@@ -176,3 +176,11 @@ products require particle/bandwidth/step/seed refinement. Multi-currency/FX,
 multiple rate factors, pure multi-asset rough without calibration, nonflat pure
 initial forward variance, correlation/H/eta Greeks, seasoned products, American
 exercise and continuous barriers remain outside this extension.
+
+## References
+
+- [Bayer, Friz and Gatheral, *Pricing under rough volatility*](https://doi.org/10.1080/14697688.2015.1099717), for the rough Bergomi model and rough-volatility covariance.
+- [Bennedsen, Lunde and Pakkanen, *Hybrid scheme for Brownian semistationary processes*](https://arxiv.org/abs/1507.03004), for the nonuniform near-cell/older-cell Volterra scheme.
+- [Bergomi, *Smile Dynamics II*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1493302), for the Markovian Bergomi factors and multi-asset correlation structure.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for particle-calibrated LSV marginals and the hybrid calibration setting.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the common one-factor rate process.

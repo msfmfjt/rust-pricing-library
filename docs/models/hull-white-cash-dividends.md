@@ -176,7 +176,7 @@ tests, 3 native Python-extension tests, statistical acceptance, 48 Python tests,
 four wheel-installed examples, typed/runtime wheel contracts, formatting,
 Clippy, Rust documentation and reference/schema/dependency/link checks passed.
 
-## References and specialization
+## References
 
 - Buehler, [Volatility Modelling with Cash Dividends and Simple Credit Risk](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1141877),
   equity decomposition with a future-dividend reserve. Credit/default modeling
@@ -186,6 +186,8 @@ Clippy, Rust documentation and reference/schema/dependency/link checks passed.
   particle calibration with an additional dividend diffusion and a quadratic
   leverage equation. That article uses deterministic rates and stochastic
   dividend amounts; here amounts are fixed and their HW bond values fluctuate.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the stochastic bonds used by the reserve.
+- [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for the affine dividend matching and discounted local-stochastic-volatility calibration framework.
 
 The coordinate, discounted drift correction and numerical policies above are
 our specialization. The cited papers do not establish acceptance of this code.

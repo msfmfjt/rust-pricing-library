@@ -106,3 +106,9 @@ result. Important typed failures include:
 Python maps construction failures through `ValidationError` and evaluation
 failures through the existing runtime error surface. Successful diagnostics,
 Width-ladder entry order, and replay serialization remain deterministic.
+
+## References
+
+- [Broadie, Glasserman and Kou, *A Continuity Correction for Discrete Barrier Options*](https://doi.org/10.1111/1467-9965.00035), for discrete barriers and conditional bridge survival.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for path-dependent Monte Carlo and variance-reduction context.
+- [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse sensitivities of the compiled payoff graph.

@@ -184,12 +184,15 @@ across particle count, bandwidth, seeds, smiles and maturities is still required
 
 ## References
 
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the one-factor short-rate dynamics and deterministic curve-fitting shift.
 - Fries, [A Short Note on the Exact Stochastic Simulation Scheme of the
   Hull-White Model and Its Implementation](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2737091),
   exact joint short-rate and numeraire simulation.
 - Cozma, Mariapragassam and Reisinger, [Calibration of a Hybrid Local-Stochastic
   Volatility Stochastic Rates Model with a Control Variate Particle Method](https://arxiv.org/abs/1701.06001),
   discounted hybrid calibration and particle variance reduction.
+- [Black, *The Pricing of Commodity Contracts*](https://doi.org/10.1016/0304-405X(76)90024-6), for the forward Black formula used for the bond-option reference.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for the Monte Carlo and common-random-number validation methodology.
 
 The implemented specialization and empirical centering policy are specified
 above; the references do not establish acceptance of this implementation.

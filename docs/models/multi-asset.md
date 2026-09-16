@@ -226,3 +226,12 @@ no repository dependency, CI gate or test was changed to work around it.
 Remote CI and native macOS/Windows replay results are tracked on the pull
 request for this branch; local results above do not assert native-platform
 acceptance.
+
+## References
+
+- [Black and Scholes, *The Pricing of Options and Corporate Liabilities*](https://doi.org/10.1086/260062), for the constant-volatility equity benchmark.
+- [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile), for the Local Volatility coordinate reused by each LV asset.
+- [Margrabe, *The Value of an Option to Exchange One Asset for Another*](https://doi.org/10.1111/j.1540-6261.1978.tb03397.x), for the exchange-option formula used in the multi-asset validation.
+- [Glasserman, *Monte Carlo Methods in Financial Engineering*](https://doi.org/10.1007/978-0-387-21617-1), for correlated Monte Carlo, antithetic sampling and common-random-number risk checks.
+- [Sobol', *On the distribution of points in a cube and the approximate evaluation of integrals*](https://doi.org/10.1016/0041-5553(67)90144-9) and [Joe and Kuo, *Constructing Sobol Sequences with Better Two-Dimensional Projections*](https://doi.org/10.1137/070709359), for randomized Sobol' paths and direction numbers.
+- [Broadie, Glasserman and Kou, *A Continuity Correction for Discrete Barrier Options*](https://doi.org/10.1111/1467-9965.00035), for the conditional barrier-bridge reference used by continuous monitoring.

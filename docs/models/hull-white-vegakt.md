@@ -146,3 +146,13 @@ parallel input-IV Vega of 35.30466796 (0.35304668 per vol point), with condition
 RQMC SE 0.03246359 in raw units across 15 quote buckets.
 
 See the [runnable Python example](../../examples/python/hull_white_lsv.py).
+
+## References
+
+- [Adrien et al., *Vega KT for the Local Volatility Model: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4107770), for the Local Vega path adjoint, reporting-basis projection and equation (11) recovery used by the quote transpose.
+- [Hamdouche and Henry-Labordère, *Vega KT for LSV Models: An AD Approach*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4304114), for the LSV variance/density transpose and recalibrated target risk.
+- [Gatheral and Jacquier, *Arbitrage-free SVI volatility surfaces*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2033323), for the SVI/eSSVI surface and density conventions accepted by the target builders.
+- [Hull and White, *Pricing Interest-Rate-Derivative Securities*](https://doi.org/10.1093/rfs/3.4.573), for the stochastic-rate hybrid in which the quote transpose is applied.
+
+Natural-cubic interpolation, row-major quote ordering and the reverse branch
+conventions are implementation-specific contracts documented above.
