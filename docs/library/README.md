@@ -4,7 +4,8 @@ Published sources for the calculation methods are collected in the
 [model and numerical-method bibliography](../references.md). The numerical
 contract pages repeat the entries relevant to their own scope.
 
-[Documentation](../README.md) · [Model reference](../models/README.md)
+[Documentation](../README.md) · [Product reference](../products/README.md) ·
+[Model reference](../models/README.md)
 
 The library exposes Rust APIs through the `pricing` crate and typed Python APIs
 through `rust_pricing`. The workspace dependency chain is
@@ -38,7 +39,11 @@ Open `target/doc/pricing/index.html` for the financial API or
 Model-specific adapters and their limitations are indexed in the
 [model reference](../models/README.md).
 
-## Products, risk and diagnostics
+## Risk and diagnostics
+
+The supported product catalogue is maintained in the
+[product reference](../products/README.md). The table below points to the
+corresponding contracts and diagnostics.
 
 | Topic | Reference | Runnable Python example |
 | --- | --- | --- |
