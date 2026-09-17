@@ -25,9 +25,7 @@ estimators and fixed-block Rayon executor. It does not alter the single-asset
 request or its v1/v2/v3 JSON schemas. Multi-asset objects currently use native
 Rust/Python APIs; they cannot be serialized through `PricingRequest.to_json()`.
 
-See the runnable [Python example](../../examples/python/multi_asset.py),
-[public integration tests](../../crates/pricing/tests/multi_asset.rs), and
-[Python tests](../../tests/python/test_multi_asset.py).
+See the runnable [Python example](../../examples/python/multi_asset.py).
 
 ## Contracts and cash flows
 
@@ -166,7 +164,7 @@ the fingerprint or numerical results. QMC checksums are retained. Floating
 point replay is promised only on the same platform/toolchain with a fixed
 reduction-block size.
 
-## Current boundaries and validation
+## Current boundaries
 
 [Rough-LSV with common HW](multi-asset-rough-bergomi.md) is also available.
 [Particle Local Correlation](local-correlation.md) adds state-dependent
@@ -182,50 +180,6 @@ Initial-curve risk and market-IV VegaKT are available through the separate
 effective local-variance adjoints. Supplying an LV reporting basis alone does
 not enable VegaKT. Sticky-strike/sticky-delta conventions remain future work.
 The existing single-asset adapters retain their own behavior.
-
-The new integration suite checks BS analytical limits, perfectly correlated
-duplicates, Margrabe's exchange-option formula with dated correlations and
-both bridge settings, an independent three-asset product moment, all cross
-Gammas against recompiled Spot bumps, BS Vega and all nine nonflat LV nodes
-against CRN finite differences, the BS/flat-LV chain rule, fixed references,
-cash carry and event collisions, memory and termination cash flows, exact vs
-smoothed Autocallable risk, invalid input rejection and worker replay.
-Numerical unit tests cover singular/full-rank factor reconstruction and
-rejection of inconsistent singular, indefinite or out-of-range correlations.
-Python tests exercise the installed extension, immutable snapshots, typed
-results, AAD and validation. Existing CI runs these suites on its three Rust
-platforms and both supported native wheels. The existing single-asset replay
-goldens and schema fixtures are unchanged.
-
-### Local verification on 2026-09-14
-
-Baseline: main `86c6c9992b2970e3abdbef23c5717b48c407f72e` (includes the latest
-paid-cash Hull-White/dividend change). Implementation commit:
-`db6dd224abb610e2268ef7351c64bf9ea5a9da5f`; subsequent documentation-only changes
-record this evidence. Dedicated branch: `feat/multi-asset-pricing`.
-
-- Rust 1.98.1, Linux x86-64: default workspace **455 passed**, including all
-  **14** new public multi-asset integration tests, **3** new correlation unit
-  tests and **3** existing Python-extension native tests.
-- All **5** normally ignored statistical acceptance tests passed explicitly.
-- The all-feature workspace excluding the Python extension passed before the
-  final two dividend regressions; the complete default run above includes them.
-  Final Clippy covers all workspace targets and all features with warnings denied.
-- A release CPython 3.12 wheel was built, installed into a clean environment,
-  and passed its metadata/stub/runtime contract and all **65 Python tests**.
-  The new installed-wheel example ran all three products and their risk outputs.
-- Formatting, Rust API documentation, 67 LV / 114 path-dependence / 61
-  early-exercise reference checks, schemas, dependency direction, Markdown
-  links, source archive contents and whitespace checks passed.
-
-Native Python unit-test linking initially failed because the relocated local
-Python runtime reports `/install/lib` and has a broken unversioned libpython
-symlink. A temporary local link plus linker/runtime library paths resolved it;
-no repository dependency, CI gate or test was changed to work around it.
-
-Remote CI and native macOS/Windows replay results are tracked on the pull
-request for this branch; local results above do not assert native-platform
-acceptance.
 
 ## References
 

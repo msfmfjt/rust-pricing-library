@@ -152,24 +152,7 @@ rough history checkpoints in addition to its existing reverse trace. There
 is no FFT, Markov lift or truncated-memory approximation. Large path counts
 and long finely spaced grids require a separate performance assessment.
 
-## Verification and boundaries
-
-[Joint-driver Rust tests](../../crates/pricing/tests/cases/multi_asset_rough.rs)
-compare all step covariances against independent power/OU/rate quadrature,
-including different H, mixed Markovian factors, dated correlations, rate knots,
-zero mean reversion and singular Brownian matrices. They cover every paired
-target and IV bucket against complete recalibration, physical Spot and cross
-Gamma, initial curves, affine payouts, zero-eta and H=0.5 limits, worker replay
-and MC/RQMC trace/error contracts.
-[History tests](../../crates/pricing/tests/mc_rough_bergomi.rs) verify cross-time
-covariance under dated correlations, adaptedness and antithetic behavior.
-
-The [installed Python tests](../../tests/python/test_multi_asset_rough.py) cover
-typed configurations, products and mixtures. An independent two-step exchange
-price integrates the first joint spot/rate/power increments with five-dimensional
-Gauss–Hermite quadrature and integrates the final conditional payoff analytically.
-The reference conditions on the compiled leverage surface; it tests valuation,
-not the continuum accuracy of the finite particle calibration.
+## Scope and limitations
 
 The finite algorithm remains experimental. Intended production smiles and
 products require particle/bandwidth/step/seed refinement. Multi-currency/FX,

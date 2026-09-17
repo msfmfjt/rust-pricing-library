@@ -142,7 +142,7 @@ The low-level Rust calibration retains a fingerprint of its public primal arrays
 Changing a surface or moment array after retaining the trace causes reverse to
 fail explicitly. A recorded pricing path borrows its immutable source plan.
 
-## Reduction, uncertainty and evidence
+## Reduction and uncertainty
 
 Method: `equity-hw-discrete-particle-vjp-v1`. Existing price defaults and RNG
 coordinates are unchanged. Trace-enabled plans have a distinct fingerprint;
@@ -155,24 +155,6 @@ path. RQMC risk SEs use scramble derivatives; pseudo-MC risk SEs are currently
 `None`. Price SEs remain available for both engines. All SEs exclude calibration
 randomness, kernel/time bias and branch-selection uncertainty.
 
-Focused tests compare full recompiled CRN bumps for Spot, initial curves, BS
-volatility and both LSV target arrays, with and without fixed cash. Additional
-checks cover the joint flat-smile chain rule, Gaussian BS+HW analytical Greeks,
-payment lag, a remaining post-expiry reserve, pre/post cash barrier smoothing,
-zero-factor limits, missing/changed traces and worker-count replay for both
-MC and RQMC. Python tests verify typed selection, result ownership and signed
-DV01 units. These establish an experimental numerical boundary, not broad risk
-acceptance or a completed market-IV fitting pipeline.
-
-The initial AAD implementation, before the quote-node VegaKT extension, passed
-local Linux validation (Rust 1.98.1 / CPython 3.12): 318 Rust workspace
-tests, 3 native Python-extension tests, statistical acceptance, 51 Python tests
-and four installed-wheel examples, together with formatting, Clippy, Rust docs,
-wheel API contracts and reference/schema/dependency/link checks. The cash example
-reported Price 5.8096869279, Delta 0.4709235557 and signed parallel discount-curve
-DV01 0.0040055518, with paired target risk on a 33-by-31 grid. These values use
-the example's one calibration seed and illustrate the stated finite-algorithm
-risk coordinates.
 
 ## References
 

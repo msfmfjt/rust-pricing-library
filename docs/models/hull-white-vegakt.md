@@ -125,26 +125,6 @@ have the same almost-everywhere derivative convention as the original AAD.
 Finite differences must be checked for branch stability; these tests do not
 establish unbiased continuum Greeks or complete the broad H5 acceptance gate.
 
-## Verification
-
-Tests compare the spline transpose with every original quote bump and check
-its spatial/time derivatives independently. Target tests contract variance
-and density together, including time-zero behavior. End-to-end Rust tests
-bump every quote of a nonflat, two-maturity smile and rebuild the entire target,
-particle calibration and pricing plan using common random numbers, with both
-proportional and mixed fixed-cash dividends. They also check parallel shifts,
-the material density contribution, zero-factor limits, pseudo-MC/RQMC worker
-replay, missing provenance and fingerprints. Python checks the same exposed
-API, selected full-recalibration bumps, units, immutable ownership and errors.
-
-Local Linux validation passed 323 Rust workspace tests, 3 native Python-extension
-tests, statistical acceptance and 53 Python tests. Release-wheel metadata,
-stub/runtime API contracts and all four installed-wheel examples passed, as did
-formatting, Clippy with warnings denied, Rust API docs, reference fixtures,
-schemas, dependency direction and Markdown links. The cash example reports a
-parallel input-IV Vega of 35.30466796 (0.35304668 per vol point), with conditional
-RQMC SE 0.03246359 in raw units across 15 quote buckets.
-
 See the [runnable Python example](../../examples/python/hull_white_lsv.py).
 
 ## References

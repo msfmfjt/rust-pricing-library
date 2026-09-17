@@ -118,7 +118,7 @@ with zero mixing weight, zero vol of vol, or singular driver correlations.
 changing the first two marginal random-coordinate blocks. `nu=0` recovers the
 LV target and its calibrated target-risk chain rule.
 
-## Risk and validation
+## Risk and scope
 
 Multi-asset price, per-asset Delta, full cross Gamma, target-variance VJP and
 conditional MC/RQMC uncertainty contracts are the same as for one-factor LSV.
@@ -126,32 +126,14 @@ The reverse propagates through both OU states, the leverage lookup, every
 calibration particle and original-grid interpolation. Model parameters and all
 correlations remain fixed; model/correlation Greeks are not provided.
 
-Regression checks cover independent numerical integration of all covariance
-entries, singular drivers with different kernels, normalization and invalid
-marginals, the one-factor/zero-nu limits, all three Gaussian path-adjoint blocks,
-all leverage/calibration buckets, fully recalibrated multi-asset target risk,
-Spot/cross Gamma with dividends, dated/future matrix validation and worker replay.
-Python adds mixed BS/LV/one-factor/two-factor execution and a two-step mixed-LSV
-exchange price checked against independent five-dimensional Gauss-Hermite
-quadrature with an analytically integrated final step.
-
-These checks validate the finite implementation. Product-specific particle,
-bandwidth and time-step refinement is still required. The separate
+Product-specific particle, bandwidth and time-step refinement is still required.
+The separate
 [Bergomi + HW extension](bergomi-hull-white.md) connects two-factor
 single-asset and multi-asset plans to stochastic rates, paired target AAD,
 market-IV VegaKT and initial-curve risk. The deterministic-rate interfaces
 described here retain their effective-variance risk convention.
 [Multi-asset rough-LSV](multi-asset-rough-bergomi.md) is available through
 the shared HW adapter and can be mixed with two-factor assets.
-
-Local verification on 2026-09-14: all **469** default Rust workspace tests,
-all **5** explicit statistical acceptance tests and all **73** installed-wheel
-Python tests passed. Strict wheel API/metadata/stub checks and all installed
-examples (including Basket, Worst-of and Autocallable with two factors per asset)
-passed. Clippy, formatting, Rust API docs, schema/reference fixtures and dependency
-direction checks passed. On the same Linux platform, prices, target adjoints,
-calibrated leverage and fingerprints for one-factor single- and multi-asset
-cases exactly matched the previously published `11fbd20` release wheel.
 
 ## References
 

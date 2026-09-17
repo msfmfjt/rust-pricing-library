@@ -157,25 +157,6 @@ now describe F; its discounted mean is S0 because `E[Dbar*y]=0`.
   converted escrow F IV inputs. Physical quote conversion adjoints, Gamma and
   dividend-amount risk remain unsupported.
 
-## Focused evidence and acceptance boundary
-
-Tests cover the reserve's rate loading against a finite difference; continuity
-at a cash event including a future mixed payout; exact BS+HW terminal pricing
-after the last cash payout; independent LSV vanilla repricing while a dividend
-reserve is still present at expiry; worker replay; cash-driven barrier hits;
-valuation-date and expiry-date events; the exact expiry-grid contract;
-no-cash/deterministic-factor limits;
-missing nodes, insufficient initial funding and an impossible leverage
-discriminant. Python tests exercise opt-in selection, immutable metadata and
-the typed boundary. These tests establish the initial implementation, not broad
-market-smile calibration acceptance. H3/H4 still need multiple calibration seeds,
-cash schedules, bandwidth/time/particle refinement and stress cases.
-
-Local Linux validation with Rust 1.98.1 and CPython 3.12: 313 Rust workspace
-tests, 3 native Python-extension tests, statistical acceptance, 48 Python tests,
-four wheel-installed examples, typed/runtime wheel contracts, formatting,
-Clippy, Rust documentation and reference/schema/dependency/link checks passed.
-
 ## References
 
 - Buehler, [Volatility Modelling with Cash Dividends and Simple Credit Risk](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1141877),

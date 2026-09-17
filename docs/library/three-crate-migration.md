@@ -126,21 +126,3 @@ the exact three-crate graph and scans selected source boundaries. It is a small
 text guard supplementing Rust visibility, not a complete dependency parser.
 Historical reference records retain their original crate names; current
 architecture and conformance references use the new modules.
-
-## Validation and follow-up
-
-See [validation evidence](../../design/validation/three-crate-validation.md) for commands, baseline and
-migration results, replay comparison, performance and remaining limitations.
-No golden values, tolerances, schemas, reduction/RNG/LSM ABI constants or numerical
-expressions were intentionally changed. Build metadata and Cargo.lock hashes
-change because package identities and dependencies change.
-
-There were no unmerged PRs at baseline retrieval. Future branches touching a
-removed crate must rebase their files/imports/test targets according to the table;
-branches touching the former facade monolith must port changes to the responsible
-engine module. No other branch or PR is modified by this work.
-
-Possible later work: further split the wire and LSM implementations, consider
-moving generic QR/interpolation/RNG into numerics, or redesign optional features.
-Those changes require their own scope and numerical validation. No performance
-optimization is included here.
