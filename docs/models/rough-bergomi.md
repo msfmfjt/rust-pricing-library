@@ -195,13 +195,10 @@ exclude particle noise, discretization bias and branch-selection uncertainty.
 
 The cash calibration rejects a negative quadratic discriminant or a nonpositive
 leverage root. A positive IV surface alone does not guarantee a feasible target
-for the chosen rate/dividend model and finite particle estimator. During local
-verification the example's 8192-particle, 32-step setup with rate volatilities
-0.012/0.018 failed this check; the published example uses 0.005/0.008. That
-observation does not distinguish estimator error from model/target
-incompatibility. Diagnose the rate correction, conditional moments, support
-and particle/grid refinement before interpreting or changing such a target;
-no variance clipping is applied to force a calibration.
+for the chosen rate/dividend model and finite particle estimator. Diagnose the
+rate correction, conditional moments, support and particle/grid refinement
+before interpreting or changing such a target; no variance clipping is applied
+to force a calibration.
 
 ## Scope and limitations
 
