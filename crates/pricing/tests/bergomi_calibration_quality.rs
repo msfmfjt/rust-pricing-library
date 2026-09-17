@@ -21,6 +21,27 @@ const LOG_STRIKES: [f64; 5] = [-0.2, -0.1, 0.0, 0.1, 0.2];
 const CALIBRATION_SEEDS: [u64; 4] = [42, 137, 711, 2027];
 const QUOTES: usize = MATURITIES.len() * LOG_STRIKES.len();
 
+// Support budget at the interpolation neighbors of every evaluation quote.
+// "No fallback" alone is satisfied by ESS just above the calibrator's own
+// minimum of 20, whose conditional second moment still carries roughly 20%
+// relative standard error. For the quartic kernel w(u) = (1 - u^2)^2 on
+// [-h, h], ESS = (sum w)^2 / sum w^2 = N f(x) h (int K)^2 / int K^2, and
+// (16/15)^2 / (256/315) = 1.4 exactly, so ESS ~ 1.4 N f(x) h. Under the
+// acceptance setting the thinnest evaluation node is T=0.25, k=+0.2, where
+// the 20% lognormal density gives ESS ~ 448. The budget sits a factor 2.2
+// below that and a factor 10 above the calibrator floor: it is not a
+// tripwire, but 4,096 particles (~56) or 8,192 particles (~112) fail it.
+const MINIMUM_NODE_ESS: f64 = 200.0;
+
+// The interpolated target must remain the analytic smile it claims to be.
+// Both fixtures are exactly quadratic in log strike, and the natural cubic
+// spline on total variance reproduces a quadratic away from its zero-second-
+// derivative end conditions; the residual at the evaluation strikes is
+// 0.043 bp at worst. This budget therefore catches an interpolator
+// regression (a change of scheme, a knot or units error) without absorbing
+// any part of the LSV error budgets below.
+const TARGET_INTERPOLATION_BUDGET_BP: f64 = 0.5;
+
 #[derive(Clone, Copy, Debug, Serialize)]
 struct Settings {
     particles: usize,
@@ -40,6 +61,35 @@ const ACCEPTANCE: Settings = Settings {
     scrambles: 8,
 };
 
+// Model parameters are reported next to the numerical settings so a retained
+// JSON line identifies the case without reference to the source revision.
+#[derive(Clone, Copy, Debug, Serialize)]
+struct Model {
+    mean_reversion: f64,
+    nu: f64,
+    rho: f64,
+}
+
+const BASE_MODEL: Model = Model {
+    mean_reversion: 2.0,
+    nu: 0.7,
+    rho: -0.5,
+};
+
+// Kernel regression degrades with vol of vol; this case is where the gate
+// would bite. It is reported, not gated, until its budgets are measured.
+const HIGH_VOL_OF_VOL: Model = Model {
+    mean_reversion: 2.0,
+    nu: 1.5,
+    rho: -0.5,
+};
+
+impl Model {
+    fn factor(self) -> Bergomi1Factor {
+        Bergomi1Factor::new(self.mean_reversion, self.nu, self.rho).unwrap()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum Smile {
     Flat,
@@ -54,18 +104,22 @@ impl Smile {
         }
     }
 
+    // Closed form of the fixture. The quotes and the interpolation check share
+    // it, so the nominal smile has exactly one definition in this file.
+    fn analytic_iv(self, t: f64, x: f64) -> f64 {
+        match self {
+            Self::Flat => 0.2,
+            Self::Skew => ((0.04 + 0.004 * t) * (1.0 - 0.25 * x + 0.1 * x * x)).sqrt(),
+        }
+    }
+
     fn surface(self) -> MarketIvSurface {
         // Evaluation includes off-quote strikes; the grid is not a list of ATM tests.
         let xs = vec![-1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0];
         let quotes = MATURITIES
             .iter()
-            .flat_map(|&t| {
-                xs.iter().map(move |&x| match self {
-                    Self::Flat => 0.2,
-                    Self::Skew => ((0.04 + 0.004 * t) * (1.0 - 0.25 * x + 0.1 * x * x)).sqrt(),
-                })
-            })
-            .collect();
+            .flat_map(|&t| xs.iter().map(move |&x| self.analytic_iv(t, x)))
+            .collect::<Vec<_>>();
         MarketIvSurface::new(MATURITIES.to_vec(), xs, quotes).unwrap()
     }
 }
@@ -169,6 +223,17 @@ struct Support {
     particle_mean_f: f64,
 }
 
+// Per-evaluation-quote kernel support, in the same order as the price
+// estimates. Reported and gated, so a thinning of the particle cloud is
+// visible before it has to surface as an IV error.
+#[derive(Clone, Copy, Debug, Serialize)]
+struct QuoteSupport {
+    maturity: f64,
+    log_strike: f64,
+    minimum_ess: f64,
+    fallbacks: usize,
+}
+
 #[derive(Debug, Serialize)]
 struct Run {
     calibration_seed: u64,
@@ -176,6 +241,7 @@ struct Run {
     // In order: LSV OTM, LV OTM, paired LSV-LV, then one martingale per maturity.
     estimates: Vec<Estimate>,
     support: Vec<Support>,
+    quote_support: Vec<QuoteSupport>,
 }
 
 fn price_surface(
@@ -261,37 +327,58 @@ fn price_surface(
         .collect()
 }
 
-fn run(surface: &MarketIvSurface, settings: Settings, seed: u64) -> Run {
+fn run(surface: &MarketIvSurface, model: Model, settings: Settings, seed: u64) -> Run {
     let grid = target(surface, settings);
     let calibration = calibrate_bergomi_lsv(
         &grid,
-        Bergomi1Factor::new(2.0, 0.7, -0.5).unwrap(),
+        model.factor(),
         SPOT,
         LsvParticleConfig::new(settings.particles, seed, settings.bandwidth, 20.0, false).unwrap(),
     )
     .unwrap();
     let xs = grid.log_moneyness_nodes();
+    // Same (maturity, strike) order as the price estimates: q = r * strikes + j.
+    let mut quote_support = Vec::with_capacity(QUOTES);
+    for &t in &MATURITIES {
+        let row = (t * settings.steps as f64) as usize;
+        for x in LOG_STRIKES {
+            let j = xs
+                .partition_point(|v| *v <= x)
+                .saturating_sub(1)
+                .min(xs.len() - 2);
+            let mut minimum_ess = f64::INFINITY;
+            let mut fallbacks = 0;
+            for col in [j, j + 1] {
+                let moment = calibration.conditional_moments()[row * xs.len() + col];
+                // Fail here rather than let a nonfinite ESS vanish into a min.
+                assert!(
+                    moment.effective_samples.is_finite() && moment.effective_samples >= 0.0,
+                    "nonfinite effective samples at row {row} column {col}"
+                );
+                minimum_ess = minimum_ess.min(moment.effective_samples);
+                fallbacks += usize::from(moment.extrapolated);
+            }
+            quote_support.push(QuoteSupport {
+                maturity: t,
+                log_strike: x,
+                minimum_ess,
+                fallbacks,
+            });
+        }
+    }
     let support = MATURITIES
         .iter()
-        .map(|&t| {
+        .enumerate()
+        .map(|(r, &t)| {
             let row = (t * settings.steps as f64) as usize;
-            let mut ess = f64::INFINITY;
-            let mut fallbacks = 0;
-            for x in LOG_STRIKES {
-                let j = xs
-                    .partition_point(|v| *v <= x)
-                    .saturating_sub(1)
-                    .min(xs.len() - 2);
-                for col in [j, j + 1] {
-                    let moment = calibration.conditional_moments()[row * xs.len() + col];
-                    ess = ess.min(moment.effective_samples);
-                    fallbacks += usize::from(moment.extrapolated);
-                }
-            }
+            let quotes = &quote_support[r * LOG_STRIKES.len()..(r + 1) * LOG_STRIKES.len()];
             Support {
                 time: t,
-                minimum_quote_ess: ess,
-                quote_fallbacks: fallbacks,
+                minimum_quote_ess: quotes
+                    .iter()
+                    .map(|q| q.minimum_ess)
+                    .fold(f64::INFINITY, f64::min),
+                quote_fallbacks: quotes.iter().map(|q| q.fallbacks).sum(),
                 all_row_fallbacks: calibration.diagnostics()[row].extrapolated_nodes,
                 particle_mean_f: calibration.diagnostics()[row].particle_mean_f,
             }
@@ -312,6 +399,7 @@ fn run(surface: &MarketIvSurface, settings: Settings, seed: u64) -> Run {
         pricing_seed,
         estimates,
         support,
+        quote_support,
     }
 }
 
@@ -330,25 +418,31 @@ struct Node {
     paired_price_residual_bp: f64,
     paired_price_se_bp: f64,
     worst_seed_iv_error_bp: f64,
+    // Worst kernel support over both interpolation neighbors and all seeds.
+    minimum_ess: f64,
+    quote_fallbacks: usize,
+    // Interpolated target minus the fixture's closed form at this node.
+    target_interpolation_error_bp: f64,
 }
 
 #[derive(Debug, Serialize)]
 struct Report {
     smile: &'static str,
+    model: Model,
     settings: Settings,
     nodes: Vec<Node>,
     martingales: Vec<Estimate>,
     quote_fallbacks: usize,
 }
 
-fn experiment(smile: Smile, settings: Settings) -> Report {
+fn experiment(smile: Smile, model: Model, settings: Settings) -> Report {
     let surface = smile.surface();
     let runs = CALIBRATION_SEEDS.map(|seed| {
-        let result = run(&surface, settings, seed);
+        let result = run(&surface, model, settings, seed);
         println!(
             "BERGOMI_RUN {}",
             serde_json::to_string(&serde_json::json!({
-                "smile": smile.name(), "settings": settings, "run": result,
+                "smile": smile.name(), "model": model, "settings": settings, "run": result,
             }))
             .unwrap()
         );
@@ -408,6 +502,12 @@ fn experiment(smile: Smile, settings: Settings) -> Report {
                 paired_price_residual_bp: paired.value / vega / BP,
                 paired_price_se_bp: paired.se / vega / BP,
                 worst_seed_iv_error_bp,
+                minimum_ess: runs
+                    .iter()
+                    .map(|r| r.quote_support[i].minimum_ess)
+                    .fold(f64::INFINITY, f64::min),
+                quote_fallbacks: runs.iter().map(|r| r.quote_support[i].fallbacks).sum(),
+                target_interpolation_error_bp: (target_iv - smile.analytic_iv(t, x)) / BP,
             }
         })
         .collect();
@@ -424,6 +524,7 @@ fn experiment(smile: Smile, settings: Settings) -> Report {
         .collect();
     let report = Report {
         smile: smile.name(),
+        model,
         settings,
         nodes,
         martingales,
@@ -483,6 +584,27 @@ fn failures(report: &Report) -> Vec<String> {
             format!("{label} paired LSV-LV residual bp"),
             n.paired_price_residual_bp.abs(),
             15.0,
+        );
+        check(
+            format!("{label} target interpolation error bp"),
+            n.target_interpolation_error_bp.abs(),
+            TARGET_INTERPOLATION_BUDGET_BP,
+        );
+        // A lower bound expressed as a shortfall so the shared upper-bound
+        // checker keeps rejecting nonfinite values instead of saturating them.
+        check(
+            format!("{label} minimum quote ESS shortfall"),
+            if n.minimum_ess.is_finite() && n.minimum_ess >= MINIMUM_NODE_ESS {
+                0.0
+            } else {
+                MINIMUM_NODE_ESS - n.minimum_ess
+            },
+            0.0,
+        );
+        check(
+            format!("{label} quote-neighbor fallbacks"),
+            n.quote_fallbacks as f64,
+            0.0,
         );
     }
     // Fixed hard budgets, not error < an arbitrarily large reported uncertainty.
@@ -574,9 +696,13 @@ fn quality_gate_rejects_bias_noise_fallbacks_and_nonfinite_values() {
         paired_price_residual_bp: 0.0,
         paired_price_se_bp: 0.0,
         worst_seed_iv_error_bp: 0.0,
+        minimum_ess: MINIMUM_NODE_ESS,
+        quote_fallbacks: 0,
+        target_interpolation_error_bp: 0.0,
     };
     let mut report = Report {
         smile: "gate unit test",
+        model: BASE_MODEL,
         settings: ACCEPTANCE,
         nodes: vec![node; QUOTES],
         martingales: vec![
@@ -600,20 +726,70 @@ fn quality_gate_rejects_bias_noise_fallbacks_and_nonfinite_values() {
     report.quote_fallbacks = 1;
     assert!(!failures(&report).is_empty());
     report.quote_fallbacks = 0;
+    // Support is a gate, not only a printout: thin kernels, per-node fallbacks
+    // and a drifted target interpolation each have to fail on their own.
+    for ess in [MINIMUM_NODE_ESS - 1.0, 0.0, f64::NAN] {
+        report.nodes[0].minimum_ess = ess;
+        assert!(
+            failures(&report).iter().any(|e| e.contains("ESS")),
+            "ESS {ess} must fail the gate"
+        );
+    }
+    report.nodes[0].minimum_ess = MINIMUM_NODE_ESS;
+    assert!(failures(&report).is_empty());
+    report.nodes[0].quote_fallbacks = 1;
+    assert!(!failures(&report).is_empty());
+    report.nodes[0].quote_fallbacks = 0;
+    for error in [1.0, -1.0, f64::NAN] {
+        report.nodes[0].target_interpolation_error_bp = error;
+        assert!(
+            failures(&report)
+                .iter()
+                .any(|e| e.contains("target interpolation")),
+            "target interpolation error {error} must fail the gate"
+        );
+    }
+    report.nodes[0].target_interpolation_error_bp = 0.0;
     report.nodes.iter_mut().for_each(|n| n.iv_error_bp = 11.0);
     assert!(failures(&report).iter().any(|e| e.contains("RMSE")));
+}
+
+// Fast: the interpolated target must still be the analytic smile it claims to
+// be. Without this, a change of interpolation scheme moves both the target and
+// the pricing reference together and stays invisible to the round-trip gates.
+#[test]
+fn target_interpolator_reproduces_the_analytic_smile_at_evaluation_strikes() {
+    for smile in [Smile::Flat, Smile::Skew] {
+        let surface = smile.surface();
+        for t in MATURITIES {
+            for x in LOG_STRIKES {
+                let interpolated = (surface
+                    .total_variance_derivatives(t, x)
+                    .unwrap()
+                    .total_variance
+                    / t)
+                    .sqrt();
+                let error_bp = (interpolated - smile.analytic_iv(t, x)).abs() / BP;
+                assert!(
+                    error_bp <= TARGET_INTERPOLATION_BUDGET_BP,
+                    "{} T={t} k={x}: interpolation error {error_bp:.4} bp exceeds {TARGET_INTERPOLATION_BUDGET_BP} bp",
+                    smile.name()
+                );
+            }
+        }
+    }
 }
 
 #[test]
 #[ignore = "smile-wide numerical acceptance: explicitly run in release-mode CI"]
 fn iv_round_trip_flat_one_factor_bergomi() {
-    accept(&experiment(Smile::Flat, ACCEPTANCE));
+    accept(&experiment(Smile::Flat, BASE_MODEL, ACCEPTANCE));
 }
 
 #[test]
 #[ignore = "smile-wide numerical acceptance: explicitly run in release-mode CI"]
 fn iv_round_trip_skew_one_factor_bergomi() {
-    accept(&experiment(Smile::Skew, ACCEPTANCE));
+    accept(&experiment(Smile::Skew, BASE_MODEL, ACCEPTANCE));
 }
 
 #[test]
@@ -644,8 +820,86 @@ fn one_factor_bergomi_refinement_report() {
             ..reference
         },
     ] {
-        let report = experiment(Smile::Flat, settings);
+        let report = experiment(Smile::Flat, BASE_MODEL, settings);
         println!("BERGOMI_REFINEMENT_FAILURES {:?}", failures(&report));
     }
-    accept(&experiment(Smile::Flat, ACCEPTANCE));
+    accept(&experiment(Smile::Flat, BASE_MODEL, ACCEPTANCE));
+}
+
+// Summary of one report, so a scan emits one comparable line per setting
+// instead of requiring the full per-quote JSON to be re-reduced by hand.
+#[derive(Debug, Serialize)]
+struct Summary {
+    smile: &'static str,
+    model: Model,
+    settings: Settings,
+    max_abs_iv_error_bp: f64,
+    iv_rmse_bp: f64,
+    max_abs_lv_error_bp: f64,
+    max_abs_paired_residual_bp: f64,
+    max_total_se_bp: f64,
+    max_pricing_se_bp: f64,
+    max_worst_seed_iv_error_bp: f64,
+    minimum_ess: f64,
+    failures: Vec<String>,
+}
+
+fn summarize(report: &Report) -> Summary {
+    let worst = |f: fn(&Node) -> f64| report.nodes.iter().map(f).fold(0.0, f64::max);
+    Summary {
+        smile: report.smile,
+        model: report.model,
+        settings: report.settings,
+        max_abs_iv_error_bp: worst(|n| n.iv_error_bp.abs()),
+        iv_rmse_bp: rms(report.nodes.iter().map(|n| n.iv_error_bp)),
+        max_abs_lv_error_bp: worst(|n| n.lv_error_bp.abs()),
+        max_abs_paired_residual_bp: worst(|n| n.paired_price_residual_bp.abs()),
+        max_total_se_bp: worst(|n| n.total_se_bp),
+        max_pricing_se_bp: worst(|n| n.pricing_se_bp),
+        max_worst_seed_iv_error_bp: worst(|n| n.worst_seed_iv_error_bp),
+        minimum_ess: report
+            .nodes
+            .iter()
+            .map(|n| n.minimum_ess)
+            .fold(f64::INFINITY, f64::min),
+        failures: failures(report),
+    }
+}
+
+// Narrowing the bandwidth trades kernel bias for kernel variance, and the
+// acceptance value has to be a measured choice rather than the first setting
+// that cleared the budgets. This scan brackets 0.02 on both sides at fixed
+// particles, so bias-dominated and variance-dominated ends are both visible.
+// Diagnostic: no assertion, and deliberately outside the CI name filter.
+#[test]
+#[ignore = "manual bandwidth scan: evidence for the acceptance bandwidth"]
+fn one_factor_bergomi_bandwidth_scan() {
+    for bandwidth in [0.01, 0.015, 0.02, 0.025, 0.03, 0.035] {
+        for smile in [Smile::Flat, Smile::Skew] {
+            let settings = Settings {
+                bandwidth,
+                ..ACCEPTANCE
+            };
+            let report = experiment(smile, BASE_MODEL, settings);
+            println!(
+                "BERGOMI_BANDWIDTH_SCAN {}",
+                serde_json::to_string(&summarize(&report)).unwrap()
+            );
+        }
+    }
+}
+
+// Kernel regression degrades as vol of vol grows, so this is where the gate
+// would actually bite. Reported only: its budgets are not established, and a
+// gate whose limits were never measured is worse than an honest diagnostic.
+#[test]
+#[ignore = "manual high vol-of-vol report: budgets not yet established"]
+fn high_vol_of_vol_one_factor_bergomi_report() {
+    for smile in [Smile::Flat, Smile::Skew] {
+        let report = experiment(smile, HIGH_VOL_OF_VOL, ACCEPTANCE);
+        println!(
+            "BERGOMI_HIGH_VOL_OF_VOL {}",
+            serde_json::to_string(&summarize(&report)).unwrap()
+        );
+    }
 }

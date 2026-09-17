@@ -94,6 +94,8 @@ and feature behavior are in architecture sections 3 and 15 and the migration gui
 
 The [Bergomi calibration quality gate](design/validation/bergomi-calibration-quality.md)
 compares independent repricing IVs across strikes, maturities and complete
-calibration seeds. Its heavy tests are ignored in ordinary debug test runs but
+calibration seeds, and gates kernel support and the target interpolation as well
+as the IV errors. Its heavy tests are ignored in ordinary debug test runs but
 explicitly executed by CI on all three Rust platforms. The separate manual
-refinement report is not included in that CI filter.
+refinement, bandwidth-scan and high-vol-of-vol reports are diagnostics and are
+not included in that CI filter.

@@ -73,21 +73,63 @@ test, apply to every active quote, and are not loosened by a large reported SE.
 | Ensemble conditional-pricing-only SE in IV units | 3 bp at every quote |
 | Worst individual calibration-seed absolute IV error | 35 bp |
 | Absolute paired LSV-LV price residual / target vega | 15 bp |
-| Fallbacks at evaluation quote interpolation neighbors | Zero |
+| Fallbacks at evaluation quote interpolation neighbors | Zero, per quote and in total |
+| Minimum kernel ESS at those neighbors | At least 200 |
+| Interpolated target minus the fixture's closed form | 0.5 bp at every quote |
 | Independent pricing martingale mean error | At most 4 SE + 0.02 in f units |
 | Martingale mean SE | At most 0.02 in f units |
 
-Global row fallback counts and particle means are diagnostics, not a demand
+### Why the support budget is 200 effective samples
+
+Requiring only that no node fell back is satisfied by an ESS just above the
+calibrator's own minimum of 20, whose conditional second moment still carries
+roughly 20% relative standard error, so absent support could reach a quote as
+an IV error without any fallback being recorded. For the quartic kernel
+w(u) = (1 - u^2)^2 on [-h, h], ESS = (sum w)^2 / (sum w^2) = N f(x) h times
+(integral K)^2 / integral K^2, and (16/15)^2 / (256/315) = 1.4 exactly, so
+ESS is approximately 1.4 N f(x) h. Under the acceptance setting the thinnest
+evaluation node is T = 0.25, k = +0.2, where the 20% lognormal density gives
+approximately 448. The budget therefore sits a factor 2.2 below the expected
+value at the tightest node and a factor 10 above the calibrator floor: it is
+not a tripwire at 32,768 particles, and it does not preclude narrowing the
+bandwidth to 0.015 (approximately 336) or 0.01 (approximately 224). It does
+reject 8,192 particles (approximately 112) and 4,096 (approximately 56). The
+budget is a support floor derived from the kernel, not a fitted number.
+
+The calibrator's own `minimum_effective_samples` stays at 20. Raising it would
+change which nodes fall back and therefore change the calibrated leverage
+surface; this gate observes support, it does not alter the object being
+measured.
+
+### Why the target interpolation is checked separately
+
+For the skew fixture the target IV is read back from the same production
+interpolator that feeds Dupire, so a change of interpolation scheme moves the
+target and the pricing reference together and cancels in every round-trip
+metric. Both fixtures are exactly quadratic in log strike, and the natural
+cubic spline on total variance reproduces a quadratic away from its
+zero-second-derivative end conditions, leaving 0.043 bp at worst over the
+evaluation panel. A separate fast test compares the interpolated target with
+the fixture's closed form at every evaluation node under a 0.5 bp budget,
+which catches a scheme, knot or units regression without absorbing any part of
+the LSV budgets above. The closed form now has exactly one definition in the
+test source and both the quotes and this check read it.
+
+Global row fallback counts and particle means remain diagnostics, not a demand
 that remote tails with virtually no particles have zero fallback. The quote
 support assertion checks evaluation maturities; it does not establish support
-along every path or at every earlier time. Low-vega quotes are not silently
-skipped: the fixed panel must have target vega greater than 1 in price units per
-unit absolute IV.
+along every path or at every earlier time — at early times a node at k = -0.2
+holds almost no particles and is legitimately extrapolated. Low-vega quotes are
+not silently skipped: the fixed panel must have target vega greater than 1 in
+price units per unit absolute IV. That vega condition is also why the panel
+stops at |k| = 0.2 while quotes extend to |k| = 1; the reported maxima are
+maxima over that panel, not over the wings.
 
 Helper unit tests validate IV inversion and failure cases, fixture repair
-absence, ensemble variance accounting, and rejection of injected bias, excessive
-noise, fallback and nonfinite metrics. The old loose ATM repricing and AAD tests
-remain unchanged.
+absence, target interpolation against the closed form, ensemble variance
+accounting, and rejection of injected bias, excessive noise, thin kernel
+support, per-quote fallback, drifted target interpolation and nonfinite
+metrics. The old loose ATM repricing and AAD tests remain unchanged.
 
 ## Running and retained diagnostics
 
@@ -117,13 +159,43 @@ same gate. There is no invalid assertion that one noisy realization
 must improve monotonically when a setting changes. Changing the time grid also
 changes random-coordinate mapping; this is an ensemble comparison.
 
+For the bandwidth evidence behind the acceptance setting:
+
+```bash
+cargo test --locked --release -p pricing --test bergomi_calibration_quality one_factor_bergomi_bandwidth_scan -- --ignored --nocapture --test-threads=1
+```
+
+This runs both fixtures at bandwidth 0.01, 0.015, 0.02, 0.025, 0.03 and 0.035
+with every other acceptance setting held fixed, and emits one
+`BERGOMI_BANDWIDTH_SCAN` summary line per configuration with the maximum and
+RMS IV error, the LV-control error, the paired residual, both uncertainty
+measures, the minimum ESS and the list of budget failures. Narrowing the
+bandwidth trades kernel bias for kernel variance, so the scan brackets 0.02 on
+both sides: it is what distinguishes an acceptance value near the minimum of
+that trade-off from the first setting that happened to clear the budgets. The
+scan asserts nothing and is outside the CI name filter.
+
+For the stressed vol-of-vol case:
+
+```bash
+cargo test --locked --release -p pricing --test bergomi_calibration_quality high_vol_of_vol_one_factor_bergomi_report -- --ignored --nocapture --test-threads=1
+```
+
+This repeats both fixtures at nu = 1.5 with mean reversion and correlation
+unchanged, and emits `BERGOMI_HIGH_VOL_OF_VOL` summary lines. Kernel regression
+degrades as vol of vol grows, so this is where the gate would bite; its budgets
+have not been measured, so it reports and does not assert. A gate whose limits
+were never measured is worse than an honest diagnostic.
+
 ## Limits and execution evidence
 
 Passing these two surfaces does not certify stressed vol-of-vol, long maturities,
 low-vega wings, all target interpolators, stochastic rates, dividends, multiple
 assets, local correlation or two-factor/rough Bergomi. It is a defined quality
 regression gate, not general LSV production acceptance. No fixture is a market
-data calibration or a pure Bergomi parameter fit.
+data calibration or a pure Bergomi parameter fit. The stressed vol-of-vol and
+bandwidth reports above are diagnostics; neither is a certification, and no
+model algorithm, bandwidth selection or quote repair happens in this test target.
 
 ### Local Linux results
 
@@ -131,6 +203,11 @@ Rust 1.98.1, release profile, on the baseline above plus this test-only change:
 
 [Retained per-quote results](bergomi-calibration-quality-results.json) include
 the exact test-source SHA-256, seeds, model parameters and uncertainty metrics.
+Those numbers predate the support and target-interpolation budgets, so the file
+carries neither `minimum_ess` nor `target_interpolation_error_bp` and its
+recorded test-source hash no longer matches the test target. It is regenerated,
+with the per-node support figures, on the next release run; until then treat the
+error columns below as current and the file as the earlier schema.
 
 | Surface, bandwidth 0.02 | Maximum absolute IV error | IV RMSE | Maximum LV-control error | Maximum total SE |
 | --- | --- | --- | --- | --- |
