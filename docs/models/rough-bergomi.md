@@ -195,47 +195,17 @@ exclude particle noise, discretization bias and branch-selection uncertainty.
 
 The cash calibration rejects a negative quadratic discriminant or a nonpositive
 leverage root. A positive IV surface alone does not guarantee a feasible target
-for the chosen rate/dividend model and finite particle estimator. During local
-verification the example's 8192-particle, 32-step setup with rate volatilities
-0.012/0.018 failed this check; the published example uses 0.005/0.008. That
-observation does not distinguish estimator error from model/target
-incompatibility. Diagnose the rate correction, conditional moments, support
-and particle/grid refinement before interpreting or changing such a target;
-no variance clipping is applied to force a calibration.
+for the chosen rate/dividend model and finite particle estimator. Diagnose the
+rate correction, conditional moments, support and particle/grid refinement
+before interpreting or changing such a target; no variance clipping is applied
+to force a calibration.
 
-## Verification and remaining acceptance
+## Scope and limitations
 
-Rust tests check joint covariance against independent numerical quadrature,
-piecewise rate volatility, the Ho–Lee limit, small H, H=0.5 and singular
-correlations. Basis-vector driver tests verify the full finite-grid Gaussian
-covariance, adaptedness, antithetic behavior and variance refinement.
-End-to-end CRN bumps cover pure Spot/sigma0/curves and every market-IV quote
-through full rough-LSV recalibration, with proportional and mixed cash dividends.
-Zero eta matches BS, and H=0.5 rough-LSV matches the old zero-mean-reversion
-Bergomi LSV. MC/RQMC worker-count replay and trace errors are covered.
-
-Python tests check model/API validation and ownership, AAD, selected recalibrated
-cash VegaKT buckets and worker replay. A separate two-step price check integrates
-the final stock increment analytically and the first stock/rough increments by
-two-dimensional Gauss–Hermite quadrature, comparing against independent-scramble
-RQMC. This verifies nonzero-H/nonzero-eta prices independently of the path VJP.
-
-Local Linux validation with Rust 1.98.1 and CPython 3.12 passed 330 Rust
-workspace tests, 3 native Python-extension tests, statistical acceptance,
-57 Python tests and all five installed-release-wheel examples. Formatting,
-Clippy with warnings denied, Rust API docs, wheel metadata and stub/runtime
-contracts, reference fixtures, schemas, dependency direction and Markdown
-links passed. The example's rough-LSV cash price is 5.76417017, with conditional
-RQMC SE 0.01176225; its 15 IV buckets sum to Vega 35.14190245 per unit IV,
-with conditional SE 0.08577321. This is one illustrative seed and grid.
-
-These checks establish the implemented finite-grid algorithm. Broad acceptance
-still needs multi-grid option and Greek refinement for small H, multiple particle
-counts/bandwidths/seeds, adverse smiles, maturities, fallback sensitivity and
-retained performance/replay fixtures for rough models. The existing H3/H5/H6
-acceptance gates are not promoted by this extension. Nonflat initial forward
-variance, rough Heston, fast convolution/lifts and H/eta calibration/risk remain
-future extensions.
+The finite-grid implementation remains subject to refinement across grids,
+particle counts, bandwidths, seeds, adverse smiles and maturities. Nonflat
+initial forward variance, rough Heston, fast convolution/lifts and H/eta
+calibration/risk remain future extensions.
 
 ## References
 

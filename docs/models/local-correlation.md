@@ -274,7 +274,7 @@ stochastic-volatility/rate projection extended as in §11.2 of Julien Guyon's
 “A New Class of Local Correlation Models” (SSRN 2283419). It remains one scalar
 function lambda(t,log B), rather than a freely calibrated correlation matrix.
 
-## Scope and validation
+## Scope and limitations
 
 The adapter supports BS/LV, one-/two-factor Bergomi LSV, and shared HW with
 BS/Bergomi/rough-LSV. As in the existing HW adapter, HW + LV requires a zero
@@ -283,21 +283,6 @@ HW adapter, allowing zero rate volatility for deterministic rates. Multiple
 basket targets, physical-index quote conversion, correlation/model-parameter
 Greeks, and deterministic-LSV source-IV VegaKT are not included. There is no
 JSON schema boundary.
-
-The acceptance tests check independently recalibrated finite differences for
-all basket and constituent volatility nodes, dividends and cross Gamma,
-projection/support/trace contracts, singular endpoints, dated multi-asset
-PSD mixing, worker replay, and an independent two-step exchange-option
-quadrature. A separate normalized-index option test compares independent
-valuation with the target Black–Scholes prices under particle/grid refinement,
-and checks constituent marginal prices.
-
-Background: [Langnau, Introduction into Local Correlation Modelling](https://arxiv.org/abs/0909.3441)
-discusses state-dependent PSD correlation families and non-uniqueness.
-[Jourdain and Zhou](https://arxiv.org/abs/1607.00077) discuss conditional-expectation
-calibration and kernel particle methods in the related LSV setting. The
-specific convex family and finite regression/reverse conventions implemented
-here are defined by the equations above.
 
 ## References
 

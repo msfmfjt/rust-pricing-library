@@ -179,21 +179,7 @@ These errors exclude particle-calibration uncertainty, discretization, target
 construction, payoff smoothing and finite-bump bias. Autocallable AAD retains
 the explicit smoothing requirement of the existing multi-asset API.
 
-## Validation and boundaries
-
-The [Rust transition tests](../../crates/pricing/tests/bergomi_hull_white.rs) compare
-every single-equity covariance entry with independent kernel quadrature and
-check the exact one-factor path limit. The
-[multi-asset tests](../../crates/pricing/tests/cases/multi_asset_hull_white.rs) cover
-all eight-coordinate covariances, future-marginal validation, singular drivers,
-zero-rate/zero-nu limits, payment-lag exchange prices against an independent
-Gaussian calculation, every paired target bucket, IV quotes, Spot/cross Gamma,
-cash/proportional payouts, initial curves, mixed factor counts and worker replay.
-The [single-equity AAD tests](../../crates/pricing/tests/hull_white_aad.rs) include
-both affine and escrowed conventions with complete quote recalibration.
-The [Python tests](../../tests/python/test_bergomi_hull_white.py) exercise the typed
-installed API and independently integrate a two-step five-coordinate price
-using Gauss–Hermite quadrature and an analytically integrated final step.
+## Scope and limitations
 
 Existing one-factor HW, rough-HW, deterministic-rate one-/two-factor LSV and
 their JSON/request conventions retain their behavior. Multi-currency/FX,
@@ -201,18 +187,7 @@ multiple rate factors, correlation/model-parameter
 Greeks, sticky-strike/sticky-delta smile dynamics, seasoned products, American
 exercise and continuous barriers are outside this extension. Target construction
 and particle/bandwidth/time-step refinement remain product-specific acceptance
-work; the tests validate the implemented finite algorithm.
-
-Local verification on 2026-09-14 with Rust 1.98.1 / Linux x86-64 passed all
-**478 default workspace tests**, all **5 statistical acceptance tests**, the
-all-feature and minimal-feature configurations, and all **77 installed release
-wheel Python tests**. Strict wheel metadata/stub/runtime checks and every
-installed example passed, including the three HW products above. Formatting,
-all-target/all-feature Clippy with warnings denied, Rust API docs, schema and
-equation fixtures, Markdown links and dependency-direction checks passed.
-Single-asset one-factor HW and rough-HW, plus deterministic-rate one- and
-two-factor multi-asset prices, risk arrays, leverage surfaces and fingerprints
-exactly matched the prior `2d13dcc` release wheel on the same platform.
+work; the finite algorithm is defined by the contracts above.
 
 ## References
 

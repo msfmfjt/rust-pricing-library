@@ -88,14 +88,7 @@ calibration branch choices. LSV AAD needs `retain_reverse_trace=True`.
 RQMC errors use independent scrambles and retain cross-bucket covariance for
 parallel Vega. Price-only and AAD use the same physical observations.
 
-## Validation and boundaries
-
-Focused regression tests cover cash/proportional collisions at zero and expiry,
-carried forwards, the HW sigma_r=0 limit, pathwise discounted gains, all initial
-curve pillars versus common-random-number differences, payment lag, all quoted
-VegaKT buckets for LSV and rough-LSV, direct rough Delta/Vega, and worker replay.
-Future-only cash must not create a reserve through the AAD compatibility context.
-The existing CI suite continues to test the explicit escrowed model separately.
+## Scope and limitations
 
 Any nonfinite or nonpositive physical observation is an error. Fixed cash plus
 an unbounded equity diffusion cannot guarantee positive Spot; the implementation

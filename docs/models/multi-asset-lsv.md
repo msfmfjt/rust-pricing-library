@@ -144,21 +144,10 @@ MC still reports the usual pair-level price, Delta and Gamma standard errors.
 All valuation errors are **conditional on the realized calibrations**; they
 exclude calibration noise, time/particle/kernel bias and support uncertainty.
 
-## Verification and boundaries
+## Scope and limitations
 
-Rust regressions cover nonflat LV limits, exact covariance against independent
-Simpson integration on a dated grid, all 18 target buckets against full
-recalibration, fixed-cash/proportional carry, Spot and every cross Gamma,
-mixed BS/LV/LSV, MC trace/error semantics, singular drivers, worker replay and
-invalid/future input rejection. Python tests cover immutable snapshots,
-recalibrated AAD, mixed models, Worst-of, memory Autocallable smoothing and a
-two-step exchange price checked with four-dimensional Gauss-Hermite quadrature
-and an analytically integrated conditional final step. This is an independent
-pricing check conditional on the finite calibrated leverage surface.
-
-These establish the implemented finite-grid algorithm. Production acceptance
-still requires particle/bandwidth/step/seed refinement for the intended smiles
-and products. The separate [Bergomi + HW extension](bergomi-hull-white.md)
+Production use still requires particle/bandwidth/step/seed refinement for the
+intended smiles and products. The separate [Bergomi + HW extension](bergomi-hull-white.md)
 adds a shared stochastic rate, paired target calibration, market-IV VegaKT from
 retained quotes and initial-curve risk. Supplying an LV reporting basis alone
 does not enable market-IV risk. The [rough-LSV extension](multi-asset-rough-bergomi.md)
@@ -167,19 +156,7 @@ correlation Greeks, multiple currencies, seasoned products, American exercise
 and continuous barriers remain outside these extensions. Existing single-asset
 adapters retain their own capabilities and conventions.
 
-See the [runnable example](../../examples/python/multi_asset_lsv.py),
-[Rust regressions](../../crates/pricing/tests/multi_asset.rs) and
-[Python verification](../../tests/python/test_multi_asset_lsv.py). PR CI records
-native Linux/macOS/Windows validation for the published revision.
-
-Local verification of the initial one-factor revision `11fbd20` on 2026-09-14,
-from main `b8b5d62`: Rust 1.98.1 on Linux
-x86-64 passed all **461** default workspace tests and all **5** statistical
-acceptance tests. The installed release CPython 3.12 wheel passed the strict
-metadata/stub/runtime contract, all **69 Python tests**, and the three-product
-LSV example (also added to the wheel CI gate). Formatting, all-target/all-feature
-Clippy with warnings denied, Rust API docs, all three reference fixtures,
-schemas, Markdown links and dependency-direction checks passed locally.
+See the [runnable example](../../examples/python/multi_asset_lsv.py).
 
 ## References
 
