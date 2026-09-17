@@ -43,7 +43,7 @@ The simulation and calibration use
 `dm_i/m_i = L_i(t,m_i) exp(nu_i X_i) dW_i`,
 `dX_i = -k_i X_i dt + dV_i`, `m_i(0)=1`, `X_i(0)=0`.
 
-The existing [particle calibration and discrete VJP](lsv-numerical-contracts.md)
+The existing [particle calibration and discrete VJP](lsv-calculation-specifications.md)
 are reused in `x=log(m_i)`. Every original target time knot, contractual
 observation, in-horizon dividend and correlation date contributes to the common
 grid before maximum-step subdivision. Interpolate each original effective LV

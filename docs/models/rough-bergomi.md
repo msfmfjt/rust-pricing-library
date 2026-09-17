@@ -28,7 +28,7 @@ dividend events, `dS/S=(r-q)dt+sqrt(v_t)dW_S`. With escrowed cash, volatility
 applies to the residual risky equity, with the same stochastic reserve and
 target F coordinate as the [cash model](hull-white-cash-dividends.md).
 Hull–White rates, continuous carry and payment discounting retain the
-[hybrid contract](hull-white-numerical-contracts.md).
+[hybrid contract](hull-white-calculation-specifications.md).
 
 Require finite `0 < H <= 0.5`, finite `eta >= 0`, and a positive-semidefinite
 three-driver correlation matrix for `(W_S,W_v,W_r)`. H=0.5 is the Brownian

@@ -92,7 +92,7 @@ are reused. LSM does not introduce a second simulation or diagnostics model.
 
 ```mermaid
 flowchart LR
-    E0["E0 Numerical contracts"] --> E1["E1 American domain"]
+    E0["E0 Calculation specifications"] --> E1["E1 American domain"]
     E0 --> E2["E2 Basis and QR"]
     E1 --> E3["E3 LSM training"]
     E2 --> E3
@@ -108,7 +108,7 @@ only after the policy and risk identities are exercised end to end.
 
 ## 5. Gate Plan
 
-### E0 - Numerical Contracts and Fixtures
+### E0 - Calculation Specifications and Fixtures
 
 Deliver:
 
@@ -261,7 +261,7 @@ Gate:
 
 ## 6. Suggested Pull-Request Sequence
 
-1. E0 numerical contracts and independent fixtures;
+1. E0 calculation specifications and independent fixtures;
 2. E1 American product and event schedule;
 3. E2 polynomial basis and pivoted QR;
 4. E3 policy training;
@@ -272,7 +272,7 @@ Gate:
 9. E8 conformance report and release baseline.
 
 Each review unit retains a green stacked base. A policy format is not exposed
-publicly until the numerical contract and end-to-end execution prove that its
+publicly until the calculation specification and end-to-end execution prove that its
 identity is complete.
 
 ## 7. Test Matrix

@@ -792,7 +792,7 @@ The MVP linear-algebra backend is pure Rust and single-threaded inside each call
 `PolynomialBasisSpec` enumerates exponent vectors with total degree at most `max_degree`, including the all-zero constant vector, in a versioned graded order derived from declared feature order. Interaction monomials therefore require no separate flag. At each exercise date, the trainer computes each feature's arithmetic mean and population standard deviation with denominator `n` from that date's ITM training rows only and stores them inside the immutable regression model; valuation rows reuse those exact values. The constant feature is never centered or scaled. A zero-scale feature is tagged before matrix construction so all dependent non-constant monomials receive deterministic exclusion diagnostics.
 
 Column-pivoted QR operates on the standardized design matrix using the scalar
-Householder policy fixed by [early-exercise-numerical-contracts.md](../docs/library/early-exercise-numerical-contracts.md).
+Householder policy fixed by [early-exercise-calculation-specifications.md](../docs/library/early-exercise-calculation-specifications.md).
 Residual column norms are recomputed at every pivot, and pivot ties are broken
 by original basis-column index. For explicit non-negative `abs_rank_tol` and
 `rel_rank_tol`, pivot `j` is retained only if
@@ -901,14 +901,14 @@ and a discrete particle-calibration VJP. Its current result is sensitivity to
 effective Dupire variance nodes. The market-IV projection and stable VegaKT
 report integration remain acceptance work; see the
 [LSV roadmap](roadmaps/lsv-roadmap-v0.1.md) and
-[coordinate contracts](../docs/models/lsv-numerical-contracts.md).
+[coordinate contracts](../docs/models/lsv-calculation-specifications.md).
 
 The experimental equity/Hull–White extension adds the rate/integral kernel in
 `pricing::models`, joint simulation and discounted LSV calibration in
 `pricing::mc`, and a separate price-only Rust/Python plan boundary. It does not
 change the dependency direction or stable JSON model variants. See
 [ADR 0001](adr/0001-hull-white-equity-hybrid.md) and the
-[HW numerical contracts](../docs/models/hull-white-numerical-contracts.md).
+[HW calculation specifications](../docs/models/hull-white-calculation-specifications.md).
 
 ### 12.5 Gamma
 
@@ -1040,7 +1040,7 @@ Black-Scholes and Local Volatility/VegaKT slices:
   frozen by the wire schema, fixtures, and payoff fingerprints;
 - SSVI/eSSVI admissibility, eSSVI terminal slope handling, Local-grid helpers,
   VegaKT transition integration, and non-uniform-grid hat-kernel normalization
-  are fixed in [local-vol-vegakt-numerical-contracts.md](../docs/models/local-vol-vegakt-numerical-contracts.md);
+  are fixed in [local-vol-vegakt-calculation-specifications.md](../docs/models/local-vol-vegakt-calculation-specifications.md);
 - scalar dates use the in-house `pricing::core::Date` representation, while
   settlement-lag calendars remain outside v0.1;
 - schema version 1 is the only released wire version for request and result

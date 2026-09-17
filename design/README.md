@@ -4,7 +4,7 @@ This directory contains requirements, architecture, decisions, implementation
 plans and acceptance evidence. The [library guide](../docs/library/README.md),
 [product reference](../docs/products/README.md) and
 [model reference](../docs/models/README.md) describe the usable APIs, product
-contracts and numerical contracts.
+contracts and calculation specifications.
 
 ## Baselines and change process
 
@@ -62,7 +62,7 @@ directory map for the current checkout.
 | Implementation plans and remaining work | `design/roadmaps/` |
 | Conformance reports and captured validation evidence | `design/validation/` |
 
-Keep numerical contracts linked from the library or model index, even when a
+Keep calculation specifications linked from the library or model index, even when a
 design decision introduces them. Update the relevant index when adding a page.
 Repository-local links in both `docs/` and `design/` are checked by
 `python3 scripts/check_markdown_links.py`.

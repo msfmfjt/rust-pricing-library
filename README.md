@@ -97,7 +97,7 @@ automatically converts physical-spot market quotes. See the
 payout quotes remain fixed. See the [AAD contracts](docs/models/hull-white-aad.md),
 [cash-dividend contracts](docs/models/hull-white-cash-dividends.md),
 [example](examples/python/hull_white_lsv.py) and
-[numerical contracts](docs/models/hull-white-numerical-contracts.md).
+[calculation specifications](docs/models/hull-white-calculation-specifications.md).
 
 The same engine now supports experimental rough Bergomi and particle-calibrated
 rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
@@ -106,7 +106,7 @@ driver to Hull–White, default affine or explicit escrowed dividends, first-ord
 VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
 target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
 per path. See the [example](examples/python/rough_bergomi.py) and
-[numerical/API contracts](docs/models/rough-bergomi.md).
+[calculation and API specifications](docs/models/rough-bergomi.md).
 
 Experimental multi-asset pricing is available through Rust
 `multi_asset::MultiAssetPricingPlan` and Python `MultiAssetPlan`. Correlated
@@ -143,7 +143,7 @@ It fits one positive basket of normalized continuous equity martingales by
 varying a scalar mixture of two supplied PSD correlation schedules. It exposes
 support/feasibility diagnostics and joint basket/constituent volatility AAD
 through the finite particle recalibration. See the
-[numerical and coordinate contracts](docs/models/local-correlation.md) and
+[calculation and coordinate specifications](docs/models/local-correlation.md) and
 [three-product example](examples/python/local_correlation.py).
 Joint LSV/HW endpoints preserve each asset's spot/vol/rate marginal block.
 HW basket calibration requires a paired variance/density target and includes

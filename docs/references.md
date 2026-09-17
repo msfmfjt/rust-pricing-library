@@ -1,10 +1,11 @@
 # Model and numerical method references
 
-This page is the bibliography for the model and calculation-method contracts
+This page is the bibliography for the model and calculation-method specifications
 under `docs/`. Each model or method document repeats the entries relevant to
 its scope. A citation identifies the mathematical source of a model or method;
 the repository-specific discretization, branch policy and error tolerances are
-specified separately in the linked contract and are not implied by the paper.
+specified separately in the linked calculation specification and are not implied
+by the paper.
 
 ## Core pricing models and volatility surfaces
 

@@ -12,7 +12,7 @@ reproducibility, tests, and roadmap Gates.
 
 Keep user-facing library guidance in [docs/library](docs/library/README.md),
 product definitions in [docs/products](docs/products/README.md), and model
-conventions, numerical contracts and diagnostics in
+conventions, calculation specifications and diagnostics in
 [docs/models](docs/models/README.md). Requirements, architecture, ADRs,
 implementation roadmaps and validation records belong in
 [design](design/README.md). Update the corresponding index and all relative links

@@ -19,7 +19,7 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 
 | Gate | Current evidence | Status |
 |---|---|---|
-| E0 | Frozen numerical contract, Decimal reference fixture, independent checker | Satisfied locally |
+| E0 | Frozen calculation specification, Decimal reference fixture, independent checker | Satisfied locally |
 | E1 | American domain, schedule materialization, event-order and deterministic exercise tests | Satisfied locally |
 | E2 | Polynomial basis, scaling, CPQR, rank, resource-limit, and reference tests | Satisfied locally |
 | E3 | Backward training, domain isolation, zero-ITM policy, immutable model, and fingerprint tests | Satisfied locally |
@@ -53,7 +53,7 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 
 ## Current retained evidence
 
-- numerical policy: [early-exercise-numerical-contracts.md](../../docs/library/early-exercise-numerical-contracts.md);
+- numerical policy: [early-exercise-calculation-specifications.md](../../docs/library/early-exercise-calculation-specifications.md);
 - diagnostics catalogue: [early-exercise-diagnostics.md](../../docs/library/early-exercise-diagnostics.md);
 - independent reference artifact:
   `fixtures/early-exercise/reference-cases-v0.1.json`;

@@ -13,6 +13,6 @@ published sources for the models and calculation methods described below.
 
 Contributor checks are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-Numerical contracts and diagnostics stay with the library or model they describe:
+Calculation specifications and diagnostics stay with the library or model they describe:
 they specify observable behavior, conventions, supported inputs and limitations.
 Development plans and historical validation records belong in `design/`.

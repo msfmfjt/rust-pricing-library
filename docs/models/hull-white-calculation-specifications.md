@@ -1,4 +1,4 @@
-# Equity/Hull–White numerical contracts
+# Equity/Hull–White calculation specifications
 
 Status: experimental price contracts. Date: 2026-09-12; AAD extension 2026-09-13.
 These are the default no-cash contracts. The explicit

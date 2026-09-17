@@ -28,4 +28,4 @@ reserve/scale coefficients and the payment discount into the initial curves.
 The returned LSV target adjoints must be contracted through **both** variance
 and density changes for a smile shock. This does not establish a market-IV
 VegaKT mapping or an unbiased continuum Greek. See the
-[AAD numerical contracts](../../docs/models/hull-white-aad.md).
+[AAD calculation specifications](../../docs/models/hull-white-aad.md).

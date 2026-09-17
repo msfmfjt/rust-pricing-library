@@ -1,4 +1,4 @@
-# Path Dependence Numerical Contracts
+# Path Dependence Calculation Specifications
 
 Status: Frozen for roadmap Gate P0, including the continuous smoothing amendment
 

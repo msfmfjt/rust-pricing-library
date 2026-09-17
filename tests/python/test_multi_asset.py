@@ -1,4 +1,4 @@
-"""Native multi-asset API: numerical contracts, immutable inputs and validation."""
+"""Native multi-asset API: calculation specifications, immutable inputs and validation."""
 from datetime import date
 import math
 import unittest

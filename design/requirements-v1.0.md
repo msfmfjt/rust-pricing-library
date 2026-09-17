@@ -140,7 +140,7 @@ The precise admissibility tolerances, eSSVI terminal forward-variance slope
 configuration, and quantitative helper parameters for the two tail
 probabilities, two paddings, side-specific node counts, and piecewise-sinh
 shape are fixed for v0.1 in
-[local-vol-vegakt-numerical-contracts.md](../docs/models/local-vol-vegakt-numerical-contracts.md). These policies remain
+[local-vol-vegakt-calculation-specifications.md](../docs/models/local-vol-vegakt-calculation-specifications.md). These policies remain
 replaceable rather than embedded in the pricing engine.
 
 ### 3.2 Dates, curves, and dividends
@@ -1008,7 +1008,7 @@ The following choices do not change the agreed product scope or externally
 observable requirements. Decisions needed by the accepted European
 Black-Scholes and Local Volatility/VegaKT baselines are recorded in
 [architecture-v0.1.md](architecture-v0.1.md),
-[local-vol-vegakt-numerical-contracts.md](../docs/models/local-vol-vegakt-numerical-contracts.md), and the conformance reports.
+[local-vol-vegakt-calculation-specifications.md](../docs/models/local-vol-vegakt-calculation-specifications.md), and the conformance reports.
 Choices for future product slices remain open until their own roadmap or ADR is
 accepted:
 

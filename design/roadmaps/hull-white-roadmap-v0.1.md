@@ -6,7 +6,7 @@ LSV PR #47. The earlier stack's acceptance/merge status is unchanged.
 
 The [decision](../adr/0001-hull-white-equity-hybrid.md) records the extension to
 the deterministic-rate requirements. The
-[numerical contracts](../../docs/models/hull-white-numerical-contracts.md) define the model,
+[calculation specifications](../../docs/models/hull-white-calculation-specifications.md) define the model,
 discounted measure, calibration estimator and reproducibility boundary.
 
 ## Available API

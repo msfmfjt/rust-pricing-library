@@ -1,7 +1,7 @@
-# Hull–White cash-dividend numerical contracts
+# Hull–White cash-dividend calculation specifications
 
 Date: 2026-09-13. Status: experimental price and coordinate contracts.
-Base: [HW contracts](hull-white-numerical-contracts.md), PR #48.
+Base: [HW contracts](hull-white-calculation-specifications.md), PR #48.
 First-order risk is specified separately in the [AAD contracts](hull-white-aad.md).
 
 ## Explicit model and API

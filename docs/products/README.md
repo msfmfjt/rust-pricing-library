@@ -16,12 +16,12 @@ which pricing entry points accept each product family.
 | Product | Contract reference | Example |
 | --- | --- | --- |
 | European vanilla | [European diagnostics](../models/european-bs-diagnostics.md) | [European Black–Scholes](../../examples/python/european_bs.py) |
-| Digital | [Path-dependence contracts](../library/path-dependence-numerical-contracts.md) | [Path dependence](../../examples/python/path_dependence.py) |
-| Barrier | [Path-dependence contracts](../library/path-dependence-numerical-contracts.md) | [Path dependence](../../examples/python/path_dependence.py) |
-| Arithmetic Asian | [Path-dependence contracts](../library/path-dependence-numerical-contracts.md) | [Path dependence](../../examples/python/path_dependence.py) |
-| Fixed-strike Lookback | [Path-dependence contracts](../library/path-dependence-numerical-contracts.md) | [Path dependence](../../examples/python/path_dependence.py) |
-| American vanilla | [Early-exercise contracts](../library/early-exercise-numerical-contracts.md) | [American LSM](../../examples/python/american_lsm.py) |
-| Bermudan vanilla | [Early-exercise contracts](../library/early-exercise-numerical-contracts.md) | [American LSM](../../examples/python/american_lsm.py) |
+| Digital | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |
+| Barrier | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |
+| Arithmetic Asian | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |
+| Fixed-strike Lookback | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |
+| American vanilla | [Early-exercise calculation specifications](../library/early-exercise-calculation-specifications.md) | [American LSM](../../examples/python/american_lsm.py) |
+| Bermudan vanilla | [Early-exercise calculation specifications](../library/early-exercise-calculation-specifications.md) | [American LSM](../../examples/python/american_lsm.py) |
 | Basket | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
 | Worst-of | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
 | Autocallable | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |

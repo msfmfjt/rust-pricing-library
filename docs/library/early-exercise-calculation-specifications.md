@@ -1,4 +1,4 @@
-# Early Exercise Numerical Contracts
+# Early Exercise Calculation Specifications
 
 Status: Frozen for roadmap Gate E0
 
@@ -216,5 +216,5 @@ compare finite differences using separately declared tolerances.
 - [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), for reverse differentiation through the fixed fitted policy.
 
 The policy identifiers, feature scaling, pivot tie-breaks and fixed-stopping
-convention are repository-specific numerical contracts rather than claims made
+convention are repository-specific calculation specifications rather than claims made
 by the cited literature.
