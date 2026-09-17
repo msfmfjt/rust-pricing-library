@@ -144,6 +144,23 @@ as `bergomi-calibration-quality-<os>`, including failed gates. `BERGOMI_RUN` and
 `BERGOMI_QUALITY` lines contain JSON with configuration, seeds, per-quote errors,
 conditional and total uncertainty, support counts and martingale diagnostics.
 
+The retained results file below is rebuilt from that log rather than assembled
+by hand:
+
+```bash
+python3 scripts/summarize_bergomi_quality.py --log bergomi-calibration-quality.log
+```
+
+It records the test-source SHA-256, the resolved baseline commit and the local
+toolchain, and refuses to write a document it cannot stand behind: a log with no
+runs, a surface reported twice, a null metric (which is how serde writes a
+nonfinite value), or reports carrying different models, as happens if the
+stressed vol-of-vol or refinement output is in the same log. Pass `--platform`
+and `--compiler` when summarizing a log produced on another machine, since
+recording the local toolchain for a foreign log would be a false provenance
+claim, and `--check` to assert the file is already current for a log without
+rewriting it.
+
 For a one-at-a-time sensitivity report:
 
 ```bash
@@ -205,9 +222,9 @@ Rust 1.98.1, release profile, on the baseline above plus this test-only change:
 the exact test-source SHA-256, seeds, model parameters and uncertainty metrics.
 Those numbers predate the support and target-interpolation budgets, so the file
 carries neither `minimum_ess` nor `target_interpolation_error_bp` and its
-recorded test-source hash no longer matches the test target. It is regenerated,
-with the per-node support figures, on the next release run; until then treat the
-error columns below as current and the file as the earlier schema.
+recorded test-source hash no longer matches the test target. Regenerate it with
+the command above on the next release run; until then treat the error columns
+below as current and the file as the earlier schema.
 
 | Surface, bandwidth 0.02 | Maximum absolute IV error | IV RMSE | Maximum LV-control error | Maximum total SE |
 | --- | --- | --- | --- | --- |
