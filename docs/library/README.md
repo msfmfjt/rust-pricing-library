@@ -43,15 +43,15 @@ Model-specific adapters and their limitations are indexed in the
 
 The supported product catalogue is maintained in the
 [product reference](../products/README.md). The table below points to the
-corresponding contracts and diagnostics.
+diagnostic and numerical-contract pages.
 
 | Topic | Reference | Runnable Python example |
 | --- | --- | --- |
-| European vanilla, MC/RQMC and Greeks | [European diagnostics](../models/european-bs-diagnostics.md) | [European Black–Scholes](../../examples/python/european_bs.py) |
-| Digital, Barrier, Asian and Lookback | [Numerical contracts](path-dependence-numerical-contracts.md), [diagnostics](path-dependence-diagnostics.md) | [Path dependence](../../examples/python/path_dependence.py) |
-| American/Bermudan exercise and fixed-policy LSM risk | [Numerical contracts](early-exercise-numerical-contracts.md), [diagnostics](early-exercise-diagnostics.md) | [American LSM](../../examples/python/american_lsm.py) |
-| Basket, Worst-of and Autocallable | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
-| Local variance risk and VegaKT | [Local Volatility contracts](../models/local-vol-vegakt-numerical-contracts.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
+| European Monte Carlo/RQMC diagnostics | [European diagnostics](../models/european-bs-diagnostics.md) | [European Black–Scholes](../../examples/python/european_bs.py) |
+| Path-dependent payoff and barrier contracts | [Numerical contracts](path-dependence-numerical-contracts.md), [diagnostics](path-dependence-diagnostics.md) | [Path dependence](../../examples/python/path_dependence.py) |
+| Early-exercise policy and fixed-policy risk | [Numerical contracts](early-exercise-numerical-contracts.md), [diagnostics](early-exercise-diagnostics.md) | [American LSM](../../examples/python/american_lsm.py) |
+| Multi-asset payoff graph and risk | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
+| Local-variance risk and VegaKT | [Local Volatility contracts](../models/local-vol-vegakt-numerical-contracts.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
 
 Greeks, smoothing policies and supported products depend on the selected plan.
 Use the corresponding numerical contract before combining product and model

@@ -10,14 +10,15 @@ reproducibility, tests, and roadmap Gates.
 
 ## Documentation layout
 
-Keep user-facing library guidance in [docs/library](docs/library/README.md) and
-model conventions, numerical contracts and diagnostics in
+Keep user-facing library guidance in [docs/library](docs/library/README.md),
+product definitions in [docs/products](docs/products/README.md), and model
+conventions, numerical contracts and diagnostics in
 [docs/models](docs/models/README.md). Requirements, architecture, ADRs,
 implementation roadmaps and validation records belong in
 [design](design/README.md). Update the corresponding index and all relative links
 when moving or adding a document.
 
-The Markdown link checker and source-archive checker cover both documentation
+The Markdown link checker and source-archive checker cover all documentation
 trees. Preserve captured validation evidence as historical data; update the
 surrounding report's links instead of rewriting recorded paths in raw artifacts.
 

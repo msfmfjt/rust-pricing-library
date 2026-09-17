@@ -7,7 +7,7 @@ published sources for the models and calculation methods described below.
 
 | Start here | Contents |
 | --- | --- |
-| [Library guide](library/README.md) | Rust and Python entry points, runnable examples, product contracts, diagnostics, serialization, migration and benchmarking |
+| [Library guide](library/README.md) | Rust and Python entry points, diagnostics, serialization, migration and benchmarking |
 | [Product reference](products/README.md) | Supported financial products and their contract pages and examples |
 | [Model reference](models/README.md) | Black–Scholes/Black-76, Local Volatility, Bergomi LSV, Hull–White, rough volatility and multi-asset model contracts |
 

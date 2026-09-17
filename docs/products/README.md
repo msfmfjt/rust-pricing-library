@@ -8,6 +8,9 @@ supported combinations.
 [Documentation](../README.md) · [Library guide](../library/README.md) ·
 [Model reference](../models/README.md)
 
+The [product and model compatibility matrix](compatibility.md) summarizes
+which pricing entry points accept each product family.
+
 ## Supported products
 
 | Product | Contract reference | Example |
@@ -35,7 +38,8 @@ supported combinations.
 - Fixed-strike Lookbacks use discrete observations and a historical extremum
   when one is supplied.
 - American and Bermudan vanilla products use scheduled exercise and the
-  documented least-squares Monte Carlo policy.
+  documented least-squares Monte Carlo policy. Bermudan vanilla is represented
+  by the same `AmericanVanillaSpec` with multiple exercise dates.
 - Basket, Worst-of and Autocallable products are multi-asset graph products.
   Autocallables support dated observations, payment lags and memory or
   non-memory termination policies.

@@ -39,11 +39,13 @@ stable numerical-branch counts.
 
 | Topic | Start here |
 | --- | --- |
-| Library usage, APIs, products, diagnostics and compatibility | [Library guide](docs/library/README.md) |
+| Library usage, APIs, diagnostics and compatibility | [Library guide](docs/library/README.md) |
+| Supported financial products | [Product reference](docs/products/README.md) |
 | Models, calibration, simulation and risk conventions | [Model reference](docs/models/README.md) |
 | Requirements, architecture, ADRs, roadmaps and acceptance evidence | [Design and development records](design/README.md) |
 
-The [documentation index](docs/README.md) links the library and model guides.
+The [documentation index](docs/README.md) links the library, product and model
+guides.
 Design documents are maintained separately in `design/`.
 
 ## Status

@@ -1,9 +1,10 @@
 # Design and development records
 
 This directory contains requirements, architecture, decisions, implementation
-plans and acceptance evidence. The [library guide](../docs/library/README.md)
-and [model reference](../docs/models/README.md) describe the usable APIs and
-numerical contracts.
+plans and acceptance evidence. The [library guide](../docs/library/README.md),
+[product reference](../docs/products/README.md) and
+[model reference](../docs/models/README.md) describe the usable APIs, product
+contracts and numerical contracts.
 
 ## Baselines and change process
 
@@ -53,7 +54,8 @@ directory map for the current checkout.
 
 | Content | Location |
 | --- | --- |
-| Usage, product behavior, serialization, migration and benchmarking | `docs/library/` |
+| Usage, serialization, migration and benchmarking | `docs/library/` |
+| Product definitions, payoff behavior and event conventions | `docs/products/` |
 | Model equations, calibration, simulation, risk and model diagnostics | `docs/models/` |
 | Requirements, architecture and release planning | `design/` |
 | Architecture decisions | `design/adr/` |
