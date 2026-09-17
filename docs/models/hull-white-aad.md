@@ -1,8 +1,8 @@
-# Equity/Hull–White AAD numerical contracts
+# Equity/Hull–White AAD calculation specifications
 
 Date: 2026-09-13. Status: experimental first-order implementation of H5.
 Quote-backed VegaKT is described in the [VegaKT contracts](hull-white-vegakt.md).
-These contracts extend the [hybrid](hull-white-numerical-contracts.md) and
+These contracts extend the [hybrid](hull-white-calculation-specifications.md) and
 [cash-dividend](hull-white-cash-dividends.md) price contracts.
 The [rough extension](rough-bergomi.md) reuses this VJP with a fixed
 Volterra driver and adds the pure model's `initial_volatility` sensitivity.

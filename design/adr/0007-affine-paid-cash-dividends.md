@@ -46,7 +46,7 @@ forward, not the zero-rate-volatility limit of this model.
 
 ## Verification and limits
 
-See [the numerical/API contract](../../docs/models/hull-white-affine-dividends.md) and
+See [the calculation and API specifications](../../docs/models/hull-white-affine-dividends.md) and
 `crates/pricing/tests/hull_white_affine.rs`. Test deterministic limits against an
 independent carried-cash forward and shifted-Black reference; check discounted
 gains pathwise, event collisions, missing cash dates, nonpositive paths, future

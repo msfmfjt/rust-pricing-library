@@ -1,4 +1,4 @@
-# LSV numerical contracts
+# LSV calculation specifications
 
 Status: Implemented experimental numerical boundary, 2026-09-12.
 ## 1. Coordinates and stochastic factor

@@ -9,8 +9,8 @@ Published sources are collected in the [bibliography](../../references.md).
 | Component | Detailed reference | Example |
 | --- | --- | --- |
 | Black–Scholes and Black-76 | [European diagnostics](../european-bs-diagnostics.md) | [European Black–Scholes](../../../examples/python/european_bs.py) |
-| Local Volatility and Dupire | [Local Volatility numerical contracts](../local-vol-vegakt-numerical-contracts.md) | [Local Volatility](../../../examples/python/local_vol_vegakt.py) |
-| Local-stochastic volatility | [LSV numerical contracts](../lsv-numerical-contracts.md) | [Bergomi LSV](../../../examples/python/bergomi_lsv.py) |
+| Local Volatility and Dupire | [Local Volatility calculation specifications](../local-vol-vegakt-calculation-specifications.md) | [Local Volatility](../../../examples/python/local_vol_vegakt.py) |
+| Local-stochastic volatility | [LSV calculation specifications](../lsv-calculation-specifications.md) | [Bergomi LSV](../../../examples/python/bergomi_lsv.py) |
 | Bergomi volatility factors | [Two-factor factor contracts](../bergomi-two-factor-lsv.md) | [Two-factor Bergomi](../../../examples/python/multi_asset_bergomi_two_factor.py) |
 | Rough Bergomi volatility | [Rough Bergomi contracts](../rough-bergomi.md) | [Rough Bergomi](../../../examples/python/rough_bergomi.py) |
 
@@ -18,16 +18,16 @@ Published sources are collected in the [bibliography](../../references.md).
 
 | Component | Detailed reference | Example |
 | --- | --- | --- |
-| Hull–White short rate | [Hull–White numerical contracts](../hull-white-numerical-contracts.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
+| Hull–White short rate | [Hull–White calculation specifications](../hull-white-calculation-specifications.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
 | Cash-dividend coordinates | [Paid-cash dividends](../hull-white-affine-dividends.md), [escrowed cash dividends](../hull-white-cash-dividends.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
 
 ## Surfaces and calibration targets
 
 | Component | Detailed reference | Related method |
 | --- | --- | --- |
-| SVI, SSVI and eSSVI | [Local Volatility numerical contracts](../local-vol-vegakt-numerical-contracts.md) | [Surface bibliography](../../references.md#core-pricing-models-and-volatility-surfaces) |
-| Local variance and Dupire density | [Local Volatility numerical contracts](../local-vol-vegakt-numerical-contracts.md) | [Local Volatility diagnostics](../local-vol-vegakt-diagnostics.md) |
-| LSV leverage target | [LSV numerical contracts](../lsv-numerical-contracts.md) | [Calibration methods](../methods/README.md#calibration-and-interpolation) |
+| SVI, SSVI and eSSVI | [Local Volatility calculation specifications](../local-vol-vegakt-calculation-specifications.md) | [Surface bibliography](../../references.md#core-pricing-models-and-volatility-surfaces) |
+| Local variance and Dupire density | [Local Volatility calculation specifications](../local-vol-vegakt-calculation-specifications.md) | [Local Volatility diagnostics](../local-vol-vegakt-diagnostics.md) |
+| LSV leverage target | [LSV calculation specifications](../lsv-calculation-specifications.md) | [Calibration methods](../methods/README.md#calibration-and-interpolation) |
 
 ## Multi-asset and correlation
 

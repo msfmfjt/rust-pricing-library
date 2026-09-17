@@ -1,9 +1,10 @@
 # Design and development records
 
 This directory contains requirements, architecture, decisions, implementation
-plans and acceptance evidence. The [library guide](../docs/library/README.md)
-and [model reference](../docs/models/README.md) describe the usable APIs and
-numerical contracts.
+plans and acceptance evidence. The [library guide](../docs/library/README.md),
+[product reference](../docs/products/README.md) and
+[model reference](../docs/models/README.md) describe the usable APIs, product
+contracts and calculation specifications.
 
 ## Baselines and change process
 
@@ -53,14 +54,15 @@ directory map for the current checkout.
 
 | Content | Location |
 | --- | --- |
-| Usage, product behavior, serialization, migration and benchmarking | `docs/library/` |
+| Usage, serialization, migration and benchmarking | `docs/library/` |
+| Product definitions, payoff behavior and event conventions | `docs/products/` |
 | Model equations, calibration, simulation, risk and model diagnostics | `docs/models/` |
 | Requirements, architecture and release planning | `design/` |
 | Architecture decisions | `design/adr/` |
 | Implementation plans and remaining work | `design/roadmaps/` |
 | Conformance reports and captured validation evidence | `design/validation/` |
 
-Keep numerical contracts linked from the library or model index, even when a
+Keep calculation specifications linked from the library or model index, even when a
 design decision introduces them. Update the relevant index when adding a page.
 Repository-local links in both `docs/` and `design/` are checked by
 `python3 scripts/check_markdown_links.py`.

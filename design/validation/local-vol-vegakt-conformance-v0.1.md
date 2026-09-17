@@ -51,7 +51,7 @@ diagnostics.
   `fixtures/replay/local_volatility-macos-aarch64.json`.
 - Frozen Windows x86-64 Price-only and Delta/Gamma/Vega/VegaKT replay artifact:
   `fixtures/replay/local_volatility-windows-x86_64.json`.
-- Frozen numerical policy: [local-vol-vegakt-numerical-contracts.md](../../docs/models/local-vol-vegakt-numerical-contracts.md).
+- Frozen numerical policy: [local-vol-vegakt-calculation-specifications.md](../../docs/models/local-vol-vegakt-calculation-specifications.md).
 - Diagnostics catalogue: [local-vol-vegakt-diagnostics.md](../../docs/models/local-vol-vegakt-diagnostics.md).
 - Python valuation example: `examples/python/local_vol_vegakt.py`.
 - Retained Local Volatility/VegaKT benchmark artifact:

@@ -73,7 +73,7 @@ no-discrete-dividend Local Vol/VegaKT path, but before final acceptance.
 
 ```mermaid
 flowchart TD
-    L0["L0 Numerical contracts"] --> L1["L1 SSVI/eSSVI"]
+    L0["L0 Calculation specifications"] --> L1["L1 SSVI/eSSVI"]
     L1 --> L2["L2 Dupire grid"]
     L2 --> L3["L3 Local Vol paths"]
     L3 --> L4["L4 Local Vega AAD"]
@@ -88,12 +88,12 @@ policy is compiled and fingerprinted before it is used by a path kernel.
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| L0 Numerical contracts | Accepted | [local-vol-vegakt-numerical-contracts.md](../../docs/models/local-vol-vegakt-numerical-contracts.md) and `fixtures/local-vol/reference-cases-v0.1.json` |
+| L0 Calculation specifications | Accepted | [local-vol-vegakt-calculation-specifications.md](../../docs/models/local-vol-vegakt-calculation-specifications.md) and `fixtures/local-vol/reference-cases-v0.1.json` |
 | L1-L8 | Accepted | [local-vol-vegakt-conformance-v0.1.md](../validation/local-vol-vegakt-conformance-v0.1.md) |
 
 ## 4. Gate plan
 
-### L0 — Numerical contracts and paper fixtures
+### L0 — Calculation specifications and paper fixtures
 
 Status: Accepted under policy `local_vol_vegakt_v1`.
 

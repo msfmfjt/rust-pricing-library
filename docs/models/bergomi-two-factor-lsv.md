@@ -1,7 +1,7 @@
 # Two-factor Bergomi LSV
 
 This extends the [multi-asset LSV API](multi-asset-lsv.md) and the
-[single-asset LSV API](lsv-numerical-contracts.md) to two volatility
+[single-asset LSV API](lsv-calculation-specifications.md) to two volatility
 factors per asset. Deterministic rates, the existing affine dividend coordinate,
 particle calibration and its discrete target-variance VJP are retained.
 One-factor entry points, random coordinates and numerical scheme identifiers

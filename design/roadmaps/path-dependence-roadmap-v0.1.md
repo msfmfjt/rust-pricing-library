@@ -89,7 +89,7 @@ generation is not introduced by this slice.
 
 ```mermaid
 flowchart LR
-    P0["P0 Numerical contracts"] --> P1["P1 Smoothed graph opcodes"]
+    P0["P0 Calculation specifications"] --> P1["P1 Smoothed graph opcodes"]
     P1 --> P2["P2 Digital risk"]
     P1 --> P3["P3 Barrier state"]
     P3 --> P4["P4 Continuous barrier bridge"]
@@ -107,7 +107,7 @@ underlying numerical behavior is tested.
 
 ## 5. Gate Plan
 
-### P0 — Numerical Contracts and Fixtures
+### P0 — Calculation Specifications and Fixtures
 
 Deliver:
 
@@ -276,7 +276,7 @@ Gate:
 
 ## 6. Suggested Pull-Request Sequence
 
-1. P0 smoothing and barrier numerical contracts with independent fixtures;
+1. P0 smoothing and barrier calculation specifications with independent fixtures;
 2. P1 compact-C2 graph opcodes and reverse rules;
 3. P2 Digital smoothed Price/AAD and diagnostics;
 4. P3 discrete Barrier state, affine-dividend crossings, and risk;

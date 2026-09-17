@@ -5,7 +5,7 @@ methods. Pages describing combinations of components are kept separately as
 composition guides.
 
 [Documentation](../README.md) · [Library guide](../library/README.md) ·
-[Bibliography](../references.md)
+[Product reference](../products/README.md) · [Bibliography](../references.md)
 
 ## Model components
 

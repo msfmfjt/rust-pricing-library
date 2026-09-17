@@ -1,4 +1,4 @@
-# Local Volatility and VegaKT Numerical Contracts
+# Local Volatility and VegaKT Calculation Specifications
 
 Status: Accepted for Gate L0
 Date: 2026-09-08
@@ -398,7 +398,7 @@ Production code must pass, in order:
 5. refinement, CRN, statistical, replay, and cross-language tests in later
    Gates.
 
-No later performance result may weaken one of these numerical contracts.
+No later performance result may weaken one of these calculation specifications.
 
 ## References
 

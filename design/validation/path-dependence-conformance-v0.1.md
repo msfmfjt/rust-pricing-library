@@ -19,7 +19,7 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 
 | Gate | Current evidence | Status |
 |---|---|---|
-| P0 | [path-dependence-numerical-contracts.md](../../docs/library/path-dependence-numerical-contracts.md), Decimal reference fixture, independent checker | Satisfied locally |
+| P0 | [path-dependence-calculation-specifications.md](../../docs/library/path-dependence-calculation-specifications.md), Decimal reference fixture, independent checker | Satisfied locally |
 | P1 | `pricing::product` smoothing and graph tests cover kernels, extrema, reverse rules, constant folding, limits, and fingerprints | Satisfied locally |
 | P2 | Digital exact/smoothed unit tests, CRN risk validation, public diagnostics, Python smoke coverage | Satisfied locally |
 | P3 | Discrete Barrier state, parity, rebates, endpoint/jump handling, reverse checks, and collision tests | Satisfied locally |
@@ -54,7 +54,7 @@ retains the supported wheel, replay, source, and benchmark artifacts.
 
 ## Current retained evidence
 
-- numerical policy: [path-dependence-numerical-contracts.md](../../docs/library/path-dependence-numerical-contracts.md);
+- numerical policy: [path-dependence-calculation-specifications.md](../../docs/library/path-dependence-calculation-specifications.md);
 - diagnostics catalogue: [path-dependence-diagnostics.md](../../docs/library/path-dependence-diagnostics.md);
 - independent reference artifact:
   `fixtures/path-dependence/reference-cases-v0.1.json`;
