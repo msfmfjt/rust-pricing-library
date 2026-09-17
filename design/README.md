@@ -41,7 +41,7 @@ documents the public API migration.
 | Local Volatility / VegaKT | [L0–L8](roadmaps/local-vol-vegakt-roadmap-v0.1.md) | [Conformance report](validation/local-vol-vegakt-conformance-v0.1.md) |
 | Path dependence | [P0–P8](roadmaps/path-dependence-roadmap-v0.1.md) | [Conformance report](validation/path-dependence-conformance-v0.1.md) |
 | Early exercise | [E0–E8](roadmaps/early-exercise-roadmap-v0.1.md) | [Conformance report](validation/early-exercise-conformance-v0.1.md) |
-| Bergomi LSV | [Implementation and remaining acceptance](roadmaps/lsv-roadmap-v0.1.md) | Experimental status and evidence recorded in the roadmap |
+| Bergomi LSV | [Implementation and remaining acceptance](roadmaps/lsv-roadmap-v0.1.md) | [One-factor calibration quality gate](validation/bergomi-calibration-quality.md); wider experimental status remains in the roadmap |
 | Hull–White | [Implementation and acceptance](roadmaps/hull-white-roadmap-v0.1.md) | Experimental status and evidence recorded in the roadmap |
 
 The [three-crate validation report](validation/three-crate-validation.md) links
