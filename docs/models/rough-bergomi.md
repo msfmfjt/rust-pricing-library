@@ -5,6 +5,8 @@ Date: 2026-09-13. Status: experimental implementation.
 [Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi.md) extends
 this nonuniform hybrid scheme to jointly driven rough and Markovian assets.
 The single-equity entry points and conventions below remain available.
+[Deterministic-rate rough-LSV](#deterministic-rate-rough-lsv-without-hullwhite)
+has its own entry point without Hull–White inputs.
 
 ## Model and input conventions
 
@@ -163,6 +165,73 @@ Calibration labels: `rough-lsv-hw-discounted-quartic-v1` and
 `rough-lsv-hw-escrowed-quadratic-v1`. Pure rough has no calibration label/seed.
 H, eta, correlations, the base request, time grid and calibration configuration
 contribute to the plan fingerprint. `random_factor_count` reports five.
+
+## Deterministic-rate rough-LSV without Hull–White
+
+`RoughBergomiLsvPricingPlan` is the rough counterpart of `BergomiLsvPricingPlan`
+([ADR 0008](../../design/adr/0008-deterministic-rate-rough-lsv.md)). It takes the
+same Price-only `PricingRequest` with a Local Volatility target, calibrates
+`L(t,F)^2 = sigma_LV^2 / E[a_t^2 | F_t]` with the existing particle algorithm and
+evaluates the request's product with independent MC/RQMC paths. Discounting,
+carry and discrete dividends follow the request's deterministic market, exactly
+as for the Bergomi plans. No Hull–White model, rate correlation or HW target is
+required.
+
+The driver uses the same nonuniform kappa=1 hybrid scheme, Volterra weights and
+discrete-variance centring as above. Without rates, each step needs three
+factor-major Gaussian blocks instead of five: spot normals, variance normals
+orthogonal to spot, and near-cell residual normals. With `h` the step,
+`p=H+1/2` and `rho` the equity/volatility correlation,
+
+$$
+\begin{aligned}
+\Delta W_v&=\sqrt h\left(\rho z_S+\sqrt{1-\rho^2}\,z_v\right),\\
+J&=\beta\,\Delta W_v+\sigma_J z_J,\qquad
+\beta=\frac{\sqrt{2H}\,h^{H-1/2}}{p},\qquad
+\sigma_J^2=h^{2H}\left(1-\frac{2H}{p^2}\right).
+\end{aligned}
+$$
+
+This reproduces `Var(J)=h^(2H)`, `Cov(J,dW_v)=sqrt(2H)h^p/p` and
+`Cov(J,dW_S)=rho*sqrt(2H)h^p/p` exactly. The residual variance is nonnegative
+because `2H <= p^2`, and it is exactly zero at H=0.5, where `J` equals the
+Brownian increment. The law of `(dW_S, dW_v, J)` equals the HW engine's at zero
+rate volatility; the random coordinates differ, so paths are not pathwise equal.
+
+At H=0.5 with `eta=2*nu`, the driver equals zero-mean-reversion one-factor
+Bergomi up to the deterministic centring `exp(-2 nu^2 t)`, which the calibrated
+leverage absorbs. On the calibration grid the particles, leverage-times-multiplier
+products and pseudo-MC prices then agree with `BergomiLsvPricingPlan` up to
+roundoff, because the first two Gaussian blocks use the same coordinates. On a
+finer execution grid they differ between leverage knots, where the rough centring
+moves with the node time while the absorbed factor is constant per leverage row.
+
+Calibration first generates each particle's full driver history from its own
+calibration normals (spot, orthogonal and near-cell blocks at dimensions `r`,
+`N+r` and `2N+r`), then runs the particle algorithm. This holds
+`particles * time nodes` multipliers in memory, in addition to any reverse trace,
+and costs O(particles * N^2) once. `calibrate_rough_bergomi_lsv_parallel` and
+the plan spread both stages over the execution policy's workers with results
+bit-identical for any worker count.
+
+| Item | Value |
+| --- | --- |
+| Rust plan | `pricing::lsv::RoughBergomiLsvPricingPlan::compile(request, RoughBergomi, LsvParticleConfig, ExecutionPolicy)` |
+| Rust calibration | `calibrate_rough_bergomi_lsv`, `calibrate_rough_bergomi_lsv_parallel`, `CalibratedRoughBergomiLsv` |
+| Rust paths | `RoughBergomiLsvPlan::{pseudo_shocks, evolve_path, evolve_states}`, `RoughBergomiLsvPath::reverse` |
+| Python | `rp.RoughBergomiLsvPlan.compile(request, hurst=..., vol_of_vol=eta, correlation=..., ...)` with the `BergomiLsvPlan` particle options |
+| Price scheme | `rough-bergomi-lsv-hybrid-kappa1-log-euler-v1` |
+| Random layout | three factor-major blocks per step; RQMC dimension `3*N` |
+| Risk | Price and calibrated local-variance risk through `evaluate_local_variance_risk`, as for Bergomi LSV |
+
+The pathwise reverse returns squared-leverage, initial-f and all three shock
+adjoints; `orthogonal_shocks` holds the orthogonal-variance block followed by the
+near-cell block. H, eta and the correlation contribute to the plan fingerprint
+under the tag `pricing/rough-bergomi-lsv-plan/v1`.
+
+This entry point has no uncalibrated pure rough model and no multi-asset form;
+use the Hull–White plans for those. American/Bermudan exercise and continuous
+Barrier monitoring are rejected as for the other LSV adapters.
 
 ## AAD and VegaKT
 

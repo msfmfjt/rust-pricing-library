@@ -32,6 +32,7 @@ documents the public API migration.
 | [0005](adr/0005-rough-bergomi.md) | Rough Bergomi |
 | [0006](adr/0006-integrate-completed-baseline.md) | Integration of completed baselines |
 | [0007](adr/0007-affine-paid-cash-dividends.md) | Default affine paid-cash dividends |
+| [0008](adr/0008-deterministic-rate-rough-lsv.md) | Deterministic-rate rough-LSV |
 
 ## Implementation roadmaps and acceptance
 

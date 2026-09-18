@@ -3,6 +3,9 @@
 use crate::models::hull_white::{b, hw_valid};
 use crate::models::{HullWhite1Factor, HullWhiteError, HybridCorrelation};
 
+/// Per-node history weights and discrete driver variances of the hybrid scheme.
+pub(crate) type VolterraWeights = (Vec<Box<[f64]>>, Vec<f64>);
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RoughBergomi {
     hurst: f64,
@@ -37,6 +40,29 @@ impl RoughBergomi {
     #[must_use]
     pub const fn correlation(self) -> f64 {
         self.correlation
+    }
+
+    /// Hybrid-scheme history weights and discrete driver variances on a grid.
+    /// Row i holds w_ij for the older cells j <= i-2; the newest cell is exact.
+    /// The variance is `(t_i-t_(i-1))^(2H) + sum_j w_ij^2 (t_(j+1)-t_j)`, the
+    /// same finite-grid quantities as the Hull–White rough driver.
+    pub(crate) fn volterra_weights(self, times: &[f64]) -> Result<VolterraWeights, HullWhiteError> {
+        let mut weights = vec![Vec::new().into_boxed_slice()];
+        let mut variances = vec![0.0];
+        for i in 1..times.len() {
+            let mut row = Vec::with_capacity(i - 1);
+            let mut variance = pricing_numerics::NeumaierSum::new();
+            variance.add((times[i] - times[i - 1]).powf(2.0 * self.hurst));
+            for j in 0..i - 1 {
+                let weight = self.average_kernel(times[i] - times[j + 1], times[i] - times[j])?;
+                row.push(weight);
+                variance.add(weight * weight * (times[j + 1] - times[j]));
+            }
+            hw_valid(variance.total(), "rough_driver_variance", i, true)?;
+            weights.push(row.into_boxed_slice());
+            variances.push(variance.total());
+        }
+        Ok((weights, variances))
     }
 
     /// Mean of sqrt(2H)*u^(H-1/2) over a lag interval; the optimal L2 constant.

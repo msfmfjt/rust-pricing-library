@@ -82,6 +82,23 @@ impl From<BergomiError> for LsvError {
         }
     }
 }
+/// Rough Bergomi parameters and kernels report Hull–White-family errors; the
+/// standalone rough-LSV engine reports them as invalid LSV inputs.
+impl From<crate::models::HullWhiteError> for LsvError {
+    fn from(e: crate::models::HullWhiteError) -> Self {
+        match e {
+            crate::models::HullWhiteError::InvalidInput { field, index } => {
+                Self::InvalidInput { field, index }
+            }
+            crate::models::HullWhiteError::Market(e) => Self::Market(e),
+            _ => Self::InvalidInput {
+                field: "rough_bergomi",
+                index: 0,
+            },
+        }
+    }
+}
+
 impl From<MarketError> for LsvError {
     fn from(e: MarketError) -> Self {
         Self::Market(e)
@@ -362,6 +379,34 @@ pub struct BergomiLsvPlan<F: BergomiDynamics = Bergomi1Factor> {
     rows: Box<[usize]>,
 }
 
+/// Checks that an execution grid covers the leverage surface's knots inside
+/// its horizon, and resolves the leverage row each step starts in. The grid may
+/// insert payoff and dividend observations but cannot cross a knot.
+pub(in crate::engine) fn step_rows(
+    surface: &LsvLeverageSurface,
+    times: &[f64],
+) -> Result<Box<[usize]>, LsvError> {
+    let end = times[times.len() - 1];
+    if end > surface.times[surface.times.len() - 1] {
+        return Err(LsvError::InvalidInput {
+            field: "time_coverage",
+            index: 0,
+        });
+    }
+    for (i, &t) in surface.times.iter().enumerate().filter(|(_, t)| **t <= end) {
+        if !times.iter().any(|x| x.to_bits() == t.to_bits()) {
+            return Err(LsvError::InvalidInput {
+                field: "missing_leverage_knot",
+                index: i,
+            });
+        }
+    }
+    Ok(times[..times.len() - 1]
+        .iter()
+        .map(|&time| surface.row_at(time))
+        .collect())
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(in crate::engine) struct Step {
     pub(in crate::engine) lookup: Lookup,
@@ -400,29 +445,11 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
         time_grid: &LocalVolTimeGrid,
     ) -> Result<Self, LsvError> {
         let times = time_grid.nodes();
-        let end = times[times.len() - 1];
-        if end > surface.times[surface.times.len() - 1] {
-            return Err(LsvError::InvalidInput {
-                field: "time_coverage",
-                index: 0,
-            });
-        }
-        for (i, &t) in surface.times.iter().enumerate().filter(|(_, t)| **t <= end) {
-            if !times.iter().any(|x| x.to_bits() == t.to_bits()) {
-                return Err(LsvError::InvalidInput {
-                    field: "missing_leverage_knot",
-                    index: i,
-                });
-            }
-        }
+        let rows = step_rows(&surface, times)?;
         let transitions = times
             .windows(2)
             .map(|w| factor.transition(w[1] - w[0]).map_err(Into::into))
             .collect::<Result<Vec<_>, LsvError>>()?;
-        let rows = times[..times.len() - 1]
-            .iter()
-            .map(|&time| surface.row_at(time))
-            .collect();
         Ok(Self {
             factor,
             surface,
@@ -652,7 +679,7 @@ pub(in crate::engine) fn advance(
     Ok(next)
 }
 
-fn lsv_shocks_with_factors(
+pub(in crate::engine) fn lsv_shocks_with_factors(
     seed: u64,
     path: u64,
     steps: usize,
