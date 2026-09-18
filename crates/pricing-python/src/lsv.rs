@@ -1,7 +1,9 @@
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
-use pricing::lsv::{BergomiLsvPricingPlan, LsvLocalVarianceRisk, LsvPrice};
+use pricing::lsv::{
+    BergomiLsvPricingPlan, LsvLocalVarianceRisk, LsvPrice, RoughBergomiLsvPricingPlan,
+};
 use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
-use pricing::models::{Bergomi1Factor, Bergomi2Factor};
+use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pyo3::prelude::*;
 
 #[pyclass(frozen, name = "BergomiLsvPlan", skip_from_py_object)]
@@ -160,6 +162,109 @@ impl PyBergomi2FactorLsvPlan {
             .map_err(|e| issue(e.to_string()))?;
         let request = target_request.inner.clone();
         py.detach(|| BergomiLsvPricingPlan::compile(&request, factor, particles, policy))
+            .map(|inner| Self { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
+        py.detach(|| self.inner.evaluate())
+            .map(|inner| PyLsvPrice { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_local_variance_risk(&self, py: Python<'_>) -> PyResult<PyLsvLocalVarianceRisk> {
+        py.detach(|| self.inner.evaluate_local_variance_risk())
+            .map(|inner| PyLsvLocalVarianceRisk { inner })
+            .map_err(pricing_exception)
+    }
+    #[getter]
+    fn plan_fingerprint(&self) -> String {
+        self.inner.plan_fingerprint().to_string()
+    }
+    #[getter]
+    fn time_nodes(&self) -> Vec<f64> {
+        self.inner.calibration().surface().times().to_vec()
+    }
+    #[getter]
+    fn log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.calibration().surface().log_nodes().to_vec()
+    }
+    #[getter]
+    fn squared_leverage(&self) -> Vec<f64> {
+        self.inner
+            .calibration()
+            .surface()
+            .squared_leverage()
+            .to_vec()
+    }
+    /// Per-time count of moment nodes using a supported neighbouring estimate.
+    #[getter]
+    fn extrapolated_moment_nodes(&self) -> Vec<usize> {
+        self.inner
+            .calibration()
+            .diagnostics()
+            .iter()
+            .map(|r| r.extrapolated_nodes)
+            .collect()
+    }
+    #[getter]
+    fn minimum_effective_samples(&self) -> Vec<f64> {
+        self.inner
+            .calibration()
+            .diagnostics()
+            .iter()
+            .map(|r| r.minimum_effective_samples)
+            .collect()
+    }
+}
+
+/// Deterministic-rate rough Bergomi LSV. `vol_of_vol` is eta, the coefficient
+/// of log variance, as for `RoughBergomiModel`.
+#[pyclass(frozen, name = "RoughBergomiLsvPlan", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughBergomiLsvPlan {
+    inner: RoughBergomiLsvPricingPlan,
+}
+
+#[pymethods]
+impl PyRoughBergomiLsvPlan {
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(target_request, *, hurst, vol_of_vol, correlation, particle_count,
+        calibration_seed, log_bandwidth, minimum_effective_samples, retain_reverse_trace,
+        worker_threads, reduction_block_size=None))]
+    fn compile(
+        py: Python<'_>,
+        target_request: &PyPricingRequest,
+        hurst: f64,
+        vol_of_vol: f64,
+        correlation: f64,
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        retain_reverse_trace: bool,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let issue = |message: String| {
+            validation_exception(
+                py,
+                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
+            )
+        };
+        let model =
+            RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| issue(e.to_string()))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            retain_reverse_trace,
+        )
+        .map_err(|e| issue(e.to_string()))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| issue(e.to_string()))?;
+        let request = target_request.inner.clone();
+        py.detach(|| RoughBergomiLsvPricingPlan::compile(&request, model, particles, policy))
             .map(|inner| Self { inner })
             .map_err(pricing_exception)
     }
