@@ -1,7 +1,7 @@
 {
   "source_baseline": "935cdd8a339ed4437b0cd6c7ba77edf1c380f633",
   "test_file": "crates/pricing/tests/bergomi_calibration_quality.rs",
-  "test_source_sha256": "870b076d3fa17b8f42318cfe0b363ea17f1a9b6b29a05b9a6a87a2cc4768f51e",
+  "test_source_sha256": "a0d426bb4090adbcfe5f128cc8aeaa0afc0916bcd2bcfb922531cc030d678987",
   "platform": "aarch64-apple-darwin",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "mode": "release",

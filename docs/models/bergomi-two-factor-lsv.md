@@ -50,7 +50,8 @@ is rejected. Factors are never reordered by mean reversion.
 ## Rust and Python APIs
 
 Rust adds `models::Bergomi2Factor::new([k1,k2],nu,theta,[rho_S1,rho_S2],rho_12)`.
-The existing `calibrate_bergomi_lsv`, `CalibratedBergomiLsv`, `BergomiLsvPlan`,
+The existing `calibrate_bergomi_lsv`, `calibrate_bergomi_lsv_parallel`,
+`CalibratedBergomiLsv`, `BergomiLsvPlan`,
 `BergomiLsvPath` and `BergomiLsvPricingPlan` accept this factor through their
 sealed `BergomiDynamics` generic parameter. Their default type remains
 `Bergomi1Factor`. Two-factor path states and initial factor adjoints are arrays
