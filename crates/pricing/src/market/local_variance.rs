@@ -291,7 +291,44 @@ impl LocalVarianceGrid {
             });
         }
         let time_cell = lower_cell(&self.time_nodes, time);
-        let (x, boundary, boundary_excursion) = if log_moneyness < self.log_moneyness_nodes[0] {
+        let (x, boundary, boundary_excursion) = self.clamp_log_moneyness(log_moneyness);
+        let x_cell = lower_cell(&self.log_moneyness_nodes, x);
+        Ok(self.interpolate_in_cells(time, x, boundary, boundary_excursion, time_cell, x_cell))
+    }
+
+    /// `interpolate` for callers that query nearby coordinates in sequence, such
+    /// as one path's steps. The hints hold the previous cells; the result is the
+    /// same interpolation `interpolate` returns, bit for bit, because the cells
+    /// are the same and the arithmetic is shared.
+    pub(crate) fn interpolate_with_hints(
+        &self,
+        time: f64,
+        log_moneyness: f64,
+        hints: &mut (usize, usize),
+    ) -> Result<LocalVarianceInterpolation, MarketError> {
+        if !time.is_finite()
+            || time < self.time_nodes[0]
+            || time > self.time_nodes[self.time_nodes.len() - 1]
+        {
+            return Err(MarketError::InvalidSurfaceQuery {
+                coordinate: "time",
+                bits: time.to_bits(),
+            });
+        }
+        if !log_moneyness.is_finite() {
+            return Err(MarketError::InvalidSurfaceQuery {
+                coordinate: "log_moneyness",
+                bits: log_moneyness.to_bits(),
+            });
+        }
+        hints.0 = lower_cell_from(&self.time_nodes, time, hints.0);
+        let (x, boundary, boundary_excursion) = self.clamp_log_moneyness(log_moneyness);
+        hints.1 = lower_cell_from(&self.log_moneyness_nodes, x, hints.1);
+        Ok(self.interpolate_in_cells(time, x, boundary, boundary_excursion, hints.0, hints.1))
+    }
+
+    fn clamp_log_moneyness(&self, log_moneyness: f64) -> (f64, LocalVarianceBoundary, f64) {
+        if log_moneyness < self.log_moneyness_nodes[0] {
             (
                 self.log_moneyness_nodes[0],
                 LocalVarianceBoundary::LeftFlat,
@@ -305,8 +342,18 @@ impl LocalVarianceGrid {
             )
         } else {
             (log_moneyness, LocalVarianceBoundary::InRange, 0.0)
-        };
-        let x_cell = lower_cell(&self.log_moneyness_nodes, x);
+        }
+    }
+
+    fn interpolate_in_cells(
+        &self,
+        time: f64,
+        x: f64,
+        boundary: LocalVarianceBoundary,
+        boundary_excursion: f64,
+        time_cell: usize,
+        x_cell: usize,
+    ) -> LocalVarianceInterpolation {
         let time_weight = weight(
             self.time_nodes[time_cell],
             self.time_nodes[time_cell + 1],
@@ -326,7 +373,7 @@ impl LocalVarianceGrid {
         let v11 = self.values[next_row + x_cell + 1];
         let lower = v00 * (1.0 - log_moneyness_weight) + v01 * log_moneyness_weight;
         let upper = v10 * (1.0 - log_moneyness_weight) + v11 * log_moneyness_weight;
-        Ok(LocalVarianceInterpolation {
+        LocalVarianceInterpolation {
             value: lower * (1.0 - time_weight) + upper * time_weight,
             lower_time_index: time_cell,
             lower_log_moneyness_index: x_cell,
@@ -334,7 +381,7 @@ impl LocalVarianceGrid {
             log_moneyness_weight,
             boundary,
             boundary_excursion,
-        })
+        }
     }
 
     pub fn interpolate_and_record(
@@ -586,6 +633,21 @@ fn lower_cell(nodes: &[f64], value: f64) -> usize {
     }
 }
 
+/// `lower_cell` found by walking from a previous answer. Both return the index of
+/// the last node ordered at or before `value` under `total_cmp`, clamped to the
+/// last cell, so they agree for every input; the walk is O(1) for nearby queries.
+fn lower_cell_from(nodes: &[f64], value: f64, hint: usize) -> usize {
+    // Count of nodes ordered at or before value, found from the hint.
+    let mut count = (hint + 1).min(nodes.len());
+    while count < nodes.len() && nodes[count].total_cmp(&value).is_le() {
+        count += 1;
+    }
+    while count > 0 && nodes[count - 1].total_cmp(&value).is_gt() {
+        count -= 1;
+    }
+    count.saturating_sub(1).min(nodes.len() - 2)
+}
+
 fn weight(left: f64, right: f64, value: f64) -> f64 {
     (value - left) / (right - left)
 }
@@ -689,6 +751,26 @@ fn forward_log_moneyness_survival(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hinted_cell_search_matches_binary_search_from_every_hint() {
+        let nodes = [-1.0, -0.3, -0.0, 0.2, 0.25, 0.9, 1.5];
+        let mut values = nodes.to_vec();
+        values.extend([
+            -2.0, -1.0000001, -0.65, 0.0, 1e-300, 0.1, 0.2000001, 0.5, 1.2, 1.5, 7.0,
+        ]);
+        values.extend(nodes.windows(2).map(|w| 0.5 * (w[0] + w[1])));
+        for value in values {
+            let expected = lower_cell(&nodes, value);
+            for hint in 0..nodes.len() - 1 {
+                assert_eq!(
+                    lower_cell_from(&nodes, value, hint),
+                    expected,
+                    "value {value}, hint {hint}"
+                );
+            }
+        }
+    }
     use crate::market::{ThetaRegion, TotalVarianceDerivatives};
 
     struct ConstantVarianceSurface {
