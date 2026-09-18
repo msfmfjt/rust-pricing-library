@@ -87,14 +87,16 @@ roughly 20% relative standard error, so absent support could reach a quote as
 an IV error without any fallback being recorded. For the quartic kernel
 w(u) = (1 - u^2)^2 on [-h, h], ESS = (sum w)^2 / (sum w^2) = N f(x) h times
 (integral K)^2 / integral K^2, and (16/15)^2 / (256/315) = 1.4 exactly, so
-ESS is approximately 1.4 N f(x) h. Under the acceptance setting the thinnest
-evaluation node is T = 0.25, k = +0.2, where the 20% lognormal density gives
-approximately 448. The budget therefore sits a factor 2.2 below the expected
-value at the tightest node and a factor 10 above the calibrator floor: it is
-not a tripwire at 32,768 particles, and it does not preclude narrowing the
-bandwidth to 0.015 (approximately 336) or 0.01 (approximately 224). It does
-reject 8,192 particles (approximately 112) and 4,096 (approximately 56). The
-budget is a support floor derived from the kernel, not a fitted number.
+ESS is approximately 1.4 N f(x) h. The check takes the smaller ESS of the two
+grid nodes bracketing each evaluation strike, so the thinnest node is the outer
+neighbour of T = 0.25, k = +0.2, at x = 0.2125, where the 20% lognormal density
+gives approximately 344. The measured minimum over the four seeds is 315, so the
+budget sits a factor 1.6 below the measured value at the tightest node and a
+factor 10 above the calibrator floor: it is not a tripwire at 32,768 particles.
+The bandwidth scan below measures 227 at bandwidth 0.015, which still passes,
+and 148 at 0.01, which the budget rejects. It also rejects 8,192 particles
+(approximately 80) and 4,096 (approximately 40). The budget is a support floor
+derived from the kernel, not a fitted number.
 
 The calibrator's own `minimum_effective_samples` stays at 20. Raising it would
 change which nodes fall back and therefore change the calibrated leverage
@@ -192,6 +194,30 @@ both sides: it is what distinguishes an acceptance value near the minimum of
 that trade-off from the first setting that happened to clear the budgets. The
 scan asserts nothing and is outside the CI name filter.
 
+Measured on macOS arm64 with the acceptance settings otherwise unchanged:
+
+| Bandwidth | Flat paired residual | Skew paired residual | Flat maximum IV error | Minimum ESS | Budget failures |
+| --- | --- | --- | --- | --- | --- |
+| 0.010 | 7.389 bp | 7.024 bp | 7.910 bp | 148 | ESS below 200 at T = 0.25, k = +0.2 |
+| 0.015 | 8.372 bp | 7.740 bp | 8.877 bp | 227 | None |
+| 0.020 | 9.881 bp | 9.230 bp | 10.357 bp | 315 | None |
+| 0.025 | 11.894 bp | 11.094 bp | 12.325 bp | 408 | None |
+| 0.030 | 14.346 bp | 13.344 bp | 14.713 bp | 500 | None |
+| 0.035 | 17.150 bp | 15.970 bp | 17.429 bp | 590 | Paired residual above 15 bp at T = 0.25, k = -0.2 |
+
+Above 0.02 the paired residual grows roughly linearly in bandwidth. Below 0.02
+it follows neither a linear nor a quadratic bias law: halving the bandwidth from
+0.02 to 0.01 removes only 2.5 bp, where a linear law predicts 4.9 bp and a
+quadratic law 7.4 bp. About 6 to 7 bp at T = 0.25, k = -0.2 is therefore not
+controlled by the evaluation-row kernel width. With four seeds the ensemble mean
+carries roughly 2 bp of noise there, so the floor is not noise alone; early-time
+extrapolated support is a candidate that this scan cannot separate.
+
+Bandwidth 0.02 is kept because it maximises the smallest margin across the
+binding budgets. It leaves a factor 1.52 on the paired residual and 1.58 on
+support. Bandwidth 0.015 would raise the paired-residual margin to 1.79 but cut
+the support margin to 1.13, turning the ESS budget into a tripwire.
+
 For the stressed vol-of-vol case:
 
 ```bash
@@ -214,22 +240,26 @@ data calibration or a pure Bergomi parameter fit. The stressed vol-of-vol and
 bandwidth reports above are diagnostics; neither is a certification, and no
 model algorithm, bandwidth selection or quote repair happens in this test target.
 
-### Local Linux results
+### Local results
 
 Rust 1.98.1, release profile, on the baseline above plus this test-only change:
 
 [Retained per-quote results](bergomi-calibration-quality-results.json) include
-the exact test-source SHA-256, seeds, model parameters and uncertainty metrics.
-Those numbers predate the support and target-interpolation budgets, so the file
-carries neither `minimum_ess` nor `target_interpolation_error_bp` and its
-recorded test-source hash no longer matches the test target. Regenerate it with
-the command above on the next release run; until then treat the error columns
-below as current and the file as the earlier schema.
+the exact test-source SHA-256, seeds, model parameters, uncertainty metrics,
+per-quote minimum ESS and target interpolation error. The file was rebuilt by
+the summarizer from an aarch64-apple-darwin run. Every per-quote metric shared
+with the earlier x86_64 Linux run agrees to within 3e-12 bp, and the martingale
+diagnostics are bitwise identical.
 
-| Surface, bandwidth 0.02 | Maximum absolute IV error | IV RMSE | Maximum LV-control error | Maximum total SE |
-| --- | --- | --- | --- | --- |
-| Flat 20% | 10.357 bp | 3.279 bp | 1.036 bp | 2.254 bp |
-| Skew / term structure | 7.793 bp | 2.831 bp | 2.469 bp | 2.263 bp |
+| Surface, bandwidth 0.02 | Maximum absolute IV error | IV RMSE | Maximum LV-control error | Maximum total SE | Minimum ESS | Maximum target interpolation error |
+| --- | --- | --- | --- | --- | --- | --- |
+| Flat 20% | 10.357 bp | 3.279 bp | 1.036 bp | 2.254 bp | 315 | 0.000 bp |
+| Skew / term structure | 7.793 bp | 2.831 bp | 2.469 bp | 2.263 bp | 316 | 0.043 bp |
+
+On macOS both numerical gates and all five helper tests passed, the gates in
+18.28 seconds after compilation, with formatting and workspace Clippy clean.
+The earlier Linux run reported below predates the support and interpolation
+budgets.
 
 Both numerical gates and all four helper tests passed in one run (37.20 seconds
 after compilation). Existing `pricing` library unit tests (371), `mc_lsv` (6)
@@ -254,7 +284,8 @@ was approximately 4.44 bp, above the already-fixed 3 bp budget. Pricing points
 were increased to 8,192, **without increasing any error budget**. Bandwidth
 0.035 still failed the paired residual gate at 3 months, k=-0.2 (flat 17.150 bp;
 skew 15.970 bp). The acceptance configuration therefore uses the tested narrower
-bandwidth 0.02; the failing reference/coarse configurations remain reproducible
+bandwidth 0.02, which the bandwidth scan above confirms as the setting with the
+largest smallest margin; the failing reference/coarse configurations remain reproducible
 through the manual report. No production defaults or calibration code changed.
 
 These controlled comparisons demonstrate sensitivity to the numerical settings
