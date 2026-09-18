@@ -26,11 +26,13 @@ const QUOTES: usize = MATURITIES.len() * LOG_STRIKES.len();
 // minimum of 20, whose conditional second moment still carries roughly 20%
 // relative standard error. For the quartic kernel w(u) = (1 - u^2)^2 on
 // [-h, h], ESS = (sum w)^2 / sum w^2 = N f(x) h (int K)^2 / int K^2, and
-// (16/15)^2 / (256/315) = 1.4 exactly, so ESS ~ 1.4 N f(x) h. Under the
-// acceptance setting the thinnest evaluation node is T=0.25, k=+0.2, where
-// the 20% lognormal density gives ESS ~ 448. The budget sits a factor 2.2
-// below that and a factor 10 above the calibrator floor: it is not a
-// tripwire, but 4,096 particles (~56) or 8,192 particles (~112) fail it.
+// (16/15)^2 / (256/315) = 1.4 exactly, so ESS ~ 1.4 N f(x) h. The check takes
+// the smaller of the two grid neighbors, so under the acceptance setting the
+// thinnest node is the outer neighbor of T=0.25, k=+0.2 at x=0.2125, where the
+// 20% lognormal density gives ESS ~ 687 (measured minimum over seeds: 670).
+// The budget sits a factor 3.4 below that and a factor 10 above the
+// calibrator floor: it is not a tripwire, but 8,192 particles (~86) or
+// 32,768 particles at bandwidth 0.01 (~172) fail it.
 const MINIMUM_NODE_ESS: f64 = 200.0;
 
 // The interpolated target must remain the analytic smile it claims to be.
@@ -52,10 +54,13 @@ struct Settings {
     scrambles: u32,
 }
 
+// Particles and steps are set by the error decomposition below: at 32,768
+// particles and 128 steps, particle noise and time discretization each put
+// several bp into the short-maturity wings on top of the kernel bias.
 const ACCEPTANCE: Settings = Settings {
-    particles: 32_768,
+    particles: 65_536,
     bandwidth: 0.02,
-    steps: 128,
+    steps: 256,
     spatial_intervals: 160,
     points_per_scramble: 8192,
     scrambles: 8,
@@ -900,6 +905,59 @@ fn high_vol_of_vol_one_factor_bergomi_report() {
         println!(
             "BERGOMI_HIGH_VOL_OF_VOL {}",
             serde_json::to_string(&summarize(&report)).unwrap()
+        );
+    }
+}
+
+// Short-maturity wing error, split by cause. Starting from the previous
+// acceptance setting (32,768 particles, bandwidth 0.02, 128 steps), each run
+// removes one error source: more particles remove the leverage-noise bias,
+// a narrower bandwidth removes kernel bias, and finer steps remove the Euler
+// bias. A component is attributed only by the change it produces in the
+// ensemble paired LSV-LV residual. Diagnostic: no assertion.
+#[test]
+#[ignore = "manual error decomposition: evidence for the acceptance particles and steps"]
+fn one_factor_bergomi_error_decomposition() {
+    let previous = Settings {
+        particles: 32_768,
+        bandwidth: 0.02,
+        steps: 128,
+        ..ACCEPTANCE
+    };
+    let more_particles = Settings {
+        particles: 131_072,
+        ..previous
+    };
+    let narrow = Settings {
+        bandwidth: 0.01,
+        ..more_particles
+    };
+    for settings in [
+        previous,
+        more_particles,
+        narrow,
+        Settings {
+            particles: 524_288,
+            ..narrow
+        },
+        Settings {
+            steps: 512,
+            ..narrow
+        },
+        ACCEPTANCE,
+    ] {
+        let report = experiment(Smile::Flat, BASE_MODEL, settings);
+        let short = &report.nodes[..LOG_STRIKES.len()];
+        println!(
+            "BERGOMI_ERROR_DECOMPOSITION {}",
+            serde_json::to_string(&serde_json::json!({
+                "summary": summarize(&report),
+                "short_maturity_paired_residual_bp":
+                    short.iter().map(|n| n.paired_price_residual_bp).collect::<Vec<_>>(),
+                "short_maturity_seed_to_seed_sd_bp":
+                    short.iter().map(|n| n.seed_to_seed_sd_bp).collect::<Vec<_>>(),
+            }))
+            .unwrap()
         );
     }
 }

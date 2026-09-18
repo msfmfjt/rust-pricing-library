@@ -22,8 +22,8 @@ invalid/no-time-value prices fail instead of being clipped or dropped.
 | Evaluation log strikes | -0.2, -0.1, 0, 0.1, 0.2; includes off-quote strikes |
 | Flat target | IV 20% everywhere |
 | Skew/term target | Quote IV = sqrt((0.04 + 0.004 T)(1 - 0.25 k + 0.1 k^2)); the production interpolator defines between-quote IV |
-| Dupire/leverage grid | 128 equal time intervals; 160 log-strike intervals on [-1,1] |
-| Particles | 32,768; calibration seeds 42, 137, 711, 2027 |
+| Dupire/leverage grid | 256 equal time intervals; 160 log-strike intervals on [-1,1] |
+| Particles | 65,536; calibration seeds 42, 137, 711, 2027 |
 | Kernel | Log bandwidth 0.02; minimum ESS 20; no reverse trace |
 | Independent pricing per calibration | 8 RQMC scrambles x 8,192 points x 2 antithetic legs |
 | Pricing seed | Calibration seed XOR 0xd1b54a32d192ed03; never the particle stream |
@@ -90,13 +90,58 @@ w(u) = (1 - u^2)^2 on [-h, h], ESS = (sum w)^2 / (sum w^2) = N f(x) h times
 ESS is approximately 1.4 N f(x) h. The check takes the smaller ESS of the two
 grid nodes bracketing each evaluation strike, so the thinnest node is the outer
 neighbour of T = 0.25, k = +0.2, at x = 0.2125, where the 20% lognormal density
-gives approximately 344. The measured minimum over the four seeds is 315, so the
-budget sits a factor 1.6 below the measured value at the tightest node and a
-factor 10 above the calibrator floor: it is not a tripwire at 32,768 particles.
-The bandwidth scan below measures 227 at bandwidth 0.015, which still passes,
-and 148 at 0.01, which the budget rejects. It also rejects 8,192 particles
-(approximately 80) and 4,096 (approximately 40). The budget is a support floor
-derived from the kernel, not a fitted number.
+gives approximately 687. The measured minimum over the four seeds is 670, so the
+budget sits a factor 3.4 below the measured value at the tightest node and a
+factor 10 above the calibrator floor: it is not a tripwire at 65,536 particles.
+The bandwidth scan below measures 324 at bandwidth 0.01, which still passes. The
+budget rejects 8,192 particles (approximately 86), and at the previous 32,768
+particles it rejected bandwidth 0.01 (measured 148). The budget is a support
+floor derived from the kernel, not a fitted number.
+
+### Why 65,536 particles and 256 time steps
+
+The previous acceptance setting of 32,768 particles, bandwidth 0.02 and 128
+steps left a flat-surface maximum IV error of 10.357 bp, at T = 0.25, k = -0.2.
+The paired LSV-LV residual there was 9.881 bp against an LV-control error of
+0.583 bp, so almost all of it is LSV-specific. At T = 0.25 the residual has a
+smile shape, positive in both wings and negative at the money: the calibrated
+LSV marginal has fatter tails than the target. The error decomposition removes
+one source at a time, on the flat surface:
+
+| Particles | Bandwidth | Steps | Paired residual at T = 0.25, k = -0.2 | Paired residual at T = 0.25, k = 0 | Seed-to-seed SD at k = -0.2 |
+| --- | --- | --- | --- | --- | --- |
+| 32,768 | 0.02 | 128 | 9.88 bp | -1.50 bp | 3.23 bp |
+| 131,072 | 0.02 | 128 | 7.43 bp | -1.57 bp | 1.61 bp |
+| 131,072 | 0.01 | 128 | 4.60 bp | -1.31 bp | 1.60 bp |
+| 524,288 | 0.01 | 128 | 4.63 bp | -1.50 bp | 0.83 bp |
+| 131,072 | 0.01 | 512 | 2.60 bp | 0.11 bp | 4.00 bp |
+| 65,536 (acceptance) | 0.02 | 256 | 5.66 bp | -0.55 bp | 0.72 bp |
+
+Three sources account for most of the error, in roughly equal parts at the
+previous setting; about 2.6 bp at k = -0.2 remains at the finest setting run and
+is not attributed:
+
+- **Leverage noise.** Squared leverage is target local variance divided by a
+  kernel estimate of E[a^2 | x]. Estimation noise in that denominator inflates
+  the effective local variance on average and adds randomness to each path's
+  integrated variance, which fattens both tails. Quadrupling particles at fixed
+  bandwidth removes 2.4 bp; at bandwidth 0.01 a further quadrupling changes
+  nothing, so the particle-noise part is then exhausted.
+- **Kernel bias.** The particle density falls steeply at |k| = 0.2, so the
+  kernel window over-weights points nearer the money, where E[a^2 | x] differs.
+  Halving the bandwidth at 131,072 particles removes 2.8 bp.
+- **Time discretization.** Leverage and the variance multiplier are frozen over
+  each Euler step. Quadrupling the steps removes 2.0 bp at k = -0.2 and moves the
+  at-the-money residual from -1.3 bp to +0.1 bp, which no particle or bandwidth
+  change affects. The finer-step run is noisier, with seed-to-seed SD rising
+  from 1.60 to 4.00 bp at k = -0.2; the cause of that noise is not isolated.
+
+The spatial grid is not a source: 640 log-strike intervals instead of 160 moved
+the residual at k = -0.2 by 0.1 bp. Doubling both particles and steps addresses
+the two sources that do not require a narrower kernel, keeps bandwidth 0.02 and
+costs about 2.4 times the previous runtime. It brings the flat maximum IV error
+to 6.208 bp and the paired residual to 5.663 bp. No calibration code, budget or
+production default changed.
 
 The calibrator's own `minimum_effective_samples` stays at 20. Raising it would
 change which nodes fall back and therefore change the calibrated leverage
@@ -178,6 +223,17 @@ same gate. There is no invalid assertion that one noisy realization
 must improve monotonically when a setting changes. Changing the time grid also
 changes random-coordinate mapping; this is an ensemble comparison.
 
+For the error decomposition behind the acceptance particles and steps:
+
+```bash
+cargo test --locked --release -p pricing --test bergomi_calibration_quality one_factor_bergomi_error_decomposition -- --ignored --nocapture --test-threads=1
+```
+
+This runs the flat fixture at the six settings in the decomposition table above
+and emits one `BERGOMI_ERROR_DECOMPOSITION` line per setting, with the summary,
+the T = 0.25 paired residuals and their seed-to-seed SD. It takes about three
+minutes and asserts nothing.
+
 For the bandwidth evidence behind the acceptance setting:
 
 ```bash
@@ -196,27 +252,25 @@ scan asserts nothing and is outside the CI name filter.
 
 Measured on macOS arm64 with the acceptance settings otherwise unchanged:
 
-| Bandwidth | Flat paired residual | Skew paired residual | Flat maximum IV error | Minimum ESS | Budget failures |
-| --- | --- | --- | --- | --- | --- |
-| 0.010 | 7.389 bp | 7.024 bp | 7.910 bp | 148 | ESS below 200 at T = 0.25, k = +0.2 |
-| 0.015 | 8.372 bp | 7.740 bp | 8.877 bp | 227 | None |
-| 0.020 | 9.881 bp | 9.230 bp | 10.357 bp | 315 | None |
-| 0.025 | 11.894 bp | 11.094 bp | 12.325 bp | 408 | None |
-| 0.030 | 14.346 bp | 13.344 bp | 14.713 bp | 500 | None |
-| 0.035 | 17.150 bp | 15.970 bp | 17.429 bp | 590 | Paired residual above 15 bp at T = 0.25, k = -0.2 |
+| Bandwidth | Flat paired residual | Skew paired residual | Flat maximum IV error | Skew maximum IV error | Minimum ESS | Budget failures |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.010 | 4.589 bp | 4.747 bp | 5.595 bp | 6.488 bp | 322 | None |
+| 0.015 | 4.082 bp | 4.095 bp | 5.094 bp | 5.845 bp | 493 | None |
+| 0.020 | 5.663 bp | 5.275 bp | 6.208 bp | 4.970 bp | 670 | None |
+| 0.025 | 7.754 bp | 7.249 bp | 8.269 bp | 6.663 bp | 842 | None |
+| 0.030 | 10.287 bp | 9.596 bp | 10.754 bp | 8.978 bp | 1021 | None |
+| 0.035 | 13.186 bp | 12.321 bp | 13.585 bp | 11.654 bp | 1202 | None |
 
-Above 0.02 the paired residual grows roughly linearly in bandwidth. Below 0.02
-it follows neither a linear nor a quadratic bias law: halving the bandwidth from
-0.02 to 0.01 removes only 2.5 bp, where a linear law predicts 4.9 bp and a
-quadratic law 7.4 bp. About 6 to 7 bp at T = 0.25, k = -0.2 is therefore not
-controlled by the evaluation-row kernel width. With four seeds the ensemble mean
-carries roughly 2 bp of noise there, so the floor is not noise alone; early-time
-extrapolated support is a candidate that this scan cannot separate.
+The error is smallest near 0.015 and rises again at 0.01, where kernel variance
+starts to dominate. Bandwidth 0.02 is kept because it maximises the smallest
+margin across the binding budgets: a factor 2.65 on the paired residual, 3.2 on
+the maximum IV error and 3.35 on support. Bandwidth 0.015 would raise the
+paired-residual margin to 3.66 but cut the support margin to 2.47.
 
-Bandwidth 0.02 is kept because it maximises the smallest margin across the
-binding budgets. It leaves a factor 1.52 on the paired residual and 1.58 on
-support. Bandwidth 0.015 would raise the paired-residual margin to 1.79 but cut
-the support margin to 1.13, turning the ESS budget into a tripwire.
+At the previous 32,768 particles and 128 steps the same scan measured a paired
+residual of 7.389, 8.372, 9.881, 11.894, 14.346 and 17.150 bp on the flat
+surface for the six bandwidths, with 0.01 failing the support budget and 0.035
+failing the paired-residual budget.
 
 For the stressed vol-of-vol case:
 
@@ -249,17 +303,18 @@ the exact test-source SHA-256, seeds, model parameters, uncertainty metrics,
 per-quote minimum ESS and target interpolation error. The file was rebuilt by
 the summarizer from an aarch64-apple-darwin run. Every per-quote metric shared
 with the earlier x86_64 Linux run agrees to within 3e-12 bp, and the martingale
-diagnostics are bitwise identical.
+diagnostics are bitwise identical. That comparison was made at the previous
+setting; the file now records the 65,536-particle, 256-step acceptance run.
 
 | Surface, bandwidth 0.02 | Maximum absolute IV error | IV RMSE | Maximum LV-control error | Maximum total SE | Minimum ESS | Maximum target interpolation error |
 | --- | --- | --- | --- | --- | --- | --- |
-| Flat 20% | 10.357 bp | 3.279 bp | 1.036 bp | 2.254 bp | 315 | 0.000 bp |
-| Skew / term structure | 7.793 bp | 2.831 bp | 2.469 bp | 2.263 bp | 316 | 0.043 bp |
+| Flat 20% | 6.208 bp | 2.270 bp | 1.036 bp | 1.680 bp | 671 | 0.000 bp |
+| Skew / term structure | 4.970 bp | 2.014 bp | 1.781 bp | 1.670 bp | 670 | 0.043 bp |
 
 On macOS both numerical gates and all five helper tests passed, the gates in
-18.28 seconds after compilation, with formatting and workspace Clippy clean.
-The earlier Linux run reported below predates the support and interpolation
-budgets.
+44.12 seconds after compilation, with formatting and workspace Clippy clean.
+The Linux run reported below used the previous 32,768 particles and 128 steps
+and predates the support and interpolation budgets.
 
 Both numerical gates and all four helper tests passed in one run (37.20 seconds
 after compilation). Existing `pricing` library unit tests (371), `mc_lsv` (6)
@@ -272,21 +327,25 @@ The flat-surface sensitivity study keeps all other reference settings fixed:
 
 | Configuration | Maximum absolute IV error | IV RMSE | Outcome under the same budgets |
 | --- | --- | --- | --- |
-| Reference: N=32,768, bandwidth 0.035, 128 time / 160 space intervals | 17.429 bp | 5.349 bp | Paired LSV-LV residual fails (17.150 bp) |
-| Bandwidth 0.02 | 10.357 bp | 3.279 bp | Pass |
-| N=4,096, bandwidth 0.035 | 30.406 bp | 9.992 bp | Error, total SE and worst-seed budgets fail |
-| Bandwidth 0.12 | 89.550 bp | 33.818 bp | Error and RMSE budgets fail |
-| 32 time intervals, bandwidth 0.035 | 19.077 bp | 6.270 bp | Paired residual fails |
-| 40 spatial intervals, bandwidth 0.035 | 18.875 bp | 5.975 bp | Paired residual fails |
+| Reference: N=65,536, bandwidth 0.035, 256 time / 160 space intervals | 13.585 bp | 4.470 bp | Pass |
+| Bandwidth 0.02 (acceptance) | 6.208 bp | 2.270 bp | Pass |
+| N=4,096, bandwidth 0.035 | 7.926 bp | 2.979 bp | Support and total SE budgets fail |
+| Bandwidth 0.12 | 87.637 bp | 33.341 bp | Error, RMSE, worst-seed and paired-residual budgets fail |
+| 32 time intervals, bandwidth 0.035 | 19.086 bp | 6.327 bp | Paired residual fails (18.868 bp) |
+| 40 spatial intervals, bandwidth 0.035 | 14.935 bp | 5.173 bp | Pass |
+
+The 4,096-particle mean error is small only because its seed noise is large:
+its total SE reaches 8.9 bp and its support falls below 200 at five nodes.
 
 The first trial used 2,048 pricing points per scramble; its maximum pricing SE
 was approximately 4.44 bp, above the already-fixed 3 bp budget. Pricing points
-were increased to 8,192, **without increasing any error budget**. Bandwidth
-0.035 still failed the paired residual gate at 3 months, k=-0.2 (flat 17.150 bp;
-skew 15.970 bp). The acceptance configuration therefore uses the tested narrower
-bandwidth 0.02, which the bandwidth scan above confirms as the setting with the
-largest smallest margin; the failing reference/coarse configurations remain reproducible
-through the manual report. No production defaults or calibration code changed.
+were increased to 8,192, **without increasing any error budget**. At 32,768
+particles and 128 steps, bandwidth 0.035 then failed the paired residual gate at
+3 months, k=-0.2 (flat 17.150 bp; skew 15.970 bp), and bandwidth 0.02 passed
+with a flat maximum IV error of 10.357 bp. The error decomposition above then
+moved particles and steps to their current values; the bandwidth scan confirms
+0.02 as the setting with the largest smallest margin. No production defaults or
+calibration code changed.
 
 These controlled comparisons demonstrate sensitivity to the numerical settings
 in this fixture. They do not establish the cause of an unprovided market-data
