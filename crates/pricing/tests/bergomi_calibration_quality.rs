@@ -29,10 +29,10 @@ const QUOTES: usize = MATURITIES.len() * LOG_STRIKES.len();
 // (16/15)^2 / (256/315) = 1.4 exactly, so ESS ~ 1.4 N f(x) h. The check takes
 // the smaller of the two grid neighbors, so under the acceptance setting the
 // thinnest node is the outer neighbor of T=0.25, k=+0.2 at x=0.2125, where the
-// 20% lognormal density gives ESS ~ 687 (measured minimum over seeds: 670).
-// The budget sits a factor 3.4 below that and a factor 10 above the
-// calibrator floor: it is not a tripwire, but 8,192 particles (~86) or
-// 32,768 particles at bandwidth 0.01 (~172) fail it.
+// 20% lognormal density gives ESS ~ 1,374 (measured minimum over seeds: 1,353).
+// The budget sits a factor 6.8 below that and a factor 10 above the
+// calibrator floor: it is not a tripwire, but 32,768 particles at bandwidth
+// 0.01 (~172) or 8,192 particles at bandwidth 0.02 (~86) fail it.
 const MINIMUM_NODE_ESS: f64 = 200.0;
 
 // The interpolated target must remain the analytic smile it claims to be.
@@ -54,15 +54,16 @@ struct Settings {
     scrambles: u32,
 }
 
-// Particles and steps are set by the error decomposition below: at 32,768
-// particles and 128 steps, particle noise and time discretization each put
-// several bp into the short-maturity wings on top of the kernel bias.
+// Set by the error decomposition below. Particle noise, kernel bias, Euler
+// time discretization and pricing noise each put 1 to 3 bp into the
+// short-maturity wings at coarser settings; this setting removes enough of
+// each to keep every evaluation quote within about 2 bp of its target.
 const ACCEPTANCE: Settings = Settings {
-    particles: 65_536,
-    bandwidth: 0.02,
-    steps: 256,
+    particles: 262_144,
+    bandwidth: 0.01,
+    steps: 1024,
     spatial_intervals: 160,
-    points_per_scramble: 8192,
+    points_per_scramble: 32_768,
     scrambles: 8,
 };
 
@@ -282,9 +283,17 @@ fn price_surface(
                             .unwrap()
                     })
                     .collect::<Vec<_>>();
+                // Interleave the two factors' bridge coordinates, so the
+                // leading coordinates of both the spot and the variance factor
+                // take the best-distributed low Sobol dimensions. Blocking them
+                // pushed the variance factor's leading coordinates past
+                // dimension `steps`, and pricing noise grew with the step count.
                 let mut z = Vec::with_capacity(dimension);
-                for block in normals.chunks_exact(settings.steps) {
-                    z.extend(bridge.apply_one_factor(block).unwrap());
+                for factor in 0..2 {
+                    let block = (0..settings.steps)
+                        .map(|i| normals[2 * i + factor])
+                        .collect::<Vec<_>>();
+                    z.extend(bridge.apply_one_factor(&block).unwrap());
                 }
                 for sign in [1.0, -1.0] {
                     if sign < 0.0 {
@@ -442,8 +451,16 @@ struct Report {
 
 fn experiment(smile: Smile, model: Model, settings: Settings) -> Report {
     let surface = smile.surface();
-    let runs = CALIBRATION_SEEDS.map(|seed| {
-        let result = run(&surface, model, settings, seed);
+    // Complete runs are independent, so they execute concurrently; each run is
+    // deterministic in its own seed, and results are collected and printed in
+    // seed order, so the output does not depend on scheduling.
+    let surface_ref = &surface;
+    let runs = std::thread::scope(|scope| {
+        let handles = CALIBRATION_SEEDS
+            .map(|seed| scope.spawn(move || run(surface_ref, model, settings, seed)));
+        handles.map(|handle| handle.join().expect("calibration run panicked"))
+    });
+    for result in &runs {
         println!(
             "BERGOMI_RUN {}",
             serde_json::to_string(&serde_json::json!({
@@ -451,8 +468,7 @@ fn experiment(smile: Smile, model: Model, settings: Settings) -> Report {
             }))
             .unwrap()
         );
-        result
-    });
+    }
     let nodes = (0..QUOTES)
         .map(|i| {
             let t = MATURITIES[i / LOG_STRIKES.len()];
@@ -873,13 +889,13 @@ fn summarize(report: &Report) -> Summary {
 
 // Narrowing the bandwidth trades kernel bias for kernel variance, and the
 // acceptance value has to be a measured choice rather than the first setting
-// that cleared the budgets. This scan brackets 0.02 on both sides at fixed
+// that cleared the budgets. This scan brackets 0.01 on both sides at fixed
 // particles, so bias-dominated and variance-dominated ends are both visible.
 // Diagnostic: no assertion, and deliberately outside the CI name filter.
 #[test]
 #[ignore = "manual bandwidth scan: evidence for the acceptance bandwidth"]
 fn one_factor_bergomi_bandwidth_scan() {
-    for bandwidth in [0.01, 0.015, 0.02, 0.025, 0.03, 0.035] {
+    for bandwidth in [0.005, 0.0075, 0.01, 0.015, 0.02] {
         for smile in [Smile::Flat, Smile::Skew] {
             let settings = Settings {
                 bandwidth,
@@ -910,39 +926,42 @@ fn high_vol_of_vol_one_factor_bergomi_report() {
 }
 
 // Short-maturity wing error, split by cause. Starting from the previous
-// acceptance setting (32,768 particles, bandwidth 0.02, 128 steps), each run
-// removes one error source: more particles remove the leverage-noise bias,
-// a narrower bandwidth removes kernel bias, and finer steps remove the Euler
-// bias. A component is attributed only by the change it produces in the
-// ensemble paired LSV-LV residual. Diagnostic: no assertion.
+// acceptance setting (65,536 particles, bandwidth 0.02, 256 steps, 8,192
+// pricing points per scramble), each run refines one more setting: pricing
+// points remove pricing noise, particles remove leverage noise, a narrower
+// bandwidth removes kernel bias, and finer steps remove the Euler bias. A
+// component is attributed only by the change it produces in the ensemble
+// errors. Diagnostic: no assertion.
 #[test]
-#[ignore = "manual error decomposition: evidence for the acceptance particles and steps"]
+#[ignore = "manual error decomposition: evidence for the acceptance setting"]
 fn one_factor_bergomi_error_decomposition() {
     let previous = Settings {
-        particles: 32_768,
+        particles: 65_536,
         bandwidth: 0.02,
-        steps: 128,
+        steps: 256,
+        points_per_scramble: 8192,
         ..ACCEPTANCE
     };
-    let more_particles = Settings {
-        particles: 131_072,
+    let pricing = Settings {
+        points_per_scramble: ACCEPTANCE.points_per_scramble,
         ..previous
     };
-    let narrow = Settings {
-        bandwidth: 0.01,
-        ..more_particles
+    let particles = Settings {
+        particles: ACCEPTANCE.particles,
+        ..pricing
+    };
+    let bandwidth = Settings {
+        bandwidth: ACCEPTANCE.bandwidth,
+        ..particles
     };
     for settings in [
         previous,
-        more_particles,
-        narrow,
-        Settings {
-            particles: 524_288,
-            ..narrow
-        },
+        pricing,
+        particles,
+        bandwidth,
         Settings {
             steps: 512,
-            ..narrow
+            ..bandwidth
         },
         ACCEPTANCE,
     ] {
@@ -952,10 +971,10 @@ fn one_factor_bergomi_error_decomposition() {
             "BERGOMI_ERROR_DECOMPOSITION {}",
             serde_json::to_string(&serde_json::json!({
                 "summary": summarize(&report),
-                "short_maturity_paired_residual_bp":
-                    short.iter().map(|n| n.paired_price_residual_bp).collect::<Vec<_>>(),
-                "short_maturity_seed_to_seed_sd_bp":
-                    short.iter().map(|n| n.seed_to_seed_sd_bp).collect::<Vec<_>>(),
+                "short_maturity_iv_error_bp":
+                    short.iter().map(|n| n.iv_error_bp).collect::<Vec<_>>(),
+                "short_maturity_total_se_bp":
+                    short.iter().map(|n| n.total_se_bp).collect::<Vec<_>>(),
             }))
             .unwrap()
         );
