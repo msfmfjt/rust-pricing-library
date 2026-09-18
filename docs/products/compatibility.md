@@ -27,7 +27,9 @@ limitations and risk semantics.
   `BlackScholes`, `Black76` or `LocalVolatility` models.
 - Bergomi LSV and rough-LSV adapters support the existing payoff graph for
   price evaluation, but reject American/Bermudan exercise and continuous
-  Barrier monitoring. Discontinuous Digital and discrete Barrier risk requires
+  Barrier monitoring. One- and two-factor Bergomi LSV use
+  `BergomiLsvPricingPlan`; deterministic-rate rough-LSV uses
+  `RoughBergomiLsvPricingPlan` without Hull–White inputs. Discontinuous Digital and discrete Barrier risk requires
   the documented smoothing contract.
 - Hull–White adapters use a common one-factor rate process. They support the
   documented BS, one-/two-factor Bergomi LSV and rough-LSV entry points, subject

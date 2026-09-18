@@ -63,6 +63,9 @@ pub mod hull_white {
 pub mod lsv {
     pub use crate::engine::calibration::lsv::*;
     pub use crate::engine::processes::lsv::*;
+    pub use crate::engine::processes::rough_lsv::{
+        ROUGH_BERGOMI_LSV_SCHEME, RoughBergomiLsvPath, RoughBergomiLsvPlan,
+    };
 }
 
 #[doc(hidden)]
