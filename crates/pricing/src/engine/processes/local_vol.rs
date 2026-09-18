@@ -468,6 +468,54 @@ impl LocalVolLogEulerPlan {
         })
     }
 
+    /// Price-only evolution without dividend checks. Writes the same f states as
+    /// `evolve_path` for the same shocks, bit for bit, but skips the reverse-mode
+    /// step cache, the state derivative and the boundary statistics, and reuses
+    /// the caller's buffer.
+    pub fn evolve_states(
+        &self,
+        local_variance_grid: &LocalVarianceGrid,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+    ) -> Result<(), LocalVolError> {
+        if !initial_f.is_finite() || initial_f <= 0.0 {
+            return Err(LocalVolError::InvalidInitialState {
+                bits: initial_f.to_bits(),
+            });
+        }
+        if shocks.len() != self.time_grid.step_count() {
+            return Err(LocalVolError::ShockCountMismatch {
+                expected: self.time_grid.step_count(),
+                actual: shocks.len(),
+            });
+        }
+        states.clear();
+        let mut state = initial_f;
+        let mut hints = (0, 0);
+        states.push(state);
+        for (step, shock) in shocks.iter().copied().enumerate() {
+            let time = self.time_grid.nodes()[step];
+            let dt = self.time_grid.nodes()[step + 1] - time;
+            let x = (state / self.forward_normalizers[step]).ln();
+            let local_variance = local_variance_grid
+                .interpolate_with_hints(time, x, &mut hints)?
+                .value;
+            let local_volatility = local_variance.sqrt();
+            let forward_ratio = self.forward_normalizers[step + 1] / self.forward_normalizers[step];
+            state *= forward_ratio
+                * (-0.5 * local_variance * dt + local_volatility * dt.sqrt() * shock).exp();
+            if !state.is_finite() || state <= 0.0 {
+                return Err(LocalVolError::NonFiniteState {
+                    step: step + 1,
+                    bits: state.to_bits(),
+                });
+            }
+            states.push(state);
+        }
+        Ok(())
+    }
+
     pub fn path_shocks(
         &self,
         master_seed: u64,

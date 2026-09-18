@@ -185,6 +185,12 @@ impl DeterministicExecutor {
         self.policy
     }
 
+    /// Runs `op` on this executor's calculation-owned pool, for engine loops
+    /// whose results do not depend on scheduling.
+    pub(crate) fn install<R: Send>(&self, op: impl FnOnce() -> R + Send) -> R {
+        self.pool.install(op)
+    }
+
     pub fn map_reduce<F>(
         &self,
         sampling_units: u64,

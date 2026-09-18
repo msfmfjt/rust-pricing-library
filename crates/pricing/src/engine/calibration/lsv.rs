@@ -9,9 +9,12 @@
 
 use crate::engine::processes::lsv::*;
 use crate::market::LocalVarianceGrid;
-use crate::mc::{LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
+use crate::mc::{
+    DeterministicExecutor, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain,
+};
 use crate::models::{Bergomi1Factor, BergomiDynamics};
 use pricing_numerics::NeumaierSum;
+use rayon::prelude::*;
 
 #[derive(Clone, Debug)]
 struct TraceRow {
@@ -55,6 +58,55 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
     initial_f: f64,
     config: LsvParticleConfig,
 ) -> Result<CalibratedBergomiLsv<F>, LsvError> {
+    calibrate(target, factor, initial_f, config, None)
+}
+
+/// `calibrate_bergomi_lsv` with each time step's particle work spread over the
+/// executor's pool. The time march stays sequential. Every particle update and
+/// every node's kernel sum is computed exactly as in the sequential calibration
+/// and reduced in the same order, so the result is bit-identical for any worker
+/// count, and a failure reports the same particle.
+pub fn calibrate_bergomi_lsv_parallel<F: BergomiDynamics>(
+    target: &LocalVarianceGrid,
+    factor: F,
+    initial_f: f64,
+    config: LsvParticleConfig,
+    executor: &DeterministicExecutor,
+) -> Result<CalibratedBergomiLsv<F>, LsvError> {
+    calibrate(target, factor, initial_f, config, Some(executor))
+}
+
+/// One task's slice of particle states, factor states and leverage-cell hints.
+type ParticleChunk<'a, F> = (
+    usize,
+    (
+        (&'a mut [f64], &'a mut [<F as BergomiDynamics>::State]),
+        &'a mut [usize],
+    ),
+);
+
+/// Particles per parallel task. Fixed, so task boundaries never depend on the
+/// worker count; errors are resolved in task order.
+const PARTICLE_CHUNK: usize = 4096;
+
+fn map_ordered<T: Sync, U: Send>(
+    executor: Option<&DeterministicExecutor>,
+    items: &[T],
+    f: impl Fn(&T) -> U + Sync + Send,
+) -> Vec<U> {
+    match executor {
+        None => items.iter().map(f).collect(),
+        Some(executor) => executor.install(|| items.par_iter().map(f).collect()),
+    }
+}
+
+fn calibrate<F: BergomiDynamics>(
+    target: &LocalVarianceGrid,
+    factor: F,
+    initial_f: f64,
+    config: LsvParticleConfig,
+    executor: Option<&DeterministicExecutor>,
+) -> Result<CalibratedBergomiLsv<F>, LsvError> {
     valid(initial_f, "initial_f", 0, true)?;
     if target.time_nodes()[0].to_bits() != 0.0f64.to_bits() {
         return Err(LsvError::InvalidInput {
@@ -81,6 +133,13 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
         LsvLeverageSurface::new(times.to_vec(), nodes.to_vec(), vec![1.0; nt * m], initial_f)?;
     let mut states = vec![initial_f; np];
     let mut factors = vec![F::State::default(); np];
+    // Each row is sorted starting from the previous row's order. The comparator
+    // is a strict total order (log state, then particle index), so the sorted
+    // result does not depend on the starting arrangement; particles move little
+    // per step, so the nearly sorted input sorts much faster than a fresh one.
+    let mut sorted = (0..np).map(|i| (0.0, i)).collect::<Vec<(f64, usize)>>();
+    // Each particle's last leverage cell, a search hint for the next step.
+    let mut cells = vec![0usize; np];
     let mut moments = Vec::with_capacity(nt * m);
     let mut diagnostics = Vec::with_capacity(nt);
     let mut trace = if config.retain_reverse_trace {
@@ -89,31 +148,35 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
         None
     };
     for r in 0..nt {
-        let a = factors
-            .iter()
-            .map(|&x| factor.multiplier(x))
-            .collect::<Vec<_>>();
+        let a = map_ordered(executor, &factors, |&x| factor.multiplier(x));
         for (i, &v) in a.iter().enumerate() {
             valid(v.powi(4), "particle_fourth_moment", i, true)?;
         }
-        let mut sorted = (0..np)
-            .map(|i| ((states[i] / initial_f).ln(), i))
-            .collect::<Vec<_>>();
-        sorted.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-        let mut row = Vec::with_capacity(m);
-        let mut weights = Vec::with_capacity(m);
-        for (j, &x) in nodes.iter().enumerate() {
+        let key = |entry: &mut (f64, usize)| entry.0 = (states[entry.1] / initial_f).ln();
+        let order = |a: &(f64, usize), b: &(f64, usize)| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1));
+        match executor {
+            None => {
+                sorted.iter_mut().for_each(key);
+                sorted.sort_by(order);
+            }
+            Some(executor) => executor.install(|| {
+                sorted.par_iter_mut().for_each(key);
+                sorted.par_sort_by(order);
+            }),
+        }
+        let node_moments = |(j, &x): (usize, &f64)| {
             if r == 0 || factor.vol_of_vol() == 0.0 {
-                row.push(LsvConditionalMoments {
-                    second: 1.0,
-                    third: 1.0,
-                    fourth: 1.0,
-                    effective_samples: np as f64,
-                    source_node: j,
-                    extrapolated: false,
-                });
-                weights.push(np as f64);
-                continue;
+                return (
+                    LsvConditionalMoments {
+                        second: 1.0,
+                        third: 1.0,
+                        fourth: 1.0,
+                        effective_samples: np as f64,
+                        source_node: j,
+                        extrapolated: false,
+                    },
+                    np as f64,
+                );
             }
             let h = config.log_bandwidth;
             let lo = sorted.partition_point(|p| p.0 < x - h);
@@ -133,16 +196,23 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
             }
             let [w, w2, m2, m3, m4] = sums.map(NeumaierSum::total);
             let ess = if w2 > 0.0 { w * w / w2 } else { 0.0 };
-            row.push(LsvConditionalMoments {
-                second: if w > 0.0 { m2 / w } else { 1.0 },
-                third: if w > 0.0 { m3 / w } else { 1.0 },
-                fourth: if w > 0.0 { m4 / w } else { 1.0 },
-                effective_samples: ess,
-                source_node: j,
-                extrapolated: false,
-            });
-            weights.push(w);
-        }
+            (
+                LsvConditionalMoments {
+                    second: if w > 0.0 { m2 / w } else { 1.0 },
+                    third: if w > 0.0 { m3 / w } else { 1.0 },
+                    fourth: if w > 0.0 { m4 / w } else { 1.0 },
+                    effective_samples: ess,
+                    source_node: j,
+                    extrapolated: false,
+                },
+                w,
+            )
+        };
+        let indexed = nodes.iter().enumerate().collect::<Vec<_>>();
+        let (mut row, weights): (Vec<_>, Vec<_>) =
+            map_ordered(executor, &indexed, |&(j, x)| node_moments((j, x)))
+                .into_iter()
+                .unzip();
         let supported = (0..m)
             .filter(|&j| row[j].effective_samples >= config.minimum_effective_samples)
             .collect::<Vec<_>>();
@@ -194,7 +264,13 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
         if r < nstep {
             let dt = times[r + 1] - times[r];
             let transition = factor.transition(dt)?;
-            for i in 0..np {
+            let surface = &surface;
+            let a = &a;
+            let update = |i: usize,
+                          state: &mut f64,
+                          factor_state: &mut F::State,
+                          cell: &mut usize|
+             -> Result<(), LsvError> {
                 let z = rng.standard_normal(RandomCoordinate::new(
                     i as u64,
                     r as u32,
@@ -205,8 +281,8 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
                     (nstep + r) as u32,
                     RandomDomain::LsvCalibration,
                 ));
-                let lookup = surface.lookup_row(r, (states[i] / initial_f).ln());
-                states[i] = advance(states[i], lookup.value * a[i] * a[i], dt, z, r, i)?;
+                let lookup = surface.lookup_row_from(r, (*state / initial_f).ln(), cell);
+                *state = advance(*state, lookup.value * a[i] * a[i], dt, z, r, i)?;
                 let z3 = if F::FACTOR_COUNT == 2 {
                     rng.standard_normal(RandomCoordinate::new(
                         i as u64,
@@ -216,13 +292,41 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
                 } else {
                     0.0
                 };
-                factors[i] = factor.evolve(transition, factors[i], z, [z2, z3]);
-                if !F::finite(factors[i]) {
+                *factor_state = factor.evolve(transition, *factor_state, z, [z2, z3]);
+                if !F::finite(*factor_state) {
                     return Err(LsvError::NonFiniteState {
                         time_index: r + 1,
                         path: i,
                     });
                 }
+                Ok(())
+            };
+            let chunk = |(c, ((s, f), h)): ParticleChunk<'_, F>| {
+                for k in 0..s.len() {
+                    update(c * PARTICLE_CHUNK + k, &mut s[k], &mut f[k], &mut h[k])?;
+                }
+                Ok::<(), LsvError>(())
+            };
+            let results = match executor {
+                None => states
+                    .chunks_mut(PARTICLE_CHUNK)
+                    .zip(factors.chunks_mut(PARTICLE_CHUNK))
+                    .zip(cells.chunks_mut(PARTICLE_CHUNK))
+                    .enumerate()
+                    .map(chunk)
+                    .collect::<Vec<_>>(),
+                Some(executor) => executor.install(|| {
+                    states
+                        .par_chunks_mut(PARTICLE_CHUNK)
+                        .zip(factors.par_chunks_mut(PARTICLE_CHUNK))
+                        .zip(cells.par_chunks_mut(PARTICLE_CHUNK))
+                        .enumerate()
+                        .map(chunk)
+                        .collect::<Vec<_>>()
+                }),
+            };
+            for result in results {
+                result?;
             }
         }
     }

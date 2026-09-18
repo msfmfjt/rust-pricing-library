@@ -6,7 +6,7 @@ use crate::core::PathIndex;
 use crate::market::LocalVarianceGrid;
 use crate::mc::lsv::{
     BERGOMI_LSV_SCHEME, BERGOMI_TWO_FACTOR_LSV_SCHEME, BergomiLsvPlan, CalibratedBergomiLsv,
-    LSV_CALIBRATION_REVERSE, LsvError, LsvParticleConfig, calibrate_bergomi_lsv,
+    LSV_CALIBRATION_REVERSE, LsvError, LsvParticleConfig, calibrate_bergomi_lsv_parallel,
 };
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
@@ -95,7 +95,15 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
             original_target.cap(),
         )?;
         let initial_f = target_request.market().equity().forward().spot().get();
-        let calibration = calibrate_bergomi_lsv(&refined, factor, initial_f, particles)?;
+        // The calibration is bit-identical for any worker count; the plan's own
+        // execution policy only sets how many threads share each time step.
+        let calibration = calibrate_bergomi_lsv_parallel(
+            &refined,
+            factor,
+            initial_f,
+            particles,
+            &DeterministicExecutor::new(policy)?,
+        )?;
         let path_plan = calibration.pricing_plan(grid)?;
         let mut hash = blake3::Hasher::new();
         hash.update(if F::FACTOR_COUNT == 1 {
@@ -232,13 +240,21 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
             &[1.0][..]
         } {
             let shocks = shocks.iter().map(|z| z * sign).collect::<Vec<_>>();
-            let states = self
-                .path_plan
-                .evolve_path(self.calibration.surface().initial_f(), &shocks)?;
+            let initial_f = self.calibration.surface().initial_f();
+            let weight = if antithetic { 0.5 } else { 1.0 };
+            if !risk {
+                // Price only: the same states without the reverse-mode records.
+                let mut states = Vec::new();
+                self.path_plan
+                    .evolve_states(initial_f, &shocks, &mut states)?;
+                let (price, _) = self.base.lsv_payoff(&states, PathIndex::new(path), false)?;
+                output[0] += weight * price;
+                continue;
+            }
+            let states = self.path_plan.evolve_path(initial_f, &shocks)?;
             let (price, seeds) =
                 self.base
-                    .lsv_payoff(states.states(), PathIndex::new(path), risk)?;
-            let weight = if antithetic { 0.5 } else { 1.0 };
+                    .lsv_payoff(states.states(), PathIndex::new(path), true)?;
             output[0] += weight * price;
             if let Some(seeds) = seeds {
                 let adj = states.reverse(&seeds)?;
