@@ -3,16 +3,20 @@
 //! keeps calibrated Local-variance risk distinct from market-IV VegaKT.
 
 use crate::core::PathIndex;
+use crate::engine::processes::rough_lsv::ROUGH_RANDOM_BLOCKS;
 use crate::market::LocalVarianceGrid;
 use crate::mc::lsv::{
-    BERGOMI_LSV_SCHEME, BERGOMI_TWO_FACTOR_LSV_SCHEME, BergomiLsvPlan, CalibratedBergomiLsv,
-    LSV_CALIBRATION_REVERSE, LsvError, LsvParticleConfig, calibrate_bergomi_lsv_parallel,
+    BERGOMI_LSV_SCHEME, BERGOMI_TWO_FACTOR_LSV_SCHEME, BergomiLsvPath, BergomiLsvPlan,
+    CalibratedBergomiLsv, CalibratedRoughBergomiLsv, LSV_CALIBRATION_REVERSE, LsvError,
+    LsvLeverageSurface, LsvParticleConfig, ROUGH_BERGOMI_LSV_SCHEME, RoughBergomiLsvPath,
+    RoughBergomiLsvPlan, calibrate_bergomi_lsv_parallel, calibrate_rough_bergomi_lsv_parallel,
 };
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
-    ExecutionPolicy, RandomDomain, RqmcPlan, VarianceReduction, inverse_standard_normal,
+    ExecutionPolicy, LocalVolTimeGrid, RandomDomain, RqmcPlan, VarianceReduction,
+    inverse_standard_normal,
 };
-use crate::models::{Bergomi1Factor, BergomiDynamics, ModelSpec};
+use crate::models::{Bergomi1Factor, BergomiDynamics, ModelSpec, RoughBergomi};
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,16 +46,177 @@ pub struct LsvLocalVarianceRisk {
 
 type RiskOutput = Option<(Vec<f64>, Option<Vec<f64>>)>;
 
+/// A calibrated LSV model the shared pricing core can evaluate.
+trait CalibratedModel: Clone + std::fmt::Debug + Send + Sync {
+    type Plan: PathModel;
+    const SCHEME: &'static str;
+    /// Independent Gaussian blocks per time step in the pricing layout.
+    const RANDOM_BLOCKS: usize;
+    fn surface(&self) -> &LsvLeverageSurface;
+    fn config(&self) -> &LsvParticleConfig;
+    fn target(&self) -> &LocalVarianceGrid;
+    fn reverse_leverage(&self, adjoints: &[f64]) -> Result<Vec<f64>, LsvError>;
+    fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<Self::Plan, LsvError>;
+}
+
+/// The path plan of a calibrated LSV model.
+trait PathModel: Clone + std::fmt::Debug + Send + Sync {
+    type Path;
+    fn times(&self) -> &[f64];
+    fn pseudo_shocks(
+        &self,
+        seed: u64,
+        path: u64,
+        domain: RandomDomain,
+    ) -> Result<Vec<f64>, LsvError>;
+    fn evolve_states(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+    ) -> Result<(), LsvError>;
+    fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<Self::Path, LsvError>;
+    fn path_states(path: &Self::Path) -> &[f64];
+    fn leverage_adjoints(path: &Self::Path, seeds: &[f64]) -> Result<Box<[f64]>, LsvError>;
+}
+
+impl<F: BergomiDynamics> CalibratedModel for CalibratedBergomiLsv<F> {
+    type Plan = BergomiLsvPlan<F>;
+    const SCHEME: &'static str = if F::FACTOR_COUNT == 1 {
+        BERGOMI_LSV_SCHEME
+    } else {
+        BERGOMI_TWO_FACTOR_LSV_SCHEME
+    };
+    const RANDOM_BLOCKS: usize = 1 + F::FACTOR_COUNT;
+    fn surface(&self) -> &LsvLeverageSurface {
+        self.surface()
+    }
+    fn config(&self) -> &LsvParticleConfig {
+        self.config()
+    }
+    fn target(&self) -> &LocalVarianceGrid {
+        self.target()
+    }
+    fn reverse_leverage(&self, adjoints: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.reverse_leverage(adjoints)
+    }
+    fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<BergomiLsvPlan<F>, LsvError> {
+        self.pricing_plan(grid)
+    }
+}
+
+impl<F: BergomiDynamics> PathModel for BergomiLsvPlan<F> {
+    type Path = BergomiLsvPath<F>;
+    fn times(&self) -> &[f64] {
+        self.times()
+    }
+    fn pseudo_shocks(
+        &self,
+        seed: u64,
+        path: u64,
+        domain: RandomDomain,
+    ) -> Result<Vec<f64>, LsvError> {
+        self.pseudo_shocks(seed, path, domain)
+    }
+    fn evolve_states(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+    ) -> Result<(), LsvError> {
+        self.evolve_states(initial_f, shocks, states)
+    }
+    fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<BergomiLsvPath<F>, LsvError> {
+        self.evolve_path(initial_f, shocks)
+    }
+    fn path_states(path: &BergomiLsvPath<F>) -> &[f64] {
+        path.states()
+    }
+    fn leverage_adjoints(path: &BergomiLsvPath<F>, seeds: &[f64]) -> Result<Box<[f64]>, LsvError> {
+        Ok(path.reverse(seeds)?.squared_leverage)
+    }
+}
+
+impl CalibratedModel for CalibratedRoughBergomiLsv {
+    type Plan = RoughBergomiLsvPlan;
+    const SCHEME: &'static str = ROUGH_BERGOMI_LSV_SCHEME;
+    const RANDOM_BLOCKS: usize = ROUGH_RANDOM_BLOCKS;
+    fn surface(&self) -> &LsvLeverageSurface {
+        self.surface()
+    }
+    fn config(&self) -> &LsvParticleConfig {
+        self.config()
+    }
+    fn target(&self) -> &LocalVarianceGrid {
+        self.target()
+    }
+    fn reverse_leverage(&self, adjoints: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.reverse_leverage(adjoints)
+    }
+    fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<RoughBergomiLsvPlan, LsvError> {
+        self.pricing_plan(grid)
+    }
+}
+
+impl PathModel for RoughBergomiLsvPlan {
+    type Path = RoughBergomiLsvPath;
+    fn times(&self) -> &[f64] {
+        self.times()
+    }
+    fn pseudo_shocks(
+        &self,
+        seed: u64,
+        path: u64,
+        domain: RandomDomain,
+    ) -> Result<Vec<f64>, LsvError> {
+        self.pseudo_shocks(seed, path, domain)
+    }
+    fn evolve_states(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+    ) -> Result<(), LsvError> {
+        self.evolve_states(initial_f, shocks, states)
+    }
+    fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<RoughBergomiLsvPath, LsvError> {
+        self.evolve_path(initial_f, shocks)
+    }
+    fn path_states(path: &RoughBergomiLsvPath) -> &[f64] {
+        path.states()
+    }
+    fn leverage_adjoints(
+        path: &RoughBergomiLsvPath,
+        seeds: &[f64],
+    ) -> Result<Box<[f64]>, LsvError> {
+        Ok(path.reverse(seeds)?.squared_leverage)
+    }
+}
+
+/// Everything after the model choice: target refinement, calibration, the
+/// independent MC/RQMC pricing loop and the calibrated local-variance reverse.
 #[derive(Clone, Debug)]
-pub struct BergomiLsvPricingPlan<F: BergomiDynamics = Bergomi1Factor> {
+struct LsvPricingCore<C: CalibratedModel> {
     base: SimulationPlan,
-    calibration: CalibratedBergomiLsv<F>,
-    path_plan: BergomiLsvPlan<F>,
+    calibration: C,
+    path_plan: C::Plan,
     original_target: LocalVarianceGrid,
     engine: EngineConfig,
     policy: ExecutionPolicy,
     risk_supported: bool,
     fingerprint: Fingerprint,
+}
+
+#[derive(Clone, Debug)]
+pub struct BergomiLsvPricingPlan<F: BergomiDynamics = Bergomi1Factor> {
+    core: LsvPricingCore<CalibratedBergomiLsv<F>>,
+}
+
+/// Deterministic-rate rough Bergomi LSV. The same two-stage contract as
+/// `BergomiLsvPricingPlan`, with the rough driver's three Gaussian blocks.
+#[derive(Clone, Debug)]
+pub struct RoughBergomiLsvPricingPlan {
+    core: LsvPricingCore<CalibratedRoughBergomiLsv>,
 }
 
 impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
@@ -64,6 +229,99 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
         factor: F,
         particles: LsvParticleConfig,
         policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let tag: &[u8] = if F::FACTOR_COUNT == 1 {
+            b"pricing/bergomi-lsv-plan/v1\0"
+        } else {
+            b"pricing/bergomi-two-factor-lsv-plan/v1\0"
+        };
+        LsvPricingCore::compile(
+            target_request,
+            particles,
+            policy,
+            tag,
+            &factor.parameters(),
+            |target, initial_f, particles, executor| {
+                calibrate_bergomi_lsv_parallel(target, factor, initial_f, particles, executor)
+            },
+        )
+        .map(|core| Self { core })
+    }
+    #[must_use]
+    pub fn calibration(&self) -> &CalibratedBergomiLsv<F> {
+        &self.core.calibration
+    }
+    #[must_use]
+    pub const fn plan_fingerprint(&self) -> Fingerprint {
+        self.core.fingerprint
+    }
+    #[must_use]
+    pub const fn execution_policy(&self) -> ExecutionPolicy {
+        self.core.policy
+    }
+    pub fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
+        self.core.evaluate()
+    }
+    pub fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
+        self.core.evaluate_local_variance_risk()
+    }
+}
+
+impl RoughBergomiLsvPricingPlan {
+    /// `target_request.model` is the Dupire LocalVolatility target, as for
+    /// `BergomiLsvPricingPlan`. Rates, carry and dividends follow the request's
+    /// deterministic market; the rough driver starts at the valuation time.
+    pub fn compile(
+        target_request: &PricingRequest,
+        model: RoughBergomi,
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        LsvPricingCore::compile(
+            target_request,
+            particles,
+            policy,
+            b"pricing/rough-bergomi-lsv-plan/v1\0",
+            &[model.hurst(), model.vol_of_vol(), model.correlation()],
+            |target, initial_f, particles, executor| {
+                calibrate_rough_bergomi_lsv_parallel(target, model, initial_f, particles, executor)
+            },
+        )
+        .map(|core| Self { core })
+    }
+    #[must_use]
+    pub fn calibration(&self) -> &CalibratedRoughBergomiLsv {
+        &self.core.calibration
+    }
+    #[must_use]
+    pub const fn plan_fingerprint(&self) -> Fingerprint {
+        self.core.fingerprint
+    }
+    #[must_use]
+    pub const fn execution_policy(&self) -> ExecutionPolicy {
+        self.core.policy
+    }
+    pub fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
+        self.core.evaluate()
+    }
+    pub fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
+        self.core.evaluate_local_variance_risk()
+    }
+}
+
+impl<C: CalibratedModel> LsvPricingCore<C> {
+    fn compile(
+        target_request: &PricingRequest,
+        particles: LsvParticleConfig,
+        policy: ExecutionPolicy,
+        tag: &[u8],
+        parameters: &[f64],
+        calibrate: impl FnOnce(
+            &LocalVarianceGrid,
+            f64,
+            LsvParticleConfig,
+            &DeterministicExecutor,
+        ) -> Result<C, LsvError>,
     ) -> Result<Self, MonteCarloError> {
         let ModelSpec::LocalVolatility(target) = target_request.model() else {
             return Err(MonteCarloError::UnsupportedModel {
@@ -97,22 +355,17 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
         let initial_f = target_request.market().equity().forward().spot().get();
         // The calibration is bit-identical for any worker count; the plan's own
         // execution policy only sets how many threads share each time step.
-        let calibration = calibrate_bergomi_lsv_parallel(
+        let calibration = calibrate(
             &refined,
-            factor,
             initial_f,
             particles,
             &DeterministicExecutor::new(policy)?,
         )?;
         let path_plan = calibration.pricing_plan(grid)?;
         let mut hash = blake3::Hasher::new();
-        hash.update(if F::FACTOR_COUNT == 1 {
-            b"pricing/bergomi-lsv-plan/v1\0"
-        } else {
-            b"pricing/bergomi-two-factor-lsv-plan/v1\0"
-        });
+        hash.update(tag);
         hash.update(base.plan_fingerprint().as_bytes());
-        for v in factor.parameters().into_iter().chain([
+        for v in parameters.iter().copied().chain([
             calibration.config().log_bandwidth(),
             calibration.config().minimum_effective_samples(),
         ]) {
@@ -139,24 +392,11 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
         })
     }
 
-    #[must_use]
-    pub fn calibration(&self) -> &CalibratedBergomiLsv<F> {
-        &self.calibration
-    }
-    #[must_use]
-    pub const fn plan_fingerprint(&self) -> Fingerprint {
-        self.fingerprint
-    }
-    #[must_use]
-    pub const fn execution_policy(&self) -> ExecutionPolicy {
-        self.policy
-    }
-
-    pub fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
+    fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
         Ok(self.run(false)?.0)
     }
 
-    pub fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
+    fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "LSV discontinuous payoff requires explicit smoothing",
@@ -251,14 +491,16 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
                 output[0] += weight * price;
                 continue;
             }
-            let states = self.path_plan.evolve_path(initial_f, &shocks)?;
-            let (price, seeds) =
-                self.base
-                    .lsv_payoff(states.states(), PathIndex::new(path), true)?;
+            let recorded = self.path_plan.evolve_path(initial_f, &shocks)?;
+            let (price, seeds) = self.base.lsv_payoff(
+                C::Plan::path_states(&recorded),
+                PathIndex::new(path),
+                true,
+            )?;
             output[0] += weight * price;
             if let Some(seeds) = seeds {
-                let adj = states.reverse(&seeds)?;
-                for (v, &a) in output[1..].iter_mut().zip(&adj.squared_leverage) {
+                let adjoints = C::Plan::leverage_adjoints(&recorded, &seeds)?;
+                for (v, &a) in output[1..].iter_mut().zip(adjoints.iter()) {
                     *v += weight * a;
                 }
             }
@@ -298,12 +540,13 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
                 (stats[0], n, engine.evaluated_paths(), gradient)
             }
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
-                let dimension =
-                    u32::try_from((1 + F::FACTOR_COUNT) * (self.path_plan.times().len() - 1))
-                        .map_err(|_| LsvError::InvalidInput {
-                            field: "random_dimension",
-                            index: 0,
-                        })?;
+                let dimension = u32::try_from(
+                    C::RANDOM_BLOCKS * (self.path_plan.times().len() - 1),
+                )
+                .map_err(|_| LsvError::InvalidInput {
+                    field: "random_dimension",
+                    index: 0,
+                })?;
                 let qmc = RqmcPlan::compile(engine, dimension)?;
                 let bridge = self.bridge(engine.variance_reduction())?;
                 let n = engine.points_per_scramble().get();
@@ -381,11 +624,7 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
             evaluated_paths: paths,
             calibration_seed: self.calibration.config().seed(),
             plan_fingerprint: self.fingerprint,
-            scheme: if F::FACTOR_COUNT == 1 {
-                BERGOMI_LSV_SCHEME
-            } else {
-                BERGOMI_TWO_FACTOR_LSV_SCHEME
-            },
+            scheme: C::SCHEME,
         };
         Ok((price, risk_output))
     }

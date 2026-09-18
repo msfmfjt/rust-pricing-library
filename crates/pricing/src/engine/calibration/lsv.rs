@@ -8,11 +8,12 @@
 //! expectation estimator, rather than freezing it under a Dupire variance bump.
 
 use crate::engine::processes::lsv::*;
+use crate::engine::processes::rough_lsv::{ROUGH_RANDOM_BLOCKS, RoughBergomiLsvPlan, RoughKernel};
 use crate::market::LocalVarianceGrid;
 use crate::mc::{
     DeterministicExecutor, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain,
 };
-use crate::models::{Bergomi1Factor, BergomiDynamics};
+use crate::models::{Bergomi1Factor, BergomiDynamics, RoughBergomi};
 use pricing_numerics::NeumaierSum;
 use rayon::prelude::*;
 
@@ -23,15 +24,130 @@ struct TraceRow {
     weight_sums: Box<[f64]>,
 }
 
+/// Model-independent result of one particle calibration.
 #[derive(Clone, Debug)]
-pub struct CalibratedBergomiLsv<F: BergomiDynamics = Bergomi1Factor> {
-    factor: F,
+struct Calibration {
     config: LsvParticleConfig,
     target: LocalVarianceGrid,
     surface: LsvLeverageSurface,
     moments: Box<[LsvConditionalMoments]>,
     diagnostics: Box<[LsvCalibrationRowDiagnostics]>,
     trace: Option<Box<[TraceRow]>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CalibratedBergomiLsv<F: BergomiDynamics = Bergomi1Factor> {
+    factor: F,
+    core: Calibration,
+}
+
+/// Particle-calibrated rough Bergomi LSV with deterministic rates.
+#[derive(Clone, Debug)]
+pub struct CalibratedRoughBergomiLsv {
+    model: RoughBergomi,
+    core: Calibration,
+}
+
+/// How each particle's variance multiplier is produced. Markovian factors
+/// evolve a per-particle state; rough Bergomi reads a precomputed history.
+trait ParticleDriver: Sync {
+    type State: Copy + Default + Send + Sync;
+    type Step: Copy + Send + Sync;
+    fn random_blocks(&self) -> usize;
+    /// Zero vol of vol: the conditional moments are exactly one.
+    fn trivial(&self) -> bool;
+    fn multiplier(&self, state: Self::State, particle: usize, row: usize) -> f64;
+    fn step(&self, dt: f64) -> Result<Self::Step, LsvError>;
+    /// Evolves the factor state after the particle's spot step with normal z.
+    fn advance(
+        &self,
+        step: Self::Step,
+        state: Self::State,
+        particle: usize,
+        row: usize,
+        z: f64,
+    ) -> Result<Self::State, LsvError>;
+}
+
+struct MarkovDriver<F> {
+    factor: F,
+    rng: Philox4x32,
+    nstep: usize,
+}
+
+impl<F: BergomiDynamics> ParticleDriver for MarkovDriver<F> {
+    type State = F::State;
+    type Step = F::Transition;
+    fn random_blocks(&self) -> usize {
+        1 + F::FACTOR_COUNT
+    }
+    fn trivial(&self) -> bool {
+        self.factor.vol_of_vol() == 0.0
+    }
+    fn multiplier(&self, state: F::State, _: usize, _: usize) -> f64 {
+        self.factor.multiplier(state)
+    }
+    fn step(&self, dt: f64) -> Result<F::Transition, LsvError> {
+        Ok(self.factor.transition(dt)?)
+    }
+    fn advance(
+        &self,
+        step: F::Transition,
+        state: F::State,
+        i: usize,
+        r: usize,
+        z: f64,
+    ) -> Result<F::State, LsvError> {
+        let z2 = self.rng.standard_normal(RandomCoordinate::new(
+            i as u64,
+            (self.nstep + r) as u32,
+            RandomDomain::LsvCalibration,
+        ));
+        let z3 = if F::FACTOR_COUNT == 2 {
+            self.rng.standard_normal(RandomCoordinate::new(
+                i as u64,
+                (2 * self.nstep + r) as u32,
+                RandomDomain::LsvCalibration,
+            ))
+        } else {
+            0.0
+        };
+        let next = self.factor.evolve(step, state, z, [z2, z3]);
+        if !F::finite(next) {
+            return Err(LsvError::NonFiniteState {
+                time_index: r + 1,
+                path: i,
+            });
+        }
+        Ok(next)
+    }
+}
+
+/// Rough multipliers `a_r` of every particle at every row, particle-major.
+struct RoughTableDriver {
+    table: Vec<f64>,
+    rows: usize,
+    trivial: bool,
+}
+
+impl ParticleDriver for RoughTableDriver {
+    type State = ();
+    type Step = ();
+    fn random_blocks(&self) -> usize {
+        ROUGH_RANDOM_BLOCKS
+    }
+    fn trivial(&self) -> bool {
+        self.trivial
+    }
+    fn multiplier(&self, _: (), particle: usize, row: usize) -> f64 {
+        self.table[particle * self.rows + row]
+    }
+    fn step(&self, _: f64) -> Result<(), LsvError> {
+        Ok(())
+    }
+    fn advance(&self, _: (), _: (), _: usize, _: usize, _: f64) -> Result<(), LsvError> {
+        Ok(())
+    }
 }
 
 // The normalization 15/16 cancels in the regression and its derivatives.
@@ -58,7 +174,7 @@ pub fn calibrate_bergomi_lsv<F: BergomiDynamics>(
     initial_f: f64,
     config: LsvParticleConfig,
 ) -> Result<CalibratedBergomiLsv<F>, LsvError> {
-    calibrate(target, factor, initial_f, config, None)
+    calibrate_markov(target, factor, initial_f, config, None)
 }
 
 /// `calibrate_bergomi_lsv` with each time step's particle work spread over the
@@ -73,17 +189,130 @@ pub fn calibrate_bergomi_lsv_parallel<F: BergomiDynamics>(
     config: LsvParticleConfig,
     executor: &DeterministicExecutor,
 ) -> Result<CalibratedBergomiLsv<F>, LsvError> {
-    calibrate(target, factor, initial_f, config, Some(executor))
+    calibrate_markov(target, factor, initial_f, config, Some(executor))
+}
+
+fn calibrate_markov<F: BergomiDynamics>(
+    target: &LocalVarianceGrid,
+    factor: F,
+    initial_f: f64,
+    config: LsvParticleConfig,
+    executor: Option<&DeterministicExecutor>,
+) -> Result<CalibratedBergomiLsv<F>, LsvError> {
+    let driver = MarkovDriver {
+        factor,
+        rng: Philox4x32::from_seed(config.seed),
+        nstep: target.time_nodes().len() - 1,
+    };
+    Ok(CalibratedBergomiLsv {
+        factor,
+        core: calibrate(target, &driver, initial_f, config, executor)?,
+    })
+}
+
+/// Rough Bergomi counterpart of `calibrate_bergomi_lsv`. Each particle's rough
+/// driver is independent of spot, so its whole history is generated first from
+/// the particle's calibration normals (spot, orthogonal variance and near-cell
+/// residual blocks), then the same particle algorithm runs. This holds
+/// O(particles * time nodes) multipliers in memory.
+pub fn calibrate_rough_bergomi_lsv(
+    target: &LocalVarianceGrid,
+    model: RoughBergomi,
+    initial_f: f64,
+    config: LsvParticleConfig,
+) -> Result<CalibratedRoughBergomiLsv, LsvError> {
+    calibrate_rough(target, model, initial_f, config, None)
+}
+
+/// `calibrate_rough_bergomi_lsv` with the driver histories and each time
+/// step's particle work spread over the executor's pool; bit-identical to the
+/// sequential calibration for any worker count.
+pub fn calibrate_rough_bergomi_lsv_parallel(
+    target: &LocalVarianceGrid,
+    model: RoughBergomi,
+    initial_f: f64,
+    config: LsvParticleConfig,
+    executor: &DeterministicExecutor,
+) -> Result<CalibratedRoughBergomiLsv, LsvError> {
+    calibrate_rough(target, model, initial_f, config, Some(executor))
+}
+
+fn calibrate_rough(
+    target: &LocalVarianceGrid,
+    model: RoughBergomi,
+    initial_f: f64,
+    config: LsvParticleConfig,
+    executor: Option<&DeterministicExecutor>,
+) -> Result<CalibratedRoughBergomiLsv, LsvError> {
+    valid(initial_f, "initial_f", 0, true)?;
+    let times = target.time_nodes();
+    let kernel = RoughKernel::compile(model, times)?;
+    let nt = times.len();
+    let nstep = nt - 1;
+    u32::try_from(ROUGH_RANDOM_BLOCKS * nstep).map_err(|_| LsvError::InvalidInput {
+        field: "random_dimension",
+        index: nstep,
+    })?;
+    let rng = Philox4x32::from_seed(config.seed);
+    let history = |i: usize, out: &mut [f64]| -> Result<(), LsvError> {
+        let normal = |dimension: usize| {
+            rng.standard_normal(RandomCoordinate::new(
+                i as u64,
+                dimension as u32,
+                RandomDomain::LsvCalibration,
+            ))
+        };
+        let mut dw = Vec::with_capacity(nstep);
+        let mut near = Vec::with_capacity(nstep);
+        for j in 0..nstep {
+            let (d, q) = kernel.innovations(j, normal(j), normal(nstep + j), normal(2 * nstep + j));
+            dw.push(d);
+            near.push(q);
+        }
+        let mut log_multipliers = Vec::with_capacity(nt);
+        kernel.log_multipliers(&dw, &near, &mut log_multipliers)?;
+        for (a, m) in out.iter_mut().zip(log_multipliers) {
+            *a = (0.5 * m).exp();
+        }
+        Ok(())
+    };
+    let mut table = vec![0.0; config.particle_count * nt];
+    let chunk = |(c, rows): (usize, &mut [f64])| {
+        for (k, out) in rows.chunks_mut(nt).enumerate() {
+            history(c * PARTICLE_CHUNK + k, out)?;
+        }
+        Ok::<(), LsvError>(())
+    };
+    let results = match executor {
+        None => table
+            .chunks_mut(PARTICLE_CHUNK * nt)
+            .enumerate()
+            .map(chunk)
+            .collect::<Vec<_>>(),
+        Some(executor) => executor.install(|| {
+            table
+                .par_chunks_mut(PARTICLE_CHUNK * nt)
+                .enumerate()
+                .map(chunk)
+                .collect::<Vec<_>>()
+        }),
+    };
+    for result in results {
+        result?;
+    }
+    let driver = RoughTableDriver {
+        table,
+        rows: nt,
+        trivial: model.vol_of_vol() == 0.0,
+    };
+    Ok(CalibratedRoughBergomiLsv {
+        model,
+        core: calibrate(target, &driver, initial_f, config, executor)?,
+    })
 }
 
 /// One task's slice of particle states, factor states and leverage-cell hints.
-type ParticleChunk<'a, F> = (
-    usize,
-    (
-        (&'a mut [f64], &'a mut [<F as BergomiDynamics>::State]),
-        &'a mut [usize],
-    ),
-);
+type ParticleChunk<'a, S> = (usize, ((&'a mut [f64], &'a mut [S]), &'a mut [usize]));
 
 /// Particles per parallel task. Fixed, so task boundaries never depend on the
 /// worker count; errors are resolved in task order.
@@ -100,13 +329,24 @@ fn map_ordered<T: Sync, U: Send>(
     }
 }
 
-fn calibrate<F: BergomiDynamics>(
+fn map_indexed<U: Send>(
+    executor: Option<&DeterministicExecutor>,
+    count: usize,
+    f: impl Fn(usize) -> U + Sync + Send,
+) -> Vec<U> {
+    match executor {
+        None => (0..count).map(f).collect(),
+        Some(executor) => executor.install(|| (0..count).into_par_iter().map(f).collect()),
+    }
+}
+
+fn calibrate<D: ParticleDriver>(
     target: &LocalVarianceGrid,
-    factor: F,
+    driver: &D,
     initial_f: f64,
     config: LsvParticleConfig,
     executor: Option<&DeterministicExecutor>,
-) -> Result<CalibratedBergomiLsv<F>, LsvError> {
+) -> Result<Calibration, LsvError> {
     valid(initial_f, "initial_f", 0, true)?;
     if target.time_nodes()[0].to_bits() != 0.0f64.to_bits() {
         return Err(LsvError::InvalidInput {
@@ -122,7 +362,7 @@ fn calibrate<F: BergomiDynamics>(
     let nstep = nt - 1;
     let rng = Philox4x32::from_seed(config.seed);
     let last_dimension = nstep
-        .checked_mul(1 + F::FACTOR_COUNT)
+        .checked_mul(driver.random_blocks())
         .and_then(|n| u32::try_from(n).ok())
         .ok_or(LsvError::InvalidInput {
             field: "random_dimension",
@@ -132,7 +372,7 @@ fn calibrate<F: BergomiDynamics>(
     let mut surface =
         LsvLeverageSurface::new(times.to_vec(), nodes.to_vec(), vec![1.0; nt * m], initial_f)?;
     let mut states = vec![initial_f; np];
-    let mut factors = vec![F::State::default(); np];
+    let mut factors = vec![D::State::default(); np];
     // Each row is sorted starting from the previous row's order. The comparator
     // is a strict total order (log state, then particle index), so the sorted
     // result does not depend on the starting arrangement; particles move little
@@ -148,7 +388,7 @@ fn calibrate<F: BergomiDynamics>(
         None
     };
     for r in 0..nt {
-        let a = map_ordered(executor, &factors, |&x| factor.multiplier(x));
+        let a = map_indexed(executor, np, |i| driver.multiplier(factors[i], i, r));
         for (i, &v) in a.iter().enumerate() {
             valid(v.powi(4), "particle_fourth_moment", i, true)?;
         }
@@ -165,7 +405,7 @@ fn calibrate<F: BergomiDynamics>(
             }),
         }
         let node_moments = |(j, &x): (usize, &f64)| {
-            if r == 0 || factor.vol_of_vol() == 0.0 {
+            if r == 0 || driver.trivial() {
                 return (
                     LsvConditionalMoments {
                         second: 1.0,
@@ -263,12 +503,12 @@ fn calibrate<F: BergomiDynamics>(
         moments.extend(row);
         if r < nstep {
             let dt = times[r + 1] - times[r];
-            let transition = factor.transition(dt)?;
+            let transition = driver.step(dt)?;
             let surface = &surface;
             let a = &a;
             let update = |i: usize,
                           state: &mut f64,
-                          factor_state: &mut F::State,
+                          factor_state: &mut D::State,
                           cell: &mut usize|
              -> Result<(), LsvError> {
                 let z = rng.standard_normal(RandomCoordinate::new(
@@ -276,32 +516,12 @@ fn calibrate<F: BergomiDynamics>(
                     r as u32,
                     RandomDomain::LsvCalibration,
                 ));
-                let z2 = rng.standard_normal(RandomCoordinate::new(
-                    i as u64,
-                    (nstep + r) as u32,
-                    RandomDomain::LsvCalibration,
-                ));
                 let lookup = surface.lookup_row_from(r, (*state / initial_f).ln(), cell);
                 *state = advance(*state, lookup.value * a[i] * a[i], dt, z, r, i)?;
-                let z3 = if F::FACTOR_COUNT == 2 {
-                    rng.standard_normal(RandomCoordinate::new(
-                        i as u64,
-                        (2 * nstep + r) as u32,
-                        RandomDomain::LsvCalibration,
-                    ))
-                } else {
-                    0.0
-                };
-                *factor_state = factor.evolve(transition, *factor_state, z, [z2, z3]);
-                if !F::finite(*factor_state) {
-                    return Err(LsvError::NonFiniteState {
-                        time_index: r + 1,
-                        path: i,
-                    });
-                }
+                *factor_state = driver.advance(transition, *factor_state, i, r, z)?;
                 Ok(())
             };
-            let chunk = |(c, ((s, f), h)): ParticleChunk<'_, F>| {
+            let chunk = |(c, ((s, f), h)): ParticleChunk<'_, D::State>| {
                 for k in 0..s.len() {
                     update(c * PARTICLE_CHUNK + k, &mut s[k], &mut f[k], &mut h[k])?;
                 }
@@ -330,8 +550,7 @@ fn calibrate<F: BergomiDynamics>(
             }
         }
     }
-    Ok(CalibratedBergomiLsv {
-        factor,
+    Ok(Calibration {
         config,
         target: target.clone(),
         surface,
@@ -344,11 +563,11 @@ fn calibrate<F: BergomiDynamics>(
 impl<F: BergomiDynamics> CalibratedBergomiLsv<F> {
     #[must_use]
     pub fn surface(&self) -> &LsvLeverageSurface {
-        &self.surface
+        &self.core.surface
     }
     #[must_use]
     pub fn target(&self) -> &LocalVarianceGrid {
-        &self.target
+        &self.core.target
     }
     #[must_use]
     pub const fn factor(&self) -> F {
@@ -356,22 +575,22 @@ impl<F: BergomiDynamics> CalibratedBergomiLsv<F> {
     }
     #[must_use]
     pub fn config(&self) -> &LsvParticleConfig {
-        &self.config
+        &self.core.config
     }
     #[must_use]
     pub fn conditional_moments(&self) -> &[LsvConditionalMoments] {
-        &self.moments
+        &self.core.moments
     }
     #[must_use]
     pub fn diagnostics(&self) -> &[LsvCalibrationRowDiagnostics] {
-        &self.diagnostics
+        &self.core.diagnostics
     }
 
     pub fn pricing_plan(
         &self,
         time_grid: &LocalVolTimeGrid,
     ) -> Result<BergomiLsvPlan<F>, LsvError> {
-        BergomiLsvPlan::new(self.factor, self.surface.clone(), time_grid)
+        BergomiLsvPlan::new(self.factor, self.core.surface.clone(), time_grid)
     }
 
     /// VJP from squared relative leverage to the original target Local variance
@@ -380,6 +599,57 @@ impl<F: BergomiDynamics> CalibratedBergomiLsv<F> {
     /// held fixed. This is an exact derivative of the finite discrete algorithm;
     /// it is not the infinite-particle continuum result of SSRN 4304114 (4.3).
     pub fn reverse_leverage(&self, leverage_adjoints: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.core
+            .reverse(leverage_adjoints, self.factor.vol_of_vol() == 0.0)
+    }
+}
+
+impl CalibratedRoughBergomiLsv {
+    #[must_use]
+    pub fn surface(&self) -> &LsvLeverageSurface {
+        &self.core.surface
+    }
+    #[must_use]
+    pub fn target(&self) -> &LocalVarianceGrid {
+        &self.core.target
+    }
+    #[must_use]
+    pub const fn model(&self) -> RoughBergomi {
+        self.model
+    }
+    #[must_use]
+    pub fn config(&self) -> &LsvParticleConfig {
+        &self.core.config
+    }
+    #[must_use]
+    pub fn conditional_moments(&self) -> &[LsvConditionalMoments] {
+        &self.core.moments
+    }
+    #[must_use]
+    pub fn diagnostics(&self) -> &[LsvCalibrationRowDiagnostics] {
+        &self.core.diagnostics
+    }
+
+    /// The Volterra kernel is compiled on the execution grid, which must contain
+    /// every leverage knot inside its horizon.
+    pub fn pricing_plan(
+        &self,
+        time_grid: &LocalVolTimeGrid,
+    ) -> Result<RoughBergomiLsvPlan, LsvError> {
+        RoughBergomiLsvPlan::new(self.model, self.core.surface.clone(), time_grid)
+    }
+
+    /// VJP from squared relative leverage to the original target Local variance
+    /// grid, including calibration feedback. The rough driver does not depend
+    /// on the target, so the reverse is the same particle VJP as for Bergomi.
+    pub fn reverse_leverage(&self, leverage_adjoints: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.core
+            .reverse(leverage_adjoints, self.model.vol_of_vol() == 0.0)
+    }
+}
+
+impl Calibration {
+    fn reverse(&self, leverage_adjoints: &[f64], trivial: bool) -> Result<Vec<f64>, LsvError> {
         length(
             "leverage_adjoints",
             self.surface.values.len(),
@@ -430,7 +700,7 @@ impl<F: BergomiDynamics> CalibratedBergomiLsv<F> {
                 moment_bar[moment.source_node] -=
                     lbar[r * m + j] * interp.value / moment.second.powi(2);
             }
-            if r == 0 || self.factor.vol_of_vol() == 0.0 {
+            if r == 0 || trivial {
                 continue;
             }
             let h = self.config.log_bandwidth;
