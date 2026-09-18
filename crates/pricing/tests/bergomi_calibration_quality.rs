@@ -4,7 +4,7 @@
 
 use pricing::analytical::{BlackScholesOracleInputs, evaluate};
 use pricing::market::{ImpliedVarianceSurface, LocalVarianceGrid, MarketIvSurface};
-use pricing::mc::lsv::{BergomiLsvPlan, LsvParticleConfig, calibrate_bergomi_lsv};
+use pricing::mc::lsv::{BergomiLsvPlan, LsvParticleConfig, calibrate_bergomi_lsv_parallel};
 use pricing::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, ExecutionPolicy,
     LocalVolLogEulerPlan, LocalVolTimeGrid, RqmcConfig, RqmcPlan, VarianceReduction,
@@ -250,6 +250,15 @@ struct Run {
     quote_support: Vec<QuoteSupport>,
 }
 
+// Worker threads per complete run. The executor reduces fixed logical blocks in
+// a fixed order and the calibration is bit-identical for any worker count, so
+// this only spreads the four concurrent runs over the machine's cores.
+fn executor() -> DeterministicExecutor {
+    let cores = std::thread::available_parallelism().map_or(2, |n| n.get());
+    let workers = cores.div_ceil(CALIBRATION_SEEDS.len()).max(2);
+    DeterministicExecutor::new(ExecutionPolicy::new(workers as u32, Some(256)).unwrap()).unwrap()
+}
+
 fn price_surface(
     lsv: &BergomiLsvPlan,
     grid: &LocalVarianceGrid,
@@ -271,7 +280,7 @@ fn price_surface(
         dimension as u32,
     )
     .unwrap();
-    let executor = DeterministicExecutor::new(ExecutionPolicy::new(2, Some(256)).unwrap()).unwrap();
+    let executor = executor();
     let width = 3 * QUOTES + MATURITIES.len();
     let mut means = Vec::new();
     for scramble in 0..settings.scrambles {
@@ -295,17 +304,19 @@ fn price_surface(
                         .collect::<Vec<_>>();
                     z.extend(bridge.apply_one_factor(&block).unwrap());
                 }
+                let (mut path, mut control) = (Vec::new(), Vec::new());
                 for sign in [1.0, -1.0] {
                     if sign < 0.0 {
                         z.iter_mut().for_each(|v| *v = -*v);
                     }
-                    let path = lsv.evolve_path(SPOT, &z).unwrap();
-                    let control = lv.evolve_path(grid, SPOT, &z[..settings.steps]).unwrap();
+                    lsv.evolve_states(SPOT, &z, &mut path).unwrap();
+                    lv.evolve_states(grid, SPOT, &z[..settings.steps], &mut control)
+                        .unwrap();
                     for (r, &t) in MATURITIES.iter().enumerate() {
                         let i = (t * settings.steps as f64) as usize;
                         assert_eq!(grid.time_nodes()[i], t);
-                        let f = path.states()[i];
-                        let f_lv = control.states()[i];
+                        let f = path[i];
+                        let f_lv = control[i];
                         out[3 * QUOTES + r] += 0.5 * f;
                         for (j, &x) in LOG_STRIKES.iter().enumerate() {
                             let strike = SPOT * x.exp();
@@ -343,11 +354,12 @@ fn price_surface(
 
 fn run(surface: &MarketIvSurface, model: Model, settings: Settings, seed: u64) -> Run {
     let grid = target(surface, settings);
-    let calibration = calibrate_bergomi_lsv(
+    let calibration = calibrate_bergomi_lsv_parallel(
         &grid,
         model.factor(),
         SPOT,
         LsvParticleConfig::new(settings.particles, seed, settings.bandwidth, 20.0, false).unwrap(),
+        &executor(),
     )
     .unwrap();
     let xs = grid.log_moneyness_nodes();

@@ -27,7 +27,7 @@ invalid/no-time-value prices fail instead of being clipped or dropped.
 | Kernel | Log bandwidth 0.01; minimum ESS 20; no reverse trace |
 | Independent pricing per calibration | 8 RQMC scrambles x 32,768 points x 2 antithetic legs |
 | Pricing seed | Calibration seed XOR 0xd1b54a32d192ed03; never the particle stream |
-| Pricing execution | Brownian bridge on both independent factors, with the two factors' bridge coordinates interleaved across Sobol dimensions; dedicated 2-worker pool, fixed block size 256; the four complete runs execute concurrently |
+| Pricing execution | Brownian bridge on both independent factors, with the two factors' bridge coordinates interleaved across Sobol dimensions; each complete run owns a pool of max(2, ceil(cores / 4)) workers, fixed block size 256, which also carries its calibration's per-step particle work; the four complete runs execute concurrently; results are bit-identical for any worker count |
 
 Each calibration is shared across all 15 quotes. Each complete outer run has
 independent particles and independent pricing scrambles. No calibration
@@ -147,10 +147,12 @@ particles changed nothing, so particle noise is exhausted at bandwidth 0.01
 long before 262,144 particles.
 
 The acceptance setting keeps every evaluation quote of both surfaces within
-1.9 bp of its target, with a maximum total SE of 0.77 bp. It costs about ten
-times the wall time of the first accepted setting on the same machine (190
-seconds against 18), even with the four independent seeds running concurrently. No calibration code, budget or
-production default changed.
+1.9 bp of its target, with a maximum total SE of 0.77 bp. No budget, numerical
+policy or production default changed. On the same machine the two gates first
+took 190 seconds against 18 for the first accepted setting. Parallel
+calibration time steps, price-only path evolution and O(1) cell searches then
+brought them to 89 seconds with bit-identical output; see the local results
+below.
 
 The calibrator's own `minimum_effective_samples` stays at 20. Raising it would
 change which nodes fall back and therefore change the calibrated leverage
@@ -318,8 +320,10 @@ accepted setting; the file now records the current acceptance run.
 | Skew / term structure | 1.586 bp | 0.614 bp | 0.234 bp | 0.757 bp | 2.914 bp | 1358 | 0.043 bp |
 
 On macOS (14 cores) both numerical gates and all five helper tests passed, the
-gates in 190.52 seconds after compilation, with formatting and workspace Clippy
-clean. The Linux run reported below used the first accepted setting and
+gates in 89.39 seconds after compilation, with formatting and workspace Clippy
+clean. The same gates took 190.52 seconds before the calibration and path
+evolution were made parallel and allocation-free; every `BERGOMI_RUN` and
+`BERGOMI_QUALITY` line is byte-identical between the two runs. The Linux run reported below used the first accepted setting and
 predates the support and interpolation budgets.
 
 Both numerical gates and all four helper tests passed in one run (37.20 seconds
@@ -346,8 +350,8 @@ were increased to 8,192, **without increasing any error budget**. At 32,768
 particles and 128 steps, bandwidth 0.035 then failed the paired residual gate at
 3 months, k=-0.2 (flat 17.150 bp; skew 15.970 bp), and bandwidth 0.02 passed
 with a flat maximum IV error of 10.357 bp. The error decomposition above then
-moved every setting to its current value. No production defaults or
-calibration code changed.
+moved every setting to its current value. No production default, numerical
+policy or calibrated result changed.
 
 These controlled comparisons demonstrate sensitivity to the numerical settings
 in this fixture. They do not establish the cause of an unprovided market-data
