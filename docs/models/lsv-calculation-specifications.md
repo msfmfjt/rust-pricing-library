@@ -158,6 +158,12 @@ with the factor parameters, particle count, seed, bandwidth, ESS threshold,
 trace policy and realized leverage. Stable LSV JSON migration and retained
 native-platform replay fixtures are later acceptance work.
 
+The [one-factor calibration quality gate](../../design/validation/bergomi-calibration-quality.md)
+tests complete IV-to-Dupire-to-particles-to-independent-prices-to-IV round trips.
+It reports both LV-control error and LSV error; pricing uncertainty is distinct
+from the variability of complete calibration-and-pricing runs. These gates do
+not change the numerical policies above or certify other model combinations.
+
 ## References
 
 - [Dupire, *Pricing with a Smile*](https://www.risk.net/derivatives/equity-derivatives/1500211/pricing-with-a-smile), for the call-surface-to-local-volatility target.

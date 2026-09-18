@@ -77,6 +77,21 @@ jobs:
           cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
           cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
 
+      - name: Run Bergomi calibration quality acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked --release -p pricing --test bergomi_calibration_quality iv_round_trip_ -- --ignored --nocapture --test-threads=1 2>&1 | tee bergomi-calibration-quality.log
+
+      - name: Retain Bergomi calibration quality diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bergomi-calibration-quality-${{ matrix.os }}
+          path: bergomi-calibration-quality.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Build Rust API docs
         run: cargo doc --locked --workspace --all-features --no-deps
 
