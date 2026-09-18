@@ -272,3 +272,154 @@ fn time_knot_insertion_tail_policies_and_bad_inputs_are_explicit() {
         plan.surface().squared_leverage_at(0.0, 100.0).unwrap()
     );
 }
+
+// Price-only evolution must be a pure optimization of `evolve_path`: the same
+// states for the same shocks, bit for bit, including paths driven far outside
+// the leverage grid, pricing grids with inserted nodes, and both factor models.
+#[test]
+fn price_only_states_match_recorded_paths_bitwise() {
+    use pricing::models::Bergomi2Factor;
+    let target = target();
+    // Inserted nodes between leverage knots exercise the per-step row mapping.
+    let grid = LocalVolTimeGrid::compile(vec![0.0, 0.05, 0.1, 0.17, 0.2, 0.3], 0.04).unwrap();
+    let one = calibrate_bergomi_lsv(&target, factor(), 100.0, config(false))
+        .unwrap()
+        .pricing_plan(&grid)
+        .unwrap();
+    let two = calibrate_bergomi_lsv(
+        &target,
+        Bergomi2Factor::new([4.0, 0.3], 0.8, 0.4, [-0.65, -0.25], 0.5).unwrap(),
+        100.0,
+        config(false),
+    )
+    .unwrap()
+    .pricing_plan(&grid)
+    .unwrap();
+    let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+    let mut states = Vec::new();
+    for path in 0u32..200 {
+        // Scaled shocks push paths beyond both flat-extrapolated grid edges.
+        // Paths that overflow must fail the same way in both functions.
+        let scale = 1.0 + 4.0 * f64::from(path % 5);
+        let shocks = one
+            .pseudo_shocks(91, path.into(), RandomDomain::Valuation)
+            .unwrap()
+            .into_iter()
+            .map(|z| scale * z)
+            .collect::<Vec<_>>();
+        match one.evolve_path(100.0, &shocks) {
+            Ok(recorded) => {
+                one.evolve_states(100.0, &shocks, &mut states).unwrap();
+                assert_eq!(bits(&states), bits(recorded.states()), "one factor {path}");
+            }
+            Err(error) => assert_eq!(
+                one.evolve_states(100.0, &shocks, &mut states).unwrap_err(),
+                error
+            ),
+        }
+        let shocks = two
+            .pseudo_shocks(91, path.into(), RandomDomain::Valuation)
+            .unwrap()
+            .into_iter()
+            .map(|z| scale * z)
+            .collect::<Vec<_>>();
+        match two.evolve_path(100.0, &shocks) {
+            Ok(recorded) => {
+                two.evolve_states(100.0, &shocks, &mut states).unwrap();
+                assert_eq!(bits(&states), bits(recorded.states()), "two factor {path}");
+            }
+            Err(error) => assert_eq!(
+                two.evolve_states(100.0, &shocks, &mut states).unwrap_err(),
+                error
+            ),
+        }
+    }
+    assert!(one.evolve_states(100.0, &[0.0; 3], &mut states).is_err());
+    assert!(
+        one.evolve_states(-1.0, &vec![0.0; 2 * (grid.nodes().len() - 1)], &mut states)
+            .is_err()
+    );
+
+    let forwards = grid
+        .nodes()
+        .iter()
+        .map(|t| 100.0 * (0.03 * t).exp())
+        .collect();
+    let lv = LocalVolLogEulerPlan::new(grid.clone(), forwards).unwrap();
+    for path in 0u32..200 {
+        let scale = 1.0 + 4.0 * f64::from(path % 5);
+        let shocks = lv
+            .path_shocks(17, path.into(), RandomDomain::Valuation, path % 2 == 0)
+            .unwrap()
+            .into_iter()
+            .map(|z| scale * z)
+            .collect::<Vec<_>>();
+        match lv.evolve_path(&target, 100.0, &shocks) {
+            Ok(recorded) => {
+                lv.evolve_states(&target, 100.0, &shocks, &mut states)
+                    .unwrap();
+                assert_eq!(bits(&states), bits(recorded.states()), "local vol {path}");
+            }
+            Err(error) => assert_eq!(
+                lv.evolve_states(&target, 100.0, &shocks, &mut states)
+                    .unwrap_err(),
+                error
+            ),
+        }
+    }
+    assert!(
+        lv.evolve_states(&target, 100.0, &[0.0; 2], &mut states)
+            .is_err()
+    );
+    assert!(
+        lv.evolve_states(
+            &target,
+            f64::NAN,
+            &vec![0.0; grid.nodes().len() - 1],
+            &mut states
+        )
+        .is_err()
+    );
+}
+
+// The parallel calibration spreads each step over fixed particle tasks; its
+// result must equal the sequential calibration for every worker count, with a
+// particle count that leaves a partial final task.
+#[test]
+fn parallel_calibration_is_bit_identical_for_any_worker_count() {
+    use pricing::mc::lsv::calibrate_bergomi_lsv_parallel;
+    use pricing::mc::{DeterministicExecutor, ExecutionPolicy};
+    let target = target();
+    let config = LsvParticleConfig::new(9_000, 417, 0.3, 8.0, true).unwrap();
+    let sequential = calibrate_bergomi_lsv(&target, factor(), 100.0, config.clone()).unwrap();
+    let seed = (0..20).map(|i| (i as f64).cos()).collect::<Vec<_>>();
+    for workers in [1, 3, 8] {
+        let executor =
+            DeterministicExecutor::new(ExecutionPolicy::new(workers, None).unwrap()).unwrap();
+        let parallel =
+            calibrate_bergomi_lsv_parallel(&target, factor(), 100.0, config.clone(), &executor)
+                .unwrap();
+        // Debug output of f64 is the shortest round-trip form, so equal text
+        // means equal bits for every finite value, signed zeros included.
+        assert_eq!(
+            format!("{:?}", parallel.surface()),
+            format!("{:?}", sequential.surface()),
+            "surface, {workers} workers"
+        );
+        assert_eq!(
+            format!("{:?}", parallel.conditional_moments()),
+            format!("{:?}", sequential.conditional_moments()),
+            "moments, {workers} workers"
+        );
+        assert_eq!(
+            format!("{:?}", parallel.diagnostics()),
+            format!("{:?}", sequential.diagnostics()),
+            "diagnostics, {workers} workers"
+        );
+        assert_eq!(
+            format!("{:?}", parallel.reverse_leverage(&seed).unwrap()),
+            format!("{:?}", sequential.reverse_leverage(&seed).unwrap()),
+            "reverse, {workers} workers"
+        );
+    }
+}

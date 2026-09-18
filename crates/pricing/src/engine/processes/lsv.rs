@@ -295,16 +295,41 @@ impl LsvLeverageSurface {
                 index: 0,
             });
         }
-        let row = self.times.partition_point(|t| *t <= time).saturating_sub(1);
-        Ok(self.lookup_row(row, (f / self.initial_f).ln()))
+        Ok(self.lookup_row(self.row_at(time), (f / self.initial_f).ln()))
+    }
+    fn row_at(&self, time: f64) -> usize {
+        self.times.partition_point(|t| *t <= time).saturating_sub(1)
     }
     pub(in crate::engine) fn lookup_row(&self, row: usize, x: f64) -> Lookup {
-        let n = self.log_nodes.len();
         let i = self
             .log_nodes
             .partition_point(|v| *v <= x)
             .saturating_sub(1)
-            .min(n - 2);
+            .min(self.log_nodes.len() - 2);
+        self.lookup_cell(row, i, x)
+    }
+    /// `lookup_row` with the cell found by walking from the previous one. The
+    /// cell is the same as `partition_point` finds for finite `x`, so the lookup
+    /// is identical; nearby queries along one path cost O(1) instead of O(log n).
+    pub(in crate::engine) fn lookup_row_from(
+        &self,
+        row: usize,
+        x: f64,
+        hint: &mut usize,
+    ) -> Lookup {
+        let nodes = &self.log_nodes;
+        let mut count = (*hint + 1).min(nodes.len());
+        while count < nodes.len() && nodes[count] <= x {
+            count += 1;
+        }
+        while count > 0 && nodes[count - 1] > x {
+            count -= 1;
+        }
+        *hint = count.saturating_sub(1).min(nodes.len() - 2);
+        self.lookup_cell(row, *hint, x)
+    }
+    fn lookup_cell(&self, row: usize, i: usize, x: f64) -> Lookup {
+        let n = self.log_nodes.len();
         let w =
             ((x - self.log_nodes[i]) / (self.log_nodes[i + 1] - self.log_nodes[i])).clamp(0.0, 1.0);
         let j = row * n + i;
@@ -332,6 +357,9 @@ pub struct BergomiLsvPlan<F: BergomiDynamics = Bergomi1Factor> {
     pub(in crate::engine) surface: LsvLeverageSurface,
     pub(in crate::engine) times: Box<[f64]>,
     pub(in crate::engine) transitions: Box<[F::Transition]>,
+    /// Leverage row used by each step, as `LsvLeverageSurface::lookup` resolves
+    /// it from the step's start time. Resolved once instead of on every path.
+    rows: Box<[usize]>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -391,11 +419,16 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             .windows(2)
             .map(|w| factor.transition(w[1] - w[0]).map_err(Into::into))
             .collect::<Result<Vec<_>, LsvError>>()?;
+        let rows = times[..times.len() - 1]
+            .iter()
+            .map(|&time| surface.row_at(time))
+            .collect();
         Ok(Self {
             factor,
             surface,
             times: times.into(),
             transitions: transitions.into_boxed_slice(),
+            rows,
         })
     }
     #[must_use]
@@ -459,6 +492,59 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             },
             false,
         )
+    }
+
+    /// Price-only evolution. Writes the same f states as `evolve_path` for the
+    /// same shocks, bit for bit, but keeps no reverse-mode step records and
+    /// reuses the caller's buffer, so repeated pricing paths do not allocate.
+    pub fn evolve_states(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+    ) -> Result<(), LsvError> {
+        let n = self.transitions.len();
+        length("shocks", (1 + F::FACTOR_COUNT) * n, shocks.len())?;
+        for (i, &z) in shocks.iter().enumerate() {
+            valid(z, "shock", i, false)?;
+        }
+        valid(initial_f, "initial_f", 0, true)?;
+        states.clear();
+        states.push(initial_f);
+        let mut f = initial_f;
+        let mut factor_state = F::State::default();
+        let mut cell = 0;
+        for i in 0..n {
+            let dt = self.times[i + 1] - self.times[i];
+            let lookup = self.surface.lookup_row_from(
+                self.rows[i],
+                (f / self.surface.initial_f).ln(),
+                &mut cell,
+            );
+            let variance = lookup.value * self.factor.multiplier_squared(factor_state);
+            f = advance(f, variance, dt, shocks[i], i, 0)?;
+            factor_state = self.factor.evolve(
+                self.transitions[i],
+                factor_state,
+                shocks[i],
+                [
+                    shocks[n + i],
+                    if F::FACTOR_COUNT == 2 {
+                        shocks[2 * n + i]
+                    } else {
+                        0.0
+                    },
+                ],
+            );
+            if !F::finite(factor_state) {
+                return Err(LsvError::NonFiniteState {
+                    time_index: i + 1,
+                    path: 0,
+                });
+            }
+            states.push(f);
+        }
+        Ok(())
     }
 
     /// Internal joint-driver entry. The global sampler supplies OU innovations

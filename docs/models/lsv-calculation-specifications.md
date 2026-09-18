@@ -153,7 +153,13 @@ independent scramble means, not pointwise variance. Calibration uncertainty is
 excluded from the returned standard errors and is explicitly labelled.
 
 Fixed block sizes and deterministic vector reductions provide same-platform
-worker-count reproducibility. The LSV plan fingerprint extends the base plan
+worker-count reproducibility. `calibrate_bergomi_lsv_parallel` and the pricing plan
+spread each calibration time step over the execution policy's workers in fixed
+4,096-particle tasks. Every particle update and every node's kernel sum is
+computed and reduced in the same order as in the sequential
+`calibrate_bergomi_lsv`, so the calibrated surface is bit-identical for any
+worker count. Price-only evaluation uses `BergomiLsvPlan::evolve_states`, which
+writes the same f states as `evolve_path` without the reverse-mode step records. The LSV plan fingerprint extends the base plan
 with the factor parameters, particle count, seed, bandwidth, ESS threshold,
 trace policy and realized leverage. Stable LSV JSON migration and retained
 native-platform replay fixtures are later acceptance work.
