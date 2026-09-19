@@ -188,6 +188,7 @@ cargo test --locked -p pricing-python
 cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
 cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
 cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
+cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
 cargo doc --locked --workspace --all-features --no-deps
 cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 ```

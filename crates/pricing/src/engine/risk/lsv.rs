@@ -231,9 +231,9 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
         let tag: &[u8] = if F::FACTOR_COUNT == 1 {
-            b"pricing/bergomi-lsv-plan/v1\0"
+            b"pricing/bergomi-lsv-plan/v2\0"
         } else {
-            b"pricing/bergomi-two-factor-lsv-plan/v1\0"
+            b"pricing/bergomi-two-factor-lsv-plan/v2\0"
         };
         LsvPricingCore::compile(
             target_request,
@@ -281,7 +281,7 @@ impl RoughBergomiLsvPricingPlan {
             target_request,
             particles,
             policy,
-            b"pricing/rough-bergomi-lsv-plan/v1\0",
+            b"pricing/rough-bergomi-lsv-plan/v2\0",
             &[model.hurst(), model.vol_of_vol(), model.correlation()],
             |target, initial_f, particles, executor| {
                 calibrate_rough_bergomi_lsv_parallel(target, model, initial_f, particles, executor)

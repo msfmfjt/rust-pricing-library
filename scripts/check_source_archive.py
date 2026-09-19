@@ -134,6 +134,10 @@ REQUIRED_FILES = {
     "crates/pricing/examples/replay_early_exercise.rs",
     "crates/pricing/tests/path_dependence_acceptance.rs",
     "crates/pricing/tests/early_exercise_acceptance.rs",
+    "crates/pricing/tests/extended_model_acceptance.rs",
+    "crates/pricing/tests/cases/extended_single_asset.rs",
+    "crates/pricing/tests/cases/extended_multi_asset.rs",
+    "design/validation/extended-model-accuracy.md",
 }
 
 CRATE_MANIFESTS = {
@@ -158,6 +162,9 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
+    "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
+    "name: extended-model-accuracy-${{ matrix.os }}",
+    "path: extended-model-accuracy.log",
     "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
@@ -185,8 +192,8 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 2,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 4,
-    "retention-days: 14": 4,
+    "actions/upload-artifact@v4": 5,
+    "retention-days: 14": 5,
 }
 
 REQUIRED_README_SNIPPETS = {
@@ -204,6 +211,7 @@ REQUIRED_README_SNIPPETS = {
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
+    "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
     "cargo doc --locked --workspace --all-features --no-deps",
     "cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py",
     "python -m maturin develop --locked",

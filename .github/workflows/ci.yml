@@ -80,6 +80,25 @@ jobs:
       - name: Build Rust API docs
         run: cargo doc --locked --workspace --all-features --no-deps
 
+      - name: Run extended model accuracy acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
+          } 2>&1 | tee extended-model-accuracy.log
+
+      - name: Retain extended model accuracy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extended-model-accuracy-${{ matrix.os }}
+          path: extended-model-accuracy.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Build Python wheel
         if: matrix.os == 'ubuntu-24.04'
         run: |

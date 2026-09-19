@@ -257,13 +257,27 @@ impl SimulationPlan {
             }
             .into());
         }
+        // LSV evolves a martingale starting at S0, while the shared LV payoff
+        // adapter expects the continuous equity coordinate with deterministic
+        // carry already applied. Dividend A/B coordinates encode only the
+        // paid-cash/proportional transformation, not this continuous carry.
+        let canonical_states: Vec<_> = states
+            .iter()
+            .zip(runtime.plan.forward_normalizers())
+            .map(|(&state, &forward)| state * (forward / self.spot))
+            .collect();
         if let (Some(dividends), Some(schedule)) = (&runtime.dividends, &runtime.dividend_schedule)
         {
             for (i, checkpoint) in schedule.checkpoints().iter().enumerate() {
-                dividends.validate_post_event_f_state(i, path, states[checkpoint.node_index()])?;
+                dividends.validate_post_event_f_state(
+                    i,
+                    path,
+                    canonical_states[checkpoint.node_index()],
+                )?;
             }
         }
-        let observations = self.local_vol_state_observations(runtime, states, self.spot)?;
+        let observations =
+            self.local_vol_state_observations(runtime, &canonical_states, self.spot)?;
         let post = |underlying, date| {
             if underlying != self.underlying {
                 return None;
@@ -299,8 +313,10 @@ impl SimulationPlan {
                     .iter()
                     .position(|d| *d == Some(a.observation_date))
             {
-                seeds[observations[i].node_index] +=
-                    self.discount * a.value * self.observation_affine_coordinates[i].b();
+                seeds[observations[i].node_index] += self.discount
+                    * a.value
+                    * self.observation_affine_coordinates[i].b()
+                    * (self.observation_forwards[i] / self.spot);
             }
         }
         for a in &payoff.pre_dividend_adjoints {
@@ -314,7 +330,8 @@ impl SimulationPlan {
                     * a.value
                     * self.observation_pre_dividend_coordinates[i]
                         .expect("validated pre-dividend coordinate")
-                        .b();
+                        .b()
+                    * (self.observation_forwards[i] / self.spot);
             }
         }
         Ok((self.discount * payoff.value, Some(seeds)))
