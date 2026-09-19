@@ -44,6 +44,7 @@ documents the public API migration.
 | Early exercise | [E0–E8](roadmaps/early-exercise-roadmap-v0.1.md) | [Conformance report](validation/early-exercise-conformance-v0.1.md) |
 | Bergomi LSV | [Implementation and remaining acceptance](roadmaps/lsv-roadmap-v0.1.md) | Experimental status and evidence recorded in the roadmap |
 | Hull–White | [Implementation and acceptance](roadmaps/hull-white-roadmap-v0.1.md) | Experimental status and evidence recorded in the roadmap |
+| Extended-model accuracy | [Panel and remaining scope](validation/extended-model-accuracy.md) | Independent repricing, multiple calibration seeds and refinement gates |
 
 The [three-crate validation report](validation/three-crate-validation.md) links
 the preserved [raw evidence](validation/three-crate/). Captured JSON and the

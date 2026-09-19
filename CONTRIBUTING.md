@@ -51,6 +51,7 @@ cargo test --locked -p pricing-python
 cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
 cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
 cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
+cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
 cargo doc --locked --workspace --all-features --no-deps
 cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 python -m maturin develop --locked
@@ -68,6 +69,11 @@ python scripts/check_benchmark_reports.py benchmark-results
 Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
 tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
 mismatches before installation.
+
+Extended-model changes must preserve the independent price, seed-dispersion and
+refinement gates in the [extended-model accuracy panel](design/validation/extended-model-accuracy.md).
+The heavy panels run explicitly in release mode on all three Rust CI platforms;
+CI retains per-quote prices, seeds, IV errors and sampling errors for review.
 
 ## Internal boundaries after crate consolidation
 

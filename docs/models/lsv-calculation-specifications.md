@@ -3,9 +3,18 @@
 Status: Implemented experimental numerical boundary, 2026-09-12.
 ## 1. Coordinates and stochastic factor
 
-Use the continuous martingale f and the existing deterministic affine map
+Use the continuous martingale f, starting at S0, and the existing deterministic
+affine dividend map
 
-`S(t) = A(t) * S0 + B(t) * f(t)`.
+`S(t) = A(t) * S0 + B(t) * (F_cont(0,t)/S0) * f(t)`.
+
+`F_cont(0,t)=S0*P_q(0,t)/P_r(0,t)` supplies continuous carry. The shared LV
+payoff adapter expects this carried coordinate; LSV scales the martingale and
+its payoff adjoints before using that adapter. Dividend A/B coordinates alone
+do not include continuous carry. This correction is covered by the
+[extended-model price panel](../../design/validation/extended-model-accuracy.md).
+The 1F/2F/rough LSV plan fingerprint domains are version 2; calibrated paths and
+their RNG layouts are unchanged, but nonzero-carry prices and risks are corrected.
 
 The LSV dynamics are
 
