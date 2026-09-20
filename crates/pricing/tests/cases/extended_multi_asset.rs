@@ -161,9 +161,9 @@ fn compile(
             Case::Two => MultiAssetLsv2FactorConfig {
                 factor: Bergomi2Factor::new(
                     [0.4, 2.0],
-                    // The three-year basket still exceeds the sampling
-                    // budgets at nu=0.6 (as did nu=0.8). Preserve the failing
-                    // gate and its measured evidence; do not relax the budget.
+                    // The legacy factor-major QMC bridge failed here at
+                    // nu=0.6 (and nu=0.8). Keep the same parameters and budgets
+                    // when validating the corrected dimension layout.
                     if stress { 0.6 } else { 0.4 },
                     0.35,
                     [-0.35, -0.2],

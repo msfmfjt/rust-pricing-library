@@ -388,7 +388,8 @@ impl MultiAssetPricingPlan {
             }
             _ => None,
         };
-        // Factor-major coordinates. Each independent factor is bridged before correlation.
+        // Independent factors are bridged before correlation. RQMC assigns
+        // bridge-rank-major dimensions; the other sampling modes keep their layout.
         let bridge = if variance_reduction.brownian_bridge() {
             Some(BrownianBridgePlan::compile(times.clone(), 1).map_err(E::numerical)?)
         } else {
@@ -545,7 +546,11 @@ impl MultiAssetPricingPlan {
 
     fn make_fingerprint(&self, product: &MultiAssetProduct, maximum_step: f64) -> String {
         let mut h = blake3::Hasher::new();
-        h.update(b"multi-asset-bs-lv-affine-v1-factor-major-bridge-before-correlation");
+        if self.qmc.is_some() && self.bridge.is_some() {
+            h.update(b"multi-asset-bs-lv-affine-v2-bridge-rank-major-before-correlation");
+        } else {
+            h.update(b"multi-asset-bs-lv-affine-v1-factor-major-bridge-before-correlation");
+        }
         h.update(self.payoff.source_fingerprint().as_bytes());
         h.update(self.payoff.tape_fingerprint().as_bytes());
         h.update(self.valuation_date.to_string().as_bytes());

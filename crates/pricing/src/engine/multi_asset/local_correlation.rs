@@ -7,6 +7,8 @@ mod joint_calibration;
 mod joint_integration;
 mod joint_reverse;
 mod reverse;
+#[cfg(test)]
+mod stress_diagnostics;
 use super::*;
 use crate::market::{CorrelationFactor, LocalVarianceGrid};
 use crate::mc::lsv::LsvParticleConfig;

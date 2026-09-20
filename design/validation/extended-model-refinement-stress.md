@@ -4,15 +4,19 @@ This extends the [price accuracy panel](extended-model-accuracy.md) from base
 `92155aa525d3b21e31cbaec987239f0406bc0d77`. It adds independent resolution
 comparisons for 1F Bergomi, Hull–White hybrids and joint local correlation,
 and stronger-smile/high-vol-of-vol/long-maturity/wing-strike price cases.
-Production algorithms, APIs, fingerprints, wire formats and RNG layouts are
-unchanged. The existing absolute price and sampling-error budgets are preserved.
+The initial extension changes tests and validation evidence. The subsequent
+[sampling attribution and correction](multi-asset-sobol-attribution.md) fixes
+RQMC bridge dimension ordering and versions the affected fingerprints. The
+existing absolute price and sampling-error budgets are preserved.
 
-**Merge blocker:** 73 of 74 measured panels pass. The three-year joint 2F
-basket at nu=0.6 passes its price-error limits but fails the unchanged
-ensemble and conditional pricing SE limits. Its test remains a failing
-acceptance gate; this change is not ready to merge. The constituent panel
-passes at the same parameters. Numerical-resolution/calibration-domain
-investigation is still required before this basket case can be accepted.
+**Initial merge blocker:** 73 of 74 pre-correction measured panels passed. The
+three-year joint 2F basket at nu=0.6 passed its price-error limits but failed
+the unchanged ensemble and conditional pricing SE limits. The constituent
+panel passed at the same parameters. After the sampling correction, the
+original basket gate passes with maximum IV error 0.5377 bp and maximum
+ensemble/pricing SE 0.7274 bp; see the subsequent sampling record. The full
+native 74-panel CI run remains to be checked at the corrected head. The
+measurements below preserve the original failure.
 
 ## Executable contract
 
@@ -144,7 +148,7 @@ all projections under `ProjectAndReport`. Passing selected quote prices is
 not a claim that the entire basket smile is attainable. Increasing particle
 count cannot remove this analytic time-zero constraint.
 
-## Measurements
+## Pre-correction measurements
 
 The initial stronger-basket trial used 65,536 particles and 8,192 points per
 scramble. Its BS basket/constituent price errors were within budget (maximum

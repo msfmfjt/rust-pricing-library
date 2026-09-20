@@ -53,8 +53,10 @@ LSV node diagnostics or explicitly labelled HW row diagnostics.
 The [refinement and stress extension](extended-model-refinement-stress.md)
 records the new cases, diagnostic limitations and measurements. The original
 Linux results below remain historical evidence for the initial panel.
-The extension measures 74 panels: 73 pass, while the three-year joint 2F
-basket fails its sampling-error gates and remains a merge blocker.
+Before the sampling correction, the extension measured 74 panels: 73 passed,
+while the three-year joint 2F basket failed its sampling-error gates. The
+[sampling attribution record](multi-asset-sobol-attribution.md) describes the
+cause, the corrected QMC bridge layout and subsequent validation.
 
 The executable specification is
 [extended_model_acceptance.rs](../../crates/pricing/tests/extended_model_acceptance.rs),

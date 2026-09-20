@@ -105,8 +105,11 @@ within 32 machine epsilons are set to one; larger violations fail. This
 correction never changes supplied Brownian correlations. PSD pivots use the
 declared tolerances, with no jitter, spectral clipping or pivot reordering.
 
-Random coordinates remain factor-major, with all stock blocks first. Bridge
-each independent block before the joint Cholesky map; antithetics negate all
+Canonical factor order keeps stocks before volatility factors. RQMC with
+Brownian bridge assigns `bridge_rank * (N+M) + factor`, so terminal normals
+for every factor precede lower-priority bridge nodes. Pseudo-MC and unbridged
+RQMC retain factor-major coordinates. Bridge each independent factor before
+the joint Cholesky map; antithetics negate all
 N+M blocks. Retain every column, including singular/unused columns and factors
 with zero vol-of-vol. QMC dimensions therefore equal `(N+M)*steps` and use the
 existing dimension limit. Perfect Brownian correlation may still leave a

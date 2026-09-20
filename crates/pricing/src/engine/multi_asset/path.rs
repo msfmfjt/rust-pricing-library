@@ -6,6 +6,8 @@ use crate::mc::{
 };
 use crate::multi_asset::MultiAssetError as E;
 use crate::product::PayoffEvaluation;
+#[cfg(test)]
+mod sampling_contracts;
 
 pub(super) struct AssetPath {
     pub spots: Vec<f64>,
@@ -22,10 +24,19 @@ impl MultiAssetPricingPlan {
     pub(super) fn shocks(&self, scramble: Option<u32>, point: u64) -> Result<Vec<Vec<f64>>, E> {
         let n = self.random_factor_count();
         let steps = self.times.len() - 1;
+        // Put every factor's terminal bridge normal in the first n Sobol
+        // dimensions (requirements section 5.1). Factor-major blocks can have poor
+        // low-dimensional projections even for a terminal basket payoff.
+        let bridge_rank_major = self.qmc.is_some() && self.bridge.is_some();
         let mut independent = vec![vec![0.0; steps]; n];
         for (factor, values) in independent.iter_mut().enumerate() {
             for (step, value) in values.iter_mut().enumerate() {
-                let dimension = u32::try_from(factor * steps + step).map_err(E::numerical)?;
+                let dimension = u32::try_from(if bridge_rank_major {
+                    step * n + factor
+                } else {
+                    factor * steps + step
+                })
+                .map_err(E::numerical)?;
                 *value = match self.engine {
                     EngineConfig::PseudoMonteCarlo(c) => {
                         Philox4x32::from_seed(c.master_seed()).standard_normal(

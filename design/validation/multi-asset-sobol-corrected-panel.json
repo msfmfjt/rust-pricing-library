@@ -1,0 +1,521 @@
+{
+  "description": "Corrected bridge-rank-major public acceptance panel. The pre-correction measurements remain in extended-model-two-factor-stress.json. Budgets, parameters, target quotes and seed pairs match its nu=0.6 basket observation exactly.",
+  "date_utc": "2026-09-20",
+  "base_pr_head": "ed8915fa0b12853eef1457a6f5986b9dd4729ce1",
+  "toolchain": "Rust 1.98.1, release, local build workaround documented in extended-model-accuracy.md",
+  "command": "cargo test --locked --release -p pricing --test extended_model_acceptance multi_asset::two_factor_basket_stress_repricing -- --ignored --exact --nocapture",
+  "source_sha256": {
+    "crates/pricing/src/engine/multi_asset/path.rs": "a3124d1e7eaf9be603ca557f08ae811f7c3a319a1e6a1fe618976fac5fc8d685",
+    "crates/pricing/src/engine/multi_asset/compile.rs": "35884f3620ca9d5e28ab907a6b0f2d5f2fdc08cb1872bf3a6e32720f261f81d6",
+    "crates/pricing/tests/cases/extended_multi_asset.rs": "edff28665dbb24d6986adf0db31d05ae63616728ee9d18e13d460f0912a1d266",
+    "crates/pricing/tests/extended_model_acceptance.rs": "fb13cf79c2806f52820510104264d480bbf9456748244d822d506637219b0521"
+  },
+  "vol_of_vol": 0.6,
+  "actual_steps": 309,
+  "independent_factors": 8,
+  "fingerprint_domain": "multi-asset-bs-lv-affine-v2-bridge-rank-major-before-correlation",
+  "panel": {
+    "budget": {
+      "ensemble_se_bp": 4.0,
+      "max_error_bp": 15.0,
+      "pricing_se_bp": 3.0,
+      "rmse_bp": 8.0,
+      "worst_seed_bp": 30.0
+    },
+    "case": {
+      "expiry": "2029-01-01",
+      "marginal": false,
+      "multi_asset": "Two",
+      "stress": true
+    },
+    "failures": [],
+    "quotes": [
+      {
+        "ensemble_se_bp": 0.5966989610697314,
+        "iv_error_bp": 0.39237272607572926,
+        "log_strike": -0.36,
+        "pricing_se_bp": 0.23540056986438185,
+        "runs": [
+          {
+            "calibration_seed": 41709,
+            "conditional_se": 0.0015496196881244367,
+            "pricing_seed": 15111065706836414446,
+            "value": 3.6247155474633943
+          },
+          {
+            "calibration_seed": 42903,
+            "conditional_se": 0.0010458761098597863,
+            "pricing_seed": 15111065706836413076,
+            "value": 3.6170033363744967
+          },
+          {
+            "calibration_seed": 44001,
+            "conditional_se": 0.0019134147340631729,
+            "pricing_seed": 15111065706836412130,
+            "value": 3.6196876191520273
+          }
+        ],
+        "target_iv": 0.24163211500129694,
+        "worst_seed_error_bp": 1.5131450330690965
+      },
+      {
+        "ensemble_se_bp": 0.3673688827156493,
+        "iv_error_bp": -0.5377095104203145,
+        "log_strike": 0.0,
+        "pricing_se_bp": 0.3673688827156493,
+        "runs": [
+          {
+            "calibration_seed": 41709,
+            "conditional_se": 0.002996143197715535,
+            "pricing_seed": 15111065706836414446,
+            "value": 15.654289960898405
+          },
+          {
+            "calibration_seed": 42903,
+            "conditional_se": 0.004386767225199261,
+            "pricing_seed": 15111065706836413076,
+            "value": 15.656072039662753
+          },
+          {
+            "calibration_seed": 44001,
+            "conditional_se": 0.004921769330762231,
+            "pricing_seed": 15111065706836412130,
+            "value": 15.649502184916049
+          }
+        ],
+        "target_iv": 0.235,
+        "worst_seed_error_bp": 1.113857654601036
+      },
+      {
+        "ensemble_se_bp": 0.7274355658478991,
+        "iv_error_bp": -0.5003444591469841,
+        "log_strike": 0.36,
+        "pricing_se_bp": 0.7274355658478991,
+        "runs": [
+          {
+            "calibration_seed": 41709,
+            "conditional_se": 0.007333859448484316,
+            "pricing_seed": 15111065706836414446,
+            "value": 4.511432261100781
+          },
+          {
+            "calibration_seed": 42903,
+            "conditional_se": 0.006059066397660374,
+            "pricing_seed": 15111065706836413076,
+            "value": 4.511692161745998
+          },
+          {
+            "calibration_seed": 44001,
+            "conditional_se": 0.006257220041382717,
+            "pricing_seed": 15111065706836412130,
+            "value": 4.5055850953591445
+          }
+        ],
+        "target_iv": 0.2289580289048628,
+        "worst_seed_error_bp": 1.2642862547176947
+      }
+    ],
+    "resolution": {
+      "bandwidth": 0.035,
+      "particles": 131072,
+      "points": 32768,
+      "scrambles": 8,
+      "seed_offset": 40000,
+      "steps": 192
+    },
+    "strikes": [
+      -0.36,
+      0.0,
+      0.36
+    ]
+  },
+  "calibration_diagnostics": [
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2381,
+      "global_projected_nodes": 1089,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 41709,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.061696840858020775,
+          "ess": 4558.6843069564475,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.7425384391976078,
+          "source_node": 22,
+          "target_variance": 0.061696840858020775,
+          "unidentifiable": false,
+          "x": -0.36000000000000004
+        },
+        {
+          "attained_variance": 0.06128934381523567,
+          "ess": 4805.790182473048,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.7232157020183014,
+          "source_node": 23,
+          "target_variance": 0.061289343815235674,
+          "unidentifiable": false,
+          "x": -0.34
+        }
+      ],
+      "total_nodes": 25110,
+      "x": -0.36
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2394,
+      "global_projected_nodes": 729,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 42903,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.06169684085802078,
+          "ess": 4789.815877004252,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.7489974495488572,
+          "source_node": 22,
+          "target_variance": 0.061696840858020775,
+          "unidentifiable": false,
+          "x": -0.36000000000000004
+        },
+        {
+          "attained_variance": 0.061289343815235674,
+          "ess": 4824.382256409835,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.7374907127399798,
+          "source_node": 23,
+          "target_variance": 0.061289343815235674,
+          "unidentifiable": false,
+          "x": -0.34
+        }
+      ],
+      "total_nodes": 25110,
+      "x": -0.36
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2395,
+      "global_projected_nodes": 1063,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 44001,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.061696840858020775,
+          "ess": 4675.746590314817,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.7394482840296698,
+          "source_node": 22,
+          "target_variance": 0.061696840858020775,
+          "unidentifiable": false,
+          "x": -0.36000000000000004
+        },
+        {
+          "attained_variance": 0.061289343815235674,
+          "ess": 4802.508650235167,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.7361166250381491,
+          "source_node": 23,
+          "target_variance": 0.061289343815235674,
+          "unidentifiable": false,
+          "x": -0.34
+        }
+      ],
+      "total_nodes": 25110,
+      "x": -0.36
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2381,
+      "global_projected_nodes": 1089,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 41709,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.05538479496660385,
+          "ess": 6113.475896350254,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.5589790992794953,
+          "source_node": 39,
+          "target_variance": 0.05538479496660385,
+          "unidentifiable": false,
+          "x": -0.020000000000000018
+        },
+        {
+          "attained_variance": 0.05505337522140445,
+          "ess": 6086.535311972459,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.5464428090508981,
+          "source_node": 40,
+          "target_variance": 0.055053375221404445,
+          "unidentifiable": false,
+          "x": 0.0
+        }
+      ],
+      "total_nodes": 25110,
+      "x": 0.0
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2394,
+      "global_projected_nodes": 729,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 42903,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.05538479496660385,
+          "ess": 6302.522376418152,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.5388317423645631,
+          "source_node": 39,
+          "target_variance": 0.05538479496660385,
+          "unidentifiable": false,
+          "x": -0.020000000000000018
+        },
+        {
+          "attained_variance": 0.05505337522140444,
+          "ess": 6205.688387013218,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.5187709585249752,
+          "source_node": 40,
+          "target_variance": 0.055053375221404445,
+          "unidentifiable": false,
+          "x": 0.0
+        }
+      ],
+      "total_nodes": 25110,
+      "x": 0.0
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2395,
+      "global_projected_nodes": 1063,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 44001,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.05538479496660385,
+          "ess": 6138.883176612363,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.5820970129651771,
+          "source_node": 39,
+          "target_variance": 0.05538479496660385,
+          "unidentifiable": false,
+          "x": -0.020000000000000018
+        },
+        {
+          "attained_variance": 0.055053375221404445,
+          "ess": 6181.058795186231,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.5690585533808733,
+          "source_node": 40,
+          "target_variance": 0.055053375221404445,
+          "unidentifiable": false,
+          "x": 0.0
+        }
+      ],
+      "total_nodes": 25110,
+      "x": 0.0
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2381,
+      "global_projected_nodes": 1089,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 41709,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.04974648019389527,
+          "ess": 3658.59947888096,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.4238008851880222,
+          "source_node": 58,
+          "target_variance": 0.04974648019389527,
+          "unidentifiable": false,
+          "x": 0.3599999999999999
+        },
+        {
+          "attained_variance": 0.049487165144914164,
+          "ess": 3497.864737035247,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.42792091717980774,
+          "source_node": 59,
+          "target_variance": 0.049487165144914164,
+          "unidentifiable": false,
+          "x": 0.3799999999999999
+        }
+      ],
+      "total_nodes": 25110,
+      "x": 0.36
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2394,
+      "global_projected_nodes": 729,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 42903,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.04974648019389527,
+          "ess": 3729.8774238212277,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.4155821250033044,
+          "source_node": 58,
+          "target_variance": 0.04974648019389527,
+          "unidentifiable": false,
+          "x": 0.3599999999999999
+        },
+        {
+          "attained_variance": 0.049487165144914164,
+          "ess": 3483.043373073042,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.3864868651188829,
+          "source_node": 59,
+          "target_variance": 0.049487165144914164,
+          "unidentifiable": false,
+          "x": 0.3799999999999999
+        }
+      ],
+      "total_nodes": 25110,
+      "x": 0.36
+    },
+    {
+      "case": "Two",
+      "global_fallback_nodes": 2395,
+      "global_projected_nodes": 1063,
+      "global_unidentifiable_nodes": 0,
+      "marginal": false,
+      "resolution": {
+        "bandwidth": 0.035,
+        "particles": 131072,
+        "points": 32768,
+        "scrambles": 8,
+        "seed_offset": 40000,
+        "steps": 192
+      },
+      "seed": 44001,
+      "stress": true,
+      "terminal_quote_nodes": [
+        {
+          "attained_variance": 0.04974648019389527,
+          "ess": 3656.1984823269136,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.4161016865975896,
+          "source_node": 58,
+          "target_variance": 0.04974648019389527,
+          "unidentifiable": false,
+          "x": 0.3599999999999999
+        },
+        {
+          "attained_variance": 0.049487165144914164,
+          "ess": 3458.479324954405,
+          "fallback": false,
+          "projected": false,
+          "raw_mixing": 0.40686824634981605,
+          "source_node": 59,
+          "target_variance": 0.049487165144914164,
+          "unidentifiable": false,
+          "x": 0.3799999999999999
+        }
+      ],
+      "total_nodes": 25110,
+      "x": 0.36
+    }
+  ]
+}
