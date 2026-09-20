@@ -20,6 +20,7 @@ mod single_asset;
 const BP: f64 = 1e-4;
 const SEEDS: [u64; 3] = [1709, 2903, 4001];
 const STRIKES: [f64; 3] = [-0.12, 0.0, 0.12];
+const WINGS: [f64; 3] = [-0.36, 0.0, 0.36];
 const RATE: f64 = 0.03;
 const DIVIDEND_RATE: f64 = 0.01;
 
@@ -39,6 +40,14 @@ const FINE: Resolution = Resolution {
     points: 4096,
     scrambles: 8,
     seed_offset: 0,
+};
+const STRESS: Resolution = Resolution {
+    particles: 65_536,
+    steps: 192,
+    bandwidth: 0.035,
+    points: 8192,
+    seed_offset: 40_000,
+    ..FINE
 };
 impl Resolution {
     fn particles(self, seed: u64) -> LsvParticleConfig {
@@ -73,20 +82,46 @@ fn time(expiry: &str) -> f64 {
     DayCountConvention::Act365F.year_fraction(today(), date(expiry))
 }
 
+fn grid_times(t: f64, steps: usize) -> Vec<f64> {
+    (0..=steps)
+        .map(|i| {
+            if i == steps {
+                t
+            } else {
+                t * i as f64 / steps as f64
+            }
+        })
+        .collect()
+}
+
 #[derive(Clone, Copy, Debug, Serialize)]
 enum Smile {
     Flat,
     Skew,
+    Stress,
+    BasketStress,
+    InfeasibleBasketStress,
 }
 impl Smile {
     fn iv(self, t: f64, x: f64) -> f64 {
         match self {
             Self::Flat => 0.2,
             Self::Skew => ((0.04 + 0.002 * t) * (1.0 - 0.2 * x + 0.05 * x * x)).sqrt(),
+            Self::Stress => ((0.0625 + 0.002 * t) * (1.0 - 0.6 * x + 0.15 * x * x)).sqrt(),
+            Self::BasketStress => (0.235_f64.powi(2) * (1.0 - 0.15 * x + 0.025 * x * x)).sqrt(),
+            Self::InfeasibleBasketStress => {
+                (0.235_f64.powi(2) * (1.0 - 0.3 * x + 0.05 * x * x)).sqrt()
+            }
         }
     }
     fn target(self, expiry: &str, resolution: Resolution) -> HullWhiteLsvTarget {
-        let ts = vec![time("2026-07-02"), 1.0, 2.0];
+        let mut ts = vec![time("2026-07-02"), 1.0, 2.0];
+        if matches!(
+            self,
+            Self::Stress | Self::BasketStress | Self::InfeasibleBasketStress
+        ) {
+            ts.push(time("2029-01-01"));
+        }
         let xs = vec![-1.2, -0.8, -0.4, -0.2, 0.0, 0.2, 0.4, 0.8, 1.2];
         let ivs = ts
             .iter()
@@ -94,9 +129,7 @@ impl Smile {
             .collect();
         HullWhiteLsvTarget::from_market_iv(
             MarketIvSurface::new(ts, xs, ivs).unwrap(),
-            (0..=resolution.steps)
-                .map(|i| time(expiry) * i as f64 / resolution.steps as f64)
-                .collect(),
+            grid_times(time(expiry), resolution.steps),
             (0..=80).map(|i| -0.8 + i as f64 * 0.02).collect(),
             1e-8,
             4.0,
@@ -280,12 +313,12 @@ const GAUSSIAN_BUDGET: Budget = Budget {
     pricing_se_bp: 1.0,
 };
 
-fn violations(quotes: &[QuoteReport], budget: Budget) -> Vec<String> {
+fn violations_at(quotes: &[QuoteReport], strikes: &[f64], budget: Budget) -> Vec<String> {
     let mut failures = Vec::new();
-    if quotes.len() != STRIKES.len() {
+    if quotes.len() != strikes.len() {
         failures.push("missing quote".into());
     }
-    for (q, expected_x) in quotes.iter().zip(STRIKES) {
+    for (q, &expected_x) in quotes.iter().zip(strikes) {
         if q.log_strike != expected_x {
             failures.push("quote order/strike mismatch".into());
         }
@@ -315,13 +348,83 @@ fn violations(quotes: &[QuoteReport], budget: Budget) -> Vec<String> {
     failures
 }
 
+fn violations(quotes: &[QuoteReport], budget: Budget) -> Vec<String> {
+    violations_at(quotes, &STRIKES, budget)
+}
+
 fn report(case: Value, resolution: Resolution, quotes: &[QuoteReport], budget: Budget) {
-    let failures = violations(quotes, budget);
+    report_at(case, resolution, quotes, &STRIKES, budget);
+}
+
+fn report_at(
+    case: Value,
+    resolution: Resolution,
+    quotes: &[QuoteReport],
+    strikes: &[f64],
+    budget: Budget,
+) {
+    let failures = violations_at(quotes, strikes, budget);
     println!(
         "EXTENDED_ACCURACY {}",
-        json!({"case":case,"resolution":resolution,"budget":budget,"quotes":quotes,"failures":failures})
+        json!({"case":case,"resolution":resolution,"strikes":strikes,"budget":budget,"quotes":quotes,"failures":failures})
     );
     assert!(failures.is_empty(), "{case}: {failures:?}");
+}
+
+fn refinements() -> [(&'static str, Resolution); 3] {
+    [
+        (
+            "particles",
+            Resolution {
+                particles: 32_768,
+                seed_offset: 10_000,
+                ..FINE
+            },
+        ),
+        (
+            "time_steps",
+            Resolution {
+                steps: 256,
+                seed_offset: 20_000,
+                ..FINE
+            },
+        ),
+        (
+            "bandwidth",
+            Resolution {
+                bandwidth: 0.035,
+                seed_offset: 30_000,
+                ..FINE
+            },
+        ),
+    ]
+}
+
+fn compare_refinement(case: Value, axis: &str, base: &[QuoteReport], refined: &[QuoteReport]) {
+    assert_eq!(base.len(), refined.len());
+    for (b, r) in base.iter().zip(refined) {
+        assert_eq!(b.log_strike, r.log_strike);
+        // Disjoint calibration AND pricing streams across resolutions. This
+        // checks stability; it does not assume monotonic sampled MC error.
+        let change = (b.iv_error_bp - r.iv_error_bp).abs();
+        let bound = 5.0 + 3.0 * b.ensemble_se_bp.hypot(r.ensemble_se_bp);
+        println!(
+            "EXTENDED_REFINEMENT {}",
+            json!({"case":case,"axis":axis,
+            "log_strike":b.log_strike,"change_bp":change,"bound_bp":bound})
+        );
+        assert!(
+            change <= bound,
+            "{case}/{axis}: change={change}, bound={bound}"
+        );
+    }
+}
+
+// Includes both interpolation neighbours, even when x is exactly a node.
+fn bracket(nodes: &[f64], x: f64) -> std::ops::RangeInclusive<usize> {
+    assert!(x >= nodes[0] && x <= nodes[nodes.len() - 1]);
+    let right = nodes.partition_point(|&node| node < x).min(nodes.len() - 1);
+    right.saturating_sub(1)..=right
 }
 
 #[test]
@@ -346,6 +449,12 @@ fn acceptance_rejects_bias_noise_missing_quotes_and_nonfinite_metrics() {
     noisy[1].ensemble_se_bp = 100.0;
     assert!(!violations(&noisy, LSV_BUDGET).is_empty());
     assert!(!violations(&good[..2], LSV_BUDGET).is_empty());
+    let wings: Vec<_> = WINGS.into_iter().map(make).collect();
+    assert!(violations_at(&wings, &WINGS, LSV_BUDGET).is_empty());
+    assert!(!violations_at(&good, &WINGS, LSV_BUDGET).is_empty());
+    let mut duplicate = wings.clone();
+    duplicate[2] = duplicate[0].clone();
+    assert!(!violations_at(&duplicate, &WINGS, LSV_BUDGET).is_empty());
 }
 
 #[test]
@@ -394,6 +503,25 @@ fn independent_smile_oracle_matches_interpolated_panel_coordinates() {
                     .total_variance;
                 assert!(((w / t).sqrt() - smile.iv(t, x)).abs() < 0.1 * BP);
             }
+        }
+    }
+    let t = time("2029-01-01");
+    assert_eq!(*grid_times(t, STRESS.steps).last().unwrap(), t);
+    for smile in [
+        Smile::Stress,
+        Smile::BasketStress,
+        Smile::InfeasibleBasketStress,
+    ] {
+        let target = smile.target("2029-01-01", STRESS);
+        for x in WINGS {
+            let w = target
+                .market_iv_surface()
+                .unwrap()
+                .total_variance_derivatives(t, x)
+                .unwrap()
+                .total_variance;
+            assert!(((w / t).sqrt() - smile.iv(t, x)).abs() < 0.1 * BP);
+            assert!(black(100.0, 100.0 * x.exp(), (-RATE * t).exp(), t, smile.iv(t, x)).1 > 5.0);
         }
     }
 }

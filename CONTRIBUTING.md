@@ -73,7 +73,10 @@ mismatches before installation.
 Extended-model changes must preserve the independent price, seed-dispersion and
 refinement gates in the [extended-model accuracy panel](design/validation/extended-model-accuracy.md).
 The heavy panels run explicitly in release mode on all three Rust CI platforms;
-CI retains per-quote prices, seeds, IV errors and sampling errors for review.
+CI retains per-quote prices, seeds, IV errors, sampling errors and calibration
+ESS/fallback/projection diagnostics for review. The
+[refinement and stress record](design/validation/extended-model-refinement-stress.md)
+distinguishes supported quote nodes from global calibration feasibility.
 
 ## Internal boundaries after crate consolidation
 

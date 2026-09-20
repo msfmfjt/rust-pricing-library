@@ -105,8 +105,11 @@ silently substituted for the measured moments.
 The [extended-model accuracy panel](../validation/extended-model-accuracy.md)
 adds public-plan marginal repricing with independent calibration seeds and
 separate price/noise budgets, plus one-at-a-time particle, bandwidth and time
-refinement for representative 2F and rough LSV cases. This is additional S3
-price evidence; the broader S3-S6 acceptance requirements remain open.
+refinement for representative 1F, 2F and rough LSV cases, including HW and
+multi-asset extensions. The [stress record](../validation/extended-model-refinement-stress.md)
+adds 3-year wing quotes, stronger smiles and higher vol-of-vol with explicit
+ESS/fallback diagnostics. This is additional S3 price evidence; the broader
+S3-S6 acceptance requirements remain open.
 
 The initial regression suite covers the nu=0 LV limit; exact OU covariance;
 state, grid and Gaussian path adjoints; calibration feedback versus full

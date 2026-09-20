@@ -79,8 +79,11 @@ gate for the pre-existing pricing baseline.
 The subsequent [extended-model accuracy panel](../validation/extended-model-accuracy.md)
 adds independently integrated Gaussian price references and multi-seed smile
 repricing for 1F/2F/rough LSV with stochastic rates, as well as a joint
-rough-LSV/HW local-correlation case. It strengthens H2/H3 price evidence without
-closing the broader refinement, risk and production acceptance gates above.
+rough-LSV/HW local-correlation case. The subsequent
+[refinement and stress record](../validation/extended-model-refinement-stress.md)
+adds particle, step and bandwidth studies for all three HW/LSV factors and
+joint local correlation, plus 3-year wing/high-vol-of-vol cases. These strengthen
+H2/H3 price evidence without closing the broader risk and production gates above.
 
 Linux development validation used pinned Rust 1.98.1 and CPython 3.12:
 

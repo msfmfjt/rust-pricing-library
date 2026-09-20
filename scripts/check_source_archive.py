@@ -138,6 +138,8 @@ REQUIRED_FILES = {
     "crates/pricing/tests/cases/extended_single_asset.rs",
     "crates/pricing/tests/cases/extended_multi_asset.rs",
     "design/validation/extended-model-accuracy.md",
+    "design/validation/extended-model-refinement-stress.md",
+    "design/validation/extended-model-two-factor-stress.json",
 }
 
 CRATE_MANIFESTS = {
