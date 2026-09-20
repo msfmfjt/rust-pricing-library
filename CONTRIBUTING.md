@@ -52,6 +52,7 @@ cargo test --locked -p pricing --test statistical_acceptance -- --ignored --noca
 cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
 cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
 cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
+cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1
 cargo doc --locked --workspace --all-features --no-deps
 cargo metadata --locked --format-version 1 --no-deps | python3 scripts/check_dependency_direction.py
 python -m maturin develop --locked
@@ -77,6 +78,11 @@ CI retains per-quote prices, seeds, IV errors, sampling errors and calibration
 ESS/fallback/projection diagnostics for review. The
 [refinement and stress record](design/validation/extended-model-refinement-stress.md)
 distinguishes supported quote nodes from global calibration feasibility.
+
+The [extended-model risk panel](design/validation/extended-model-risk-accuracy.md)
+checks public AAD and recalibrated sensitivities with common calibration/pricing
+streams, multiple seeds and bump sizes. It runs before the price acceptance
+panel and retains its own evidence, so the two gates can be assessed separately.
 
 ## Internal boundaries after crate consolidation
 

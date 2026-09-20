@@ -47,6 +47,7 @@ documents the public API migration.
 | Extended-model accuracy | [Panel and remaining scope](validation/extended-model-accuracy.md) | Independent repricing, multiple calibration seeds and refinement gates |
 | Extended-model refinement and stress | [Cases and measurements](validation/extended-model-refinement-stress.md) | Original 73/74 result and joint 2F sampling-error failure; subsequent correction linked |
 | Multi-asset Sobol sampling | [Attribution and correction](validation/multi-asset-sobol-attribution.md) | Bridge coordinate correction; original 2F stress gate passes locally, native CI pending |
+| Extended-model AAD and VegaKT | [Sensitivity acceptance](validation/extended-model-risk-accuracy.md) | Multi-seed, multi-bump comparison with full recalibration through public plans |
 
 The [three-crate validation report](validation/three-crate-validation.md) links
 the preserved [raw evidence](validation/three-crate/). Captured JSON and the
