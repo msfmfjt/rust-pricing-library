@@ -327,8 +327,7 @@ impl LsvDrivers {
 
 impl MultiAssetPricingPlan {
     pub fn random_factor_count(&self) -> usize {
-        self.driver_layout.base_factor_count()
-            * (1 + usize::from(self.local_correlation.is_some()))
+        self.driver_layout.base_factor_count() * (1 + usize::from(self.local_correlation.is_some()))
     }
     /// One-factor calibrations in asset order; None for BS/LV/two-factor assets.
     /// Use `lsv_two_factor_calibrations` for the complementary two-factor objects.

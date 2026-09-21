@@ -351,9 +351,10 @@ impl MultiAssetPricingPlan {
         let grid = LocalVolTimeGrid::compile(events, maximum_step).map_err(E::numerical)?;
         let times = grid.nodes().to_vec();
         let driver_layout = driver_layout::DriverLayout::compile(
-            lsv_configs
-                .iter()
-                .map(|c| c.as_ref().map_or(0, MultiAssetBergomiLsvConfig::factor_count)),
+            lsv_configs.iter().map(|c| {
+                c.as_ref()
+                    .map_or(0, MultiAssetBergomiLsvConfig::factor_count)
+            }),
             usize::from(hull_white.is_some()) * 2,
             rough_count,
         )?;
