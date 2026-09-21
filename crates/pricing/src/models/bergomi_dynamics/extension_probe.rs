@@ -54,17 +54,17 @@ impl sealed::Sealed for LogCoordinate {
         source: InnovationSource,
     ) -> FactorAdjoints<LogState, Self::Coordinates> {
         let external = source == InnovationSource::JointOuIncrements;
+        let loading = if external {
+            self.vol_of_vol()
+        } else {
+            t.orthogonal
+        };
         FactorAdjoints {
             state: LogState {
                 value: next.value * t.decay + vbar * 2.0 * variance,
             },
             spot: next.value * if external { 0.0 } else { t.spot },
-            volatility: [next.value
-                * if external {
-                    self.vol_of_vol()
-                } else {
-                    t.orthogonal
-                }],
+            volatility: [next.value * loading],
         }
     }
 }

@@ -76,9 +76,12 @@ impl Settings {
         v["market"]["discrete_dividends"] = json!([
             {"event_id":1,"ex_time":0.5,"quote":{"type":"fixed_cash_and_proportional","fixed_cash":2.0,"beta":0.02}}]);
         if self.case.starts_with("hw_") {
-            v["market"]["discrete_dividends"].as_array_mut().unwrap().push(
-                json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":1.0}}),
-            );
+            v["market"]["discrete_dividends"]
+                .as_array_mut()
+                .unwrap()
+                .push(
+                    json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":1.0}}),
+                );
         }
         v["engine"] = json!({"type":"pseudo_monte_carlo","master_seed":971,
             "independent_sampling_units":self.paths,"variance_reduction":{"antithetic":true,"brownian_bridge":true}});
