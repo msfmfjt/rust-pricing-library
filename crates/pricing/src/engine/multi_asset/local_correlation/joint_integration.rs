@@ -105,7 +105,7 @@ impl MultiAssetPricingPlan {
             )?[0];
             let pv = value * hw.discount(c, states)?;
             seeds[r + 1][c.observation_node] -= pv;
-            seeds[r][c.observation_node] -= c.rate_loading * pv;
+            seeds[r][c.observation_node] -= c.rate_discount.loading.duration() * pv;
             transpose_log_curve(
                 self.assets[0].forward.discount_curve(),
                 c.payment_time,

@@ -4,6 +4,7 @@ use super::super::lsv::LsvDrivers;
 use super::*;
 use crate::mc::hull_white::HullWhiteLsvTarget;
 use crate::mc::lsv::LsvLeverageSurface;
+use crate::models::rates::{CenteredRateState, DeterministicRates, RateEvolution, RateInnovations};
 use crate::models::HullWhite1Factor;
 use pricing_numerics::NeumaierSum;
 
@@ -360,12 +361,22 @@ impl LocalCorrelationCalibration {
         let dt = self.times[row + 1] - self.times[row];
         let (integral, shift) = if let Some(r) = j.rate {
             let k = &j.assets[0].hw.as_ref().unwrap().process.kernels[row];
-            next[r] = k.transition.rate_decay * s[r] + noise[r];
-            let integral = k.transition.integral_loading * s[r] + noise[r + 1];
-            next[r + 1] = s[r + 1] + integral;
-            (integral, k.integrated_shift)
+            let rate = k.rate.advance(
+                CenteredRateState {
+                    factor: s[r],
+                    integral: s[r + 1],
+                },
+                RateInnovations {
+                    factor: noise[r],
+                    integral: noise[r + 1],
+                },
+            );
+            next[r] = rate.state.factor;
+            next[r + 1] = rate.state.integral;
+            (rate.step_integral, rate.integrated_shift)
         } else {
-            (0.0, 0.0)
+            let rate = DeterministicRates.advance((), ());
+            (rate.step_integral, rate.integrated_shift)
         };
         for i in 0..self.models.len() {
             let sigma = self.joint_sigma(i, row, history)?;

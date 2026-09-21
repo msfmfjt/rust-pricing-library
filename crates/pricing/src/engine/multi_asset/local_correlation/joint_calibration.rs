@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::rates::{DeterministicRates, RateDiscount};
 use pricing_numerics::NeumaierSum;
 
 impl LocalCorrelationCalibration {
@@ -27,7 +28,7 @@ impl LocalCorrelationCalibration {
                 s[r] + rates.rate_shift(self.times[row]).map_err(E::numerical)?,
             ))
         } else {
-            Ok((1.0, 0.0))
+            Ok((DeterministicRates.relative_discount(()), 0.0))
         }
     }
     pub(super) fn correction_active(&self, row: usize) -> bool {

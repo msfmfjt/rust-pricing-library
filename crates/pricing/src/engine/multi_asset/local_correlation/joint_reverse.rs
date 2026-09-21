@@ -1,6 +1,7 @@
 //! Reverse the finite coupled simulation, including OU/Volterra histories,
 //! stochastic discount weights and the centered rate-tail correction.
 use super::*;
+use crate::models::rates::CenteredRateState;
 
 impl LocalCorrelationCalibration {
     #[allow(clippy::too_many_arguments)]
@@ -171,12 +172,17 @@ impl LocalCorrelationCalibration {
         }
         if let Some(r) = j.rate {
             let kernel = &j.assets[0].hw.as_ref().unwrap().process.kernels[row];
-            integral_bar += next_bar[r + 1];
-            bars[row][r + 1] += next_bar[r + 1];
-            bars[row][r] += integral_bar * kernel.transition.integral_loading
-                + next_bar[r] * kernel.transition.rate_decay;
-            noise_bar[r] += next_bar[r];
-            noise_bar[r + 1] += integral_bar;
+            let rate_bar = kernel.rate.pullback(
+                CenteredRateState {
+                    factor: next_bar[r],
+                    integral: next_bar[r + 1],
+                },
+                integral_bar,
+            );
+            bars[row][r + 1] += rate_bar.state.integral;
+            bars[row][r] += rate_bar.state.factor;
+            noise_bar[r] += rate_bar.innovations.factor;
+            noise_bar[r + 1] += rate_bar.innovations.integral;
         }
         let lambda_bar = if lambda > 0.0 && lambda < 1.0 {
             noise_bar

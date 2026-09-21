@@ -12,12 +12,12 @@ use crate::market::{
 };
 
 use crate::models::hull_white::hw_valid;
+use crate::models::rates::{CenteredRateState, GaussianRateStep, RateEvolution, RateInnovations};
 
 use crate::models::hull_white_dividends::HullWhiteDividendPlan;
 
 use crate::models::{
-    Bergomi1Factor, HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
-    RoughBergomi,
+    Bergomi1Factor, HullWhite1Factor, HullWhiteError, HybridCorrelation, RoughBergomi,
 };
 
 use pricing_numerics::{NeumaierSum, standard_normal_pdf};
@@ -127,10 +127,10 @@ impl HybridState {
 
 #[derive(Clone, Debug)]
 pub(in crate::engine) struct Kernel {
-    pub(in crate::engine) transition: HullWhiteHybridTransition,
+    pub(in crate::engine) rate: GaussianRateStep,
+    vol_decay: f64,
     pub(in crate::engine) loading: [[f64; 4]; 4],
     pub(in crate::engine) dt: f64,
-    pub(in crate::engine) integrated_shift: f64,
 }
 
 impl Kernel {
@@ -144,9 +144,13 @@ impl Kernel {
         let transition = rates.transition(start, end, k, corr)?;
         Ok(Self {
             loading: covariance_loading(transition.covariance)?,
-            transition,
+            rate: GaussianRateStep::new(
+                transition.rate_decay,
+                transition.integral_loading,
+                rates.integrated_shift(start, end)?,
+            ),
+            vol_decay: transition.vol_decay,
             dt: end - start,
-            integrated_shift: rates.integrated_shift(start, end)?,
         })
     }
     pub(in crate::engine) fn advance(
@@ -176,15 +180,24 @@ impl Kernel {
         step: usize,
     ) -> Result<HybridState, HullWhiteMcError> {
         let variance = leverage_squared * (2.0 * nu * state.volatility_factor).exp();
-        let integral = self.transition.integral_loading * state.rate_factor + noise[3];
+        let rate = self.rate.advance(
+            CenteredRateState {
+                factor: state.rate_factor,
+                integral: state.integrated_rate_factor,
+            },
+            RateInnovations {
+                factor: noise[2],
+                integral: noise[3],
+            },
+        );
         let next = HybridState {
             normalized_equity: state.normalized_equity
-                * (integral + self.integrated_shift - 0.5 * variance * self.dt
+                * (rate.step_integral + rate.integrated_shift - 0.5 * variance * self.dt
                     + variance.sqrt() * noise[0])
                     .exp(),
-            volatility_factor: self.transition.vol_decay * state.volatility_factor + noise[1],
-            rate_factor: self.transition.rate_decay * state.rate_factor + noise[2],
-            integrated_rate_factor: state.integrated_rate_factor + integral,
+            volatility_factor: self.vol_decay * state.volatility_factor + noise[1],
+            rate_factor: rate.state.factor,
+            integrated_rate_factor: rate.state.integral,
         };
         if !variance.is_finite()
             || !next.normalized_equity.is_finite()

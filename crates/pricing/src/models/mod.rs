@@ -7,6 +7,7 @@ mod bergomi_dynamics;
 mod bergomi_two_factor;
 pub mod hull_white;
 pub mod hull_white_dividends;
+pub(crate) mod rates;
 mod rough_bergomi;
 mod spec;
 mod volatility_inputs;
