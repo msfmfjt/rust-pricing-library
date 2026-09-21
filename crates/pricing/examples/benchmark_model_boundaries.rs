@@ -74,8 +74,12 @@ impl Settings {
             "shape":[grid.time_nodes().len(),grid.log_moneyness_nodes().len()],"values":grid.values(),
             "floor":grid.floor(),"cap":grid.cap()}});
         v["market"]["discrete_dividends"] = json!([
-            {"event_id":1,"ex_time":0.5,"quote":{"type":"fixed_cash_and_proportional","fixed_cash":2.0,"beta":0.02}},
-            {"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":1.0}}]);
+            {"event_id":1,"ex_time":0.5,"quote":{"type":"fixed_cash_and_proportional","fixed_cash":2.0,"beta":0.02}}]);
+        if self.case.starts_with("hw_") {
+            v["market"]["discrete_dividends"].as_array_mut().unwrap().push(
+                json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":1.0}}),
+            );
+        }
         v["engine"] = json!({"type":"pseudo_monte_carlo","master_seed":971,
             "independent_sampling_units":self.paths,"variance_reduction":{"antithetic":true,"brownian_bridge":true}});
         parse_request_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT).unwrap()

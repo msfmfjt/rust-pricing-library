@@ -58,7 +58,7 @@ commit/tree, executable/example/lock digests, compiler, CPU, flags and profiler.
 There are 27 case/operation combinations at each of two sizes: one worker,
 8 steps, 128 particles and 512 antithetic MC units; and two workers, 16 steps,
 256 particles and 1,024 units. Seeds, reduction blocks, affine cash/proportional
-dividends and quote arrays are identical within each pair. Single-asset cases
+dividends and quote arrays are identical within each pair. Single-asset HW cases
 also include a future-only dividend. The larger size changes several settings
 together; it is not an isolated scaling attribution. An independent parameter
 sweep and broader platform/workload coverage remain S7.
@@ -115,3 +115,10 @@ complete comparison JSON into the job log. The PR records the measured source,
 paired summaries and remaining caveats; CI artifacts alone are not a durable
 acceptance record. A measurement result does not waive the inherited extended
 price/refinement issue or its unchanged 4 bp threshold.
+
+Initial harness validation found that the pre-S1 deterministic LV/LSV compiler
+inserts the entire dividend schedule into its execution grid: a dividend beyond
+expiry then queries outside the target grid. The unchanged candidate does the
+same. Future-only dividends are therefore exercised in the HW cases here; this
+existing deterministic-grid limitation is separate follow-up work, not a
+performance regression or a numerical fix in S6.
