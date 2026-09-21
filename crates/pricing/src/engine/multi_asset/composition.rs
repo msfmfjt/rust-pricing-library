@@ -115,16 +115,10 @@ impl ModelComposition {
     ) -> Result<CompiledMarginal, E> {
         let config = self.marginals[asset].clone();
         match &self.rates {
-            RateComposition::HullWhite(hw) => hull_white::HwAsset::compile(
-                market,
-                model,
-                grid,
-                config,
-                hw,
-                asset,
-                driver_offset,
-            )
-            .map(|a| CompiledMarginal::HullWhite(Arc::new(a))),
+            RateComposition::HullWhite(hw) => {
+                hull_white::HwAsset::compile(market, model, grid, config, hw, asset, driver_offset)
+                    .map(|a| CompiledMarginal::HullWhite(Arc::new(a)))
+            }
             RateComposition::Deterministic => match config {
                 Some(config) => {
                     let ModelSpec::LocalVolatility(lv) = model else {

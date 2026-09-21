@@ -120,7 +120,9 @@ fn legacy_multi_asset_adapters_preserve_prices_risks_and_fingerprints() {
             assert_eq!(legacy.random_factor_count(), 2 + usize::from(calibrated));
             assert_eq!(legacy.evaluate().unwrap(), mixed.evaluate().unwrap());
             assert_eq!(
-                legacy.evaluate_aad(MultiAssetRiskConfig::default()).unwrap(),
+                legacy
+                    .evaluate_aad(MultiAssetRiskConfig::default())
+                    .unwrap(),
                 mixed.evaluate_aad(MultiAssetRiskConfig::default()).unwrap()
             );
             if !calibrated {
@@ -161,35 +163,75 @@ fn composition_rejections_preserve_request_product_and_target_order() {
     // underlying order. With HW, the target-model check is the first failure.
     let wrong_order = || vec![market(2, 100.0, 0.03, 0.01, vec![])];
     invalid(
-        configured(wrong_order(), vec![bs(0.2)], vec![Some(rough.clone())], None),
+        configured(
+            wrong_order(),
+            vec![bs(0.2)],
+            vec![Some(rough.clone())],
+            None,
+        ),
         "rough-LSV requires the shared HW adapter and paired targets; use a zero-volatility HW model for deterministic rates",
     );
     invalid(
-        configured(wrong_order(), vec![bs(0.2)], vec![Some(rough)], Some(hw(None, 0))),
+        configured(
+            wrong_order(),
+            vec![bs(0.2)],
+            vec![Some(rough)],
+            Some(hw(None, 0)),
+        ),
         "each LSV asset requires a LocalVolatility target model",
     );
     invalid(
-        configured(wrong_order(), vec![lv(vec![0.04; 9])], vec![Some(one_factor().into())], Some(hw(None, 0))),
+        configured(
+            wrong_order(),
+            vec![lv(vec![0.04; 9])],
+            vec![Some(one_factor().into())],
+            Some(hw(None, 0)),
+        ),
         "product, market and correlation underlying order must match",
     );
     invalid(
-        configured(markets(), vec![lv(vec![0.04; 9])], vec![Some(one_factor().into())], Some(hw(None, 0))),
+        configured(
+            markets(),
+            vec![lv(vec![0.04; 9])],
+            vec![Some(one_factor().into())],
+            Some(hw(None, 0)),
+        ),
         "HW target/rate-correlation dimensions or values are invalid",
     );
     invalid(
-        configured(markets(), vec![lv(vec![0.04; 9])], vec![Some(one_factor().into())], Some(hw(None, 1))),
+        configured(
+            markets(),
+            vec![lv(vec![0.04; 9])],
+            vec![Some(one_factor().into())],
+            Some(hw(None, 1)),
+        ),
         "every HW LSV asset requires a paired variance/density target",
     );
     invalid(
-        configured(markets(), vec![lv(vec![0.04; 9])], vec![Some(one_factor().into())], Some(hw(Some(target(0.3)), 1))),
+        configured(
+            markets(),
+            vec![lv(vec![0.04; 9])],
+            vec![Some(one_factor().into())],
+            Some(hw(Some(target(0.3)), 1)),
+        ),
         "HW paired target and model grid must match",
     );
     invalid(
-        configured(markets(), vec![bs(0.2)], vec![None], Some(hw(Some(target(0.2)), 0))),
+        configured(
+            markets(),
+            vec![bs(0.2)],
+            vec![None],
+            Some(hw(Some(target(0.2)), 0)),
+        ),
         "HW target requires an LSV configuration",
     );
     invalid(
-        configured(markets(), vec![lv(vec![0.04; 9])], vec![None], Some(hw(None, 0))),
+        configured(
+            markets(),
+            vec![lv(vec![0.04; 9])],
+            vec![None],
+            Some(hw(None, 0)),
+        ),
         "LocalVolatility under HW requires an LSV configuration and paired target; use zero vol-of-vol for the local-vol limit",
     );
 }
@@ -199,30 +241,54 @@ fn zero_rate_volatility_keeps_hw_and_rough_coordinates() {
     for (config, count) in [
         (None, 3),
         (Some(one_factor().into()), 4),
-        (Some(MultiAssetLsv2FactorConfig {
-            factor: Bergomi2Factor::new([3.0, 0.2], 0.3, 0.4, [-0.4, -0.2], 0.3).unwrap(),
-            particles: particles(),
-        }.into()), 5),
-        (Some(MultiAssetRoughLsvConfig {
-            factor: RoughBergomi::new(0.2, 0.3, -0.4).unwrap(),
-            particles: particles(),
-        }.into()), 5),
+        (
+            Some(
+                MultiAssetLsv2FactorConfig {
+                    factor: Bergomi2Factor::new([3.0, 0.2], 0.3, 0.4, [-0.4, -0.2], 0.3).unwrap(),
+                    particles: particles(),
+                }
+                .into(),
+            ),
+            5,
+        ),
+        (
+            Some(
+                MultiAssetRoughLsvConfig {
+                    factor: RoughBergomi::new(0.2, 0.3, -0.4).unwrap(),
+                    particles: particles(),
+                }
+                .into(),
+            ),
+            5,
+        ),
     ] {
         let paired = config.as_ref().map(|_| target(0.2));
-        let model = paired.as_ref().map_or_else(|| bs(0.2), |t| {
-            let g = t.grid();
-            ModelSpec::LocalVolatility(LocalVolatilitySpec::from_explicit_grid(
-                g.time_nodes().to_vec(), g.log_moneyness_nodes().to_vec(),
-                g.values().to_vec(), g.floor(), g.cap(),
-            ).unwrap())
-        });
-        let factors = config.as_ref().map_or(0, MultiAssetBergomiLsvConfig::factor_count);
+        let model = paired.as_ref().map_or_else(
+            || bs(0.2),
+            |t| {
+                let g = t.grid();
+                ModelSpec::LocalVolatility(
+                    LocalVolatilitySpec::from_explicit_grid(
+                        g.time_nodes().to_vec(),
+                        g.log_moneyness_nodes().to_vec(),
+                        g.values().to_vec(),
+                        g.floor(),
+                        g.cap(),
+                    )
+                    .unwrap(),
+                )
+            },
+        );
+        let factors = config
+            .as_ref()
+            .map_or(0, MultiAssetBergomiLsvConfig::factor_count);
         let plan = configured(
             vec![market(1, 100.0, 0.03, 0.01, vec![])],
             vec![model],
             vec![config],
             Some(hw(paired, factors)),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(plan.random_factor_count(), count);
         assert_eq!(plan.time_nodes(), [0.0, 0.5, 1.0]);
         let price = plan.evaluate().unwrap();

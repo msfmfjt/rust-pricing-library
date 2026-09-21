@@ -1,5 +1,5 @@
-use super::*;
 use super::composition::{CompiledMarginal, ModelComposition, RateComposition};
+use super::*;
 use crate::core::DayCountConvention;
 use crate::market::{DiscountCurve, EquityMarket};
 use crate::mc::LocalVolTimeGrid;
@@ -452,10 +452,16 @@ impl MultiAssetPricingPlan {
             hull_white,
             local_correlation: None,
         };
-        plan.local_correlation = composition.local_correlation
+        plan.local_correlation = composition
+            .local_correlation
             .map(|(config, extensions)| {
-                LocalCorrelationCalibration::compile(&plan, config, extensions, &composition.marginals)
-                    .map(std::sync::Arc::new)
+                LocalCorrelationCalibration::compile(
+                    &plan,
+                    config,
+                    extensions,
+                    &composition.marginals,
+                )
+                .map(std::sync::Arc::new)
             })
             .transpose()?;
         plan.fingerprint = plan.make_fingerprint(&product, maximum_step);
