@@ -1615,3 +1615,6 @@ mod hull_white_cases;
 
 #[path = "cases/local_correlation.rs"]
 mod local_correlation_cases;
+
+#[path = "cases/model_composition.rs"]
+mod model_composition_cases;

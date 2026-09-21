@@ -2,11 +2,12 @@
 use super::*;
 use crate::core::DayCountConvention;
 use crate::engine::calibration::capabilities::CalibrationReverse;
+use crate::engine::compile::hybrid::HybridLsvComposition;
 use crate::market::{DiscountCurve, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::hull_white::{
     CalibratedHullWhiteLsv, HullWhiteEquityPlan, HullWhiteLsvTarget, HybridEquityVolatility,
-    HybridState, HybridVolatilityFactor, calibrate_hybrid_lsv_with_dividends,
+    HybridState, HybridVolatilityFactor,
 };
 use crate::models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, HullWhiteDividendPlan};
 use crate::models::rates::{CenteredRateState, GaussianConditionalDiscount, RateDiscount};
@@ -314,38 +315,21 @@ impl HwAsset {
             if target.market_iv_surface().is_some() {
                 risk_target = Some(refined.clone());
             }
-            let mut calibration = calibrate_hybrid_lsv_with_dividends(
-                &refined,
+            let calibrated = HybridLsvComposition {
+                target: &refined,
                 factor,
                 rates,
-                corr,
-                market.spot().get(),
+                correlation: corr,
                 particles,
-                Some(&dividends),
-            )
+            }
+            .calibrate(market.spot().get(), &dividends)
             .map_err(E::numerical)?;
+            let (volatility, mut calibration) = calibrated.into_parts();
             // Keep the public multi-asset diagnostic in unit-forward coordinates.
             // The path/calibration kernel now stores F in initial-Spot units.
             for row in &mut calibration.diagnostics {
                 row.mean_discounted_normalized_equity /= market.spot().get();
             }
-            let leverage = calibration.surface.clone();
-            let volatility = match factor {
-                HybridVolatilityFactor::Bergomi(factor) => {
-                    HybridEquityVolatility::BergomiLsv { factor, leverage }
-                }
-                HybridVolatilityFactor::BergomiTwoFactor {
-                    factor,
-                    second_vol_rate_correlation,
-                } => HybridEquityVolatility::Bergomi2FactorLsv {
-                    factor,
-                    second_vol_rate_correlation,
-                    leverage,
-                },
-                HybridVolatilityFactor::Rough(factor) => {
-                    HybridEquityVolatility::RoughBergomiLsv { factor, leverage }
-                }
-            };
             (volatility, Some(calibration), corr)
         } else {
             if target.is_some() {
