@@ -314,7 +314,12 @@ fn lsv_aad_matches_full_recalibration_for_spot_curves_and_paired_target() {
             .value;
         close("paired smile", vega, (up - down) / (2.0 * h));
         let no_trace = lsv(v.clone(), &target, cash, false, 1);
-        assert!(no_trace.evaluate_aad().is_err());
+        assert!(matches!(
+            no_trace.evaluate_aad(),
+            Err(pricing::MonteCarloError::Lsv(
+                pricing::mc::lsv::LsvError::ReverseTraceNotRetained
+            ))
+        ));
         assert_ne!(plan.plan_fingerprint(), no_trace.plan_fingerprint());
         assert_eq!(
             plan.evaluate().unwrap().value.to_bits(),

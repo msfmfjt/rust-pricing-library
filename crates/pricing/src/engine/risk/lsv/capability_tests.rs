@@ -64,10 +64,20 @@ impl PathModel for PricePath {
     fn times(&self) -> &[f64] {
         self.0.times()
     }
-    fn pseudo_shocks(&self, seed: u64, path: u64, domain: RandomDomain) -> Result<Vec<f64>, LsvError> {
+    fn pseudo_shocks(
+        &self,
+        seed: u64,
+        path: u64,
+        domain: RandomDomain,
+    ) -> Result<Vec<f64>, LsvError> {
         self.0.pseudo_shocks(seed, path, domain)
     }
-    fn evolve_states(&self, initial: f64, shocks: &[f64], states: &mut Vec<f64>) -> Result<(), LsvError> {
+    fn evolve_states(
+        &self,
+        initial: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+    ) -> Result<(), LsvError> {
         self.0.evolve_states(initial, shocks, states)
     }
 }
@@ -96,7 +106,10 @@ fn price_only_core_needs_no_recording_or_reverse_implementation() {
 fn risk_selection_preserves_price_and_trace_error_precedence() {
     let p = plan(false, false);
     let expected = p.evaluate().unwrap();
-    assert_eq!(expected.value.to_bits(), plan(false, true).evaluate().unwrap().value.to_bits());
+    assert_eq!(
+        expected.value.to_bits(),
+        plan(false, true).evaluate().unwrap().value.to_bits()
+    );
     assert!(matches!(
         p.evaluate_local_variance_risk(),
         Err(MonteCarloError::Lsv(LsvError::ReverseTraceNotRetained))

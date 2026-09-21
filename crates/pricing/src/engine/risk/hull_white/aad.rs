@@ -4,7 +4,8 @@
 use super::*;
 use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::engine::processes::capabilities::PathReverse;
-use crate::mc::hull_white::HULL_WHITE_AAD_METHOD;
+use crate::mc::hull_white::{HULL_WHITE_AAD_METHOD, HullWhiteMcError};
+use crate::mc::lsv::LsvError;
 use crate::models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, transpose_log_curve};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -263,7 +264,14 @@ impl HullWhiteEquityPricingPlan {
             });
         }
         if let Some(calibration) = &self.calibration {
-            calibration.validate_calibration_reverse()?;
+            calibration
+                .validate_calibration_reverse()
+                .map_err(|e| match e {
+                    HullWhiteMcError::Lsv(LsvError::ReverseTraceNotRetained) => {
+                        MonteCarloError::Lsv(LsvError::ReverseTraceNotRetained)
+                    }
+                    e => e.into(),
+                })?;
         }
         let context = Context::new(self)?;
         let executor = DeterministicExecutor::new(self.policy)?;

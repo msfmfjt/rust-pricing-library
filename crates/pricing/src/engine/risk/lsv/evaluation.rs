@@ -32,7 +32,8 @@ impl<C: CalibratedModel> Evaluation<C> for PriceOnly {
     ) -> Result<(), MonteCarloError> {
         let initial_f = core.calibration.surface().initial_f();
         let mut states = Vec::new();
-        core.path_plan.evolve_states(initial_f, shocks, &mut states)?;
+        core.path_plan
+            .evolve_states(initial_f, shocks, &mut states)?;
         let (price, _) = core.base.lsv_payoff(&states, PathIndex::new(path), false)?;
         output[0] += weight * price;
         Ok(())
@@ -61,11 +62,9 @@ where
     ) -> Result<(), MonteCarloError> {
         let initial_f = core.calibration.surface().initial_f();
         let recorded = core.path_plan.evolve_path(initial_f, shocks)?;
-        let (price, seeds) = core.base.lsv_payoff(
-            C::Plan::path_states(&recorded),
-            PathIndex::new(path),
-            true,
-        )?;
+        let (price, seeds) =
+            core.base
+                .lsv_payoff(C::Plan::path_states(&recorded), PathIndex::new(path), true)?;
         output[0] += weight * price;
         if let Some(seeds) = seeds {
             let adjoints = C::Plan::leverage_adjoints(recorded.path_pullback(&seeds)?);
