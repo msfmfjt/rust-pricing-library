@@ -1,6 +1,9 @@
 use super::path::AssetPath;
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::engine::risk::report::estimate_from_statistics;
+use crate::mc::hull_white::HullWhiteMcError;
+use crate::mc::lsv::LsvError;
 use crate::mc::{DeterministicExecutor, DeterministicStatistics};
 use crate::multi_asset::MultiAssetError as E;
 use crate::{EstimatorKind, product::CompiledOpcode};
@@ -80,19 +83,27 @@ impl MultiAssetPricingPlan {
     }
     pub fn evaluate_aad(&self, config: MultiAssetRiskConfig) -> Result<MultiAssetPrice, E> {
         if let Some(c) = &self.local_correlation {
-            c.validate_reverse()?;
+            c.validate_calibration_reverse()?;
         }
-        if self.assets.iter().any(|a| {
-            a.hw.as_ref()
-                .and_then(|h| h.calibration.as_ref())
-                .is_some_and(|c| !c.retains_reverse_trace())
-                || a.lsv
-                    .as_ref()
-                    .is_some_and(|l| !l.calibration.config().retain_reverse_trace())
-        }) {
-            return Err(E::Invalid(
-                "LSV target AAD requires retain_reverse_trace=true for every LSV asset",
-            ));
+        const MISSING_TRACE: &str =
+            "LSV target AAD requires retain_reverse_trace=true for every LSV asset";
+        for asset in &self.assets {
+            if let Some(c) = asset.hw.as_ref().and_then(|h| h.calibration.as_ref()) {
+                c.validate_calibration_reverse().map_err(|e| match e {
+                    HullWhiteMcError::Lsv(LsvError::ReverseTraceNotRetained) => {
+                        E::Invalid(MISSING_TRACE)
+                    }
+                    e => E::numerical(e),
+                })?;
+            }
+            if let Some(lsv) = &asset.lsv {
+                lsv.calibration
+                    .validate_calibration_reverse()
+                    .map_err(|e| match e {
+                        LsvError::ReverseTraceNotRetained => E::Invalid(MISSING_TRACE),
+                        e => E::numerical(e),
+                    })?;
+            }
         }
         if config
             .gamma_relative_bump

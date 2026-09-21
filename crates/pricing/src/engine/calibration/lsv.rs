@@ -7,6 +7,7 @@
 //! of calibration particles. Reverse differentiation includes the conditional
 //! expectation estimator, rather than freezing it under a Dupire variance bump.
 
+use super::capabilities::CalibrationReverse;
 use crate::engine::processes::lsv::*;
 use crate::engine::processes::rough_lsv::{ROUGH_RANDOM_BLOCKS, RoughBergomiLsvPlan, RoughKernel};
 use crate::market::LocalVarianceGrid;
@@ -654,7 +655,35 @@ impl CalibratedRoughBergomiLsv {
     }
 }
 
+impl<F: BergomiDynamics> CalibrationReverse for CalibratedBergomiLsv<F> {
+    type Adjoints = Vec<f64>;
+    type Error = LsvError;
+    fn validate_calibration_reverse(&self) -> Result<(), LsvError> {
+        self.core.validate_reverse()
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.reverse_leverage(seeds)
+    }
+}
+
+impl CalibrationReverse for CalibratedRoughBergomiLsv {
+    type Adjoints = Vec<f64>;
+    type Error = LsvError;
+    fn validate_calibration_reverse(&self) -> Result<(), LsvError> {
+        self.core.validate_reverse()
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.reverse_leverage(seeds)
+    }
+}
+
 impl Calibration {
+    fn validate_reverse(&self) -> Result<(), LsvError> {
+        self.trace
+            .as_ref()
+            .map(|_| ())
+            .ok_or(LsvError::ReverseTraceNotRetained)
+    }
     fn reverse(&self, leverage_adjoints: &[f64], trivial: bool) -> Result<Vec<f64>, LsvError> {
         length(
             "leverage_adjoints",

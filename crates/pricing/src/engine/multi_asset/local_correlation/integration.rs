@@ -1,6 +1,7 @@
 use super::super::evaluate::Layout;
 use super::super::path::AssetPath;
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::mc::DeterministicStatistics;
 use std::sync::Arc;
 
@@ -84,7 +85,7 @@ impl MultiAssetPricingPlan {
             .iter()
             .map(|s| s.sum().total() / units as f64)
             .collect();
-        let (mut assets, basket) = c.reverse_calibration(&mean)?;
+        let (mut assets, basket) = c.calibration_pullback(&mean)?;
         for (values, &(o, n)) in assets.iter_mut().zip(&layout.vega) {
             for (value, stat) in values.iter_mut().zip(&stats[o..o + n]) {
                 *value += stat.sum().total() / units as f64;

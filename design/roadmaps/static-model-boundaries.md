@@ -163,6 +163,50 @@ VegaKT tests remain required. This stage does not register a new rate model or
 make the complete HW calibration algorithm generic; capability selection and
 composition lowering are the following stages.
 
+## Fourth extraction: explicit reverse capabilities
+
+The private [calibration reverse](../../crates/pricing/src/engine/calibration/capabilities.rs)
+and [recorded-path reverse](../../crates/pricing/src/engine/processes/capabilities.rs)
+interfaces are optional capabilities. Their associated adjoint types retain the
+existing distinction between deterministic-rate target variance, HW paired
+variance/density/dividend exposure, and coupled basket/constituent targets.
+They delegate to the existing numerical reverses and do not freeze calibration
+or substitute zero derivatives for an unavailable reverse.
+
+The deterministic-rate LSV core separates price evolution from path recording.
+Its [price-only and recalibrated modes](../../crates/pricing/src/engine/risk/lsv/evaluation.rs)
+are selected at the public API boundary using static dispatch. A price-only
+model needs neither reverse capability nor a recorded path type. Recalibrated
+risk requires both capabilities in its Rust bounds. MC/RQMC coordinate order,
+antithetic accumulation, reduction order and per-scramble calibration pullbacks
+remain the same. There are no new path allocations or trait objects; additional
+monomorphization has not yet been benchmarked.
+
+An implemented reverse still needs its realized primal. Validation uses the
+actual retained calibration trace; HW also checks the existing primal
+fingerprint before starting pricing paths. Direct public reverse methods retain
+their existing seed validation and error order. Multi-asset validation preserves
+the local-correlation, marginal-trace, Gamma and payoff-smoothing check order
+and existing missing-trace error messages. Local correlation retains its exact
+projection-transition rejection; paired target and supported model-combination
+checks remain with the existing compilers.
+
+The public two-stage facades compile a price plan before the caller requests
+AAD. Consequently, missing traces or unsuitable payoffs continue to allow
+price-only compilation and are rejected when the risk operation is selected,
+before any pricing paths or risk workspace are created. This is request
+preflight, not an unconditional rejection in the price constructor. A future
+model without a reverse cannot be registered with the recalibrated core unless
+it supplies the required implementation; S5 will lower composition requests
+through these existing boundaries.
+
+Focused tests use adapters around an existing numerical model with no reverse
+implementations, compare price results under MC/RQMC, preserve missing-trace
+and payoff error precedence, and reject a modified HW primal during preflight.
+Zero vol of vol still requires the requested calibration trace. Existing
+1F/2F/rough recalibration, HW curve-AAD/VegaKT and coupled local-correlation
+finite-difference suites remain the numerical regression gates.
+
 ## Ordered implementation stages
 
 | Stage | Deliverable | Exit condition | Status |
@@ -170,8 +214,8 @@ composition lowering are the following stages.
 | S0 | Current-code inventory, boundaries and compatibility contract | Responsibilities and baseline/deferred issues are explicit | Recorded here |
 | S1 | Compiled driver metadata shared by dimension/count/offset consumers | Existing sampling tests, mixed-model factor counts, overflow tests and all existing regressions pass | Implemented; normal tests and both native wheel/replay jobs passed on PR #73; extended gates tracked separately |
 | S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Implemented; normal tests and native wheel/replay jobs passed on PR #74; extended gates tracked separately |
-| S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Implemented; native validation pending |
-| S4 | Explicit calibration/path-reverse capability selection | Unsupported combinations reject at compilation; existing recalibrated AAD/VegaKT gates pass | Pending |
+| S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Implemented; normal/native wheel/replay and extended risk passed on PR #75; extended price gate tracked separately |
+| S4 | Explicit calibration/path-reverse capability selection | Unsupported model capabilities fail typed composition; late AAD requests validate before path generation; existing recalibrated AAD/VegaKT gates pass | Implemented; native validation pending |
 | S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Pending |
 | S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Pending |
 | S7 | Broad performance/memory measurement and targeted optimization PRs | Measured bottlenecks and numerical/reproducibility gates justify each optimization | Pending |
@@ -228,8 +272,8 @@ their own measurements and subsequent PRs.
 
 ## Validation status of this change
 
-The local environment currently has no Rust toolchain. S3 Rust tests and
+The local environment currently has no Rust toolchain. S4 Rust tests and
 native formatting/build/Clippy checks must run in CI; earlier-stage and historical
-escrowed results do not certify the S3 source tree. Local documentation, source packaging and
+escrowed results do not certify the S4 source tree. Local documentation, source packaging and
 Python public-stub checks are available. No runtime or memory improvement is
 claimed until representative measurements are captured.

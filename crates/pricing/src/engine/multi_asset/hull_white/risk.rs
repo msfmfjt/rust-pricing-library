@@ -36,7 +36,7 @@ impl MultiAssetPricingPlan {
                         .local_correlation
                         .as_ref()
                         .unwrap()
-                        .reverse_calibration(&mixing)?
+                        .calibration_pullback(&mixing)?
                         .0;
                 } else {
                     for (values, &(o, n)) in parameters.iter_mut().zip(&layout.vega) {
