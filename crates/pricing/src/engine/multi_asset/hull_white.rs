@@ -1,13 +1,13 @@
 //! One shared HW rate factor, paired marginal calibration and affine payouts.
 use super::*;
 use crate::core::DayCountConvention;
-use crate::engine::risk::hull_white::affine::{AffineDividendPath, AffineDividendPlan};
 use crate::market::{DiscountCurve, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::hull_white::{
     CalibratedHullWhiteLsv, HullWhiteEquityPlan, HullWhiteLsvTarget, HybridEquityVolatility,
     HybridState, HybridVolatilityFactor, calibrate_hybrid_lsv_with_dividends,
 };
+use crate::models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, HullWhiteDividendPlan};
 use crate::models::{HullWhite1Factor, HybridCorrelation};
 use crate::multi_asset::{MultiAssetError as E, MultiAssetProduct};
 use crate::product::{GraphLimitPolicy, SourceGraph};
@@ -128,21 +128,144 @@ impl HwContext {
 #[derive(Clone, Debug)]
 pub(super) struct HwAsset {
     pub process: HullWhiteEquityPlan,
-    pub affine: AffineDividendPlan,
+    pub dividends: HullWhiteDividendPlan,
     pub calibration: Option<CalibratedHullWhiteLsv>,
     pub target: Option<HullWhiteLsvTarget>,
     pub config: Option<MultiAssetBergomiLsvConfig>,
     pub driver_offset: usize,
+    parameter_offsets: Vec<usize>,
 }
 
 pub(super) struct HwAssetPath {
     pub states: Vec<HybridState>,
-    pub physical_states: Vec<HybridState>,
     pub equity_increments: Vec<f64>,
-    pub affine: AffineDividendPath,
 }
 
 impl HwAsset {
+    pub fn volatility_parameter_count(&self) -> usize {
+        self.calibration
+            .as_ref()
+            .map_or(1, |c| c.surface.squared_leverage().len())
+    }
+    pub fn parameter_count(&self) -> usize {
+        *self.parameter_offsets.last().unwrap()
+    }
+    pub fn add_node_parameters(
+        &self,
+        row: usize,
+        node: &HullWhiteDividendNodeAdjoints,
+        out: &mut [f64],
+    ) {
+        let offset = self.parameter_offsets[row];
+        out[offset] += node.scale;
+        out[offset + 1] += node.deterministic_reserve;
+        for (target, value) in out[offset + 2..].iter_mut().zip(&node.bond_amounts) {
+            *target += value;
+        }
+    }
+    pub fn add_dividend_parameters(
+        &self,
+        nodes: &[HullWhiteDividendNodeAdjoints],
+        out: &mut [f64],
+    ) {
+        let mut offset = self.volatility_parameter_count() + 1;
+        for n in nodes {
+            out[offset] += n.scale;
+            out[offset + 1] += n.deterministic_reserve;
+            offset += 2;
+            for &v in &n.bond_amounts {
+                out[offset] += v;
+                offset += 1;
+            }
+        }
+    }
+    pub fn market_reverse(
+        &self,
+        parameters: &[f64],
+    ) -> Result<crate::models::hull_white_dividends::HullWhiteDividendMarketAdjoints, E> {
+        let count = self.volatility_parameter_count();
+        let mut coefficients = self.dividends.zero_adjoints();
+        let mut offset = count + 1;
+        for n in &mut coefficients {
+            n.scale = parameters[offset];
+            n.deterministic_reserve = parameters[offset + 1];
+            offset += 2;
+            let len = n.bond_amounts.len();
+            n.bond_amounts
+                .copy_from_slice(&parameters[offset..offset + len]);
+            offset += len;
+        }
+        let mut spot = parameters[count];
+        if let Some(c) = &self.calibration
+            && parameters[..count].iter().any(|v| *v != 0.0)
+        {
+            let adj = c
+                .reverse_leverage(&parameters[..count])
+                .map_err(E::numerical)?;
+            spot += adj.initial_spot;
+            if let Some(nodes) = adj.dividends {
+                for (a, b) in coefficients.iter_mut().zip(nodes) {
+                    a.scale += b.scale;
+                    a.deterministic_reserve += b.deterministic_reserve;
+                    for (a, b) in a.bond_amounts.iter_mut().zip(b.bond_amounts) {
+                        *a += b;
+                    }
+                }
+            }
+        }
+        let mut result = self
+            .dividends
+            .reverse_market(&coefficients)
+            .map_err(E::numerical)?;
+        result.spot += spot;
+        Ok(result)
+    }
+    #[allow(clippy::type_complexity)]
+    pub fn observations(
+        &self,
+        states: &[HybridState],
+    ) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>), E> {
+        let mut post = Vec::with_capacity(states.len());
+        let mut pre = Vec::with_capacity(states.len());
+        let mut delta = Vec::with_capacity(states.len());
+        let mut pre_delta = Vec::with_capacity(states.len());
+        for (s, n) in states.iter().zip(self.dividends.nodes()) {
+            let (s1, s0) = n
+                .spots(s.normalized_equity, s.rate_factor)
+                .map_err(E::numerical)?;
+            post.push(s1);
+            pre.push(s0.unwrap_or(s1));
+            delta.push(n.scale() * s.normalized_equity / self.dividends.risky_spot());
+            pre_delta.push(n.pre_scale() * s.normalized_equity / self.dividends.risky_spot());
+        }
+        Ok((post, pre, delta, pre_delta))
+    }
+    pub fn observation_reverse(
+        &self,
+        states: &[HybridState],
+        seeds: &[(f64, f64)],
+        parameters: &mut [f64],
+    ) -> Result<(Vec<f64>, Vec<f64>), E> {
+        let mut equity = Vec::with_capacity(states.len());
+        let mut rates = Vec::with_capacity(states.len());
+        for (row, ((s, n), &(post, pre))) in states
+            .iter()
+            .zip(self.dividends.nodes())
+            .zip(seeds)
+            .enumerate()
+        {
+            let mut node = n.zero_adjoints();
+            equity.push(
+                n.reverse_spots(s.normalized_equity, s.rate_factor, post, pre, &mut node)
+                    .map_err(E::numerical)?,
+            );
+            rates.push(
+                (post + pre * n.pre_scale() / n.scale()) * n.reserve_rate_derivative(s.rate_factor),
+            );
+            self.add_node_parameters(row, &node, parameters);
+        }
+        Ok((equity, rates))
+    }
     pub fn compile(
         market: &EquityForward,
         model: &ModelSpec,
@@ -153,6 +276,8 @@ impl HwAsset {
         driver_offset: usize,
     ) -> Result<Self, E> {
         let rates = &hw.rate_model;
+        let dividends =
+            HullWhiteDividendPlan::new(rates, market, grid.nodes()).map_err(E::numerical)?;
         let rho_s = hw.rate_correlations[asset];
         let target = &hw.lsv_targets[asset];
         let mut risk_target = target.clone();
@@ -192,10 +317,21 @@ impl HwAsset {
             if target.market_iv_surface().is_some() {
                 risk_target = Some(refined.clone());
             }
-            let calibration = calibrate_hybrid_lsv_with_dividends(
-                &refined, factor, rates, corr, 1.0, particles, None,
+            let mut calibration = calibrate_hybrid_lsv_with_dividends(
+                &refined,
+                factor,
+                rates,
+                corr,
+                market.spot().get(),
+                particles,
+                Some(&dividends),
             )
             .map_err(E::numerical)?;
+            // Keep the public multi-asset diagnostic in unit-forward coordinates.
+            // The path/calibration kernel now stores F in initial-Spot units.
+            for row in &mut calibration.diagnostics {
+                row.mean_discounted_normalized_equity /= market.spot().get();
+            }
             let leverage = calibration.surface.clone();
             let volatility = match factor {
                 HybridVolatilityFactor::Bergomi(factor) => {
@@ -229,10 +365,21 @@ impl HwAsset {
                 HybridCorrelation::new(0.0, rho_s, 0.0).map_err(E::numerical)?,
             )
         };
+        let mut parameter_offsets = vec![
+            calibration
+                .as_ref()
+                .map_or(1, |c| c.surface.squared_leverage().len())
+                + 1,
+        ];
+        for node in dividends.nodes() {
+            parameter_offsets.push(parameter_offsets.last().unwrap() + node.coefficient_count());
+        }
         Ok(Self {
+            parameter_offsets,
             process: HullWhiteEquityPlan::new(rates.clone(), volatility, correlation, grid)
+                .and_then(|p| p.with_dividends(dividends.clone()))
                 .map_err(E::numerical)?,
-            affine: AffineDividendPlan::new(market, rates, grid.nodes()).map_err(E::numerical)?,
+            dividends,
             calibration,
             target: risk_target,
             config,
@@ -247,7 +394,9 @@ impl HwAsset {
     pub fn target_reverse(&self, seeds: &[f64]) -> Result<Vec<f64>, E> {
         let c = self.calibration.as_ref().expect("HW LSV");
         let target = self.target.as_ref().expect("HW target");
-        let adj = c.reverse_leverage(seeds).map_err(E::numerical)?;
+        let adj = c
+            .reverse_leverage(&seeds[..self.volatility_parameter_count()])
+            .map_err(E::numerical)?;
         let g = target.grid();
         let mut variance = vec![0.0; g.values().len()];
         let mut density = vec![0.0; variance.len()];
@@ -287,7 +436,7 @@ impl HwAsset {
     ) -> Result<crate::mc::hull_white::HullWhitePathAdjoints, E> {
         crate::engine::processes::hull_white::reverse::reverse_hybrid_states(
             &self.process,
-            1.0,
+            self.dividends.initial_spot(),
             &path.states,
             &path.equity_increments,
             state_seeds,
@@ -299,7 +448,7 @@ impl HwAsset {
 impl HwContext {
     pub fn fingerprint(&self, h: &mut blake3::Hasher, assets: &[Asset]) {
         use super::compile::floats;
-        h.update(b"multi-asset-bergomi-hw-paired-affine-v1");
+        h.update(b"multi-asset-bergomi-hw-escrowed-v2");
         floats(h, &[self.config.rate_model.mean_reversion()]);
         floats(h, self.config.rate_model.volatility_times());
         floats(h, self.config.rate_model.volatilities());
@@ -307,6 +456,7 @@ impl HwContext {
         for asset in assets {
             let a = asset.hw.as_ref().expect("HW asset");
             h.update(&a.process.parameter_fingerprint_bytes());
+            h.update(&a.dividends.fingerprint_bytes());
             if let Some(c) = &a.config {
                 let p = match c {
                     MultiAssetBergomiLsvConfig::OneFactor(c) => &c.particles,
@@ -386,29 +536,10 @@ impl MultiAssetPricingPlan {
                     .collect();
                 let states = h
                     .process
-                    .evolve_with_innovations(1.0, &innovations)
+                    .evolve_with_innovations(a.forward.spot().get(), &innovations)
                     .map_err(E::numerical)?;
-                let spot = a.forward.spot().get();
-                let physical_states: Vec<_> = states
-                    .iter()
-                    .map(|s| HybridState {
-                        normalized_equity: s.normalized_equity * spot,
-                        ..*s
-                    })
-                    .collect();
-                let affine = h.affine.record(&physical_states).map_err(E::numerical)?;
-                let spots = affine.spots.iter().map(|(s, _)| *s).collect();
-                let pre_spots = affine.spots.iter().map(|(s, p)| p.unwrap_or(*s)).collect();
-                let spot_derivatives = states
-                    .iter()
-                    .enumerate()
-                    .map(|(j, s)| h.affine.scale(j, false) * s.normalized_equity)
-                    .collect();
-                let pre_spot_derivatives = states
-                    .iter()
-                    .enumerate()
-                    .map(|(j, s)| h.affine.scale(j, true) * s.normalized_equity)
-                    .collect();
+                let (spots, pre_spots, spot_derivatives, pre_spot_derivatives) =
+                    h.observations(&states)?;
                 Ok(super::path::AssetPath {
                     spots,
                     pre_spots,
@@ -420,9 +551,7 @@ impl MultiAssetPricingPlan {
                     local_correlation: None,
                     hw: Some(HwAssetPath {
                         states,
-                        physical_states,
                         equity_increments: shocks[i].clone(),
-                        affine,
                     }),
                 })
             })

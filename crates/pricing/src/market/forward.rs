@@ -53,8 +53,13 @@ impl EquityForward {
         dividend_curve: Arc<LogLinearDiscountCurve>,
         dividends: Vec<DividendEvent>,
     ) -> Result<Self, MarketError> {
-        let discrete_dividends = AffineDividendTransform::new(underlying, spot, dividends)?
-            .with_carry_curves(Arc::clone(&discount_curve), Arc::clone(&dividend_curve));
+        let discrete_dividends = AffineDividendTransform::new_with_carry_curves(
+            underlying,
+            spot,
+            dividends,
+            Arc::clone(&discount_curve),
+            Arc::clone(&dividend_curve),
+        )?;
         Ok(Self {
             underlying,
             spot,
@@ -198,8 +203,8 @@ mod tests {
         let f_forward = 100.0 * 0.03_f64.exp();
         assert!((value.forward - f_forward).abs() < 1.0e-13);
         let cash_carry = 0.015_f64.exp();
-        assert!((value.affine_coordinate.a() + 0.04 * cash_carry).abs() < 1.0e-15);
-        assert!((value.affine_coordinate.b() - 0.9).abs() < 1.0e-15);
+        assert!((value.affine_coordinate.a()).abs() < 1.0e-15);
+        assert!((value.affine_coordinate.b() - (0.9 - 0.04 / cash_carry)).abs() < 1.0e-15);
         assert!(
             (value.spot_contract_forward - (0.9 * f_forward - 4.0 * cash_carry)).abs() < 1.0e-13
         );

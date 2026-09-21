@@ -8,6 +8,8 @@ affine dividend map
 
 `S(t) = A(t) * S0 + B(t) * (F_cont(0,t)/S0) * f(t)`.
 
+A/B use the [escrowed reserve convention](hull-white-cash-dividends.md), including
+all future cash and its effect on the initial residual fraction.
 `F_cont(0,t)=S0*P_q(0,t)/P_r(0,t)` supplies continuous carry. The shared LV
 payoff adapter expects this carried coordinate; LSV scales the martingale and
 its payoff adjoints before using that adapter. Dividend A/B coordinates alone

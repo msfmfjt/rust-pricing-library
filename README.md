@@ -78,21 +78,19 @@ Experimental one-currency stochastic-rate pricing is available through Rust
 `HullWhiteEquityPricingPlan` and Python `HullWhiteEquityPlan`. It combines
 one-factor Hull–White with BS or particle-recalibrated one-/two-factor Bergomi LSV, including
 equity/rate correlation, stochastic discounting, proportional dividends and
-payment lags. Fixed and mixed cash/proportional payouts now use the paid-cash
-**affine** convention by default (`cash_dividend_model=None`): the continuous
-equity state has no payout jump, while the paid-cash offset carries at realized
-r-q. Future payouts are not reserved. The explicit `cash_dividend_model="escrowed"`
-option retains the legacy stochastic bond reserve and quadratic LSV calibration.
-See the [affine migration contract](docs/models/hull-white-affine-dividends.md)
-and [ADR 0007](design/adr/0007-affine-paid-cash-dividends.md).
+payment lags. All simulations use **escrowed** fixed and mixed cash/proportional
+payouts: known future dividends are reserved, including beyond option expiry.
+Python `cash_dividend_model=None` and `"escrowed"` select the same model; Rust
+`*_with_cash_dividends` methods remain compatibility aliases. IV inputs use the
+[escrowed quote coordinate](docs/models/hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration).
 Explicit `evaluate_aad()` returns Spot
 Delta, BS Vega, initial-curve risk/DV01 and recalibrated paired variance/density
 adjoints. Targets built with `HullWhiteLsvTarget.from_market_iv` additionally
 return quote-node VegaKT, market scaling and a parallel IV Vega, reversing both
-variance and density through explicit cubic/time interpolation. Default affine
-quotes refer to the continuous normalized equity coordinate U, whereas explicit
-escrowed-mode quotes refer to its converted escrow F coordinate. Neither mode
-automatically converts physical-spot market quotes. See the
+variance and density through explicit cubic/time interpolation. Calibration targets
+use escrow coordinates; prepare physical option quotes in that coordinate before
+constructing the target.
+See the
 [VegaKT contracts](docs/models/hull-white-vegakt.md). LSV AAD requires `retain_reverse_trace=True`; model parameters and
 payout quotes remain fixed. See the [AAD contracts](docs/models/hull-white-aad.md),
 [cash-dividend contracts](docs/models/hull-white-cash-dividends.md),
@@ -102,7 +100,7 @@ payout quotes remain fixed. See the [AAD contracts](docs/models/hull-white-aad.m
 The same engine now supports experimental rough Bergomi and particle-calibrated
 rough-LSV through `compile_rough_bergomi` / `compile_rough_lsv` and the Python
 `RoughBergomiModel`. A nonuniform Volterra hybrid scheme connects the rough
-driver to Hull–White, default affine or explicit escrowed dividends, first-order AAD and quote-node
+driver to Hull–White, escrowed dividends, first-order AAD and quote-node
 VegaKT. Pure rough uses flat initial forward variance; rough-LSV fits the paired
 target. H and eta are fixed for risk. Direct convolution costs O(time_steps^2)
 per path. See the [example](examples/python/rough_bergomi.py) and

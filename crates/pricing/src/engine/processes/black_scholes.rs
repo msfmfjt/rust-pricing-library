@@ -115,7 +115,14 @@ impl SimulationPlan {
             Vec::with_capacity(barrier.bridge_observation_indices.len());
         let initial_touched = barrier_touched(barrier.direction, spot, barrier.barrier);
         let mut dividend_jump_touched = false;
-        let mut previous_barrier = barrier.barrier;
+        let initial_coordinate = self
+            .market_forward
+            .discrete_dividends()
+            .map_or(crate::market::AffineDividendCoordinate::identity(), |d| {
+                d.initial_coordinate()
+            })
+            .at_spot(self.spot, spot);
+        let mut previous_barrier = transformed_barrier(barrier.barrier, spot, initial_coordinate)?;
         let variance = volatility * volatility;
         for &index in &barrier.bridge_observation_indices {
             if initial_touched {
@@ -123,11 +130,13 @@ impl SimulationPlan {
             }
             let time = self.observation_times[index];
             let state = observations[index].canonical_f;
-            let post_coordinate = self.observation_affine_coordinates[index];
-            let pre_coordinate =
-                self.observation_pre_dividend_coordinates[index].unwrap_or(post_coordinate);
-            let pre_barrier = transformed_barrier(barrier.barrier, self.spot, pre_coordinate)?;
-            let post_barrier = transformed_barrier(barrier.barrier, self.spot, post_coordinate)?;
+            let post_coordinate =
+                self.observation_affine_coordinates[index].at_spot(self.spot, spot);
+            let pre_coordinate = self.observation_pre_dividend_coordinates[index]
+                .map(|c| c.at_spot(self.spot, spot))
+                .unwrap_or(post_coordinate);
+            let pre_barrier = transformed_barrier(barrier.barrier, spot, pre_coordinate)?;
+            let post_barrier = transformed_barrier(barrier.barrier, spot, post_coordinate)?;
             let dt = time - previous_time;
             if dt > 0.0 {
                 intervals.push(BarrierBridgeIntervalInput {
@@ -143,8 +152,8 @@ impl SimulationPlan {
                 interval_observation_indices.push((previous_index, index));
             }
             if self.observation_pre_dividend_coordinates[index].is_some() {
-                let pre_spot = pre_coordinate.a() * self.spot + pre_coordinate.b() * state;
-                let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * state;
+                let pre_spot = pre_coordinate.a() * spot + pre_coordinate.b() * state;
+                let post_spot = post_coordinate.a() * spot + post_coordinate.b() * state;
                 let pre_touched = barrier_touched(barrier.direction, pre_spot, barrier.barrier);
                 let post_touched = barrier_touched(barrier.direction, post_spot, barrier.barrier);
                 if pre_touched || post_touched {
@@ -180,12 +189,23 @@ impl SimulationPlan {
         smoothing: CompactC2Smoothing,
     ) -> Result<ContinuousBarrierBridgeEvaluation, MonteCarloError> {
         let direction = bridge_direction(barrier.direction);
+        let initial_coordinate = self
+            .market_forward
+            .discrete_dividends()
+            .map_or(crate::market::AffineDividendCoordinate::identity(), |d| {
+                d.initial_coordinate()
+            })
+            .at_spot(self.spot, spot);
         let initial_endpoint =
             SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
                 direction,
                 state: spot,
-                transformed_barrier: barrier.barrier,
-                affine_scale: 1.0,
+                transformed_barrier: transformed_barrier(
+                    barrier.barrier,
+                    spot,
+                    initial_coordinate,
+                )?,
+                affine_scale: initial_coordinate.b(),
                 smoothing,
             })?;
         let mut hit_factors = vec![smoothed_endpoint_hit_factor(
@@ -199,17 +219,19 @@ impl SimulationPlan {
         let mut previous_state = spot;
         let mut previous_time = 0.0;
         let mut previous_index = None;
-        let mut previous_barrier = barrier.barrier;
-        let mut previous_scale = 1.0;
+        let mut previous_barrier = transformed_barrier(barrier.barrier, spot, initial_coordinate)?;
+        let mut previous_scale = initial_coordinate.b();
         let variance = volatility * volatility;
         for &index in &barrier.bridge_observation_indices {
             let time = self.observation_times[index];
             let state = observations[index].canonical_f;
-            let post_coordinate = self.observation_affine_coordinates[index];
-            let pre_coordinate =
-                self.observation_pre_dividend_coordinates[index].unwrap_or(post_coordinate);
-            let pre_barrier = transformed_barrier(barrier.barrier, self.spot, pre_coordinate)?;
-            let post_barrier = transformed_barrier(barrier.barrier, self.spot, post_coordinate)?;
+            let post_coordinate =
+                self.observation_affine_coordinates[index].at_spot(self.spot, spot);
+            let pre_coordinate = self.observation_pre_dividend_coordinates[index]
+                .map(|c| c.at_spot(self.spot, spot))
+                .unwrap_or(post_coordinate);
+            let pre_barrier = transformed_barrier(barrier.barrier, spot, pre_coordinate)?;
+            let post_barrier = transformed_barrier(barrier.barrier, spot, post_coordinate)?;
             let dt = time - previous_time;
             if dt > 0.0 {
                 let interval =
@@ -233,8 +255,8 @@ impl SimulationPlan {
                         dt,
                     })?;
                 if self.observation_pre_dividend_coordinates[index].is_some() {
-                    let pre_spot = pre_coordinate.a() * self.spot + pre_coordinate.b() * state;
-                    let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * state;
+                    let pre_spot = pre_coordinate.a() * spot + pre_coordinate.b() * state;
+                    let post_spot = post_coordinate.a() * spot + post_coordinate.b() * state;
                     hit_factors.push(smoothed_jump_hit_factor(
                         barrier.direction,
                         pre_spot,
@@ -284,7 +306,7 @@ impl SimulationPlan {
             let brownian = time.sqrt() * normal;
             let log_return = -0.5 * total_variance + standard_deviation * normal;
             let canonical_f = self.observation_forwards[0] * spot_scale * log_return.exp();
-            return vec![self.path_observation(0, canonical_f, brownian)];
+            return vec![self.path_observation(0, canonical_f, brownian, spot)];
         }
         let mut previous_time = 0.0;
         let mut brownian = 0.0;
@@ -300,7 +322,7 @@ impl SimulationPlan {
                 let total_variance = volatility * volatility * time;
                 let canonical_f =
                     forward * spot_scale * (-0.5 * total_variance + volatility * brownian).exp();
-                self.path_observation(index, canonical_f, brownian)
+                self.path_observation(index, canonical_f, brownian, spot)
             })
             .collect()
     }
@@ -312,11 +334,14 @@ impl SimulationPlan {
         index: usize,
         canonical_f: f64,
         brownian: f64,
+        spot: f64,
     ) -> PathObservation {
-        let post_coordinate = self.observation_affine_coordinates[index];
-        let post_spot = post_coordinate.a() * self.spot + post_coordinate.b() * canonical_f;
-        let pre_dividend_spot = self.observation_pre_dividend_coordinates[index]
-            .map(|coordinate| coordinate.a() * self.spot + coordinate.b() * canonical_f);
+        let post_coordinate = self.observation_affine_coordinates[index].at_spot(self.spot, spot);
+        let post_spot = post_coordinate.a() * spot + post_coordinate.b() * canonical_f;
+        let pre_dividend_spot = self.observation_pre_dividend_coordinates[index].map(|c| {
+            let c = c.at_spot(self.spot, spot);
+            c.a() * spot + c.b() * canonical_f
+        });
         PathObservation {
             post_spot,
             pre_dividend_spot,
@@ -497,8 +522,9 @@ impl SimulationPlan {
                 .position(|observation_date| *observation_date == Some(adjoint.observation_date))
             {
                 let observation = observations[index];
-                let coordinate = self.observation_affine_coordinates[index];
-                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                let coordinate =
+                    self.observation_affine_coordinates[index].at_spot(self.spot, spot);
+                delta += adjoint.value * coordinate.spot_scale() * observation.canonical_f / spot;
                 vega += adjoint.value
                     * coordinate.b()
                     * observation.canonical_f
@@ -516,8 +542,9 @@ impl SimulationPlan {
             {
                 let observation = observations[index];
                 let coordinate = self.observation_pre_dividend_coordinates[index]
-                    .expect("pre-dividend adjoints have a matching coordinate");
-                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                    .expect("pre-dividend adjoints have a matching coordinate")
+                    .at_spot(self.spot, spot);
+                delta += adjoint.value * coordinate.spot_scale() * observation.canonical_f / spot;
                 vega += adjoint.value
                     * coordinate.b()
                     * observation.canonical_f
@@ -576,8 +603,9 @@ impl SimulationPlan {
                 .position(|observation_date| *observation_date == Some(adjoint.observation_date))
             {
                 let observation = observations[index];
-                let coordinate = self.observation_affine_coordinates[index];
-                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                let coordinate =
+                    self.observation_affine_coordinates[index].at_spot(self.spot, spot);
+                delta += adjoint.value * coordinate.spot_scale() * observation.canonical_f / spot;
                 vega += adjoint.value
                     * coordinate.b()
                     * observation.canonical_f
@@ -595,8 +623,9 @@ impl SimulationPlan {
             {
                 let observation = observations[index];
                 let coordinate = self.observation_pre_dividend_coordinates[index]
-                    .expect("pre-dividend adjoints have a matching coordinate");
-                delta += adjoint.value * coordinate.b() * observation.canonical_f / spot;
+                    .expect("pre-dividend adjoints have a matching coordinate")
+                    .at_spot(self.spot, spot);
+                delta += adjoint.value * coordinate.spot_scale() * observation.canonical_f / spot;
                 vega += adjoint.value
                     * coordinate.b()
                     * observation.canonical_f
@@ -626,8 +655,9 @@ impl SimulationPlan {
         let terminal = observations[barrier.expiry_observation_index].post_spot;
         let payoff = continuous_barrier_payoff_terms(barrier, terminal, survival);
         let mut state_adjoints = vec![0.0; observations.len()];
-        let terminal_coordinate =
-            self.observation_affine_coordinates[barrier.expiry_observation_index];
+        let terminal_coordinate = self.observation_affine_coordinates
+            [barrier.expiry_observation_index]
+            .at_spot(self.spot, spot);
         state_adjoints[barrier.expiry_observation_index] +=
             payoff.terminal_derivative * terminal_coordinate.b();
 
@@ -700,7 +730,12 @@ impl SimulationPlan {
         }
         Ok(PathwiseAad {
             price: self.discount * payoff.value,
-            delta: self.discount * delta,
+            delta: self.discount * delta * spot
+                / (spot
+                    - self
+                        .market_forward
+                        .discrete_dividends()
+                        .map_or(0.0, |d| d.initial_reserve())),
             vega: self.discount * vega,
             barrier_diagnostics: Some(bridge.diagnostic_values()),
         })
@@ -719,8 +754,8 @@ impl SimulationPlan {
         let log_return = -0.5 * total_variance + standard_deviation * normal;
         let bumped_forward = self.forward * (spot / self.spot);
         let canonical_f = bumped_forward * log_return.exp();
-        let coordinate = self.observation_affine_coordinates[0];
-        let terminal = coordinate.a() * self.spot + coordinate.b() * canonical_f;
+        let coordinate = self.observation_affine_coordinates[0].at_spot(self.spot, spot);
+        let terminal = coordinate.a() * spot + coordinate.b() * canonical_f;
         let payoff = self
             .payoff
             .evaluate_single_with_terminal_adjoint(|underlying, date| {
@@ -734,7 +769,7 @@ impl SimulationPlan {
             })
             .fold(0.0, |total, adjoint| total + adjoint.value);
         let price = self.discount * payoff.value;
-        let delta = self.discount * terminal_adjoint * coordinate.b() * canonical_f / spot;
+        let delta = self.discount * terminal_adjoint * coordinate.spot_scale() * canonical_f / spot;
         let terminal_vega =
             coordinate.b() * canonical_f * (-volatility * self.time + self.time.sqrt() * normal);
         let vega = self.discount * terminal_adjoint * terminal_vega;

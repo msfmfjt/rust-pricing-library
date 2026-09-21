@@ -54,9 +54,9 @@ Seeds are explicit per asset; reusing a seed is allowed. Both configurations
 and realized squared-leverage values enter the fingerprint.
 
 The physical price is `S_i(t)=A_i(t) S_i(0)+B_i(t) F_i(t) m_i(t)`.
-This retains the existing fixed-cash carry and pre/post-dividend rules. No
-future-cash reserve is introduced, no payout changes the martingale or OU
-factor, and no payout consumes an extra random coordinate. Nonfinite or
+The map is escrowed: A contains the future cash reserve and B includes the
+initial residual fraction. Cash stays fixed under Spot bumps. No payout changes
+the martingale or OU factor or consumes an extra random coordinate. Nonfinite or
 nonpositive physical prices are errors. There is no new variance clipping,
 physical-price floor or path resampling. `lsv_leverage_boundary_counts` reports
 mean flat-space leverage lookups, separately from LV boundary counts.

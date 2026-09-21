@@ -515,6 +515,7 @@ impl MultiAssetPricingPlan {
             bridge,
             qmc,
             fingerprint: String::new(),
+            market_weights: std::sync::Arc::new(std::sync::OnceLock::new()),
             lsv_drivers,
             hull_white,
             local_correlation: None,
@@ -550,6 +551,13 @@ impl MultiAssetPricingPlan {
             h.update(b"multi-asset-bs-lv-affine-v2-bridge-rank-major-before-correlation");
         } else {
             h.update(b"multi-asset-bs-lv-affine-v1-factor-major-bridge-before-correlation");
+        }
+        if self.assets.iter().any(|a| {
+            a.forward
+                .discrete_dividends()
+                .is_some_and(|d| d.initial_reserve() > 0.0)
+        }) {
+            h.update(b"escrowed-dividend-reserve-v1");
         }
         h.update(self.payoff.source_fingerprint().as_bytes());
         h.update(self.payoff.tape_fingerprint().as_bytes());

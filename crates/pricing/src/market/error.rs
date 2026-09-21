@@ -6,6 +6,11 @@ use crate::core::{CurveId, EventId, PathIndex, UnderlyingId};
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum MarketError {
+    NonPositiveEscrowedSpot {
+        underlying: UnderlyingId,
+        spot_bits: u64,
+        reserve_bits: u64,
+    },
     InvalidPillarCount {
         curve: CurveId,
         count: usize,
@@ -222,6 +227,14 @@ pub enum MarketError {
 impl fmt::Display for MarketError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::NonPositiveEscrowedSpot {
+                underlying,
+                spot_bits,
+                reserve_bits,
+            } => write!(
+                formatter,
+                "underlying {underlying} requires positive residual equity: spot=0x{spot_bits:016x}, dividend reserve=0x{reserve_bits:016x}"
+            ),
             Self::InvalidPillarCount { curve, count } => {
                 write!(
                     formatter,

@@ -127,12 +127,12 @@ Rust exports `pricing::models::RoughBergomi` and
 | Constructor | Input volatility / calibration |
 | --- | --- |
 | `compile_rough_bergomi` | Black–Scholes request sigma0; flat initial variance; maximum step |
-| `compile_rough_bergomi_with_cash_dividends` | Same, with explicit escrowed cash |
+| `compile_rough_bergomi_with_cash_dividends` | Compatibility alias; same escrowed model |
 | `compile_rough_lsv` | Matching Local Volatility request/target and particle settings |
-| `compile_rough_lsv_with_cash_dividends` | Same, with explicit escrowed cash |
+| `compile_rough_lsv_with_cash_dividends` | Compatibility alias; same escrowed model |
 
 Python adds the immutable `RoughBergomiModel` and two static constructors on
-`HullWhiteEquityPlan`. Both accept `cash_dividend_model="escrowed"` when needed:
+`HullWhiteEquityPlan`. Both always use escrowed dividends; `cash_dividend_model="escrowed"` is an optional compatibility alias:
 
 ```python
 rough = rp.RoughBergomiModel(0.1, 0.8, equity_vol_correlation=-0.5)

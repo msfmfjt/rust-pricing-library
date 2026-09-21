@@ -1214,7 +1214,7 @@ mod tests {
         ));
 
         let overflow_event = EventId::new(2);
-        let overflow_transform = AffineDividendTransform::new(
+        let unfunded = AffineDividendTransform::new(
             UnderlyingId::new(7),
             PositiveF64::new(1.0, "spot").expect("spot"),
             vec![
@@ -1225,14 +1225,10 @@ mod tests {
                 )
                 .expect("event"),
             ],
-        )
-        .expect("transform");
-        let overflow_coordinate = overflow_transform
-            .coordinate_after_time(0.5)
-            .expect("coordinate");
+        );
         assert!(matches!(
-            transformed_barrier(120.0, 100.0, overflow_coordinate),
-            Err(BarrierBridgeError::InvalidTransformedBarrier { .. })
+            unfunded,
+            Err(crate::market::MarketError::NonPositiveEscrowedSpot { .. })
         ));
     }
 

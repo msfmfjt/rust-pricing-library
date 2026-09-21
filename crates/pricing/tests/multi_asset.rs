@@ -871,7 +871,8 @@ fn validates_dimensions_order_dates_causality_currency_and_nonpositive_paths() {
         corr(2, 0.0),
     )
     .unwrap();
-    assert!(p.evaluate().is_err());
+    // Funded residual equity remains positive even on low Spot paths.
+    assert!(p.evaluate().is_ok());
 }
 
 #[test]
@@ -954,7 +955,7 @@ fn pre_and_post_observations_share_a_state_on_each_assets_ex_date() {
 }
 
 #[test]
-fn future_cash_does_not_reserve_spot_or_extend_the_simulated_horizon() {
+fn future_cash_reserves_spot_without_extending_the_simulated_horizon() {
     let markets = vec![
         market(1, 100.0, 0.02, 0.01, vec![]),
         market(2, 90.0, 0.02, 0.0, vec![]),
@@ -990,8 +991,8 @@ fn future_cash_does_not_reserve_spot_or_extend_the_simulated_horizon() {
     let b = second
         .evaluate_aad(MultiAssetRiskConfig::default())
         .unwrap();
-    assert_eq!(a.price, b.price);
-    assert_eq!(a.risks, b.risks);
+    assert_ne!(a.price, b.price);
+    assert_ne!(a.risks, b.risks);
 }
 
 fn lsv_config(k: f64, nu: f64, rho: f64, seed: u64, trace: bool) -> MultiAssetLsvConfig {

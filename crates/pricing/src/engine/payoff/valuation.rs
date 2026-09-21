@@ -28,39 +28,6 @@ impl SimulationPlan {
 }
 
 impl SimulationPlan {
-    /// Exact primal observations of the default proportional-dividend map.
-    pub(crate) fn hybrid_proportional_spots(
-        &self,
-        times: &[f64],
-        equity: &[f64],
-    ) -> Result<Vec<(f64, Option<f64>)>, MonteCarloError> {
-        if times.len() != equity.len() {
-            return Err(crate::models::HullWhiteError::InvalidInput {
-                field: "hybrid_spot_count",
-                index: equity.len(),
-            }
-            .into());
-        }
-        let mut spots = vec![(0.0, None); times.len()];
-        for (i, t) in self.observation_times.iter().enumerate() {
-            let index = times.binary_search_by(|v| v.total_cmp(t)).map_err(|_| {
-                crate::models::HullWhiteError::InvalidInput {
-                    field: "missing_observation_time",
-                    index: i,
-                }
-            })?;
-            let c = self.observation_affine_coordinates[i];
-            let f = equity[index] * self.observation_forwards[i] / self.spot;
-            spots[index] = (
-                c.a() * self.spot + c.b() * f,
-                self.observation_pre_dividend_coordinates[i].map(|c| c.a() * self.spot + c.b() * f),
-            );
-        }
-        Ok(spots)
-    }
-}
-
-impl SimulationPlan {
     /// Evaluate on reconstructed physical Spot without another affine mapping.
     pub(crate) fn hybrid_spot_payoff_adjoints(
         &self,
@@ -181,60 +148,6 @@ impl SimulationPlan {
 }
 
 impl SimulationPlan {
-    /// Map normalized hybrid equity states back to contractual Spot. The HW
-    /// default compiler rejects cash dividends; proportional pre/post observations use
-    /// the same compiled payoff graph and event convention as the stable API.
-    pub(crate) fn hybrid_payoff(
-        &self,
-        times: &[f64],
-        normalized_states: &[f64],
-    ) -> Result<f64, MonteCarloError> {
-        if times.len() != normalized_states.len() {
-            return Err(crate::models::HullWhiteError::InvalidInput {
-                field: "hybrid_state_count",
-                index: normalized_states.len(),
-            }
-            .into());
-        }
-        let indices = self
-            .observation_times
-            .iter()
-            .map(|t| {
-                times.binary_search_by(|x| x.total_cmp(t)).map_err(|_| {
-                    crate::models::HullWhiteError::InvalidInput {
-                        field: "missing_observation_time",
-                        index: 0,
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let value_at = |underlying, date, pre: bool| {
-            if underlying != self.underlying {
-                return None;
-            }
-            self.observation_dates
-                .iter()
-                .position(|d| *d == Some(date))
-                .and_then(|i| {
-                    let coordinate = if pre {
-                        self.observation_pre_dividend_coordinates[i]
-                    } else {
-                        Some(self.observation_affine_coordinates[i])
-                    }?;
-                    let f =
-                        normalized_states[indices[i]] * self.observation_forwards[i] / self.spot;
-                    Some(coordinate.a() * self.spot + coordinate.b() * f)
-                })
-        };
-        Ok(self.discount
-            * self.payoff.evaluate_with_pre_dividend_spots(
-                |u, d| value_at(u, d, false),
-                |u, d| value_at(u, d, true),
-            )?[0])
-    }
-}
-
-impl SimulationPlan {
     /// Reuse the contractual graph, dividend ordering and observation mapping.
     /// This returns f-state seeds, not a Spot Delta or a market-IV Vega.
     pub(crate) fn lsv_payoff(
@@ -260,7 +173,7 @@ impl SimulationPlan {
         // LSV evolves a martingale starting at S0, while the shared LV payoff
         // adapter expects the continuous equity coordinate with deterministic
         // carry already applied. Dividend A/B coordinates encode only the
-        // paid-cash/proportional transformation, not this continuous carry.
+        // escrowed reserve/proportional transformation, not this continuous carry.
         let canonical_states: Vec<_> = states
             .iter()
             .zip(runtime.plan.forward_normalizers())

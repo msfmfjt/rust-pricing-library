@@ -11,7 +11,7 @@ pub(super) fn quotes() -> Vec<f64> {
     vec![0.238, 0.225, 0.222, 0.244, 0.231, 0.228]
 }
 pub(super) fn target(values: Vec<f64>, s: Scenario) -> HullWhiteLsvTarget {
-    // The single-asset affine HW API requires dividend times explicitly.
+    // The single-asset escrowed HW API requires dividend times explicitly.
     let mut times: Vec<_> = (0..=s.steps).map(|i| i as f64 / s.steps as f64).collect();
     times.push(0.37);
     times.sort_by(f64::total_cmp);
@@ -33,7 +33,7 @@ fn payload(s: Scenario, grid: &LocalVarianceGrid) -> Value {
         json!({"curve_id":10,"times":[0.0,0.4,1.0,2.0],"discount_factors":[1.0,0.985,0.95,0.88]});
     v["market"]["dividend_curve"] =
         json!({"curve_id":11,"times":[0.0,0.7,2.0],"discount_factors":[1.0,0.99,0.96]});
-    // Ex-date between uniform steps exercises the affine cash/carry chain.
+    // Ex-date between uniform steps exercises the escrowed reserve/curve chain.
     v["market"]["discrete_dividends"] = json!([
         {"event_id":1,"ex_time":0.37,"quote":{"type":"fixed_cash_and_proportional","fixed_cash":1.5,"beta":0.02}}
     ]);

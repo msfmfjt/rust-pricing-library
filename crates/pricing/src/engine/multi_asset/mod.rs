@@ -26,6 +26,8 @@ pub use lsv::{
     MultiAssetRoughLsvConfig,
 };
 
+type MarketWeights = Vec<(usize, Vec<(usize, f64)>)>;
+
 #[derive(Clone, Debug)]
 pub struct MultiAssetPricingPlan {
     valuation_date: Date,
@@ -39,6 +41,7 @@ pub struct MultiAssetPricingPlan {
     bridge: Option<BrownianBridgePlan>,
     qmc: Option<RqmcPlan>,
     fingerprint: String,
+    market_weights: std::sync::Arc<std::sync::OnceLock<MarketWeights>>,
     lsv_drivers: Option<lsv::LsvDrivers>,
     hull_white: Option<hull_white::HwContext>,
     local_correlation: Option<std::sync::Arc<LocalCorrelationCalibration>>,

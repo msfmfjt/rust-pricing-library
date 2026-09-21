@@ -105,9 +105,11 @@ Pseudo-MC requires at least two independent units.
 Each asset evolves continuous equity `f`, initialized at its full Spot, with
 forward normalizer `F_f(t)=S0*Dq(t)/Dr(t)`. BS uses exact lognormal interval
 transitions; Local Volatility reuses Log-Euler in `x=log(f/F_f(t))`. At every
-node, physical Spot is reconstructed using the existing paid-cash affine map
-`S=A(t)*S0+B(t)*f`. The cash offset carries between events at deterministic
-r-q. Cash remains fixed under risk shocks; future payouts are not reserved.
+node, physical Spot is reconstructed from an escrowed reserve and residual
+exposure: `S=A0(t)+B(t)*alpha*f`, with `alpha=(S0-Ainit)/S0` and B the
+proportional payout product. Cash stays fixed under risk shocks. The entire
+future cash schedule is reserved. See the
+[escrowed coordinate specification](hull-white-cash-dividends.md).
 
 Ex-dates do not add separate pre/post random draws. At an event, both
 observations use the same continuous state and their respective affine maps.
