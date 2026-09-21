@@ -1,6 +1,6 @@
 use super::*;
-use crate::mc::hull_white::{HullWhiteEquityPlan, HybridEquityVolatility, HybridState};
 use crate::mc::LocalVolTimeGrid;
+use crate::mc::hull_white::{HullWhiteEquityPlan, HybridEquityVolatility, HybridState};
 use crate::models::{HullWhite1Factor, HybridCorrelation};
 
 fn bits(a: f64, b: f64) {
@@ -18,7 +18,8 @@ fn extracted_rate_step_replays_legacy_hybrid_states() {
         [0.02, -0.01, 0.0005, 0.0008, 0.0],
     ];
     for a in [0.0, 0.07, 2.0] {
-        let rates = HullWhite1Factor::new(a, vec![0.0, 0.2, 0.6], vec![0.01, 0.025, 0.015]).unwrap();
+        let rates =
+            HullWhite1Factor::new(a, vec![0.0, 0.2, 0.6], vec![0.01, 0.025, 0.015]).unwrap();
         let plan = HullWhiteEquityPlan::new(
             rates.clone(),
             HybridEquityVolatility::BlackScholes(0.25),
@@ -47,7 +48,10 @@ fn extracted_rate_step_replays_legacy_hybrid_states() {
             bits(actual[i + 1].normalized_equity, s.normalized_equity);
             bits(actual[i + 1].volatility_factor, s.volatility_factor);
             bits(actual[i + 1].rate_factor, s.rate_factor);
-            bits(actual[i + 1].integrated_rate_factor, s.integrated_rate_factor);
+            bits(
+                actual[i + 1].integrated_rate_factor,
+                s.integrated_rate_factor,
+            );
         }
     }
 }
@@ -104,7 +108,12 @@ fn gaussian_moments_and_discounts_keep_piecewise_hw_conventions() {
     bits(moments.factor_integral, tr.covariance[2][3]);
     for k in [0.0, 0.5, 3.0] {
         let old = rates
-            .transition(t, payment, k, HybridCorrelation::new(0.0, 0.0, 1.0).unwrap())
+            .transition(
+                t,
+                payment,
+                k,
+                HybridCorrelation::new(0.0, 0.0, 1.0).unwrap(),
+            )
             .unwrap();
         let cross = rates.ou_rate_covariance(t, payment, k).unwrap();
         bits(cross.factor, old.covariance[1][2]);

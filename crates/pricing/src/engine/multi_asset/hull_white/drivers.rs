@@ -115,7 +115,9 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
         let brownian = entries[intervals[step]].canonical();
         let mut covariance = vec![vec![0.0; width]; width];
         let dt = pair[1] - pair[0];
-        let rate = rates.rate_covariance(pair[0], pair[1]).map_err(E::numerical)?;
+        let rate = rates
+            .rate_covariance(pair[0], pair[1])
+            .map_err(E::numerical)?;
         covariance[d][d] = rate.factor_variance;
         covariance[d + 1][d + 1] = rate.integral_variance;
         covariance[d][d + 1] = rate.factor_integral;

@@ -20,7 +20,12 @@ impl GaussianRateCovariance for HullWhite1Factor {
         reversion: f64,
     ) -> Result<OuRateCovariance, HullWhiteError> {
         let c = self
-            .transition(start, end, reversion, HybridCorrelation::new(0.0, 0.0, 1.0)?)?
+            .transition(
+                start,
+                end,
+                reversion,
+                HybridCorrelation::new(0.0, 0.0, 1.0)?,
+            )?
             .covariance;
         Ok(OuRateCovariance {
             factor: c[1][2],
@@ -41,7 +46,11 @@ impl HullWhite1Factor {
             integral_variance: tr.covariance[3][3],
         })
     }
-    pub(crate) fn bond_exposure(&self, time: f64, maturity: f64) -> Result<GaussianBond, HullWhiteError> {
+    pub(crate) fn bond_exposure(
+        &self,
+        time: f64,
+        maturity: f64,
+    ) -> Result<GaussianBond, HullWhiteError> {
         let tr = self.bond_transition(time, maturity)?;
         Ok(GaussianBond {
             loading: tr.loading,

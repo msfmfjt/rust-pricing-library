@@ -34,7 +34,11 @@ pub(crate) struct RateAdvance<S> {
 pub(crate) trait RateEvolution {
     type State;
     type Innovations;
-    fn advance(&self, state: Self::State, innovations: Self::Innovations) -> RateAdvance<Self::State>;
+    fn advance(
+        &self,
+        state: Self::State,
+        innovations: Self::Innovations,
+    ) -> RateAdvance<Self::State>;
 }
 
 /// Relative to deterministic carry, there is no rate state or innovation.
