@@ -207,14 +207,17 @@ REQUIRED_CI_SNIPPETS = {
     "name: rust-pricing-${{ matrix.target }}-cp312",
     "name: rust-pricing-source-${{ matrix.target }}",
     "name: benchmark-${{ matrix.target }}",
+    "name: Model boundary comparison / Linux",
+    "python scripts/compare_model_boundaries.py ../baseline . ../model-boundary-results",
+    "name: model-boundary-comparison-linux",
     "retention-days: 14",
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 2,
+    'python-version: "3.12"': 3,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 6,
+    "actions/upload-artifact@v4": 7,
     "retention-days: 14": 6,
 }
 

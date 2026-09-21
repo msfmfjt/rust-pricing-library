@@ -279,8 +279,8 @@ broader regression gates. Timing and memory comparisons belong to S6.
 | S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Implemented; normal tests and native wheel/replay jobs passed on PR #74; extended gates tracked separately |
 | S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Implemented; normal/native wheel/replay and extended risk passed on PR #75; extended price gate tracked separately |
 | S4 | Explicit calibration/path-reverse capability selection | Unsupported model capabilities fail typed composition; late AAD requests validate before path generation; existing recalibrated AAD/VegaKT gates pass | Implemented; normal/native wheel/replay and extended risk passed on PR #76; extended price gate tracked separately |
-| S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Implemented; native validation pending |
-| S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Pending |
+| S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Implemented; normal/native wheel/replay and extended risk passed on PR #77; extended price gate tracked separately |
+| S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Test-only registration and paired timing/heap/RSS harness implemented; native evidence pending; [protocol and scope](../validation/model-boundary-extension.md) |
 | S7 | Broad performance/memory measurement and targeted optimization PRs | Measured bottlenecks and numerical/reproducibility gates justify each optimization | Pending |
 
 Each stage is a separate reviewable change above its verified parent. If a
@@ -335,8 +335,9 @@ their own measurements and subsequent PRs.
 
 ## Validation status of this change
 
-The local environment currently has no Rust toolchain. S4 Rust tests and
-native formatting/build/Clippy checks must run in CI; earlier-stage and historical
-escrowed results do not certify the S4 source tree. Local documentation, source packaging and
-Python public-stub checks are available. No runtime or memory improvement is
-claimed until representative measurements are captured.
+The local environment currently has no Rust toolchain. S6 extension tests and
+paired native measurements run in CI; earlier-stage and historical escrowed
+results do not certify this source tree. See the [S6 protocol](../validation/model-boundary-extension.md)
+for the pinned pre-extraction baseline and measurement boundaries. Local
+documentation, source packaging and Python public-stub checks are available.
+No runtime or memory improvement is claimed before measured evidence is reviewed.

@@ -14,6 +14,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  model-boundaries:
+    name: Model boundary comparison / Linux
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'test/model-extension-evidence'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+      - name: Check out pre-extraction baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 738c020180b343a229ee20aa5acc236dbcd11d88
+          path: baseline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install heap profiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y valgrind time
+      - name: Compare static model boundaries
+        working-directory: candidate
+        run: python scripts/compare_model_boundaries.py ../baseline . ../model-boundary-results
+      - name: Retain paired model evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-boundary-comparison-linux
+          path: |
+            model-boundary-results/comparison.json
+            model-boundary-results/*.dhat.json
+            model-boundary-results/*.dhat.log
+          if-no-files-found: error
+          retention-days: 30
+
   rust:
     name: Rust / ${{ matrix.os }}
     strategy:

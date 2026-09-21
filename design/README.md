@@ -39,6 +39,10 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [model-boundary extension/comparison record](validation/model-boundary-extension.md)
+defines the test-only extension exercise and paired native timing, heap and RSS
+evidence for stages S1–S6 of the [static-model roadmap](roadmaps/static-model-boundaries.md).
+
 | Stage | Roadmap | Acceptance evidence |
 | --- | --- | --- |
 | European Black–Scholes | [G0–G8](roadmaps/european-bs-roadmap-v0.1.md) | [Conformance report](validation/european-bs-conformance-v0.1.md) |

@@ -7,6 +7,9 @@ use super::{
 };
 use std::fmt::Debug;
 
+#[cfg(test)]
+mod extension_probe;
+
 mod sealed {
     use super::*;
 
