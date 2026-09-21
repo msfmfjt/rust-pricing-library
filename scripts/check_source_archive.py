@@ -747,6 +747,7 @@ def repository_source_files() -> set[str]:
         ("benchmarks", "*.py"),
         ("docs", "*.md"),
         ("design", "*.md"),
+        ("design", "*.json"),
         ("examples/python", "*.py"),
         ("fixtures", "*.csv"),
         ("fixtures", "*.json"),
