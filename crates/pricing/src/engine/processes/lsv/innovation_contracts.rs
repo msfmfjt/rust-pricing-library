@@ -47,7 +47,10 @@ fn legacy_path<F: BergomiDynamics>(p: &BergomiLsvPlan<F>) {
     }
     let path = p.evolve_path(103.0, &z).unwrap();
     assert_eq!(
-        path.states().iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+        path.states()
+            .iter()
+            .map(|v| v.to_bits())
+            .collect::<Vec<_>>(),
         states.iter().map(|v| v.to_bits()).collect::<Vec<_>>()
     );
     assert_eq!(path.factors(), factors);

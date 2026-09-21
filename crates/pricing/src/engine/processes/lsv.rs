@@ -9,7 +9,8 @@
 use crate::market::MarketError;
 use crate::mc::{LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
 use crate::models::{
-    Bergomi1Factor, BergomiDynamics, BergomiError, InnovationSource, OrthogonalNormals, OuInnovations,
+    Bergomi1Factor, BergomiDynamics, BergomiError, InnovationSource, OrthogonalNormals,
+    OuInnovations,
 };
 use std::{error::Error, fmt};
 

@@ -1,5 +1,7 @@
 //! Sealed kernels shared by the one- and two-factor LSV algorithms.
-use super::volatility_inputs::{FactorAdjoints, InnovationSource, OrthogonalNormals, OuInnovations};
+use super::volatility_inputs::{
+    FactorAdjoints, InnovationSource, OrthogonalNormals, OuInnovations,
+};
 use super::{
     Bergomi1Factor, Bergomi2Factor, Bergomi2FactorTransition, BergomiError, BergomiTransition,
 };
