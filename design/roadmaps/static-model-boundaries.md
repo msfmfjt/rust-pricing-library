@@ -12,7 +12,7 @@ incremental implementation plan, not a claim that all combinations are generic.
 
 | Concern | Current implementation | Constraint on extension |
 | --- | --- | --- |
-| Markov volatility | [BergomiDynamics](../../crates/pricing/src/models/bergomi_dynamics.rs), [LSV execution](../../crates/pricing/src/engine/processes/lsv.rs) | Typed state/transition and static dispatch already share 1F/2F kernels, but innovation arguments contain fixed two-element arrays and Bergomi-specific errors. |
+| Markov volatility | [BergomiDynamics](../../crates/pricing/src/models/bergomi_dynamics.rs), [LSV execution](../../crates/pricing/src/engine/processes/lsv.rs) | Typed state/transition and static dispatch share 1F/2F kernels. Internal innovation views now distinguish normals from OU increments; the legacy public array adapters and Bergomi-specific errors remain. |
 | Rough volatility | [RoughKernel](../../crates/pricing/src/engine/processes/rough_lsv.rs), [hybrid rough driver](../../crates/pricing/src/engine/processes/hull_white/rough.rs) | Grid-dependent Volterra weights and history preparation are not a Markov scalar-step operation. |
 | Rates and joint increments | [HW process](../../crates/pricing/src/engine/processes/hull_white.rs), [2F/HW driver](../../crates/pricing/src/engine/processes/hull_white/two_factor.rs), [multi-asset drivers](../../crates/pricing/src/engine/multi_asset/hull_white/drivers.rs) | Exact rate state/integral covariance and bond reserve diffusion are coupled to HW; scalar volatility callbacks are insufficient. |
 | Multi-asset selection | [LSV enums](../../crates/pricing/src/engine/multi_asset/lsv_kernels.rs), [compiler](../../crates/pricing/src/engine/multi_asset/compile.rs) | Concrete enum variants are appropriate boundaries, but driver counts and offsets were reconstructed in several consumers. |
@@ -76,13 +76,49 @@ path or timestep allocation. The existing QMC bridge-rank ordering, factor-major
 MC/unbridged ordering, covariance summation and fingerprint implementation are
 unchanged.
 
+## Second extraction: typed volatility inputs
+
+The private [volatility inputs](../../crates/pricing/src/models/volatility_inputs.rs)
+distinguish independent orthogonal standard normals, already correlated OU
+increments, and full Brownian/newest-cell histories. Step views borrow their
+factor-major buffers with a stride; they do not copy or allocate driver arrays.
+S1's `DriverLayout` selects the asset's volatility range before this adapter.
+
+The existing sealed supertrait now owns the internal Markov step and pullback
+capability. The 1F and 2F kernels return concrete one- and two-coordinate arrays.
+The shared calibration and path loops no longer synthesize two-element padding
+or branch on `FACTOR_COUNT == 2`. Calibration draws the same factor-major Philox
+coordinates through the concrete kernel's coordinate constructor. The public
+`BergomiDynamics` signatures remain compatibility adapters, including ignored
+1F padding and the historical two-element adjoint result. This remains a sealed
+Bergomi capability; it is not an externally extensible, arbitrary-model API.
+
+Path traces record whether inputs were independent normals or supplied OU
+increments, so reverse applies the appropriate loading. Joint OU increments
+have identity volatility loading and zero spot-to-volatility loading. Neither
+covariance construction nor arithmetic ordering changes in this extraction.
+
+Standalone rough calibration/pricing and HW rough pricing use the separate
+`HistoryInnovations` preparation boundary. Existing nonuniform Volterra weights,
+newest-cell conventions, compensated sums and memory ownership remain intact.
+The HW and deterministic preparations remain distinct: their centring and the
+H=1/2 input convention must not be silently identified. No Markov state-step
+interface is imposed on rough history.
+
+Focused tests compare typed paths against independently assembled legacy array
+inputs, including NaN in unused 1F padding; check price-only buffer reuse; and
+finite-difference every supplied OU and spot coordinate through path reverse.
+Existing 1F/2F particle-reverse, rough H=1/2/finite-difference and multi-asset
+sampling suites remain the wider regression gates. The 2F multi-asset flattening
+allocation is unchanged and remains a later measured optimization.
+
 ## Ordered implementation stages
 
 | Stage | Deliverable | Exit condition | Status |
 | --- | --- | --- | --- |
 | S0 | Current-code inventory, boundaries and compatibility contract | Responsibilities and baseline/deferred issues are explicit | Recorded here |
-| S1 | Compiled driver metadata shared by dimension/count/offset consumers | Existing sampling tests, mixed-model factor counts, overflow tests and all existing regressions pass | Implemented; native CI required |
-| S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Pending |
+| S1 | Compiled driver metadata shared by dimension/count/offset consumers | Existing sampling tests, mixed-model factor counts, overflow tests and all existing regressions pass | Implemented; normal tests and both native wheel/replay jobs passed on PR #73; extended gates tracked separately |
+| S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Implemented; native validation pending |
 | S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Pending |
 | S4 | Explicit calibration/path-reverse capability selection | Unsupported combinations reject at compilation; existing recalibrated AAD/VegaKT gates pass | Pending |
 | S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Pending |
@@ -141,8 +177,8 @@ their own measurements and subsequent PRs.
 
 ## Validation status of this change
 
-The local environment currently has no Rust toolchain. New Rust tests and
-native formatting/build/Clippy checks must run in CI; historical escrowed test
-results do not certify this refactor. Local documentation, source packaging and
+The local environment currently has no Rust toolchain. S2 Rust tests and
+native formatting/build/Clippy checks must run in CI; S1 and historical escrowed
+results do not certify the S2 source tree. Local documentation, source packaging and
 Python public-stub checks are available. No runtime or memory improvement is
 claimed until representative measurements are captured.

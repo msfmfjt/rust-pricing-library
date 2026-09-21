@@ -8,8 +8,13 @@
 
 use crate::market::MarketError;
 use crate::mc::{LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain};
-use crate::models::{Bergomi1Factor, BergomiDynamics, BergomiError};
+use crate::models::{
+    Bergomi1Factor, BergomiDynamics, BergomiError, InnovationSource, OrthogonalNormals, OuInnovations,
+};
 use std::{error::Error, fmt};
+
+#[cfg(test)]
+mod innovation_contracts;
 
 pub const BERGOMI_LSV_SCHEME: &str = "bergomi-lsv-log-euler-exact-ou-v1";
 pub const BERGOMI_TWO_FACTOR_LSV_SCHEME: &str = "bergomi-two-factor-lsv-log-euler-exact-ou-v1";
@@ -424,7 +429,7 @@ pub struct BergomiLsvPath<F: BergomiDynamics = Bergomi1Factor> {
     pub(in crate::engine) transitions: Box<[F::Transition]>,
     pub(in crate::engine) factor: F,
     pub(in crate::engine) value_count: usize,
-    external_innovations: bool,
+    innovation_source: InnovationSource,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -503,21 +508,14 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             initial_f,
             &shocks[..n],
             |i, x| {
-                self.factor.evolve(
+                self.factor.evolve_normals(
                     self.transitions[i],
                     x,
                     shocks[i],
-                    [
-                        shocks[n + i],
-                        if F::FACTOR_COUNT == 2 {
-                            shocks[2 * n + i]
-                        } else {
-                            0.0
-                        },
-                    ],
+                    OrthogonalNormals::new(&shocks[n + i..], n),
                 )
             },
-            false,
+            InnovationSource::IndependentNormals,
         )
     }
 
@@ -550,18 +548,11 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             );
             let variance = lookup.value * self.factor.multiplier_squared(factor_state);
             f = advance(f, variance, dt, shocks[i], i, 0)?;
-            factor_state = self.factor.evolve(
+            factor_state = self.factor.evolve_normals(
                 self.transitions[i],
                 factor_state,
                 shocks[i],
-                [
-                    shocks[n + i],
-                    if F::FACTOR_COUNT == 2 {
-                        shocks[2 * n + i]
-                    } else {
-                        0.0
-                    },
-                ],
+                OrthogonalNormals::new(&shocks[n + i..], n),
             );
             if !F::finite(factor_state) {
                 return Err(LsvError::NonFiniteState {
@@ -593,20 +584,13 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             initial_f,
             spot_shocks,
             |i, x| {
-                self.factor.evolve_ou(
+                self.factor.evolve_increments(
                     self.transitions[i],
                     x,
-                    [
-                        innovations[i],
-                        if F::FACTOR_COUNT == 2 {
-                            innovations[n + i]
-                        } else {
-                            0.0
-                        },
-                    ],
+                    OuInnovations::new(&innovations[i..], n),
                 )
             },
-            true,
+            InnovationSource::JointOuIncrements,
         )
     }
 
@@ -615,7 +599,7 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
         initial_f: f64,
         shocks: &[f64],
         next_factor: impl Fn(usize, F::State) -> F::State,
-        external_innovations: bool,
+        innovation_source: InnovationSource,
     ) -> Result<BergomiLsvPath<F>, LsvError> {
         let n = self.transitions.len();
         length("spot shocks", n, shocks.len())?;
@@ -654,7 +638,7 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             factors: factors.into_boxed_slice(),
             steps: steps.into_boxed_slice(),
             transitions: self.transitions.clone(),
-            external_innovations,
+            innovation_source,
             factor: self.factor,
             value_count: self.surface.values.len(),
         })
@@ -728,18 +712,18 @@ impl<F: BergomiDynamics> BergomiLsvPath<F> {
             let vbar = exponent_bar * (-0.5 * c.dt + c.dt.sqrt() * c.z / (2.0 * c.variance.sqrt()));
             let leverage_bar = vbar * c.multiplier_squared;
             c.lookup.transpose(leverage_bar, &mut values);
-            let (prev, spot_factor_bar, orth_bar) = self.factor.reverse_factor(
+            let factor_bar = self.factor.pullback(
                 self.transitions[i],
                 xbar,
                 vbar,
                 c.variance,
-                self.external_innovations,
+                self.innovation_source,
             );
-            spot[i] = exponent_bar * c.variance.sqrt() * c.dt.sqrt() + spot_factor_bar;
-            for j in 0..F::FACTOR_COUNT {
-                orth[j * n + i] = orth_bar[j];
+            spot[i] = exponent_bar * c.variance.sqrt() * c.dt.sqrt() + factor_bar.spot;
+            for (j, &adjoint) in factor_bar.volatility.as_ref().iter().enumerate() {
+                orth[j * n + i] = adjoint;
             }
-            xbar = prev;
+            xbar = factor_bar.state;
             fbar = state_seeds[i]
                 + fbar * self.states[i + 1] / self.states[i]
                 + leverage_bar * c.lookup.derivative_log_f / self.states[i];

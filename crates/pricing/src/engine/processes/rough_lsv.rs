@@ -18,7 +18,7 @@ use super::lsv::{
     step_rows, valid,
 };
 use crate::mc::{LocalVolTimeGrid, RandomDomain};
-use crate::models::RoughBergomi;
+use crate::models::{HistoryInnovations, RoughBergomi};
 use pricing_numerics::NeumaierSum;
 
 pub const ROUGH_BERGOMI_LSV_SCHEME: &str = "rough-bergomi-lsv-hybrid-kappa1-log-euler-v1";
@@ -100,12 +100,15 @@ impl RoughKernel {
 
     /// `eta*Y_i` at every node, where `Y_i = X_i - eta*V_i/2`, so the squared
     /// variance multiplier is `exp(eta*Y_i)` with unit mean on this grid.
-    pub(in crate::engine) fn log_multipliers(
+    pub(in crate::engine) fn prepare_history(
         &self,
-        dw: &[f64],
-        near: &[f64],
+        history: HistoryInnovations<'_>,
         out: &mut Vec<f64>,
     ) -> Result<(), LsvError> {
+        let dw = history.increments;
+        let near = history.near_cell;
+        length("rough increments", self.steps(), dw.len())?;
+        length("rough near-cell integrals", self.steps(), near.len())?;
         let eta = self.model.vol_of_vol();
         out.clear();
         out.push(0.0);
@@ -208,7 +211,13 @@ impl RoughBergomiLsvPlan {
             near.push(q);
         }
         let mut out = Vec::with_capacity(n + 1);
-        self.kernel.log_multipliers(&dw, &near, &mut out)?;
+        self.kernel.prepare_history(
+            HistoryInnovations {
+                increments: &dw,
+                near_cell: &near,
+            },
+            &mut out,
+        )?;
         Ok(out)
     }
 

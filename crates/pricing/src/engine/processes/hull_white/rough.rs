@@ -2,6 +2,7 @@
 //! older cells use their L2-optimal kernel averages. No future noise is used.
 
 use super::*;
+use crate::models::HistoryInnovations;
 
 pub const ROUGH_BERGOMI_SCHEME: &str = "rough-bergomi-hw-hybrid-kappa1-log-euler-v1";
 pub const ROUGH_LSV_CALIBRATION: &str = "rough-lsv-hw-discounted-quartic-v1";
@@ -195,8 +196,18 @@ impl RoughBergomiDriverPlan {
         if dw.len() != n || near.len() != n || dw.iter().chain(near).any(|v| !v.is_finite()) {
             return Err(invalid("rough_external_innovations", dw.len()));
         }
+        self.prepare_history(HistoryInnovations {
+            increments: dw,
+            near_cell: near,
+        })
+    }
+    // Whole-path Volterra preparation stays separate from Markov OU steps.
+    // The public adapter above retains its existing shape/finite validation.
+    fn prepare_history(&self, history: HistoryInnovations<'_>) -> Result<Vec<f64>, HullWhiteMcError> {
+        let dw = history.increments;
+        let near = history.near_cell;
         let mut values = vec![0.0];
-        for i in 1..=n {
+        for i in 1..self.times.len() {
             let mut value = NeumaierSum::new();
             value.add(if self.model.hurst() == 0.5 {
                 dw[i - 1]
