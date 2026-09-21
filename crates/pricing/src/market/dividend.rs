@@ -430,7 +430,10 @@ impl AffineDividendTransform {
         }
     }
 
-    pub fn coordinate_after_time(&self, time: f64) -> Result<AffineDividendCoordinate, MarketError> {
+    pub fn coordinate_after_time(
+        &self,
+        time: f64,
+    ) -> Result<AffineDividendCoordinate, MarketError> {
         if !time.is_finite() || time < 0.0 {
             return Err(MarketError::InvalidDividendTime {
                 event: EventId::new(0),
