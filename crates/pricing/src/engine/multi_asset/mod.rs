@@ -1,5 +1,6 @@
 //! Shared multi-asset compiler, sampling, path evolution and risk execution.
 mod compile;
+mod driver_layout;
 mod evaluate;
 mod hull_white;
 mod local_correlation;
@@ -43,6 +44,7 @@ pub struct MultiAssetPricingPlan {
     fingerprint: String,
     market_weights: std::sync::Arc<std::sync::OnceLock<MarketWeights>>,
     lsv_drivers: Option<lsv::LsvDrivers>,
+    driver_layout: driver_layout::DriverLayout,
     hull_white: Option<hull_white::HwContext>,
     local_correlation: Option<std::sync::Arc<LocalCorrelationCalibration>>,
 }

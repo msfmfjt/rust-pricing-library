@@ -107,16 +107,10 @@ impl MultiAssetPricingPlan {
                 let spot = a.forward.spot().get();
                 let mut vega = vec![0.0; self.times.len()];
                 let (f, local, lsv) = if let Some(lsv) = &a.lsv {
-                    let drivers = self.lsv_drivers.as_ref().expect("LSV drivers");
-                    let index = self.assets.len()
-                        + drivers
-                            .asset_indices
-                            .iter()
-                            .position(|i| *i == asset)
-                            .expect("LSV asset");
+                    let factors = self.driver_layout.volatility(asset);
                     let path = lsv
                         .process
-                        .evolve(z, &shocks[index..index + lsv.calibration.factor_count()])
+                        .evolve(z, &shocks[factors])
                         .map_err(E::numerical)?;
                     let f = path
                         .states()

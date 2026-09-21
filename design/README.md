@@ -35,6 +35,7 @@ documents the public API migration.
 | [0008](adr/0008-deterministic-rate-rough-lsv.md) | Deterministic-rate rough-LSV |
 | [0009](adr/0009-escrowed-simulation-and-iv-conversion.md) | Escrowed simulation (IV conversion superseded by 0010) |
 | [0010](adr/0010-remove-paid-cash.md) | Remove paid-cash support; defer Bos–Vandermark |
+| [0011](adr/0011-static-model-boundaries.md) | Compiled static boundaries for model extensions |
 
 ## Implementation roadmaps and acceptance
 
@@ -50,6 +51,7 @@ documents the public API migration.
 | Extended-model refinement and stress | [Cases and measurements](validation/extended-model-refinement-stress.md) | Original 73/74 result and joint 2F sampling-error failure; subsequent correction linked |
 | Multi-asset Sobol sampling | [Attribution and correction](validation/multi-asset-sobol-attribution.md) | Bridge coordinate correction; original 2F stress gate passes locally, native CI pending |
 | Extended-model AAD and VegaKT | [Sensitivity acceptance](validation/extended-model-risk-accuracy.md) | Multi-seed, multi-bump comparison with full recalibration through public plans |
+| Static model boundaries | [S0–S7](roadmaps/static-model-boundaries.md) | Driver metadata extraction; native CI and later kernel stages tracked in the roadmap |
 
 The [three-crate validation report](validation/three-crate-validation.md) links
 the preserved [raw evidence](validation/three-crate/). Captured JSON and the
