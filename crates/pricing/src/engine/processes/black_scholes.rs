@@ -728,14 +728,21 @@ impl SimulationPlan {
                 * observation.canonical_f
                 * (-volatility * self.observation_times[index] + observation.brownian);
         }
+        let delta = self.discount * delta;
+        let reserve = self
+            .market_forward
+            .discrete_dividends()
+            .map_or(0.0, |d| d.initial_reserve());
+        // Preserve no-cash/proportional replay: multiplying and dividing by
+        // Spot can round even when the escrow correction is exactly one.
+        let delta = if reserve == 0.0 {
+            delta
+        } else {
+            delta * spot / (spot - reserve)
+        };
         Ok(PathwiseAad {
             price: self.discount * payoff.value,
-            delta: self.discount * delta * spot
-                / (spot
-                    - self
-                        .market_forward
-                        .discrete_dividends()
-                        .map_or(0.0, |d| d.initial_reserve())),
+            delta,
             vega: self.discount * vega,
             barrier_diagnostics: Some(bridge.diagnostic_values()),
         })
