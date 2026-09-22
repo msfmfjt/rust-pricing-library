@@ -1,0 +1,93 @@
+name: Stochastic dividend candidate validation
+
+on:
+  push:
+    branches: [work/stochastic-dividend-build-20260923]
+    paths: [.github/workflows/stochastic-dividend-build.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/work/stochastic-dividend-build-20260923'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize hash-checked source candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD^)" = cc06779bcfbc892f754669018f697bac8d346a7e
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, urllib.request
+          parts = []
+          for sha in ['b0ed869891489b36a8af103f76e597fab9ff9d71', '85a1c20ff693152e177cb76a11652af0e7795089']:
+              url = 'https://api.github.com/repos/msfmfjt/rust-pricing-library/git/blobs/' + sha
+              req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  parts.append(base64.b64decode(json.load(response)['content']))
+          patch = lzma.decompress(base64.b64decode(b''.join(parts)))
+          assert hashlib.sha256(patch).hexdigest() == '4767195b11d9df0577b6f3921134c61264488318b524dcd5c03fdb2e86d6c97e'
+          pathlib.Path('/tmp/stochastic-dividends.patch').write_bytes(patch)
+          PY
+          git apply --index /tmp/stochastic-dividends.patch
+          git rm .github/workflows/stochastic-dividend-build.yml
+          test "$(git write-tree)" = bc8ff90a7109fc7ae8e6f72c420330f219e30edb
+      - name: Format and retain candidate source on scratch branch only
+        run: |
+          cargo fmt --all
+          git add -u
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: materialize and format stochastic cash dividend candidate'
+          git push origin HEAD:refs/heads/work/stochastic-dividend-build-20260923
+          mkdir -p /tmp/stochastic-dividend-evidence
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/stochastic-dividend-evidence/revision.txt
+          git archive --format=tar.gz -o /tmp/stochastic-dividend-evidence/source.tar.gz HEAD
+      - name: Focused stochastic-dividend Rust tests
+        id: focused
+        run: cargo test --locked -p pricing --test stochastic_dividends -- --nocapture 2>&1 | tee /tmp/stochastic-dividend-evidence/focused-rust.log
+      - name: Clippy all targets
+        if: success() || failure()
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/stochastic-dividend-evidence/clippy.log
+      - name: Full normal Rust tests
+        if: steps.focused.outcome == 'success'
+        run: |
+          cargo test --locked --workspace --all-features --exclude pricing-python 2>&1 | tee /tmp/stochastic-dividend-evidence/rust-all-features.log
+          cargo test --locked -p pricing-python 2>&1 | tee /tmp/stochastic-dividend-evidence/python-binding-rust.log
+          cargo test --locked -p pricing --no-default-features 2>&1 | tee /tmp/stochastic-dividend-evidence/rust-minimal.log
+      - name: Build wheel and execute Python tests
+        if: steps.focused.outcome == 'success'
+        run: |
+          python -m pip install 'maturin>=1.9,<2.0' 'numpy>=2,<3'
+          python -m maturin build --locked --out /tmp/stochastic-dividend-evidence/wheels
+          python -m pip install /tmp/stochastic-dividend-evidence/wheels/*.whl
+          python -m unittest discover -s tests/python -p test_stochastic_dividends.py -v 2>&1 | tee /tmp/stochastic-dividend-evidence/focused-python.log
+          python -m unittest discover -s tests/python -v 2>&1 | tee /tmp/stochastic-dividend-evidence/python-all.log
+          python examples/python/stochastic_dividends.py 2>&1 | tee /tmp/stochastic-dividend-evidence/example.log
+      - name: Documentation and source contracts
+        if: steps.focused.outcome == 'success'
+        run: |
+          cargo doc --locked --workspace --all-features --no-deps
+          python scripts/check_markdown_links.py
+          python scripts/check_schemas.py
+          python scripts/check_source_archive.py /tmp/stochastic-dividend-evidence/source.tar.gz
+          git diff --exit-code
+      - name: Retain exact source and observed logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-native-candidate
+          path: /tmp/stochastic-dividend-evidence
+          if-no-files-found: warn
+          retention-days: 14
