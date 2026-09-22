@@ -281,7 +281,7 @@ broader regression gates. Timing and memory comparisons belong to S6.
 | S4 | Explicit calibration/path-reverse capability selection | Unsupported model capabilities fail typed composition; late AAD requests validate before path generation; existing recalibrated AAD/VegaKT gates pass | Implemented; normal/native wheel/replay and extended risk passed on PR #76; extended price gate tracked separately |
 | S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Implemented; normal/native wheel/replay and extended risk passed on PR #77; extended price gate tracked separately |
 | S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Implemented on PR #78; 54 native and 27 DHAT exact comparisons passed; normal/native wheel/replay and extended risk passed; [measured results and separate accuracy failures](../validation/model-boundary-extension.md) |
-| S7 | Broad performance/memory measurement and targeted optimization PRs | Measured bottlenecks and numerical/reproducibility gates justify each optimization | First [coupled-HW scaling and allocation study](../validation/local-correlation-scaling.md) measured 44 native/seven DHAT pairs on PR #80; reverse-moment buffer reuse selected for a separate optimization; broader coverage remains |
+| S7 | Broad performance/memory measurement and targeted optimization PRs | Measured bottlenecks and numerical/reproducibility gates justify each optimization | [Scaling control](../validation/local-correlation-scaling.md) on PR #80 and [reverse-buffer reuse](../validation/local-correlation-moment-workspace.md) on PR #81 each measured 44 native/seven DHAT pairs; candidate preserves exact outputs and reduces base first-AAD allocations 16.89%; three-platform extended risk passed; repeated-AAD peak-heap attribution and broader coverage remain |
 
 Each stage is a separate reviewable change above its verified parent. If a
 common interface requires a different numerical scheme, defer that combination
@@ -339,8 +339,12 @@ The local environment has no Rust toolchain. The S6 extension tests, normal
 Rust/native wheel/replay gates and extended risk passed in CI run 282. The
 [S6 record](../validation/model-boundary-extension.md) pins the measured source,
 54 exact native comparisons, 27 DHAT pairs and the timing/memory limitations.
-Extended price acceptance still fails the inherited 2F ensemble-SE case and
-a BS-HW reference-coordinate mismatch; both also occur in parent run 278.
-These need separate follow-up and do not justify relaxed accuracy thresholds.
-S7 will use independent workload sweeps and stack attribution before selecting
-an optimization; the small S6 panel is not a general speed or memory guarantee.
+That S6 run failed the inherited 2F ensemble-SE case and a BS-HW
+reference-coordinate mismatch; both also occurred in parent run 278. The
+separate [Gaussian reference correction](../validation/hw-escrowed-gaussian-reference.md)
+on PR #79 passed all six focused cases on all three platforms, without changing
+production pricing or numerical thresholds. The 2F noise gate remains deferred.
+S7 now has an [independent scaling control](../validation/local-correlation-scaling.md)
+and a [targeted reverse-buffer change](../validation/local-correlation-moment-workspace.md).
+These coupled-HW measurements do not establish general speed or memory guarantees
+for the wider model matrix.

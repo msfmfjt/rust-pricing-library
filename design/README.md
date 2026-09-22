@@ -46,7 +46,8 @@ The [Gaussian HW reference correction](validation/hw-escrowed-gaussian-reference
 tracks the separate funded-strike reporting mismatch found in extended CI.
 The [local-correlation scaling record](validation/local-correlation-scaling.md)
 starts S7 with independent workload axes and cold/warm AAD allocation attribution.
-The first measured candidate is [reverse-moment buffer reuse](validation/local-correlation-moment-workspace.md).
+The first measured candidate is [reverse-moment buffer reuse](validation/local-correlation-moment-workspace.md),
+with exact outputs, lower first-AAD allocation churn and an explicit peak-heap follow-up.
 
 | Stage | Roadmap | Acceptance evidence |
 | --- | --- | --- |
