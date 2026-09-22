@@ -1,0 +1,46 @@
+name: Stochastic dividend Python verification
+on:
+  push:
+    branches: [work/stochastic-dividend-build-20260923]
+    paths: [.github/workflows/stochastic-dividend-python.yml]
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 16c170cda2b314c6ee93c524495482bff08af944
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source and build wheel
+        run: |
+          test "$(git rev-parse HEAD^{tree})" = baba26042ba98ca061e18667454a4a53bdd412fe
+          mkdir -p /tmp/dividend-python
+          python -m pip install 'maturin>=1.9,<2.0' 'numpy>=2,<3'
+          python -m maturin build --locked --out /tmp/dividend-python/wheels
+          python -m pip install /tmp/dividend-python/wheels/*.whl
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; } > /tmp/dividend-python/revision.txt
+      - name: Four focused Python tests
+        shell: bash
+        run: python -m unittest discover -s tests/python -p test_stochastic_dividends.py -v 2>&1 | tee /tmp/dividend-python/focused.log
+      - name: Runnable example
+        shell: bash
+        run: python examples/python/stochastic_dividends.py 2>&1 | tee /tmp/dividend-python/example.log
+      - name: Retain focused results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-python-focus
+          path: /tmp/dividend-python/*.txt
+          if-no-files-found: warn
+      - name: Retain focused logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-python-logs
+          path: /tmp/dividend-python/*.log
+          if-no-files-found: warn
