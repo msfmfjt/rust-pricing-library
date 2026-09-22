@@ -248,7 +248,7 @@ impl StochasticDividendPathPlan {
         let mut states = Vec::with_capacity(self.times.len());
         let mut state = BuehlerDividendState::initial();
         states.push(state);
-        for (pair, z) in self.times.windows(2).zip(normals.chunks_exact(2)) {
+        for (pair, z) in self.times.windows(2).zip(normals.as_chunks::<2>().0) {
             state = self
                 .model
                 .evolve(state, self.volatility, pair[1] - pair[0], [z[0], z[1]])?;
