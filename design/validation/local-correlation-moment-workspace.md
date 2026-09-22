@@ -135,6 +135,8 @@ This single profile does not establish whether the remainder is reproducible
 runtime overlap or a persistent increase. Repeat this exact pair and inspect
 the complete smaller allocation sites before declaring peak-memory neutrality;
 keep that acceptance question open on the draft.
+The [focused follow-up](local-correlation-heap-followup.md) records the complete
+peak-stack comparison and repeated-pair protocol.
 
 Native process-peak RSS median differences range from −160 to +132 KiB,
 with both signs across workloads. They do not show a consistent RSS reduction.

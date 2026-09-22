@@ -1,0 +1,69 @@
+name: Model heap follow-up
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - .github/workflows/model-heap-followup.yml
+      - scripts/profile_model_heap_followup.py
+      - scripts/test_profile_model_heap_followup.py
+      - scripts/profile_model_scaling.py
+      - scripts/compare_model_boundaries.py
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: model-heap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  heap:
+    name: Repeated AAD heap / Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+      - name: Check out baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ea759bf5d73b06e4c480665e59c7daa37e6667be
+          path: baseline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check heap evidence accounting
+        working-directory: candidate
+        run: python -m unittest discover -s scripts -p test_profile_model_heap_followup.py -v
+      - name: Download original complete profiles
+        if: hashFiles('candidate/design/validation/local-correlation-heap-followup-2026-09-22.json') == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: model-scaling-linux
+          run-id: 35708535272
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: original-profiles
+      - name: Install heap profiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y valgrind time
+      - name: Compare all peak stacks and repeat original workload
+        working-directory: candidate
+        run: python scripts/profile_model_heap_followup.py ../baseline . ../heap-followup-results --original-directory ../original-profiles
+      - name: Retain complete heap evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-heap-followup-linux
+          path: |
+            heap-followup-results/heap-followup.json
+            heap-followup-results/*.dhat.json
+            heap-followup-results/*.dhat.log
+          if-no-files-found: error
+          retention-days: 30
