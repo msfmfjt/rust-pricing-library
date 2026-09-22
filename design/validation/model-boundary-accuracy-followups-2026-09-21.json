@@ -3,18 +3,18 @@
   "ci_run": 35612297777,
   "parent_source_commit": "35427b3bd7382864520c9086df2d069692e0b827",
   "parent_ci_run": 35605479836,
-  "note": "Both failing cases also occur in the parent Linux run; no tolerance is changed. Entries preserve the CI observations before a separate reference correction.",
+  "note": "Exact CI JSON retained from original log strings, including u64 pricing seeds. An earlier export parsed these seeds as JavaScript numbers and rounded them; this corrects the evidence export only, without rerunning or changing any simulation.",
   "platforms": [
     {
       "platform": "linux",
       "failed": [
         {
           "budget": {
-            "ensemble_se_bp": 4,
-            "max_error_bp": 15,
-            "pricing_se_bp": 3,
-            "rmse_bp": 8,
-            "worst_seed_bp": 30
+            "ensemble_se_bp": 4.0,
+            "max_error_bp": 15.0,
+            "pricing_se_bp": 3.0,
+            "rmse_bp": 8.0,
+            "worst_seed_bp": 30.0
           },
           "case": {
             "case": {
@@ -37,19 +37,19 @@
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.0033979804358899453,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 5.760863123643206
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.0032435987197120524,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 5.7437008537318555
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.0035982238422353585,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 5.720113982510831
                 }
               ],
@@ -59,25 +59,25 @@
             {
               "ensemble_se_bp": 4.012373287863516,
               "iv_error_bp": 1.2088129549459037,
-              "log_strike": 0,
+              "log_strike": 0.0,
               "pricing_se_bp": 1.075427401961829,
               "runs": [
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.008180900606022655,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 11.056679432476646
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.005118141386347626,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 11.024508619849971
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.008130693918061779,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 11.002643050098394
                 }
               ],
@@ -93,19 +93,19 @@
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.009135374960567197,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 6.490865703642317
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.00817418486331191,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 6.456679331142389
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.008466674663233165,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 6.443303249161541
                 }
               ],
@@ -123,23 +123,23 @@
           },
           "strikes": [
             -0.12,
-            0,
+            0.0,
             0.12
           ]
         },
         {
           "budget": {
-            "ensemble_se_bp": 1,
-            "max_error_bp": 2,
-            "pricing_se_bp": 1,
-            "rmse_bp": 1,
-            "worst_seed_bp": 4
+            "ensemble_se_bp": 1.0,
+            "max_error_bp": 2.0,
+            "pricing_se_bp": 1.0,
+            "rmse_bp": 1.0,
+            "worst_seed_bp": 4.0
           },
           "case": {
             "cash": "Expiry",
             "equity_rate_correlation": -0.4,
             "expiry": "2028-01-01",
-            "mean_reversion": 0,
+            "mean_reversion": 0.0,
             "model": "BS-HW"
           },
           "failures": [
@@ -161,19 +161,19 @@
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.0002399336105058986,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 5.276441994964098
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.00046915882032225355,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 5.276525504524709
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.00022266553673072102,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 5.276815387591552
                 }
               ],
@@ -183,25 +183,25 @@
             {
               "ensemble_se_bp": 0.04792303690137104,
               "iv_error_bp": -38.92198256185336,
-              "log_strike": 0,
+              "log_strike": 0.0,
               "pricing_se_bp": 0.04792303690137104,
               "runs": [
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.0005021516214386749,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 10.233608266958639
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.00035539600193784134,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 10.233824751231623
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.0004528609232539369,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 10.233707611615419
                 }
               ],
@@ -217,19 +217,19 @@
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.00026356765861488423,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 5.949467380306077
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.0005163256361297061,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 5.949275491475754
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.00046469044169235584,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 5.949490127047074
                 }
               ],
@@ -247,7 +247,7 @@
           },
           "strikes": [
             -0.12,
-            0,
+            0.0,
             0.12
           ]
         }
@@ -258,11 +258,11 @@
       "failed": [
         {
           "budget": {
-            "ensemble_se_bp": 4,
-            "max_error_bp": 15,
-            "pricing_se_bp": 3,
-            "rmse_bp": 8,
-            "worst_seed_bp": 30
+            "ensemble_se_bp": 4.0,
+            "max_error_bp": 15.0,
+            "pricing_se_bp": 3.0,
+            "rmse_bp": 8.0,
+            "worst_seed_bp": 30.0
           },
           "case": {
             "case": {
@@ -285,19 +285,19 @@
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.003397980435889984,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 5.760863123643206
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.0032435987197120524,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 5.7437008537318555
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.003598223842235397,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 5.7201139825108305
                 }
               ],
@@ -307,25 +307,25 @@
             {
               "ensemble_se_bp": 4.012373287863516,
               "iv_error_bp": 1.2088129549459037,
-              "log_strike": 0,
+              "log_strike": 0.0,
               "pricing_se_bp": 1.075427401961828,
               "runs": [
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.008180900606022576,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 11.056679432476646
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.005118141386347613,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 11.024508619849971
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.008130693918061845,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 11.002643050098394
                 }
               ],
@@ -341,19 +341,19 @@
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.00913537496056712,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 6.490865703642325
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.008174184863311944,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 6.456679331142397
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.008466674663233253,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 6.4433032491615485
                 }
               ],
@@ -371,23 +371,23 @@
           },
           "strikes": [
             -0.12,
-            0,
+            0.0,
             0.12
           ]
         },
         {
           "budget": {
-            "ensemble_se_bp": 1,
-            "max_error_bp": 2,
-            "pricing_se_bp": 1,
-            "rmse_bp": 1,
-            "worst_seed_bp": 4
+            "ensemble_se_bp": 1.0,
+            "max_error_bp": 2.0,
+            "pricing_se_bp": 1.0,
+            "rmse_bp": 1.0,
+            "worst_seed_bp": 4.0
           },
           "case": {
             "cash": "Expiry",
             "equity_rate_correlation": -0.4,
             "expiry": "2028-01-01",
-            "mean_reversion": 0,
+            "mean_reversion": 0.0,
             "model": "BS-HW"
           },
           "failures": [
@@ -409,19 +409,19 @@
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.0002399336105058986,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 5.276441994964098
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.00046915882032225355,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 5.276525504524709
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.00022266553673072102,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 5.276815387591552
                 }
               ],
@@ -431,25 +431,25 @@
             {
               "ensemble_se_bp": 0.04792303690137104,
               "iv_error_bp": -38.92198256185336,
-              "log_strike": 0,
+              "log_strike": 0.0,
               "pricing_se_bp": 0.04792303690137104,
               "runs": [
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.0005021516214386749,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 10.233608266958639
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.00035539600193784134,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 10.233824751231623
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.0004528609232539369,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 10.233707611615419
                 }
               ],
@@ -465,19 +465,19 @@
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.00026356765861488423,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 5.949467380306077
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.0005163256361297061,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 5.949275491475754
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.00046469044169235584,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 5.949490127047074
                 }
               ],
@@ -495,7 +495,7 @@
           },
           "strikes": [
             -0.12,
-            0,
+            0.0,
             0.12
           ]
         }
@@ -506,11 +506,11 @@
       "failed": [
         {
           "budget": {
-            "ensemble_se_bp": 4,
-            "max_error_bp": 15,
-            "pricing_se_bp": 3,
-            "rmse_bp": 8,
-            "worst_seed_bp": 30
+            "ensemble_se_bp": 4.0,
+            "max_error_bp": 15.0,
+            "pricing_se_bp": 3.0,
+            "rmse_bp": 8.0,
+            "worst_seed_bp": 30.0
           },
           "case": {
             "case": {
@@ -533,19 +533,19 @@
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.003397980435889857,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 5.760863123643206
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.00324359871971209,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 5.7437008537318555
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.003598223842235412,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 5.7201139825108305
                 }
               ],
@@ -555,25 +555,25 @@
             {
               "ensemble_se_bp": 4.012373287863656,
               "iv_error_bp": 1.2088129549459037,
-              "log_strike": 0,
+              "log_strike": 0.0,
               "pricing_se_bp": 1.0754274019618264,
               "runs": [
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.008180900606022574,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 11.056679432476647
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.005118141386347596,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 11.024508619849971
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.00813069391806183,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 11.002643050098394
                 }
               ],
@@ -589,19 +589,19 @@
                 {
                   "calibration_seed": 21709,
                   "conditional_se": 0.009135374960567188,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836441550,
                   "value": 6.490865703642318
                 },
                 {
                   "calibration_seed": 22903,
                   "conditional_se": 0.008174184863311965,
-                  "pricing_seed": 15111065706836441000,
+                  "pricing_seed": 15111065706836440180,
                   "value": 6.456679331142389
                 },
                 {
                   "calibration_seed": 24001,
                   "conditional_se": 0.00846667466323313,
-                  "pricing_seed": 15111065706836440000,
+                  "pricing_seed": 15111065706836439234,
                   "value": 6.443303249161541
                 }
               ],
@@ -619,23 +619,23 @@
           },
           "strikes": [
             -0.12,
-            0,
+            0.0,
             0.12
           ]
         },
         {
           "budget": {
-            "ensemble_se_bp": 1,
-            "max_error_bp": 2,
-            "pricing_se_bp": 1,
-            "rmse_bp": 1,
-            "worst_seed_bp": 4
+            "ensemble_se_bp": 1.0,
+            "max_error_bp": 2.0,
+            "pricing_se_bp": 1.0,
+            "rmse_bp": 1.0,
+            "worst_seed_bp": 4.0
           },
           "case": {
             "cash": "Expiry",
             "equity_rate_correlation": -0.4,
             "expiry": "2028-01-01",
-            "mean_reversion": 0,
+            "mean_reversion": 0.0,
             "model": "BS-HW"
           },
           "failures": [
@@ -657,19 +657,19 @@
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.0002399336105058986,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 5.276441994964098
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.00046915882032225355,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 5.276525504524709
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.00022266553673072102,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 5.276815387591552
                 }
               ],
@@ -679,25 +679,25 @@
             {
               "ensemble_se_bp": 0.047923036901374644,
               "iv_error_bp": -38.92198256185336,
-              "log_strike": 0,
+              "log_strike": 0.0,
               "pricing_se_bp": 0.047923036901374644,
               "runs": [
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.0005021516214386749,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 10.233608266958639
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.00035539600193784134,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 10.233824751231623
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.0004528609232540336,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 10.233707611615419
                 }
               ],
@@ -713,19 +713,19 @@
                 {
                   "calibration_seed": 1709,
                   "conditional_se": 0.00026356765861488423,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836454318,
                   "value": 5.949467380306077
                 },
                 {
                   "calibration_seed": 2903,
                   "conditional_se": 0.0005163256361297061,
-                  "pricing_seed": 15111065706836453000,
+                  "pricing_seed": 15111065706836452948,
                   "value": 5.949275491475754
                 },
                 {
                   "calibration_seed": 4001,
                   "conditional_se": 0.00046469044169235584,
-                  "pricing_seed": 15111065706836451000,
+                  "pricing_seed": 15111065706836452002,
                   "value": 5.949490127047074
                 }
               ],
@@ -743,7 +743,7 @@
           },
           "strikes": [
             -0.12,
-            0,
+            0.0,
             0.12
           ]
         }
