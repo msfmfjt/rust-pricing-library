@@ -1,0 +1,81 @@
+name: Stochastic dividend candidate validation
+on:
+  push:
+    branches: [work/stochastic-dividend-build-20260923]
+    paths: [.github/workflows/stochastic-dividend-build.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/work/stochastic-dividend-build-20260923'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply verified Clippy correction and remove scratch workflow
+        run: |
+          test "$(git rev-parse HEAD^)" = ed4f7408c3fdf0580e3fa89f4311368b7ce827bb
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('crates/pricing/src/engine/processes/stochastic_dividends.rs')
+          s = p.read_text()
+          assert s.count('normals.chunks_exact(2)') == 1
+          p.write_text(s.replace('normals.chunks_exact(2)', 'normals.as_chunks::<2>().0'))
+          PY
+          git rm .github/workflows/stochastic-dividend-build.yml
+          git add -u
+          test "$(git write-tree)" = baba26042ba98ca061e18667454a4a53bdd412fe
+          cargo fmt --all
+          git add -u
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: use typed dividend innovation pairs with pinned Clippy'
+          git push origin HEAD:refs/heads/work/stochastic-dividend-build-20260923
+          mkdir -p /tmp/stochastic-dividend-evidence
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/stochastic-dividend-evidence/revision.txt
+          git archive --format=tar.gz -o /tmp/stochastic-dividend-evidence/source.tar.gz HEAD
+      - name: Focused stochastic-dividend Rust tests
+        id: focused
+        run: cargo test --locked -p pricing --test stochastic_dividends -- --nocapture 2>&1 | tee /tmp/stochastic-dividend-evidence/focused-rust.log
+      - name: Clippy all targets
+        if: success() || failure()
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/stochastic-dividend-evidence/clippy.log
+      - name: Full normal Rust tests
+        if: always() && steps.focused.outcome == 'success'
+        run: |
+          cargo test --locked --workspace --all-features --exclude pricing-python 2>&1 | tee /tmp/stochastic-dividend-evidence/rust-all-features.log
+          cargo test --locked -p pricing-python 2>&1 | tee /tmp/stochastic-dividend-evidence/python-binding-rust.log
+          cargo test --locked -p pricing --no-default-features 2>&1 | tee /tmp/stochastic-dividend-evidence/rust-minimal.log
+      - name: Build wheel and execute Python tests
+        if: always() && steps.focused.outcome == 'success'
+        run: |
+          python -m pip install 'maturin>=1.9,<2.0' 'numpy>=2,<3'
+          python -m maturin build --locked --out /tmp/stochastic-dividend-evidence/wheels
+          python -m pip install /tmp/stochastic-dividend-evidence/wheels/*.whl
+          python -m unittest discover -s tests/python -p test_stochastic_dividends.py -v 2>&1 | tee /tmp/stochastic-dividend-evidence/focused-python.log
+          python -m unittest discover -s tests/python -v 2>&1 | tee /tmp/stochastic-dividend-evidence/python-all.log
+          python examples/python/stochastic_dividends.py 2>&1 | tee /tmp/stochastic-dividend-evidence/example.log
+      - name: Documentation and source contracts
+        if: always() && steps.focused.outcome == 'success'
+        run: |
+          cargo doc --locked --workspace --all-features --no-deps
+          python scripts/check_markdown_links.py
+          python scripts/check_schemas.py
+          python scripts/check_source_archive.py /tmp/stochastic-dividend-evidence/source.tar.gz
+          git diff --exit-code
+      - name: Retain exact source and observed logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-native-candidate
+          path: /tmp/stochastic-dividend-evidence
+          if-no-files-found: warn
+          retention-days: 14
