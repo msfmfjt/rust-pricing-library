@@ -41,7 +41,15 @@ running the corrected Rust test over all six combinations.
 A separate three-platform CI job runs this exact ignored test in release mode,
 so a short independent-reference failure is visible before the complete heavy
 price panel finishes. The full price and risk gates continue to run unchanged.
-Native results for the corrected source are recorded after completion.
+In [CI run 284](https://github.com/msfmfjt/rust-pricing-library/actions/runs/35705240118),
+all six mean-reversion/correlation combinations passed on Linux, macOS and
+Windows for source `ea759bf5d73b06e4c480665e59c7daa37e6667be`, tree
+`c31f67b850424fcf80cc392f5a9ee0e3947030e2`. The maximum absolute IV error was
+0.0365256 bp on each platform, below the unchanged 2 bp budget. Both native
+wheel/Python/replay jobs also passed. The full extended-price job remains
+separate and is not certified by this focused rerun.
+The [native observations](hw-escrowed-gaussian-observations-2026-09-22.json)
+retain every price, seed, error, budget and source/job identifier.
 
 The separately inherited one-year 2F constituent timestep ensemble-SE failure
 (4.012373 bp against 4 bp) is not caused or fixed by this reference correction.
