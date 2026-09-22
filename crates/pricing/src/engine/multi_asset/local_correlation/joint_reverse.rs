@@ -305,11 +305,7 @@ impl LocalCorrelationCalibration {
             let multiplier = 2.0 * seeds[e] / (basket * basket);
             let basket_bar = -2.0 * seeds[e] * q[e] / basket;
             let rate_bar = multiplier
-                * (rate_loading
-                    + a.iter()
-                        .zip(cross.iter())
-                        .map(|(a, r)| a * r)
-                        .sum::<f64>());
+                * (rate_loading + a.iter().zip(cross.iter()).map(|(a, r)| a * r).sum::<f64>());
             for i in 0..n {
                 let ab = multiplier
                     * ((0..n)
