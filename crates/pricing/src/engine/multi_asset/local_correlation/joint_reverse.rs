@@ -3,6 +3,24 @@
 use super::*;
 use crate::models::rates::CenteredRateState;
 
+// Reused within one calibration pullback. Every entry is overwritten before
+// use, and the particle/node/endpoint accumulation order remains unchanged.
+struct JointMomentWorkspace {
+    sigmas: Vec<f64>,
+    weighted: Vec<f64>,
+    cross: Vec<f64>,
+}
+
+impl JointMomentWorkspace {
+    fn new(assets: usize) -> Self {
+        Self {
+            sigmas: vec![0.0; assets],
+            weighted: vec![0.0; assets],
+            cross: vec![0.0; assets],
+        }
+    }
+}
+
 impl LocalCorrelationCalibration {
     #[allow(clippy::too_many_arguments)]
     fn reverse_joint_quote(
@@ -246,6 +264,7 @@ impl LocalCorrelationCalibration {
         }
         Ok((parameters, mixing))
     }
+    #[allow(clippy::too_many_arguments)]
     fn reverse_joint_moments(
         &self,
         row: usize,
@@ -254,35 +273,43 @@ impl LocalCorrelationCalibration {
         seeds: [f64; 2],
         bars: &mut [Vec<f64>],
         parameters: &mut [Vec<f64>],
+        workspace: &mut JointMomentWorkspace,
     ) -> Result<(), E> {
         let n = self.models.len();
         let j = self.joint.as_ref().unwrap();
         let state = &h[row];
         let basket = self.joint_basket(row, state)?;
-        let sigmas = (0..n)
-            .map(|i| self.joint_sigma(i, row, h))
-            .collect::<Result<Vec<_>, _>>()?;
-        let a: Vec<_> = (0..n)
-            .map(|i| self.config.basket_weights[i] * state[i] * sigmas[i])
-            .collect();
+        let JointMomentWorkspace {
+            sigmas,
+            weighted: a,
+            cross,
+        } = workspace;
+        for (i, sigma) in sigmas.iter_mut().enumerate() {
+            *sigma = self.joint_sigma(i, row, h)?;
+        }
+        for (i, value) in a.iter_mut().enumerate() {
+            *value = self.config.basket_weights[i] * state[i] * sigmas[i];
+        }
         let mut rate_loading = 0.0;
         for (i, w) in self.config.basket_weights.iter().enumerate() {
             rate_loading += w * j.quote_state(i, row, state)?[1];
         }
         for e in 0..2 {
             let matrix = &self.endpoints[self.entries[row]][e];
-            let cross: Vec<_> = (0..n)
-                .map(|i| {
-                    j.rate.map_or(0.0, |r| {
-                        let c = &j.drivers[e].entries[self.entries[row]];
-                        c.canonical()[i * c.dimension() + r]
-                    })
-                })
-                .collect();
+            for (i, value) in cross.iter_mut().enumerate() {
+                *value = j.rate.map_or(0.0, |r| {
+                    let c = &j.drivers[e].entries[self.entries[row]];
+                    c.canonical()[i * c.dimension() + r]
+                });
+            }
             let multiplier = 2.0 * seeds[e] / (basket * basket);
             let basket_bar = -2.0 * seeds[e] * q[e] / basket;
-            let rate_bar =
-                multiplier * (rate_loading + a.iter().zip(&cross).map(|(a, r)| a * r).sum::<f64>());
+            let rate_bar = multiplier
+                * (rate_loading
+                    + a.iter()
+                        .zip(cross.iter())
+                        .map(|(a, r)| a * r)
+                        .sum::<f64>());
             for i in 0..n {
                 let ab = multiplier
                     * ((0..n)
@@ -334,6 +361,7 @@ impl LocalCorrelationCalibration {
                     .len())
         ];
         let mut density = vec![0.0; nt * m];
+        let mut moment_workspace = JointMomentWorkspace::new(self.models.len());
         for row in (0..nt).rev() {
             if row + 1 < nt {
                 for p in 0..np {
@@ -402,6 +430,7 @@ impl LocalCorrelationCalibration {
                         mb.map(|v| v * weight / sum),
                         &mut bars[p],
                         &mut parameters,
+                        &mut moment_workspace,
                     )?;
                     let wb = (mb[0] * (q[0] - mean[0]) + mb[1] * (q[1] - mean[1])) / sum;
                     if let Some(r) = j.rate {
