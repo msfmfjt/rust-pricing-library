@@ -1,0 +1,2113 @@
+{
+  "source_commit": "ea759bf5d73b06e4c480665e59c7daa37e6667be",
+  "source_tree": "c31f67b850424fcf80cc392f5a9ee0e3947030e2",
+  "ci_run": 35705240118,
+  "platforms": [
+    {
+      "platform": "Gaussian escrow reference / windows-2025",
+      "job_id": 106672452086,
+      "cases": [
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": -0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.042727847680320945,
+              "iv_error_bp": 0.020775601977940372,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.042727847680320945,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0002399336105058986,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.276441994964098
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00046915882032225355,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.276525504524709
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00022266553673072102,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.276815387591552
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.07031585178424171
+            },
+            {
+              "ensemble_se_bp": 0.048891583648440186,
+              "iv_error_bp": -0.003514966709083911,
+              "log_strike": 0,
+              "pricing_se_bp": 0.048891583648440186,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0005021516214386749,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.233608266958639
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035539600193784134,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.233824751231623
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004528609232539369,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.233707611615419
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.02372879451900678
+            },
+            {
+              "ensemble_se_bp": 0.04921743318629975,
+              "iv_error_bp": 0.034198876492086416,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04921743318629975,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00026356765861488423,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.949467380306077
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005163256361297061,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.949275491475754
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046469044169235584,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.949490127047074
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.04992411564402888
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.04498030210386269,
+              "iv_error_bp": 0.015222833328887297,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.04498030210386269,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00024091421554314491,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.5128605581286205
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005206897983017762,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.513109896484247
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00019160563636417465,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.51326517143992
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.05685786969855666
+            },
+            {
+              "ensemble_se_bp": 0.052617162114564985,
+              "iv_error_bp": -0.0008882094987283651,
+              "log_strike": 0,
+              "pricing_se_bp": 0.052617162114564985,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0005220958842599362,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.509037086117793
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00039640870869583656,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.509136814807967
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004954154240902252,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.508961721432676
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.01692653074314432
+            },
+            {
+              "ensemble_se_bp": 0.05033118414585354,
+              "iv_error_bp": 0.016045952374588168,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.05033118414585354,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00026381940023176536,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.2160692006391045
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005306580567804611,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.215878043397923
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00048078654904340506,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.216001332014011
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.0331298032935079
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03869178315591017,
+              "iv_error_bp": 0.019986410638439533,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03869178315591017,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00015985191210365855,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.7442390604784
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004750684392617276,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.744593865710011
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00014696790430830214,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.7446300847284695
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.05163373946209804
+            },
+            {
+              "ensemble_se_bp": 0.04738449843650496,
+              "iv_error_bp": -0.0043144416031482,
+              "log_strike": 0,
+              "pricing_se_bp": 0.04738449843650496,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0004318286156258993,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.777134127287312
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00036181830793237054,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.777105693065824
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00047915557718763573,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.77714940396953
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.008936741493770217
+            },
+            {
+              "ensemble_se_bp": 0.04522044463267409,
+              "iv_error_bp": -0.005371268695097964,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04522044463267409,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00025645098414252954,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.476830040699852
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00045487314124666227,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.476592684744933
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00044844264107893165,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.476866583560593
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.03895938825632106
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": -0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.0328801700624082,
+              "iv_error_bp": 0.012475377747511729,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.0328801700624082,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00017518781048899825,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.298501702378535
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035364805189822977,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.2985681724302465
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00019544973981663286,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.298829182422302
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.05641109077580975
+            },
+            {
+              "ensemble_se_bp": 0.04393462870520048,
+              "iv_error_bp": -0.0017281295494608884,
+              "log_strike": 0,
+              "pricing_se_bp": 0.04393462870520048,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0004336048097159936,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.259437679605522
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00032462509735361154,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.259510085582356
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004216353513385196,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.259489210992387
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.009660809544564941
+            },
+            {
+              "ensemble_se_bp": 0.04526330668351991,
+              "iv_error_bp": 0.036525562601696926,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04526330668351991,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00021502110368259934,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.974311059051902
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004529210971040898,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.974219702495017
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046464362229092847,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.974408586014293
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.05549051259490234
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03531945525000451,
+              "iv_error_bp": 0.011951964160317186,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03531945525000451,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00018021607912365546,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.507075333532797
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00039883631422402805,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.507256340286472
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00018436490670494857,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.507425075587463
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.05051153709439982
+            },
+            {
+              "ensemble_se_bp": 0.04652270945668584,
+              "iv_error_bp": 0.0006318329995314009,
+              "log_strike": 0,
+              "pricing_se_bp": 0.04652270945668584,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00043989039640963625,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.502332094881325
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035219609740818345,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.502338377597704
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00045856685279718924,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.502241038911484
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.011432042470727044
+            },
+            {
+              "ensemble_se_bp": 0.04687957016361611,
+              "iv_error_bp": 0.02632215002268401,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04687957016361611,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00022838280071689398,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.209546603551876
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00048672326413816533,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.209381480968849
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046481988003095544,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.209518491683788
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.03906808185488719
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.030624165027928838,
+              "iv_error_bp": 0.01653119182959406,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.030624165027928838,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00012835275098962022,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.711714248998201
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00036733339065055554,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.711948369389645
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00013905109624740895,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.712030883573583
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.04611308799667979
+            },
+            {
+              "ensemble_se_bp": 0.043196877660429074,
+              "iv_error_bp": -0.003680488102897339,
+              "log_strike": 0,
+              "pricing_se_bp": 0.043196877660429074,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00037985262965099456,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.73948025527093
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0003364070341388174,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.739391913051584
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.000444051323478294,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.73951144975219
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.01699818969053135
+            },
+            {
+              "ensemble_se_bp": 0.04227613941831309,
+              "iv_error_bp": 0.005313508528448363,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04227613941831309,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.000246630427764548,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.440148762440047
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004025504012764699,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.439899705219598
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004367840065154629,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.44022134743644
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.032199747187766636
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        }
+      ]
+    },
+    {
+      "platform": "Gaussian escrow reference / ubuntu-24.04",
+      "job_id": 106672452161,
+      "cases": [
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": -0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.042727847680320945,
+              "iv_error_bp": 0.020775601977940372,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.042727847680320945,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0002399336105058986,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.276441994964098
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00046915882032225355,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.276525504524709
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00022266553673072102,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.276815387591552
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.07031585178424171
+            },
+            {
+              "ensemble_se_bp": 0.048891583648440186,
+              "iv_error_bp": -0.003514966709083911,
+              "log_strike": 0,
+              "pricing_se_bp": 0.048891583648440186,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0005021516214386749,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.233608266958639
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035539600193784134,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.233824751231623
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004528609232539369,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.233707611615419
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.02372879451900678
+            },
+            {
+              "ensemble_se_bp": 0.04921743318629975,
+              "iv_error_bp": 0.034198876492086416,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04921743318629975,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00026356765861488423,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.949467380306077
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005163256361297061,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.949275491475754
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046469044169235584,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.949490127047074
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.04992411564402888
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.04498030210386269,
+              "iv_error_bp": 0.015222833328887297,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.04498030210386269,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00024091421554314491,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.5128605581286205
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005206897983017762,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.513109896484247
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00019160563636417465,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.51326517143992
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.05685786969855666
+            },
+            {
+              "ensemble_se_bp": 0.052617162114564985,
+              "iv_error_bp": -0.0008882094987283651,
+              "log_strike": 0,
+              "pricing_se_bp": 0.052617162114564985,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0005220958842599362,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.509037086117793
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00039640870869583656,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.509136814807967
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004954154240902252,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.508961721432676
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.01692653074314432
+            },
+            {
+              "ensemble_se_bp": 0.05033118414585521,
+              "iv_error_bp": 0.016045952374588168,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.05033118414585521,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00026381940023176536,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.2160692006391045
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005306580567804624,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.215878043397923
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00048078654904344355,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.216001332014011
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.0331298032935079
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03869178315591017,
+              "iv_error_bp": 0.019986410638439533,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03869178315591017,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00015985191210365855,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.7442390604784
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004750684392617276,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.744593865710011
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00014696790430830214,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.7446300847284695
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.05163373946209804
+            },
+            {
+              "ensemble_se_bp": 0.047384498436503865,
+              "iv_error_bp": -0.0043144416031482,
+              "log_strike": 0,
+              "pricing_se_bp": 0.047384498436503865,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0004318286156258993,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.777134127287312
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0003618183079323353,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.777105693065824
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00047915557718763573,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.77714940396953
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.008936741493770217
+            },
+            {
+              "ensemble_se_bp": 0.045220444632674286,
+              "iv_error_bp": -0.005371268695097964,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.045220444632674286,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00025645098414253686,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.476830040699853
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00045487314124666227,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.476592684744933
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004484426410789322,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.476866583560593
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.03895938825632106
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": -0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03288017006240671,
+              "iv_error_bp": 0.012475377747511729,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03288017006240671,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00017518781048902714,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.298501702378535
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035364805189822977,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.2985681724302465
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00019544973981656222,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.298829182422302
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.05641109077580975
+            },
+            {
+              "ensemble_se_bp": 0.043934628705203885,
+              "iv_error_bp": -0.0017281295494608884,
+              "log_strike": 0,
+              "pricing_se_bp": 0.043934628705203885,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00043360480971613705,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.259437679605522
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00032462509735353223,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.259510085582356
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004216353513385196,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.259489210992387
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.009660809544564941
+            },
+            {
+              "ensemble_se_bp": 0.0452633066835202,
+              "iv_error_bp": 0.036525562601696926,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.0452633066835202,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00021502110368261314,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.974311059051902
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004529210971040898,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.974219702495017
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046464362229092847,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.974408586014293
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.05549051259490234
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03531945525000451,
+              "iv_error_bp": 0.011951964160317186,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03531945525000451,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00018021607912365546,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.507075333532797
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00039883631422402805,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.507256340286472
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00018436490670494857,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.507425075587463
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.05051153709439982
+            },
+            {
+              "ensemble_se_bp": 0.04652270945668388,
+              "iv_error_bp": 0.0006318329995314009,
+              "log_strike": 0,
+              "pricing_se_bp": 0.04652270945668388,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00043989039640963625,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.502332094881325
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035219609740812,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.502338377597704
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00045856685279718924,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.502241038911484
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.011432042470727044
+            },
+            {
+              "ensemble_se_bp": 0.04687957016361611,
+              "iv_error_bp": 0.02632215002268401,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04687957016361611,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00022838280071689398,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.209546603551876
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00048672326413816533,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.209381480968849
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046481988003095544,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.209518491683788
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.03906808185488719
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03062416502793099,
+              "iv_error_bp": 0.01653119182959406,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03062416502793099,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00012835275098962022,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.711714248998201
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00036733339065058823,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.711948369389645
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00013905109624740895,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.712030883573583
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.04611308799667979
+            },
+            {
+              "ensemble_se_bp": 0.043196877660429074,
+              "iv_error_bp": -0.003680488102897339,
+              "log_strike": 0,
+              "pricing_se_bp": 0.043196877660429074,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00037985262965099456,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.73948025527093
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0003364070341388174,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.739391913051584
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.000444051323478294,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.73951144975219
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.01699818969053135
+            },
+            {
+              "ensemble_se_bp": 0.042276139418314894,
+              "iv_error_bp": 0.005313508528448363,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.042276139418314894,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.000246630427764548,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.440148762440047
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004025504012764699,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.439899705219598
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004367840065155034,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.44022134743644
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.032199747187766636
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        }
+      ]
+    },
+    {
+      "platform": "Gaussian escrow reference / macos-15",
+      "job_id": 106672452327,
+      "cases": [
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": -0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.042727847680320945,
+              "iv_error_bp": 0.020775601977940372,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.042727847680320945,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0002399336105058986,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.276441994964098
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00046915882032225355,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.276525504524709
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00022266553673072102,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.276815387591552
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.07031585178424171
+            },
+            {
+              "ensemble_se_bp": 0.04889158364844386,
+              "iv_error_bp": -0.003514966709083911,
+              "log_strike": 0,
+              "pricing_se_bp": 0.04889158364844386,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0005021516214386749,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.233608266958639
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035539600193784134,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.233824751231623
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004528609232540336,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.233707611615419
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.02372879451900678
+            },
+            {
+              "ensemble_se_bp": 0.04921743318629975,
+              "iv_error_bp": 0.034198876492086416,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04921743318629975,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00026356765861488423,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.949467380306077
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005163256361297061,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.949275491475754
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046469044169235584,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.949490127047074
+                }
+              ],
+              "target_iv": 0.1952499116517086,
+              "worst_seed_error_bp": 0.04992411564402888
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.04498030210386269,
+              "iv_error_bp": 0.015222833328887297,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.04498030210386269,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00024091421554314491,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.5128605581286205
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005206897983017762,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.513109896484247
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00019160563636417465,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.51326517143992
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.05685786969855666
+            },
+            {
+              "ensemble_se_bp": 0.052617162114564985,
+              "iv_error_bp": -0.0008882094987283651,
+              "log_strike": 0,
+              "pricing_se_bp": 0.052617162114564985,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0005220958842599362,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.509037086117793
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00039640870869583656,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.509136814807967
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004954154240902252,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.508961721432676
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.01692653074314432
+            },
+            {
+              "ensemble_se_bp": 0.05033118414585521,
+              "iv_error_bp": 0.016045952374588168,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.05033118414585521,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00026381940023176536,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.2160692006391045
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0005306580567804624,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.215878043397923
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00048078654904344355,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.216001332014011
+                }
+              ],
+              "target_iv": 0.2005375974723942,
+              "worst_seed_error_bp": 0.0331298032935079
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03869178315591017,
+              "iv_error_bp": 0.019986410638439533,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03869178315591017,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00015985191210365855,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.7442390604784
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004750684392617276,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.744593865710011
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00014696790430830214,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.7446300847284695
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.05163373946209804
+            },
+            {
+              "ensemble_se_bp": 0.047384498436503865,
+              "iv_error_bp": -0.0043144416031482,
+              "log_strike": 0,
+              "pricing_se_bp": 0.047384498436503865,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.0004318286156258993,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.777134127287312
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0003618183079323353,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.777105693065824
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00047915557718763573,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.77714940396953
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.008936741493770217
+            },
+            {
+              "ensemble_se_bp": 0.045220444632674286,
+              "iv_error_bp": -0.005371268695097964,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.045220444632674286,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00025645098414253686,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.476830040699853
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00045487314124666227,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.476592684744933
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004484426410789322,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.476866583560593
+                }
+              ],
+              "target_iv": 0.20568939690708418,
+              "worst_seed_error_bp": 0.03895938825632106
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": -0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03288017006240671,
+              "iv_error_bp": 0.012475377747511729,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03288017006240671,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00017518781048902714,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.298501702378535
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035364805189822977,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.2985681724302465
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00019544973981656222,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.298829182422302
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.05641109077580975
+            },
+            {
+              "ensemble_se_bp": 0.043934628705203885,
+              "iv_error_bp": -0.0017281295494608884,
+              "log_strike": 0,
+              "pricing_se_bp": 0.043934628705203885,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00043360480971613705,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.259437679605522
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00032462509735353223,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.259510085582356
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004216353513385196,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.259489210992387
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.009660809544564941
+            },
+            {
+              "ensemble_se_bp": 0.0452633066835202,
+              "iv_error_bp": 0.036525562601696926,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.0452633066835202,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00021502110368261314,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.974311059051902
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004529210971040898,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.974219702495017
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046464362229092847,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.974408586014293
+                }
+              ],
+              "target_iv": 0.195744460589946,
+              "worst_seed_error_bp": 0.05549051259490234
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.03531945525000451,
+              "iv_error_bp": 0.011951964160317186,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.03531945525000451,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00018021607912365546,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.507075333532797
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00039883631422402805,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.507256340286472
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00018436490670494857,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.507425075587463
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.05051153709439982
+            },
+            {
+              "ensemble_se_bp": 0.04652270945668388,
+              "iv_error_bp": 0.0006318329995314009,
+              "log_strike": 0,
+              "pricing_se_bp": 0.04652270945668388,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00043989039640963625,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.502332094881325
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00035219609740812,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.502338377597704
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00045856685279718924,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.502241038911484
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.011432042470727044
+            },
+            {
+              "ensemble_se_bp": 0.04687957016361611,
+              "iv_error_bp": 0.02632215002268401,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.04687957016361611,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00022838280071689398,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.209546603551876
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00048672326413816533,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.209381480968849
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00046481988003095544,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.209518491683788
+                }
+              ],
+              "target_iv": 0.20040793927113662,
+              "worst_seed_error_bp": 0.03906808185488719
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        },
+        {
+          "budget": {
+            "ensemble_se_bp": 1,
+            "max_error_bp": 2,
+            "pricing_se_bp": 1,
+            "rmse_bp": 1,
+            "worst_seed_bp": 4
+          },
+          "case": {
+            "cash": "Expiry",
+            "equity_rate_correlation": 0.4,
+            "expiry": "2028-01-01",
+            "mean_reversion": 0.2,
+            "model": "BS-HW"
+          },
+          "failures": [],
+          "quotes": [
+            {
+              "ensemble_se_bp": 0.030624165027930916,
+              "iv_error_bp": 0.01653119182959406,
+              "log_strike": -0.12,
+              "pricing_se_bp": 0.030624165027930916,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00012835275098961696,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.711714248998201
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.00036733339065058823,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 5.711948369389645
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.00013905109624740895,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 5.712030883573583
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.04611308799667979
+            },
+            {
+              "ensemble_se_bp": 0.043196877660429074,
+              "iv_error_bp": -0.003680488102897339,
+              "log_strike": 0,
+              "pricing_se_bp": 0.043196877660429074,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.00037985262965099456,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.73948025527093
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0003364070341388174,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 10.739391913051584
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.000444051323478294,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 10.73951144975219
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.01699818969053135
+            },
+            {
+              "ensemble_se_bp": 0.042276139418314894,
+              "iv_error_bp": 0.005313508528448363,
+              "log_strike": 0.12,
+              "pricing_se_bp": 0.042276139418314894,
+              "runs": [
+                {
+                  "calibration_seed": 1709,
+                  "conditional_se": 0.000246630427764548,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.440148762440047
+                },
+                {
+                  "calibration_seed": 2903,
+                  "conditional_se": 0.0004025504012764699,
+                  "pricing_seed": 15111065706836453000,
+                  "value": 6.439899705219598
+                },
+                {
+                  "calibration_seed": 4001,
+                  "conditional_se": 0.0004367840065155034,
+                  "pricing_seed": 15111065706836451000,
+                  "value": 6.44022134743644
+                }
+              ],
+              "target_iv": 0.2049653394946527,
+              "worst_seed_error_bp": 0.032199747187766636
+            }
+          ],
+          "resolution": {
+            "bandwidth": 0.05,
+            "particles": 16384,
+            "points": 16384,
+            "scrambles": 8,
+            "seed_offset": 0,
+            "steps": 8
+          },
+          "strikes": [
+            -0.12,
+            0,
+            0.12
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -70,3 +70,54 @@ This is the first S7 workload family. Broader 2F/rough/mixed-model scaling,
 rough convolution, 2F flattening, the isolated S6 1F peak-lifetime difference
 and cross-platform performance measurements remain later work. The inherited
 2F ensemble-SE acceptance issue remains separately tracked.
+
+## Initial control results
+
+[CI run 285](https://github.com/msfmfjt/rust-pricing-library/actions/runs/35706162409)
+measured source `be83ea95ba7b6787171aa8bf0526287755e94ac1`, tree
+`c8a39cfb5b7d0cb117aadc4982d5b9ec8326d0e8`. All 44 native pairs and seven DHAT
+pairs matched their baseline checksums, and first/repeated AAD matched for
+every workload. The [full control observations](local-correlation-scaling-control-2026-09-22.json)
+retain samples, environment, profiler stack leaders and profile hashes.
+Paired median time ratios ranged from 0.9744 to 1.0109; no confirmation trigger
+fired. Since production code is identical, this range is a control observation,
+not an optimization gain.
+
+Candidate median operation times on this one Linux host were:
+
+| Workload | First AAD (ms) | Repeated AAD (ms) |
+| --- | ---: | ---: |
+| Base | 109.26 | 17.62 |
+| 2 workers | 103.26 | 11.31 |
+| 4 workers | 102.35 | 9.78 |
+| 16 steps | 382.76 | 32.85 |
+| 32 steps | 1,440.10 | 61.98 |
+| 256 particles | 205.27 | 22.09 |
+| 512 particles | 395.49 | 31.05 |
+| 2,048 MC units | 147.44 | 55.94 |
+| 8,192 MC units | 301.19 | 208.87 |
+| 3 assets | 128.28 | 20.72 |
+| 4 assets | 145.76 | 23.90 |
+
+At the base workload, the one-AAD process allocated 977,718 blocks / 42,108,644
+bytes, with peak live heap 367,812 bytes. The two-AAD process allocated
+1,215,586 blocks / 58,748,116 bytes, with peak 372,620 bytes. At 32 steps,
+one AAD allocated 11,942,434 blocks / 411,834,337 bytes, with peak 1,255,741 bytes.
+The difference between cold and repeated timings grows sharply with time-grid
+size, consistent with the inspected market-transpose builder calling calibration
+reverse once per input coefficient. This explains a concrete setup cost; it
+does not assign all elapsed time to one allocation site.
+
+The base allocation stacks identify three direct vector sites inside
+`reverse_joint_moments`: 38,514 sigma vectors, 38,514 weighted vectors, and
+77,028 endpoint cross-loading vectors, all in the market-transpose construction
+call chain. Together these account for 154,056 allocations (15.76% of the
+complete one-AAD process) before counting calls from other parents. Other large
+sites include dividend adjoints, regenerated calibration normals and retained
+history/bar copies.
+
+The first optimization candidate is therefore reuse of those three moment
+buffers within a calibration pullback. It can preserve each evaluation and
+accumulation order, and has a measurable allocation target. It will be a
+separate change with an unchanged paired baseline and full numerical gates;
+these control measurements themselves contain no production optimization.
