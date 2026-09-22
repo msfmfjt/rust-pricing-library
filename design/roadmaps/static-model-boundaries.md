@@ -280,7 +280,7 @@ broader regression gates. Timing and memory comparisons belong to S6.
 | S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Implemented; normal/native wheel/replay and extended risk passed on PR #75; extended price gate tracked separately |
 | S4 | Explicit calibration/path-reverse capability selection | Unsupported model capabilities fail typed composition; late AAD requests validate before path generation; existing recalibrated AAD/VegaKT gates pass | Implemented; normal/native wheel/replay and extended risk passed on PR #76; extended price gate tracked separately |
 | S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Implemented; normal/native wheel/replay and extended risk passed on PR #77; extended price gate tracked separately |
-| S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Test-only registration and paired timing/heap/RSS harness implemented; native evidence pending; [protocol and scope](../validation/model-boundary-extension.md) |
+| S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Implemented on PR #78; 54 native and 27 DHAT exact comparisons passed; normal/native wheel/replay and extended risk passed; [measured results and separate accuracy failures](../validation/model-boundary-extension.md) |
 | S7 | Broad performance/memory measurement and targeted optimization PRs | Measured bottlenecks and numerical/reproducibility gates justify each optimization | Pending |
 
 Each stage is a separate reviewable change above its verified parent. If a
@@ -335,9 +335,12 @@ their own measurements and subsequent PRs.
 
 ## Validation status of this change
 
-The local environment currently has no Rust toolchain. S6 extension tests and
-paired native measurements run in CI; earlier-stage and historical escrowed
-results do not certify this source tree. See the [S6 protocol](../validation/model-boundary-extension.md)
-for the pinned pre-extraction baseline and measurement boundaries. Local
-documentation, source packaging and Python public-stub checks are available.
-No runtime or memory improvement is claimed before measured evidence is reviewed.
+The local environment has no Rust toolchain. The S6 extension tests, normal
+Rust/native wheel/replay gates and extended risk passed in CI run 282. The
+[S6 record](../validation/model-boundary-extension.md) pins the measured source,
+54 exact native comparisons, 27 DHAT pairs and the timing/memory limitations.
+Extended price acceptance still fails the inherited 2F ensemble-SE case and
+a BS-HW reference-coordinate mismatch; both also occur in parent run 278.
+These need separate follow-up and do not justify relaxed accuracy thresholds.
+S7 will use independent workload sweeps and stack attribution before selecting
+an optimization; the small S6 panel is not a general speed or memory guarantee.
