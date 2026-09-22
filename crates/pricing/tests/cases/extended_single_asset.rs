@@ -415,6 +415,10 @@ fn rate_kernel_quadrature_matches_zero_reversion_polynomial() {
 fn gaussian_hull_white_independent_price_reference() {
     let expiry = "2028-01-01";
     let t = time(expiry);
+    // The fixture pays beta=3% and D=2 at expiry. All cash is paid before
+    // observation, so the funded terminal forward is (1-beta) S0 exp((r-q)T)-D.
+    // Use this same physical strike scale when inverting the simulated prices.
+    let forward = 0.97 * 100.0 * ((RATE - DIVIDEND_RATE) * t).exp() - 2.0;
     // Only eight steps are needed: the constant equity-volatility HW path
     // uses exact joint Gaussian transitions, including rate-volatility knots.
     let res = Resolution {
@@ -460,13 +464,7 @@ fn gaussian_hull_white_independent_price_reference() {
                             }
                         })
                         .collect();
-                    summarize(
-                        runs,
-                        0.97 * 100.0 * ((RATE - DIVIDEND_RATE) * t).exp(),
-                        t,
-                        x,
-                        target_iv,
-                    )
+                    summarize(runs, forward, t, x, target_iv)
                 })
                 .collect();
             report(

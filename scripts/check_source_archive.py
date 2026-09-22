@@ -183,6 +183,8 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
     "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
     "cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1",
+    "name: Gaussian escrow reference / ${{ matrix.os }}",
+    "cargo test --locked --release -p pricing --test extended_model_acceptance single_asset::gaussian_hull_white_independent_price_reference -- --ignored --exact --nocapture",
     "name: extended-model-risk-${{ matrix.os }}",
     "path: extended-model-risk.log",
     "name: extended-model-accuracy-${{ matrix.os }}",

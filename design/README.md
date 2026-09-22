@@ -42,6 +42,8 @@ documents the public API migration.
 The [model-boundary extension/comparison record](validation/model-boundary-extension.md)
 defines the test-only extension exercise and paired native timing, heap and RSS
 evidence for stages S1–S6 of the [static-model roadmap](roadmaps/static-model-boundaries.md).
+The [Gaussian HW reference correction](validation/hw-escrowed-gaussian-reference.md)
+tracks the separate funded-strike reporting mismatch found in extended CI.
 
 | Stage | Roadmap | Acceptance evidence |
 | --- | --- | --- |
