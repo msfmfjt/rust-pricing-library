@@ -992,6 +992,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "StochasticDividendPlan",
+        "StochasticDividendPrice",
         'MultiAssetHullWhiteCalibration',
         'MultiAssetHullWhiteLsvRisk',
         'MultiAssetHullWhiteCurveRisk',
@@ -1221,6 +1223,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('StochasticDividendPlan', 'compile_bs'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
+        ('StochasticDividendPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
         ('HullWhiteEquityPlan', 'compile_bergomi'): {
             'positional': ['request', 'rate_model'],
             'positional_defaults': {},
@@ -1973,6 +1978,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'StochasticDividendPlan': {'scheme', 'evaluate', 'plan_fingerprint', 'time_nodes', 'compile_bs', 'risky_spot', 'random_factor_count'},
+        'StochasticDividendPrice': {'scheme', 'standard_error', 'uncertainty_scope', 'evaluated_paths', 'plan_fingerprint', 'value', 'independent_sampling_units'},
+
         "StochasticVolatilityPlan": {
             "cash_dividend_model",
             "compile_bergomi",
@@ -2524,6 +2532,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("StochasticDividendPlan", "compile_bs"),
         ('HullWhiteEquityPlan', 'compile_bergomi'),
         ('HullWhiteEquityPlan', 'compile_bergomi_two_factor'),
         ('StochasticVolatilityPlan', 'compile_bergomi'),
@@ -2572,6 +2581,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('StochasticDividendPlan', 'plan_fingerprint'),
+        ('StochasticDividendPlan', 'time_nodes'),
+        ('StochasticDividendPlan', 'random_factor_count'),
+        ('StochasticDividendPlan', 'risky_spot'),
+        ('StochasticDividendPlan', 'scheme'),
+        ('StochasticDividendPrice', 'value'),
+        ('StochasticDividendPrice', 'standard_error'),
+        ('StochasticDividendPrice', 'independent_sampling_units'),
+        ('StochasticDividendPrice', 'evaluated_paths'),
+        ('StochasticDividendPrice', 'plan_fingerprint'),
+        ('StochasticDividendPrice', 'scheme'),
+        ('StochasticDividendPrice', 'uncertainty_scope'),
+
         ('StochasticVolatilityPlan', 'cash_dividend_model'),
         ('StochasticVolatilityPlan', 'risky_spot'),
         ('StochasticVolatilityPlan', 'plan_fingerprint'),

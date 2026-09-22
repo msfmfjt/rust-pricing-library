@@ -11,6 +11,7 @@ mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
 mod multi_asset_rough;
+mod stochastic_dividends;
 mod stochastic_volatility;
 
 use pricing::market::CurveRegion;
@@ -1249,6 +1250,8 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<hull_white::PyHullWhiteModel>()?;
     module.add_class::<hull_white::PyHullWhiteLsvTarget>()?;
     module.add_class::<hull_white::PyHullWhiteEquityPlan>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendPlan>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendPrice>()?;
     module.add_class::<stochastic_volatility::PyStochasticVolatilityPlan>()?;
     module.add_class::<hull_white::PyHullWhitePrice>()?;
     module.add_class::<hull_white::PyHullWhiteAadRisk>()?;

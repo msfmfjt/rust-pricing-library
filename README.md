@@ -282,3 +282,12 @@ Linux CI is retained as a fast development signal but is not an MVP distribution
 ## License
 
 No license has been selected yet. Publication of this repository does not itself grant a license to use, modify, or redistribute the code.
+
+### Stochastic discrete cash dividends
+
+The separate Rust `StochasticDividendPricingPlan::compile_bs` and Python
+`StochasticDividendPlan.compile_bs` entry points add a Buehler cash-dividend
+factor with deterministic rates and constant residual-equity volatility.
+See the [model and support limits](docs/models/stochastic-dividends.md) and
+[runnable example](examples/python/stochastic_dividends.py). This is price-only;
+SV/LSV/HW composition and AAD/VegaKT are not implied by the new component.
