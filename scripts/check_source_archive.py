@@ -13,6 +13,15 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/stochastic_volatility.rs",
+    "crates/pricing/src/engine/risk/stochastic_volatility.rs",
+    "crates/pricing-python/src/stochastic_volatility.rs",
+    "crates/pricing/tests/pure_bergomi.rs",
+    "tests/python/test_pure_bergomi.py",
+    "examples/python/pure_bergomi.py",
+    "docs/models/pure-stochastic-volatility.md",
+    "design/adr/0012-pure-stochastic-volatility.md",
+    "design/validation/pure-stochastic-volatility.md",
     ".gitattributes",
     ".gitignore",
     "Cargo.lock",

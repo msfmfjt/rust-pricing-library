@@ -64,6 +64,16 @@ Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 
+Pure one-/two-factor and rough Bergomi are available through Rust
+`StochasticVolatilityPricingPlan` and Python `StochasticVolatilityPlan`, with
+deterministic market curves and no LV target or particle calibration. Their
+Hull–White counterparts use `HullWhiteEquityPlan.compile_bergomi`,
+`compile_bergomi_two_factor` and `compile_rough_bergomi`. Initial forward
+variance is flat; Markovian OU factors are normalized to preserve its mean.
+Price, Spot Delta, initial-volatility and initial-curve AAD share the existing
+escrowed-dividend engine. See the [pure SV contracts](docs/models/pure-stochastic-volatility.md)
+and [example](examples/python/pure_bergomi.py).
+
 An experimental one- or two-factor Bergomi LSV extension is available through Rust
 `pricing::lsv::BergomiLsvPricingPlan` and Python `BergomiLsvPlan` /
 `Bergomi2FactorLsvPlan`. It calibrates

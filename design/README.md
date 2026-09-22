@@ -36,6 +36,7 @@ documents the public API migration.
 | [0009](adr/0009-escrowed-simulation-and-iv-conversion.md) | Escrowed simulation (IV conversion superseded by 0010) |
 | [0010](adr/0010-remove-paid-cash.md) | Remove paid-cash support; defer Bos–Vandermark |
 | [0011](adr/0011-static-model-boundaries.md) | Compiled static boundaries for model extensions |
+| [0012](adr/0012-pure-stochastic-volatility.md) | Pure SV independently of particle calibration |
 
 ## Implementation roadmaps and acceptance
 
