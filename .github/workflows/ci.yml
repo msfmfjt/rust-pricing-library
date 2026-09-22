@@ -14,6 +14,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  model-scaling:
+    name: Model boundary scaling / Linux
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'perf/local-correlation-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+      - name: Check out S6 with corrected price reference
+        uses: actions/checkout@v4
+        with:
+          ref: ea759bf5d73b06e4c480665e59c7daa37e6667be
+          path: baseline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install heap profiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y valgrind time
+      - name: Profile independent workload axes
+        working-directory: candidate
+        run: python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results
+      - name: Retain scaling evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-scaling-linux
+          path: |
+            model-scaling-results/scaling.json
+            model-scaling-results/*.dhat.json
+            model-scaling-results/*.dhat.log
+          if-no-files-found: error
+          retention-days: 30
+
   gaussian-reference:
     name: Gaussian escrow reference / ${{ matrix.os }}
     strategy:

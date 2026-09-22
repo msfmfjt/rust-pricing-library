@@ -44,6 +44,8 @@ defines the test-only extension exercise and paired native timing, heap and RSS
 evidence for stages S1–S6 of the [static-model roadmap](roadmaps/static-model-boundaries.md).
 The [Gaussian HW reference correction](validation/hw-escrowed-gaussian-reference.md)
 tracks the separate funded-strike reporting mismatch found in extended CI.
+The [local-correlation scaling record](validation/local-correlation-scaling.md)
+starts S7 with independent workload axes and cold/warm AAD allocation attribution.
 
 | Stage | Roadmap | Acceptance evidence |
 | --- | --- | --- |

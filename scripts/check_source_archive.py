@@ -212,14 +212,17 @@ REQUIRED_CI_SNIPPETS = {
     "name: Model boundary comparison / Linux",
     "python scripts/compare_model_boundaries.py ../baseline . ../model-boundary-results",
     "name: model-boundary-comparison-linux",
+    "name: Model boundary scaling / Linux",
+    "python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results",
+    "name: model-scaling-linux",
     "retention-days: 14",
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 3,
+    'python-version: "3.12"': 4,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 7,
+    "actions/upload-artifact@v4": 8,
     "retention-days: 14": 6,
 }
 
