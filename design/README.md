@@ -37,8 +37,12 @@ documents the public API migration.
 | [0010](adr/0010-remove-paid-cash.md) | Remove paid-cash support; defer Bos–Vandermark |
 | [0011](adr/0011-static-model-boundaries.md) | Compiled static boundaries for model extensions |
 | [0012](adr/0012-pure-stochastic-volatility.md) | Pure SV independently of particle calibration |
+| [0013](adr/0013-stochastic-cash-dividends.md) | Stochastic discrete cash dividends, staged integration |
 
 ## Implementation roadmaps and acceptance
+
+The [stochastic-dividend record](validation/stochastic-dividends.md) distinguishes
+finite-split and limiting-price tests from the deferred hybrid/calibration scope.
 
 The [model-boundary extension/comparison record](validation/model-boundary-extension.md)
 defines the test-only extension exercise and paired native timing, heap and RSS

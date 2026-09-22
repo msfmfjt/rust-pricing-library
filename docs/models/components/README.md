@@ -21,6 +21,7 @@ Published sources are collected in the [bibliography](../../references.md).
 | --- | --- | --- |
 | Hull–White short rate | [Hull–White calculation specifications](../hull-white-calculation-specifications.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
 | Cash-dividend coordinates | [Escrowed reserves and calibration coordinates](../hull-white-cash-dividends.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
+| Stochastic cash dividends | [Buehler factor and deterministic-rate pricing](../stochastic-dividends.md) | [Stochastic dividends](../../../examples/python/stochastic_dividends.py) |
 
 ## Surfaces and calibration targets
 

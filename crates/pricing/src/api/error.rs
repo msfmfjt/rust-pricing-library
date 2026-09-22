@@ -271,6 +271,7 @@ pub enum MonteCarloError {
     LocalVol(LocalVolError),
     Lsv(crate::mc::lsv::LsvError),
     HullWhite(crate::mc::hull_white::HullWhiteMcError),
+    StochasticDividend(crate::models::StochasticDividendError),
     Graph(GraphError),
     ExecutorBuild(ExecutorBuildError),
     Execution(ExecutionError),
@@ -280,6 +281,12 @@ pub enum MonteCarloError {
     RqmcPlan(RqmcPlanError),
     RiskConfig(RiskConfigError),
     Lsm(LsmNumericalError),
+}
+
+impl From<crate::models::StochasticDividendError> for MonteCarloError {
+    fn from(error: crate::models::StochasticDividendError) -> Self {
+        Self::StochasticDividend(error)
+    }
 }
 
 impl From<MarketError> for MonteCarloError {
@@ -446,6 +453,7 @@ impl fmt::Display for MonteCarloError {
             Self::LocalVol(error) => error.fmt(formatter),
             Self::Lsv(error) => error.fmt(formatter),
             Self::HullWhite(error) => error.fmt(formatter),
+            Self::StochasticDividend(error) => error.fmt(formatter),
             Self::Graph(error) => error.fmt(formatter),
             Self::ExecutorBuild(error) => error.fmt(formatter),
             Self::Execution(error) => error.fmt(formatter),
@@ -466,6 +474,7 @@ impl Error for MonteCarloError {
             Self::LocalVol(error) => Some(error),
             Self::Lsv(error) => Some(error),
             Self::HullWhite(error) => Some(error),
+            Self::StochasticDividend(error) => Some(error),
             Self::BarrierBridge(error) => Some(error),
             Self::Graph(error) => Some(error),
             Self::ExecutorBuild(error) => Some(error),

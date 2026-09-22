@@ -13,6 +13,18 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/models/stochastic_dividends.rs',
+    'crates/pricing/src/engine/processes/stochastic_dividends.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends.rs',
+    'crates/pricing/src/stochastic_dividends.rs',
+    'crates/pricing-python/src/stochastic_dividends.rs',
+    'crates/pricing/tests/stochastic_dividends.rs',
+    'tests/python/test_stochastic_dividends.py',
+    'examples/python/stochastic_dividends.py',
+    'docs/models/stochastic-dividends.md',
+    'design/adr/0013-stochastic-cash-dividends.md',
+    'design/validation/stochastic-dividends.md',
+
     "crates/pricing/src/stochastic_volatility.rs",
     "crates/pricing/src/engine/risk/stochastic_volatility.rs",
     "crates/pricing-python/src/stochastic_volatility.rs",

@@ -31,6 +31,8 @@ by the paper.
 - [Buehler, *Volatility Modelling with Cash Dividends and Simple Credit Risk*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1141877), SSRN 1141877. Future-dividend reserve and escrow-coordinate decomposition.
 - [Henry-Labordère, *Equity modelling with local stochastic volatility and stochastic dividends*](https://www.risk.net/media/download/991346/download). Stochastic-dividend extension of the LSV calibration equation; the fixed-cash implementation is a specialization.
 
+- [Buehler, *Volatility and Dividends II — Consistent Cash Dividends*](https://quantitative-research.de/dl/Volatility%20and%20Dividends%20II%20-%20Consistent%20Cash%20Dividends.pdf), section 3.1, system (S). Mean-reverting cash-dividend factor and conditional forecasts; the repository specifies its own positive split and carry convention.
+
 ## Multi-asset and local correlation
 
 - [Langnau, *Introduction into “Local Correlation Modelling”*](https://arxiv.org/abs/0909.3441), arXiv:0909.3441 (2009). State-dependent correlation calibrated to an index-volatility target.

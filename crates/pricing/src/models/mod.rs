@@ -10,6 +10,7 @@ pub mod hull_white_dividends;
 pub(crate) mod rates;
 mod rough_bergomi;
 mod spec;
+pub mod stochastic_dividends;
 mod volatility_inputs;
 
 pub use bergomi::{Bergomi1Factor, BergomiTransition};
@@ -36,3 +37,7 @@ pub use spec::{
 pub const fn market_foundation() -> &'static str {
     crate::market::foundation_role()
 }
+
+pub use stochastic_dividends::{
+    BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
+};
