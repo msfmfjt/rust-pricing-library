@@ -13,7 +13,9 @@ use crate::market::LocalVarianceGrid;
 use crate::mc::{
     DeterministicExecutor, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain,
 };
-use crate::models::{Bergomi1Factor, BergomiDynamics, RoughBergomi};
+use crate::models::{
+    Bergomi1Factor, BergomiDynamics, HistoryInnovations, OrthogonalNormals, RoughBergomi,
+};
 use pricing_numerics::NeumaierSum;
 use rayon::prelude::*;
 
@@ -98,21 +100,19 @@ impl<F: BergomiDynamics> ParticleDriver for MarkovDriver<F> {
         r: usize,
         z: f64,
     ) -> Result<F::State, LsvError> {
-        let z2 = self.rng.standard_normal(RandomCoordinate::new(
-            i as u64,
-            (self.nstep + r) as u32,
-            RandomDomain::LsvCalibration,
-        ));
-        let z3 = if F::FACTOR_COUNT == 2 {
+        let orthogonal = F::coordinates(|factor| {
             self.rng.standard_normal(RandomCoordinate::new(
                 i as u64,
-                (2 * self.nstep + r) as u32,
+                ((factor + 1) * self.nstep + r) as u32,
                 RandomDomain::LsvCalibration,
             ))
-        } else {
-            0.0
-        };
-        let next = self.factor.evolve(step, state, z, [z2, z3]);
+        });
+        let next = self.factor.evolve_normals(
+            step,
+            state,
+            z,
+            OrthogonalNormals::new(orthogonal.as_ref(), 1),
+        );
         if !F::finite(next) {
             return Err(LsvError::NonFiniteState {
                 time_index: r + 1,
@@ -270,7 +270,13 @@ fn calibrate_rough(
             near.push(q);
         }
         let mut log_multipliers = Vec::with_capacity(nt);
-        kernel.log_multipliers(&dw, &near, &mut log_multipliers)?;
+        kernel.prepare_history(
+            HistoryInnovations {
+                increments: &dw,
+                near_cell: &near,
+            },
+            &mut log_multipliers,
+        )?;
         for (a, m) in out.iter_mut().zip(log_multipliers) {
             *a = (0.5 * m).exp();
         }
