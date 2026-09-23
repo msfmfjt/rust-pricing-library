@@ -37,15 +37,26 @@ it does not introduce a new calibration convention or close S3/H3 acceptance.
 cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
 ```
 
-The seven oracle/gate/carry-regression tests also run in the normal test suite. CI explicitly
-runs the five expensive acceptance tests on Ubuntu, macOS and Windows. Each job
+The nine oracle/gate/carry/feasibility/grid tests also run in the normal test suite. CI explicitly
+runs the 27 expensive acceptance tests on Ubuntu, macOS and Windows. Each job
 retains `extended-model-accuracy.log` for 14 days, including on failure.
 `EXTENDED_ACCURACY` lines contain JSON with every requested strike, target IV,
 raw price, conditional pricing SE, calibration/pricing seed, numerical
 resolution, error budget and failure. `EXTENDED_REFINEMENT` records changes
 under independent refinement samples. `EXTENDED_LOCAL_CORRELATION` records
-global projection/fallback counts; assertions additionally require supported
-terminal interpolation nodes at the tested strikes.
+global projection/fallback counts and terminal-node ESS, attained variance and
+unprojected mixing. Assertions additionally require supported terminal
+interpolation nodes at the tested strikes. `EXTENDED_CALIBRATION` records
+LSV node diagnostics or explicitly labelled HW row diagnostics.
+`EXTENDED_INFEASIBLE_TARGET` records the analytic initial feasibility interval.
+
+The [refinement and stress extension](extended-model-refinement-stress.md)
+records the new cases, diagnostic limitations and measurements. The original
+Linux results below remain historical evidence for the initial panel.
+Before the sampling correction, the extension measured 74 panels: 73 passed,
+while the three-year joint 2F basket failed its sampling-error gates. The
+[sampling attribution record](multi-asset-sobol-attribution.md) describes the
+cause, the corrected QMC bridge layout and subsequent validation.
 
 The executable specification is
 [extended_model_acceptance.rs](../../crates/pricing/tests/extended_model_acceptance.rs),
@@ -58,8 +69,8 @@ used to obtain a passing price.
 ## Independent targets and cases
 
 All panels use spot 100, continuously compounded discount/dividend rates 3%/1%,
-ACT/365F and valuation date 2026-01-01. They price unsmoothed OTM puts/calls at
-log-forward strikes -0.12, 0 and 0.12. The oracle directly evaluates Black's
+ACT/365F and valuation date 2026-01-01. The original and refinement panels price unsmoothed OTM puts/calls at
+log-forward strikes -0.12, 0 and 0.12; stress panels use -0.36, 0 and 0.36. The oracle directly evaluates Black's
 formula and inverts each observed price by bracketed bisection. Invalid prices,
 nonfinite metrics, missing quotes and insufficient vega fail; no quote is dropped
 or clipped into the IV domain.
@@ -80,7 +91,8 @@ by 0.1 IV bp; this difference remains inside the total error budget.
 | Stochastic-rate LSV | 1F, 2F and rough with 2-year skew targets and nonzero rate/volatility correlations |
 | Gaussian BS/HW | 2-year options, mean reversion 0 and 0.2, equity/rate correlation -0.4, 0 and 0.4; piecewise rate volatility |
 | Joint local correlation | BS assets, 2F-LSV/BS assets, rough-LSV/HW/BS assets; both basket and first-constituent options |
-| Refinement | 1-year skew 2F and rough LSV; particle count, time steps and bandwidth changed one at a time |
+| Refinement | 1-year skew 1F/2F/rough, with and without HW; all three multi-asset configurations, basket and constituent; particle count, time steps and bandwidth changed one at a time |
+| Stress | 3-year stronger smiles, wider strikes and higher vol-of-vol; details in the extension record |
 
 Single-asset 1F parameters are `(k,nu,rho)=(2,0.7,-0.5)`; 2F parameters are
 `k=(3,0.3), nu=0.5, theta=0.35, rho_S=(-0.55,-0.2), rho_12=0.25`;
@@ -186,10 +198,12 @@ assert native cross-platform replay acceptance.
 
 ## Remaining scope
 
-These are representative price gates. They do not certify extreme smiles,
-tail strikes, very long maturities, large vol-of-vol, pure uncalibrated Bergomi
-price surfaces, path-dependent products, Greeks, physical-IV conversion with
-stochastic cash offsets, all local-correlation mixtures, or nominal confidence
-coverage. Refinement is currently for deterministic 2F/rough LSV; the HW and
-multi-asset cases have multiple seeds and independent price targets but need
-their own broader refinement studies before a production acceptance claim.
+These are representative price gates. The extension covers specified stronger
+smiles, higher vol-of-vol, 3-year maturities and wing strikes, with refinement
+for deterministic 1F/2F/rough, HW hybrids and the three local-correlation
+configurations. It does not certify arbitrary extreme parameters, pure
+uncalibrated Bergomi price surfaces, path-dependent products, Greeks,
+physical-IV conversion with stochastic cash offsets, all local-correlation
+mixtures, nominal confidence coverage or a convergence rate. In particular,
+a passing price at a tested quote does not certify unprojected calibration
+throughout the grid; the stress record describes the remaining projections.

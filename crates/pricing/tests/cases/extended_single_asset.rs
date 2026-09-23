@@ -1,6 +1,8 @@
 use super::*;
 use pricing::hull_white::HullWhiteEquityPricingPlan;
 use pricing::lsv::{BergomiLsvPricingPlan, RoughBergomiLsvPricingPlan};
+use pricing::mc::hull_white::CalibratedHullWhiteLsv;
+use pricing::mc::lsv::{LsvConditionalMoments, LsvLeverageSurface};
 use pricing::models::{
     Bergomi1Factor, Bergomi2Factor, HullWhite1Factor, HybridCorrelation, RoughBergomi,
 };
@@ -174,10 +176,15 @@ struct Case {
 }
 
 fn panel(case: Case, res: Resolution) -> Vec<QuoteReport> {
+    panel_at(case, res, &STRIKES)
+}
+
+fn panel_at(case: Case, res: Resolution, strikes: &[f64]) -> Vec<QuoteReport> {
     let t = time(case.expiry);
     let target = case.smile.target(case.expiry, res);
-    STRIKES
-        .into_iter()
+    strikes
+        .iter()
+        .copied()
         .map(|x| {
             let runs = SEEDS
                 .into_iter()
@@ -197,7 +204,7 @@ fn panel(case: Case, res: Resolution) -> Vec<QuoteReport> {
                             Factor::One => HullWhiteEquityPricingPlan::compile_lsv(
                                 &req,
                                 &target,
-                                one(),
+                                case.one(),
                                 rates(t),
                                 corr,
                                 res.particles(seed),
@@ -206,7 +213,7 @@ fn panel(case: Case, res: Resolution) -> Vec<QuoteReport> {
                             Factor::Two => HullWhiteEquityPricingPlan::compile_lsv_two_factor(
                                 &req,
                                 &target,
-                                two(),
+                                case.two(),
                                 rates(t),
                                 0.25,
                                 [-0.1, 0.02],
@@ -216,7 +223,7 @@ fn panel(case: Case, res: Resolution) -> Vec<QuoteReport> {
                             Factor::Rough => HullWhiteEquityPricingPlan::compile_rough_lsv(
                                 &req,
                                 &target,
-                                rough(),
+                                case.rough(),
                                 rates(t),
                                 corr,
                                 res.particles(seed),
@@ -224,34 +231,65 @@ fn panel(case: Case, res: Resolution) -> Vec<QuoteReport> {
                             ),
                         }
                         .unwrap();
+                        record_hw(case, res, seed, x, plan.calibration().unwrap());
                         let p = plan.evaluate().unwrap();
                         (p.value, p.standard_error)
                     } else {
                         let p = match case.factor {
-                            Factor::One => BergomiLsvPricingPlan::compile(
-                                &req,
-                                one(),
-                                res.particles(seed),
-                                res.policy(),
-                            )
-                            .unwrap()
-                            .evaluate(),
-                            Factor::Two => BergomiLsvPricingPlan::compile(
-                                &req,
-                                two(),
-                                res.particles(seed),
-                                res.policy(),
-                            )
-                            .unwrap()
-                            .evaluate(),
-                            Factor::Rough => RoughBergomiLsvPricingPlan::compile(
-                                &req,
-                                rough(),
-                                res.particles(seed),
-                                res.policy(),
-                            )
-                            .unwrap()
-                            .evaluate(),
+                            Factor::One => {
+                                let plan = BergomiLsvPricingPlan::compile(
+                                    &req,
+                                    case.one(),
+                                    res.particles(seed),
+                                    res.policy(),
+                                )
+                                .unwrap();
+                                record_lsv(
+                                    case,
+                                    res,
+                                    seed,
+                                    x,
+                                    plan.calibration().surface(),
+                                    plan.calibration().conditional_moments(),
+                                );
+                                plan.evaluate()
+                            }
+                            Factor::Two => {
+                                let plan = BergomiLsvPricingPlan::compile(
+                                    &req,
+                                    case.two(),
+                                    res.particles(seed),
+                                    res.policy(),
+                                )
+                                .unwrap();
+                                record_lsv(
+                                    case,
+                                    res,
+                                    seed,
+                                    x,
+                                    plan.calibration().surface(),
+                                    plan.calibration().conditional_moments(),
+                                );
+                                plan.evaluate()
+                            }
+                            Factor::Rough => {
+                                let plan = RoughBergomiLsvPricingPlan::compile(
+                                    &req,
+                                    case.rough(),
+                                    res.particles(seed),
+                                    res.policy(),
+                                )
+                                .unwrap();
+                                record_lsv(
+                                    case,
+                                    res,
+                                    seed,
+                                    x,
+                                    plan.calibration().surface(),
+                                    plan.calibration().conditional_moments(),
+                                );
+                                plan.evaluate()
+                            }
                         }
                         .unwrap();
                         (p.value, p.standard_error)
@@ -441,71 +479,183 @@ fn gaussian_hull_white_independent_price_reference() {
     }
 }
 
-#[test]
-#[ignore = "release-mode multi-seed extended-model acceptance"]
-fn lsv_refinement_consistency() {
-    for factor in [Factor::Two, Factor::Rough] {
-        let case = Case {
-            factor,
-            smile: Smile::Skew,
-            expiry: "2027-01-01",
-            cash: Cash::None,
-            hw: false,
-        };
-        let base = panel(case, FINE);
+fn refinement_case(case: Case) {
+    let base = panel(case, FINE);
+    report(
+        json!({"refinement":"base","case":case}),
+        FINE,
+        &base,
+        LSV_BUDGET,
+    );
+    for (axis, res) in refinements() {
+        let refined = panel(case, res);
         report(
-            json!({"refinement":"base","case":case}),
-            FINE,
-            &base,
+            json!({"refinement":axis,"case":case}),
+            res,
+            &refined,
             LSV_BUDGET,
         );
-        for (axis, res) in [
-            (
-                "particles",
-                Resolution {
-                    particles: 32_768,
-                    seed_offset: 10_000,
-                    ..FINE
-                },
-            ),
-            (
-                "time_steps",
-                Resolution {
-                    steps: 256,
-                    seed_offset: 20_000,
-                    ..FINE
-                },
-            ),
-            (
-                "bandwidth",
-                Resolution {
-                    bandwidth: 0.035,
-                    seed_offset: 30_000,
-                    ..FINE
-                },
-            ),
-        ] {
-            let refined = panel(case, res);
-            report(
-                json!({"refinement":axis,"case":case}),
-                res,
-                &refined,
-                LSV_BUDGET,
-            );
-            for (b, r) in base.iter().zip(&refined) {
-                // Disjoint calibration AND pricing streams across resolutions.
-                // This is a stability gate, not an assumed monotonic MC error.
-                let change = (b.iv_error_bp - r.iv_error_bp).abs();
-                let bound = 5.0 + 3.0 * b.ensemble_se_bp.hypot(r.ensemble_se_bp);
-                println!(
-                    "EXTENDED_REFINEMENT {}",
-                    json!({"case":case,"axis":axis,"log_strike":b.log_strike,"change_bp":change,"bound_bp":bound})
-                );
-                assert!(
-                    change <= bound,
-                    "{case:?}/{axis}: change={change}, bound={bound}"
-                );
-            }
+        compare_refinement(json!(case), axis, &base, &refined);
+    }
+}
+
+fn stress_case(factor: Factor, hw: bool) {
+    // Strong tails can breach a fixed-cash dividend's positive-spot domain.
+    // Keep that domain check intact; isolate the smile/vol-of-vol price study
+    // from paid-cash feasibility (covered by the original/refinement cases).
+    let case = Case {
+        factor,
+        smile: Smile::Stress,
+        expiry: "2029-01-01",
+        cash: Cash::None,
+        hw,
+    };
+    let res = Resolution {
+        particles: 131_072,
+        points: 16_384,
+        ..STRESS
+    };
+    report_at(
+        json!({"stress":true,"case":case}),
+        res,
+        &panel_at(case, res, &WINGS),
+        &WINGS,
+        LSV_BUDGET,
+    );
+}
+
+// Separate test entries prevent a failure in one model from hiding the rest
+// and allow an expensive failing case to be rerun by name.
+macro_rules! model_cases {
+    ($refinement:ident, $stress:ident, $factor:expr, $hw:expr) => {
+        #[test]
+        #[ignore = "release-mode multi-seed extended-model acceptance"]
+        fn $refinement() {
+            refinement_case(Case {
+                factor: $factor,
+                smile: Smile::Skew,
+                expiry: "2027-01-01",
+                cash: if $hw { Cash::Expiry } else { Cash::None },
+                hw: $hw,
+            });
+        }
+        #[test]
+        #[ignore = "release-mode multi-seed extended-model acceptance"]
+        fn $stress() {
+            stress_case($factor, $hw);
+        }
+    };
+}
+model_cases!(
+    one_factor_refinement_consistency,
+    one_factor_stress_repricing,
+    Factor::One,
+    false
+);
+model_cases!(
+    two_factor_refinement_consistency,
+    two_factor_stress_repricing,
+    Factor::Two,
+    false
+);
+model_cases!(
+    rough_refinement_consistency,
+    rough_stress_repricing,
+    Factor::Rough,
+    false
+);
+model_cases!(
+    one_factor_hw_refinement_consistency,
+    one_factor_hw_stress_repricing,
+    Factor::One,
+    true
+);
+model_cases!(
+    two_factor_hw_refinement_consistency,
+    two_factor_hw_stress_repricing,
+    Factor::Two,
+    true
+);
+model_cases!(
+    rough_hw_refinement_consistency,
+    rough_hw_stress_repricing,
+    Factor::Rough,
+    true
+);
+
+impl Case {
+    fn one(self) -> Bergomi1Factor {
+        if matches!(self.smile, Smile::Stress) {
+            Bergomi1Factor::new(2.0, 1.2, -0.5).unwrap()
+        } else {
+            one()
         }
     }
+    fn two(self) -> Bergomi2Factor {
+        if matches!(self.smile, Smile::Stress) {
+            Bergomi2Factor::new([3.0, 0.3], 0.9, 0.35, [-0.55, -0.2], 0.25).unwrap()
+        } else {
+            two()
+        }
+    }
+    fn rough(self) -> RoughBergomi {
+        if matches!(self.smile, Smile::Stress) {
+            RoughBergomi::new(0.12, 1.0, -0.5).unwrap()
+        } else {
+            rough()
+        }
+    }
+}
+
+fn record_lsv(
+    case: Case,
+    res: Resolution,
+    seed: u64,
+    x: f64,
+    surface: &LsvLeverageSurface,
+    moments: &[LsvConditionalMoments],
+) {
+    let m = surface.log_nodes().len();
+    let start = moments.len() - m;
+    let nodes: Vec<_> = bracket(surface.log_nodes(), x).map(|j| {
+        let d = &moments[start+j];
+        json!({"x":surface.log_nodes()[j],"ess":d.effective_samples,"fallback":d.extrapolated,"source_node":d.source_node})
+    }).collect();
+    println!(
+        "EXTENDED_CALIBRATION {}",
+        json!({"case":case,"resolution":res,"seed":seed,"x":x,
+        "diagnostic_scope":"node","global_fallback_nodes":moments.iter().filter(|d| d.extrapolated).count(),
+        "total_nodes":moments.len(),"terminal_quote_nodes":nodes})
+    );
+    for j in bracket(surface.log_nodes(), x) {
+        let d = &moments[start + j];
+        assert!(
+            !d.extrapolated && d.effective_samples.is_finite() && d.effective_samples >= 100.0,
+            "{case:?}, seed={seed}, x={x}: unsupported terminal node {d:?}"
+        );
+    }
+}
+
+fn record_hw(case: Case, res: Resolution, seed: u64, x: f64, cal: &CalibratedHullWhiteLsv) {
+    // The public HW snapshot exposes row minima, not per-node ESS/fallback.
+    // Report that scope explicitly; it cannot certify support at a quote node.
+    let rows = &cal.diagnostics;
+    let last = rows.last().unwrap();
+    println!(
+        "EXTENDED_CALIBRATION {}",
+        json!({"case":case,"resolution":res,"seed":seed,"x":x,
+        "diagnostic_scope":"row","global_fallback_nodes":rows.iter().map(|d|d.fallback_nodes).sum::<usize>(),
+        "total_nodes":cal.conditional_second_moments.len(),
+        "minimum_row_ess":rows.iter().map(|d|d.minimum_effective_samples).fold(f64::INFINITY,f64::min),
+        "terminal_minimum_ess":last.minimum_effective_samples,"terminal_fallback_nodes":last.fallback_nodes,
+        "maximum_rate_correction":rows.iter().map(|d|d.maximum_rate_correction).fold(0.0,f64::max)})
+    );
+    assert!(rows.iter().all(|d| d.minimum_effective_samples.is_finite()
+        && d.minimum_effective_samples >= 0.0
+        && d.maximum_rate_correction.is_finite()));
+    assert!(
+        cal.conditional_second_moments
+            .iter()
+            .all(|v| v.is_finite() && *v > 0.0)
+    );
 }

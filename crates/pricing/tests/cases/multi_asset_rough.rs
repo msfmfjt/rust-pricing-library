@@ -275,6 +275,10 @@ fn rough_vega_kt_all_quotes_mixed_factors_mc_errors_and_trace_contract() {
 #[test]
 fn rough_brownian_boundary_zero_eta_and_singular_drivers_are_explicit() {
     let mut c = rough_case();
+    // Keep common stock coordinates for pathwise limits across models with
+    // different numbers of auxiliary factors; bridge-rank-major QMC uses
+    // that full factor count when allocating its dimensions.
+    c.engine = rqmc(128, false);
     c.full = None;
     c.rates = HullWhite1Factor::new(0.0, vec![0.0], vec![0.0]).unwrap();
     c.configs = vec![
@@ -315,6 +319,7 @@ fn rough_brownian_boundary_zero_eta_and_singular_drivers_are_explicit() {
         assert!(p.evaluate_aad(MultiAssetRiskConfig::default()).is_ok());
     }
     let mut c = rough_case();
+    c.engine = rqmc(128, false);
     c.full = None;
     for i in 0..2 {
         c.configs[i] = Some(config(0.5, 0.4, [-0.65, -0.35][i], 401 + i as u64, true));

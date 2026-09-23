@@ -138,6 +138,14 @@ REQUIRED_FILES = {
     "crates/pricing/tests/cases/extended_single_asset.rs",
     "crates/pricing/tests/cases/extended_multi_asset.rs",
     "design/validation/extended-model-accuracy.md",
+    "design/validation/extended-model-refinement-stress.md",
+    "design/validation/extended-model-two-factor-stress.json",
+    "design/validation/extended-model-sampling-attribution.json",
+    "design/validation/multi-asset-sobol-corrected-panel.json",
+    "design/validation/multi-asset-sobol-attribution.md",
+    "crates/pricing/src/engine/multi_asset/local_correlation/stress_diagnostics.rs",
+    "crates/pricing/src/engine/multi_asset/path/sampling_contracts.rs",
+    "scripts/diagnose_stress_sobol.py",
 }
 
 CRATE_MANIFESTS = {

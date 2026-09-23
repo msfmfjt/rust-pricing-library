@@ -1047,6 +1047,10 @@ fn lsv_targets() -> Vec<Vec<f64>> {
 
 #[test]
 fn multi_lsv_zero_nu_recovers_nonflat_lv_and_target_chain_rule_with_carry() {
+    // These pathwise identities compare different factor counts. Unbridged
+    // QMC retains common stock coordinates; the bridge-rank-major layout
+    // deliberately reallocates dimensions when the factor count changes.
+    let engine = rqmc(256, false);
     let markets = vec![
         market(1, 100.0, 0.04, 0.01, vec![]),
         market(2, 90.0, 0.04, 0.02, vec![]),
@@ -1057,7 +1061,7 @@ fn multi_lsv_zero_nu_recovers_nonflat_lv_and_target_chain_rule_with_carry() {
         markets.clone(),
         targets.clone(),
         corr(2, 0.4),
-        rqmc(256, true),
+        engine,
         1,
     );
     let plan = compile_lsv(
@@ -1065,7 +1069,7 @@ fn multi_lsv_zero_nu_recovers_nonflat_lv_and_target_chain_rule_with_carry() {
         markets,
         targets,
         corr(2, 0.4),
-        rqmc(256, true),
+        engine,
         2,
         lsv_configs(0.0),
         None,

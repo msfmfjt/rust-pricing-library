@@ -87,9 +87,14 @@ time knots. An explicit `maximum_step` controls subdivision. LV grids must
 start at zero and cover the latest observation; their stored grids are not
 resampled. Asset models need not have identical LV grids.
 
-Independent normal coordinates are **factor-major**, with one full time block
-per underlying. Brownian bridge is applied separately to each independent
-factor. The per-interval correlation factor is then applied to those increments.
+RQMC with Brownian bridge assigns dimensions **bridge-rank-major**,
+`dimension = bridge_rank * factor_count + factor`. The first dimensions thus
+construct the terminal value of every independent factor. Pseudo-MC and
+unbridged RQMC retain factor-major coordinates, with one full time block per
+factor. Bridge construction precedes the per-interval correlation loading.
+The RQMC bridge layout is version 2 in the plan fingerprint; its finite sample
+paths and estimates differ from the earlier factor-major layout. See the
+[sampling attribution record](../../design/validation/multi-asset-sobol-attribution.md).
 Singular periods retain all columns and the same random layout. Antithetics
 negate all correlated increments together. RQMC keeps the existing Joe-Kuo
 21,201-dimension limit and requires at least two independent scrambles.

@@ -113,10 +113,11 @@ A single correlated normal per driver would not reproduce this joint law.
 Factorization uses the existing spot prefix and pivoted volatility/rate suffix,
 extended to the power-integral rows. H=0.5 rows enforce their exact equality
 to dV. No jitter, eigenvalue repair or tolerance relaxation is applied. All
-N+F+2+M independent normal blocks are retained. Bridge construction operates
-on factor-major independent blocks before loading; antithetic paths negate
-every block. The new fingerprint records the rough scheme and asset mapping.
-Plans with no rough assets retain their previous fingerprints and paths.
+N+F+2+M independent normal blocks are retained. RQMC bridge coordinates are
+bridge-rank-major across all those factors; pseudo-MC and unbridged RQMC keep
+factor-major coordinates. Bridge construction precedes joint loading, and
+antithetic paths negate every block. The fingerprint records the rough scheme,
+asset mapping and shared sampling-layout version.
 
 ## Calibration, risk and cost
 
