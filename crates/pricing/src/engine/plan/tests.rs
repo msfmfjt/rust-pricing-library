@@ -3021,9 +3021,13 @@ mod tests {
         let ex_time = plan.observation_times[0];
         let first_state = observations[0].canonical_f;
         let terminal_state = observations[1].canonical_f;
-        let transformed_post_dividend_barrier = 85.0 / 0.9;
+        let reserve = 15.0 / 0.9;
+        let transformed_pre_dividend_barrier = (70.0 - reserve) / (1.0 - reserve / 100.0);
+        let transformed_post_dividend_barrier = 70.0 / 0.75;
         let first_survival = 1.0
-            - (-2.0 * (100.0_f64 / 70.0).ln() * (first_state / 70.0).ln()
+            - (-2.0
+                * (100.0_f64 / transformed_pre_dividend_barrier).ln()
+                * (first_state / transformed_pre_dividend_barrier).ln()
                 / (0.2_f64.powi(2) * ex_time))
                 .exp();
         let second_survival = 1.0

@@ -295,8 +295,8 @@ class HullWhiteTest(unittest.TestCase):
         rates = rp.HullWhiteModel(0.2, [0.0], [0.0])
         kwargs = dict(equity_rate_correlation=0.0, maximum_step=1.0, worker_threads=1)
         affine = rp.HullWhiteEquityPlan.compile_bs(request, rates, **kwargs)
-        self.assertEqual(affine.cash_dividend_model, "affine-paid-cash-realized-carry-v1")
-        self.assertEqual(affine.risky_spot, 100.0)
+        self.assertEqual(affine.cash_dividend_model, "escrowed-hw-bonds-v1")
+        self.assertAlmostEqual(affine.risky_spot, 100.0 - 10.0*0.95/0.98, places=12)
         self.assertAlmostEqual(affine.evaluate().value, 12.5, places=12)
         plan = rp.HullWhiteEquityPlan.compile_bs(
             request, rates, cash_dividend_model="escrowed", **kwargs

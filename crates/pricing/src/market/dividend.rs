@@ -137,12 +137,17 @@ impl CompiledDividendEvent {
 pub struct AffineDividendCoordinate {
     a: f64,
     b: f64,
+    spot_scale: f64,
 }
 
 impl AffineDividendCoordinate {
     #[must_use]
     pub const fn identity() -> Self {
-        Self { a: 0.0, b: 1.0 }
+        Self {
+            a: 0.0,
+            b: 1.0,
+            spot_scale: 1.0,
+        }
     }
 
     #[must_use]
@@ -155,6 +160,26 @@ impl AffineDividendCoordinate {
         self.b
     }
 
+    /// Spot derivative at a fixed normalized residual-equity path. Cash amounts
+    /// are fixed, including the cash funded in the initial escrow reserve.
+    #[must_use]
+    pub const fn spot_scale(self) -> f64 {
+        self.spot_scale
+    }
+
+    /// Refit only the Spot-dependent escrow scale, holding all cash fixed.
+    #[must_use]
+    pub(crate) fn at_spot(self, original: f64, spot: f64) -> Self {
+        if original == spot {
+            return self;
+        }
+        Self {
+            a: self.a * original / spot,
+            b: self.spot_scale - (self.spot_scale - self.b) * original / spot,
+            spot_scale: self.spot_scale,
+        }
+    }
+
     #[must_use]
     pub fn reconstruct_spot(self, initial_spot: PositiveF64, f_value: f64) -> f64 {
         self.a * initial_spot.get() + self.b * f_value
@@ -164,6 +189,7 @@ impl AffineDividendCoordinate {
         let next = Self {
             a: (1.0 - event.beta) * self.a - event.alpha,
             b: (1.0 - event.beta) * self.b,
+            spot_scale: (1.0 - event.beta) * self.spot_scale,
         };
         if !next.a.is_finite() {
             return Err(MarketError::NonFiniteDividendTransform {
@@ -253,6 +279,7 @@ pub struct AffineDividendTransform {
     spot: PositiveF64,
     events: Box<[CompiledDividendEvent]>,
     carry_curves: Option<(Arc<LogLinearDiscountCurve>, Arc<LogLinearDiscountCurve>)>,
+    initial_reserve: f64,
 }
 
 impl AffineDividendTransform {
@@ -266,24 +293,77 @@ impl AffineDividendTransform {
             .into_iter()
             .map(|event| compile_event(event, spot))
             .collect::<Result<Box<[_]>, _>>()?;
-        Ok(Self {
+        let mut transform = Self {
             underlying,
             spot,
             events: compiled,
             carry_curves: None,
-        })
+            initial_reserve: 0.0,
+        };
+        transform.compile_reserve()?;
+        Ok(transform)
     }
 
-    /// Attach deterministic carry for the affine cash offset. The continuous
-    /// f coordinate already carries at r-q, so only A (not B) is propagated.
-    /// A standalone transform created with `new` retains zero-carry semantics.
-    pub(crate) fn with_carry_curves(
-        mut self,
+    /// Compile the funded reserve using the market curves. The standalone
+    /// constructor uses zero rates; validate funding only in the chosen curves.
+    pub(crate) fn new_with_carry_curves(
+        underlying: UnderlyingId,
+        spot: PositiveF64,
+        events: Vec<DividendEvent>,
         discount: Arc<LogLinearDiscountCurve>,
         dividend: Arc<LogLinearDiscountCurve>,
-    ) -> Self {
-        self.carry_curves = Some((discount, dividend));
-        self
+    ) -> Result<Self, MarketError> {
+        validate_events(&events)?;
+        let mut result = Self {
+            underlying,
+            spot,
+            events: events
+                .into_iter()
+                .map(|e| compile_event(e, spot))
+                .collect::<Result<_, _>>()?,
+            carry_curves: Some((discount, dividend)),
+            initial_reserve: 0.0,
+        };
+        result.compile_reserve()?;
+        Ok(result)
+    }
+
+    fn compile_reserve(&mut self) -> Result<(), MarketError> {
+        let mut proportional = 1.0;
+        let mut reserve = 0.0;
+        for event in &self.events {
+            proportional *= 1.0 - event.beta;
+            let discount = if let Some((p, q)) = &self.carry_curves {
+                p.discount(event.ex_time)? / q.discount(event.ex_time)?
+            } else {
+                1.0
+            };
+            reserve += event.fixed_cash / proportional * discount;
+        }
+        let residual = self.spot.get() - reserve;
+        if !reserve.is_finite() || !residual.is_finite() || residual <= 0.0 {
+            return Err(MarketError::NonPositiveEscrowedSpot {
+                underlying: self.underlying,
+                spot_bits: self.spot.get().to_bits(),
+                reserve_bits: reserve.to_bits(),
+            });
+        }
+        self.initial_reserve = reserve;
+        Ok(())
+    }
+
+    #[must_use]
+    pub const fn initial_reserve(&self) -> f64 {
+        self.initial_reserve
+    }
+
+    #[must_use]
+    pub fn initial_coordinate(&self) -> AffineDividendCoordinate {
+        AffineDividendCoordinate {
+            a: self.initial_reserve / self.spot.get(),
+            b: (self.spot.get() - self.initial_reserve) / self.spot.get(),
+            spot_scale: 1.0,
+        }
     }
 
     fn carry(
@@ -343,9 +423,11 @@ impl AffineDividendTransform {
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let mut bumped = Self::new(self.underlying, spot, events)?;
-        bumped.carry_curves = self.carry_curves.clone();
-        Ok(bumped)
+        if let Some((p, q)) = &self.carry_curves {
+            Self::new_with_carry_curves(self.underlying, spot, events, Arc::clone(p), Arc::clone(q))
+        } else {
+            Self::new(self.underlying, spot, events)
+        }
     }
 
     pub fn coordinate_after_time(
@@ -359,14 +441,23 @@ impl AffineDividendTransform {
                 bits: time.to_bits(),
             });
         }
-        let mut coordinate = AffineDividendCoordinate::identity();
+        let mut coordinate = self.initial_coordinate();
         let mut previous_time = 0.0;
         for event in self.events.iter().take_while(|e| e.ex_time <= time) {
             coordinate = self.carry(coordinate, previous_time, event.ex_time)?;
             coordinate = coordinate.after(*event)?;
             previous_time = event.ex_time;
         }
-        self.carry(coordinate, previous_time, time)
+        coordinate = self.carry(coordinate, previous_time, time)?;
+        // Exact zero after the final cash event, avoiding cancellation residue.
+        if self
+            .events
+            .iter()
+            .all(|e| e.ex_time <= time || e.fixed_cash == 0.0)
+        {
+            coordinate.a = 0.0;
+        }
+        Ok(coordinate)
     }
 
     pub fn coordinate_before_event(
@@ -374,7 +465,7 @@ impl AffineDividendTransform {
         event_index: usize,
     ) -> Result<AffineDividendCoordinate, MarketError> {
         let event = self.events[event_index];
-        let mut coordinate = AffineDividendCoordinate::identity();
+        let mut coordinate = self.initial_coordinate();
         let mut previous_time = 0.0;
         for earlier in &self.events[..event_index] {
             coordinate = self.carry(coordinate, previous_time, earlier.ex_time)?;
@@ -382,6 +473,12 @@ impl AffineDividendTransform {
             previous_time = earlier.ex_time;
         }
         coordinate = self.carry(coordinate, previous_time, event.ex_time)?;
+        if self.events[event_index..]
+            .iter()
+            .all(|e| e.fixed_cash == 0.0)
+        {
+            coordinate.a = 0.0;
+        }
         if coordinate.a.is_finite() && coordinate.b.is_finite() {
             Ok(coordinate)
         } else {
@@ -395,11 +492,15 @@ impl AffineDividendTransform {
 
     pub fn event_timeline(&self) -> Result<Box<[AffineDividendTimelineEntry]>, MarketError> {
         let mut entries = Vec::with_capacity(self.events.len());
-        let mut coordinate = AffineDividendCoordinate::identity();
+        let mut coordinate = self.initial_coordinate();
         let mut previous_time = 0.0;
-        for event in &self.events {
+        let last_cash = self.events.iter().rposition(|e| e.fixed_cash != 0.0);
+        for (index, event) in self.events.iter().enumerate() {
             let before = self.carry(coordinate, previous_time, event.ex_time)?;
-            let after = before.after(*event)?;
+            let mut after = before.after(*event)?;
+            if last_cash.is_none_or(|last| index >= last) {
+                after.a = 0.0;
+            }
             entries.push(AffineDividendTimelineEntry {
                 event: event.event,
                 ex_time: event.ex_time,
@@ -625,15 +726,15 @@ mod tests {
         .expect("transform");
 
         let after_first = transform.coordinate_after_time(0.25).expect("coordinate");
-        assert_eq!(after_first.a(), -0.03);
-        assert_eq!(after_first.b(), 1.0);
-        assert_eq!(after_first.reconstruct_spot(spot(100.0), 103.0), 100.0);
+        assert_eq!(after_first.a(), 0.0);
+        assert_eq!(after_first.b(), 0.97);
+        assert!((after_first.reconstruct_spot(spot(100.0), 103.0) - 99.91).abs() < 1e-13);
 
         let after_second = transform.coordinate_after_time(0.5).expect("coordinate");
-        assert!((after_second.a() + 0.027).abs() < 1.0e-15);
-        assert!((after_second.b() - 0.9).abs() < 1.0e-15);
+        assert!((after_second.a()).abs() < 1.0e-15);
+        assert!((after_second.b() - 0.873).abs() < 1.0e-15);
         assert!(
-            (transform.spot_contract_strike(0.5, 120.0).expect("strike") - 105.3).abs() < 1.0e-14
+            (transform.spot_contract_strike(0.5, 120.0).expect("strike") - 104.76).abs() < 1.0e-14
         );
         assert_eq!(DIVIDEND_EVENT_ORDER, "dividend_before_expiry_v1");
     }
@@ -663,49 +764,27 @@ mod tests {
 
         let timeline = transform.event_timeline().expect("timeline");
         assert_eq!(timeline.len(), 2);
-        assert_eq!(timeline[0].before(), AffineDividendCoordinate::identity());
-        assert_eq!(timeline[0].after().a(), -0.03);
-        assert_eq!(timeline[0].after().b(), 1.0);
+        assert_eq!(timeline[0].before(), transform.initial_coordinate());
+        assert_eq!(timeline[0].after().a(), 0.0625);
+        assert_eq!(timeline[0].after().b(), 0.9075);
         assert_eq!(timeline[1].before(), timeline[0].after());
-        assert!((timeline[1].after().a() + 0.074).abs() < 1.0e-15);
-        assert!((timeline[1].after().b() - 0.8).abs() < 1.0e-15);
+        assert!((timeline[1].after().a()).abs() < 1.0e-15);
+        assert!((timeline[1].after().b() - 0.726).abs() < 1.0e-15);
     }
 
     #[test]
-    fn f_state_post_dividend_check_uses_affine_coordinates() {
+    fn unfunded_schedule_is_rejected_before_simulation() {
+        let id = EventId::new(1);
         let transform = AffineDividendTransform::new(
             UnderlyingId::new(7),
             spot(100.0),
             vec![
-                DividendEvent::new(
-                    EventId::new(1),
-                    0.25,
-                    DividendQuote::fixed_cash(3.0, EventId::new(1)).expect("cash"),
-                )
-                .expect("event"),
-                DividendEvent::new(
-                    EventId::new(2),
-                    0.5,
-                    DividendQuote::fixed_cash(110.0, EventId::new(2)).expect("cash"),
-                )
-                .expect("event"),
+                DividendEvent::new(id, 0.5, DividendQuote::fixed_cash(110.0, id).unwrap()).unwrap(),
             ],
-        )
-        .expect("transform");
-
-        assert_eq!(
-            transform
-                .validate_post_event_f_state(0, PathIndex::new(12), 103.0)
-                .expect("post spot"),
-            100.0
         );
         assert!(matches!(
-            transform.validate_post_event_f_state(1, PathIndex::new(12), 103.0),
-            Err(MarketError::NonPositivePostDividendSpot {
-                event,
-                path,
-                ..
-            }) if event == EventId::new(2) && path == PathIndex::new(12)
+            transform,
+            Err(MarketError::NonPositiveEscrowedSpot { .. })
         ));
     }
 

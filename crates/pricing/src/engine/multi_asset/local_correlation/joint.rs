@@ -23,6 +23,24 @@ pub(super) struct Joint {
     pub near: Vec<Option<usize>>,
 }
 impl Joint {
+    /// Unit-forward escrow quote coordinate, rate diffusion, and deterministic
+    /// reserve shift. Simulation history continues to hold residual equity.
+    pub fn quote_state(&self, i: usize, row: usize, states: &[f64]) -> Result<[f64; 3], E> {
+        if let Some(hw) = &self.assets[i].hw {
+            let spot = hw.dividends.initial_spot();
+            let node = &hw.dividends.nodes()[row];
+            let (f, zeta) = node
+                .target_state(states[i] * spot, states[self.rate.unwrap()])
+                .map_err(E::numerical)?;
+            Ok([
+                f / spot,
+                zeta / spot,
+                node.deterministic_reserve() / node.scale() / spot,
+            ])
+        } else {
+            Ok([states[i], 0.0, 0.0])
+        }
+    }
     pub fn compile(
         plan: &MultiAssetPricingPlan,
         config: &LocalCorrelationConfig,
@@ -161,6 +179,9 @@ impl Joint {
             .iter()
             .enumerate()
             .map(|(i, a)| {
+                if let Some(hw) = &a.hw {
+                    return hw.parameter_count();
+                }
                 self.surface(i).map_or_else(
                     || match &a.model {
                         ModelSpec::LocalVolatility(l) => l.local_variance_grid().values().len(),
@@ -219,6 +240,29 @@ impl Joint {
     }
 }
 impl LocalCorrelationCalibration {
+    pub(super) fn joint_basket(&self, row: usize, states: &[f64]) -> Result<f64, E> {
+        let j = self.joint.as_ref().unwrap();
+        self.config
+            .basket_weights
+            .iter()
+            .enumerate()
+            .map(|(i, w)| Ok(w * j.quote_state(i, row, states)?[0]))
+            .sum()
+    }
+    pub(super) fn joint_basket_shift(&self, row: usize) -> f64 {
+        let j = self.joint.as_ref().unwrap();
+        self.config
+            .basket_weights
+            .iter()
+            .zip(&j.assets)
+            .map(|(w, a)| {
+                a.hw.as_ref().map_or(0.0, |hw| {
+                    let node = &hw.dividends.nodes()[row];
+                    w * node.deterministic_reserve() / node.scale() / hw.dividends.initial_spot()
+                })
+            })
+            .sum()
+    }
     pub fn driver_correlation_at(&self, time: f64, log_basket: f64) -> Result<Vec<Vec<f64>>, E> {
         self.correlation_at(time, log_basket)?; // common coverage validation
         let Some(joint) = &self.joint else {
@@ -243,7 +287,18 @@ impl LocalCorrelationCalibration {
     pub(super) fn joint_sigma(&self, i: usize, row: usize, history: &[Vec<f64>]) -> Result<f64, E> {
         let joint = self.joint.as_ref().unwrap();
         if let Some(s) = joint.surface(i) {
-            let l = crate::engine::processes::hull_white::reverse::lookup(s, row, history[row][i]);
+            let f = if let Some(hw) = &joint.assets[i].hw {
+                hw.dividends.nodes()[row]
+                    .target_state(
+                        history[row][i] * hw.dividends.initial_spot(),
+                        history[row][joint.rate.unwrap()],
+                    )
+                    .map_err(E::numerical)?
+                    .0
+            } else {
+                history[row][i]
+            };
+            let l = crate::engine::processes::hull_white::reverse::lookup(s, row, f);
             Ok(l.value.sqrt() * joint.log_multiplier(i, row, history).exp())
         } else {
             self.sigma(i, row, history[row][i])
@@ -252,7 +307,7 @@ impl LocalCorrelationCalibration {
     pub(super) fn joint_moments(&self, row: usize, history: &[Vec<f64>]) -> Result<[f64; 2], E> {
         let n = self.models.len();
         let states = &history[row];
-        let b = self.basket(states);
+        let b = self.joint_basket(row, states)?;
         let a =
             (0..n)
                 .map(|i| {
@@ -262,8 +317,13 @@ impl LocalCorrelationCalibration {
                         / b)
                 })
                 .collect::<Result<Vec<_>, E>>()?;
+        let joint = self.joint.as_ref().unwrap();
+        let mut rate_loading = 0.0;
+        for (i, w) in self.config.basket_weights.iter().enumerate() {
+            rate_loading += w * joint.quote_state(i, row, states)?[1] / b;
+        }
         Ok(std::array::from_fn(|e| {
-            (0..n)
+            let equity_variance: f64 = (0..n)
                 .map(|i| {
                     (0..n)
                         .map(|j| {
@@ -272,7 +332,14 @@ impl LocalCorrelationCalibration {
                         })
                         .sum::<f64>()
                 })
-                .sum()
+                .sum();
+            let cross: f64 = joint.rate.map_or(0.0, |r| {
+                let corr = &joint.drivers[e].entries[self.entries[row]];
+                (0..n)
+                    .map(|i| a[i] * corr.canonical()[i * corr.dimension() + r])
+                    .sum()
+            });
+            equity_variance + 2.0 * rate_loading * cross + rate_loading * rate_loading
         }))
     }
     pub(super) fn joint_step(
@@ -284,7 +351,7 @@ impl LocalCorrelationCalibration {
         let j = self.joint.as_ref().unwrap();
         let s = &history[row];
         let mut next = s.clone();
-        let lambda = self.lookup(row, self.basket(s).ln()).value;
+        let lambda = self.lookup(row, self.joint_basket(row, s)?.ln()).value;
         let noise: Vec<_> = j
             .endpoint_noises(row, z)
             .iter()
@@ -351,7 +418,7 @@ impl LocalCorrelationCalibration {
                     None
                 };
                 if let Some(xs) = xs {
-                    let x = states[row][i].ln();
+                    let x = j.quote_state(i, row, &states[row])?[0].ln();
                     if x < xs[0] || x > xs[xs.len() - 1] {
                         *count += 1.0;
                     }

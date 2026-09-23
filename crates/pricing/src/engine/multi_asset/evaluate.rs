@@ -21,8 +21,8 @@ impl Layout {
         let mut vega = Vec::new();
         if risk.is_some() {
             for a in &plan.assets {
-                let count = if let Some(c) = a.hw.as_ref().and_then(|h| h.calibration.as_ref()) {
-                    c.surface.squared_leverage().len()
+                let count = if let Some(hw) = &a.hw {
+                    hw.parameter_count()
                 } else if let Some(lsv) = &a.lsv {
                     lsv.calibration.surface().squared_leverage().len()
                 } else {
@@ -100,6 +100,17 @@ impl MultiAssetPricingPlan {
         {
             return Err(E::Invalid("Gamma relative bump must lie in (0,1)"));
         }
+        if let Some(b) = config.gamma_relative_bump {
+            for a in &self.assets {
+                a.forward.with_spot(
+                    crate::core::PositiveF64::new(
+                        a.forward.spot().get() * (1.0 - b),
+                        "Gamma down Spot",
+                    )
+                    .map_err(E::numerical)?,
+                )?;
+            }
+        }
         if self
             .payoff
             .opcodes()
@@ -114,23 +125,77 @@ impl MultiAssetPricingPlan {
     }
     fn run(&self, risk: Option<MultiAssetRiskConfig>) -> Result<MultiAssetPrice, E> {
         let layout = Layout::new(self, risk);
+        let market_weights = if risk.is_some() && self.hull_white.is_some() {
+            self.hw_market_weights(&layout)?.as_slice()
+        } else {
+            &[]
+        };
+        let first_order = Some(MultiAssetRiskConfig::default());
+        let gamma_layout = Layout::new(self, first_order);
+        let mut gamma_plans = Vec::new();
+        if let Some(relative) = risk.and_then(|r| r.gamma_relative_bump)
+            && self.recalibrated_gamma()
+        {
+            for (i, a) in self.assets.iter().enumerate() {
+                let h = relative * a.forward.spot().get();
+                if h == 0.0
+                    || a.forward.spot().get() + h == a.forward.spot().get()
+                    || a.forward.spot().get() - h == a.forward.spot().get()
+                {
+                    return Err(E::Invalid("unrepresentable Gamma Spot bump"));
+                }
+                let up = self.hw_spot_bump(i, h)?;
+                let down = self.hw_spot_bump(i, -h)?;
+                up.hw_market_weights(&gamma_layout)?;
+                down.hw_market_weights(&gamma_layout)?;
+                gamma_plans.push((up, down, h));
+            }
+        }
+        let sample = |shocks: &[Vec<f64>]| -> Result<Vec<f64>, E> {
+            let mut values = self.path_values(&self.paths(shocks)?, risk, &layout)?;
+            for (j, (up, down, h)) in gamma_plans.iter().enumerate() {
+                let mut deltas = Vec::with_capacity(2);
+                for plan in [up, down] {
+                    let mut v =
+                        plan.path_values(&plan.paths(shocks)?, first_order, &gamma_layout)?;
+                    for (source, weights) in plan.hw_market_weights(&gamma_layout)? {
+                        let seed = v[*source];
+                        for &(target, weight) in weights {
+                            v[target] += seed * weight;
+                        }
+                    }
+                    deltas.push(v[1..1 + self.assets.len()].to_vec());
+                }
+                for i in 0..self.assets.len() {
+                    values[layout.gamma + i * self.assets.len() + j] =
+                        (deltas[0][i] - deltas[1][i]) / (2.0 * h);
+                }
+            }
+            Ok(values)
+        };
         let executor = DeterministicExecutor::new(self.execution).map_err(E::numerical)?;
         let reduce = |scramble, units, antithetic| {
             executor
                 .try_map_reduce_statistics_vector(units, layout.total, |point, output| {
                     let shocks = self.shocks(scramble, point)?;
-                    let first = self.path_values(&self.paths(&shocks)?, risk, &layout)?;
+                    let first = sample(&shocks)?;
                     if antithetic {
                         let shocks: Vec<_> = shocks
                             .iter()
                             .map(|z| z.iter().map(|v| -v).collect())
                             .collect();
-                        let second = self.path_values(&self.paths(&shocks)?, risk, &layout)?;
+                        let second = sample(&shocks)?;
                         for ((o, a), b) in output.iter_mut().zip(first).zip(second) {
                             *o = (a + b) * 0.5;
                         }
                     } else {
                         output.copy_from_slice(&first);
+                    }
+                    for (source, weights) in market_weights {
+                        let seed = output[*source];
+                        for &(target, weight) in weights {
+                            output[target] += seed * weight;
+                        }
                     }
                     if output.iter().any(|v| !v.is_finite()) {
                         return Err(E::Invalid("nonfinite price or risk sample"));
@@ -457,14 +522,22 @@ impl MultiAssetPricingPlan {
                 .and_then(|h| h.calibration.as_ref())
             {
                 let xs = c.surface.log_nodes();
-                values[layout.boundary + i] = p.hw.as_ref().expect("HW path").states
-                    [..self.times.len() - 1]
+                let hw = self.assets[i].hw.as_ref().unwrap();
+                let mut count = 0;
+                for (row, s) in p.hw.as_ref().expect("HW path").states[..self.times.len() - 1]
                     .iter()
-                    .filter(|s| {
-                        let x = s.normalized_equity.ln();
-                        x < xs[0] || x > xs[xs.len() - 1]
-                    })
-                    .count() as f64;
+                    .enumerate()
+                {
+                    let f = hw.dividends.nodes()[row]
+                        .target_state(s.normalized_equity, s.rate_factor)
+                        .map_err(E::numerical)?
+                        .0;
+                    let x = (f / hw.dividends.initial_spot()).ln();
+                    if x < xs[0] || x > xs[xs.len() - 1] {
+                        count += 1;
+                    }
+                }
+                values[layout.boundary + i] = count as f64;
             }
             if let Some(lsv) = &p.lsv {
                 let xs = self.assets[i]
@@ -559,7 +632,9 @@ impl MultiAssetPricingPlan {
                 }
             }
         }
-        if let Some(relative) = config.gamma_relative_bump {
+        if let Some(relative) = config.gamma_relative_bump
+            && !self.recalibrated_gamma()
+        {
             for (j, a) in self.assets.iter().enumerate() {
                 let h = relative * a.forward.spot().get();
                 if !h.is_finite()

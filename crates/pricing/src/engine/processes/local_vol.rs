@@ -865,16 +865,16 @@ mod tests {
         assert_eq!(grid.nodes()[schedule.checkpoints()[1].node_index()], 0.7);
         assert_eq!(
             schedule.checkpoints()[0].coordinate_before(),
-            AffineDividendCoordinate::identity()
+            dividends.initial_coordinate()
         );
-        assert_eq!(schedule.checkpoints()[0].coordinate_after().a(), -0.03);
-        assert_eq!(schedule.checkpoints()[0].coordinate_after().b(), 1.0);
+        assert_eq!(schedule.checkpoints()[0].coordinate_after().a(), 0.0);
+        assert_eq!(schedule.checkpoints()[0].coordinate_after().b(), 0.97);
         assert_eq!(
             schedule.checkpoints()[1].coordinate_before(),
             schedule.checkpoints()[0].coordinate_after()
         );
-        assert!((schedule.checkpoints()[1].coordinate_after().a() + 0.027).abs() < 1.0e-15);
-        assert!((schedule.checkpoints()[1].coordinate_after().b() - 0.9).abs() < 1.0e-15);
+        assert!((schedule.checkpoints()[1].coordinate_after().a()).abs() < 1.0e-15);
+        assert!((schedule.checkpoints()[1].coordinate_after().b() - 0.873).abs() < 1.0e-15);
     }
 
     #[test]
@@ -948,64 +948,32 @@ mod tests {
         assert_eq!(path.post_dividend_spots()[0].event(), EventId::new(1));
         assert_eq!(path.post_dividend_spots()[0].node_index(), 1);
         assert_eq!(path.post_dividend_spots()[0].path(), PathIndex::new(12));
-        assert!((path.post_dividend_spots()[0].spot() - (f_at_dividend - 5.0)).abs() < 1.0e-12);
+        assert!((path.post_dividend_spots()[0].spot() - (0.95 * f_at_dividend)).abs() < 1.0e-12);
 
         let cache = path.dividend_reverse_cache()[0];
         assert_eq!(cache.event(), EventId::new(1));
         assert_eq!(cache.node_index(), 1);
         assert_eq!(cache.path(), PathIndex::new(12));
         assert!((cache.f_state() - f_at_dividend).abs() < 1.0e-12);
-        assert!((cache.pre_spot() - f_at_dividend).abs() < 1.0e-12);
-        assert!((cache.post_spot() - (f_at_dividend - 5.0)).abs() < 1.0e-12);
-        assert_eq!(cache.post_spot_derivative_wrt_f(), 1.0);
-        assert_eq!(cache.propagate_post_spot_adjoint_to_f(2.5), 2.5);
+        assert!((cache.pre_spot() - (5.0 + 0.95 * f_at_dividend)).abs() < 1.0e-12);
+        assert!((cache.post_spot() - (0.95 * f_at_dividend)).abs() < 1.0e-12);
+        assert_eq!(cache.post_spot_derivative_wrt_f(), 0.95);
+        assert_eq!(cache.propagate_post_spot_adjoint_to_f(2.5), 2.375);
     }
 
     #[test]
-    fn log_euler_returns_typed_error_for_non_positive_post_dividend_spot() {
-        let dividends = AffineDividendTransform::new(
-            UnderlyingId::new(9),
-            PositiveF64::new(100.0, "spot").expect("spot"),
-            vec![
-                DividendEvent::new(
-                    EventId::new(1),
-                    0.5,
-                    DividendQuote::fixed_cash(120.0, EventId::new(1)).expect("cash"),
-                )
-                .expect("event"),
-            ],
-        )
-        .expect("dividends");
-        let time_grid =
-            LocalVolTimeGrid::compile_with_dividends(vec![1.0], &dividends, 0.5).expect("grid");
-        let schedule =
-            LocalVolDividendCheckpointSchedule::compile(&time_grid, &dividends).expect("schedule");
-        let plan = LocalVolLogEulerPlan::with_constant_forward(time_grid, 100.0).expect("plan");
-        let variance_grid = LocalVarianceGrid::new(
-            vec![0.0, 1.0],
-            vec![-1.0, 1.0],
-            vec![0.04, 0.04, 0.04, 0.04],
-            0.0001,
-            1.0,
-        )
-        .expect("variance grid");
-
+    fn unfunded_dividends_are_rejected_before_log_euler() {
+        let id = EventId::new(1);
         assert!(matches!(
-            plan.evolve_path_with_dividend_checks(
-                &variance_grid,
-                100.0,
-                &[0.0, 0.0],
-                &dividends,
-                &schedule,
-                PathIndex::new(12),
+            AffineDividendTransform::new(
+                UnderlyingId::new(9),
+                PositiveF64::new(100.0, "spot").unwrap(),
+                vec![
+                    DividendEvent::new(id, 0.5, DividendQuote::fixed_cash(120.0, id).unwrap())
+                        .unwrap()
+                ]
             ),
-            Err(LocalVolError::Market(
-                crate::market::MarketError::NonPositivePostDividendSpot {
-                    event,
-                    path,
-                    ..
-                }
-            )) if event == EventId::new(1) && path == PathIndex::new(12)
+            Err(crate::market::MarketError::NonPositiveEscrowedSpot { .. })
         ));
     }
 
@@ -1051,8 +1019,8 @@ mod tests {
             .expect("path");
 
         let cache = path.dividend_reverse_cache()[0];
-        assert!((cache.post_spot_derivative_wrt_f() - 0.8).abs() < 1.0e-15);
-        assert!((cache.propagate_post_spot_adjoint_to_f(2.5) - 2.0).abs() < 1.0e-15);
+        assert!((cache.post_spot_derivative_wrt_f() - 0.75).abs() < 1.0e-15);
+        assert!((cache.propagate_post_spot_adjoint_to_f(2.5) - 1.875).abs() < 1.0e-15);
     }
 
     #[test]

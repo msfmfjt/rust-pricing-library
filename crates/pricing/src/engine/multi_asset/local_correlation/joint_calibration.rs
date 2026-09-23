@@ -2,6 +2,20 @@ use super::*;
 use pricing_numerics::NeumaierSum;
 
 impl LocalCorrelationCalibration {
+    pub(in crate::engine::multi_asset) fn recalibrate_hw_assets(
+        &self,
+        plan: &MultiAssetPricingPlan,
+    ) -> Result<Self, E> {
+        let mut cal = self.clone();
+        cal.joint.as_mut().expect("HW joint calibration").assets = plan.assets.clone();
+        cal.mixing.fill(0.0);
+        cal.diagnostics.clear();
+        cal.weight_sums.clear();
+        cal.particle_means.clear();
+        cal.trace = self.trace.as_ref().map(|_| std::sync::Arc::new(Vec::new()));
+        cal.calibrate_joint()
+    }
+
     pub(super) fn joint_discount_rate(&self, row: usize, s: &[f64]) -> Result<(f64, f64), E> {
         let j = self.joint.as_ref().unwrap();
         if let Some(r) = j.rate {
@@ -63,8 +77,8 @@ impl LocalCorrelationCalibration {
             .collect::<Result<Vec<_>, _>>()?;
         let logs: Vec<_> = histories
             .iter()
-            .map(|h| self.basket(&h[row]).ln())
-            .collect();
+            .map(|h| self.joint_basket(row, &h[row]).map(f64::ln))
+            .collect::<Result<_, _>>()?;
         let dr = histories
             .iter()
             .map(|h| self.joint_discount_rate(row, &h[row]))
@@ -108,7 +122,10 @@ impl LocalCorrelationCalibration {
             if active {
                 let density = target.unwrap().log_densities()[row * m + k];
                 if density > 0.0 {
-                    corrections[k] = 2.0 * (ya - da / total_d * total_y) / (np as f64 * density);
+                    corrections[k] = 2.0
+                        * (1.0 + self.joint_basket_shift(row) / x.exp())
+                        * (ya - da / total_d * total_y)
+                        / (np as f64 * density);
                 } else {
                     ess[k] = 0.0;
                 }

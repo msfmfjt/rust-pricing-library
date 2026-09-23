@@ -74,10 +74,7 @@ fn deterministic_limit_carries_each_cashflow_and_matches_standard_engine() {
         .unwrap();
     assert!((actual.value - expected).abs() < 1e-12);
     assert!((standard.pricing_result.value.value().get() - expected).abs() < 1e-12);
-    assert_eq!(
-        actual.cash_dividend_model,
-        Some("affine-paid-cash-realized-carry-v1")
-    );
+    assert_eq!(actual.cash_dividend_model, Some("escrowed-hw-bonds-v1"));
 }
 
 #[test]
@@ -89,9 +86,15 @@ fn deterministic_rate_limit_with_equity_vol_matches_shifted_black_reference() {
     let growth = |t| {
         market.dividend_curve().discount(t).unwrap() / market.discount_curve().discount(t).unwrap()
     };
-    let offset = -0.97 * growth(1.0) - 4.0 * growth(1.0) / growth(0.5) - 2.0;
-    let expected =
-        black_value(0.97 * 100.0 * growth(1.0), 100.0 - offset, 0.04, 0.95, true).unwrap();
+    let reserve = 1.0 + 4.0 / (0.97 * growth(0.5)) + 2.0 / (0.97 * growth(1.0));
+    let expected = black_value(
+        0.97 * (100.0 - reserve) * growth(1.0),
+        100.0,
+        0.04,
+        0.95,
+        true,
+    )
+    .unwrap();
     let actual = Plan::compile_bs(&req, rates(0.0), 0.35, 0.25, policy(1))
         .unwrap()
         .evaluate()
@@ -105,7 +108,7 @@ fn deterministic_rate_limit_with_equity_vol_matches_shifted_black_reference() {
 }
 
 #[test]
-fn affine_bs_aad_matches_spot_vol_and_every_curve_pillar_with_payment_lag() {
+fn escrowed_bs_aad_matches_spot_vol_and_every_curve_pillar_with_payment_lag() {
     let mut v = payload();
     v["product"] = json!({"type":"arithmetic_asian","underlying_id":1,"currency_id":2,"strike":90.0,"notional":1.0,"side":{"type":"call"},"observations":[{"date":"2027-03-05","weight":0.4,"value":{"type":"unknown"}},{"date":"2027-09-04","weight":0.6,"value":{"type":"unknown"}}],"payment_date":"2027-12-04"});
     let plan = bs(v.clone(), 1);
@@ -114,7 +117,7 @@ fn affine_bs_aad_matches_spot_vol_and_every_curve_pillar_with_payment_lag() {
         risk.price.value.to_bits(),
         plan.evaluate().unwrap().value.to_bits()
     );
-    assert_eq!(plan.risky_spot(), 100.0);
+    assert!(plan.risky_spot() < 100.0);
     let mut checks = vec![
         ("spot", 0, risk.delta(), 1e-5),
         ("volatility", 0, risk.vega().unwrap(), 1e-6),
@@ -142,22 +145,24 @@ fn affine_bs_aad_matches_spot_vol_and_every_curve_pillar_with_payment_lag() {
 }
 
 #[test]
-fn future_cash_has_no_reserve_effect_and_rqmc_risks_replay() {
+fn future_cash_is_funded_and_rqmc_risks_replay() {
     let mut v = payload();
     v["engine"] = json!({"type":"randomized_quasi_monte_carlo","points_per_scramble":256,"scramble_count":4,"master_scramble_seed":712,"variance_reduction":{"antithetic":true,"brownian_bridge":true}});
     let a = bs(v.clone(), 1);
     v["market"]["discrete_dividends"]
         .as_array_mut()
         .unwrap()
-        .push(json!({"event_id":4,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":10000.0}}));
+        .push(json!({"event_id":4,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":5.0}}));
     let b = bs(v.clone(), 1);
     assert_eq!(a.time_nodes(), b.time_nodes());
     assert_eq!(a.random_factor_count(), b.random_factor_count());
     let aa = a.evaluate_aad().unwrap();
     let ab = b.evaluate_aad().unwrap();
-    assert_eq!(aa.price.value.to_bits(), ab.price.value.to_bits());
-    assert_eq!(aa.derivatives, ab.derivatives);
-    assert_eq!(aa.standard_errors, ab.standard_errors);
+    assert_ne!(aa.price.value.to_bits(), ab.price.value.to_bits());
+    assert!(b.risky_spot() < a.risky_spot());
+    assert_ne!(a.plan_fingerprint(), b.plan_fingerprint());
+    assert_ne!(aa.derivatives, ab.derivatives);
+    assert_ne!(aa.standard_errors, ab.standard_errors);
     assert!(ab.standard_errors.is_some());
     let replay = bs(v, 3).evaluate_aad().unwrap();
     assert_eq!(ab.derivatives, replay.derivatives);
@@ -212,7 +217,7 @@ fn lsv(t: &HullWhiteLsvTarget, rough: bool, trace: bool, workers: u32) -> Plan {
 }
 
 #[test]
-fn affine_lsv_and_rough_lsv_vegakt_reverse_every_recalibrated_quote() {
+fn escrowed_lsv_and_rough_lsv_vegakt_reverse_every_recalibrated_quote() {
     let q = quotes();
     let t = target(q.clone());
     for rough in [false, true] {
@@ -222,16 +227,13 @@ fn affine_lsv_and_rough_lsv_vegakt_reverse_every_recalibrated_quote() {
             risk.price.value.to_bits(),
             plan.evaluate().unwrap().value.to_bits()
         );
-        assert_eq!(
-            risk.price.cash_dividend_model,
-            Some("affine-paid-cash-realized-carry-v1")
-        );
+        assert_eq!(risk.price.cash_dividend_model, Some("escrowed-hw-bonds-v1"));
         assert!(
             plan.calibration()
                 .unwrap()
                 .conditional_rate_variances
                 .iter()
-                .all(|v| *v == 0.0)
+                .any(|v| *v > 0.0)
         );
         let bars = risk.vega_kt_raw().unwrap();
         assert_eq!(bars.len(), q.len());
@@ -258,7 +260,7 @@ fn affine_lsv_and_rough_lsv_vegakt_reverse_every_recalibrated_quote() {
 }
 
 #[test]
-fn affine_rough_bergomi_spot_and_sigma_adjoints_match_finite_differences() {
+fn escrowed_rough_bergomi_spot_and_sigma_adjoints_match_finite_differences() {
     let compile = |v: Value| {
         Plan::compile_rough_bergomi(
             &request(v),
@@ -288,22 +290,23 @@ fn affine_rough_bergomi_spot_and_sigma_adjoints_match_finite_differences() {
 }
 
 #[test]
-fn future_only_cash_does_not_change_proportional_grid_or_create_an_aad_reserve() {
+fn future_only_cash_changes_reserve_without_extra_random_coordinates() {
     let mut v = payload();
     v["market"]["discrete_dividends"] = json!([
         {"event_id":1,"ex_time":0.37,"quote":{"type":"proportional","beta":0.03}}
     ]);
     let a = bs(v.clone(), 1);
     let dividends = v["market"]["discrete_dividends"].as_array_mut().unwrap();
-    dividends
-        .push(json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":10000.0}}));
+    dividends.push(json!({"event_id":2,"ex_time":1.5,"quote":{"type":"fixed_cash","amount":5.0}}));
     let b = bs(v, 1);
     assert_eq!(a.time_nodes(), b.time_nodes());
     assert_eq!(a.random_factor_count(), b.random_factor_count());
     let aa = a.evaluate_aad().unwrap();
     let ab = b.evaluate_aad().unwrap();
-    assert_eq!(aa.price.value.to_bits(), ab.price.value.to_bits());
-    assert_eq!(aa.derivatives, ab.derivatives);
+    assert_ne!(aa.price.value.to_bits(), ab.price.value.to_bits());
+    assert!(b.risky_spot() < a.risky_spot());
+    assert_ne!(a.plan_fingerprint(), b.plan_fingerprint());
+    assert_ne!(aa.derivatives, ab.derivatives);
     assert_eq!(
         ab.price.value.to_bits(),
         b.evaluate().unwrap().value.to_bits()

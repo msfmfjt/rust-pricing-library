@@ -59,7 +59,7 @@ fn zero_factor_price(
 }
 
 #[test]
-fn zero_vol_of_vol_preserves_continuous_carry_and_paid_cash() {
+fn zero_vol_of_vol_preserves_continuous_carry_and_escrowed_cash() {
     let res = Resolution {
         particles: 128,
         steps: 4,
@@ -502,7 +502,7 @@ fn refinement_case(case: Case) {
 fn stress_case(factor: Factor, hw: bool) {
     // Strong tails can breach a fixed-cash dividend's positive-spot domain.
     // Keep that domain check intact; isolate the smile/vol-of-vol price study
-    // from paid-cash feasibility (covered by the original/refinement cases).
+    // from escrowed-reserve feasibility (covered by the original/refinement cases).
     let case = Case {
         factor,
         smile: Smile::Stress,

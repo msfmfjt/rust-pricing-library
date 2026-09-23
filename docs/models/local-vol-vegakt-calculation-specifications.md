@@ -359,6 +359,12 @@ fixed-block Neumaier and balanced-tree reduction policy.
 
 ## 10. Affine dividends
 
+The simulated coordinate is escrowed. With the entire future schedule funded,
+`A(0-)=Ainit/S0` and `B(0-)=(S0-Ainit)/S0`; require `S0>Ainit`.
+A carries at deterministic r-q between events. Its post-event value is the
+remaining cash reserve divided by S0. This convention applies to BS, LV and
+LSV. IV inputs describe the escrowed equity coordinate.
+
 For event dividend `D(S_minus)=alpha*S0+beta*S_minus`, require `alpha>=0` for a
 fixed non-negative cash amount compiled at the current `S0`, and
 `0<=beta<1`. With `S=A*S0+B*f`, where `f` is continuous across the event:

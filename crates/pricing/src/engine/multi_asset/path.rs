@@ -179,16 +179,17 @@ impl MultiAssetPricingPlan {
                     ));
                 }
                 // Under fixed log-forward grid coordinates, f and F scale together with Spot.
-                // Paid cash is held fixed: d(A*S0)/dS0=0, and dS/dS0=B*f/S0.
+                // Fixed cash, including the escrow reserve, is held fixed.
+                // The derivative scale is B (spot_scale), not B*alpha (b).
                 let spot_derivatives = f
                     .iter()
                     .zip(&a.coordinates)
-                    .map(|(f, c)| c.b() * f / spot)
+                    .map(|(f, c)| c.spot_scale() * f / spot)
                     .collect();
                 let pre_spot_derivatives = f
                     .iter()
                     .zip(&a.pre_coordinates)
-                    .map(|(f, c)| c.b() * f / spot)
+                    .map(|(f, c)| c.spot_scale() * f / spot)
                     .collect();
                 Ok(AssetPath {
                     spots,

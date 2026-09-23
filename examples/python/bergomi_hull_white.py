@@ -1,4 +1,4 @@
-"""Two-factor Bergomi LSV with one shared HW rate, paid cash and quote-node risk."""
+"""Two-factor Bergomi LSV with one shared HW rate, escrowed cash and quote-node risk."""
 import math
 import rust_pricing as rp
 

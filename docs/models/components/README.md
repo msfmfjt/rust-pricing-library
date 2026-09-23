@@ -19,7 +19,7 @@ Published sources are collected in the [bibliography](../../references.md).
 | Component | Detailed reference | Example |
 | --- | --- | --- |
 | Hull–White short rate | [Hull–White calculation specifications](../hull-white-calculation-specifications.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
-| Cash-dividend coordinates | [Paid-cash dividends](../hull-white-affine-dividends.md), [escrowed cash dividends](../hull-white-cash-dividends.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
+| Cash-dividend coordinates | [Escrowed reserves and calibration coordinates](../hull-white-cash-dividends.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
 
 ## Surfaces and calibration targets
 

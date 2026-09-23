@@ -31,8 +31,10 @@ documents the public API migration.
 | [0004](adr/0004-hull-white-vegakt.md) | Hull–White market-IV VegaKT |
 | [0005](adr/0005-rough-bergomi.md) | Rough Bergomi |
 | [0006](adr/0006-integrate-completed-baseline.md) | Integration of completed baselines |
-| [0007](adr/0007-affine-paid-cash-dividends.md) | Default affine paid-cash dividends |
+| [0007](adr/0007-affine-paid-cash-dividends.md) | Historical paid-cash default (superseded by 0009) |
 | [0008](adr/0008-deterministic-rate-rough-lsv.md) | Deterministic-rate rough-LSV |
+| [0009](adr/0009-escrowed-simulation-and-iv-conversion.md) | Escrowed simulation (IV conversion superseded by 0010) |
+| [0010](adr/0010-remove-paid-cash.md) | Remove paid-cash support; defer Bos–Vandermark |
 
 ## Implementation roadmaps and acceptance
 
@@ -71,3 +73,5 @@ Keep calculation specifications linked from the library or model index, even whe
 design decision introduces them. Update the relevant index when adding a page.
 Repository-local links in both `docs/` and `design/` are checked by
 `python3 scripts/check_markdown_links.py`.
+
+Escrowed simulation and IV conversion: [validation record](validation/escrowed-dividends.md).
