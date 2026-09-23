@@ -2,7 +2,9 @@
 //! pricing mean (per scramble for RQMC). No calibration is run per pricing path.
 
 use super::*;
-use crate::mc::hull_white::HULL_WHITE_AAD_METHOD;
+use crate::engine::calibration::capabilities::CalibrationReverse;
+use crate::engine::processes::capabilities::PathReverse;
+use crate::mc::hull_white::{HULL_WHITE_AAD_METHOD, HullWhiteMcError};
 use crate::mc::lsv::LsvError;
 use crate::models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, transpose_log_curve};
 
@@ -193,7 +195,7 @@ impl Context {
         let mut target = Vec::new();
         let mut quotes = Vec::new();
         if let Some(c) = &plan.calibration {
-            let adj = c.reverse_leverage(&mean[offset..])?;
+            let adj = c.calibration_pullback(&mean[offset..])?;
             spot += adj.initial_spot;
             if let Some(nodes) = &adj.dividends {
                 add_nodes(&mut coefficients, nodes);
@@ -261,12 +263,15 @@ impl HullWhiteEquityPricingPlan {
                 model: "HW discontinuous payoff requires explicit smoothing",
             });
         }
-        if self
-            .calibration
-            .as_ref()
-            .is_some_and(|c| !c.retains_reverse_trace())
-        {
-            return Err(LsvError::ReverseTraceNotRetained.into());
+        if let Some(calibration) = &self.calibration {
+            calibration
+                .validate_calibration_reverse()
+                .map_err(|e| match e {
+                    HullWhiteMcError::Lsv(LsvError::ReverseTraceNotRetained) => {
+                        MonteCarloError::Lsv(LsvError::ReverseTraceNotRetained)
+                    }
+                    e => e.into(),
+                })?;
         }
         let context = Context::new(self)?;
         let executor = DeterministicExecutor::new(self.policy)?;
@@ -508,7 +513,7 @@ impl HullWhiteEquityPricingPlan {
                     &mut coefficients[node],
                 )?);
             }
-            let reverse = path.reverse(&state_seeds)?;
+            let reverse = path.path_pullback(&state_seeds)?;
             out[1] += reverse.initial_spot;
             out[2] += reverse.bs_volatility.unwrap_or(0.0);
             if let Some(nodes) = &reverse.dividends {

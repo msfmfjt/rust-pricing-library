@@ -1,6 +1,7 @@
 //! Marginal particle calibration and joint spot/OU/rough Gaussian innovations.
 use super::lsv_kernels::{LsvCalibration, LsvProcess};
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::market::{CorrelationFactor, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::lsv::{CalibratedBergomiLsv, LSV_CALIBRATION_REVERSE, LsvParticleConfig};
@@ -136,7 +137,7 @@ impl LsvAsset {
     pub fn target_reverse(&self, leverage: &[f64]) -> Result<Vec<f64>, E> {
         let refined = self
             .calibration
-            .reverse_leverage(leverage)
+            .calibration_pullback(leverage)
             .map_err(E::numerical)?;
         let xs = self.target.log_moneyness_nodes();
         let mut original = vec![0.0; self.target.values().len()];

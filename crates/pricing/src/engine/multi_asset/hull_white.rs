@@ -1,6 +1,7 @@
 //! One shared HW rate factor, paired marginal calibration and affine payouts.
 use super::*;
 use crate::core::DayCountConvention;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::market::{DiscountCurve, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::hull_white::{
@@ -196,7 +197,7 @@ impl HwAsset {
             && parameters[..count].iter().any(|v| *v != 0.0)
         {
             let adj = c
-                .reverse_leverage(&parameters[..count])
+                .calibration_pullback(&parameters[..count])
                 .map_err(E::numerical)?;
             spot += adj.initial_spot;
             if let Some(nodes) = adj.dividends {
@@ -391,7 +392,7 @@ impl HwAsset {
         let c = self.calibration.as_ref().expect("HW LSV");
         let target = self.target.as_ref().expect("HW target");
         let adj = c
-            .reverse_leverage(&seeds[..self.volatility_parameter_count()])
+            .calibration_pullback(&seeds[..self.volatility_parameter_count()])
             .map_err(E::numerical)?;
         let g = target.grid();
         let mut variance = vec![0.0; g.values().len()];
