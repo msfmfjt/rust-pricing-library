@@ -30,7 +30,7 @@ fn validate_cash_option(py: Python<'_>, value: Option<&str>) -> PyResult<()> {
 #[pyclass(frozen, name = "RoughBergomiModel", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyRoughBergomiModel {
-    inner: RoughBergomi,
+    pub(super) inner: RoughBergomi,
 }
 #[pymethods]
 impl PyRoughBergomiModel {
@@ -249,6 +249,93 @@ pub struct PyHullWhiteEquityPlan {
 }
 #[pymethods]
 impl PyHullWhiteEquityPlan {
+    /// Pure 1F Bergomi; sigma0 comes from the BlackScholes request.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, rate_model, *, vol_mean_reversion, vol_of_vol, equity_vol_correlation, equity_rate_correlation, vol_rate_correlation, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_bergomi(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        rate_model: &PyHullWhiteModel,
+        vol_mean_reversion: f64,
+        vol_of_vol: f64,
+        equity_vol_correlation: f64,
+        equity_rate_correlation: f64,
+        vol_rate_correlation: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor = Bergomi1Factor::new(vol_mean_reversion, vol_of_vol, equity_vol_correlation)
+            .map_err(|e| invalid(py, e))?;
+        let correlation = HybridCorrelation::new(
+            equity_vol_correlation,
+            equity_rate_correlation,
+            vol_rate_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            HullWhiteEquityPricingPlan::compile_bergomi(
+                &request,
+                factor,
+                rates,
+                correlation,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    /// Pure 2F Bergomi with full spot/volatility/rate correlations.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, rate_model, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, equity_rate_correlation, vol_rate_correlations, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_bergomi_two_factor(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        rate_model: &PyHullWhiteModel,
+        mean_reversions: [f64; 2],
+        vol_of_vol: f64,
+        mixing_weight: f64,
+        spot_correlations: [f64; 2],
+        factor_correlation: f64,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor = pricing::models::Bergomi2Factor::new(
+            mean_reversions,
+            vol_of_vol,
+            mixing_weight,
+            spot_correlations,
+            factor_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            HullWhiteEquityPricingPlan::compile_bergomi_two_factor(
+                &request,
+                factor,
+                rates,
+                equity_rate_correlation,
+                vol_rate_correlations,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
     /// Pure rough Bergomi with flat initial forward variance sigma0^2 from
     /// the request's BlackScholes volatility. Rate volatility may be zero.
     #[staticmethod]
@@ -577,7 +664,7 @@ impl PyHullWhiteEquityPlan {
 #[pyclass(frozen, name = "HullWhitePrice", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHullWhitePrice {
-    inner: HullWhitePrice,
+    pub(super) inner: HullWhitePrice,
 }
 #[pymethods]
 impl PyHullWhitePrice {
@@ -630,7 +717,7 @@ impl PyHullWhitePrice {
 #[pyclass(frozen, name = "HullWhiteAadRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteAadRisk {
-    inner: HullWhiteAadRisk,
+    pub(super) inner: HullWhiteAadRisk,
 }
 #[pymethods]
 impl PyHullWhiteAadRisk {

@@ -115,6 +115,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
+    subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -1014,6 +1015,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "HullWhiteModel",
         "HullWhiteLsvTarget",
         "HullWhiteEquityPlan",
+        "StochasticVolatilityPlan",
         "HullWhitePrice",
         "HullWhiteAadRisk",
         "AsianObservation",
@@ -1219,6 +1221,55 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('HullWhiteEquityPlan', 'compile_bergomi'): {
+            'positional': ['request', 'rate_model'],
+            'positional_defaults': {},
+            'keyword_only': ['vol_mean_reversion', 'vol_of_vol', 'equity_vol_correlation', 'equity_rate_correlation', 'vol_rate_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'],
+            'required_keyword_only': ['vol_mean_reversion', 'vol_of_vol', 'equity_vol_correlation', 'equity_rate_correlation', 'vol_rate_correlation', 'maximum_step', 'worker_threads'],
+            'keyword_only_defaults': {'reduction_block_size': None},
+        },
+        ('HullWhiteEquityPlan', 'compile_bergomi_two_factor'): {
+            'positional': ['request', 'rate_model'],
+            'positional_defaults': {},
+            'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'equity_rate_correlation', 'vol_rate_correlations', 'maximum_step', 'worker_threads', 'reduction_block_size'],
+            'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'equity_rate_correlation', 'vol_rate_correlations', 'maximum_step', 'worker_threads'],
+            'keyword_only_defaults': {'reduction_block_size': None},
+        },
+        ('StochasticVolatilityPlan', 'compile_bergomi'): {
+            'positional': ['request'],
+            'positional_defaults': {},
+            'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'],
+            'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'maximum_step', 'worker_threads'],
+            'keyword_only_defaults': {'reduction_block_size': None},
+        },
+        ('StochasticVolatilityPlan', 'compile_bergomi_two_factor'): {
+            'positional': ['request'],
+            'positional_defaults': {},
+            'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'],
+            'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'maximum_step', 'worker_threads'],
+            'keyword_only_defaults': {'reduction_block_size': None},
+        },
+        ('StochasticVolatilityPlan', 'compile_rough_bergomi'): {
+            'positional': ['request', 'rough_model'],
+            'positional_defaults': {},
+            'keyword_only': ['maximum_step', 'worker_threads', 'reduction_block_size'],
+            'required_keyword_only': ['maximum_step', 'worker_threads'],
+            'keyword_only_defaults': {'reduction_block_size': None},
+        },
+        ('StochasticVolatilityPlan', 'evaluate'): {
+            'positional': ['self'],
+            'positional_defaults': {},
+            'keyword_only': [],
+            'required_keyword_only': [],
+            'keyword_only_defaults': {},
+        },
+        ('StochasticVolatilityPlan', 'evaluate_aad'): {
+            'positional': ['self'],
+            'positional_defaults': {},
+            'keyword_only': [],
+            'required_keyword_only': [],
+            'keyword_only_defaults': {},
+        },
         ('MultiAssetLsvConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'retain_reverse_trace': False}},
         ('LocalCorrelationConfig', '__init__'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'feasibility', 'minimum_variance_span', 'retain_reverse_trace', 'second_driver_correlations', 'hull_white_target'], 'required_keyword_only': ['basket_weights', 'target_model', 'second_correlations', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples'], 'keyword_only_defaults': {'feasibility': 'reject', 'minimum_variance_span': 1e-12, 'retain_reverse_trace': False, 'second_driver_correlations': None, 'hull_white_target': None}},
         ('LocalCorrelationCalibration', 'correlation_at'): {'positional': ['self', 'time', 'log_basket'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -1922,6 +1973,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "StochasticVolatilityPlan": {
+            "cash_dividend_model",
+            "compile_bergomi",
+            "compile_bergomi_two_factor",
+            "compile_rough_bergomi",
+            "evaluate",
+            "evaluate_aad",
+            "plan_fingerprint",
+            "random_factor_count",
+            "risky_spot",
+            "time_nodes",
+        },
         'MultiAssetHullWhiteCalibration': {'volatility_factor_count', 'time_nodes', 'log_moneyness_nodes', 'squared_leverage', 'minimum_effective_samples', 'fallback_nodes', 'mean_relative_discount', 'mean_discounted_normalized_equity', 'conditional_second_moments', 'rate_corrections', 'retains_reverse_trace'},
         'MultiAssetHullWhiteLsvRisk': {'forward_log_density_adjoints', 'density_standard_errors', 'vega_kt_raw', 'vega_kt_market_scaled', 'vega_kt_standard_errors', 'vega_kt_maturity_nodes', 'vega_kt_log_moneyness_nodes', 'parallel_vega', 'parallel_vega_standard_error', 'method'},
         'MultiAssetHullWhiteCurveRisk': {'discount_time_nodes', 'discount_log_df_adjoints', 'discount_node_dv01', 'dividend_time_nodes', 'dividend_log_df_adjoints'},
@@ -1962,6 +2025,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "forward_log_densities",
         },
         "HullWhiteEquityPlan": {
+            "compile_bergomi", "compile_bergomi_two_factor",
             "compile_lsv_two_factor",
             "compile_rough_bergomi",
             "compile_rough_lsv",
@@ -2460,6 +2524,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('HullWhiteEquityPlan', 'compile_bergomi'),
+        ('HullWhiteEquityPlan', 'compile_bergomi_two_factor'),
+        ('StochasticVolatilityPlan', 'compile_bergomi'),
+        ('StochasticVolatilityPlan', 'compile_bergomi_two_factor'),
+        ('StochasticVolatilityPlan', 'compile_rough_bergomi'),
         ("HullWhiteEquityPlan", "compile_lsv_two_factor"),
         ('MultiAssetProduct', 'basket'),
         ('MultiAssetProduct', 'worst_of'),
@@ -2503,6 +2572,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('StochasticVolatilityPlan', 'cash_dividend_model'),
+        ('StochasticVolatilityPlan', 'risky_spot'),
+        ('StochasticVolatilityPlan', 'plan_fingerprint'),
+        ('StochasticVolatilityPlan', 'time_nodes'),
+        ('StochasticVolatilityPlan', 'random_factor_count'),
         ('MultiAssetHullWhiteCalibration', 'volatility_factor_count'),
         ('MultiAssetHullWhiteCalibration', 'time_nodes'),
         ('MultiAssetHullWhiteCalibration', 'log_moneyness_nodes'),

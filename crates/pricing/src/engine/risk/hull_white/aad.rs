@@ -375,7 +375,7 @@ impl HullWhiteEquityPricingPlan {
         let mut labels = vec!["spot".to_owned()];
         if context.is_bs {
             labels.push(
-                if self.path.is_direct_rough() {
+                if self.path.is_direct_stochastic_volatility() {
                     "initial_volatility"
                 } else {
                     "bs_volatility"

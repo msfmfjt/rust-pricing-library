@@ -5,6 +5,8 @@ Date: 2026-09-13. Status: experimental implementation.
 [Multi-asset rough-LSV with common HW](multi-asset-rough-bergomi.md) extends
 this nonuniform hybrid scheme to jointly driven rough and Markovian assets.
 The single-equity entry points and conventions below remain available.
+[Pure SV](pure-stochastic-volatility.md) also exposes a deterministic-rate
+`StochasticVolatilityPlan.compile_rough_bergomi` facade alongside 1F/2F Bergomi.
 [Deterministic-rate rough-LSV](#deterministic-rate-rough-lsv-without-hullwhite)
 has its own entry point without Hull–White inputs.
 
@@ -229,8 +231,9 @@ adjoints; `orthogonal_shocks` holds the orthogonal-variance block followed by th
 near-cell block. H, eta and the correlation contribute to the plan fingerprint
 under the tag `pricing/rough-bergomi-lsv-plan/v1`.
 
-This entry point has no uncalibrated pure rough model and no multi-asset form;
-use the Hull–White plans for those. American/Bermudan exercise and continuous
+This LSV entry point has no uncalibrated pure rough model and no multi-asset form.
+Use `StochasticVolatilityPlan` for deterministic pure rough and the
+Hull–White plans for hybrid pricing. American/Bermudan exercise and continuous
 Barrier monitoring are rejected as for the other LSV adapters.
 
 ## AAD and VegaKT

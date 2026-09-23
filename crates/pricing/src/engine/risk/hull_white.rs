@@ -104,7 +104,7 @@ impl HullWhiteEquityPricingPlan {
             correlation,
             maximum_step,
             policy,
-            Some(factor),
+            Some(factor.into()),
         )
     }
     /// Compatibility alias; escrowed is the sole simulation model.
@@ -118,13 +118,61 @@ impl HullWhiteEquityPricingPlan {
     ) -> Result<Self, MonteCarloError> {
         Self::compile_rough_bergomi(request, factor, rates, correlation, maximum_step, policy)
     }
+    /// Pure one-factor Bergomi. The BlackScholes request supplies sigma0,
+    /// with E[v(t)] = sigma0^2 under Q. No LV target or particles are required.
+    pub fn compile_bergomi(
+        request: &PricingRequest,
+        factor: Bergomi1Factor,
+        rates: HullWhite1Factor,
+        correlation: HybridCorrelation,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile_bs_impl(
+            request,
+            rates,
+            correlation,
+            maximum_step,
+            policy,
+            Some(factor.into()),
+        )
+    }
+    /// Pure two-factor Bergomi, with explicit correlations to the common rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_bergomi_two_factor(
+        request: &PricingRequest,
+        factor: crate::models::Bergomi2Factor,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let correlation = HybridCorrelation::new(
+            factor.spot_correlations()[0],
+            equity_rate_correlation,
+            vol_rate_correlations[0],
+        )?;
+        let factor = HybridVolatilityFactor::BergomiTwoFactor {
+            factor,
+            second_vol_rate_correlation: vol_rate_correlations[1],
+        };
+        Self::compile_bs_impl(
+            request,
+            rates,
+            correlation,
+            maximum_step,
+            policy,
+            Some(factor),
+        )
+    }
     fn compile_bs_impl(
         request: &PricingRequest,
         rates: HullWhite1Factor,
         correlation: HybridCorrelation,
         maximum_step: f64,
         policy: ExecutionPolicy,
-        rough: Option<RoughBergomi>,
+        factor: Option<HybridVolatilityFactor>,
     ) -> Result<Self, MonteCarloError> {
         let ModelSpec::BlackScholes(bs) = request.model() else {
             return Err(HullWhiteError::Unsupported {
@@ -148,11 +196,25 @@ impl HullWhiteEquityPricingPlan {
         let grid = LocalVolTimeGrid::compile(events, maximum_step)
             .map_err(|e| MonteCarloError::HullWhite(e.into()))?;
         let dividends = HullWhiteDividendPlan::new(&rates, market, grid.nodes())?;
-        let volatility = rough.map_or(
+        let volatility = factor.map_or(
             HybridEquityVolatility::BlackScholes(bs.volatility().get()),
-            |factor| HybridEquityVolatility::RoughBergomi {
-                factor,
-                initial_volatility: bs.volatility().get(),
+            |factor| match factor {
+                HybridVolatilityFactor::Bergomi(factor) => HybridEquityVolatility::Bergomi {
+                    factor,
+                    initial_volatility: bs.volatility().get(),
+                },
+                HybridVolatilityFactor::BergomiTwoFactor {
+                    factor,
+                    second_vol_rate_correlation,
+                } => HybridEquityVolatility::Bergomi2Factor {
+                    factor,
+                    second_vol_rate_correlation,
+                    initial_volatility: bs.volatility().get(),
+                },
+                HybridVolatilityFactor::Rough(factor) => HybridEquityVolatility::RoughBergomi {
+                    factor,
+                    initial_volatility: bs.volatility().get(),
+                },
             },
         );
         let mut path = HullWhiteEquityPlan::new(rates, volatility, correlation, &grid)?;

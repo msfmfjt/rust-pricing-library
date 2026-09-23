@@ -10,7 +10,7 @@ pub const HULL_WHITE_AAD_METHOD: &str = "equity-hw-discrete-particle-vjp-v1";
 #[derive(Clone, Debug)]
 pub struct HullWhitePathAdjoints {
     pub initial_spot: f64,
-    /// Legacy slot: BS sigma, or the pure rough model's initial sigma0.
+    /// Legacy slot: BS sigma, or a pure stochastic-volatility model's sigma0.
     pub bs_volatility: Option<f64>,
     pub squared_leverage: Vec<f64>,
     pub dividends: Option<Vec<HullWhiteDividendNodeAdjoints>>,
