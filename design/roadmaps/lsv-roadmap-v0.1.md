@@ -111,6 +111,12 @@ adds 3-year wing quotes, stronger smiles and higher vol-of-vol with explicit
 ESS/fallback diagnostics. This is additional S3 price evidence; the broader
 S3-S6 acceptance requirements remain open.
 
+The [extended-model sensitivity panel](../validation/extended-model-risk-accuracy.md)
+adds S4 evidence for deterministic-rate 1F/2F/rough calibration VJPs using three
+seed pairs, two numerical resolutions and four finite-difference bump sizes.
+Its deterministic-rate contract remains effective Local-variance sensitivity;
+it does not connect or certify the separate S5 market-IV projection.
+
 The initial regression suite covers the nu=0 LV limit; exact OU covariance;
 state, grid and Gaussian path adjoints; calibration feedback versus full
 bump/recalibrate; end-to-end target-grid derivatives with an inserted dividend

@@ -80,6 +80,25 @@ jobs:
       - name: Build Rust API docs
         run: cargo doc --locked --workspace --all-features --no-deps
 
+      - name: Run extended model risk acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1
+          } 2>&1 | tee extended-model-risk.log
+
+      - name: Retain extended model risk evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extended-model-risk-${{ matrix.os }}
+          path: extended-model-risk.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Run extended model accuracy acceptance
         shell: bash
         run: |
