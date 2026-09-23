@@ -147,7 +147,7 @@ impl CalibratedHullWhiteLsv {
                 donor[2] -= vbar;
                 donor[3] -= vbar;
             }
-            let half_v = 0.5 * trace.rates.integrated_variance(t)?;
+            let rate_discount = GaussianDiscount::new(trace.rates.integrated_variance(t)?);
             for (j, bars) in moment_bars.iter().enumerate() {
                 if bars.iter().all(|v| *v == 0.0) {
                     continue;
@@ -198,7 +198,7 @@ impl CalibratedHullWhiteLsv {
                     if u.abs() >= 1.0 {
                         continue;
                     }
-                    let discount = (-state.integrated_rate_factor - half_v).exp();
+                    let discount = rate_discount.relative_discount(state.integrated_rate_factor);
                     let weight = (1.0 - u * u).powi(2) * discount / total;
                     let a2 = (2.0 * trace.factor.vol_of_vol() * state.volatility_factor).exp();
                     let a = a2.sqrt();

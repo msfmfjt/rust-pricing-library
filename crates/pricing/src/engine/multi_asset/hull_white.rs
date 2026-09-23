@@ -8,6 +8,7 @@ use crate::mc::hull_white::{
     HybridState, HybridVolatilityFactor, calibrate_hybrid_lsv_with_dividends,
 };
 use crate::models::hull_white_dividends::{HullWhiteDividendNodeAdjoints, HullWhiteDividendPlan};
+use crate::models::rates::{CenteredRateState, GaussianConditionalDiscount, RateDiscount};
 use crate::models::{HullWhite1Factor, HybridCorrelation};
 use crate::multi_asset::{MultiAssetError as E, MultiAssetProduct};
 use crate::product::{GraphLimitPolicy, SourceGraph};
@@ -60,8 +61,7 @@ pub(super) struct Cashflow {
     pub observation_node: usize,
     pub payment_time: f64,
     pub discount: f64,
-    pub rate_loading: f64,
-    pub log_discount_constant: f64,
+    pub rate_discount: GaussianConditionalDiscount,
 }
 
 impl HwContext {
@@ -86,27 +86,23 @@ impl HwContext {
                 .binary_search_by(|t| t.total_cmp(&time))
                 .map_err(|_| E::Invalid("missing HW cashflow observation"))?;
             let payment_time = fraction(payment);
-            let transition = config
+            let bond = config
                 .rate_model
-                .transition(
-                    time,
-                    payment_time,
-                    0.0,
-                    HybridCorrelation::new(0.0, 0.0, 0.0).map_err(E::numerical)?,
-                )
+                .bond_transition(time, payment_time)
                 .map_err(E::numerical)?;
+            let discount = market.discount_curve().evaluate(payment_time)?.discount;
+            let rate_discount = bond.conditional_discount(
+                config
+                    .rate_model
+                    .integrated_variance(payment_time)
+                    .map_err(E::numerical)?,
+            );
             cashflows.push(Cashflow {
                 payoff,
                 observation_node,
                 payment_time,
-                discount: market.discount_curve().evaluate(payment_time)?.discount,
-                rate_loading: transition.integral_loading,
-                log_discount_constant: -0.5
-                    * config
-                        .rate_model
-                        .integrated_variance(payment_time)
-                        .map_err(E::numerical)?
-                    + 0.5 * transition.covariance[3][3],
+                discount,
+                rate_discount,
             });
         }
         Ok(Self { config, cashflows })
@@ -114,10 +110,10 @@ impl HwContext {
     pub fn discount(&self, cashflow: &Cashflow, states: &[HybridState]) -> Result<f64, E> {
         let state = &states[cashflow.observation_node];
         let discount = cashflow.discount
-            * (cashflow.log_discount_constant
-                - state.integrated_rate_factor
-                - cashflow.rate_loading * state.rate_factor)
-                .exp();
+            * cashflow.rate_discount.relative_discount(CenteredRateState {
+                factor: state.rate_factor,
+                integral: state.integrated_rate_factor,
+            });
         if !discount.is_finite() || discount <= 0.0 {
             return Err(E::Invalid("nonpositive or nonfinite HW cashflow discount"));
         }

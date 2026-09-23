@@ -14,7 +14,7 @@ incremental implementation plan, not a claim that all combinations are generic.
 | --- | --- | --- |
 | Markov volatility | [BergomiDynamics](../../crates/pricing/src/models/bergomi_dynamics.rs), [LSV execution](../../crates/pricing/src/engine/processes/lsv.rs) | Typed state/transition and static dispatch share 1F/2F kernels. Internal innovation views now distinguish normals from OU increments; the legacy public array adapters and Bergomi-specific errors remain. |
 | Rough volatility | [RoughKernel](../../crates/pricing/src/engine/processes/rough_lsv.rs), [hybrid rough driver](../../crates/pricing/src/engine/processes/hull_white/rough.rs) | Grid-dependent Volterra weights and history preparation are not a Markov scalar-step operation. |
-| Rates and joint increments | [HW process](../../crates/pricing/src/engine/processes/hull_white.rs), [2F/HW driver](../../crates/pricing/src/engine/processes/hull_white/two_factor.rs), [multi-asset drivers](../../crates/pricing/src/engine/multi_asset/hull_white/drivers.rs) | Exact rate state/integral covariance and bond reserve diffusion are coupled to HW; scalar volatility callbacks are insufficient. |
+| Rates and joint increments | [HW process](../../crates/pricing/src/engine/processes/hull_white.rs), [2F/HW driver](../../crates/pricing/src/engine/processes/hull_white/two_factor.rs), [multi-asset drivers](../../crates/pricing/src/engine/multi_asset/hull_white/drivers.rs) | Rate state/integral evolution, discounting, bond-state exposure and Gaussian covariance now have separate internal boundaries; the HW moment implementation and hybrid composition remain concrete. |
 | Multi-asset selection | [LSV enums](../../crates/pricing/src/engine/multi_asset/lsv_kernels.rs), [compiler](../../crates/pricing/src/engine/multi_asset/compile.rs) | Concrete enum variants are appropriate boundaries, but driver counts and offsets were reconstructed in several consumers. |
 | Calibration and reverse | [HW calibration](../../crates/pricing/src/engine/calibration/hull_white.rs), [calibration reverse](../../crates/pricing/src/engine/calibration/hull_white/reverse.rs), [joint reverse](../../crates/pricing/src/engine/multi_asset/local_correlation/joint_reverse.rs) | Leverage moments, target density, dividend reserve and model-specific traces must remain paired with their exact reverse. |
 | Configuration | [Python HW facade](../../crates/pricing-python/src/hull_white.rs), [multi-asset configuration](../../crates/pricing/src/engine/multi_asset/lsv.rs) | Constructors encode combinations. Keep adapters until a common configuration can represent every supported capability and rejection. |
@@ -112,14 +112,65 @@ Existing 1F/2F particle-reverse, rough H=1/2/finite-difference and multi-asset
 sampling suites remain the wider regression gates. The 2F multi-asset flattening
 allocation is unchanged and remains a later measured optimization.
 
+## Third extraction: rate capabilities
+
+The private [rate kernels](../../crates/pricing/src/models/rates.rs) separate
+state evolution (`RateEvolution`), relative discounting (`RateDiscount`) and
+optional exact Gaussian moments (`GaussianRateCovariance`). There is no trait
+object or per-step model registry. `DeterministicRates` has unit state and no
+innovations; deterministic forward carry and discount curves stay in the market
+layer. A zero-volatility HW configuration continues to use its Gaussian state,
+conditional bonds and all allocated random coordinates.
+
+`GaussianRateStep` owns the centered rate factor, its accumulated integral and
+the step-integral exposure used by equity carry. The single-asset HW kernel and
+joint local-correlation path now use the same advance operation. Local
+correlation's reverse uses its matching state/innovation pullback, retaining the
+original addition order of equity and accumulated-integral seeds. The equity
+kernel retains joint loading, volatility evolution and state validation; it no
+longer stores the whole HW transition just to read its rate/volatility decays.
+
+The [HW adapter](../../crates/pricing/src/models/rates/hull_white.rs) exposes named
+rate-state/integral covariance and unit-correlation OU cross moments to the
+multi-asset driver. Its numerical source remains `HullWhite1Factor::transition`,
+including every volatility breakpoint. Joint correlation validation, rough
+power/rate quadrature, PSD factorization, suffix permutations and dimensions are
+unchanged. Other rate models need not implement this Gaussian capability.
+
+[Bond-state exposure](../../crates/pricing/src/models/rates/bonds.rs) owns the
+exponential loading and its first/second state derivatives. Escrowed dividend
+nodes retain cash/proportional event policy, reserve sums, curve factors and
+coefficient/market adjoint accumulation. Their amount/duration fingerprint
+bytes are unchanged. Conditional payment discounting uses named bond moments;
+curve validation still occurs between transition compilation and total-variance
+evaluation, as before.
+
+Preserve both existing arithmetic conventions: standalone HW valuation uses
+relative discount times relative bond (two exponentials); multi-asset cashflows
+use their compiled combined exponential. Particle weights and their reverse
+share `GaussianDiscount` with exactly the previous half-variance arithmetic.
+These expressions are not reassociated merely because they are algebraically
+equivalent. Curve adjoints remain derivatives of the existing deterministic
+curve factors, with HW parameters fixed.
+
+New tests compare a full hybrid path against the frozen pre-extraction
+recurrence bit for bit on a nonuniform grid crossing rate-volatility knots.
+They also cover rate-state/increment pullbacks, conditional discounts, bond
+reserve derivatives, the Ho-Lee limit and the distinction between deterministic
+carry and a zero-volatility HW model conditioned on a nonzero rate state.
+Existing escrowed, rough/2F HW, multi-asset/local-correlation, curve-AAD and
+VegaKT tests remain required. This stage does not register a new rate model or
+make the complete HW calibration algorithm generic; capability selection and
+composition lowering are the following stages.
+
 ## Ordered implementation stages
 
 | Stage | Deliverable | Exit condition | Status |
 | --- | --- | --- | --- |
 | S0 | Current-code inventory, boundaries and compatibility contract | Responsibilities and baseline/deferred issues are explicit | Recorded here |
 | S1 | Compiled driver metadata shared by dimension/count/offset consumers | Existing sampling tests, mixed-model factor counts, overflow tests and all existing regressions pass | Implemented; normal tests and both native wheel/replay jobs passed on PR #73; extended gates tracked separately |
-| S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Implemented; native validation pending |
-| S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Pending |
+| S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Implemented; normal tests and native wheel/replay jobs passed on PR #74; extended gates tracked separately |
+| S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Implemented; native validation pending |
 | S4 | Explicit calibration/path-reverse capability selection | Unsupported combinations reject at compilation; existing recalibrated AAD/VegaKT gates pass | Pending |
 | S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Pending |
 | S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Pending |
@@ -177,8 +228,8 @@ their own measurements and subsequent PRs.
 
 ## Validation status of this change
 
-The local environment currently has no Rust toolchain. S2 Rust tests and
-native formatting/build/Clippy checks must run in CI; S1 and historical escrowed
-results do not certify the S2 source tree. Local documentation, source packaging and
+The local environment currently has no Rust toolchain. S3 Rust tests and
+native formatting/build/Clippy checks must run in CI; earlier-stage and historical
+escrowed results do not certify the S3 source tree. Local documentation, source packaging and
 Python public-stub checks are available. No runtime or memory improvement is
 claimed until representative measurements are captured.
