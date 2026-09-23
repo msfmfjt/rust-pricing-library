@@ -350,22 +350,18 @@ impl MultiAssetPricingPlan {
         }
         let grid = LocalVolTimeGrid::compile(events, maximum_step).map_err(E::numerical)?;
         let times = grid.nodes().to_vec();
-        let dimension = markets
-            .len()
-            .checked_add(
-                usize::from(hull_white.is_some()) * 2
-                    + rough_count
-                    + lsv_configs
-                        .iter()
-                        .flatten()
-                        .map(MultiAssetBergomiLsvConfig::factor_count)
-                        .sum::<usize>(),
-            )
-            .ok_or(E::Invalid("random factor count overflow"))?
-            .checked_mul(1 + usize::from(local_correlation.is_some()))
-            .and_then(|n| n.checked_mul(grid.step_count()))
-            .and_then(|v| u32::try_from(v).ok())
-            .ok_or(E::Invalid("random dimension overflow"))?;
+        let driver_layout = driver_layout::DriverLayout::compile(
+            lsv_configs.iter().map(|c| {
+                c.as_ref()
+                    .map_or(0, MultiAssetBergomiLsvConfig::factor_count)
+            }),
+            usize::from(hull_white.is_some()) * 2,
+            rough_count,
+        )?;
+        let dimension = driver_layout.dimension(
+            grid.step_count(),
+            1 + usize::from(local_correlation.is_some()),
+        )?;
         let variance_reduction = match engine {
             EngineConfig::PseudoMonteCarlo(c) => {
                 if c.independent_sampling_units().get() < 2 {
@@ -423,7 +419,6 @@ impl MultiAssetPricingPlan {
             )?
         };
         let joint_configs = lsv_configs.clone();
-        let mut driver_offset = markets.len();
         let mut assets = Vec::new();
         for (asset_index, ((market, model), lsv_config)) in
             markets.into_iter().zip(models).zip(lsv_configs).enumerate()
@@ -460,14 +455,11 @@ impl MultiAssetPricingPlan {
                         lsv_config.clone(),
                         config,
                         asset_index,
-                        driver_offset,
+                        driver_layout.volatility(asset_index).start,
                     )
                 })
                 .transpose()?
                 .map(std::sync::Arc::new);
-            driver_offset += lsv_config
-                .as_ref()
-                .map_or(0, MultiAssetBergomiLsvConfig::factor_count);
             let lsv = if hull_white.is_some() {
                 None
             } else if let Some(config) = lsv_config {
@@ -517,6 +509,7 @@ impl MultiAssetPricingPlan {
             fingerprint: String::new(),
             market_weights: std::sync::Arc::new(std::sync::OnceLock::new()),
             lsv_drivers,
+            driver_layout,
             hull_white,
             local_correlation: None,
         };
