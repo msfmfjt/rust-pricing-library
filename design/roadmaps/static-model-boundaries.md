@@ -17,7 +17,7 @@ incremental implementation plan, not a claim that all combinations are generic.
 | Rates and joint increments | [HW process](../../crates/pricing/src/engine/processes/hull_white.rs), [2F/HW driver](../../crates/pricing/src/engine/processes/hull_white/two_factor.rs), [multi-asset drivers](../../crates/pricing/src/engine/multi_asset/hull_white/drivers.rs) | Rate state/integral evolution, discounting, bond-state exposure and Gaussian covariance now have separate internal boundaries; the HW moment implementation and hybrid composition remain concrete. |
 | Multi-asset selection | [LSV enums](../../crates/pricing/src/engine/multi_asset/lsv_kernels.rs), [compiler](../../crates/pricing/src/engine/multi_asset/compile.rs) | Concrete enum variants are appropriate boundaries, but driver counts and offsets were reconstructed in several consumers. |
 | Calibration and reverse | [HW calibration](../../crates/pricing/src/engine/calibration/hull_white.rs), [calibration reverse](../../crates/pricing/src/engine/calibration/hull_white/reverse.rs), [joint reverse](../../crates/pricing/src/engine/multi_asset/local_correlation/joint_reverse.rs) | Leverage moments, target density, dividend reserve and model-specific traces must remain paired with their exact reverse. |
-| Configuration | [Python HW facade](../../crates/pricing-python/src/hull_white.rs), [multi-asset configuration](../../crates/pricing/src/engine/multi_asset/lsv.rs) | Constructors encode combinations. Keep adapters until a common configuration can represent every supported capability and rejection. |
+| Configuration | [composition selection](../../crates/pricing/src/engine/multi_asset/composition.rs), [paired HW lowering](../../crates/pricing/src/engine/compile/hybrid.rs), [Python HW facade](../../crates/pricing-python/src/hull_white.rs) | Existing constructors adapt to private configurations. Product/grid checks and model-specific calibration remain staged to preserve the supported combinations and rejection order. |
 
 The multi-asset rough path currently uses the shared HW adapter even with zero
 rate volatility. Its two rate-related random coordinates remain allocated.
@@ -207,6 +207,69 @@ Zero vol of vol still requires the requested calibration trace. Existing
 1F/2F/rough recalibration, HW curve-AAD/VegaKT and coupled local-correlation
 finite-difference suites remain the numerical regression gates.
 
+## Fifth extraction: composition through compatibility adapters
+
+The private [multi-asset composition](../../crates/pricing/src/engine/multi_asset/composition.rs)
+collects the marginal calibration settings, supplied Brownian correlations,
+explicit deterministic/shared-HW rate choice and optional local-correlation
+calibration. All existing multi-asset constructors lower into this descriptor;
+the one-factor constructor retains its conversion to the mixed-factor input.
+It selects the driver compiler and one concrete marginal adapter per asset.
+The resulting enum is consumed during compilation; existing plan storage,
+path dispatch and fingerprint generation are unchanged. There is no serialized
+composition format, public registry or runtime model lookup.
+
+Validation remains staged, in the original observable order:
+
+1. Market/model dimensions, configuration count, rough/HW restriction and
+   suitability of each marginal's target model.
+2. Product/underlying/currency/curve checks, contractual grid and sampling limits.
+3. Joint driver dimensions and covariance consistency.
+4. Each asset's dividend plan, paired target and numerical calibration.
+5. Conditional payment discounting, then optional joint local-correlation
+   calibration against the undoubled base plan.
+
+The descriptor does not eagerly reject a paired target before the product or
+driver checks that historically preceded it. AAD trace/payoff preflight remains
+the separate S4 request boundary. These stages preserve existing error variants
+and messages, including deliberately different single-asset round-off-tolerant
+and multi-asset exact target-grid comparisons.
+
+The shared [HW lowering](../../crates/pricing/src/engine/compile/hybrid.rs) binds
+the target, volatility factor, rates, correlations and particle settings for
+calibration. Its result retains the factor with the realized calibration and
+selects the matching pricing-volatility enum and leverage surface together.
+Both single-asset and multi-asset HW LSV use this boundary. In particular, 2F's
+second volatility/rate correlation and rough history convention survive the
+conversion. Existing numerical calibration, refined target/quote reverse,
+dividend reserves and multi-asset diagnostic normalization stay in their
+original adapters. Direct BS/rough-HW and standalone deterministic LSV keep
+their existing concrete compilers; this is not a universal financial-model API.
+
+The multi-asset marginal support contract is unchanged:
+
+| Rate configuration | Marginal input | Result |
+| --- | --- | --- |
+| Deterministic | BS or LV without LSV settings | Existing direct path |
+| Deterministic | LV plus 1F/2F Bergomi settings | Variance-target particle calibration |
+| Deterministic | Rough-LSV settings | Rejected; shared HW and a paired target are required |
+| Shared HW | BS without LSV settings or paired target | Existing BS-HW path |
+| Shared HW | LV plus 1F/2F/rough settings and matching paired target | Paired variance/density calibration |
+| Shared HW | LV without LSV settings, missing/mismatched paired target, or target without settings | Rejected with the existing specific error |
+
+Zero rate volatility retains the HW adapter and both rate innovation coordinates;
+rough retains its additional newest-cell coordinate. Optional local correlation
+still applies its existing joint feasibility checks; this table does not expand
+that capability. Python signatures/stubs and the Rust public configuration types
+remain compatibility adapters, with no wire, fixture or schema changes.
+
+Focused public-API tests check MC/RQMC constructor equivalence for prices, AAD
+and fingerprints; overlapping invalid inputs pin the validation order; and
+BS/1F/2F/rough with zero-volatility HW retain their coordinate counts and equal
+price/AAD values. Existing mixed-factor covariance, paired target, quote reverse,
+cash-dividend, local-correlation and frozen Python replay suites remain the
+broader regression gates. Timing and memory comparisons belong to S6.
+
 ## Ordered implementation stages
 
 | Stage | Deliverable | Exit condition | Status |
@@ -215,8 +278,8 @@ finite-difference suites remain the numerical regression gates.
 | S1 | Compiled driver metadata shared by dimension/count/offset consumers | Existing sampling tests, mixed-model factor counts, overflow tests and all existing regressions pass | Implemented; normal tests and both native wheel/replay jobs passed on PR #73; extended gates tracked separately |
 | S2 | Typed innovation views for Markov kernels; retain a distinct history-preparation interface | 1F/2F use one calibration/reverse implementation; rough keeps its exact history scheme and allocation behavior | Implemented; normal tests and native wheel/replay jobs passed on PR #74; extended gates tracked separately |
 | S3 | Rate evolution, discount/bond exposure and joint innovation capabilities | Deterministic/HW adapters reproduce existing paths, conditional discounts, reserves and curve adjoints | Implemented; normal/native wheel/replay and extended risk passed on PR #75; extended price gate tracked separately |
-| S4 | Explicit calibration/path-reverse capability selection | Unsupported model capabilities fail typed composition; late AAD requests validate before path generation; existing recalibrated AAD/VegaKT gates pass | Implemented; native validation pending |
-| S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Pending |
+| S4 | Explicit calibration/path-reverse capability selection | Unsupported model capabilities fail typed composition; late AAD requests validate before path generation; existing recalibrated AAD/VegaKT gates pass | Implemented; normal/native wheel/replay and extended risk passed on PR #76; extended price gate tracked separately |
+| S5 | Composition configuration lowered through existing public adapters | Rust/Python signatures, wire fixtures and supported-product matrix remain compatible | Implemented; native validation pending |
 | S6 | Extension exercise and performance comparison | A test-only alternative implementation uses registration/adapters without editing shared calibration/payoff algorithms; representative timing/memory results are recorded | Pending |
 | S7 | Broad performance/memory measurement and targeted optimization PRs | Measured bottlenecks and numerical/reproducibility gates justify each optimization | Pending |
 

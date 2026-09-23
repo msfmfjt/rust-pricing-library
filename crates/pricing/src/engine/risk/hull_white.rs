@@ -5,9 +5,10 @@
 //! conversion is a separate market-data operation.
 
 use crate::core::DayCountConvention;
+use crate::engine::compile::hybrid::HybridLsvComposition;
 use crate::mc::hull_white::{
     CalibratedHullWhiteLsv, HullWhiteEquityPlan, HullWhiteLsvTarget, HybridEquityVolatility,
-    HybridVolatilityFactor, calibrate_hybrid_lsv_with_dividends,
+    HybridVolatilityFactor,
 };
 use crate::mc::lsv::LsvParticleConfig;
 use crate::mc::{
@@ -359,15 +360,14 @@ impl HullWhiteEquityPricingPlan {
             request.market().equity().forward(),
             target.grid().time_nodes(),
         )?;
-        let calibration = calibrate_hybrid_lsv_with_dividends(
+        let calibrated = HybridLsvComposition {
             target,
             factor,
-            &rates,
+            rates: &rates,
             correlation,
-            request.market().equity().forward().spot().get(),
-            &particles,
-            Some(&dividends),
-        )?;
+            particles: &particles,
+        }
+        .calibrate(request.market().equity().forward().spot().get(), &dividends)?;
         let events = target
             .grid()
             .time_nodes()
@@ -377,24 +377,7 @@ impl HullWhiteEquityPricingPlan {
             .collect();
         let grid = LocalVolTimeGrid::compile(events, expiry)
             .map_err(|e| MonteCarloError::HullWhite(e.into()))?;
-        let volatility = match factor {
-            HybridVolatilityFactor::Bergomi(factor) => HybridEquityVolatility::BergomiLsv {
-                factor,
-                leverage: calibration.surface.clone(),
-            },
-            HybridVolatilityFactor::BergomiTwoFactor {
-                factor,
-                second_vol_rate_correlation,
-            } => HybridEquityVolatility::Bergomi2FactorLsv {
-                factor,
-                second_vol_rate_correlation,
-                leverage: calibration.surface.clone(),
-            },
-            HybridVolatilityFactor::Rough(factor) => HybridEquityVolatility::RoughBergomiLsv {
-                factor,
-                leverage: calibration.surface.clone(),
-            },
-        };
+        let (volatility, calibration) = calibrated.into_parts();
         let mut path = HullWhiteEquityPlan::new(rates, volatility, correlation, &grid)?;
         path = path.with_dividends(dividends)?;
         Self::finish(

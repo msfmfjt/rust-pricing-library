@@ -1,3 +1,4 @@
+use super::composition::{CompiledMarginal, ModelComposition, RateComposition};
 use super::*;
 use crate::core::DayCountConvention;
 use crate::market::{DiscountCurve, EquityMarket};
@@ -88,10 +89,12 @@ impl MultiAssetPricingPlan {
             engine,
             execution,
             maximum_step,
-            lsv_configs,
-            driver_correlations,
-            None,
-            None,
+            ModelComposition {
+                marginals: lsv_configs,
+                driver_correlations,
+                rates: RateComposition::Deterministic,
+                local_correlation: None,
+            },
         )
     }
     /// Shared one-factor HW with mixed BS and one-/two-factor Bergomi LSV.
@@ -118,10 +121,12 @@ impl MultiAssetPricingPlan {
             engine,
             execution,
             maximum_step,
-            lsv_configs,
-            driver_correlations,
-            Some(hull_white),
-            None,
+            ModelComposition {
+                marginals: lsv_configs,
+                driver_correlations,
+                rates: RateComposition::HullWhite(hull_white),
+                local_correlation: None,
+            },
         )
     }
     /// Calibrate one positive basket of normalized BS/LV equities by particle
@@ -148,10 +153,12 @@ impl MultiAssetPricingPlan {
             engine,
             execution,
             maximum_step,
-            configs,
-            None,
-            None,
-            Some((local_correlation, LocalCorrelationExtensions::default())),
+            ModelComposition {
+                marginals: configs,
+                driver_correlations: None,
+                rates: RateComposition::Deterministic,
+                local_correlation: Some((local_correlation, LocalCorrelationExtensions::default())),
+            },
         )
     }
     /// Particle local correlation with fixed marginal LSV/HW driver blocks.
@@ -180,10 +187,12 @@ impl MultiAssetPricingPlan {
             engine,
             execution,
             maximum_step,
-            lsv_configs,
-            driver_correlations,
-            hull_white,
-            Some((local_correlation, extensions)),
+            ModelComposition {
+                marginals: lsv_configs,
+                driver_correlations,
+                rates: hull_white.into(),
+                local_correlation: Some((local_correlation, extensions)),
+            },
         )
     }
     #[allow(clippy::too_many_arguments)]
@@ -196,34 +205,9 @@ impl MultiAssetPricingPlan {
         engine: EngineConfig,
         execution: ExecutionPolicy,
         maximum_step: f64,
-        lsv_configs: Vec<Option<MultiAssetBergomiLsvConfig>>,
-        driver_correlations: Option<Vec<Vec<Vec<f64>>>>,
-        hull_white: Option<MultiAssetHullWhiteConfig>,
-        local_correlation: Option<(LocalCorrelationConfig, LocalCorrelationExtensions)>,
+        mut composition: ModelComposition,
     ) -> Result<Self, E> {
-        if markets.is_empty() || markets.len() != models.len() {
-            return Err(E::Invalid("market/model dimensions differ"));
-        }
-        if lsv_configs.len() != models.len() {
-            return Err(E::Invalid("LSV configuration count must equal asset count"));
-        }
-        let rough_count = lsv_configs
-            .iter()
-            .flatten()
-            .filter(|c| c.rough().is_some())
-            .count();
-        if hull_white.is_none() && rough_count > 0 {
-            return Err(E::Invalid(
-                "rough-LSV requires the shared HW adapter and paired targets; use a zero-volatility HW model for deterministic rates",
-            ));
-        }
-        for (config, model) in lsv_configs.iter().zip(&models) {
-            if config.is_some() && !matches!(model, ModelSpec::LocalVolatility(_)) {
-                return Err(E::Invalid(
-                    "each LSV asset requires a LocalVolatility target model",
-                ));
-            }
-        }
+        composition.validate(&markets, &models)?;
         let order: Vec<_> = markets.iter().map(|m| m.forward().underlying()).collect();
         if order != product.underlyings || order != correlation.underlyings() {
             return Err(E::Invalid(
@@ -305,7 +289,7 @@ impl MultiAssetPricingPlan {
             ));
         }
         let mut events: Vec<_> = dates.iter().map(|&d| fraction(d)).collect();
-        if let Some((c, _)) = &local_correlation {
+        if let Some((c, _)) = &composition.local_correlation {
             events.extend(
                 c.target
                     .time_nodes()
@@ -350,17 +334,10 @@ impl MultiAssetPricingPlan {
         }
         let grid = LocalVolTimeGrid::compile(events, maximum_step).map_err(E::numerical)?;
         let times = grid.nodes().to_vec();
-        let driver_layout = driver_layout::DriverLayout::compile(
-            lsv_configs.iter().map(|c| {
-                c.as_ref()
-                    .map_or(0, MultiAssetBergomiLsvConfig::factor_count)
-            }),
-            usize::from(hull_white.is_some()) * 2,
-            rough_count,
-        )?;
+        let driver_layout = composition.driver_layout()?;
         let dimension = driver_layout.dimension(
             grid.step_count(),
-            1 + usize::from(local_correlation.is_some()),
+            1 + usize::from(composition.local_correlation.is_some()),
         )?;
         let variance_reduction = match engine {
             EngineConfig::PseudoMonteCarlo(c) => {
@@ -400,29 +377,10 @@ impl MultiAssetPricingPlan {
                     - 1
             })
             .collect();
-        let lsv_drivers = if let Some(hw) = &hull_white {
-            Some(hull_white::compile_drivers(
-                &correlation,
-                &times,
-                &interval_correlations,
-                &lsv_configs,
-                driver_correlations,
-                hw,
-            )?)
-        } else {
-            lsv::LsvDrivers::compile(
-                &correlation,
-                &times,
-                &interval_correlations,
-                &lsv_configs,
-                driver_correlations,
-            )?
-        };
-        let joint_configs = lsv_configs.clone();
+        let lsv_drivers =
+            composition.compile_drivers(&correlation, &times, &interval_correlations)?;
         let mut assets = Vec::new();
-        for (asset_index, ((market, model), lsv_config)) in
-            markets.into_iter().zip(models).zip(lsv_configs).enumerate()
-        {
+        for (asset_index, (market, model)) in markets.into_iter().zip(models).enumerate() {
             let forward = market.forward().clone();
             let timeline = forward
                 .discrete_dividends()
@@ -445,34 +403,16 @@ impl MultiAssetPricingPlan {
             }
             let process =
                 LocalVolLogEulerPlan::new(grid.clone(), forwards).map_err(E::numerical)?;
-            let hw = hull_white
-                .as_ref()
-                .map(|config| {
-                    hull_white::HwAsset::compile(
-                        &forward,
-                        &model,
-                        &grid,
-                        lsv_config.clone(),
-                        config,
-                        asset_index,
-                        driver_layout.volatility(asset_index).start,
-                    )
-                })
-                .transpose()?
-                .map(std::sync::Arc::new);
-            let lsv = if hull_white.is_some() {
-                None
-            } else if let Some(config) = lsv_config {
-                let ModelSpec::LocalVolatility(lv) = &model else {
-                    unreachable!("validated LSV target")
-                };
-                Some(std::sync::Arc::new(lsv::LsvAsset::compile(
-                    lv.local_variance_grid(),
-                    &grid,
-                    config,
-                )?))
-            } else {
-                None
+            let (lsv, hw) = match composition.compile_marginal(
+                &forward,
+                &model,
+                &grid,
+                asset_index,
+                driver_layout.volatility(asset_index).start,
+            )? {
+                CompiledMarginal::Direct => (None, None),
+                CompiledMarginal::Lsv(a) => (Some(a), None),
+                CompiledMarginal::HullWhite(a) => (None, Some(a)),
             };
             assets.push(Asset {
                 forward,
@@ -484,17 +424,16 @@ impl MultiAssetPricingPlan {
                 hw,
             });
         }
-        let hull_white = hull_white
-            .map(|config| {
-                hull_white::HwContext::new(
-                    config,
-                    &product,
-                    valuation_date,
-                    &times,
-                    &assets[0].forward,
-                )
-            })
-            .transpose()?;
+        let hull_white = match composition.rates {
+            RateComposition::Deterministic => None,
+            RateComposition::HullWhite(config) => Some(hull_white::HwContext::new(
+                config,
+                &product,
+                valuation_date,
+                &times,
+                &assets[0].forward,
+            )?),
+        };
         let mut plan = Self {
             valuation_date,
             assets,
@@ -513,10 +452,16 @@ impl MultiAssetPricingPlan {
             hull_white,
             local_correlation: None,
         };
-        plan.local_correlation = local_correlation
+        plan.local_correlation = composition
+            .local_correlation
             .map(|(config, extensions)| {
-                LocalCorrelationCalibration::compile(&plan, config, extensions, &joint_configs)
-                    .map(std::sync::Arc::new)
+                LocalCorrelationCalibration::compile(
+                    &plan,
+                    config,
+                    extensions,
+                    &composition.marginals,
+                )
+                .map(std::sync::Arc::new)
             })
             .transpose()?;
         plan.fingerprint = plan.make_fingerprint(&product, maximum_step);
