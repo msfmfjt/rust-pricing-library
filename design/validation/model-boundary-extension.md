@@ -190,7 +190,8 @@ the parent Linux [run 278](https://github.com/msfmfjt/rust-pricing-library/actio
   zero mean reversion and correlation -0.4 reports up to 38.9220 bp IV error
   against its unchanged 2 bp budget. The request uses the funded terminal
   forward, whereas this test's reporting call still supplies the pre-cash
-  forward. Correcting and rerunning that reference belongs in a separate PR.
+  forward. The separate [reference correction](hw-escrowed-gaussian-reference.md)
+  tracks its fix and native rerun without altering the captured S6 observations.
 
 The full accuracy gate and PR stack are therefore not accepted by this S6
 measurement record. No threshold, production formula or frozen replay changes

@@ -14,6 +14,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gaussian-reference:
+    name: Gaussian escrow reference / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Check independent escrowed BS-HW reference
+        run: cargo test --locked --release -p pricing --test extended_model_acceptance single_asset::gaussian_hull_white_independent_price_reference -- --ignored --exact --nocapture
+
   model-boundaries:
     name: Model boundary comparison / Linux
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'test/model-extension-evidence'
