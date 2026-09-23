@@ -48,6 +48,8 @@ The [local-correlation scaling record](validation/local-correlation-scaling.md)
 starts S7 with independent workload axes and cold/warm AAD allocation attribution.
 The first measured candidate is [reverse-moment buffer reuse](validation/local-correlation-moment-workspace.md),
 with exact outputs, lower first-AAD allocation churn and an explicit peak-heap follow-up.
+The [repeated-AAD heap study](validation/local-correlation-heap-followup.md)
+checks the full peak-stack difference and fresh-process reproducibility.
 
 | Stage | Roadmap | Acceptance evidence |
 | --- | --- | --- |
