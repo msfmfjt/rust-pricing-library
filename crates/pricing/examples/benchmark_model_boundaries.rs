@@ -29,6 +29,7 @@ struct Settings {
     paths: u64,
     warmups: usize,
     repeats: usize,
+    assets: usize,
 }
 
 impl Settings {
@@ -114,6 +115,14 @@ fn measure<P, R: Debug>(
             let elapsed = start.elapsed().as_nanos();
             record(elapsed, identity(&plan), i);
         }
+    } else if s.phase == "aad_cold" {
+        for i in 0..s.warmups + s.repeats {
+            let plan = build();
+            let start = Instant::now();
+            let result = black_box(evaluate(&plan));
+            let elapsed = start.elapsed().as_nanos();
+            record(elapsed, format!("{result:?}"), i);
+        }
     } else {
         let plan = build();
         for i in 0..s.warmups + s.repeats {
@@ -125,14 +134,14 @@ fn measure<P, R: Debug>(
     }
     json!({"case":s.case,"phase":s.phase,"workers":s.workers,"steps":s.steps,
         "particles":s.particles,"independent_units":s.paths,"warmups":s.warmups,
-        "repeats":s.repeats,"operation_ns":samples,"checksum":checksum})
+        "repeats":s.repeats,"assets":s.assets,"operation_ns":samples,"checksum":checksum})
 }
 
 fn markov<F: BergomiDynamics>(s: &Settings, request: &PricingRequest, factor: F) -> Value {
     let build =
         || BergomiLsvPricingPlan::compile(request, factor, s.particles(), s.policy()).unwrap();
     let identity = |p: &BergomiLsvPricingPlan<F>| format!("{:?}", p.plan_fingerprint());
-    if s.phase == "aad" {
+    if s.phase.starts_with("aad") {
         measure(s, build, identity, |p| {
             p.evaluate_local_variance_risk().unwrap()
         })
@@ -221,19 +230,21 @@ fn correlation(n: usize, rho: f64) -> CorrelationTermStructure {
 
 fn multi(s: &Settings) -> MultiAssetPricingPlan {
     let local = s.case == "local_correlation_hw";
-    let n = if local { 2 } else { 3 };
+    let n = s.assets;
+    assert!(if local { (2..=4).contains(&n) } else { n == 3 });
     let target = s.target(0.28, false);
     let configs = if local {
-        vec![
-            Some(
-                MultiAssetLsvConfig {
-                    factor: factor1(),
-                    particles: s.particles(),
-                }
-                .into(),
-            ),
-            None,
-        ]
+        (0..n)
+            .map(|i| {
+                (i == 0).then_some(
+                    MultiAssetLsvConfig {
+                        factor: factor1(),
+                        particles: s.particles(),
+                    }
+                    .into(),
+                )
+            })
+            .collect()
     } else {
         vec![
             Some(
@@ -316,7 +327,7 @@ fn multi(s: &Settings) -> MultiAssetPricingPlan {
             None,
             Some(hw),
             LocalCorrelationConfig {
-                basket_weights: vec![0.5; 2],
+                basket_weights: vec![1.0 / n as f64; n],
                 target: basket.grid().clone(),
                 second_correlation: correlation(n, 0.95),
                 particles: s.particles(),
@@ -349,10 +360,9 @@ fn multi(s: &Settings) -> MultiAssetPricingPlan {
 
 fn main() {
     let a: Vec<_> = std::env::args().collect();
-    assert_eq!(
-        a.len(),
-        9,
-        "case phase workers steps particles units warmups repeats"
+    assert!(
+        a.len() == 9 || a.len() == 10,
+        "case phase workers steps particles units warmups repeats [assets]"
     );
     let s = Settings {
         case: a[1].clone(),
@@ -363,9 +373,18 @@ fn main() {
         paths: a[6].parse().unwrap(),
         warmups: a[7].parse().unwrap(),
         repeats: a[8].parse().unwrap(),
+        assets: if a.len() == 10 {
+            a[9].parse().unwrap()
+        } else {
+            match a[1].as_str() {
+                "local_correlation_hw" => 2,
+                "multi_hw_mixed" => 3,
+                _ => 1,
+            }
+        },
     };
     assert!(s.steps >= 2 && s.steps.is_multiple_of(2) && s.repeats > 0);
-    assert!(["compile", "price", "aad", "aad_vegakt"].contains(&s.phase.as_str()));
+    assert!(["compile", "price", "aad", "aad_cold", "aad_vegakt"].contains(&s.phase.as_str()));
     assert!(s.phase != "aad_vegakt" || s.case.starts_with("hw_"));
     let target = s.target(0.28, s.phase == "aad_vegakt");
     let request = s.request(target.grid());
@@ -378,7 +397,7 @@ fn main() {
                     .unwrap()
             };
             let identity = |p: &RoughBergomiLsvPricingPlan| format!("{:?}", p.plan_fingerprint());
-            if s.phase == "aad" {
+            if s.phase.starts_with("aad") {
                 measure(&s, build, identity, |p| {
                     p.evaluate_local_variance_risk().unwrap()
                 })
@@ -431,7 +450,7 @@ fn main() {
         "multi_hw_mixed" | "local_correlation_hw" => {
             let build = || multi(&s);
             let identity = |p: &MultiAssetPricingPlan| p.fingerprint().to_owned();
-            if s.phase == "aad" {
+            if s.phase.starts_with("aad") {
                 measure(&s, build, identity, |p| {
                     p.evaluate_aad(MultiAssetRiskConfig::default()).unwrap()
                 })
