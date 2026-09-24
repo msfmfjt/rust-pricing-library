@@ -272,7 +272,7 @@ impl StochasticDividendHullWhitePathPlan {
         let mut states = Vec::with_capacity(self.times.len());
         let mut state = StochasticDividendHullWhiteState::initial();
         states.push(state);
-        for (step, z) in self.steps.iter().zip(normals.chunks_exact(4)) {
+        for (step, z) in self.steps.iter().zip(normals.as_chunks::<4>().0.iter()) {
             let rate_noise: f64 = step.noise[2].iter().zip(z).map(|(a, b)| a * b).sum();
             let integral_noise: f64 = step.noise[3].iter().zip(z).map(|(a, b)| a * b).sum();
             let factors =

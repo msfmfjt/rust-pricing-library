@@ -46,7 +46,12 @@ fn deterministic_rates_project_to_existing_paths_and_preserve_cash_event_order()
     let z: Vec<f64> = (0..hw.random_dimension())
         .map(|i| (i as f64 * 0.71).sin())
         .collect();
-    let projected: Vec<f64> = z.chunks_exact(4).flat_map(|z| [z[0], z[1]]).collect();
+    let projected: Vec<f64> = z
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|z| [z[0], z[1]])
+        .collect();
     let a = hw.evolve_path(&z).unwrap();
     let b = fixed.evolve_path(&projected).unwrap();
     for (i, (h, d)) in a.iter().zip(&b).enumerate() {
@@ -97,7 +102,7 @@ fn cash_mean_and_collateral_forward_are_distinct_with_correlated_rates() {
     let p = Plan::compile_bs(&r, m, rates(0.04), 0.25, -0.2, 0.5, policy(1)).unwrap();
     let mut reserve = 0.0;
     for (i, (t, mean)) in [(1.0, 3.0), (1.4, 8.0)].iter().enumerate() {
-        let a = 0.4;
+        let a: f64 = 0.4;
         let j = (t - (-(-a * t).exp_m1()) / a) / a;
         let forward = mean * (-0.35_f64 * (-0.2) * 0.04 * j).exp();
         close(p.initial_dividend_forwards()[i], forward, 2e-13);
