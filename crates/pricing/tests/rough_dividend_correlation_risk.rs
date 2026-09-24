@@ -1,5 +1,6 @@
 //! All three rough/dividend correlation partials: full-recompile finite
 //! differences, elementary call-hinge diagnostic, exact prefixes and domains.
+use pricing::market::DiscountCurve;
 use pricing::mc::{
     BrownianBridgePlan, EngineConfig, ExecutionPolicy, LocalVolTimeGrid, Philox4x32,
     RandomCoordinate, RandomDomain, RqmcPlan, inverse_standard_normal,
