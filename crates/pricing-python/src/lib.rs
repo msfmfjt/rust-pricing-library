@@ -1253,6 +1253,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<stochastic_dividends::PyStochasticDividendPlan>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendPrice>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendAadRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendGammaRisk>()?;
     module.add_class::<stochastic_volatility::PyStochasticVolatilityPlan>()?;
     module.add_class::<hull_white::PyHullWhitePrice>()?;
     module.add_class::<hull_white::PyHullWhiteAadRisk>()?;

@@ -279,6 +279,21 @@ impl StochasticDividendPathPlan {
         Ok(self)
     }
 
+    /// Rebuild only spot-dependent escrow coefficients on the identical grid.
+    /// Normalized f/Y and OU dynamics have no initial-Spot dependence in these
+    /// BS/pure-SV models. Preserve the kernel and every reserved random coordinate.
+    pub(in crate::engine) fn with_market_spot(
+        &self,
+        market: &EquityForward,
+    ) -> Result<Self, MonteCarloError> {
+        let grid =
+            LocalVolTimeGrid::compile(self.times.to_vec(), self.times[self.times.len() - 1])?;
+        let mut shifted = Self::compile(market, self.model, self.volatility, &grid)?;
+        shifted.bergomi = self.bergomi.clone();
+        shifted.dimension = self.dimension;
+        Ok(shifted)
+    }
+
     fn set_dimension(&mut self) -> Result<(), StochasticDividendError> {
         self.dimension = (self.times.len() - 1)
             .checked_mul(self.random_factor_count())

@@ -45,7 +45,12 @@ documents the public API migration.
 | [0016](adr/0016-stochastic-dividend-bergomi-risk.md) | Optional Bergomi parameter reverse with stochastic dividends |
 | [0017](adr/0017-stochastic-dividend-correlation-risk.md) | Optional raw Brownian-correlation reverse with stochastic dividends |
 
+| [0018](adr/0018-stochastic-dividend-gamma.md) | Paired AAD-Delta Gamma and bump diagnostics |
+
 ## Implementation roadmaps and acceptance
+
+The [Gamma validation protocol](validation/stochastic-dividend-gamma.md) covers
+common-noise Delta bumps and their uncertainty.
 
 The [Bergomi parameter-risk record](validation/stochastic-dividend-bergomi-risk.md)
 tracks fixed-correlation model-risk differentiation and its numerical domain.

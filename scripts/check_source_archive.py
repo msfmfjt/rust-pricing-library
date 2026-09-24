@@ -13,6 +13,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/gamma.rs',
+    'crates/pricing/tests/stochastic_dividend_gamma.rs',
+    'tests/python/test_stochastic_dividend_gamma.py',
+    'examples/python/stochastic_dividend_gamma.py',
+    'design/adr/0018-stochastic-dividend-gamma.md',
+    'design/validation/stochastic-dividend-gamma.md',
     "crates/pricing/src/engine/processes/stochastic_dividends/bergomi/correlation_reverse.rs",
     "crates/pricing/tests/stochastic_dividend_correlation_risk.rs",
     "tests/python/test_stochastic_dividend_correlation_risk.py",
