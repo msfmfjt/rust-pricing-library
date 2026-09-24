@@ -15,8 +15,8 @@ use crate::mc::{
 };
 use crate::models::stochastic_dividends::invalid;
 use crate::models::{
-    Bergomi1Factor, Bergomi2Factor, BuehlerDividendModel, ModelSpec, STOCHASTIC_DIVIDEND_SCHEME,
-    StochasticDividendError,
+    Bergomi1Factor, Bergomi2Factor, BuehlerDividendModel, ModelSpec, RoughBergomi,
+    STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
 };
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
@@ -34,6 +34,7 @@ pub struct StochasticDividendPrice {
 /// reserve. The request volatility is the initial residual-equity volatility,
 /// not physical-stock implied volatility. `evaluate_aad` requests first-order
 /// risk explicitly; constructors continue to accept price-only requests.
+/// Rough-Bergomi cash-dividend plans currently support only `evaluate()`.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,
@@ -153,6 +154,24 @@ impl StochasticDividendPricingPlan {
         plan.finish_bergomi()?;
         Ok(plan)
     }
+    /// Rough vol-of-vol is eta in log variance, not Bergomi's log-volatility nu.
+    /// The request BS volatility supplies sigma0; no market-IV calibration occurs.
+    pub fn compile_rough_bergomi(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: RoughBergomi,
+        dividend_volatility_correlation: f64,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let mut plan = Self::compile_bs(request, model, maximum_step, policy)?;
+        plan.path = plan
+            .path
+            .with_rough_bergomi(factor, dividend_volatility_correlation)?;
+        plan.finish_bergomi()?;
+        Ok(plan)
+    }
+
     fn finish_bergomi(&mut self) -> Result<(), MonteCarloError> {
         if let EngineConfig::RandomizedQuasiMonteCarlo(config) = self.engine {
             RqmcPlan::compile(config, self.path.random_dimension())?;

@@ -34,6 +34,12 @@ impl ReverseContext {
         market: &EquityForward,
         payment: f64,
     ) -> Result<Self, MonteCarloError> {
+        if path.rough.is_some() {
+            return Err(StochasticDividendError::Unsupported {
+                feature: "AAD and Gamma for rough Bergomi stochastic dividends",
+            }
+            .into());
+        }
         let events = market.discrete_dividends().map_or(&[][..], |d| d.events());
         let p = market.discount_curve();
         let q = market.dividend_curve();
