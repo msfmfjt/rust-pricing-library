@@ -21,38 +21,22 @@ jobs:
           python-version: '3.12'
       - name: Correct lint and retain exact source
         run: |
-          test "$(git rev-parse HEAD^)" = 955b40a08a538d8a46d9ba0bfa24ea6088d15613
+          test "$(git rev-parse HEAD^)" = 4b38320a01a745e19cbdf87ee04a10de2bb49a9a
           python - <<'PY'
           from pathlib import Path
           p = Path('crates/pricing/src/engine/processes/stochastic_dividends/bergomi/correlation_reverse.rs')
           s = p.read_text()
-          old = '                for j in 0..D {\n                    let exposure: f64'
-          new = '                for (j, _) in s.lower[0].iter().enumerate() {\n                    let exposure: f64'
-          assert s.count(old) == 1
-          s = s.replace(old, new)
-          old = '''                        for m in 0..2 {
-                                      for n in 0..4 {
-                                          let fd = (a.lower[m][n] - b.lower[m][n]) / (2.0 * h);
-                                          assert!(
-                                              (tangent[p][m][n] - fd).abs() < 3e-6,
-                                              "k={k:?}, dt={dt}, p={p}, ({m},{n}), aad={}, fd={fd}",
-                                              tangent[p][m][n]
-                                          );
-                                      }
-                                  }'''
-          old = '\n'.join([old.splitlines()[0]] + [line[10:] for line in old.splitlines()[1:]])
-          new = '''                        for (m, row) in tangent[p].iter().enumerate() {
-                                      for (n, &value) in row.iter().enumerate() {
-                                          let fd = (a.lower[m][n] - b.lower[m][n]) / (2.0 * h);
-                                          assert!(
-                                              (value - fd).abs() < 3e-6,
-                                              "k={k:?}, dt={dt}, p={p}, ({m},{n}), aad={value}, fd={fd}"
-                                          );
-                                      }
-                                  }'''
-          new = '\n'.join([new.splitlines()[0]] + [line[10:] for line in new.splitlines()[1:]])
-          assert s.count(old) == 1
-          p.write_text(s.replace(old, new))
+          pairs = [
+              ('for j in 0..D {\n                    let exposure: f64', 'for (j, _) in s.lower[0].iter().enumerate() {\n                    let exposure: f64'),
+              ('for m in 0..2 {', 'for (m, row) in tangent[p].iter().enumerate() {'),
+              ('for n in 0..4 {', 'for (n, &value) in row.iter().enumerate() {'),
+              ('(tangent[p][m][n] - fd)', '(value - fd)'),
+              ('"k={k:?}, dt={dt}, p={p}, ({m},{n}), aad={}, fd={fd}",\n                                    tangent[p][m][n]', '"k={k:?}, dt={dt}, p={p}, ({m},{n}), aad={value}, fd={fd}"'),
+          ]
+          for old, new in pairs:
+              assert s.count(old) == 1, old
+              s = s.replace(old, new)
+          p.write_text(s)
           PY
           git rm .github/workflows/stochastic-dividend-correlation-build.yml
           cargo fmt --all
