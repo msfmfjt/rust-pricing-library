@@ -1,9 +1,10 @@
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{Bergomi1Factor, Bergomi2Factor};
+use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
-    BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendPrice,
-    StochasticDividendPricingPlan,
+    BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
+    StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -156,6 +157,25 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendPrice { inner })
             .map_err(pricing_exception)
     }
+    /// Exactly one absolute or relative Spot bump is required. A half/base/double
+    /// ladder is evaluated with common normals; all other inputs remain fixed.
+    #[pyo3(signature=(*, gamma_absolute_bump=None, gamma_relative_bump=None))]
+    fn evaluate_gamma(
+        &self,
+        py: Python<'_>,
+        gamma_absolute_bump: Option<f64>,
+        gamma_relative_bump: Option<f64>,
+    ) -> PyResult<PyStochasticDividendGammaRisk> {
+        let bump = match (gamma_absolute_bump, gamma_relative_bump) {
+            (Some(h), None) => SpotBump::absolute(h),
+            (None, Some(h)) => SpotBump::relative(h),
+            _ => return Err(invalid(py, "specify exactly one Gamma Spot bump")),
+        }
+        .map_err(|e| invalid(py, e))?;
+        py.detach(|| self.inner.evaluate_gamma(GammaConfig::new(bump)))
+            .map(|inner| PyStochasticDividendGammaRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_aad(&self, py: Python<'_>) -> PyResult<PyStochasticDividendAadRisk> {
         py.detach(|| self.inner.evaluate_aad())
             .map(|inner| PyStochasticDividendAadRisk { inner })
@@ -305,5 +325,81 @@ impl PyStochasticDividendAadRisk {
     #[getter]
     fn repo_spread_node_dv01(&self) -> Vec<f64> {
         self.inner.repo_spread_node_dv01()
+    }
+}
+
+/// Paired finite-bump Gamma; sampling error excludes bump/grid/smoothing bias.
+#[pyclass(frozen, name = "StochasticDividendGammaRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendGammaRisk {
+    inner: StochasticDividendGammaRisk,
+}
+#[pymethods]
+impl PyStochasticDividendGammaRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn spot(&self) -> f64 {
+        self.inner.spot
+    }
+    #[getter]
+    fn spot_bumps(&self) -> Vec<f64> {
+        self.inner.spot_bumps.to_vec()
+    }
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.inner.gamma()
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error()
+    }
+    #[getter]
+    fn gamma_estimates(&self) -> Vec<f64> {
+        self.inner.gamma_estimates.to_vec()
+    }
+    #[getter]
+    fn gamma_standard_errors(&self) -> Vec<f64> {
+        self.inner.gamma_standard_errors.to_vec()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<f64> {
+        self.inner.bump_differences.to_vec()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<f64> {
+        self.inner.bump_difference_standard_errors.to_vec()
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn delta_change_per_one_percent_spot(&self) -> f64 {
+        self.inner.delta_change_per_one_percent_spot()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "sampling_only_fixed_bump_grid_and_smoothing"
     }
 }
