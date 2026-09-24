@@ -3,8 +3,9 @@
 use super::*;
 use crate::engine::processes::stochastic_dividends::reverse::ReverseContext;
 
-/// First-order derivatives at fixed dates, time grid, correlations, Bergomi
-/// parameters and payoff-smoothing width. No market-IV recalibration is implied.
+/// First-order derivatives at fixed dates, grid, correlations and smoothing.
+/// The method and labels identify whether Bergomi parameters are active.
+/// No market-IV recalibration is implied.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StochasticDividendAadRisk {
     pub price: StochasticDividendPrice,
@@ -52,7 +53,7 @@ impl StochasticDividendAadRisk {
     #[must_use]
     pub fn repo_spread_node_dv01(&self) -> Vec<f64> {
         let start = 5 + self.cash_times.len() + self.discount_times.len();
-        self.derivatives[start..]
+        self.derivatives[start..start + self.repo_spread_times.len()]
             .iter()
             .zip(&self.repo_spread_times)
             .map(|(d, t)| -1e-4 * t * d)
@@ -66,12 +67,30 @@ impl StochasticDividendPricingPlan {
     /// rejected at construction; use this explicit method on a price-only plan.
     /// Unsmooth discontinuous payoffs fail before generating any paths.
     pub fn evaluate_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_scope(false)
+    }
+
+    /// Extend basic risk by 1F/2F Bergomi mean reversions, vol-of-vol and (2F)
+    /// mixing weight. All correlations remain fixed. Integrated correlation
+    /// pivots and weight variance must exceed 1e-10; otherwise fail before sampling.
+    /// Existing evaluate_aad remains available at singular covariance boundaries.
+    pub fn evaluate_bergomi_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_scope(true)
+    }
+
+    fn evaluate_aad_scope(
+        &self,
+        include_bergomi: bool,
+    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend discontinuous payoff requires explicit smoothing",
             });
         }
-        let context = ReverseContext::new(&self.path, &self.market, self.payment_time)?;
+        let mut context = ReverseContext::new(&self.path, &self.market, self.payment_time)?;
+        if include_bergomi {
+            context.enable_bergomi_parameters(&self.path)?;
+        }
         let width = 1 + context.labels.len();
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
@@ -183,7 +202,11 @@ impl StochasticDividendPricingPlan {
             cash_times: context.cash_times.into_boxed_slice(),
             discount_times: context.discount_times.into_boxed_slice(),
             repo_spread_times: context.repo_spread_times.into_boxed_slice(),
-            method: "buehler-split-payoff-reverse-fixed-correlation-v1",
+            method: if include_bergomi {
+                "buehler-bergomi-parameter-reverse-fixed-correlation-v1"
+            } else {
+                "buehler-split-payoff-reverse-fixed-correlation-v1"
+            },
         })
     }
 

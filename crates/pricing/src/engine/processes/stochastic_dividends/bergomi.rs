@@ -2,6 +2,8 @@
 //! Covariances are integrated before factorization, not set equal to the
 //! instantaneous Brownian correlations. Only compilation allocates kernels.
 
+pub(super) mod parameter_reverse;
+
 use super::*;
 use crate::models::{BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES, ou_kernel_correlation};
 use pricing_numerics::CorrelationFactor;

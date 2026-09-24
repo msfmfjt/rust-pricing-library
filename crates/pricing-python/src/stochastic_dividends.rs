@@ -161,6 +161,11 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendAadRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_bergomi_aad(&self, py: Python<'_>) -> PyResult<PyStochasticDividendAadRisk> {
+        py.detach(|| self.inner.evaluate_bergomi_aad())
+            .map(|inner| PyStochasticDividendAadRisk { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
@@ -222,7 +227,7 @@ impl PyStochasticDividendPrice {
     }
 }
 
-/// First-order reverse at fixed correlation, Bergomi parameters and grid.
+/// First-order reverse at fixed correlations/grid; labels identify active parameters.
 #[pyclass(frozen, name = "StochasticDividendAadRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendAadRisk {
