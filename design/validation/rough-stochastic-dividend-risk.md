@@ -11,7 +11,7 @@ Do not relabel parent evidence as this change's native acceptance.
   transposed causal-history H/eta gradients versus recompiled loading values
   (3e-6 absolute), across H=0.01/0.1/0.49/0.5 and eta=0/0.6, on an irregular
   grid. Last-step normals cannot affect any left-endpoint loading or its risk.
-- Seven public Rust tests: all basic market/dividend/curve risks at H=0.1/0.49/0.5,
+- Eight public Rust tests (including the explicit hinge-stencil diagnostic below): all basic market/dividend/curve risks at H=0.1/0.49/0.5,
   MC/RQMC, multiple seeds and one/three workers; European, Asian delayed payment
   and smoothed pre/post-dividend barriers. Basic and extended results retain
   exact price/price-SE and basic derivative/SE prefixes.
@@ -45,3 +45,32 @@ continuous-time rough-Gamma oracle.
 Native results, exact source tree, observed failures and any outstanding gates
 must be recorded with the pull request. Full legacy acceptance, including the
 separate existing 4 bp requirement change, is not waived by focused success.
+
+## Finite-stencil correction recorded after the first native observation
+
+Native run 35985436056 passed both new coefficient tests and 6/7 new public tests.
+The all-basic-risk comparison stopped at H=0.1, MC seed 912, last discount pillar,
+h=1e-5: AAD -34.18298105655497 versus raw central FD -34.21095437188271.
+An independent Python reconstruction located antithetic path 321 at terminal
+Spot 99.99970564881927: the negative curve bump moves it above strike 100.
+At h=1e-6 no path crosses and raw FD agrees. This is a finite payoff-stencil
+hinge contribution, not evidence of a reverse/curve formula error.
+
+Retain the original seeds, markets, both bump sizes, all derivative budgets and
+all production arithmetic. For the unsmoothed terminal-call basic-risk panel,
+reconstruct the base/up/down discounted intrinsic values with public *primal*
+paths and an elementary payoff, independently of AAD/payoff-reverse helpers.
+Require each reconstructed bumped call price to agree with the full public
+pricing call within 2e-12. Subtract the exactly computed finite hinge remainder
+from the raw FD before applying the original derivative budget:
+
+`R_h = mean[(x_plus^+ - I0*x_plus - x_minus^+ + I0*x_minus)/(2h)]`,
+where `I0 = 1{x_base > 0}`. The remainder is identically zero when no branch
+changes. It is never inferred from the AAD-FD error. Asian/smoothed-barrier and
+H/eta tests retain their original direct FD comparisons.
+
+An eighth public test retains the originally failing raw case explicitly:
+one crossing at 1e-5, zero at 1e-6, a nonzero coarse hinge contribution, and
+corrected FD within 3e-5 of AAD at both widths. Neither the raw coarse FD nor
+its mismatch is hidden or labelled a direct-FD pass. This amends the initial
+validation interpretation; it is not a relaxation of numerical tolerances.
