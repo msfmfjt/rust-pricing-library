@@ -4,7 +4,7 @@ on:
     branches: [work/stochastic-dividend-risk-20260924]
     paths: [.github/workflows/stochastic-dividend-risk-build.yml]
 permissions:
-  contents: write
+  contents: read
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -15,15 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          ref: 5998b24de8c8bc520adcee3e9df52a2ef2f49223
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Materialize pinned candidate and remove temporary workflow
+      - name: Materialize and archive pinned candidate without repository writes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$(git rev-parse HEAD^)" = 5998b24de8c8bc520adcee3e9df52a2ef2f49223
+          test "$(git rev-parse HEAD)" = 5998b24de8c8bc520adcee3e9df52a2ef2f49223
           python - <<'PY'
           import base64, hashlib, json, lzma, os, pathlib, urllib.request
           parts = []
@@ -37,14 +38,12 @@ jobs:
           pathlib.Path('/tmp/sd-risk.patch').write_bytes(patch)
           PY
           git apply --index /tmp/sd-risk.patch
-          git rm .github/workflows/stochastic-dividend-risk-build.yml
           test "$(git write-tree)" = 4ce82033ed4bc1e8b22aa9ebb7418c686f481802
           cargo fmt --all
           git add -u
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'feat: materialize and format stochastic-dividend AAD candidate'
-          git push origin HEAD:refs/heads/work/stochastic-dividend-risk-20260924
+          git commit -m 'Local formatted stochastic-dividend AAD candidate'
           mkdir -p /tmp/sd-risk-evidence
           { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/sd-risk-evidence/revision.txt
           git archive --format=tar.gz -o /tmp/sd-risk-evidence/source.tar.gz HEAD
