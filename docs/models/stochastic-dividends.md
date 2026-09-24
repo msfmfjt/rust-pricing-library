@@ -287,7 +287,7 @@ The reported uncertainties are sampling errors, not timestep/model uncertainty.
 ## Correlation risk
 
 `evaluate_correlation_aad()` returns all existing basic-AAD results for BS or all
-Bergomi-parameter-AAD results for 1F/2F as an exact prefix, then appends raw
+Bergomi-parameter-AAD results for 1F/2F (H/eta AAD for rough) as an exact prefix, then appends raw
 Brownian-correlation entry partials. It is opt-in; older risk methods still hold
 correlations fixed. The method label is `buehler-joint-correlation-reverse-v1`.
 
@@ -424,9 +424,9 @@ plan = rp.StochasticDividendPlan.compile_rough_bergomi(
 result = plan.evaluate()
 ```
 
-**This rough-dividend factory supports prices, basic AAD, H/eta AAD and Gamma.**
-Rough correlation AAD and the 1F/2F-only `evaluate_bergomi_aad()` still reject
-rough plans explicitly; the BS/1F/2F methods retain their original support. Shared payoff graphs can still price discrete
+**This rough-dividend factory supports prices, basic/H-eta AAD, Gamma and
+correlation AAD in the instantaneous SPD interior.** The 1F/2F-only
+`evaluate_bergomi_aad()` still rejects rough plans explicitly; the BS/1F/2F methods retain their original support. Shared payoff graphs can still price discrete
 path-dependent contracts, but the new acceptance tests cover terminal calls and
 cash-event/path construction, not broad rough-dividend exotic accuracy.
 American exercise, continuous barriers, proportional cash mixtures, stochastic
@@ -510,3 +510,56 @@ apply here too. H/eta AAD and Gamma do not add HW, LSV, VegaKT or multiple asset
 See the [example](../../examples/python/rough_dividend_risk.py),
 [decision](../../design/adr/0020-rough-stochastic-dividend-risk.md) and
 [validation protocol](../../design/validation/rough-stochastic-dividend-risk.md).
+
+
+## Rough-dividend correlation AAD
+
+`evaluate_correlation_aad()` on a rough plan returns the entire H/eta-risk
+prefix, then `equity_dividend_correlation`, `spot_volatility_correlation[0]`,
+and `dividend_volatility_correlation[0]`. The common method label remains
+`buehler-joint-correlation-reverse-v1`; the price scheme and fingerprint identify
+the rough family. The raw derivatives are per unit correlation. Multiply by
+0.01 for a linearized +1 correlation percentage-point move, provided the scenario
+remains admissible. These are Brownian-driver, not physical-stock return,
+correlations. No market recalibration or PSD projection is performed.
+
+With fixed H, the hybrid driver at node i is
+
+\[
+X_i=A_{i-1}\Delta W^v_{i-1}+B_{i-1}z_{i-1,3}
+    +\sum_{j<i-1}w_{ij}\Delta W^v_j.
+\]
+
+All correlation dependence enters the Brownian factor row
+`dWv_j = sqrt(dt_j) * sum_k L_vk z_jk`. The reverse transposes each history row
+into every earlier increment, then through the analytic Cholesky derivatives.
+The direct dividend-driver rotation supplies an additional equity/dividend
+term. The fourth independent newest-cell residual has no correlation derivative.
+The volatility Brownian marginal variance stays fixed, hence
+`d V_grid / d rho = 0` and `d loading / d rho = loading * eta/2 * dX/d rho`.
+
+Every pivot of the instantaneous 3x3 Brownian matrix must exceed `1e-10`, even
+at zero loadings. Singular/near-singular input rejects this scope before
+sampling, without changing fixed-correlation price/basic/H-eta/Gamma support.
+At H=1/2 the fourth near-cell residual vanishes; this does not preclude
+correlation risk if the 3x3 Brownian matrix is SPD. No separate nonsingularity
+condition is imposed on the augmented newest-cell covariance. All four random
+coordinates are retained, and no extra time discretization is introduced.
+
+```python
+risk = plan.evaluate_correlation_aad()
+for label, value, se in zip(risk.parameter_labels, risk.derivatives, risk.standard_errors):
+    if "correlation" in label:
+        print(label, value, se)
+```
+
+Existing H/eta and basic risks keep other inputs fixed for each partial and
+are returned unchanged. Raw correlation risk adds nine prepared coefficients
+and O(N) path workspace; its history transpose is O(N^2). The combined scope
+also retains the H-derivative coefficient table. All existing grid/resource,
+payoff smoothing and sampling-uncertainty caveats remain. No continuous-time
+risk-convergence, stochastic-rate/HW, LSV/VegaKT or multi-asset support is implied.
+
+See the [example](../../examples/python/rough_dividend_correlation_risk.py),
+[decision](../../design/adr/0021-rough-stochastic-dividend-correlation-risk.md) and
+[validation protocol](../../design/validation/rough-stochastic-dividend-correlation-risk.md).

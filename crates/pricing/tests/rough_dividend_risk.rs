@@ -415,7 +415,7 @@ fn rough_endpoint_parameter_derivatives_and_unsupported_scopes_are_explicit() {
             assert_eq!(risk.standard_errors[n], 0.0);
         }
         assert!(p.evaluate_bergomi_aad().is_err());
-        assert!(p.evaluate_correlation_aad().is_err());
+        assert!(p.evaluate_correlation_aad().is_ok());
         assert_eq!(risk.price, p.evaluate().unwrap());
     }
     v["model"]["volatility"] = json!(0.0);

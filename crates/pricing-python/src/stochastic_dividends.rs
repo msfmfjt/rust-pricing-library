@@ -300,7 +300,7 @@ impl PyStochasticDividendPrice {
     }
 }
 
-/// First-order reverse at fixed correlations/grid; labels identify active parameters.
+/// First-order reverse at fixed grid; method and labels identify active parameters/correlations.
 #[pyclass(frozen, name = "StochasticDividendAadRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendAadRisk {

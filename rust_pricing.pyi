@@ -207,7 +207,9 @@ class StochasticDividendPlan:
 
     Fixed-cash market amounts are Q-means; only price-only requests are accepted.
     Correlation is between residual-equity and dividend Brownian drivers.
-    The rough factory is price-only; its inherited risk methods explicitly reject.
+    Constructors take price-only requests. Rough plans support basic/H-eta AAD,
+    paired Delta-bump Gamma, and raw correlation AAD in the instantaneous SPD
+    interior (pivots > 1e-10). Only the 1F/2F-specific risk method rejects rough.
     """
     @staticmethod
     def compile_bs(

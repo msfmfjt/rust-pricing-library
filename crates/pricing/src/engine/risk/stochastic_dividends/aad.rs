@@ -96,8 +96,9 @@ impl StochasticDividendPricingPlan {
 
     /// Append all raw Brownian-correlation partials, varying one symmetric
     /// off-diagonal pair while holding other entries fixed. BS includes basic
-    /// AAD; Bergomi includes model-parameter AAD. Instantaneous and integrated
-    /// correlation pivots must exceed 1e-10. No projection or market recalibration.
+    /// AAD; 1F/2F Bergomi includes model-parameter AAD, rough includes H/eta AAD.
+    /// Instantaneous correlation pivots must exceed 1e-10 (also the integrated
+    /// OU pivots for 1F/2F). No projection or market recalibration.
     pub fn evaluate_correlation_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         self.evaluate_aad_scope(AadScope::Correlation)
     }
