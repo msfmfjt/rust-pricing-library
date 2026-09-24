@@ -1,0 +1,94 @@
+name: HW stochastic-dividend basic AAD validation
+on:
+  push:
+    branches: [work/stochastic-dividend-hw-aad-20260924]
+    paths: [.github/workflows/stochastic-dividend-hw-aad-build.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize hash-verified candidate and retain exact source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD^)" = 53a0de3ab593d431c0c82c511ea91368d63c85c6
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, urllib.request
+          parts=[]
+          for sha in ['851d40c5dd0025797359920ab02ac60cabcf0081','4b8a294a9425edba79615be49b723cf5cdb003f5','5020614e0db0189b7a2a55c56c0d8466f764b04b']:
+              request=urllib.request.Request('https://api.github.com/repos/msfmfjt/rust-pricing-library/git/blobs/'+sha, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(request,timeout=30) as response:
+                  parts.append(base64.b64decode(json.load(response)['content']))
+          patch=lzma.decompress(base64.b64decode(b''.join(parts),validate=True))
+          assert hashlib.sha256(patch).hexdigest()=='404a14323d0059897f9449f3dae7716c605a7a3a94518083a01ee98a18a3f54a'
+          pathlib.Path('/tmp/hw-aad.patch').write_bytes(patch)
+          PY
+          git apply --index /tmp/hw-aad.patch
+          git rm .github/workflows/stochastic-dividend-hw-aad-build.yml
+          test "$(git write-tree)" = 749ca93901bd3a3bd12f488725c80702d1d0f608
+          cargo fmt --all
+          git add -u
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: materialize formatted HW stochastic-dividend basic AAD'
+          mkdir -p /tmp/hw-aad-evidence
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/hw-aad-evidence/revision.txt
+          git archive --format=tar.gz -o /tmp/hw-aad-evidence/source.tar.gz HEAD
+          git diff 53a0de3ab593d431c0c82c511ea91368d63c85c6 HEAD --binary --full-index > /tmp/hw-aad-evidence/change.patch
+          git push origin HEAD:refs/heads/work/stochastic-dividend-hw-aad-20260924
+      - name: Formatting and Clippy
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/hw-aad-evidence/clippy.log
+      - name: Conditional claim derivatives and public basic risk tests
+        run: |
+          cargo test --locked --release -p pricing --lib engine::processes::stochastic_dividends::hull_white -- --nocapture 2>&1 | tee /tmp/hw-aad-evidence/coefficients.log
+          cargo test --locked --release -p pricing --test stochastic_dividend_hull_white_risk -- --nocapture 2>&1 | tee /tmp/hw-aad-evidence/hw-aad.log
+          cargo test --locked --release -p pricing --test stochastic_dividend_hull_white --test rough_dividend_correlation_risk --test rough_dividend_risk --test rough_dividends --test stochastic_dividend_gamma --test stochastic_dividend_risk --test stochastic_dividend_bergomi_risk --test stochastic_dividend_correlation_risk --test stochastic_dividends --test bergomi_dividends 2>&1 | tee /tmp/hw-aad-evidence/regression.log
+      - name: Wheel and full Python tests
+        run: |
+          python -m pip install 'maturin>=1.9,<2.0' 'numpy>=2.0,<3.0'
+          python -m maturin build --locked --release --out /tmp/hw-aad-wheels
+          python -m pip install --force-reinstall /tmp/hw-aad-wheels/*.whl
+          python -m unittest discover -s tests/python -p test_stochastic_dividend_hull_white_risk.py -v 2>&1 | tee /tmp/hw-aad-evidence/python-risk.log
+          python examples/python/stochastic_dividend_hull_white_risk.py 2>&1 | tee /tmp/hw-aad-evidence/example.log
+          python -m unittest discover -s tests/python -v 2>&1 | tee /tmp/hw-aad-evidence/python-all.log
+      - name: Source and documentation contracts
+        run: |
+          python scripts/check_local_vol_reference_fixture.py
+          python scripts/check_path_dependence_reference_fixture.py
+          python scripts/check_early_exercise_reference_fixture.py
+          python scripts/check_schemas.py
+          python scripts/check_markdown_links.py
+          python scripts/check_source_archive.py /tmp/hw-aad-evidence/source.tar.gz
+          python - <<'PY'
+          import ast,pathlib,runpy
+          runpy.run_path('scripts/smoke_test_wheel.py')['verify_stub_static_shape'](ast.parse(pathlib.Path('rust_pricing.pyi').read_text()))
+          PY
+          cargo doc --locked --workspace --all-features --no-deps
+          cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+      - name: Ordinary release Rust suites
+        run: |
+          cargo test --locked --release --workspace --all-features --exclude pricing-python 2>&1 | tee /tmp/hw-aad-evidence/rust-all.log
+          cargo test --locked --release -p pricing-python 2>&1 | tee /tmp/hw-aad-evidence/bindings.log
+          cargo test --locked --release -p pricing --no-default-features 2>&1 | tee /tmp/hw-aad-evidence/rust-minimal.log
+      - name: Retain exact source and observed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-hw-aad-candidate
+          path: /tmp/hw-aad-evidence
+          retention-days: 14
+          if-no-files-found: warn
