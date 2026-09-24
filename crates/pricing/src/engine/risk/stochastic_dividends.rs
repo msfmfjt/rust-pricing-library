@@ -1,5 +1,8 @@
 //! Deterministic-rate Buehler cash-dividend pricing. No calibration or reverse
-//! capability is implied by this separate, price-only entry point.
+//! capability is implied by compilation. First-order risk is requested explicitly.
+
+mod aad;
+pub use aad::StochasticDividendAadRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
@@ -27,7 +30,8 @@ pub struct StochasticDividendPrice {
 
 /// Constant-volatility or pure Bergomi residual equity with a stochastic cash
 /// reserve. The request volatility is the initial residual-equity volatility,
-/// not physical-stock implied volatility. This plan exposes prices only.
+/// not physical-stock implied volatility. `evaluate_aad` requests first-order
+/// risk explicitly; constructors continue to accept price-only requests.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,
@@ -35,6 +39,9 @@ pub struct StochasticDividendPricingPlan {
     engine: EngineConfig,
     policy: ExecutionPolicy,
     fingerprint: Fingerprint,
+    market: crate::market::EquityForward,
+    payment_time: f64,
+    risk_supported: bool,
 }
 
 impl StochasticDividendPricingPlan {
@@ -105,6 +112,11 @@ impl StochasticDividendPricingPlan {
             engine: request.engine(),
             policy,
             fingerprint,
+            market: market.clone(),
+            payment_time: DayCountConvention::Act365F
+                .year_fraction(request.valuation_date(), request.product().payment_date()),
+            risk_supported: request.product().supports_pathwise_risk()
+                || request.risk().payoff_smoothing().is_some(),
         })
     }
 

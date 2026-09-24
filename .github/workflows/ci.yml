@@ -14,6 +14,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  stochastic-dividend-risk:
+    name: Stochastic dividend risk and refinement / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check first-order reverse
+        run: cargo test --locked --release -p pricing --test stochastic_dividend_risk -- --nocapture 2>&1 | tee stochastic-dividend-risk.log
+      - name: Check common-noise refinement
+        run: cargo test --locked --release -p pricing --test stochastic_dividend_refinement -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-refinement.log
+      - name: Retain risk and refinement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-risk-${{ matrix.os }}
+          path: |
+            stochastic-dividend-risk.log
+            stochastic-dividend-refinement.log
+          retention-days: 14
+          if-no-files-found: warn
+
   model-scaling:
     name: Model boundary scaling / Linux
     if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'perf/local-correlation-')

@@ -13,6 +13,14 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/engine/processes/stochastic_dividends/reverse.rs",
+    "crates/pricing/src/engine/risk/stochastic_dividends/aad.rs",
+    "crates/pricing/tests/stochastic_dividend_risk.rs",
+    "crates/pricing/tests/stochastic_dividend_refinement.rs",
+    "tests/python/test_stochastic_dividend_risk.py",
+    "examples/python/stochastic_dividend_risk.py",
+    "design/adr/0015-stochastic-dividend-risk.md",
+    "design/validation/stochastic-dividend-risk.md",
     "crates/pricing/src/engine/processes/stochastic_dividends/bergomi.rs",
     "crates/pricing/tests/bergomi_dividends.rs",
     "tests/python/test_bergomi_dividends.py",
@@ -254,8 +262,8 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 4,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 8,
-    "retention-days: 14": 6,
+    "actions/upload-artifact@v4": 9,
+    "retention-days: 14": 7,
 }
 
 REQUIRED_README_SNIPPETS = {

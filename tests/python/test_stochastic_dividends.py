@@ -110,7 +110,7 @@ class StochasticDividendTest(unittest.TestCase):
                 compile_plan(maximum_step=step)
         with self.assertRaises(rp.PricingError):
             compile_plan(make_request(risk=rp.RiskRequest(delta=True)))
-        self.assertFalse(hasattr(compile_plan(), "evaluate_aad"))
+        self.assertTrue(hasattr(compile_plan(), "evaluate_aad"))
 
 
 if __name__ == "__main__":

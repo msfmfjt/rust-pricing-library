@@ -40,6 +40,7 @@ documents the public API migration.
 | [0013](adr/0013-stochastic-cash-dividends.md) | Stochastic discrete cash dividends, staged integration |
 
 | [0014](adr/0014-bergomi-stochastic-dividends.md) | Pure 1F/2F Bergomi with stochastic cash dividends |
+| [0015](adr/0015-stochastic-dividend-risk.md) | Buehler first-order reverse and timestep refinement |
 
 ## Implementation roadmaps and acceptance
 
@@ -98,3 +99,5 @@ Repository-local links in both `docs/` and `design/` are checked by
 `python3 scripts/check_markdown_links.py`.
 
 Escrowed simulation and IV conversion: [validation record](validation/escrowed-dividends.md).
+
+- [Stochastic-dividend risk and refinement](validation/stochastic-dividend-risk.md)
