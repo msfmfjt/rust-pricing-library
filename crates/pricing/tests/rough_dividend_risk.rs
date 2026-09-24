@@ -1,10 +1,16 @@
 //! Full-recompile finite differences use identical random streams, never an AAD
 //! reference path. These are finite-algorithm derivative tests, not price accuracy.
-use pricing::mc::ExecutionPolicy;
+use pricing::market::DiscountCurve;
+use pricing::mc::{
+    BrownianBridgePlan, EngineConfig, ExecutionPolicy, LocalVolTimeGrid, Philox4x32,
+    RandomCoordinate, RandomDomain, RqmcPlan, inverse_standard_normal,
+};
 use pricing::models::RoughBergomi;
 use pricing::risk::{GammaConfig, SpotBump};
+use pricing::stochastic_dividends::StochasticDividendPathPlan;
 use pricing::stochastic_dividends::{BuehlerDividendModel, StochasticDividendPricingPlan as Plan};
 use pricing::{JsonLimits, parse_request_json};
+use pricing_numerics::NeumaierSum;
 use serde_json::{Value, json};
 
 fn payload(qmc: bool, seed: u64) -> Value {
@@ -44,7 +50,7 @@ fn compile(v: &Value, family: usize, d: [f64; 3], workers: u32) -> Plan {
     )
     .unwrap()
 }
-fn bumped(v: &Value, family: usize, d: [f64; 3], label: &str, h: f64) -> f64 {
+fn shifted_inputs(v: &Value, d: [f64; 3], label: &str, h: f64) -> (Value, [f64; 3]) {
     let mut v = v.clone();
     let mut d = d;
     match label {
@@ -77,7 +83,133 @@ fn bumped(v: &Value, family: usize, d: [f64; 3], label: &str, h: f64) -> f64 {
             }
         }
     }
+    (v, d)
+}
+fn bumped(v: &Value, family: usize, d: [f64; 3], label: &str, h: f64) -> f64 {
+    let (v, d) = shifted_inputs(v, d, label, h);
     compile(&v, family, d, 1).evaluate().unwrap().value
+}
+
+// Test-only independent payoff stencil. This reconstructs terminal *primal*
+// stock with public paths and original random coordinates, never AAD values.
+// The unsmoothed sample mean need not be differentiable across a finite bump.
+fn terminal_intrinsics(v: &Value, family: usize, d: [f64; 3]) -> Vec<f64> {
+    assert_eq!(v["product"]["type"], "european_vanilla");
+    assert_eq!(v["product"]["side"]["type"], "call");
+    assert_eq!(v["product"]["expiry"], "2027-09-04");
+    let r = parse_request_json(&serde_json::to_vec(v).unwrap(), JsonLimits::DEFAULT).unwrap();
+    let plan = compile(v, family, d, 1);
+    let grid = LocalVolTimeGrid::compile(plan.time_nodes().to_vec(), 1.0).unwrap();
+    assert_eq!(grid.nodes(), plan.time_nodes());
+    let market = r.market().equity().forward();
+    let path = StochasticDividendPathPlan::compile_rough_bergomi(
+        market,
+        BuehlerDividendModel::new(d[0], d[1], d[2], -0.25).unwrap(),
+        v["model"]["volatility"].as_f64().unwrap(),
+        RoughBergomi::new([0.1, 0.49, 0.5][family], 0.6, -0.4).unwrap(),
+        0.15,
+        &grid,
+    )
+    .unwrap();
+    let vr = match r.engine() {
+        EngineConfig::PseudoMonteCarlo(c) => c.variance_reduction(),
+        EngineConfig::RandomizedQuasiMonteCarlo(c) => c.variance_reduction(),
+    };
+    let bridge = vr
+        .brownian_bridge()
+        .then(|| BrownianBridgePlan::compile(grid.nodes().to_vec(), 1).unwrap());
+    let dimension = path.random_dimension();
+    let strike = v["product"]["strike"].as_f64().unwrap();
+    let scale =
+        market.discount_curve().discount(1.0).unwrap() * v["product"]["notional"].as_f64().unwrap();
+    let mut values = Vec::new();
+    let mut append = |mut z: Vec<f64>| {
+        if let Some(b) = &bridge {
+            for factor in 0..4 {
+                let input = z
+                    .iter()
+                    .skip(factor)
+                    .step_by(4)
+                    .copied()
+                    .collect::<Vec<_>>();
+                let output = b.apply_one_factor(&input).unwrap();
+                for (i, value) in output.into_iter().enumerate() {
+                    z[4 * i + factor] = value;
+                }
+            }
+        }
+        for &sign in if vr.antithetic() {
+            &[1.0, -1.0][..]
+        } else {
+            &[1.0][..]
+        } {
+            let shocks = z.iter().map(|x| sign * x).collect::<Vec<_>>();
+            let states = path.evolve_path(&shocks).unwrap();
+            let stock = path
+                .nodes()
+                .last()
+                .unwrap()
+                .spots(*states.last().unwrap())
+                .unwrap()
+                .0;
+            values.push(scale * (stock - strike));
+        }
+    };
+    match r.engine() {
+        EngineConfig::PseudoMonteCarlo(c) => {
+            let rng = Philox4x32::from_seed(c.master_seed());
+            for i in 0..c.independent_sampling_units().get() {
+                append(
+                    (0..dimension)
+                        .map(|j| {
+                            rng.standard_normal(RandomCoordinate::new(
+                                i,
+                                j,
+                                RandomDomain::Valuation,
+                            ))
+                        })
+                        .collect(),
+                );
+            }
+        }
+        EngineConfig::RandomizedQuasiMonteCarlo(c) => {
+            let q = RqmcPlan::compile(c, dimension).unwrap();
+            for k in 0..c.scramble_count().get() {
+                for i in 0..c.points_per_scramble().get() {
+                    append(
+                        (0..dimension)
+                            .map(|j| inverse_standard_normal(q.uniform(k, i, j).unwrap()).unwrap())
+                            .collect(),
+                    );
+                }
+            }
+        }
+    }
+    values
+}
+fn mean_positive(values: &[f64]) -> f64 {
+    let mut sum = NeumaierSum::new();
+    for &x in values {
+        sum.add(x.max(0.0));
+    }
+    sum.total() / values.len() as f64
+}
+fn kink_remainder(base: &[f64], plus: &[f64], minus: &[f64], h: f64) -> (f64, usize) {
+    assert_eq!(base.len(), plus.len());
+    assert_eq!(base.len(), minus.len());
+    let mut sum = NeumaierSum::new();
+    let mut crossings = 0;
+    for ((&x0, &xp), &xm) in base.iter().zip(plus).zip(minus) {
+        let itm = x0 > 0.0;
+        if (xp > 0.0) != itm || (xm > 0.0) != itm {
+            crossings += 1;
+            let slope = if itm { 1.0 } else { 0.0 };
+            // Exact hinge remainder relative to the unshifted payoff branch.
+            // It is not inferred from AAD or from the observed test error.
+            sum.add((xp.max(0.0) - slope * xp - xm.max(0.0) + slope * xm) / (2.0 * h));
+        }
+    }
+    (sum.total() / base.len() as f64, crossings)
 }
 fn check(v: &Value, family: usize, d: [f64; 3]) {
     let plan = compile(v, family, d, 1);
@@ -90,13 +222,29 @@ fn check(v: &Value, family: usize, d: [f64; 3]) {
             .iter()
             .all(|x| x.is_finite() && *x >= 0.0)
     );
+    let baseline_intrinsics =
+        (v["product"]["type"] == "european_vanilla").then(|| terminal_intrinsics(v, family, d));
     for (label, &aad) in risk.parameter_labels.iter().zip(&risk.derivatives) {
         if label.ends_with("log_df[0]") {
             assert_eq!(aad, 0.0);
             continue;
         }
         for h in [1e-5, 1e-6] {
-            let fd = (bumped(v, family, d, label, h) - bumped(v, family, d, label, -h)) / (2.0 * h);
+            let up = bumped(v, family, d, label, h);
+            let down = bumped(v, family, d, label, -h);
+            let raw_fd = (up - down) / (2.0 * h);
+            let correction = if let Some(x0) = &baseline_intrinsics {
+                let (vp, dp) = shifted_inputs(v, d, label, h);
+                let (vm, dm) = shifted_inputs(v, d, label, -h);
+                let xp = terminal_intrinsics(&vp, family, dp);
+                let xm = terminal_intrinsics(&vm, family, dm);
+                assert!((mean_positive(&xp) - up).abs() < 2e-12);
+                assert!((mean_positive(&xm) - down).abs() < 2e-12);
+                kink_remainder(x0, &xp, &xm, h).0
+            } else {
+                0.0
+            };
+            let fd = raw_fd - correction;
             let budget = 3e-5 + 2e-5 * aad.abs().max(fd.abs());
             assert!(
                 (aad - fd).abs() <= budget,
@@ -335,5 +483,34 @@ fn rough_gamma_matches_recompiled_delta_ladder_with_paired_worker_replay() {
                     .all(|x| x.is_finite() && *x >= 0.0)
             );
         }
+    }
+}
+
+#[test]
+fn finite_call_stencil_crossing_is_measured_without_changing_seed_or_bump() {
+    let v = payload(false, 912);
+    let d = [0.7, 0.6, 0.35];
+    let label = "discount_log_df[2]";
+    let r = compile(&v, 0, d, 1).evaluate_aad().unwrap();
+    let j = r.parameter_labels.iter().position(|x| x == label).unwrap();
+    let x0 = terminal_intrinsics(&v, 0, d);
+    for (h, expected_crossings) in [(1e-5, 1), (1e-6, 0)] {
+        let (vp, dp) = shifted_inputs(&v, d, label, h);
+        let (vm, dm) = shifted_inputs(&v, d, label, -h);
+        let xp = terminal_intrinsics(&vp, 0, dp);
+        let xm = terminal_intrinsics(&vm, 0, dm);
+        let (correction, crossings) = kink_remainder(&x0, &xp, &xm, h);
+        assert_eq!(crossings, expected_crossings);
+        let raw_fd = (bumped(&v, 0, d, label, h) - bumped(&v, 0, d, label, -h)) / (2.0 * h);
+        assert!((raw_fd - correction - r.derivatives[j]).abs() < 3e-5);
+        if expected_crossings == 0 {
+            assert_eq!(correction, 0.0);
+        } else {
+            assert!(correction.abs() > 0.02);
+        }
+        eprintln!(
+            "call stencil seed=912 h={h}: raw_FD={raw_fd}, AAD={}, hinge_remainder={correction}, crossings={crossings}",
+            r.derivatives[j]
+        );
     }
 }
