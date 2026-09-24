@@ -2,6 +2,8 @@
 //! measure, with exact joint Hull--White rate and integrated-rate innovations.
 //! Cash means are Q means, NOT forward-measure dividend quotes.
 
+pub(in crate::engine) mod reverse;
+
 use super::{BuehlerDividendModel, BuehlerDividendState};
 use crate::MonteCarloError;
 use crate::engine::processes::hull_white::covariance_loading;

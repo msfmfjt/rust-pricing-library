@@ -304,7 +304,7 @@ impl PyStochasticDividendPrice {
 #[pyclass(frozen, name = "StochasticDividendAadRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendAadRisk {
-    inner: StochasticDividendAadRisk,
+    pub(super) inner: StochasticDividendAadRisk,
 }
 #[pymethods]
 impl PyStochasticDividendAadRisk {
