@@ -234,8 +234,8 @@ impl<const N: usize, const D: usize> Step<N, D> {
                 .and_then(|m| m.transition(dt))
                 .map_err(|_| invalid("bergomi_ou_variance"))?;
             decay[i] = marginal.decay;
-            for j in 0..D {
-                lower[i][j] = marginal.variance.sqrt() * factor.lower()[(i + 2) * D + j];
+            for (j, value) in lower[i].iter_mut().enumerate() {
+                *value = marginal.variance.sqrt() * factor.lower()[(i + 2) * D + j];
             }
         }
         Ok(Self { decay, lower })

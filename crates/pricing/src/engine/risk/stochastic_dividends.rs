@@ -25,8 +25,9 @@ pub struct StochasticDividendPrice {
     pub scheme: &'static str,
 }
 
-/// Constant volatility of the normalized residual-equity martingale, with a
-/// stochastic cash reserve. It is not Black-Scholes volatility of physical S.
+/// Constant-volatility or pure Bergomi residual equity with a stochastic cash
+/// reserve. The request volatility is the initial residual-equity volatility,
+/// not physical-stock implied volatility. This plan exposes prices only.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,
