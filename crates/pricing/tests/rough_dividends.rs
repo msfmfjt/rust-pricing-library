@@ -109,7 +109,7 @@ fn irregular_history_cash_events_and_no_future_lookahead_match_independent_const
         0.2, -0.6, 1.1, 0.7, 0.4, -0.8, 0.3, -0.2, -0.3, 0.7, -0.5, 0.9,
     ];
     let actual = plan.evolve_path(&normals).unwrap();
-    let times = [0.0, 0.13, 0.5, 1.0];
+    let times: [f64; 4] = [0.0, 0.13, 0.5, 1.0];
     let (h, eta, kd, alpha, nu_d, sd, sv, dv) = (
         0.1_f64, 0.6_f64, 0.7_f64, 0.6_f64, 0.35_f64, -0.25_f64, -0.4_f64, 0.15_f64,
     );
@@ -127,12 +127,12 @@ fn irregular_history_cash_events_and_no_future_lookahead_match_independent_const
         if i > 0 {
             x = near[i - 1];
             variance = (times[i] - times[i - 1]).powf(2.0 * h);
-            for j in 0..i - 1 {
+            for (j, &past_dw) in dw.iter().enumerate().take(i - 1) {
                 let p = h + 0.5;
                 let w = (2.0 * h).sqrt()
                     * ((times[i] - times[j]).powf(p) - (times[i] - times[j + 1]).powf(p))
                     / (p * (times[j + 1] - times[j]));
-                x += w * dw[j];
+                x += w * past_dw;
                 variance += w * w * (times[j + 1] - times[j]);
             }
         }

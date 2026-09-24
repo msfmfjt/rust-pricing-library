@@ -214,7 +214,7 @@ mod tests {
                 &times,
             )
             .unwrap();
-            for i in 1..times.len() {
+            for (i, &time) in times.iter().enumerate().skip(1) {
                 let mut variance = 0.0;
                 for cell in 0..i {
                     for j in 0..4 {
@@ -234,7 +234,7 @@ mod tests {
                 let expected = (0.5 * 0.6_f64.powi(2) * (variance - k.variances[i])).exp();
                 assert!((expected - 1.0).abs() < 2e-13);
                 if h < 0.5 && i > 1 {
-                    assert!(k.variances[i] < times[i].powf(2.0 * h));
+                    assert!(k.variances[i] < time.powf(2.0 * h));
                 }
             }
         }
