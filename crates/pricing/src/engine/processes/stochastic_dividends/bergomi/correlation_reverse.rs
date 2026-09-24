@@ -208,7 +208,7 @@ impl<const N: usize, const D: usize, const C: usize> Prepared<N, D, C> {
             if t > 0.0 {
                 let s = Step::<N, D>::compile(k, matrix, t)?;
                 let ds = lower_derivatives(k, matrix, edges, t)?;
-                for j in 0..D {
+                for (j, _) in s.lower[0].iter().enumerate() {
                     let exposure: f64 = (0..N).map(|i| kernel.weights[i] * s.lower[i][j]).sum();
                     for (p, value) in dc.iter_mut().enumerate() {
                         let de: f64 = (0..N)
@@ -319,13 +319,12 @@ mod tests {
                         b[j][i] -= h;
                         let a = Step::<2, 4>::compile(k, a, dt).unwrap();
                         let b = Step::<2, 4>::compile(k, b, dt).unwrap();
-                        for m in 0..2 {
-                            for n in 0..4 {
+                        for (m, row) in tangent[p].iter().enumerate() {
+                            for (n, &value) in row.iter().enumerate() {
                                 let fd = (a.lower[m][n] - b.lower[m][n]) / (2.0 * h);
                                 assert!(
-                                    (tangent[p][m][n] - fd).abs() < 3e-6,
-                                    "k={k:?}, dt={dt}, p={p}, ({m},{n}), aad={}, fd={fd}",
-                                    tangent[p][m][n]
+                                    (value - fd).abs() < 3e-6,
+                                    "k={k:?}, dt={dt}, p={p}, ({m},{n}), aad={value}, fd={fd}"
                                 );
                             }
                         }
