@@ -1,5 +1,5 @@
-//! Dedicated price-only API; it cannot accidentally dispatch fixed-rate AAD.
-use super::stochastic_dividends::PyStochasticDividendPrice;
+//! Dedicated HW API; it never dispatches deterministic-rate AAD.
+use super::stochastic_dividends::{PyStochasticDividendAadRisk, PyStochasticDividendPrice};
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{BuehlerDividendModel, HullWhite1Factor};
@@ -75,6 +75,11 @@ impl PyStochasticDividendHullWhitePlan {
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyStochasticDividendPrice> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyStochasticDividendPrice { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_aad(&self, py: Python<'_>) -> PyResult<PyStochasticDividendAadRisk> {
+        py.detach(|| self.inner.evaluate_aad())
+            .map(|inner| PyStochasticDividendAadRisk { inner })
             .map_err(pricing_exception)
     }
     #[getter]

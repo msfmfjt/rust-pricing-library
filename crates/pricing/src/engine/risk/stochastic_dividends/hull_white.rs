@@ -1,5 +1,6 @@
-//! Separate price-only BS/Buehler/Hull--White adapter. Existing deterministic
-//! plans and every existing AAD entry point keep their original domains.
+//! BS/Buehler/Hull--White adapter. Explicit basic AAD holds rate-model
+//! parameters and correlations fixed; deterministic-rate plans are unchanged.
+mod aad;
 use super::StochasticDividendPrice;
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::hull_white::{
@@ -24,6 +25,12 @@ pub struct StochasticDividendHullWhitePricingPlan {
     fingerprint: Fingerprint,
     payment_constant: f64,
     payment_duration: f64,
+    market: crate::market::EquityForward,
+    rates: HullWhite1Factor,
+    equity_rate_correlation: f64,
+    dividend_rate_correlation: f64,
+    payment_time: f64,
+    risk_supported: bool,
 }
 impl StochasticDividendHullWhitePricingPlan {
     /// Request BS volatility applies to the discounted residual-equity factor.
@@ -129,6 +136,13 @@ impl StochasticDividendHullWhitePricingPlan {
             fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
             payment_constant,
             payment_duration,
+            market: market.clone(),
+            rates,
+            equity_rate_correlation,
+            dividend_rate_correlation,
+            payment_time: payment,
+            risk_supported: request.product().supports_pathwise_risk()
+                || request.risk().payoff_smoothing().is_some(),
         })
     }
     pub fn evaluate(&self) -> Result<StochasticDividendPrice, MonteCarloError> {

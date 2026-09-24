@@ -58,4 +58,4 @@ Product-specific path dependence and early-exercise contracts remain in the
 payoff contracts rather than model components.
 
 - [Stochastic cash dividends with Hull–White](stochastic-dividends-hull-white.md):
-  correlated discounted-cash forecasts, constant residual volatility, price-only.
+  correlated discounted-cash forecasts, constant residual volatility and explicit basic AAD.
