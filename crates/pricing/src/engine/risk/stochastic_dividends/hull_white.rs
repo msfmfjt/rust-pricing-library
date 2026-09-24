@@ -1,190 +1,136 @@
-//! Deterministic-rate Buehler cash-dividend pricing. No calibration or reverse
-//! capability is implied by compilation. First-order risk is requested explicitly.
-
-mod aad;
-mod gamma;
-pub(in crate::engine) mod hull_white;
-pub use aad::StochasticDividendAadRisk;
-pub use gamma::StochasticDividendGammaRisk;
-
+//! Separate price-only BS/Buehler/Hull--White adapter. Existing deterministic
+//! plans and every existing AAD entry point keep their original domains.
+use super::StochasticDividendPrice;
 use crate::core::DayCountConvention;
-use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
+use crate::engine::processes::stochastic_dividends::hull_white::{
+    STOCHASTIC_DIVIDEND_HW_SCHEME, StochasticDividendHullWhitePathPlan,
+};
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain, RqmcPlan,
     VarianceReduction, inverse_standard_normal,
 };
-use crate::models::stochastic_dividends::invalid;
-use crate::models::{
-    Bergomi1Factor, Bergomi2Factor, BuehlerDividendModel, ModelSpec, RoughBergomi,
-    STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
-};
+use crate::models::hull_white::b;
+use crate::models::stochastic_dividends::{invalid, positive};
+use crate::models::{BuehlerDividendModel, HullWhite1Factor, ModelSpec, StochasticDividendError};
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct StochasticDividendPrice {
-    pub value: f64,
-    pub standard_error: f64,
-    pub independent_sampling_units: u64,
-    pub evaluated_paths: u128,
-    pub plan_fingerprint: Fingerprint,
-    pub scheme: &'static str,
-}
-
-/// Constant-volatility or pure Bergomi residual equity with a stochastic cash
-/// reserve. The request volatility is the initial residual-equity volatility,
-/// not physical-stock implied volatility. `evaluate_aad` requests first-order
-/// risk explicitly; constructors continue to accept price-only requests.
-/// Rough plans also support basic AAD, H/eta AAD and finite-bump Spot Gamma;
-/// rough correlation AAD remains unsupported.
 #[derive(Clone, Debug)]
-pub struct StochasticDividendPricingPlan {
+pub struct StochasticDividendHullWhitePricingPlan {
     base: SimulationPlan,
-    path: StochasticDividendPathPlan,
+    path: StochasticDividendHullWhitePathPlan,
     engine: EngineConfig,
     policy: ExecutionPolicy,
     fingerprint: Fingerprint,
-    market: crate::market::EquityForward,
-    payment_time: f64,
-    risk_supported: bool,
+    payment_constant: f64,
+    payment_duration: f64,
 }
-
-impl StochasticDividendPricingPlan {
+impl StochasticDividendHullWhitePricingPlan {
+    /// Request BS volatility applies to the discounted residual-equity factor.
+    /// Cash schedule amounts remain Q means, not collateral-forward quotes.
+    #[allow(clippy::too_many_arguments)]
     pub fn compile_bs(
         request: &PricingRequest,
         model: BuehlerDividendModel,
+        rates: HullWhite1Factor,
+        equity_rate_correlation: f64,
+        dividend_rate_correlation: f64,
         maximum_step: f64,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
         let risk = request.risk();
         if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
             return Err(StochasticDividendError::Unsupported {
-                feature: "Greeks; submit a price-only request",
+                feature: "HW stochastic-dividend Greeks; submit a price-only request",
             }
             .into());
         }
         let ModelSpec::BlackScholes(bs) = request.model() else {
             return Err(StochasticDividendError::Unsupported {
-                feature: "nonconstant residual-equity volatility",
+                feature: "stochastic residual volatility with stochastic-dividend HW",
             }
             .into());
         };
         let expiry = DayCountConvention::Act365F
             .year_fraction(request.valuation_date(), request.product().expiry());
-        if expiry <= 0.0 {
-            return Err(invalid("positive_horizon").into());
+        let payment = DayCountConvention::Act365F
+            .year_fraction(request.valuation_date(), request.product().payment_date());
+        if expiry <= 0.0 || payment < expiry {
+            return Err(invalid("positive_horizon_and_payment").into());
         }
-        // This also rejects American exercise and continuously monitored barriers.
         let base = SimulationPlan::compile_hybrid_base(request, policy)?;
         let market = request.market().equity().forward();
         let mut times = base.hybrid_observation_times().to_vec();
         times.push(expiry);
+        times.extend(
+            rates
+                .volatility_times()
+                .iter()
+                .copied()
+                .filter(|&t| t <= expiry),
+        );
         if let Some(schedule) = market.discrete_dividends() {
             times.extend(
                 schedule
                     .events()
                     .iter()
                     .map(|e| e.ex_time())
-                    .filter(|t| *t <= expiry),
+                    .filter(|&t| t <= expiry),
             );
         }
         let grid = LocalVolTimeGrid::compile(times, maximum_step)?;
-        let path =
-            StochasticDividendPathPlan::compile(market, model, bs.volatility().get(), &grid)?;
+        let path = StochasticDividendHullWhitePathPlan::compile_bs(
+            market,
+            model,
+            bs.volatility().get(),
+            &rates,
+            equity_rate_correlation,
+            dividend_rate_correlation,
+            &grid,
+        )?;
         if let EngineConfig::RandomizedQuasiMonteCarlo(config) = request.engine() {
             RqmcPlan::compile(config, path.random_dimension())?;
         }
         let mut hash = blake3::Hasher::new();
-        hash.update(STOCHASTIC_DIVIDEND_SCHEME.as_bytes());
-        hash.update(b"rank-major-before-correlation-price-only");
+        hash.update(STOCHASTIC_DIVIDEND_HW_SCHEME.as_bytes());
+        hash.update(b"Q-mean-cash-adaptive-simpson-1e-12-1e-11-depth20-rank-major-v1");
         hash.update(base.plan_fingerprint().as_bytes());
         for x in [
             model.mean_reversion(),
             model.equity_linkage(),
             model.dividend_volatility(),
             model.equity_dividend_correlation(),
+            rates.mean_reversion(),
+            equity_rate_correlation,
+            dividend_rate_correlation,
             maximum_step,
+            payment,
         ] {
             hash.update(&x.to_bits().to_le_bytes());
         }
-        for &time in path.times() {
-            hash.update(&time.to_bits().to_le_bytes());
+        hash.update(&(rates.volatility_times().len() as u64).to_le_bytes());
+        for &x in rates
+            .volatility_times()
+            .iter()
+            .chain(rates.volatilities())
+            .chain(path.times())
+        {
+            hash.update(&x.to_bits().to_le_bytes());
         }
-        let fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        let payment_constant =
+            rates.relative_discount(expiry, 0.0)? * rates.relative_bond(expiry, payment, 0.0)?;
+        positive(payment_constant, "conditional_payment_discount")?;
+        let payment_duration = b(rates.mean_reversion(), payment - expiry);
         Ok(Self {
             base,
             path,
             engine: request.engine(),
             policy,
-            fingerprint,
-            market: market.clone(),
-            payment_time: DayCountConvention::Act365F
-                .year_fraction(request.valuation_date(), request.product().payment_date()),
-            risk_supported: request.product().supports_pathwise_risk()
-                || request.risk().payoff_smoothing().is_some(),
+            fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
+            payment_constant,
+            payment_duration,
         })
     }
-
-    /// Request BS volatility is sigma0, not physical stock implied volatility.
-    pub fn compile_bergomi(
-        request: &PricingRequest,
-        model: BuehlerDividendModel,
-        factor: Bergomi1Factor,
-        dividend_volatility_correlation: f64,
-        maximum_step: f64,
-        policy: ExecutionPolicy,
-    ) -> Result<Self, MonteCarloError> {
-        let mut plan = Self::compile_bs(request, model, maximum_step, policy)?;
-        plan.path = plan
-            .path
-            .with_bergomi(factor, dividend_volatility_correlation)?;
-        plan.finish_bergomi()?;
-        Ok(plan)
-    }
-    pub fn compile_bergomi_two_factor(
-        request: &PricingRequest,
-        model: BuehlerDividendModel,
-        factor: Bergomi2Factor,
-        dividend_volatility_correlations: [f64; 2],
-        maximum_step: f64,
-        policy: ExecutionPolicy,
-    ) -> Result<Self, MonteCarloError> {
-        let mut plan = Self::compile_bs(request, model, maximum_step, policy)?;
-        plan.path = plan
-            .path
-            .with_bergomi_two_factor(factor, dividend_volatility_correlations)?;
-        plan.finish_bergomi()?;
-        Ok(plan)
-    }
-    /// Rough vol-of-vol is eta in log variance, not Bergomi's log-volatility nu.
-    /// The request BS volatility supplies sigma0; no market-IV calibration occurs.
-    pub fn compile_rough_bergomi(
-        request: &PricingRequest,
-        model: BuehlerDividendModel,
-        factor: RoughBergomi,
-        dividend_volatility_correlation: f64,
-        maximum_step: f64,
-        policy: ExecutionPolicy,
-    ) -> Result<Self, MonteCarloError> {
-        let mut plan = Self::compile_bs(request, model, maximum_step, policy)?;
-        plan.path = plan
-            .path
-            .with_rough_bergomi(factor, dividend_volatility_correlation)?;
-        plan.finish_bergomi()?;
-        Ok(plan)
-    }
-
-    fn finish_bergomi(&mut self) -> Result<(), MonteCarloError> {
-        if let EngineConfig::RandomizedQuasiMonteCarlo(config) = self.engine {
-            RqmcPlan::compile(config, self.path.random_dimension())?;
-        }
-        let mut hash = blake3::Hasher::new();
-        hash.update(self.fingerprint.as_bytes());
-        self.path.hash_volatility(&mut hash);
-        self.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
-        Ok(())
-    }
-
     pub fn evaluate(&self) -> Result<StochasticDividendPrice, MonteCarloError> {
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
@@ -259,27 +205,30 @@ impl StochasticDividendPricingPlan {
         })
     }
 
-    #[must_use]
     pub const fn plan_fingerprint(&self) -> Fingerprint {
         self.fingerprint
     }
-    #[must_use]
     pub fn time_nodes(&self) -> &[f64] {
         self.path.times()
     }
-    #[must_use]
     pub const fn random_factor_count(&self) -> usize {
-        self.path.random_factor_count()
+        4
     }
-    #[must_use]
     pub const fn risky_spot(&self) -> f64 {
         self.path.risky_spot()
     }
-    #[must_use]
     pub const fn scheme(&self) -> &'static str {
-        self.path.scheme()
+        STOCHASTIC_DIVIDEND_HW_SCHEME
     }
-
+    pub fn cash_times(&self) -> &[f64] {
+        self.path.cash_times()
+    }
+    pub fn initial_dividend_claim_values(&self) -> &[f64] {
+        self.path.initial_dividend_claim_values()
+    }
+    pub fn initial_dividend_forwards(&self) -> &[f64] {
+        self.path.initial_dividend_forwards()
+    }
     fn bridge(&self, vr: VarianceReduction) -> Result<Option<BrownianBridgePlan>, MonteCarloError> {
         if !vr.brownian_bridge() {
             return Ok(None);
@@ -321,16 +270,21 @@ impl StochasticDividendPricingPlan {
         } {
             let shocks = z.iter().map(|v| sign * v).collect::<Vec<_>>();
             let states = self.path.evolve_path(&shocks)?;
-            let spots = self
-                .path
-                .nodes()
+            let spots = states
                 .iter()
-                .zip(&states)
-                .map(|(node, state)| node.spots(*state))
+                .enumerate()
+                .map(|(index, state)| self.path.spots(index, *state))
                 .collect::<Result<Vec<_>, _>>()?;
-            // The shared payoff already includes the deterministic collateral
-            // discount to contractual payment. Do not discount a second time.
-            value += self.base.hybrid_spot_payoff(self.path.times(), &spots)?;
+            // The shared graph already includes P0(payment). Multiply only
+            // by D(0,expiry)*P(expiry,payment)/P0(payment), conditioning on the
+            // last state rather than simulating unnecessary post-expiry noise.
+            let terminal = states.last().ok_or(invalid("terminal_state"))?;
+            let relative = self.payment_constant
+                * (-terminal.integrated_rate_factor()
+                    - self.payment_duration * terminal.rate_factor())
+                .exp();
+            positive(relative, "relative_payment_discount")?;
+            value += relative * self.base.hybrid_spot_payoff(self.path.times(), &spots)?;
         }
         Ok(value / if antithetic { 2.0 } else { 1.0 })
     }

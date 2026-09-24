@@ -56,3 +56,6 @@ but are not the primary organization of the reference.
 Product-specific path dependence and early-exercise contracts remain in the
 [library reference](../library/README.md), because they are calculation and
 payoff contracts rather than model components.
+
+- [Stochastic cash dividends with Hull–White](stochastic-dividends-hull-white.md):
+  correlated discounted-cash forecasts, constant residual volatility, price-only.

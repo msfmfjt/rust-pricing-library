@@ -17,3 +17,10 @@ pub use crate::engine::risk::stochastic_dividends::{
 pub use crate::models::{
     BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
 };
+
+/// Constant-volatility stochastic dividends coupled to stochastic rates.
+pub use crate::engine::processes::stochastic_dividends::hull_white::{
+    STOCHASTIC_DIVIDEND_HW_SCHEME, StochasticDividendHullWhitePathPlan,
+    StochasticDividendHullWhiteState,
+};
+pub use crate::engine::risk::stochastic_dividends::hull_white::StochasticDividendHullWhitePricingPlan;

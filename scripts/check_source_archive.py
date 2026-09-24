@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/processes/stochastic_dividends/hull_white.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/hull_white.rs',
+    'crates/pricing-python/src/stochastic_dividend_hull_white.rs',
+    'crates/pricing/tests/stochastic_dividend_hull_white.rs',
+    'tests/python/test_stochastic_dividend_hull_white.py',
+    'tests/python/hw_dividend_reference.py',
+    'examples/python/stochastic_dividend_hull_white.py',
+    'docs/models/stochastic-dividends-hull-white.md',
+    'design/adr/0022-stochastic-dividend-hull-white.md',
+    'design/validation/stochastic-dividend-hull-white.md',
+
     'crates/pricing/src/engine/processes/stochastic_dividends/rough/correlation_reverse.rs',
     'crates/pricing/tests/rough_dividend_correlation_risk.rs',
     'tests/python/test_rough_dividend_correlation_risk.py',

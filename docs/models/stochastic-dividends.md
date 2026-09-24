@@ -563,3 +563,9 @@ risk-convergence, stochastic-rate/HW, LSV/VegaKT or multi-asset support is impli
 See the [example](../../examples/python/rough_dividend_correlation_risk.py),
 [decision](../../design/adr/0021-rough-stochastic-dividend-correlation-risk.md) and
 [validation protocol](../../design/validation/rough-stochastic-dividend-correlation-risk.md).
+
+## Stochastic-rate extension
+
+The separate [BS/Buehler/Hull–White price plan](stochastic-dividends-hull-white.md)
+uses conditional discounted cash forecasts and explicit rate correlations.
+Existing deterministic-rate plans and their risk methods keep their domains.

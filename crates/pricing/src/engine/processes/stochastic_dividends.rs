@@ -1,6 +1,7 @@
 //! Positive split evolution and carry-funded stochastic cash reserves.
 
 mod bergomi;
+pub(in crate::engine) mod hull_white;
 pub(in crate::engine) mod reverse;
 mod rough;
 use bergomi::BergomiDividendKernel;
