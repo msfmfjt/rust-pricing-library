@@ -1,6 +1,6 @@
 # Stochastic cash dividends with Hull–White
 
-Experimental, single-asset, constant residual-equity volatility, price-only.
+Experimental, single-asset, constant residual-equity volatility, with explicit basic AAD.
 Use Rust `StochasticDividendHullWhitePricingPlan::compile_bs` or Python
 `StochasticDividendHullWhitePlan.compile_bs`. This is a separate plan: existing
 BS/1F/2F/rough stochastic-dividend plans and their AAD/Gamma remain unchanged.
@@ -119,8 +119,76 @@ the shared graph a second time by P0(U).
 MC uncertainty uses independent units, with antithetic averaging. RQMC uncertainty
 uses scramble means. `standard_error` excludes time-step, reserve quadrature,
 smoothing, calibration and model uncertainty. The initial sigma is NOT the
-physical-stock market IV. No market-IV calibration, VegaKT, AAD or Gamma is
-available for this separate HW plan.
+physical-stock market IV. No market-IV calibration, VegaKT or Gamma is available for this separate HW plan.
+Basic AAD is opt-in as specified below.
+
+## Basic AAD at fixed rate model and correlations
+
+Call `plan.evaluate_aad()` to obtain `StochasticDividendAadRisk`. Constructors
+continue to require price-only request flags. The labels and raw/scaled accessors
+match the existing basic stochastic-dividend risk result:
+
+| Labels | Derivative convention |
+| --- | --- |
+| `spot` | Physical initial Spot Delta |
+| `initial_volatility` | Residual sigma, not market-IV Vega |
+| `dividend_mean_reversion`, `equity_linkage`, `dividend_volatility` | Buehler kappa, alpha, nu_D |
+| `cash_mean[event_id]` | Q cash mean, including post-expiry cash |
+| `discount_log_df[i]`, `repo_spread_log_df[i]` | Original log-DF nodes, with time-zero pillar fixed |
+
+All HW parameters and Brownian correlations are fixed, but the sampled rate and
+integrated-rate states are still stochastic. Their distribution and the relative
+payment adjustment do not depend on these active inputs. Curve risk includes the
+fitted deterministic term via P0(U), all conditional bonds and the reserve/growth
+ratios. A delayed payment is not frozen at the expiry discount.
+
+For each claim, reverse its carry-weighted A*f+B*Y+C into state and parameter
+seeds. Reverse the initial funded residual `S0-A0`, including every cash claim.
+The f/Y positive split is differentiated with the same boundary conventions as
+the deterministic-rate implementation. No production bumps or repeated pricing
+are used. The conditional-coefficient derivatives follow, with v=T-u,
+`E_D=exp(-kappa*v-c_D*L(u,T))` and
+`E_f=E_D*exp(-c_f*(L(t,T)-L(u,T)))`:
+
+```text
+d_sigma A = -alpha*kappa*rho_fr * integral (L(t,T)-L(u,T))*E_f du
+d_kappa A = alpha * integral (1-kappa*v)*E_f du
+d_alpha A = kappa * integral E_f du
+d_nu A    = -alpha*kappa*rho_Dr * integral L(u,T)*E_f du
+
+d_kappa B = -(T-t)*B;  d_nu B = -rho_Dr*L(t,T)*B
+
+d_kappa C = (1-alpha) * integral (1-kappa*v)*E_D du
+d_alpha C = -kappa * integral E_D du
+d_nu C    = -(1-alpha)*kappa*rho_Dr * integral L(u,T)*E_D du
+```
+
+The other sigma/alpha derivatives of B/C vanish. Signed derivative integrands
+are integrated using the same Simpson error targets, independently of the primal
+adaptive panels. Thus this approximates analytic conditional-claim derivatives;
+it does not differentiate the discrete decisions of the adaptive integrator.
+No cash mean, sigma, kappa, alpha or nu_D is used as a divisor. At kappa=0 or
+alpha=0/1, nonzero valid-side derivatives are retained even when primal terms
+vanish. At zero rate volatility the fixed-rate conditional derivatives return.
+
+The method label is
+`buehler-bs-hw-cash-payoff-reverse-fixed-rates-correlation-v1`.
+Fixed singular correlations remain supported: this scope takes no Cholesky
+partial. Unsmoothed discontinuous risk fails before sampling; explicit smoothing
+holds the width fixed and differentiates that smoothed payoff. Dates/grid and
+contract constants are fixed. There is no fixed-dividend-forward recalibration,
+HW parameter risk, correlation risk or Gamma in this method. Sampling SE does not
+include quadrature/grid/smoothing/model uncertainty or establish risk convergence.
+
+```python
+risk = plan.evaluate_aad()
+print(risk.delta, risk.initial_volatility_vega_per_vol_point)
+print(risk.cash_mean_adjoints, risk.discount_node_dv01, risk.repo_spread_node_dv01)
+```
+
+See the [risk example](../../examples/python/stochastic_dividend_hull_white_risk.py),
+[decision](../../design/adr/0023-stochastic-dividend-hull-white-risk.md) and
+[validation protocol](../../design/validation/stochastic-dividend-hull-white-risk.md).
 
 ## References and examples
 
