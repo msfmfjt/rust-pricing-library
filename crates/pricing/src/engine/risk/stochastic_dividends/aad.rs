@@ -3,8 +3,8 @@
 use super::*;
 use crate::engine::processes::stochastic_dividends::reverse::ReverseContext;
 
-/// First-order derivatives at fixed dates, grid, correlations and smoothing.
-/// The method and labels identify whether Bergomi parameters are active.
+/// First-order derivatives at fixed dates, grid and smoothing.
+/// The method and labels identify active Bergomi parameters and correlations.
 /// No market-IV recalibration is implied.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StochasticDividendAadRisk {
@@ -61,13 +61,20 @@ impl StochasticDividendAadRisk {
     }
 }
 
+#[derive(Clone, Copy)]
+enum AadScope {
+    Basic,
+    Bergomi,
+    Correlation,
+}
+
 impl StochasticDividendPricingPlan {
     /// Reverse of the actual discretized path, including stochastic future
     /// reserves, cash means, carry and payment discounting. Request Greeks remain
     /// rejected at construction; use this explicit method on a price-only plan.
     /// Unsmooth discontinuous payoffs fail before generating any paths.
     pub fn evaluate_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
-        self.evaluate_aad_scope(false)
+        self.evaluate_aad_scope(AadScope::Basic)
     }
 
     /// Extend basic risk by 1F/2F Bergomi mean reversions, vol-of-vol and (2F)
@@ -75,12 +82,20 @@ impl StochasticDividendPricingPlan {
     /// pivots and weight variance must exceed 1e-10; otherwise fail before sampling.
     /// Existing evaluate_aad remains available at singular covariance boundaries.
     pub fn evaluate_bergomi_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
-        self.evaluate_aad_scope(true)
+        self.evaluate_aad_scope(AadScope::Bergomi)
+    }
+
+    /// Append all raw Brownian-correlation partials, varying one symmetric
+    /// off-diagonal pair while holding other entries fixed. BS includes basic
+    /// AAD; Bergomi includes model-parameter AAD. Instantaneous and integrated
+    /// correlation pivots must exceed 1e-10. No projection or market recalibration.
+    pub fn evaluate_correlation_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_scope(AadScope::Correlation)
     }
 
     fn evaluate_aad_scope(
         &self,
-        include_bergomi: bool,
+        scope: AadScope,
     ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
@@ -88,8 +103,10 @@ impl StochasticDividendPricingPlan {
             });
         }
         let mut context = ReverseContext::new(&self.path, &self.market, self.payment_time)?;
-        if include_bergomi {
-            context.enable_bergomi_parameters(&self.path)?;
+        match scope {
+            AadScope::Basic => {}
+            AadScope::Bergomi => context.enable_bergomi_parameters(&self.path)?,
+            AadScope::Correlation => context.enable_correlations(&self.path)?,
         }
         let width = 1 + context.labels.len();
         let executor = DeterministicExecutor::new(self.policy)?;
@@ -202,10 +219,10 @@ impl StochasticDividendPricingPlan {
             cash_times: context.cash_times.into_boxed_slice(),
             discount_times: context.discount_times.into_boxed_slice(),
             repo_spread_times: context.repo_spread_times.into_boxed_slice(),
-            method: if include_bergomi {
-                "buehler-bergomi-parameter-reverse-fixed-correlation-v1"
-            } else {
-                "buehler-split-payoff-reverse-fixed-correlation-v1"
+            method: match scope {
+                AadScope::Basic => "buehler-split-payoff-reverse-fixed-correlation-v1",
+                AadScope::Bergomi => "buehler-bergomi-parameter-reverse-fixed-correlation-v1",
+                AadScope::Correlation => "buehler-joint-correlation-reverse-v1",
             },
         })
     }

@@ -2,6 +2,7 @@
 //! Covariances are integrated before factorization, not set equal to the
 //! instantaneous Brownian correlations. Only compilation allocates kernels.
 
+pub(super) mod correlation_reverse;
 pub(super) mod parameter_reverse;
 
 use super::*;
