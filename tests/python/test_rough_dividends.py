@@ -57,11 +57,12 @@ class RoughDividendTest(unittest.TestCase):
             compile_plan(make_request(risk=rp.RiskRequest(delta=True)))
         p = compile_plan(make_request(points=16))
         baseline = p.evaluate().value
-        for method in (p.evaluate_aad, p.evaluate_bergomi_aad, p.evaluate_correlation_aad):
+        p.evaluate_aad()
+        p.evaluate_rough_aad()
+        for method in (p.evaluate_bergomi_aad, p.evaluate_correlation_aad):
             with self.assertRaises(rp.PricingError):
                 method()
-        with self.assertRaises(rp.PricingError):
-            p.evaluate_gamma(gamma_absolute_bump=1.)
+        p.evaluate_gamma(gamma_absolute_bump=1.)
         self.assertEqual(p.evaluate().value, baseline)
 
 
