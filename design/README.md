@@ -39,10 +39,14 @@ documents the public API migration.
 | [0012](adr/0012-pure-stochastic-volatility.md) | Pure SV independently of particle calibration |
 | [0013](adr/0013-stochastic-cash-dividends.md) | Stochastic discrete cash dividends, staged integration |
 
+| [0014](adr/0014-bergomi-stochastic-dividends.md) | Pure 1F/2F Bergomi with stochastic cash dividends |
+
 ## Implementation roadmaps and acceptance
 
 The [stochastic-dividend record](validation/stochastic-dividends.md) distinguishes
 finite-split and limiting-price tests from the deferred hybrid/calibration scope.
+The [Bergomi coupling record](validation/bergomi-stochastic-dividends.md) adds
+exact joint OU covariance and independent finite-step price references.
 
 The [model-boundary extension/comparison record](validation/model-boundary-extension.md)
 defines the test-only extension exercise and paired native timing, heap and RSS
