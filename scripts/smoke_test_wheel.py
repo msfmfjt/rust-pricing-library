@@ -992,6 +992,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "StochasticDividendHullWhitePlan",
         "StochasticDividendPlan",
         "StochasticDividendPrice",
         "StochasticDividendAadRisk",
@@ -1225,6 +1226,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("StochasticDividendHullWhitePlan", "compile_bs"): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'rate_mean_reversion', 'rate_volatility_times', 'rate_volatilities', 'equity_rate_correlation', 'dividend_rate_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'rate_mean_reversion', 'rate_volatility_times', 'rate_volatilities', 'equity_rate_correlation', 'dividend_rate_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
+        ("StochasticDividendHullWhitePlan", "evaluate"): {"positional": ["self"], "positional_defaults": {}, "keyword_only": [], "required_keyword_only": [], "keyword_only_defaults": {}},
         ('StochasticDividendPlan', 'compile_bs'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_bergomi'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_rough_bergomi'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
@@ -1988,6 +1991,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "StochasticDividendHullWhitePlan": {'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
         'StochasticDividendPlan': {'evaluate_rough_aad', 'compile_rough_bergomi', 'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_bergomi_aad', 'evaluate_aad', 'compile_bergomi', 'compile_bergomi_two_factor', 'scheme', 'evaluate', 'plan_fingerprint', 'time_nodes', 'compile_bs', 'risky_spot', 'random_factor_count'},
@@ -2544,6 +2548,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("StochasticDividendHullWhitePlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bergomi"),
         ("StochasticDividendPlan", "compile_rough_bergomi"),
@@ -2596,6 +2601,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('StochasticDividendHullWhitePlan', 'plan_fingerprint'),
+        ('StochasticDividendHullWhitePlan', 'scheme'),
+        ('StochasticDividendHullWhitePlan', 'time_nodes'),
+        ('StochasticDividendHullWhitePlan', 'random_factor_count'),
+        ('StochasticDividendHullWhitePlan', 'risky_spot'),
+        ('StochasticDividendHullWhitePlan', 'cash_times'),
+        ('StochasticDividendHullWhitePlan', 'initial_dividend_claim_values'),
+        ('StochasticDividendHullWhitePlan', 'initial_dividend_forwards'),
+
         ('StochasticDividendPlan', 'plan_fingerprint'),
         ('StochasticDividendPlan', 'time_nodes'),
         ('StochasticDividendPlan', 'random_factor_count'),
