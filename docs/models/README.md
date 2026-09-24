@@ -47,6 +47,7 @@ but are not the primary organization of the reference.
 
 | Composition | Guide |
 | --- | --- |
+| Rough Bergomi with stochastic cash dividends | [Price-only hybrid composition](stochastic-dividends.md#rough-bergomi-price-composition) |
 | Bergomi with Hull–White | [Common-rate contracts](bergomi-hull-white.md) |
 | Multi-asset Bergomi LSV | [Marginal calibration and joint drivers](multi-asset-lsv.md) |
 | Multi-asset rough Bergomi LSV with Hull–White | [Rough joint-process contracts](multi-asset-rough-bergomi.md) |
