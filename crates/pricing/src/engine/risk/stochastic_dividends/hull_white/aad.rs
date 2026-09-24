@@ -2,8 +2,16 @@
 //! differentiates the covariance Cholesky and all conditional rate-dependent cash.
 use super::super::StochasticDividendAadRisk;
 use super::*;
+use crate::engine::processes::stochastic_dividends::hull_white::correlation_sensitivity::HullWhiteCorrelationSensitivityContext;
 use crate::engine::processes::stochastic_dividends::hull_white::rate_sensitivity::HullWhiteRateSensitivityContext;
 use crate::engine::processes::stochastic_dividends::hull_white::reverse::HullWhiteReverseContext;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AadScope {
+    Basic,
+    RateParameters,
+    Correlations,
+}
 
 impl StochasticDividendHullWhitePricingPlan {
     /// Reverse Spot, residual volatility, Buehler parameters, Q cash means and
@@ -11,7 +19,7 @@ impl StochasticDividendHullWhitePricingPlan {
     /// payment discounting. HW parameters/correlations and the time grid are fixed.
     /// Explicit smoothing is required for discontinuous contractual payoffs.
     pub fn evaluate_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
-        self.evaluate_aad_with_rate_parameters(false)
+        self.evaluate_aad_scope(AadScope::Basic)
     }
 
     /// Extend basic stochastic-dividend risk with the Hull--White mean
@@ -19,12 +27,21 @@ impl StochasticDividendHullWhitePricingPlan {
     /// conditional cash claims, initial reserve, and delayed-payment discount
     /// are differentiated together. The simulated covariance must be full rank.
     pub fn evaluate_hull_white_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
-        self.evaluate_aad_with_rate_parameters(true)
+        self.evaluate_aad_scope(AadScope::RateParameters)
     }
 
-    fn evaluate_aad_with_rate_parameters(
+    /// Append raw equity/dividend, equity/rate, and dividend/rate correlation
+    /// partials to `evaluate_hull_white_aad()`. Each direction changes one
+    /// symmetric pair while holding all other inputs and normal coordinates
+    /// fixed. Requires instantaneous correlation variance pivots and normalized
+    /// simulated covariance Cholesky diagonals above 1e-10.
+    pub fn evaluate_correlation_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_scope(AadScope::Correlations)
+    }
+
+    fn evaluate_aad_scope(
         &self,
-        include_rate_parameters: bool,
+        scope: AadScope,
     ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
@@ -39,7 +56,17 @@ impl StochasticDividendHullWhitePricingPlan {
             self.dividend_rate_correlation,
             self.payment_time,
         )?;
-        let rate_context = if include_rate_parameters {
+        let correlation_context = if scope == AadScope::Correlations {
+            Some(HullWhiteCorrelationSensitivityContext::new(
+                &self.path,
+                &self.rates,
+                self.equity_rate_correlation,
+                self.dividend_rate_correlation,
+            )?)
+        } else {
+            None
+        };
+        let rate_context = if scope != AadScope::Basic {
             Some(HullWhiteRateSensitivityContext::new(
                 &self.path,
                 &self.rates,
@@ -51,7 +78,8 @@ impl StochasticDividendHullWhitePricingPlan {
             None
         };
         let rate_width = rate_context.as_ref().map_or(0, |c| c.labels().len());
-        let width = 1 + context.labels.len() + rate_width;
+        let correlation_width = correlation_context.as_ref().map_or(0, |c| c.labels().len());
+        let width = 1 + context.labels.len() + rate_width + correlation_width;
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
         let (statistics, units, paths) = match self.engine {
@@ -72,6 +100,7 @@ impl StochasticDividendHullWhitePricingPlan {
                     self.sample_aad(
                         &context,
                         rate_context.as_ref(),
+                        correlation_context.as_ref(),
                         z,
                         bridge.as_ref(),
                         config.variance_reduction().antithetic(),
@@ -99,6 +128,7 @@ impl StochasticDividendHullWhitePricingPlan {
                             self.sample_aad(
                                 &context,
                                 rate_context.as_ref(),
+                                correlation_context.as_ref(),
                                 z,
                                 bridge.as_ref(),
                                 config.variance_reduction().antithetic(),
@@ -153,6 +183,9 @@ impl StochasticDividendHullWhitePricingPlan {
         if let Some(rate_context) = &rate_context {
             parameter_labels.extend_from_slice(rate_context.labels());
         }
+        if let Some(correlation_context) = &correlation_context {
+            parameter_labels.extend(correlation_context.labels().iter().map(|s| (*s).to_owned()));
+        }
         Ok(StochasticDividendAadRisk {
             price: StochasticDividendPrice {
                 value: means[0],
@@ -168,18 +201,22 @@ impl StochasticDividendHullWhitePricingPlan {
             cash_times: context.cash_times.into_boxed_slice(),
             discount_times: context.discount_times.into_boxed_slice(),
             repo_spread_times: context.repo_spread_times.into_boxed_slice(),
-            method: if include_rate_parameters {
-                "buehler-bs-hw-cash-payoff-forward-rate-parameter-adjoint-v1"
-            } else {
-                "buehler-bs-hw-cash-payoff-reverse-fixed-rates-correlation-v1"
+            method: match scope {
+                AadScope::Basic => "buehler-bs-hw-cash-payoff-reverse-fixed-rates-correlation-v1",
+                AadScope::RateParameters => {
+                    "buehler-bs-hw-cash-payoff-forward-rate-parameter-adjoint-v1"
+                }
+                AadScope::Correlations => "buehler-bs-hw-cash-payoff-forward-correlation-adjoint-v1",
             },
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn sample_aad(
         &self,
         context: &HullWhiteReverseContext,
         rate_context: Option<&HullWhiteRateSensitivityContext>,
+        correlation_context: Option<&HullWhiteCorrelationSensitivityContext>,
         mut z: Vec<f64>,
         bridge: Option<&BrownianBridgePlan>,
         antithetic: bool,
@@ -212,6 +249,9 @@ impl StochasticDividendHullWhitePricingPlan {
             let states = self.path.evolve_path(&shocks)?;
             let rate_state_tangents = rate_context
                 .map(|context| context.evolve_rate_tangents(&self.path, &shocks, &states))
+                .transpose()?;
+            let correlation_state_tangents = correlation_context
+                .map(|context| context.evolve_tangents(&self.path, &shocks, &states))
                 .transpose()?;
             let spots = states
                 .iter()
@@ -272,6 +312,35 @@ impl StochasticDividendHullWhitePricingPlan {
                         - self.payment_duration * terminal_tangent.rate_factor;
                     out[parameter_offset + p] +=
                         relative * payoff_tangent + discounted_payoff * log_discount_tangent;
+                }
+            }
+            if let (Some(correlation_context), Some(state_tangents)) =
+                (correlation_context, correlation_state_tangents.as_ref())
+            {
+                let parameter_offset =
+                    1 + context.labels.len() + rate_context.map_or(0, |c| c.labels().len());
+                let mut payoff_tangent = [0.0; 3];
+                for (index, state) in states.iter().enumerate() {
+                    let tangents = correlation_context.spot_derivatives(
+                        &self.path,
+                        index,
+                        *state,
+                        &state_tangents[index],
+                    )?;
+                    let (post_seed, pre_seed) = payoff_seeds[index];
+                    for (value, (post, pre)) in payoff_tangent.iter_mut().zip(tangents) {
+                        *value += post_seed * post + pre_seed * pre;
+                    }
+                }
+                let terminal_tangents = state_tangents
+                    .last()
+                    .ok_or(invalid("terminal_correlation_tangent"))?;
+                for (p, tangent) in terminal_tangents.iter().enumerate() {
+                    // Rate-only bond constants/durations are correlation invariant.
+                    let log_discount_tangent = -tangent.integrated_rate_factor
+                        - self.payment_duration * tangent.rate_factor;
+                    out[parameter_offset + p] +=
+                        relative * payoff_tangent[p] + discounted_payoff * log_discount_tangent;
                 }
             }
         }

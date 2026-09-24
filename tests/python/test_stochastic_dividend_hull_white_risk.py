@@ -61,8 +61,51 @@ class StochasticDividendHullWhiteRiskTest(unittest.TestCase):
         self.assertNotEqual(r.price.plan_fingerprint,other.price.plan_fingerprint)
         copy=r.derivatives;copy[0]=1e9;self.assertNotEqual(r.delta,1e9)
         with self.assertRaises(AttributeError):r.delta=0.
-        for name in ['evaluate_gamma','evaluate_rough_aad','evaluate_correlation_aad']:
+        for name in ['evaluate_gamma','evaluate_rough_aad']:
             self.assertFalse(hasattr(p,name))
+
+    def test_correlation_aad_prefix_replay_and_full_recompile(self):
+        product=rp.Product.arithmetic_asian(1,2,20.,1.,'call',[
+            rp.AsianObservation.unknown('2027-03-05',.4),
+            rp.AsianObservation.unknown('2027-09-04',.6)],'2027-12-04')
+        req=request(product=product)
+        args=dict(maximum_step=.125,rate_volatility_times=[0.,.8,1.15],
+            rate_volatilities=[.04,.06,.09],equity_dividend_correlation=-.25,
+            equity_rate_correlation=.25,dividend_rate_correlation=-.2)
+        p=compile_plan(req,**args)
+        r=p.evaluate_correlation_aad();basic=p.evaluate_hull_white_aad()
+        self.assertEqual(r.price.value,p.evaluate().value)
+        self.assertEqual(r.price.standard_error,p.evaluate().standard_error)
+        self.assertEqual(r.parameter_labels[:-3],basic.parameter_labels)
+        self.assertEqual(r.derivatives[:-3],basic.derivatives)
+        self.assertEqual(r.standard_errors[:-3],basic.standard_errors)
+        self.assertEqual(r.parameter_labels[-3:],['equity_dividend_correlation',
+            'equity_rate_correlation','dividend_rate_correlation'])
+        self.assertEqual(r.method,'buehler-bs-hw-cash-payoff-forward-correlation-adjoint-v1')
+        self.assertEqual(r.cash_mean_adjoints,basic.cash_mean_adjoints)
+        self.assertEqual(r.discount_node_dv01,basic.discount_node_dv01)
+        self.assertEqual(r.repo_spread_node_dv01,basic.repo_spread_node_dv01)
+        self.assertTrue(all(math.isfinite(x) and x>=0 for x in r.standard_errors))
+        for key,aad in zip(r.parameter_labels[-3:],r.derivatives[-3:]):
+            for h in [1e-5,1e-6]:
+                up=compile_plan(req,**(args|{key:args[key]+h})).evaluate().value
+                down=compile_plan(req,**(args|{key:args[key]-h})).evaluate().value
+                fd=(up-down)/(2*h)
+                self.assertLessEqual(abs(aad-fd),2e-5+2e-5*max(abs(aad),abs(fd)),(key,h,aad,fd))
+        replay=compile_plan(req,**(args|{'worker_threads':3})).evaluate_correlation_aad()
+        self.assertEqual(r.derivatives,replay.derivatives)
+        self.assertEqual(r.standard_errors,replay.standard_errors)
+        copy=r.derivatives;copy[-1]=1e9
+        self.assertNotEqual(r.derivatives[-1],1e9)
+
+    def test_correlation_aad_rejects_psd_boundary_and_zero_rates(self):
+        for args in [dict(equity_dividend_correlation=1.,equity_rate_correlation=.2,
+                          dividend_rate_correlation=.2),dict(rate_volatilities=[0.])]:
+            p=compile_plan(request(points=32),**args)
+            self.assertTrue(math.isfinite(p.evaluate().value))
+            self.assertTrue(math.isfinite(p.evaluate_aad().delta))
+            with self.assertRaises(rp.PricingError):
+                p.evaluate_correlation_aad()
 
     def test_hull_white_parameter_aad_appends_piecewise_rate_risk(self):
         request=rp.PricingRequest('2026-09-04',
@@ -107,14 +150,15 @@ class StochasticDividendHullWhiteRiskTest(unittest.TestCase):
         density=math.exp(-.5*d1*d1)/math.sqrt(2*math.pi)
         delta=.95**U*F/100*cdf(d1)
         vega=.95**U*F*(-duration*rho*sr*b(a,T)*cdf(d1)+density*(sf*T+rho*sr*j(a,T))/root)
+        correlation=.95**U*F*(-duration*sf*sr*b(a,T)*cdf(d1)+density*sf*sr*j(a,T)/root)
         req=rp.PricingRequest('2026-09-04',rp.Product.arithmetic_asian(1,2,100.,1.,'call',
             [rp.AsianObservation.unknown('2027-09-04',1.)],'2027-12-04'),
             rp.Market.equity(2,1,100.,rp.DiscountCurve(10,[0.,1.],[1.,.95]),rp.DiscountCurve(11,[0.,1.],[1.,.98])),
             rp.Model.black_scholes(sf),rp.Engine.randomized_quasi_monte_carlo(8192,1801,scramble_count=8,
                 antithetic=True,brownian_bridge=True),rp.RiskRequest())
-        p=compile_plan(req);r=p.evaluate_aad()
+        p=compile_plan(req);r=p.evaluate_correlation_aad()
         self.assertEqual(p.time_nodes,[0.,1.])
-        for idx,expected in [(0,delta),(1,vega)]:
+        for idx,expected in [(0,delta),(1,vega),(-3,0.),(-2,correlation),(-1,0.)]:
             self.assertLess(abs(r.derivatives[idx]-expected),6*r.standard_errors[idx]+2e-5)
 
 
