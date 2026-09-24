@@ -34,7 +34,8 @@ pub struct StochasticDividendPrice {
 /// reserve. The request volatility is the initial residual-equity volatility,
 /// not physical-stock implied volatility. `evaluate_aad` requests first-order
 /// risk explicitly; constructors continue to accept price-only requests.
-/// Rough-Bergomi cash-dividend plans currently support only `evaluate()`.
+/// Rough plans also support basic AAD, H/eta AAD and finite-bump Spot Gamma;
+/// rough correlation AAD remains unsupported.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,

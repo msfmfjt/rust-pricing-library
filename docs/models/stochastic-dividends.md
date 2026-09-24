@@ -20,7 +20,7 @@ cash. First-order risk is requested explicitly through `evaluate_aad`; see below
 change cover European calls and the discrete-barrier dividend jump; the new
 stochastic model has no dedicated broad exotic accuracy panel yet.
 
-The pure 1F/2F and price-only rough Bergomi factories below extend this scope. This is **not** an
+The pure 1F/2F and rough Bergomi factories below extend this scope. This is **not** an
 implementation of stochastic-dividend LSV, stochastic-rate SV/HW hybrids,
 multi-asset dividends, dividend derivatives or dividend-option calibration.
 Those require their own pricing, covariance, calibration and reverse contracts.
@@ -210,7 +210,7 @@ exercise and continuous barriers remain unsupported in these factories.
 
 ## First-order risk
 
-`evaluate_aad()` returns `StochasticDividendAadRisk` for BS/1F/2F plans.
+`evaluate_aad()` returns `StochasticDividendAadRisk` for BS/1F/2F/rough plans.
 It differentiates the shared compiled payoff and both Buehler drift halves,
 dividend diffusion, all future reserves and their initial funding. Raw labels are
 Spot, initial residual volatility, dividend mean reversion, equity linkage,
@@ -221,7 +221,7 @@ whose sensitivities are zero. A cash bucket after expiry is generally nonzero.
 The initial-volatility loading is computed without dividing by sigma0. At zero
 sigma0 or other parameter bounds the reported derivative is the inward derivative.
 The equality shortcut in convex drift blending retains its mathematical
-state/parameter derivatives. Correlations, Bergomi parameters, dates, time grid,
+state/parameter derivatives. Correlations, Bergomi/rough parameters, dates, time grid,
 and smoothing width are fixed. There is no Gamma, market-IV VegaKT or
 recalibration derivative. The method name explicitly records the fixed-correlation
 scope. Raw derivative arrays and sampling standard errors have matching labels.
@@ -424,9 +424,9 @@ plan = rp.StochasticDividendPlan.compile_rough_bergomi(
 result = plan.evaluate()
 ```
 
-**This rough-dividend factory currently supports prices only.** The four existing
-AAD/Gamma methods reject rough-dividend plans explicitly; the BS/1F/2F methods
-above keep their original support. Shared payoff graphs can still price discrete
+**This rough-dividend factory supports prices, basic AAD, H/eta AAD and Gamma.**
+Rough correlation AAD and the 1F/2F-only `evaluate_bergomi_aad()` still reject
+rough plans explicitly; the BS/1F/2F methods retain their original support. Shared payoff graphs can still price discrete
 path-dependent contracts, but the new acceptance tests cover terminal calls and
 cash-event/path construction, not broad rough-dividend exotic accuracy.
 American exercise, continuous barriers, proportional cash mixtures, stochastic
@@ -447,3 +447,66 @@ continuous-time price convergence. See the
 [validation](../../design/validation/rough-stochastic-dividends.md), and
 Bennedsen, Lunde and Pakkanen,
 [Hybrid scheme for Brownian semistationary processes](https://arxiv.org/abs/1507.03004).
+
+
+## Rough-dividend AAD and Gamma
+
+For a rough plan, `evaluate_aad()` differentiates Spot, initial residual-equity
+volatility, the three dividend-model parameters, cash means and original
+curve pillars while holding H, eta and all correlations fixed. The causal
+rough history is replayed in the same summation order as pricing to provide
+all left-endpoint volatility loadings. No normalized-state dependency on
+initial physical Spot is introduced.
+
+`evaluate_rough_aad()` preserves that entire basic-risk prefix exactly and
+appends `rough_hurst` and `rough_vol_of_vol` (eta), with matching sampling errors.
+Its method label is `buehler-rough-hybrid-parameter-reverse-fixed-correlation-v1`.
+It differentiates the actual hybrid history, exact newest power-integral cell
+and finite-grid variance centering. With
+
+\[
+L_i=\exp\left(\frac{\eta X_i}{2}-\frac{\eta^2 V_i^{\rm grid}}4\right),
+\]
+
+its local derivatives include
+
+\[
+\partial_\eta L_i=L_i(X_i/2-\eta V_i^{\rm grid}/2),\qquad
+\partial_H L_i=L_i(\eta\,\partial_H X_i/2-\eta^2\partial_H V_i^{\rm grid}/4).
+\]
+
+For the newest cell, write `J=A*dW_v+B*z_residual`, where
+`A=sqrt(2H)*dt^(H-1/2)/(H+1/2)` and
+`B=dt^H*(1/2-H)/(H+1/2)`. Then
+`dA/dH=A*(1/(2H)+log(dt)-1/(H+1/2))` and
+`dB/dH=B*log(dt)-dt^H/(H+1/2)^2`.
+At H=1/2, B vanishes but its inward H derivative does not. Older-cell weight
+and centering derivatives are compiled once, then their history rows are
+transposed per path. Correlation factorization remains fixed. Fixed singular
+PSD correlations need no regularization for this risk scope.
+
+H=1/2 means the inward left derivative; eta=0 means the inward right derivative.
+There is no division by eta or sigma0. These are raw derivatives at fixed
+other inputs, not quoted-vol/recalibrated sensitivities or continuous-time
+risk-convergence guarantees.
+
+```python
+risk = plan.evaluate_rough_aad()
+print(risk.delta, risk.initial_volatility_vega_per_vol_point)
+print(risk.parameter_labels[-2:], risk.derivatives[-2:])
+gamma = plan.evaluate_gamma(gamma_relative_bump=0.01)
+print(gamma.spot_bumps, gamma.gamma_estimates, gamma.gamma_standard_errors)
+```
+
+Gamma uses the existing common-noise half/base/double Delta-bump ladder at
+fixed H/eta and correlations. All Spot scenarios share immutable rough kernel
+coefficients; the O(N^2) dense history is not copied six times. Per-path time
+and compiled storage remain O(N^2); extended H risk needs an additional
+triangular coefficient-Jacobian array. The 4096-step cap still applies.
+Dates, grid and smoothing width are held fixed; unsmoothed discontinuous risk
+still rejects. All uncertainty and small-bump caveats in the Gamma section
+apply here too. H/eta AAD and Gamma do not add HW, LSV, VegaKT or multiple assets.
+
+See the [example](../../examples/python/rough_dividend_risk.py),
+[decision](../../design/adr/0020-rough-stochastic-dividend-risk.md) and
+[validation protocol](../../design/validation/rough-stochastic-dividend-risk.md).

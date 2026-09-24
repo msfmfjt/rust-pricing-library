@@ -1,6 +1,7 @@
 //! Joint f/dividend/variance Brownian law plus an exact newest Volterra cell.
 //! Older cells reuse the library's L2-average hybrid weights on the actual grid.
 //! The log-variance centering uses that grid's variance, not t^(2H).
+pub(super) mod reverse;
 use super::*;
 use crate::models::BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES;
 use pricing_numerics::{CorrelationFactor, NeumaierSum};
@@ -106,6 +107,52 @@ impl RoughDividendKernel {
                 .sum::<f64>();
         (dw, s.average * dw + s.residual * z[3])
     }
+    // Replay the very same causal history and compensated-sum order as evolve.
+    // Risk never reconstructs it from rounded physical-stock observations.
+    fn driver_path(
+        &self,
+        normals: &[f64],
+    ) -> Result<(Vec<f64>, Vec<f64>), StochasticDividendError> {
+        if normals.len() != 4 * self.steps.len() || normals.iter().any(|z| !z.is_finite()) {
+            return Err(invalid("rough_reverse_normals"));
+        }
+        let mut increments = Vec::with_capacity(self.steps.len());
+        let mut drivers = Vec::with_capacity(self.steps.len() + 1);
+        drivers.push(0.0);
+        for (i, z) in normals.as_chunks::<4>().0.iter().enumerate() {
+            let (dw, near) = self.innovations(i, z);
+            let mut sum = NeumaierSum::new();
+            sum.add(near);
+            for (&weight, &dw) in self.weights[i + 1].iter().zip(&increments) {
+                sum.add(weight * dw);
+            }
+            let driver = sum.total();
+            if !driver.is_finite() {
+                return Err(invalid("rough_reverse_history"));
+            }
+            drivers.push(driver);
+            increments.push(dw);
+        }
+        Ok((drivers, increments))
+    }
+
+    pub(super) fn volatility_loadings(
+        &self,
+        normals: &[f64],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        let (drivers, _) = self.driver_path(normals)?;
+        let eta = self.factor.vol_of_vol();
+        drivers[..self.steps.len()]
+            .iter()
+            .zip(self.variances.iter())
+            .map(|(&x, &v)| {
+                let value = (0.5 * eta * x - 0.25 * eta * eta * v).exp();
+                positive(value, "rough_reverse_volatility_loading")?;
+                Ok(value)
+            })
+            .collect()
+    }
+
     pub(super) fn evolve(
         &self,
         model: BuehlerDividendModel,
