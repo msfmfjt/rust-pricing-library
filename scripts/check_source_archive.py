@@ -13,6 +13,13 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/engine/processes/stochastic_dividends/bergomi.rs",
+    "crates/pricing/tests/bergomi_dividends.rs",
+    "tests/python/test_bergomi_dividends.py",
+    "tests/python/bergomi_dividend_reference.py",
+    "examples/python/bergomi_dividends.py",
+    "design/adr/0014-bergomi-stochastic-dividends.md",
+    "design/validation/bergomi-stochastic-dividends.md",
     'crates/pricing/src/models/stochastic_dividends.rs',
     'crates/pricing/src/engine/processes/stochastic_dividends.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends.rs',

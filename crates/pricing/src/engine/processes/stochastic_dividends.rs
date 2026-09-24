@@ -1,9 +1,13 @@
 //! Positive split evolution and carry-funded stochastic cash reserves.
 
+mod bergomi;
+use bergomi::BergomiDividendKernel;
+
 use crate::MonteCarloError;
 use crate::market::EquityForward;
 use crate::mc::LocalVolTimeGrid;
 use crate::models::stochastic_dividends::{invalid, nonnegative, positive};
+use crate::models::{Bergomi1Factor, Bergomi2Factor};
 use crate::models::{BuehlerDividendModel, BuehlerDividendState, StochasticDividendError};
 
 impl BuehlerDividendModel {
@@ -127,6 +131,7 @@ pub struct StochasticDividendPathPlan {
     nodes: Box<[StochasticDividendNode]>,
     risky_spot: f64,
     dimension: u32,
+    bergomi: Option<BergomiDividendKernel>,
 }
 impl StochasticDividendPathPlan {
     pub fn compile(
@@ -215,8 +220,94 @@ impl StochasticDividendPathPlan {
             nodes: nodes.into_boxed_slice(),
             risky_spot,
             dimension,
+            bergomi: None,
         })
     }
+    /// Flat initial forward variance, with explicit dividend/volatility correlation.
+    pub fn compile_bergomi(
+        market: &EquityForward,
+        model: BuehlerDividendModel,
+        initial_volatility: f64,
+        factor: Bergomi1Factor,
+        dividend_volatility_correlation: f64,
+        grid: &LocalVolTimeGrid,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile(market, model, initial_volatility, grid)?
+            .with_bergomi(factor, dividend_volatility_correlation)
+    }
+
+    pub fn compile_bergomi_two_factor(
+        market: &EquityForward,
+        model: BuehlerDividendModel,
+        initial_volatility: f64,
+        factor: Bergomi2Factor,
+        dividend_volatility_correlations: [f64; 2],
+        grid: &LocalVolTimeGrid,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile(market, model, initial_volatility, grid)?
+            .with_bergomi_two_factor(factor, dividend_volatility_correlations)
+    }
+
+    pub(in crate::engine) fn with_bergomi(
+        mut self,
+        factor: Bergomi1Factor,
+        correlation: f64,
+    ) -> Result<Self, MonteCarloError> {
+        self.bergomi = Some(BergomiDividendKernel::one(
+            self.model,
+            factor,
+            correlation,
+            &self.times,
+        )?);
+        self.set_dimension()?;
+        Ok(self)
+    }
+
+    pub(in crate::engine) fn with_bergomi_two_factor(
+        mut self,
+        factor: Bergomi2Factor,
+        correlations: [f64; 2],
+    ) -> Result<Self, MonteCarloError> {
+        self.bergomi = Some(BergomiDividendKernel::two(
+            self.model,
+            factor,
+            correlations,
+            &self.times,
+        )?);
+        self.set_dimension()?;
+        Ok(self)
+    }
+
+    fn set_dimension(&mut self) -> Result<(), StochasticDividendError> {
+        self.dimension = (self.times.len() - 1)
+            .checked_mul(self.random_factor_count())
+            .and_then(|n| u32::try_from(n).ok())
+            .ok_or(invalid("random_dimension"))?;
+        Ok(())
+    }
+
+    #[must_use]
+    pub const fn random_factor_count(&self) -> usize {
+        match &self.bergomi {
+            None => 2,
+            Some(k) => k.factor_count(),
+        }
+    }
+
+    #[must_use]
+    pub const fn scheme(&self) -> &'static str {
+        match &self.bergomi {
+            None => crate::models::STOCHASTIC_DIVIDEND_SCHEME,
+            Some(k) => k.scheme(),
+        }
+    }
+
+    pub(in crate::engine) fn hash_volatility(&self, hash: &mut blake3::Hasher) {
+        if let Some(k) = &self.bergomi {
+            k.hash_parameters(hash);
+        }
+    }
+
     #[must_use]
     pub fn times(&self) -> &[f64] {
         &self.times
@@ -244,6 +335,12 @@ impl StochasticDividendPathPlan {
     ) -> Result<Vec<BuehlerDividendState>, StochasticDividendError> {
         if normals.len() != self.dimension as usize {
             return Err(invalid("normal_count"));
+        }
+        if normals.iter().any(|z| !z.is_finite()) {
+            return Err(invalid("normal"));
+        }
+        if let Some(kernel) = &self.bergomi {
+            return kernel.evolve(self.model, self.volatility, &self.times, normals);
         }
         let mut states = Vec::with_capacity(self.times.len());
         let mut state = BuehlerDividendState::initial();

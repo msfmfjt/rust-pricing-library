@@ -20,7 +20,8 @@ cash. There is no `evaluate_aad` for this plan. Public price accuracy tests in t
 change cover European calls and the discrete-barrier dividend jump; the new
 stochastic model has no dedicated broad exotic accuracy panel yet.
 
-This is **not** an implementation of stochastic-dividend LSV, pure SV/HW hybrids,
+The pure 1F/2F Bergomi factories below extend this scope. This is **not** an
+implementation of stochastic-dividend LSV, stochastic-rate SV/HW hybrids,
 multi-asset dividends, dividend derivatives or dividend-option calibration.
 Those require their own pricing, covariance, calibration and reverse contracts.
 The same model object must not be passed to an existing fixed-cash calibrator.
@@ -150,3 +151,59 @@ section 3.1, system (S), for the mean-reverting factor and its conditional
 expectation. The finite supplied schedule, deterministic repo-carry extension,
 positive splitting, public support limits and validation policy above are
 repository-specific choices rather than assertions of complete paper coverage.
+
+
+## Pure 1F / 2F Bergomi coupling
+
+Rust `StochasticDividendPricingPlan::compile_bergomi` and
+`compile_bergomi_two_factor` take the existing Bergomi factor objects and an
+explicit dividend/volatility correlation (an ordered pair for 2F). The request
+still supplies `sigma0` through its Black-Scholes volatility field.
+Python exposes the same factories on `StochasticDividendPlan`. Its
+`dividend_mean_reversion` is distinct from the Bergomi `mean_reversion(s)`.
+See the [example](../../examples/python/bergomi_dividends.py).
+
+For weighted OU state `Z=sum_j w_j X_j`, `dX_j=-k_j X_j dt+dW_j`,
+
+\[
+ v_t=\sigma_0^2\exp(2\nu_B Z_t-2\nu_B^2\operatorname{Var}[Z_t]),
+ \qquad df_t=f_t\sqrt{v_t}\,dW_t^f.
+\]
+
+Weights and log-volatility convention match the
+[pure-SV model](pure-stochastic-volatility.md). The flat initial forward variance
+is not a physical-stock market-IV calibration. The Buehler forecast/reserve and
+same-date dividend semantics above are unchanged. The discrete scheme preserves
+conditional means using left-frozen variance; exact continuous-time martingale
+properties require the usual integrability conditions and are not certified
+by the finite-step tests.
+
+Order Brownian drivers as `(f,D,V1[,V2])`. The full instantaneous correlation
+matrix must be PSD. `rho_DVj` is independent input, not `rho_fD*rho_fVj`.
+For interval `h`, set `k_f=k_D=0`. The joint innovations have covariance
+
+\[
+ \operatorname{Cov}(I_i,I_j)=\rho_{ij}B(k_i+k_j,h),\quad
+ B(k,h)=\begin{cases}(1-e^{-kh})/k,&k>0,\\h,&k=0.\end{cases}
+\]
+
+The compiler validates the Brownian matrix first, then integrates and factorizes
+this covariance, retaining all three/four independent Gaussian columns even
+at singularity or zero loading. Exponential kernel integrals use stable zero-k
+limits. Weighted-OU variance is computed as a sum of squared loadings to avoid
+cancellation. The Buehler positive split freezes `sqrt(v)` at the left endpoint;
+OU state updates affect the **next** interval, not the current equity return.
+No variance floor, calibration or leverage approximation is introduced.
+
+Schemes are `buehler-bergomi-1f-joint-ou-positive-split-v1` and
+`buehler-bergomi-2f-joint-ou-positive-split-v1`. Unbridged coordinates are
+step-major `(f,D,V1[,V2])`; bridged coordinates are rank-major with the bridge
+applied to each independent column before correlation. All supplied model
+parameters affect the fingerprint, including correlations of unused factors.
+Existing BS stochastic-dividend fingerprints and paths are unchanged.
+
+The exact Gaussian OU transition is only one part of the algorithm. Nonlinear
+prices retain time-discretization bias. New independent two-step reference tests
+are finite-algorithm checks, not a continuous-time convergence certificate.
+HW, LSV, rough, multi-asset, Greeks, dividend-derivative calibration, American
+exercise and continuous barriers remain unsupported in these factories.

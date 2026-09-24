@@ -10,7 +10,8 @@ use crate::mc::{
 };
 use crate::models::stochastic_dividends::invalid;
 use crate::models::{
-    BuehlerDividendModel, ModelSpec, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
+    Bergomi1Factor, Bergomi2Factor, BuehlerDividendModel, ModelSpec, STOCHASTIC_DIVIDEND_SCHEME,
+    StochasticDividendError,
 };
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 
@@ -24,8 +25,9 @@ pub struct StochasticDividendPrice {
     pub scheme: &'static str,
 }
 
-/// Constant volatility of the normalized residual-equity martingale, with a
-/// stochastic cash reserve. It is not Black-Scholes volatility of physical S.
+/// Constant-volatility or pure Bergomi residual equity with a stochastic cash
+/// reserve. The request volatility is the initial residual-equity volatility,
+/// not physical-stock implied volatility. This plan exposes prices only.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,
@@ -106,6 +108,48 @@ impl StochasticDividendPricingPlan {
         })
     }
 
+    /// Request BS volatility is sigma0, not physical stock implied volatility.
+    pub fn compile_bergomi(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: Bergomi1Factor,
+        dividend_volatility_correlation: f64,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let mut plan = Self::compile_bs(request, model, maximum_step, policy)?;
+        plan.path = plan
+            .path
+            .with_bergomi(factor, dividend_volatility_correlation)?;
+        plan.finish_bergomi()?;
+        Ok(plan)
+    }
+    pub fn compile_bergomi_two_factor(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: Bergomi2Factor,
+        dividend_volatility_correlations: [f64; 2],
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let mut plan = Self::compile_bs(request, model, maximum_step, policy)?;
+        plan.path = plan
+            .path
+            .with_bergomi_two_factor(factor, dividend_volatility_correlations)?;
+        plan.finish_bergomi()?;
+        Ok(plan)
+    }
+    fn finish_bergomi(&mut self) -> Result<(), MonteCarloError> {
+        if let EngineConfig::RandomizedQuasiMonteCarlo(config) = self.engine {
+            RqmcPlan::compile(config, self.path.random_dimension())?;
+        }
+        let mut hash = blake3::Hasher::new();
+        hash.update(self.fingerprint.as_bytes());
+        self.path.hash_volatility(&mut hash);
+        self.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        Ok(())
+    }
+
     pub fn evaluate(&self) -> Result<StochasticDividendPrice, MonteCarloError> {
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
@@ -176,7 +220,7 @@ impl StochasticDividendPricingPlan {
             independent_sampling_units: units,
             evaluated_paths: paths,
             plan_fingerprint: self.fingerprint,
-            scheme: STOCHASTIC_DIVIDEND_SCHEME,
+            scheme: self.scheme(),
         })
     }
 
@@ -190,7 +234,7 @@ impl StochasticDividendPricingPlan {
     }
     #[must_use]
     pub const fn random_factor_count(&self) -> usize {
-        2
+        self.path.random_factor_count()
     }
     #[must_use]
     pub const fn risky_spot(&self) -> f64 {
@@ -198,7 +242,7 @@ impl StochasticDividendPricingPlan {
     }
     #[must_use]
     pub const fn scheme(&self) -> &'static str {
-        STOCHASTIC_DIVIDEND_SCHEME
+        self.path.scheme()
     }
 
     fn bridge(&self, vr: VarianceReduction) -> Result<Option<BrownianBridgePlan>, MonteCarloError> {
@@ -216,20 +260,21 @@ impl StochasticDividendPricingPlan {
         antithetic: bool,
     ) -> Result<f64, MonteCarloError> {
         if let Some(bridge) = bridge {
-            // Leading Sobol coordinates are the two terminal normals. Apply
+            // Leading Sobol coordinates are all terminal normals. Apply
             // the bridge to independent factors before the model correlation.
-            for factor in 0..2 {
+            let count = self.random_factor_count();
+            for factor in 0..count {
                 let input = z
                     .iter()
                     .skip(factor)
-                    .step_by(2)
+                    .step_by(count)
                     .copied()
                     .collect::<Vec<_>>();
                 let output = bridge
                     .apply_one_factor(&input)
                     .map_err(|e| MonteCarloError::LocalVol(e.into()))?;
                 for (step, value) in output.into_iter().enumerate() {
-                    z[2 * step + factor] = value;
+                    z[count * step + factor] = value;
                 }
             }
         }
