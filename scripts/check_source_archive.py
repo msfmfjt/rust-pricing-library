@@ -13,6 +13,13 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/processes/stochastic_dividends/rough/correlation_reverse.rs',
+    'crates/pricing/tests/rough_dividend_correlation_risk.rs',
+    'tests/python/test_rough_dividend_correlation_risk.py',
+    'examples/python/rough_dividend_correlation_risk.py',
+    'design/adr/0021-rough-stochastic-dividend-correlation-risk.md',
+    'design/validation/rough-stochastic-dividend-correlation-risk.md',
+
     'crates/pricing/src/engine/processes/stochastic_dividends/rough/reverse.rs',
     'crates/pricing/tests/rough_dividend_risk.rs',
     'tests/python/test_rough_dividend_risk.py',

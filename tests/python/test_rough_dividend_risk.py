@@ -50,7 +50,7 @@ class RoughDividendRiskTest(unittest.TestCase):
                 bumped=compile_plan(request,**(settings | {key:value+eps})).evaluate().value
                 self.assertLess(abs((bumped-r.price.value)/eps-r.derivatives[-2+j]),3e-4)
             with self.assertRaises(rp.PricingError): p.evaluate_bergomi_aad()
-            with self.assertRaises(rp.PricingError): p.evaluate_correlation_aad()
+            p.evaluate_correlation_aad()
             self.assertEqual(r.price.value,p.evaluate().value)
         p=compile_plan(make_request(sigma=0.,points=32),maximum_step=.125)
         r=p.evaluate_rough_aad()

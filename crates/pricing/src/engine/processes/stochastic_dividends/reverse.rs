@@ -4,6 +4,7 @@
 
 use super::bergomi::correlation_reverse::{self, BergomiCorrelationReverse};
 use super::bergomi::parameter_reverse::BergomiParameterReverse;
+use super::rough::correlation_reverse::RoughCorrelationReverse;
 use super::rough::reverse::RoughParameterReverse;
 use super::*;
 use crate::models::hull_white_dividends::transpose_log_curve;
@@ -28,6 +29,7 @@ pub(in crate::engine) struct ReverseContext {
     bergomi: Option<BergomiParameterReverse>,
     rough: Option<RoughParameterReverse>,
     correlation: Option<BergomiCorrelationReverse>,
+    rough_correlation: Option<RoughCorrelationReverse>,
     correlation_start: Option<usize>,
 }
 impl ReverseContext {
@@ -123,6 +125,7 @@ impl ReverseContext {
             bergomi: None,
             rough: None,
             correlation: None,
+            rough_correlation: None,
             correlation_start: None,
         })
     }
@@ -168,21 +171,26 @@ impl ReverseContext {
     }
 
     /// Append raw symmetric Brownian-correlation entry partials. Bergomi plans
-    /// include the entire existing model-parameter prefix, BS the basic prefix.
+    /// include the entire existing model-parameter prefix, rough the H/eta
+    /// prefix, and BS the basic prefix.
     pub fn enable_correlations(
         &mut self,
         path: &StochasticDividendPathPlan,
     ) -> Result<(), StochasticDividendError> {
-        if path.rough.is_some() {
-            return Err(StochasticDividendError::Unsupported {
-                feature: "correlation AAD for rough Bergomi stochastic dividends",
-            });
-        }
         let rho = path.model.equity_dividend_correlation();
         if (1.0 - rho) * (1.0 + rho) <= 1e-10 {
             return Err(correlation_reverse::unsupported());
         }
-        if let Some(kernel) = &path.bergomi {
+        if let Some(kernel) = &path.rough {
+            // Correlation partials require an open instantaneous SPD domain even
+            // at eta=0 or H=1/2. Check before building the H-risk coefficient table.
+            let prepared = RoughCorrelationReverse::new(kernel, rho)?;
+            self.enable_rough_parameters(path)?;
+            self.correlation_start = Some(self.labels.len());
+            self.labels
+                .extend(RoughCorrelationReverse::LABELS.map(str::to_owned));
+            self.rough_correlation = Some(prepared);
+        } else if let Some(kernel) = &path.bergomi {
             // Check the instantaneous domain before the existing model-risk scope.
             let prepared = BergomiCorrelationReverse::new(kernel, rho, &path.times)?;
             self.enable_bergomi_parameters(path)?;
@@ -348,6 +356,17 @@ impl ReverseContext {
             let extra = prepared.pullback(kernel, normals, bars)?;
             let start = self.nodes[0].equity.len();
             out[start..start + extra.len()].copy_from_slice(&extra);
+        }
+        if let (Some(prepared), Some(start), Some(bars), Some(kernel)) = (
+            &self.rough_correlation,
+            self.correlation_start,
+            &loading_bars,
+            &plan.rough,
+        ) {
+            let extra = prepared.pullback(kernel, normals, bars)?;
+            for (bar, extra) in out[start..].iter_mut().zip(extra) {
+                *bar += extra;
+            }
         }
         if out.iter().any(|v| !v.is_finite()) {
             return Err(invalid("reverse_result"));

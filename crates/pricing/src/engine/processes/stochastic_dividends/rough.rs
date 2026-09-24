@@ -1,6 +1,7 @@
 //! Joint f/dividend/variance Brownian law plus an exact newest Volterra cell.
 //! Older cells reuse the library's L2-average hybrid weights on the actual grid.
 //! The log-variance centering uses that grid's variance, not t^(2H).
+pub(super) mod correlation_reverse;
 pub(super) mod reverse;
 use super::*;
 use crate::models::BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES;

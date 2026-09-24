@@ -59,7 +59,8 @@ class RoughDividendTest(unittest.TestCase):
         baseline = p.evaluate().value
         p.evaluate_aad()
         p.evaluate_rough_aad()
-        for method in (p.evaluate_bergomi_aad, p.evaluate_correlation_aad):
+        p.evaluate_correlation_aad()
+        for method in (p.evaluate_bergomi_aad,):
             with self.assertRaises(rp.PricingError):
                 method()
         p.evaluate_gamma(gamma_absolute_bump=1.)
