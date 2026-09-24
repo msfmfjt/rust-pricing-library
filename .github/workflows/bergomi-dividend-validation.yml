@@ -1,0 +1,93 @@
+name: Bergomi stochastic-dividend candidate validation
+on:
+  push:
+    branches: [work/bergomi-dividend-validation-20260924]
+    paths: [.github/workflows/bergomi-dividend-validation.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize hash-checked candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD^)" = 25c1b025c2945dea3c665040bfad37f8f6e58a39
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, urllib.request
+          parts = []
+          for sha in ['db414a2f1396798c2a2fe647800f762e7c388732', 'ef56c52344d5b1b0f367ea9d74411103982c6eb9']:
+              url = 'https://api.github.com/repos/msfmfjt/rust-pricing-library/git/blobs/' + sha
+              request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  parts.append(base64.b64decode(json.load(response)['content']))
+          patch = lzma.decompress(base64.b64decode(b''.join(parts), validate=True))
+          assert hashlib.sha256(patch).hexdigest() == '61c37c741b24fac93776c944e64717301266ff9baf6e4c8a30b9af2bfc62dacc'
+          pathlib.Path('/tmp/bergomi-dividends.patch').write_bytes(patch)
+          PY
+          git apply --index /tmp/bergomi-dividends.patch
+          git rm .github/workflows/bergomi-dividend-validation.yml
+          test "$(git write-tree)" = dd4e5099bbbdefb46bf8093f6842d50dc3f20c91
+      - name: Format and retain exact source on scratch branch only
+        run: |
+          cargo fmt --all
+          git add -u
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: materialize and format Bergomi stochastic-dividend candidate'
+          git push origin HEAD:refs/heads/work/bergomi-dividend-validation-20260924
+          mkdir -p /tmp/bergomi-dividend-evidence
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/bergomi-dividend-evidence/revision.txt
+          git archive --format=tar.gz -o /tmp/bergomi-dividend-evidence/source.tar.gz HEAD
+      - name: Focused Rust stochastic-dividend tests
+        run: |
+          cargo test --locked -p pricing --lib engine::processes::stochastic_dividends::bergomi -- --nocapture 2>&1 | tee /tmp/bergomi-dividend-evidence/covariance.log
+          cargo test --locked -p pricing --test bergomi_dividends -- --nocapture 2>&1 | tee /tmp/bergomi-dividend-evidence/bergomi.log
+          cargo test --locked -p pricing --test stochastic_dividends -- --nocapture 2>&1 | tee /tmp/bergomi-dividend-evidence/bs-dividends.log
+      - name: Clippy all targets
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/bergomi-dividend-evidence/clippy.log
+      - name: Build wheel and focused Python verification
+        run: |
+          python -m pip install 'maturin>=1.9,<2.0' numpy
+          python -m maturin build --locked --release --out /tmp/bergomi-wheels
+          python -m pip install --force-reinstall /tmp/bergomi-wheels/*.whl
+          python -m unittest discover -s tests/python -p test_bergomi_dividends.py -v 2>&1 | tee /tmp/bergomi-dividend-evidence/bergomi-python.log
+          python -m unittest discover -s tests/python -p test_stochastic_dividends.py -v 2>&1 | tee /tmp/bergomi-dividend-evidence/bs-python.log
+          python examples/python/bergomi_dividends.py 2>&1 | tee /tmp/bergomi-dividend-evidence/example.log
+          python examples/python/stochastic_dividends.py
+      - name: Documentation and source contracts
+        run: |
+          python scripts/check_local_vol_reference_fixture.py
+          python scripts/check_path_dependence_reference_fixture.py
+          python scripts/check_early_exercise_reference_fixture.py
+          python scripts/check_schemas.py
+          python scripts/check_markdown_links.py
+          python scripts/check_source_archive.py /tmp/bergomi-dividend-evidence/source.tar.gz
+          cargo doc --locked --workspace --all-features --no-deps
+          cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+      - name: Full normal Rust suites
+        run: |
+          cargo test --locked --workspace --all-features --exclude pricing-python 2>&1 | tee /tmp/bergomi-dividend-evidence/rust-all.log
+          cargo test --locked -p pricing-python 2>&1 | tee /tmp/bergomi-dividend-evidence/bindings-rust.log
+          cargo test --locked -p pricing --no-default-features 2>&1 | tee /tmp/bergomi-dividend-evidence/rust-minimal.log
+      - name: Full Python suite
+        run: python -m unittest discover -s tests/python -v 2>&1 | tee /tmp/bergomi-dividend-evidence/python-all.log
+      - name: Retain candidate and observed logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bergomi-stochastic-dividend-native-candidate
+          path: /tmp/bergomi-dividend-evidence
+          retention-days: 14
+          if-no-files-found: warn
