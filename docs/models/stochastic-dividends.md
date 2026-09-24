@@ -248,3 +248,38 @@ See the [risk example](../../examples/python/stochastic_dividend_risk.py).
 The [validation record](../../design/validation/stochastic-dividend-risk.md)
 distinguishes full-recompile derivative checks, continuous-time BS moment checks
 and common-noise finite-grid price comparisons. The finest grid is not exact.
+
+
+## Bergomi parameter risk
+
+For a 1F/2F plan, `evaluate_bergomi_aad()` returns the same risk type as
+`evaluate_aad()`, preserving every existing label and derivative as a prefix.
+Appended raw derivatives are `bergomi_mean_reversion[0]`, and for 2F
+`bergomi_mean_reversion[1]`, then `bergomi_vol_of_vol`, and for 2F
+`bergomi_mixing_weight`. The basic method still holds those parameters fixed.
+The extended risk method is `buehler-bergomi-parameter-reverse-fixed-correlation-v1`.
+Neither method recalibrates market IV or provides market-IV VegaKT.
+
+Mean-reversion risk includes exact-OU covariance/factorization and decay
+sensitivities. Mixing risk includes normalized weights; all extra risks include
+lognormal centering and the existing stochastic reserve/physical-stock payoff
+chain. Correlations, grid and smoothing width are fixed. The extra coefficient
+Jacobians are built once per risk evaluation; per-path OU adjoints use no bumps.
+
+The extended method requires integrated normalized correlation Cholesky pivots
+and 2F weight variance greater than `1e-10`. Singular/near-singular cases reject
+before sampling without changing price or basic AAD support. Nonnegative model
+parameters at zero and mixing-weight endpoints use inward derivatives. A BS
+plan has no Bergomi parameters and rejects this extra method.
+
+```python
+risk = plan.evaluate_bergomi_aad()
+for label, value, se in zip(risk.parameter_labels, risk.derivatives, risk.standard_errors):
+    if label.startswith("bergomi_"):
+        print(label, value, se)
+```
+
+See the [runnable example](../../examples/python/stochastic_dividend_bergomi_risk.py),
+[decision](../../design/adr/0016-stochastic-dividend-bergomi-risk.md) and
+[validation record](../../design/validation/stochastic-dividend-bergomi-risk.md).
+The reported uncertainties are sampling errors, not timestep/model uncertainty.

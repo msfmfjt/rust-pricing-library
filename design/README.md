@@ -42,7 +42,12 @@ documents the public API migration.
 | [0014](adr/0014-bergomi-stochastic-dividends.md) | Pure 1F/2F Bergomi with stochastic cash dividends |
 | [0015](adr/0015-stochastic-dividend-risk.md) | Buehler first-order reverse and timestep refinement |
 
+| [0016](adr/0016-stochastic-dividend-bergomi-risk.md) | Optional Bergomi parameter reverse with stochastic dividends |
+
 ## Implementation roadmaps and acceptance
+
+The [Bergomi parameter-risk record](validation/stochastic-dividend-bergomi-risk.md)
+tracks fixed-correlation model-risk differentiation and its numerical domain.
 
 The [stochastic-dividend record](validation/stochastic-dividends.md) distinguishes
 finite-split and limiting-price tests from the deferred hybrid/calibration scope.
