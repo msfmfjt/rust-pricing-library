@@ -81,10 +81,13 @@ fn ladder_matches_full_recompile_delta_for_all_families_and_payoff_events() {
                     assert_eq!(r.price, p.evaluate().unwrap());
                     assert_eq!(r.delta, basic.delta());
                     assert_eq!(r.delta_standard_error, basic.standard_errors[0]);
-                    assert_eq!(
-                        r,
-                        compile(&v, family, 3).evaluate_gamma(config(1.)).unwrap()
-                    );
+                    let mut replay = compile(&v, family, 3).evaluate_gamma(config(1.)).unwrap();
+                    // Execution-policy provenance changes, while every numeric result replays.
+                    assert_ne!(r.price.plan_fingerprint, replay.price.plan_fingerprint);
+                    assert_ne!(r.risk_fingerprint, replay.risk_fingerprint);
+                    replay.price.plan_fingerprint = r.price.plan_fingerprint;
+                    replay.risk_fingerprint = r.risk_fingerprint;
+                    assert_eq!(r, replay);
                     assert_eq!(r.payoff_evaluations, 7 * r.price.evaluated_paths);
                     for (j, &h) in r.spot_bumps.iter().enumerate() {
                         let mut plus = v.clone();
@@ -302,7 +305,7 @@ fn bump_domain_and_unsmoothed_discontinuities_reject_without_changing_basic_risk
     let mut v = payload(false, 45);
     v["product"] = json!({"type":"barrier","underlying_id":1,"currency_id":2,"expiry":"2027-09-04",
         "strike":80.,"barrier":100.,"notional":1.,"side":{"type":"call"},"direction":{"type":"up"},"style":{"type":"knock_in"},
-        "monitoring":{"type":"discrete"},"monitoring_dates":["2027-09-04"]});
+        "monitoring":{"type":"discrete"},"monitoring_dates":["2027-09-04"],"payment_date":"2027-12-04"});
     assert!(compile(&v, 0, 1).evaluate_gamma(config(1.)).is_err());
     // Largest downward ladder bump remains positive but exceeds funded equity.
     let mut v = payload(false, 46);

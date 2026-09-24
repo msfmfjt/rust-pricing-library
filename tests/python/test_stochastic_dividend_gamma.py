@@ -49,8 +49,11 @@ class StochasticDividendGammaTest(unittest.TestCase):
         for family in range(3):
             a=plan(family).evaluate_gamma(gamma_relative_bump=.01)
             b=plan(family,workers=3).evaluate_gamma(gamma_relative_bump=.01)
-            for field in ['gamma_estimates','gamma_standard_errors','bump_differences','bump_difference_standard_errors','risk_fingerprint','delta']:
+            for field in ['gamma_estimates','gamma_standard_errors','bump_differences','bump_difference_standard_errors','delta','delta_standard_error','spot','spot_bumps','payoff_evaluations','method']:
                 self.assertEqual(getattr(a,field),getattr(b,field))
+            self.assertEqual(a.price.value,b.price.value)
+            self.assertEqual(a.price.standard_error,b.price.standard_error)
+            self.assertNotEqual(a.risk_fingerprint,b.risk_fingerprint)
             absolute=plan(family).evaluate_gamma(gamma_absolute_bump=1.)
             self.assertEqual(a.gamma_estimates,absolute.gamma_estimates)
             self.assertNotEqual(a.risk_fingerprint,absolute.risk_fingerprint)

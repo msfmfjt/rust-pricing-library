@@ -9,8 +9,10 @@ no existing tolerance, seed, schema or replay fixture is relaxed.
 - Full-recompile AAD Delta bumps: BS/1F/2F, MC/RQMC, two seeds, European,
   delayed-payment Asian and smoothed pre/post-dividend barrier payoffs. All three
   ladder values agree within 2e-12 absolute. Baseline price/Delta/SEs and 1/3-worker
-  results are exactly equal. Relative versus equivalent absolute bumps give the
-  same estimates but distinct risk fingerprints.
+  numerical results are exactly equal. Execution-policy provenance changes the
+  plan/risk fingerprints across worker counts, as in the baseline contract.
+  Relative versus equivalent absolute bumps give the same estimates but distinct
+  risk fingerprints.
 - Independent one-step BS construction: build f/Y from explicit lognormal formulas,
   evaluate terminal Delta without payoff/reverse/reserve helpers, then compute
   sample variances of paired Gamma and ladder gaps. MC/RQMC with and without
