@@ -1,0 +1,95 @@
+name: Stochastic dividend risk candidate validation
+on:
+  push:
+    branches: [work/stochastic-dividend-risk-20260924]
+    paths: [.github/workflows/stochastic-dividend-risk-build.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize pinned candidate and remove temporary workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD^)" = 5998b24de8c8bc520adcee3e9df52a2ef2f49223
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, urllib.request
+          parts = []
+          for sha in ['8f1439e481419e3699646eda710f9e50d5a00309','6804baee6affeecf6152ff86ae01879c9f966752']:
+              url = 'https://api.github.com/repos/msfmfjt/rust-pricing-library/git/blobs/' + sha
+              request = urllib.request.Request(url, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(request,timeout=30) as response:
+                  parts.append(base64.b64decode(json.load(response)['content']))
+          patch = lzma.decompress(base64.b64decode(b''.join(parts),validate=True))
+          assert hashlib.sha256(patch).hexdigest() == '28a4d6cbe56be13c816d800eec9c26d4e03c2d96f8038529566681b6fe3b90de'
+          pathlib.Path('/tmp/sd-risk.patch').write_bytes(patch)
+          PY
+          git apply --index /tmp/sd-risk.patch
+          git rm .github/workflows/stochastic-dividend-risk-build.yml
+          test "$(git write-tree)" = 4ce82033ed4bc1e8b22aa9ebb7418c686f481802
+          cargo fmt --all
+          git add -u
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: materialize and format stochastic-dividend AAD candidate'
+          git push origin HEAD:refs/heads/work/stochastic-dividend-risk-20260924
+          mkdir -p /tmp/sd-risk-evidence
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/sd-risk-evidence/revision.txt
+          git archive --format=tar.gz -o /tmp/sd-risk-evidence/source.tar.gz HEAD
+      - name: Clippy all targets
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/sd-risk-evidence/clippy.log
+      - name: First-order reverse and paired price refinement
+        run: |
+          cargo test --locked --release -p pricing --test stochastic_dividend_risk -- --nocapture 2>&1 | tee /tmp/sd-risk-evidence/risk.log
+          cargo test --locked --release -p pricing --test stochastic_dividend_refinement -- --include-ignored --nocapture 2>&1 | tee /tmp/sd-risk-evidence/refinement.log
+          cargo test --locked --release -p pricing --test bergomi_dividends --test stochastic_dividends 2>&1 | tee /tmp/sd-risk-evidence/price-regression.log
+      - name: Python wheel and focused API
+        run: |
+          python -m pip install 'maturin>=1.9,<2' 'numpy>=2,<3'
+          python -m maturin build --locked --release --out /tmp/sd-risk-wheels
+          python -m pip install --force-reinstall /tmp/sd-risk-wheels/*.whl
+          python -m unittest discover -s tests/python -p test_stochastic_dividend_risk.py -v 2>&1 | tee /tmp/sd-risk-evidence/python-risk.log
+          python -m unittest discover -s tests/python -p test_stochastic_dividends.py -v
+          python -m unittest discover -s tests/python -p test_bergomi_dividends.py -v
+          python examples/python/stochastic_dividend_risk.py 2>&1 | tee /tmp/sd-risk-evidence/example.log
+      - name: Source documentation and contracts
+        run: |
+          python scripts/check_local_vol_reference_fixture.py
+          python scripts/check_path_dependence_reference_fixture.py
+          python scripts/check_early_exercise_reference_fixture.py
+          python scripts/check_schemas.py
+          python scripts/check_markdown_links.py
+          python scripts/check_source_archive.py /tmp/sd-risk-evidence/source.tar.gz
+          python - <<'PY'
+          import ast, pathlib, runpy
+          runpy.run_path('scripts/smoke_test_wheel.py')['verify_stub_static_shape'](ast.parse(pathlib.Path('rust_pricing.pyi').read_text()))
+          PY
+          cargo doc --locked --workspace --all-features --no-deps
+          cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+      - name: Full normal Rust suites
+        run: |
+          cargo test --locked --workspace --all-features --exclude pricing-python 2>&1 | tee /tmp/sd-risk-evidence/rust-all.log
+          cargo test --locked -p pricing-python 2>&1 | tee /tmp/sd-risk-evidence/bindings.log
+          cargo test --locked -p pricing --no-default-features 2>&1 | tee /tmp/sd-risk-evidence/rust-minimal.log
+      - name: Full Python suite
+        run: python -m unittest discover -s tests/python -v 2>&1 | tee /tmp/sd-risk-evidence/python-all.log
+      - name: Retain exact source and observed logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-risk-candidate
+          path: /tmp/sd-risk-evidence
+          retention-days: 14
+          if-no-files-found: warn
