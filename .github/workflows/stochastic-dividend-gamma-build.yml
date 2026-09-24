@@ -1,0 +1,92 @@
+name: Stochastic dividend Gamma candidate validation
+on:
+  push:
+    branches: [work/stochastic-dividend-gamma-20260924]
+    paths: [.github/workflows/stochastic-dividend-gamma-build.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize verified candidate and retain exact source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD^)" = 7ed26f5aa48855fd29db8d9f6b4cbc402d737c99
+          python - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, urllib.request
+          parts = []
+          for sha in ['e41ae42c4792bb3983252fdbe106b1ecd1a2448d', 'b56228a47fd922391d349a5994b50134456fbb4e']:
+              request = urllib.request.Request('https://api.github.com/repos/msfmfjt/rust-pricing-library/git/blobs/' + sha, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  parts.append(base64.b64decode(json.load(response)['content']))
+          patch = lzma.decompress(base64.b64decode(b''.join(parts), validate=True))
+          assert hashlib.sha256(patch).hexdigest() == 'b2287abc2b969cf981f4bf552e99136bd8246bcb21d93780a18ab7cd95994c18'
+          pathlib.Path('/tmp/gamma.patch').write_bytes(patch)
+          PY
+          git apply --index /tmp/gamma.patch
+          git rm .github/workflows/stochastic-dividend-gamma-build.yml
+          test "$(git write-tree)" = a76dfb6c6786ad3b0ca48bda9ad23d2f2cb763a6
+          cargo fmt --all
+          git add -u
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: materialize and format paired stochastic-dividend Gamma'
+          mkdir -p /tmp/gamma-evidence
+          { git rev-parse HEAD; git rev-parse HEAD^{tree}; rustc -vV; cargo -V; } | tee /tmp/gamma-evidence/revision.txt
+          git archive --format=tar.gz -o /tmp/gamma-evidence/source.tar.gz HEAD
+          git push origin HEAD:refs/heads/work/stochastic-dividend-gamma-20260924
+      - name: Formatting and Clippy
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets --all-features -- -D warnings 2>&1 | tee /tmp/gamma-evidence/clippy.log
+      - name: Gamma and existing stochastic-dividend risk tests
+        run: |
+          cargo test --locked --release -p pricing --test stochastic_dividend_gamma -- --nocapture 2>&1 | tee /tmp/gamma-evidence/gamma.log
+          cargo test --locked --release -p pricing --test stochastic_dividend_risk --test stochastic_dividend_bergomi_risk --test stochastic_dividend_correlation_risk --test stochastic_dividends --test bergomi_dividends 2>&1 | tee /tmp/gamma-evidence/risk-regression.log
+      - name: Wheel and all Python tests
+        run: |
+          python -m pip install 'maturin>=1.9,<2' 'numpy>=2,<3'
+          python -m maturin build --locked --release --out /tmp/gamma-wheels
+          python -m pip install --force-reinstall /tmp/gamma-wheels/*.whl
+          python -m unittest discover -s tests/python -p test_stochastic_dividend_gamma.py -v 2>&1 | tee /tmp/gamma-evidence/python-gamma.log
+          python examples/python/stochastic_dividend_gamma.py 2>&1 | tee /tmp/gamma-evidence/example.log
+          python -m unittest discover -s tests/python -v 2>&1 | tee /tmp/gamma-evidence/python-all.log
+      - name: Source and documentation contracts
+        run: |
+          python scripts/check_local_vol_reference_fixture.py
+          python scripts/check_path_dependence_reference_fixture.py
+          python scripts/check_early_exercise_reference_fixture.py
+          python scripts/check_schemas.py
+          python scripts/check_markdown_links.py
+          python scripts/check_source_archive.py /tmp/gamma-evidence/source.tar.gz
+          python - <<'PY'
+          import ast, pathlib, runpy
+          runpy.run_path('scripts/smoke_test_wheel.py')['verify_stub_static_shape'](ast.parse(pathlib.Path('rust_pricing.pyi').read_text()))
+          PY
+          cargo doc --locked --workspace --all-features --no-deps
+          cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+      - name: Normal Rust suites in release mode
+        run: |
+          cargo test --locked --release --workspace --all-features --exclude pricing-python 2>&1 | tee /tmp/gamma-evidence/rust-all.log
+          cargo test --locked --release -p pricing-python 2>&1 | tee /tmp/gamma-evidence/bindings.log
+          cargo test --locked --release -p pricing --no-default-features 2>&1 | tee /tmp/gamma-evidence/rust-minimal.log
+      - name: Retain exact source and observed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stochastic-dividend-gamma-candidate
+          path: /tmp/gamma-evidence
+          retention-days: 14
+          if-no-files-found: warn
