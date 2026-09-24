@@ -1,7 +1,8 @@
-//! Basic HW dividend AAD. Stochastic rates are sampled exactly as for price;
-//! rate-model parameters and driver correlations are fixed for this method.
+//! HW dividend AAD. Basic risk fixes rate parameters; the extended method
+//! differentiates the covariance Cholesky and all conditional rate-dependent cash.
 use super::super::StochasticDividendAadRisk;
 use super::*;
+use crate::engine::processes::stochastic_dividends::hull_white::rate_sensitivity::HullWhiteRateSensitivityContext;
 use crate::engine::processes::stochastic_dividends::hull_white::reverse::HullWhiteReverseContext;
 
 impl StochasticDividendHullWhitePricingPlan {
@@ -10,6 +11,21 @@ impl StochasticDividendHullWhitePricingPlan {
     /// payment discounting. HW parameters/correlations and the time grid are fixed.
     /// Explicit smoothing is required for discontinuous contractual payoffs.
     pub fn evaluate_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_with_rate_parameters(false)
+    }
+
+    /// Extend basic stochastic-dividend risk with the Hull--White mean
+    /// reversion and each piecewise rate-volatility knot. The fixed-grid path,
+    /// conditional cash claims, initial reserve, and delayed-payment discount
+    /// are differentiated together. The simulated covariance must be full rank.
+    pub fn evaluate_hull_white_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_with_rate_parameters(true)
+    }
+
+    fn evaluate_aad_with_rate_parameters(
+        &self,
+        include_rate_parameters: bool,
+    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "HW stochastic-dividend discontinuous payoff requires explicit smoothing",
@@ -23,7 +39,19 @@ impl StochasticDividendHullWhitePricingPlan {
             self.dividend_rate_correlation,
             self.payment_time,
         )?;
-        let width = 1 + context.labels.len();
+        let rate_context = if include_rate_parameters {
+            Some(HullWhiteRateSensitivityContext::new(
+                &self.path,
+                &self.rates,
+                self.equity_rate_correlation,
+                self.dividend_rate_correlation,
+                self.payment_time,
+            )?)
+        } else {
+            None
+        };
+        let rate_width = rate_context.as_ref().map_or(0, |c| c.labels().len());
+        let width = 1 + context.labels.len() + rate_width;
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
         let (statistics, units, paths) = match self.engine {
@@ -43,6 +71,7 @@ impl StochasticDividendHullWhitePricingPlan {
                         .collect();
                     self.sample_aad(
                         &context,
+                        rate_context.as_ref(),
                         z,
                         bridge.as_ref(),
                         config.variance_reduction().antithetic(),
@@ -69,6 +98,7 @@ impl StochasticDividendHullWhitePricingPlan {
                                 .collect::<Result<Vec<_>, _>>()?;
                             self.sample_aad(
                                 &context,
+                                rate_context.as_ref(),
                                 z,
                                 bridge.as_ref(),
                                 config.variance_reduction().antithetic(),
@@ -119,6 +149,10 @@ impl StochasticDividendHullWhitePricingPlan {
         if means.iter().chain(&errors).any(|v| !v.is_finite()) {
             return Err(invalid("risk_estimator").into());
         }
+        let mut parameter_labels = context.labels.clone();
+        if let Some(rate_context) = &rate_context {
+            parameter_labels.extend_from_slice(rate_context.labels());
+        }
         Ok(StochasticDividendAadRisk {
             price: StochasticDividendPrice {
                 value: means[0],
@@ -128,19 +162,24 @@ impl StochasticDividendHullWhitePricingPlan {
                 plan_fingerprint: self.fingerprint,
                 scheme: self.scheme(),
             },
-            parameter_labels: context.labels.into_boxed_slice(),
+            parameter_labels: parameter_labels.into_boxed_slice(),
             derivatives: means[1..].into(),
             standard_errors: errors[1..].into(),
             cash_times: context.cash_times.into_boxed_slice(),
             discount_times: context.discount_times.into_boxed_slice(),
             repo_spread_times: context.repo_spread_times.into_boxed_slice(),
-            method: "buehler-bs-hw-cash-payoff-reverse-fixed-rates-correlation-v1",
+            method: if include_rate_parameters {
+                "buehler-bs-hw-cash-payoff-forward-rate-parameter-adjoint-v1"
+            } else {
+                "buehler-bs-hw-cash-payoff-reverse-fixed-rates-correlation-v1"
+            },
         })
     }
 
     fn sample_aad(
         &self,
         context: &HullWhiteReverseContext,
+        rate_context: Option<&HullWhiteRateSensitivityContext>,
         mut z: Vec<f64>,
         bridge: Option<&BrownianBridgePlan>,
         antithetic: bool,
@@ -171,12 +210,25 @@ impl StochasticDividendHullWhitePricingPlan {
         } {
             let shocks = z.iter().map(|v| sign * v).collect::<Vec<_>>();
             let states = self.path.evolve_path(&shocks)?;
+            let rate_state_tangents = rate_context
+                .map(|context| context.evolve_rate_tangents(&self.path, &shocks, &states))
+                .transpose()?;
             let spots = states
                 .iter()
                 .enumerate()
                 .map(|(index, state)| self.path.spots(index, *state))
                 .collect::<Result<Vec<_>, _>>()?;
-            let (payoff, seeds) = self
+            let rate_spot_tangents = match (rate_context, rate_state_tangents.as_ref()) {
+                (Some(context), Some(state_tangents)) => states
+                    .iter()
+                    .enumerate()
+                    .map(|(index, state)| {
+                        context.spot_derivatives(&self.path, index, *state, &state_tangents[index])
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+                _ => Vec::new(),
+            };
+            let (payoff, payoff_seeds) = self
                 .base
                 .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
             let terminal = states.last().ok_or(invalid("terminal_state"))?;
@@ -187,14 +239,40 @@ impl StochasticDividendHullWhitePricingPlan {
             positive(relative, "relative_payment_discount")?;
             let discounted_payoff = relative * payoff;
             out[0] += discounted_payoff;
-            let seeds = seeds
+            let discounted_seeds = payoff_seeds
                 .iter()
                 .map(|(post, pre)| (relative * post, relative * pre))
                 .collect::<Vec<_>>();
-            let reverse =
-                context.pullback(&self.path, &shocks, &states, &seeds, discounted_payoff)?;
+            let reverse = context.pullback(
+                &self.path,
+                &shocks,
+                &states,
+                &discounted_seeds,
+                discounted_payoff,
+            )?;
             for (target, source) in out[1..].iter_mut().zip(reverse) {
                 *target += source;
+            }
+            if let (Some(rate_context), Some(state_tangents)) =
+                (rate_context, rate_state_tangents.as_ref())
+            {
+                let parameter_offset = 1 + context.labels.len();
+                for p in 0..rate_context.labels().len() {
+                    let payoff_tangent = payoff_seeds
+                        .iter()
+                        .zip(&rate_spot_tangents)
+                        .map(|((post, pre), tangent)| (post + pre) * tangent[p])
+                        .sum::<f64>();
+                    let terminal_tangent = state_tangents
+                        .last()
+                        .ok_or(invalid("terminal_rate_tangent"))?[p];
+                    let log_discount_tangent = rate_context.payment_log_constant_derivatives()[p]
+                        - terminal_tangent.integrated_rate_factor
+                        - rate_context.payment_duration_derivatives()[p] * terminal.rate_factor()
+                        - self.payment_duration * terminal_tangent.rate_factor;
+                    out[parameter_offset + p] +=
+                        relative * payoff_tangent + discounted_payoff * log_discount_tangent;
+                }
             }
         }
         if antithetic {

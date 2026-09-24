@@ -46,17 +46,39 @@ fn rates(family: usize) -> HullWhite1Factor {
     .unwrap()
 }
 fn compile(v: &Value, family: usize, d: [f64; 3], workers: u32) -> Plan {
+    compile_with_rates(v, d, rates(family), workers)
+}
+fn compile_with_rates(v: &Value, d: [f64; 3], rates: HullWhite1Factor, workers: u32) -> Plan {
     let r = parse_request_json(&serde_json::to_vec(v).unwrap(), JsonLimits::DEFAULT).unwrap();
     Plan::compile_bs(
         &r,
         BuehlerDividendModel::new(d[0], d[1], d[2], -0.25).unwrap(),
-        rates(family),
+        rates,
         0.25,
         -0.2,
         0.125,
         ExecutionPolicy::new(workers, Some(64)).unwrap(),
     )
     .unwrap()
+}
+fn bumped_rate_parameter(
+    v: &Value,
+    d: [f64; 3],
+    mean_reversion: f64,
+    volatility_times: &[f64],
+    volatilities: &[f64],
+    parameter: usize,
+    bump: f64,
+) -> f64 {
+    let mut a = mean_reversion;
+    let mut vols = volatilities.to_vec();
+    if parameter == 0 {
+        a += bump;
+    } else {
+        vols[parameter - 1] += bump;
+    }
+    let model = HullWhite1Factor::new(a, volatility_times.to_vec(), vols).unwrap();
+    compile_with_rates(v, d, model, 1).evaluate().unwrap().value
 }
 fn shifted_inputs(v: &Value, d: [f64; 3], label: &str, h: f64) -> (Value, [f64; 3]) {
     let mut v = v.clone();
@@ -301,6 +323,77 @@ fn hw_all_basic_inputs_include_conditional_funding_and_worker_replay() {
             }
         }
     }
+}
+
+#[test]
+fn hw_rate_parameter_adjoint_includes_claims_funding_and_delayed_payment() {
+    let mut v = payload(true, 2207);
+    v["product"] = json!({"type":"arithmetic_asian","underlying_id":1,"currency_id":2,"strike":20.,"notional":1.,"side":{"type":"call"},
+        "observations":[{"date":"2027-03-05","weight":0.4,"value":{"type":"unknown"}},
+        {"date":"2027-09-04","weight":0.6,"value":{"type":"unknown"}}],"payment_date":"2027-12-04"});
+    let d = [0.7, 0.6, 0.35];
+    let mean_reversion = 0.4;
+    let volatility_times = [0.0, 0.8, 1.15];
+    let volatilities = [0.04, 0.06, 0.09];
+    let make_rates = |a, vols: &[f64]| {
+        HullWhite1Factor::new(a, volatility_times.to_vec(), vols.to_vec()).unwrap()
+    };
+    let plan = compile_with_rates(&v, d, make_rates(mean_reversion, &volatilities), 1);
+    let risk = plan.evaluate_hull_white_aad().unwrap();
+    assert_eq!(risk.price, plan.evaluate().unwrap());
+    assert_eq!(
+        risk.parameter_labels[risk.parameter_labels.len() - 4..]
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        vec![
+            "rate_mean_reversion",
+            "rate_volatility[0]",
+            "rate_volatility[1]",
+            "rate_volatility[2]"
+        ]
+    );
+    assert_eq!(
+        risk.method,
+        "buehler-bs-hw-cash-payoff-forward-rate-parameter-adjoint-v1"
+    );
+    for parameter in 0..4 {
+        let h = if parameter == 0 { 1e-5 } else { 1e-6 };
+        let up = bumped_rate_parameter(
+            &v,
+            d,
+            mean_reversion,
+            &volatility_times,
+            &volatilities,
+            parameter,
+            h,
+        );
+        let down = bumped_rate_parameter(
+            &v,
+            d,
+            mean_reversion,
+            &volatility_times,
+            &volatilities,
+            parameter,
+            -h,
+        );
+        let finite_difference = (up - down) / (2.0 * h);
+        let derivative = risk.derivatives[risk.derivatives.len() - 4 + parameter];
+        let budget = 2e-5 + 2e-5 * derivative.abs().max(finite_difference.abs());
+        assert!(
+            (derivative - finite_difference).abs() <= budget,
+            "parameter={parameter}, AAD={derivative}, FD={finite_difference}, budget={budget}"
+        );
+    }
+    let replay = compile_with_rates(&v, d, make_rates(mean_reversion, &volatilities), 3)
+        .evaluate_hull_white_aad()
+        .unwrap();
+    assert_eq!(risk.derivatives, replay.derivatives);
+    assert_eq!(risk.standard_errors, replay.standard_errors);
+
+    let singular = compile(&v, 2, d, 1);
+    assert!(singular.evaluate_aad().is_ok());
+    assert!(singular.evaluate_hull_white_aad().is_err());
 }
 #[test]
 fn hw_asian_delayed_payment_reverses_curves_and_cash() {
