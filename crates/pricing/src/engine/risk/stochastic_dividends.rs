@@ -3,7 +3,7 @@
 
 mod aad;
 mod gamma;
-pub(in crate::engine) mod hull_white;
+pub(crate) mod hull_white;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 
