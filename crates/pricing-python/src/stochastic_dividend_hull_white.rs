@@ -87,6 +87,11 @@ impl PyStochasticDividendHullWhitePlan {
             .map(|inner| PyStochasticDividendAadRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_correlation_aad(&self, py: Python<'_>) -> PyResult<PyStochasticDividendAadRisk> {
+        py.detach(|| self.inner.evaluate_correlation_aad())
+            .map(|inner| PyStochasticDividendAadRisk { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()

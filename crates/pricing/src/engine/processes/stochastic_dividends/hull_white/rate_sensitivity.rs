@@ -495,7 +495,7 @@ fn integrate_vector(
         .collect())
 }
 
-fn cholesky_direction(
+pub(super) fn cholesky_direction(
     loading: [[f64; 4]; 4],
     dcov: [[f64; 4]; 4],
 ) -> Result<[[f64; 4]; 4], MonteCarloError> {

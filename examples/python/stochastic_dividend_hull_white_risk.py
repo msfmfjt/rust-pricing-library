@@ -1,4 +1,4 @@
-"""Basic HW/Buehler risk at fixed rate model, correlations and Q cash means."""
+"""HW/Buehler basic, rate-parameter and raw correlation risk at fixed Q cash means."""
 import rust_pricing as rp
 
 request = rp.PricingRequest(
@@ -16,7 +16,7 @@ plan = rp.StochasticDividendHullWhitePlan.compile_bs(
     rate_volatility_times=[0., .8, 1.15], rate_volatilities=[.04, .06, .09],
     equity_rate_correlation=.25, dividend_rate_correlation=-.2,
     maximum_step=1/32, worker_threads=2, reduction_block_size=64)
-risk = plan.evaluate_aad()
+risk = plan.evaluate_correlation_aad()
 print('Price:', risk.price.value, 'Delta:', risk.delta)
 print('Initial residual-volatility Vega per vol point:', risk.initial_volatility_vega_per_vol_point)
 print('Q cash-mean adjoints:', risk.cash_mean_adjoints)
