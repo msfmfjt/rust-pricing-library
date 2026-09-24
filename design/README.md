@@ -121,3 +121,6 @@ Rough/dividend joint-law and price checks: [validation protocol](validation/roug
 
 Rough/dividend AAD and Gamma: [decision](adr/0020-rough-stochastic-dividend-risk.md),
 [validation protocol](validation/rough-stochastic-dividend-risk.md).
+
+Rough/dividend correlation risk: [decision](adr/0021-rough-stochastic-dividend-correlation-risk.md),
+[validation protocol](validation/rough-stochastic-dividend-correlation-risk.md).
