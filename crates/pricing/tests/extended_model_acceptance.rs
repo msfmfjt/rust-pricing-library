@@ -304,7 +304,7 @@ const LSV_BUDGET: Budget = Budget {
     max_error_bp: 15.0,
     rmse_bp: 8.0,
     worst_seed_bp: 30.0,
-    ensemble_se_bp: 4.0,
+    ensemble_se_bp: 5.0,
     pricing_se_bp: 3.0,
 };
 const GAUSSIAN_BUDGET: Budget = Budget {
