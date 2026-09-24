@@ -124,3 +124,8 @@ Rough/dividend AAD and Gamma: [decision](adr/0020-rough-stochastic-dividend-risk
 
 Rough/dividend correlation risk: [decision](adr/0021-rough-stochastic-dividend-correlation-risk.md),
 [validation protocol](validation/rough-stochastic-dividend-correlation-risk.md).
+
+## Stochastic-dividend Hull–White extension
+
+- [Decision 0022](adr/0022-stochastic-dividend-hull-white.md)
+- [Validation protocol](validation/stochastic-dividend-hull-white.md)

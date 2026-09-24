@@ -202,6 +202,42 @@ class HullWhiteEquityPlan:
     def calibration_discounted_equity_means(self) -> list[float]: ...
 
 
+class StochasticDividendHullWhitePlan:
+    @staticmethod
+    def compile_bs(
+        request: PricingRequest, *,
+        dividend_mean_reversion: float,
+        equity_linkage: float,
+        dividend_volatility: float,
+        equity_dividend_correlation: float,
+        rate_mean_reversion: float,
+        rate_volatility_times: Sequence[float],
+        rate_volatilities: Sequence[float],
+        equity_rate_correlation: float,
+        dividend_rate_correlation: float,
+        maximum_step: float,
+        worker_threads: int,
+        reduction_block_size: int | None = None,
+    ) -> StochasticDividendHullWhitePlan: ...
+    def evaluate(self) -> StochasticDividendPrice: ...
+    @property
+    def plan_fingerprint(self) -> str: ...
+    @property
+    def scheme(self) -> str: ...
+    @property
+    def time_nodes(self) -> list[float]: ...
+    @property
+    def random_factor_count(self) -> int: ...
+    @property
+    def risky_spot(self) -> float: ...
+    @property
+    def cash_times(self) -> list[float]: ...
+    @property
+    def initial_dividend_claim_values(self) -> list[float]: ...
+    @property
+    def initial_dividend_forwards(self) -> list[float]: ...
+
+
 class StochasticDividendPlan:
     """Buehler cash dividends with BS/Bergomi/rough volatility and deterministic carry.
 
