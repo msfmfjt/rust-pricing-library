@@ -1233,6 +1233,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('StochasticDividendPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_aad'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_bergomi_aad'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('StochasticDividendPlan', 'evaluate_rough_aad'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_correlation_aad'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
 
         ('HullWhiteEquityPlan', 'compile_bergomi'): {
@@ -1989,7 +1990,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_class_members = {
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
-        'StochasticDividendPlan': {'compile_rough_bergomi', 'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_bergomi_aad', 'evaluate_aad', 'compile_bergomi', 'compile_bergomi_two_factor', 'scheme', 'evaluate', 'plan_fingerprint', 'time_nodes', 'compile_bs', 'risky_spot', 'random_factor_count'},
+        'StochasticDividendPlan': {'evaluate_rough_aad', 'compile_rough_bergomi', 'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_bergomi_aad', 'evaluate_aad', 'compile_bergomi', 'compile_bergomi_two_factor', 'scheme', 'evaluate', 'plan_fingerprint', 'time_nodes', 'compile_bs', 'risky_spot', 'random_factor_count'},
         'StochasticDividendPrice': {'scheme', 'standard_error', 'uncertainty_scope', 'evaluated_paths', 'plan_fingerprint', 'value', 'independent_sampling_units'},
 
         "StochasticVolatilityPlan": {

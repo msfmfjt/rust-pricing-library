@@ -65,6 +65,7 @@ impl StochasticDividendAadRisk {
 enum AadScope {
     Basic,
     Bergomi,
+    Rough,
     Correlation,
 }
 
@@ -83,6 +84,14 @@ impl StochasticDividendPricingPlan {
     /// Existing evaluate_aad remains available at singular covariance boundaries.
     pub fn evaluate_bergomi_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         self.evaluate_aad_scope(AadScope::Bergomi)
+    }
+
+    /// Extend basic risk by Hurst and the rough log-variance coefficient eta.
+    /// Uses the actual hybrid history/centering at fixed grid and correlations.
+    /// H=1/2 is the inward (left) derivative of this finite algorithm; eta=0 is
+    /// its inward (right) derivative. This is not recalibrated market risk.
+    pub fn evaluate_rough_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.evaluate_aad_scope(AadScope::Rough)
     }
 
     /// Append all raw Brownian-correlation partials, varying one symmetric
@@ -106,6 +115,7 @@ impl StochasticDividendPricingPlan {
         match scope {
             AadScope::Basic => {}
             AadScope::Bergomi => context.enable_bergomi_parameters(&self.path)?,
+            AadScope::Rough => context.enable_rough_parameters(&self.path)?,
             AadScope::Correlation => context.enable_correlations(&self.path)?,
         }
         let width = 1 + context.labels.len();
@@ -223,6 +233,7 @@ impl StochasticDividendPricingPlan {
                 AadScope::Basic => "buehler-split-payoff-reverse-fixed-correlation-v1",
                 AadScope::Bergomi => "buehler-bergomi-parameter-reverse-fixed-correlation-v1",
                 AadScope::Correlation => "buehler-joint-correlation-reverse-v1",
+                AadScope::Rough => "buehler-rough-hybrid-parameter-reverse-fixed-correlation-v1",
             },
         })
     }

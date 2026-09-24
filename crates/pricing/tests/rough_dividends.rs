@@ -246,13 +246,14 @@ fn full_psd_inputs_history_limit_and_unsupported_risk_fail_explicitly() {
     )
     .unwrap();
     let price = singular.evaluate().unwrap();
-    assert!(singular.evaluate_aad().is_err());
+    assert!(singular.evaluate_aad().is_ok());
+    assert!(singular.evaluate_rough_aad().is_ok());
     assert!(singular.evaluate_bergomi_aad().is_err());
     assert!(singular.evaluate_correlation_aad().is_err());
     assert!(
         singular
             .evaluate_gamma(GammaConfig::new(SpotBump::absolute(1.0).unwrap()))
-            .is_err()
+            .is_ok()
     );
     assert_eq!(price, singular.evaluate().unwrap());
 }

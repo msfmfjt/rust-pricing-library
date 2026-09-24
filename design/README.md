@@ -118,3 +118,6 @@ The [correlation-risk validation protocol](validation/stochastic-dividend-correl
 separates raw-entry derivatives from the instantaneous/integrated numerical domain.
 
 Rough/dividend joint-law and price checks: [validation protocol](validation/rough-stochastic-dividends.md).
+
+Rough/dividend AAD and Gamma: [decision](adr/0020-rough-stochastic-dividend-risk.md),
+[validation protocol](validation/rough-stochastic-dividend-risk.md).

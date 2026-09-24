@@ -5,6 +5,7 @@ pub(in crate::engine) mod reverse;
 mod rough;
 use bergomi::BergomiDividendKernel;
 use rough::RoughDividendKernel;
+use std::sync::Arc;
 
 use crate::MonteCarloError;
 use crate::market::EquityForward;
@@ -135,7 +136,7 @@ pub struct StochasticDividendPathPlan {
     risky_spot: f64,
     dimension: u32,
     bergomi: Option<BergomiDividendKernel>,
-    rough: Option<RoughDividendKernel>,
+    rough: Option<Arc<RoughDividendKernel>>,
 }
 impl StochasticDividendPathPlan {
     pub fn compile(
@@ -254,7 +255,7 @@ impl StochasticDividendPathPlan {
     }
 
     /// Riemann--Liouville hybrid scheme with explicit dividend/vol-driver correlation.
-    /// This initial rough-dividend integration exposes prices only.
+    /// Rough-dividend prices and opt-in basic/rough-parameter AAD and Spot Gamma.
     pub fn compile_rough_bergomi(
         market: &EquityForward,
         model: BuehlerDividendModel,
@@ -272,12 +273,12 @@ impl StochasticDividendPathPlan {
         factor: RoughBergomi,
         correlation: f64,
     ) -> Result<Self, MonteCarloError> {
-        self.rough = Some(RoughDividendKernel::compile(
+        self.rough = Some(Arc::new(RoughDividendKernel::compile(
             self.model,
             factor,
             correlation,
             &self.times,
-        )?);
+        )?));
         self.bergomi = None;
         self.set_dimension()?;
         Ok(self)

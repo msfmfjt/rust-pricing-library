@@ -4,6 +4,7 @@
 
 use super::bergomi::correlation_reverse::{self, BergomiCorrelationReverse};
 use super::bergomi::parameter_reverse::BergomiParameterReverse;
+use super::rough::reverse::RoughParameterReverse;
 use super::*;
 use crate::models::hull_white_dividends::transpose_log_curve;
 
@@ -25,6 +26,7 @@ pub(in crate::engine) struct ReverseContext {
     nodes: Vec<NodeJacobian>,
     payment_weights: Vec<f64>,
     bergomi: Option<BergomiParameterReverse>,
+    rough: Option<RoughParameterReverse>,
     correlation: Option<BergomiCorrelationReverse>,
     correlation_start: Option<usize>,
 }
@@ -34,12 +36,6 @@ impl ReverseContext {
         market: &EquityForward,
         payment: f64,
     ) -> Result<Self, MonteCarloError> {
-        if path.rough.is_some() {
-            return Err(StochasticDividendError::Unsupported {
-                feature: "AAD and Gamma for rough Bergomi stochastic dividends",
-            }
-            .into());
-        }
         let events = market.discrete_dividends().map_or(&[][..], |d| d.events());
         let p = market.discount_curve();
         let q = market.dividend_curve();
@@ -125,9 +121,28 @@ impl ReverseContext {
             nodes,
             payment_weights,
             bergomi: None,
+            rough: None,
             correlation: None,
             correlation_start: None,
         })
+    }
+
+    pub fn enable_rough_parameters(
+        &mut self,
+        path: &StochasticDividendPathPlan,
+    ) -> Result<(), StochasticDividendError> {
+        let kernel = path
+            .rough
+            .as_ref()
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "evaluate_rough_aad requires a rough Bergomi plan",
+            })?;
+        let prepared = RoughParameterReverse::new(kernel, &path.times)?;
+        self.labels
+            .extend(["rough_hurst", "rough_vol_of_vol"].map(str::to_owned));
+        self.payment_weights.resize(self.labels.len(), 0.0);
+        self.rough = Some(prepared);
+        Ok(())
     }
 
     pub fn enable_bergomi_parameters(
@@ -158,6 +173,11 @@ impl ReverseContext {
         &mut self,
         path: &StochasticDividendPathPlan,
     ) -> Result<(), StochasticDividendError> {
+        if path.rough.is_some() {
+            return Err(StochasticDividendError::Unsupported {
+                feature: "correlation AAD for rough Bergomi stochastic dividends",
+            });
+        }
         let rho = path.model.equity_dividend_correlation();
         if (1.0 - rho) * (1.0 + rho) <= 1e-10 {
             return Err(correlation_reverse::unsupported());
@@ -224,16 +244,21 @@ impl ReverseContext {
         {
             return Err(invalid("reverse_seed"));
         }
-        let loadings = match &plan.bergomi {
-            Some(k) => k.volatility_loadings(normals)?,
-            None => vec![1.0; states.len() - 1],
+        let loadings = if let Some(k) = &plan.rough {
+            k.volatility_loadings(normals)?
+        } else {
+            match &plan.bergomi {
+                Some(k) => k.volatility_loadings(normals)?,
+                None => vec![1.0; states.len() - 1],
+            }
         };
         let mut out = self
             .payment_weights
             .iter()
             .map(|w| discounted_payoff * w)
             .collect::<Vec<_>>();
-        let mut loading_bars = self.bergomi.as_ref().map(|_| vec![0.0; states.len() - 1]);
+        let mut loading_bars =
+            (self.bergomi.is_some() || self.rough.is_some()).then(|| vec![0.0; states.len() - 1]);
         let mut f_bar = 0.0;
         let mut y_bar = 0.0;
         let model = plan.model;
@@ -316,6 +341,13 @@ impl ReverseContext {
             for (bar, extra) in out[start..].iter_mut().zip(extra) {
                 *bar += extra;
             }
+        }
+        if let (Some(prepared), Some(bars), Some(kernel)) =
+            (&self.rough, &loading_bars, &plan.rough)
+        {
+            let extra = prepared.pullback(kernel, normals, bars)?;
+            let start = self.nodes[0].equity.len();
+            out[start..start + extra.len()].copy_from_slice(&extra);
         }
         if out.iter().any(|v| !v.is_finite()) {
             return Err(invalid("reverse_result"));
