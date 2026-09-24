@@ -67,7 +67,7 @@ class BergomiDividendTest(unittest.TestCase):
         for two in (False, True):
             with self.assertRaises(rp.PricingError):
                 compile_plan(two, make_request(risk=rp.RiskRequest(delta=True)))
-            self.assertFalse(hasattr(compile_plan(two, make_request(points=16)), 'evaluate_aad'))
+            self.assertTrue(hasattr(compile_plan(two, make_request(points=16)), 'evaluate_aad'))
             with self.assertRaises(rp.ValidationError):
                 compile_plan(two, dividend_mean_reversion=math.nan)
 

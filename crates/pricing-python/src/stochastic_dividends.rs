@@ -2,7 +2,8 @@ use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_e
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{Bergomi1Factor, Bergomi2Factor};
 use pricing::stochastic_dividends::{
-    BuehlerDividendModel, StochasticDividendPrice, StochasticDividendPricingPlan,
+    BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendPrice,
+    StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -155,6 +156,11 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendPrice { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_aad(&self, py: Python<'_>) -> PyResult<PyStochasticDividendAadRisk> {
+        py.detach(|| self.inner.evaluate_aad())
+            .map(|inner| PyStochasticDividendAadRisk { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
@@ -213,5 +219,81 @@ impl PyStochasticDividendPrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         "pricing_only"
+    }
+}
+
+/// First-order reverse at fixed correlation, Bergomi parameters and grid.
+#[pyclass(frozen, name = "StochasticDividendAadRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendAadRisk {
+    inner: StochasticDividendAadRisk,
+}
+#[pymethods]
+impl PyStochasticDividendAadRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_labels(&self) -> Vec<String> {
+        self.inner.parameter_labels.to_vec()
+    }
+    #[getter]
+    fn derivatives(&self) -> Vec<f64> {
+        self.inner.derivatives.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn cash_times(&self) -> Vec<f64> {
+        self.inner.cash_times.to_vec()
+    }
+    #[getter]
+    fn discount_times(&self) -> Vec<f64> {
+        self.inner.discount_times.to_vec()
+    }
+    #[getter]
+    fn repo_spread_times(&self) -> Vec<f64> {
+        self.inner.repo_spread_times.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "sampling_only_fixed_parameters_and_grid"
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta()
+    }
+    #[getter]
+    fn initial_volatility_vega(&self) -> f64 {
+        self.inner.initial_volatility_vega()
+    }
+    #[getter]
+    fn initial_volatility_vega_per_vol_point(&self) -> f64 {
+        self.inner.initial_volatility_vega_per_vol_point()
+    }
+    #[getter]
+    fn dividend_volatility_vega_per_vol_point(&self) -> f64 {
+        self.inner.dividend_volatility_vega_per_vol_point()
+    }
+    #[getter]
+    fn cash_mean_adjoints(&self) -> Vec<f64> {
+        self.inner.cash_mean_adjoints().to_vec()
+    }
+    #[getter]
+    fn discount_node_dv01(&self) -> Vec<f64> {
+        self.inner.discount_node_dv01()
+    }
+    #[getter]
+    fn repo_spread_node_dv01(&self) -> Vec<f64> {
+        self.inner.repo_spread_node_dv01()
     }
 }

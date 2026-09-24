@@ -80,6 +80,15 @@ impl BergomiDividendKernel {
             ],
         )?))
     }
+    pub(super) fn volatility_loadings(
+        &self,
+        z: &[f64],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        match self {
+            Self::One(k) => k.volatility_loadings(z),
+            Self::Two(k) => k.volatility_loadings(z),
+        }
+    }
     pub(super) const fn factor_count(&self) -> usize {
         match self {
             Self::One(_) => 3,
@@ -166,6 +175,31 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
             centering: centering.into_boxed_slice(),
             identity: identity.into_boxed_slice(),
         })
+    }
+    // Identical OU recurrence to `evolve`; correlation/OU parameters are fixed
+    // in this reverse scope. In particular sigma0=0 never requires sigma/sigma0.
+    fn volatility_loadings(&self, normals: &[f64]) -> Result<Vec<f64>, StochasticDividendError> {
+        let mut x = [0.0; N];
+        let mut out = Vec::with_capacity(self.steps.len());
+        for (i, (step, z)) in self
+            .steps
+            .iter()
+            .zip(normals.as_chunks::<D>().0)
+            .enumerate()
+        {
+            let factor: f64 = self.weights.iter().zip(x).map(|(w, x)| w * x).sum();
+            let loading = (self.vol_of_vol * (factor - self.centering[i])).exp();
+            positive(loading, "reverse_volatility_loading")?;
+            out.push(loading);
+            for (j, value) in x.iter_mut().enumerate() {
+                *value = step.decay[j] * *value
+                    + step.lower[j].iter().zip(z).map(|(l, z)| l * z).sum::<f64>();
+                if !value.is_finite() {
+                    return Err(invalid("bergomi_state"));
+                }
+            }
+        }
+        Ok(out)
     }
     fn evolve(
         &self,

@@ -994,6 +994,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_top_level_names = {
         "StochasticDividendPlan",
         "StochasticDividendPrice",
+        "StochasticDividendAadRisk",
         'MultiAssetHullWhiteCalibration',
         'MultiAssetHullWhiteLsvRisk',
         'MultiAssetHullWhiteCurveRisk',
@@ -1227,6 +1228,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('StochasticDividendPlan', 'compile_bergomi'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_bergomi_two_factor'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlations', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlations', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('StochasticDividendPlan', 'evaluate_aad'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
 
         ('HullWhiteEquityPlan', 'compile_bergomi'): {
             'positional': ['request', 'rate_model'],
@@ -1980,7 +1982,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
-        'StochasticDividendPlan': {'compile_bergomi', 'compile_bergomi_two_factor', 'scheme', 'evaluate', 'plan_fingerprint', 'time_nodes', 'compile_bs', 'risky_spot', 'random_factor_count'},
+        "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
+        'StochasticDividendPlan': {'evaluate_aad', 'compile_bergomi', 'compile_bergomi_two_factor', 'scheme', 'evaluate', 'plan_fingerprint', 'time_nodes', 'compile_bs', 'risky_spot', 'random_factor_count'},
         'StochasticDividendPrice': {'scheme', 'standard_error', 'uncertainty_scope', 'evaluated_paths', 'plan_fingerprint', 'value', 'independent_sampling_units'},
 
         "StochasticVolatilityPlan": {
@@ -2590,6 +2593,22 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('StochasticDividendPlan', 'random_factor_count'),
         ('StochasticDividendPlan', 'risky_spot'),
         ('StochasticDividendPlan', 'scheme'),
+        ('StochasticDividendAadRisk', 'price'),
+        ('StochasticDividendAadRisk', 'parameter_labels'),
+        ('StochasticDividendAadRisk', 'derivatives'),
+        ('StochasticDividendAadRisk', 'standard_errors'),
+        ('StochasticDividendAadRisk', 'cash_times'),
+        ('StochasticDividendAadRisk', 'discount_times'),
+        ('StochasticDividendAadRisk', 'repo_spread_times'),
+        ('StochasticDividendAadRisk', 'method'),
+        ('StochasticDividendAadRisk', 'uncertainty_scope'),
+        ('StochasticDividendAadRisk', 'delta'),
+        ('StochasticDividendAadRisk', 'initial_volatility_vega'),
+        ('StochasticDividendAadRisk', 'initial_volatility_vega_per_vol_point'),
+        ('StochasticDividendAadRisk', 'dividend_volatility_vega_per_vol_point'),
+        ('StochasticDividendAadRisk', 'cash_mean_adjoints'),
+        ('StochasticDividendAadRisk', 'discount_node_dv01'),
+        ('StochasticDividendAadRisk', 'repo_spread_node_dv01'),
         ('StochasticDividendPrice', 'value'),
         ('StochasticDividendPrice', 'standard_error'),
         ('StochasticDividendPrice', 'independent_sampling_units'),

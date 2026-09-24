@@ -16,7 +16,7 @@ The component uses the existing single-asset contractual payoff graphs, includin
 European calls/puts, digital, Asian, discrete lookback and discrete barriers.
 American exercise and continuous barriers are rejected by the shared compiler.
 Greeks in the request are rejected rather than silently computed under fixed
-cash. There is no `evaluate_aad` for this plan. Public price accuracy tests in this
+cash. First-order risk is requested explicitly through `evaluate_aad`; see below. Public price accuracy tests in this
 change cover European calls and the discrete-barrier dividend jump; the new
 stochastic model has no dedicated broad exotic accuracy panel yet.
 
@@ -207,3 +207,44 @@ prices retain time-discretization bias. New independent two-step reference tests
 are finite-algorithm checks, not a continuous-time convergence certificate.
 HW, LSV, rough, multi-asset, Greeks, dividend-derivative calibration, American
 exercise and continuous barriers remain unsupported in these factories.
+
+## First-order risk
+
+`evaluate_aad()` returns `StochasticDividendAadRisk` for BS/1F/2F plans.
+It differentiates the shared compiled payoff and both Buehler drift halves,
+dividend diffusion, all future reserves and their initial funding. Raw labels are
+Spot, initial residual volatility, dividend mean reversion, equity linkage,
+dividend volatility, cash means in event order, discount log-DF pillars, and
+repo-spread log-DF pillars. Both curve grids include fixed time-zero anchors
+whose sensitivities are zero. A cash bucket after expiry is generally nonzero.
+
+The initial-volatility loading is computed without dividing by sigma0. At zero
+sigma0 or other parameter bounds the reported derivative is the inward derivative.
+The equality shortcut in convex drift blending retains its mathematical
+state/parameter derivatives. Correlations, Bergomi parameters, dates, time grid,
+and smoothing width are fixed. There is no Gamma, market-IV VegaKT or
+recalibration derivative. The method name explicitly records the fixed-correlation
+scope. Raw derivative arrays and sampling standard errors have matching labels.
+
+`initial_volatility_vega_per_vol_point` and
+`dividend_volatility_vega_per_vol_point` multiply the corresponding raw derivative
+by 0.01. `cash_mean_adjoints` are price per cash-amount unit.
+`discount_node_dv01` and `repo_spread_node_dv01` equal `-1e-4 * t * dPrice/dlogDF`
+at each curve pillar, holding the other curve fixed. The legacy market field
+`dividend_curve` still supplies the repo-spread curve; no wire rename is made.
+
+Discontinuous payoffs require explicit payoff smoothing before AAD. The risk is
+then of the smoothed price, with the smoothing width fixed. Constructors retain
+their price-only request contract; request risk flags are not silently ignored.
+Existing American and continuous-barrier restrictions remain.
+
+MC standard errors use independent antithetic pair averages when enabled; RQMC
+uses scramble averages, never individual Sobol points as independent samples.
+They exclude timestep and model uncertainty. Price-only and AAD evaluations use
+the same paths, reductions and price fingerprint; risk has a separate method label.
+The price-only numerical implementation and previous price fingerprints remain.
+
+See the [risk example](../../examples/python/stochastic_dividend_risk.py).
+The [validation record](../../design/validation/stochastic-dividend-risk.md)
+distinguishes full-recompile derivative checks, continuous-time BS moment checks
+and common-noise finite-grid price comparisons. The finest grid is not exact.
