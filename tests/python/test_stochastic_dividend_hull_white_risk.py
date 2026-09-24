@@ -55,6 +55,7 @@ class StochasticDividendHullWhiteRiskTest(unittest.TestCase):
         self.assertEqual(r.repo_spread_node_dv01,[0.,-1e-4*r.derivatives[10]])
         self.assertEqual(r.initial_volatility_vega_per_vol_point,.01*r.derivatives[1])
         self.assertTrue(all(math.isfinite(x) and x>=0 for x in r.standard_errors))
+        self.assertTrue(hasattr(p,'evaluate_hull_white_aad'))
         other=plan(worker_threads=3).evaluate_aad()
         self.assertEqual(r.derivatives,other.derivatives);self.assertEqual(r.standard_errors,other.standard_errors)
         self.assertNotEqual(r.price.plan_fingerprint,other.price.plan_fingerprint)
@@ -62,6 +63,26 @@ class StochasticDividendHullWhiteRiskTest(unittest.TestCase):
         with self.assertRaises(AttributeError):r.delta=0.
         for name in ['evaluate_gamma','evaluate_rough_aad','evaluate_correlation_aad']:
             self.assertFalse(hasattr(p,name))
+
+    def test_hull_white_parameter_aad_appends_piecewise_rate_risk(self):
+        request=rp.PricingRequest('2026-09-04',
+            rp.Product.european_vanilla(1,2,'2027-09-04',20.,1.,'call'),
+            rp.Market.equity(2,1,100.,rp.DiscountCurve(10,[0.,1.],[1.,.95]),
+                rp.DiscountCurve(11,[0.,1.],[1.,.98]),
+                discrete_dividends=[rp.DividendEvent.fixed_cash(1,.5,4.),
+                                    rp.DividendEvent.fixed_cash(2,1.4,8.)]),
+            rp.Model.black_scholes(.2),
+            rp.Engine.randomized_quasi_monte_carlo(128,2207,scramble_count=4,
+                antithetic=True,brownian_bridge=True),rp.RiskRequest())
+        p=compile_plan(request,maximum_step=.125,rate_volatility_times=[0.,.8,1.15],
+            rate_volatilities=[.04,.06,.09])
+        risk=p.evaluate_hull_white_aad()
+        self.assertEqual(risk.price.value,p.evaluate().value)
+        self.assertEqual(risk.price.standard_error,p.evaluate().standard_error)
+        self.assertEqual(risk.parameter_labels[-4:],['rate_mean_reversion',
+            'rate_volatility[0]','rate_volatility[1]','rate_volatility[2]'])
+        self.assertEqual(risk.method,'buehler-bs-hw-cash-payoff-forward-rate-parameter-adjoint-v1')
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives[-4:]))
 
     def test_zero_cash_and_zero_diffusion_boundaries(self):
         product=rp.Product.european_vanilla(1,2,'2027-09-04',20.,1.,'call')

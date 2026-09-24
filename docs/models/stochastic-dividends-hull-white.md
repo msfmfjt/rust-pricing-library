@@ -180,15 +180,30 @@ contract constants are fixed. There is no fixed-dividend-forward recalibration,
 HW parameter risk, correlation risk or Gamma in this method. Sampling SE does not
 include quadrature/grid/smoothing/model uncertainty or establish risk convergence.
 
+`evaluate_hull_white_aad()` appends `rate_mean_reversion` and one
+`rate_volatility[i]` sensitivity per input knot. It differentiates the fixed
+normal-coordinate Cholesky path, conditional cash coefficients and bonds, the
+initial funded reserve, and the delayed payment discount. Driver correlations,
+curve inputs, dates and the compiled time grid remain fixed. This extension
+requires every simulated covariance Cholesky pivot, normalized to correlation
+scale, to exceed `1e-10`; the basic `evaluate_aad()` remains available when the
+rate covariance is singular. Sampling SE covers the pathwise estimator only,
+not quadrature or time-grid error.
+
 ```python
 risk = plan.evaluate_aad()
 print(risk.delta, risk.initial_volatility_vega_per_vol_point)
 print(risk.cash_mean_adjoints, risk.discount_node_dv01, risk.repo_spread_node_dv01)
+
+rate_risk = plan.evaluate_hull_white_aad()
+print(rate_risk.parameter_labels[-1], rate_risk.derivatives[-1])
 ```
 
 See the [risk example](../../examples/python/stochastic_dividend_hull_white_risk.py),
 [decision](../../design/adr/0023-stochastic-dividend-hull-white-risk.md) and
-[validation protocol](../../design/validation/stochastic-dividend-hull-white-risk.md).
+[basic-risk protocol](../../design/validation/stochastic-dividend-hull-white-risk.md),
+[rate-risk decision](../../design/adr/0024-stochastic-dividend-hull-white-parameter-risk.md)
+and [rate-risk protocol](../../design/validation/stochastic-dividend-hull-white-parameter-risk.md).
 
 ## References and examples
 
