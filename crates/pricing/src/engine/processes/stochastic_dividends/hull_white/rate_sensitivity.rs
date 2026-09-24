@@ -740,7 +740,7 @@ mod tests {
             HullWhite1Factor::new(a, times.clone(), bumped_vols).unwrap()
         };
         let h = 1e-6;
-        for p in 0..derivative.len() {
+        for (p, derivative_row) in derivative.iter().enumerate() {
             let up = bump_rates(p, h)
                 .transition(0.1, 1.0, 0.0, corr)
                 .unwrap()
@@ -753,9 +753,9 @@ mod tests {
                 for j in 0..4 {
                     let fd = (up[i][j] - down[i][j]) / (2.0 * h);
                     assert!(
-                        (derivative[p][i][j] - fd).abs() < 2e-9,
+                        (derivative_row[i][j] - fd).abs() < 2e-9,
                         "covariance p={p} ({i},{j}): {} vs {fd}",
-                        derivative[p][i][j]
+                        derivative_row[i][j]
                     );
                 }
             }
@@ -773,7 +773,7 @@ mod tests {
             derivative.len(),
         )
         .unwrap();
-        for p in 0..coefficient.len() {
+        for (p, coefficient_row) in coefficient.iter().enumerate() {
             let value = |r: &HullWhite1Factor| {
                 cash_coefficients(model, 0.2, r, 0.22, -0.18, 0.21, 1.43).unwrap()
             };
@@ -782,9 +782,9 @@ mod tests {
             for c in 0..3 {
                 let fd = (up[c] - down[c]) / (2.0 * h);
                 assert!(
-                    (coefficient[p][c] - fd).abs() < 3e-8,
+                    (coefficient_row[c] - fd).abs() < 3e-8,
                     "cash coefficient p={p} c={c}: {} vs {fd}",
-                    coefficient[p][c]
+                    coefficient_row[c]
                 );
             }
         }
