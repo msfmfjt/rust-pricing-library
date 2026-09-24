@@ -203,10 +203,11 @@ class HullWhiteEquityPlan:
 
 
 class StochasticDividendPlan:
-    """Buehler cash dividends, constant residual volatility and deterministic carry.
+    """Buehler cash dividends with BS/Bergomi/rough volatility and deterministic carry.
 
     Fixed-cash market amounts are Q-means; only price-only requests are accepted.
     Correlation is between residual-equity and dividend Brownian drivers.
+    The rough factory is price-only; its inherited risk methods explicitly reject.
     """
     @staticmethod
     def compile_bs(
@@ -218,6 +219,8 @@ class StochasticDividendPlan:
     def compile_bergomi(request: PricingRequest, *, mean_reversion: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendPlan: ...
     @staticmethod
     def compile_bergomi_two_factor(request: PricingRequest, *, mean_reversions: Sequence[float], vol_of_vol: float, mixing_weight: float, spot_correlations: Sequence[float], factor_correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlations: Sequence[float], maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendPlan: ...
+    @staticmethod
+    def compile_rough_bergomi(request: PricingRequest, *, hurst: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendPlan: ...
     def evaluate(self) -> StochasticDividendPrice: ...
     def evaluate_aad(self) -> StochasticDividendAadRisk: ...
     def evaluate_bergomi_aad(self) -> StochasticDividendAadRisk: ...

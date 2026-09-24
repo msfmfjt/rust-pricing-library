@@ -46,6 +46,7 @@ documents the public API migration.
 | [0017](adr/0017-stochastic-dividend-correlation-risk.md) | Optional raw Brownian-correlation reverse with stochastic dividends |
 
 | [0018](adr/0018-stochastic-dividend-gamma.md) | Paired AAD-Delta Gamma and bump diagnostics |
+| [0019](adr/0019-rough-stochastic-dividends.md) | Rough Bergomi with stochastic cash dividends, price-only |
 
 ## Implementation roadmaps and acceptance
 
@@ -115,3 +116,5 @@ Escrowed simulation and IV conversion: [validation record](validation/escrowed-d
 
 The [correlation-risk validation protocol](validation/stochastic-dividend-correlation-risk.md)
 separates raw-entry derivatives from the instantaneous/integrated numerical domain.
+
+Rough/dividend joint-law and price checks: [validation protocol](validation/rough-stochastic-dividends.md).

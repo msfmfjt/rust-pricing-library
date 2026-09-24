@@ -20,7 +20,7 @@ cash. First-order risk is requested explicitly through `evaluate_aad`; see below
 change cover European calls and the discrete-barrier dividend jump; the new
 stochastic model has no dedicated broad exotic accuracy panel yet.
 
-The pure 1F/2F Bergomi factories below extend this scope. This is **not** an
+The pure 1F/2F and price-only rough Bergomi factories below extend this scope. This is **not** an
 implementation of stochastic-dividend LSV, stochastic-rate SV/HW hybrids,
 multi-asset dividends, dividend derivatives or dividend-option calibration.
 Those require their own pricing, covariance, calibration and reverse contracts.
@@ -382,3 +382,68 @@ print(risk.bump_differences, risk.bump_difference_standard_errors)
 See the [example](../../examples/python/stochastic_dividend_gamma.py),
 [decision](../../design/adr/0018-stochastic-dividend-gamma.md) and
 [validation protocol](../../design/validation/stochastic-dividend-gamma.md).
+
+## Rough Bergomi price composition
+
+Rust `StochasticDividendPricingPlan::compile_rough_bergomi` and Python
+`StochasticDividendPlan.compile_rough_bergomi` combine the same Buehler reserve
+with a Riemann--Liouville rough variance driver. The parameter domain is
+`0 < hurst <= 0.5`, `vol_of_vol >= 0`, with finite inputs and a PSD joint
+Brownian matrix for residual equity, dividend and variance drivers. Specify
+`correlation` for f/variance, `equity_dividend_correlation` for f/dividend and
+`dividend_volatility_correlation` for dividend/variance.
+
+The continuous driver and finite-grid variance convention are
+
+\[
+X_t=\int_0^t\sqrt{2H}(t-s)^{H-1/2}\,dW_s^v,\qquad
+v_i=\sigma_0^2\exp\!\left(\eta X_i-\tfrac12\eta^2 V_i\right).
+\]
+
+Here `vol_of_vol` is **eta in log variance**, unlike nu in the 1F/2F log-volatility
+convention. H=1/2 corresponds to zero-mean-reversion 1F Bergomi with nu=eta/2.
+The request's BS volatility supplies sigma0, not physical-stock market IV.
+
+The hybrid scheme integrates the newest power-kernel cell exactly in distribution
+and uses the L2-average power kernel on older cells of the actual, possibly
+nonuniform, simulation grid. `V_i` is the variance of this discrete driver, not
+`t_i^(2H)`. Variance is frozen at the left endpoint of each positive f/Y split.
+The direct newest-cell residual standard deviation is
+`dt^H*(0.5-H)/(H+0.5)`; it is zero at H=1/2. Four independent normals are always
+reserved per step: equity, orthogonal dividend, orthogonal variance, and
+newest-cell residual. Brownian bridging uses independent factors before
+correlation. No coordinate is dropped at zero loading or singular correlation.
+
+```python
+plan = rp.StochasticDividendPlan.compile_rough_bergomi(
+    request, hurst=0.1, vol_of_vol=0.6, correlation=-0.4,
+    dividend_mean_reversion=0.7, equity_linkage=0.6, dividend_volatility=0.35,
+    equity_dividend_correlation=-0.25, dividend_volatility_correlation=0.15,
+    maximum_step=1/32, worker_threads=2, reduction_block_size=64,
+)
+result = plan.evaluate()
+```
+
+**This rough-dividend factory currently supports prices only.** The four existing
+AAD/Gamma methods reject rough-dividend plans explicitly; the BS/1F/2F methods
+above keep their original support. Shared payoff graphs can still price discrete
+path-dependent contracts, but the new acceptance tests cover terminal calls and
+cash-event/path construction, not broad rough-dividend exotic accuracy.
+American exercise, continuous barriers, proportional cash mixtures, stochastic
+rates, multiple assets and leverage/recalibration are not added here.
+
+History evaluation and compiled storage are O(N^2); a new explicit limit of 4096
+steps avoids unbounded dense-history allocation (~64 MiB of scalar weights).
+No FFT or Markovian surrogate is used. The new scheme label is
+`buehler-rough-bergomi-joint-hybrid-positive-split-v1`. Old fingerprints and
+arithmetic are unchanged; the new identity includes H, eta and both vol-driver
+correlations, even when a loading is zero.
+
+Sampling SE excludes hybrid/equity/dividend time-grid error and model uncertainty.
+Two-step quadrature tests certify the finite algorithm at selected inputs, not
+continuous-time price convergence. See the
+[executable example](../../examples/python/rough_dividends.py),
+[decision](../../design/adr/0019-rough-stochastic-dividends.md),
+[validation](../../design/validation/rough-stochastic-dividends.md), and
+Bennedsen, Lunde and Pakkanen,
+[Hybrid scheme for Brownian semistationary processes](https://arxiv.org/abs/1507.03004).

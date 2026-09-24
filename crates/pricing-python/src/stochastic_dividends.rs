@@ -1,6 +1,6 @@
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 use pricing::mc::ExecutionPolicy;
-use pricing::models::{Bergomi1Factor, Bergomi2Factor};
+use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
@@ -145,6 +145,49 @@ impl PyStochasticDividendPlan {
                 model,
                 factor,
                 dividend_volatility_correlations,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, *, hurst, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_rough_bergomi(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        hurst: f64,
+        vol_of_vol: f64,
+        correlation: f64,
+        dividend_mean_reversion: f64,
+        equity_linkage: f64,
+        dividend_volatility: f64,
+        equity_dividend_correlation: f64,
+        dividend_volatility_correlation: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor =
+            RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
+        let model = BuehlerDividendModel::new(
+            dividend_mean_reversion,
+            equity_linkage,
+            dividend_volatility,
+            equity_dividend_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        py.detach(|| {
+            StochasticDividendPricingPlan::compile_rough_bergomi(
+                &request,
+                model,
+                factor,
+                dividend_volatility_correlation,
                 maximum_step,
                 policy,
             )

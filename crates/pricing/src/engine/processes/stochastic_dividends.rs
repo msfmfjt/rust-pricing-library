@@ -2,13 +2,15 @@
 
 mod bergomi;
 pub(in crate::engine) mod reverse;
+mod rough;
 use bergomi::BergomiDividendKernel;
+use rough::RoughDividendKernel;
 
 use crate::MonteCarloError;
 use crate::market::EquityForward;
 use crate::mc::LocalVolTimeGrid;
 use crate::models::stochastic_dividends::{invalid, nonnegative, positive};
-use crate::models::{Bergomi1Factor, Bergomi2Factor};
+use crate::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use crate::models::{BuehlerDividendModel, BuehlerDividendState, StochasticDividendError};
 
 impl BuehlerDividendModel {
@@ -122,7 +124,7 @@ impl StochasticDividendNode {
     }
 }
 
-/// Deterministic-rate, constant-equity-volatility path plan. All supplied future
+/// Deterministic-rate BS, Bergomi or rough-Bergomi path plan. All supplied future
 /// cash means are funded, including those beyond this plan's final time.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPathPlan {
@@ -133,6 +135,7 @@ pub struct StochasticDividendPathPlan {
     risky_spot: f64,
     dimension: u32,
     bergomi: Option<BergomiDividendKernel>,
+    rough: Option<RoughDividendKernel>,
 }
 impl StochasticDividendPathPlan {
     pub fn compile(
@@ -222,6 +225,7 @@ impl StochasticDividendPathPlan {
             risky_spot,
             dimension,
             bergomi: None,
+            rough: None,
         })
     }
     /// Flat initial forward variance, with explicit dividend/volatility correlation.
@@ -247,6 +251,36 @@ impl StochasticDividendPathPlan {
     ) -> Result<Self, MonteCarloError> {
         Self::compile(market, model, initial_volatility, grid)?
             .with_bergomi_two_factor(factor, dividend_volatility_correlations)
+    }
+
+    /// Riemann--Liouville hybrid scheme with explicit dividend/vol-driver correlation.
+    /// This initial rough-dividend integration exposes prices only.
+    pub fn compile_rough_bergomi(
+        market: &EquityForward,
+        model: BuehlerDividendModel,
+        initial_volatility: f64,
+        factor: RoughBergomi,
+        dividend_volatility_correlation: f64,
+        grid: &LocalVolTimeGrid,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile(market, model, initial_volatility, grid)?
+            .with_rough_bergomi(factor, dividend_volatility_correlation)
+    }
+
+    pub(in crate::engine) fn with_rough_bergomi(
+        mut self,
+        factor: RoughBergomi,
+        correlation: f64,
+    ) -> Result<Self, MonteCarloError> {
+        self.rough = Some(RoughDividendKernel::compile(
+            self.model,
+            factor,
+            correlation,
+            &self.times,
+        )?);
+        self.bergomi = None;
+        self.set_dimension()?;
+        Ok(self)
     }
 
     pub(in crate::engine) fn with_bergomi(
@@ -290,6 +324,7 @@ impl StochasticDividendPathPlan {
             LocalVolTimeGrid::compile(self.times.to_vec(), self.times[self.times.len() - 1])?;
         let mut shifted = Self::compile(market, self.model, self.volatility, &grid)?;
         shifted.bergomi = self.bergomi.clone();
+        shifted.rough = self.rough.clone();
         shifted.dimension = self.dimension;
         Ok(shifted)
     }
@@ -304,6 +339,9 @@ impl StochasticDividendPathPlan {
 
     #[must_use]
     pub const fn random_factor_count(&self) -> usize {
+        if self.rough.is_some() {
+            return 4;
+        }
         match &self.bergomi {
             None => 2,
             Some(k) => k.factor_count(),
@@ -312,6 +350,9 @@ impl StochasticDividendPathPlan {
 
     #[must_use]
     pub const fn scheme(&self) -> &'static str {
+        if self.rough.is_some() {
+            return rough::SCHEME;
+        }
         match &self.bergomi {
             None => crate::models::STOCHASTIC_DIVIDEND_SCHEME,
             Some(k) => k.scheme(),
@@ -319,6 +360,9 @@ impl StochasticDividendPathPlan {
     }
 
     pub(in crate::engine) fn hash_volatility(&self, hash: &mut blake3::Hasher) {
+        if let Some(k) = &self.rough {
+            k.hash_parameters(hash);
+        }
         if let Some(k) = &self.bergomi {
             k.hash_parameters(hash);
         }
@@ -344,7 +388,8 @@ impl StochasticDividendPathPlan {
     pub const fn model(&self) -> BuehlerDividendModel {
         self.model
     }
-    /// Independent standardized normals, step-major with two entries per step.
+    /// Independent standardized normals, step-major with `random_factor_count()`
+    /// entries per step. Rough always reserves four, even at zero eta or H=1/2.
     pub fn evolve_path(
         &self,
         normals: &[f64],
@@ -354,6 +399,9 @@ impl StochasticDividendPathPlan {
         }
         if normals.iter().any(|z| !z.is_finite()) {
             return Err(invalid("normal"));
+        }
+        if let Some(kernel) = &self.rough {
+            return kernel.evolve(self.model, self.volatility, &self.times, normals);
         }
         if let Some(kernel) = &self.bergomi {
             return kernel.evolve(self.model, self.volatility, &self.times, normals);
