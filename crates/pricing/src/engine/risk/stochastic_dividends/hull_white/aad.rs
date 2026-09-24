@@ -206,7 +206,9 @@ impl StochasticDividendHullWhitePricingPlan {
                 AadScope::RateParameters => {
                     "buehler-bs-hw-cash-payoff-forward-rate-parameter-adjoint-v1"
                 }
-                AadScope::Correlations => "buehler-bs-hw-cash-payoff-forward-correlation-adjoint-v1",
+                AadScope::Correlations => {
+                    "buehler-bs-hw-cash-payoff-forward-correlation-adjoint-v1"
+                }
             },
         })
     }

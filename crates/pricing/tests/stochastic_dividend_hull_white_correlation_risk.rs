@@ -54,7 +54,10 @@ fn check(v: &Value, a: f64, d: [f64; 3], rho: [f64; 3]) {
     let width = rate_risk.derivatives.len();
     assert_eq!(risk.price, plan.evaluate().unwrap());
     assert_eq!(risk.price, rate_risk.price);
-    assert_eq!(&risk.parameter_labels[..width], &*rate_risk.parameter_labels);
+    assert_eq!(
+        &risk.parameter_labels[..width],
+        &*rate_risk.parameter_labels
+    );
     assert_eq!(&risk.derivatives[..width], &*rate_risk.derivatives);
     assert_eq!(&risk.standard_errors[..width], &*rate_risk.standard_errors);
     assert_eq!(risk.cash_times, rate_risk.cash_times);
@@ -141,16 +144,12 @@ fn hw_correlation_aad_rejects_instantaneous_and_simulated_covariance_boundaries(
     let v = payload(false);
     // W_rate = W_equity at the driver level. Pricing and fixed-correlation
     // risk remain available on this boundary.
-    let request = parse_request_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT).unwrap();
+    let request =
+        parse_request_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT).unwrap();
     let plan = Plan::compile_bs(
         &request,
         BuehlerDividendModel::new(0.7, 0.6, 0.35, 0.0).unwrap(),
-        HullWhite1Factor::new(
-            0.4,
-            vec![0.0, 0.1, 0.3, 0.7],
-            vec![0.02, 0.06, 0.03, 0.08],
-        )
-        .unwrap(),
+        HullWhite1Factor::new(0.4, vec![0.0, 0.1, 0.3, 0.7], vec![0.02, 0.06, 0.03, 0.08]).unwrap(),
         1.0,
         0.0,
         1.0,

@@ -94,8 +94,7 @@ impl HullWhiteCorrelationSensitivityContext {
         let mut risky_spot = [0.0; 3];
         for (claim, directions) in path.nodes[0].claims.iter().zip(&claims[0]) {
             for (derivative, coefficients) in risky_spot.iter_mut().zip(directions) {
-                *derivative -=
-                    claim.carry_weight * claim.amount * coefficients.iter().sum::<f64>();
+                *derivative -= claim.carry_weight * claim.amount * coefficients.iter().sum::<f64>();
             }
         }
         if risky_spot.iter().any(|x| !x.is_finite()) {
@@ -173,9 +172,7 @@ impl HullWhiteCorrelationSensitivityContext {
         state: StochasticDividendHullWhiteState,
         tangents: &[HullWhiteCorrelationStateTangent; 3],
     ) -> Result<[(f64, f64); 3], MonteCarloError> {
-        if index >= path.nodes.len()
-            || self.claims[index].len() != path.nodes[index].claims.len()
-        {
+        if index >= path.nodes.len() || self.claims[index].len() != path.nodes[index].claims.len() {
             return Err(invalid("hw_correlation_spot_shape").into());
         }
         let node = &path.nodes[index];
@@ -351,10 +348,9 @@ mod tests {
                     [0.7, 1.0, 0.35],
                 ] {
                     let model = BuehlerDividendModel::new(d[0], d[1], d[2], rho[0]).unwrap();
-                    let derivatives = cash_coefficient_derivatives(
-                        model, 0.2, &rates, rho[1], rho[2], 0.2, 1.4,
-                    )
-                    .unwrap();
+                    let derivatives =
+                        cash_coefficient_derivatives(model, 0.2, &rates, rho[1], rho[2], 0.2, 1.4)
+                            .unwrap();
                     for (p, derivative) in derivatives.iter().enumerate() {
                         for h in [1e-5, 1e-6] {
                             let mut up = rho;
@@ -409,7 +405,12 @@ mod tests {
         )
         .unwrap();
         let cov = rates
-            .transition(0.0, 1.0, 0.0, HybridCorrelation::new(0.0, 1.0, 0.0).unwrap())
+            .transition(
+                0.0,
+                1.0,
+                0.0,
+                HybridCorrelation::new(0.0, 1.0, 0.0).unwrap(),
+            )
             .unwrap()
             .covariance;
         for (i, row) in cov.iter().enumerate() {
