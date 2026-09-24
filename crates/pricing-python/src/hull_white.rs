@@ -20,10 +20,9 @@ fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
     )
 }
 
-fn cash_option(py: Python<'_>, value: Option<&str>) -> PyResult<bool> {
+fn validate_cash_option(py: Python<'_>, value: Option<&str>) -> PyResult<()> {
     match value {
-        None => Ok(false),
-        Some("escrowed") => Ok(true),
+        None | Some("escrowed") => Ok(()),
         Some(_) => Err(invalid(py, "cash_dividend_model must be escrowed or None")),
     }
 }
@@ -31,7 +30,7 @@ fn cash_option(py: Python<'_>, value: Option<&str>) -> PyResult<bool> {
 #[pyclass(frozen, name = "RoughBergomiModel", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyRoughBergomiModel {
-    inner: RoughBergomi,
+    pub(super) inner: RoughBergomi,
 }
 #[pymethods]
 impl PyRoughBergomiModel {
@@ -250,6 +249,93 @@ pub struct PyHullWhiteEquityPlan {
 }
 #[pymethods]
 impl PyHullWhiteEquityPlan {
+    /// Pure 1F Bergomi; sigma0 comes from the BlackScholes request.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, rate_model, *, vol_mean_reversion, vol_of_vol, equity_vol_correlation, equity_rate_correlation, vol_rate_correlation, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_bergomi(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        rate_model: &PyHullWhiteModel,
+        vol_mean_reversion: f64,
+        vol_of_vol: f64,
+        equity_vol_correlation: f64,
+        equity_rate_correlation: f64,
+        vol_rate_correlation: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor = Bergomi1Factor::new(vol_mean_reversion, vol_of_vol, equity_vol_correlation)
+            .map_err(|e| invalid(py, e))?;
+        let correlation = HybridCorrelation::new(
+            equity_vol_correlation,
+            equity_rate_correlation,
+            vol_rate_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            HullWhiteEquityPricingPlan::compile_bergomi(
+                &request,
+                factor,
+                rates,
+                correlation,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    /// Pure 2F Bergomi with full spot/volatility/rate correlations.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, rate_model, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, equity_rate_correlation, vol_rate_correlations, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_bergomi_two_factor(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        rate_model: &PyHullWhiteModel,
+        mean_reversions: [f64; 2],
+        vol_of_vol: f64,
+        mixing_weight: f64,
+        spot_correlations: [f64; 2],
+        factor_correlation: f64,
+        equity_rate_correlation: f64,
+        vol_rate_correlations: [f64; 2],
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor = pricing::models::Bergomi2Factor::new(
+            mean_reversions,
+            vol_of_vol,
+            mixing_weight,
+            spot_correlations,
+            factor_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        let rates = rate_model.inner.clone();
+        py.detach(|| {
+            HullWhiteEquityPricingPlan::compile_bergomi_two_factor(
+                &request,
+                factor,
+                rates,
+                equity_rate_correlation,
+                vol_rate_correlations,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
     /// Pure rough Bergomi with flat initial forward variance sigma0^2 from
     /// the request's BlackScholes volatility. Rate volatility may be zero.
     #[staticmethod]
@@ -267,7 +353,7 @@ impl PyHullWhiteEquityPlan {
         reduction_block_size: Option<u64>,
         cash_dividend_model: Option<&str>,
     ) -> PyResult<Self> {
-        let cash = cash_option(py, cash_dividend_model)?;
+        validate_cash_option(py, cash_dividend_model)?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let factor = rough_model.inner;
@@ -280,11 +366,7 @@ impl PyHullWhiteEquityPlan {
         let request = request.inner.clone();
         let rates = rate_model.inner.clone();
         py.detach(|| {
-            let compile = if cash {
-                HullWhiteEquityPricingPlan::compile_rough_bergomi_with_cash_dividends
-            } else {
-                HullWhiteEquityPricingPlan::compile_rough_bergomi
-            };
+            let compile = HullWhiteEquityPricingPlan::compile_rough_bergomi;
             compile(&request, factor, rates, correlation, maximum_step, policy)
         })
         .map(|inner| Self { inner })
@@ -311,7 +393,7 @@ impl PyHullWhiteEquityPlan {
         cash_dividend_model: Option<&str>,
         retain_reverse_trace: bool,
     ) -> PyResult<Self> {
-        let cash = cash_option(py, cash_dividend_model)?;
+        validate_cash_option(py, cash_dividend_model)?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let factor = rough_model.inner;
@@ -333,11 +415,7 @@ impl PyHullWhiteEquityPlan {
         let target = target.inner.clone();
         let rates = rate_model.inner.clone();
         py.detach(|| {
-            let compile = if cash {
-                HullWhiteEquityPricingPlan::compile_rough_lsv_with_cash_dividends
-            } else {
-                HullWhiteEquityPricingPlan::compile_rough_lsv
-            };
+            let compile = HullWhiteEquityPricingPlan::compile_rough_lsv;
             compile(
                 &request,
                 &target,
@@ -355,7 +433,7 @@ impl PyHullWhiteEquityPlan {
     fn random_factor_count(&self) -> usize {
         self.inner.random_factor_count()
     }
-    /// Compile price-only BS+HW. Opt into cash dividends with cash_dividend_model="escrowed".
+    /// Compile price-only BS+HW with escrowed cash dividends. The optional flag is a compatibility alias.
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(request, rate_model, *, equity_rate_correlation, maximum_step, worker_threads, reduction_block_size=None, cash_dividend_model=None))]
@@ -369,21 +447,13 @@ impl PyHullWhiteEquityPlan {
         reduction_block_size: Option<u64>,
         cash_dividend_model: Option<&str>,
     ) -> PyResult<Self> {
-        let cash = match cash_dividend_model {
-            None => false,
-            Some("escrowed") => true,
-            Some(_) => return Err(invalid(py, "cash_dividend_model must be escrowed or None")),
-        };
+        validate_cash_option(py, cash_dividend_model)?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
         let rates = rate_model.inner.clone();
         py.detach(|| {
-            let compile = if cash {
-                HullWhiteEquityPricingPlan::compile_bs_with_cash_dividends
-            } else {
-                HullWhiteEquityPricingPlan::compile_bs
-            };
+            let compile = HullWhiteEquityPricingPlan::compile_bs;
             compile(
                 &request,
                 rates,
@@ -418,11 +488,7 @@ impl PyHullWhiteEquityPlan {
         cash_dividend_model: Option<&str>,
         retain_reverse_trace: bool,
     ) -> PyResult<Self> {
-        let cash = match cash_dividend_model {
-            None => false,
-            Some("escrowed") => true,
-            Some(_) => return Err(invalid(py, "cash_dividend_model must be escrowed or None")),
-        };
+        validate_cash_option(py, cash_dividend_model)?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let factor = Bergomi1Factor::new(vol_mean_reversion, vol_of_vol, equity_vol_correlation)
@@ -445,11 +511,7 @@ impl PyHullWhiteEquityPlan {
         let rates = rate_model.inner.clone();
         let target = target.inner.clone();
         py.detach(|| {
-            let compile = if cash {
-                HullWhiteEquityPricingPlan::compile_lsv_with_cash_dividends
-            } else {
-                HullWhiteEquityPricingPlan::compile_lsv
-            };
+            let compile = HullWhiteEquityPricingPlan::compile_lsv;
             compile(
                 &request,
                 &target,
@@ -488,11 +550,7 @@ impl PyHullWhiteEquityPlan {
         cash_dividend_model: Option<&str>,
         retain_reverse_trace: bool,
     ) -> PyResult<Self> {
-        let cash = match cash_dividend_model {
-            None => false,
-            Some("escrowed") => true,
-            Some(_) => return Err(invalid(py, "cash_dividend_model must be escrowed or None")),
-        };
+        validate_cash_option(py, cash_dividend_model)?;
         let factor = pricing::models::Bergomi2Factor::new(
             mean_reversions,
             vol_of_vol,
@@ -515,11 +573,7 @@ impl PyHullWhiteEquityPlan {
         let target = target.inner.clone();
         let rates = rate_model.inner.clone();
         py.detach(|| {
-            let compile = if cash {
-                HullWhiteEquityPricingPlan::compile_lsv_two_factor_with_cash_dividends
-            } else {
-                HullWhiteEquityPricingPlan::compile_lsv_two_factor
-            };
+            let compile = HullWhiteEquityPricingPlan::compile_lsv_two_factor;
             compile(
                 &request,
                 &target,
@@ -610,7 +664,7 @@ impl PyHullWhiteEquityPlan {
 #[pyclass(frozen, name = "HullWhitePrice", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHullWhitePrice {
-    inner: HullWhitePrice,
+    pub(super) inner: HullWhitePrice,
 }
 #[pymethods]
 impl PyHullWhitePrice {
@@ -663,7 +717,7 @@ impl PyHullWhitePrice {
 #[pyclass(frozen, name = "HullWhiteAadRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteAadRisk {
-    inner: HullWhiteAadRisk,
+    pub(super) inner: HullWhiteAadRisk,
 }
 #[pymethods]
 impl PyHullWhiteAadRisk {

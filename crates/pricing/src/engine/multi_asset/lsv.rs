@@ -1,6 +1,7 @@
 //! Marginal particle calibration and joint spot/OU/rough Gaussian innovations.
 use super::lsv_kernels::{LsvCalibration, LsvProcess};
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::market::{CorrelationFactor, LocalVarianceGrid};
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::lsv::{CalibratedBergomiLsv, LSV_CALIBRATION_REVERSE, LsvParticleConfig};
@@ -136,7 +137,7 @@ impl LsvAsset {
     pub fn target_reverse(&self, leverage: &[f64]) -> Result<Vec<f64>, E> {
         let refined = self
             .calibration
-            .reverse_leverage(leverage)
+            .calibration_pullback(leverage)
             .map_err(E::numerical)?;
         let xs = self.target.log_moneyness_nodes();
         let mut original = vec![0.0; self.target.values().len()];
@@ -327,13 +328,7 @@ impl LsvDrivers {
 
 impl MultiAssetPricingPlan {
     pub fn random_factor_count(&self) -> usize {
-        (self.assets.len()
-            + usize::from(self.hull_white.is_some()) * 2
-            + self
-                .lsv_drivers
-                .as_ref()
-                .map_or(0, |d| d.asset_indices.len() + d.rough_asset_indices.len()))
-            * (1 + usize::from(self.local_correlation.is_some()))
+        self.driver_layout.base_factor_count() * (1 + usize::from(self.local_correlation.is_some()))
     }
     /// One-factor calibrations in asset order; None for BS/LV/two-factor assets.
     /// Use `lsv_two_factor_calibrations` for the complementary two-factor objects.

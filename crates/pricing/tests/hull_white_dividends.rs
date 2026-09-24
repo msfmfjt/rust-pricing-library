@@ -90,13 +90,11 @@ fn bs_escrowed_dividends_match_gaussian_reference_and_worker_replay() {
         pa.standard_error
     );
     assert_eq!(pa.cash_dividend_model, Some("escrowed-hw-bonds-v1"));
-    let affine = Plan::compile_bs(&req, hw, 0.4, 0.25, policy(1)).unwrap();
-    assert_eq!(affine.risky_spot(), 100.0);
-    assert_eq!(
-        affine.cash_dividend_model(),
-        Some("affine-paid-cash-realized-carry-v1")
-    );
-    assert_ne!(affine.plan_fingerprint(), a.plan_fingerprint());
+    let default = Plan::compile_bs(&req, hw, 0.4, 0.25, policy(1)).unwrap();
+    assert_eq!(default.risky_spot(), a.risky_spot());
+    assert_eq!(default.cash_dividend_model(), Some("escrowed-hw-bonds-v1"));
+    assert_eq!(default.plan_fingerprint(), a.plan_fingerprint());
+    assert_eq!(default.evaluate().unwrap().value, pa.value);
 }
 
 #[test]
@@ -218,10 +216,8 @@ fn zero_rate_and_vol_factor_limits_and_bad_cash_inputs() {
     assert!(longer_plan.is_err());
     let mut v = cash_request(false);
     v["market"]["discrete_dividends"][0]["quote"]["amount"] = json!(200.0);
-    assert!(
-        Plan::compile_bs_with_cash_dividends(&request(v), rates(0.01), 0.2, 1.0, policy(1))
-            .is_err()
-    );
+    // Funding is checked at the common market boundary, before model compilation.
+    assert!(parse_request_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT).is_err());
     let req = request(payload());
     let old = Plan::compile_bs(&req, rates(0.01), 0.2, 0.25, policy(1))
         .unwrap()

@@ -157,8 +157,10 @@ impl Cash {
     fn affine(self, t: f64) -> (f64, f64) {
         match self {
             Self::None => (1.0, 0.0),
-            Self::Midpoint => (0.97, -2.0 * ((RATE - DIVIDEND_RATE) * t / 2.0).exp()),
-            Self::Expiry => (0.97, -2.0),
+            // Independent terminal escrow map: all cash has been paid at expiry.
+            // B*alpha = B - D*exp(-(r-q)*ex_date)/S0.
+            Self::Midpoint => (0.97 - 0.02 * (-(RATE - DIVIDEND_RATE) * t / 2.0).exp(), 0.0),
+            Self::Expiry => (0.97 - 0.02 * (-(RATE - DIVIDEND_RATE) * t).exp(), 0.0),
         }
     }
 }

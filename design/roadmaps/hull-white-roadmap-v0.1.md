@@ -74,6 +74,13 @@ H6 requires parameter calibration to specified instruments and new native
 hybrid replay/performance fixtures. Existing platform CI remains a regression
 gate for the pre-existing pricing baseline.
 
+The [extended-model sensitivity panel](../validation/extended-model-risk-accuracy.md)
+adds H5 public-plan comparisons for 1F/2F/rough Delta, initial-curve adjoints and
+explicit market-IV-node VegaKT, including mixed multi-asset and joint
+local-correlation calibration. Multiple seeds and bump sizes test the finite
+calibrated algorithm; broad economic-risk convergence and physical quote/fitting
+adjoints remain outside that panel.
+
 ## Initial local verification
 
 The subsequent [extended-model accuracy panel](../validation/extended-model-accuracy.md)

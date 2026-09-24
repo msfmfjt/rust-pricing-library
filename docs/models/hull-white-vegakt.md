@@ -53,8 +53,8 @@ proportional dividends and no fixed cash, this is equivalent to physical
 equity Black IV at fixed `log(K_S / forward_S(T))`; the corresponding normalized
 strike is `K_F=S0*exp(x)`.
 
-For the escrowed cash model, quotes must already refer to the deterministic
-escrow coordinate F. Convert physical cash-dividend option quotes using
+All calibration targets use the deterministic escrow coordinate F. Prepare
+physical cash-dividend option quotes before constructing the target using
 `K_F=(K_S-A0(T))/c(T)` and `C_F=C_S/c(T)`, then obtain Black IV using forward S0
 and the same discount factor. This API returns sensitivity to those **converted
 IV inputs**. It does not differentiate the physical-price/IV conversion or

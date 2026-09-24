@@ -51,6 +51,8 @@ diagnostic and calculation-specification pages.
 | Path-dependent payoff and barrier contracts | [Calculation specifications](path-dependence-calculation-specifications.md), [diagnostics](path-dependence-diagnostics.md) | [Path dependence](../../examples/python/path_dependence.py) |
 | Early-exercise policy and fixed-policy risk | [Calculation specifications](early-exercise-calculation-specifications.md), [diagnostics](early-exercise-diagnostics.md) | [American LSM](../../examples/python/american_lsm.py) |
 | Multi-asset payoff graph and risk | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
+| Stochastic cash dividends (price-only) | [Buehler model and support limits](../models/stochastic-dividends.md) | [Stochastic dividends](../../examples/python/stochastic_dividends.py) |
+| Dividend IV coordinates | [Escrowed calibration coordinate](../models/hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration) | [Hull–White LSV](../../examples/python/hull_white_lsv.py) |
 | Local-variance risk and VegaKT | [Local Volatility calculation specifications](../models/local-vol-vegakt-calculation-specifications.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
 
 Greeks, smoothing policies and supported products depend on the selected plan.

@@ -1,4 +1,4 @@
-"""Two rough-LSV assets, a common HW rate, paid cash and calibrated quote risk."""
+"""Two rough-LSV assets, a common HW rate, escrowed cash and calibrated quote risk."""
 import math
 import rust_pricing as rp
 

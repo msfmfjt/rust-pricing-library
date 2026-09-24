@@ -31,10 +31,34 @@ documents the public API migration.
 | [0004](adr/0004-hull-white-vegakt.md) | Hull–White market-IV VegaKT |
 | [0005](adr/0005-rough-bergomi.md) | Rough Bergomi |
 | [0006](adr/0006-integrate-completed-baseline.md) | Integration of completed baselines |
-| [0007](adr/0007-affine-paid-cash-dividends.md) | Default affine paid-cash dividends |
+| [0007](adr/0007-affine-paid-cash-dividends.md) | Historical paid-cash default (superseded by 0009) |
 | [0008](adr/0008-deterministic-rate-rough-lsv.md) | Deterministic-rate rough-LSV |
+| [0009](adr/0009-escrowed-simulation-and-iv-conversion.md) | Escrowed simulation (IV conversion superseded by 0010) |
+| [0010](adr/0010-remove-paid-cash.md) | Remove paid-cash support; defer Bos–Vandermark |
+| [0011](adr/0011-static-model-boundaries.md) | Compiled static boundaries for model extensions |
+| [0012](adr/0012-pure-stochastic-volatility.md) | Pure SV independently of particle calibration |
+| [0013](adr/0013-stochastic-cash-dividends.md) | Stochastic discrete cash dividends, staged integration |
+
+| [0014](adr/0014-bergomi-stochastic-dividends.md) | Pure 1F/2F Bergomi with stochastic cash dividends |
 
 ## Implementation roadmaps and acceptance
+
+The [stochastic-dividend record](validation/stochastic-dividends.md) distinguishes
+finite-split and limiting-price tests from the deferred hybrid/calibration scope.
+The [Bergomi coupling record](validation/bergomi-stochastic-dividends.md) adds
+exact joint OU covariance and independent finite-step price references.
+
+The [model-boundary extension/comparison record](validation/model-boundary-extension.md)
+defines the test-only extension exercise and paired native timing, heap and RSS
+evidence for stages S1–S6 of the [static-model roadmap](roadmaps/static-model-boundaries.md).
+The [Gaussian HW reference correction](validation/hw-escrowed-gaussian-reference.md)
+tracks the separate funded-strike reporting mismatch found in extended CI.
+The [local-correlation scaling record](validation/local-correlation-scaling.md)
+starts S7 with independent workload axes and cold/warm AAD allocation attribution.
+The first measured candidate is [reverse-moment buffer reuse](validation/local-correlation-moment-workspace.md),
+with exact outputs, lower first-AAD allocation churn and an explicit peak-heap follow-up.
+The [repeated-AAD heap study](validation/local-correlation-heap-followup.md)
+checks the full peak-stack difference and fresh-process reproducibility.
 
 | Stage | Roadmap | Acceptance evidence |
 | --- | --- | --- |
@@ -47,6 +71,8 @@ documents the public API migration.
 | Extended-model accuracy | [Panel and remaining scope](validation/extended-model-accuracy.md) | Independent repricing, multiple calibration seeds and refinement gates |
 | Extended-model refinement and stress | [Cases and measurements](validation/extended-model-refinement-stress.md) | Original 73/74 result and joint 2F sampling-error failure; subsequent correction linked |
 | Multi-asset Sobol sampling | [Attribution and correction](validation/multi-asset-sobol-attribution.md) | Bridge coordinate correction; original 2F stress gate passes locally, native CI pending |
+| Extended-model AAD and VegaKT | [Sensitivity acceptance](validation/extended-model-risk-accuracy.md) | Multi-seed, multi-bump comparison with full recalibration through public plans |
+| Static model boundaries | [S0–S7](roadmaps/static-model-boundaries.md) | Driver metadata, typed volatility/rate inputs and explicit reverse capabilities; native CI and later stages tracked in the roadmap |
 
 The [three-crate validation report](validation/three-crate-validation.md) links
 the preserved [raw evidence](validation/three-crate/). Captured JSON and the
@@ -70,3 +96,5 @@ Keep calculation specifications linked from the library or model index, even whe
 design decision introduces them. Update the relevant index when adding a page.
 Repository-local links in both `docs/` and `design/` are checked by
 `python3 scripts/check_markdown_links.py`.
+
+Escrowed simulation and IV conversion: [validation record](validation/escrowed-dividends.md).

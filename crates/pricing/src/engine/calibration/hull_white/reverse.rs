@@ -1,5 +1,6 @@
 //! Reverse of the adjacent discounted calibration.
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::engine::processes::hull_white::reverse::{lookup, target_reverse, transpose_lookup};
 
 #[derive(Clone, Debug)]
@@ -21,6 +22,24 @@ pub(super) struct CalibrationTrace {
     pub(super) dividends: Option<HullWhiteDividendPlan>,
     pub(super) kernels: Box<[Kernel]>,
     pub(super) primal_fingerprint: [u8; 32],
+}
+
+impl CalibrationReverse for CalibratedHullWhiteLsv {
+    type Adjoints = HullWhiteCalibrationAdjoints;
+    type Error = HullWhiteMcError;
+    fn validate_calibration_reverse(&self) -> Result<(), HullWhiteMcError> {
+        let trace = self
+            .reverse_trace
+            .as_ref()
+            .ok_or(LsvError::ReverseTraceNotRetained)?;
+        if self.reverse_primal_fingerprint() != trace.primal_fingerprint {
+            return Err(invalid("calibration_changed_after_trace", 0));
+        }
+        Ok(())
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Self::Adjoints, HullWhiteMcError> {
+        self.reverse_leverage(seeds)
+    }
 }
 
 impl CalibratedHullWhiteLsv {
@@ -56,13 +75,11 @@ impl CalibratedHullWhiteLsv {
         &self,
         leverage_adjoints: &[f64],
     ) -> Result<HullWhiteCalibrationAdjoints, HullWhiteMcError> {
+        self.validate_calibration_reverse()?;
         let trace = self
             .reverse_trace
             .as_ref()
-            .ok_or(LsvError::ReverseTraceNotRetained)?;
-        if self.reverse_primal_fingerprint() != trace.primal_fingerprint {
-            return Err(invalid("calibration_changed_after_trace", 0));
-        }
+            .expect("validated calibration trace");
         let count = self.surface.squared_leverage().len();
         if leverage_adjoints.len() != count {
             return Err(invalid(
@@ -147,7 +164,7 @@ impl CalibratedHullWhiteLsv {
                 donor[2] -= vbar;
                 donor[3] -= vbar;
             }
-            let half_v = 0.5 * trace.rates.integrated_variance(t)?;
+            let rate_discount = GaussianDiscount::new(trace.rates.integrated_variance(t)?);
             for (j, bars) in moment_bars.iter().enumerate() {
                 if bars.iter().all(|v| *v == 0.0) {
                     continue;
@@ -198,7 +215,7 @@ impl CalibratedHullWhiteLsv {
                     if u.abs() >= 1.0 {
                         continue;
                     }
-                    let discount = (-state.integrated_rate_factor - half_v).exp();
+                    let discount = rate_discount.relative_discount(state.integrated_rate_factor);
                     let weight = (1.0 - u * u).powi(2) * discount / total;
                     let a2 = (2.0 * trace.factor.vol_of_vol() * state.volatility_factor).exp();
                     let a = a2.sqrt();

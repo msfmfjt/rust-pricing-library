@@ -20,7 +20,7 @@ surface, correlation or cash-flow component.
 | Rate dynamics | Hull–White short-rate model and integrated-rate simulation |
 | Volatility surfaces | SVI/SSVI/eSSVI, Dupire local variance and market-IV coordinates |
 | Multi-asset and correlation | Basket state, PSD correlations and Particle Local Correlation |
-| Cash flows | Paid-cash and escrowed cash-dividend coordinates |
+| Cash flows | [Escrowed dividends and calibration coordinates](hull-white-cash-dividends.md), [stochastic cash dividends](stochastic-dividends.md) |
 
 ## Calculation methods
 

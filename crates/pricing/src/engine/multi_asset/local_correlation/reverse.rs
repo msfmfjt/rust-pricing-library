@@ -1,4 +1,16 @@
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
+
+impl CalibrationReverse for LocalCorrelationCalibration {
+    type Adjoints = (Vec<Vec<f64>>, Vec<f64>);
+    type Error = E;
+    fn validate_calibration_reverse(&self) -> Result<(), E> {
+        self.validate_reverse()
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Self::Adjoints, E> {
+        self.reverse_calibration(seeds)
+    }
+}
 
 impl LocalCorrelationCalibration {
     pub(super) fn reverse_sigma(

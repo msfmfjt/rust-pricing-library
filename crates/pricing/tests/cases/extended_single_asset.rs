@@ -59,7 +59,7 @@ fn zero_factor_price(
 }
 
 #[test]
-fn zero_vol_of_vol_preserves_continuous_carry_and_paid_cash() {
+fn zero_vol_of_vol_preserves_continuous_carry_and_escrowed_cash() {
     let res = Resolution {
         particles: 128,
         steps: 4,
@@ -415,6 +415,10 @@ fn rate_kernel_quadrature_matches_zero_reversion_polynomial() {
 fn gaussian_hull_white_independent_price_reference() {
     let expiry = "2028-01-01";
     let t = time(expiry);
+    // The fixture pays beta=3% and D=2 at expiry. All cash is paid before
+    // observation, so the funded terminal forward is (1-beta) S0 exp((r-q)T)-D.
+    // Use this same physical strike scale when inverting the simulated prices.
+    let forward = 0.97 * 100.0 * ((RATE - DIVIDEND_RATE) * t).exp() - 2.0;
     // Only eight steps are needed: the constant equity-volatility HW path
     // uses exact joint Gaussian transitions, including rate-volatility knots.
     let res = Resolution {
@@ -460,13 +464,7 @@ fn gaussian_hull_white_independent_price_reference() {
                             }
                         })
                         .collect();
-                    summarize(
-                        runs,
-                        0.97 * 100.0 * ((RATE - DIVIDEND_RATE) * t).exp(),
-                        t,
-                        x,
-                        target_iv,
-                    )
+                    summarize(runs, forward, t, x, target_iv)
                 })
                 .collect();
             report(
@@ -502,7 +500,7 @@ fn refinement_case(case: Case) {
 fn stress_case(factor: Factor, hw: bool) {
     // Strong tails can breach a fixed-cash dividend's positive-spot domain.
     // Keep that domain check intact; isolate the smile/vol-of-vol price study
-    // from paid-cash feasibility (covered by the original/refinement cases).
+    // from escrowed-reserve feasibility (covered by the original/refinement cases).
     let case = Case {
         factor,
         smile: Smile::Stress,

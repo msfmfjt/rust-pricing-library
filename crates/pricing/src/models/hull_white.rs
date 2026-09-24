@@ -2,6 +2,7 @@
 //! rate volatility. The deterministic shift is integrated from the input
 //! discount curve; no numerical differentiation of that curve is needed.
 
+use super::rates::{GaussianDiscount, RateDiscount};
 use crate::market::{DiscountCurve, LogLinearDiscountCurve, MarketError};
 use pricing_numerics::standard_normal_cdf;
 use std::{error::Error, fmt};
@@ -252,18 +253,15 @@ impl HullWhite1Factor {
     pub fn relative_discount(&self, time: f64, integrated_x: f64) -> Result<f64, HullWhiteError> {
         hw_valid(integrated_x, "integrated_x", 0, false)?;
         checked_positive(
-            (-integrated_x - 0.5 * self.integrated_variance(time)?).exp(),
+            GaussianDiscount::new(self.integrated_variance(time)?).relative_discount(integrated_x),
             "relative_discount",
         )
     }
     /// P(t,T) / [P(0,T)/P(0,t)].
     pub fn relative_bond(&self, time: f64, maturity: f64, x: f64) -> Result<f64, HullWhiteError> {
         hw_valid(x, "rate_state", 0, false)?;
-        let tr = self.transition(time, maturity, 0.0, HybridCorrelation::new(0.0, 0.0, 0.0)?)?;
         checked_positive(
-            (-tr.integral_loading * x - self.integrated_shift(time, maturity)?
-                + 0.5 * tr.covariance[3][3])
-                .exp(),
+            self.bond_exposure(time, maturity)?.relative_price(x),
             "relative_bond",
         )
     }

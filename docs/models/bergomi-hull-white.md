@@ -127,11 +127,12 @@ See the existing [HW VegaKT contract](hull-white-vegakt.md).
 
 ## Cash flows and dividends
 
-Every asset sees the same rate and integrated-rate innovations. The continuous
-equity state has no payout jump; each asset's paid-cash offset carries at the
-same realized rate minus its own dividend yield. Proportional and fixed payouts
-follow the [default affine convention](hull-white-affine-dividends.md),
-including pre-dividend observations. Future cash is not reserved.
+Every asset sees the same rate and integrated-rate innovations. Each asset uses
+an [escrowed bond reserve](hull-white-cash-dividends.md) and continuous residual
+equity. The entire supplied cash schedule is funded, including beyond expiry.
+Pre/post observations apply the contractual cash/proportional jump exactly.
+IV targets use the
+[escrow quote coordinate](hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration).
 
 Each payoff output is valued at its own latest dependent observation time t.
 For payment U, the conditional discount is
@@ -143,10 +144,6 @@ innovation conditional on time t. This supports payment lags and early coupons
 without using observations after that cash flow's information date. Only the
 rate state is conditioned for discounting after t; equity is simulated through
 the latest product observation.
-
-The single-equity two-factor adapter also supports the explicit legacy
-`cash_dividend_model="escrowed"` and corresponding Rust cash-dividend entry
-point. Multi-asset HW currently uses affine dividends only.
 
 ## Risk and uncertainty
 
@@ -196,3 +193,7 @@ work; the finite algorithm is defined by the contracts above.
 - [Fries, *A Short Note on the Exact Stochastic Simulation Scheme of the Hull-White Model and Its Implementation*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2737091), for exact rate and integrated-rate innovations.
 - [Cozma, Mariapragassam and Reisinger, *Calibration of a Hybrid Local-Stochastic Volatility Stochastic Rates Model with a Control Variate Particle Method*](https://arxiv.org/abs/1701.06001), for hybrid stochastic-rate/LSV calibration.
 - [Guyon and Henry-Labordère, *The Smile Calibration Problem Solved*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1885032), for particle leverage calibration and the affine-dividend extension.
+
+The public marginal `mean_discounted_normalized_equity` diagnostic is
+`E[Dbar*F/S0]` and starts at one. Internal residual/quote states use initial-Spot
+units; the diagnostic retains its unit-forward convention.

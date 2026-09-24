@@ -1,13 +1,51 @@
 //! Sealed kernels shared by the one- and two-factor LSV algorithms.
+use super::volatility_inputs::{
+    FactorAdjoints, InnovationSource, OrthogonalNormals, OuInnovations,
+};
 use super::{
     Bergomi1Factor, Bergomi2Factor, Bergomi2FactorTransition, BergomiError, BergomiTransition,
 };
 use std::fmt::Debug;
 
+#[cfg(test)]
+mod extension_probe;
+
 mod sealed {
-    pub trait Sealed {}
-    impl Sealed for super::Bergomi1Factor {}
-    impl Sealed for super::Bergomi2Factor {}
+    use super::*;
+
+    // Internal static kernel capability. The public BergomiDynamics methods
+    // retain their array-based signatures as compatibility adapters.
+    pub trait Sealed: Copy {
+        type Coordinates: AsRef<[f64]>;
+        fn coordinates(read: impl FnMut(usize) -> f64) -> Self::Coordinates;
+        fn evolve_normals(
+            self,
+            t: <Self as BergomiDynamics>::Transition,
+            x: <Self as BergomiDynamics>::State,
+            spot: f64,
+            orthogonal: OrthogonalNormals<'_>,
+        ) -> <Self as BergomiDynamics>::State
+        where
+            Self: BergomiDynamics;
+        fn evolve_increments(
+            self,
+            t: <Self as BergomiDynamics>::Transition,
+            x: <Self as BergomiDynamics>::State,
+            increments: OuInnovations<'_>,
+        ) -> <Self as BergomiDynamics>::State
+        where
+            Self: BergomiDynamics;
+        fn pullback(
+            self,
+            t: <Self as BergomiDynamics>::Transition,
+            next: <Self as BergomiDynamics>::State,
+            vbar: f64,
+            variance: f64,
+            source: InnovationSource,
+        ) -> FactorAdjoints<<Self as BergomiDynamics>::State, Self::Coordinates>
+        where
+            Self: BergomiDynamics;
+    }
 }
 
 /// Implemented by the supported Bergomi factors. This sealed interface keeps
@@ -58,10 +96,10 @@ impl BergomiDynamics for Bergomi1Factor {
         x.is_finite()
     }
     fn evolve(self, t: BergomiTransition, x: f64, z: f64, orth: [f64; 2]) -> f64 {
-        t.evolve(x, z, orth[0])
+        self.evolve_normals(t, x, z, OrthogonalNormals::new(&orth, 1))
     }
     fn evolve_ou(self, t: BergomiTransition, x: f64, v: [f64; 2]) -> f64 {
-        t.decay * x + v[0]
+        self.evolve_increments(t, x, OuInnovations::new(&v, 1))
     }
     fn reverse_factor(
         self,
@@ -71,14 +109,14 @@ impl BergomiDynamics for Bergomi1Factor {
         variance: f64,
         external: bool,
     ) -> (f64, f64, [f64; 2]) {
-        (
-            next * t.decay + vbar * 2.0 * self.vol_of_vol() * variance,
-            next * if external { 0.0 } else { t.spot_loading },
-            [
-                next * if external { 1.0 } else { t.orthogonal_loading },
-                0.0,
-            ],
-        )
+        let a = self.pullback(
+            t,
+            next,
+            vbar,
+            variance,
+            InnovationSource::from_external(external),
+        );
+        (a.state, a.spot, [a.volatility[0], 0.0])
     }
 }
 impl BergomiDynamics for Bergomi2Factor {
@@ -116,10 +154,10 @@ impl BergomiDynamics for Bergomi2Factor {
         x.iter().all(|x| x.is_finite())
     }
     fn evolve(self, t: Self::Transition, x: [f64; 2], z: f64, orth: [f64; 2]) -> [f64; 2] {
-        t.evolve(x, [z, orth[0], orth[1]])
+        self.evolve_normals(t, x, z, OrthogonalNormals::new(&orth, 1))
     }
     fn evolve_ou(self, t: Self::Transition, x: [f64; 2], v: [f64; 2]) -> [f64; 2] {
-        std::array::from_fn(|i| t.decay[i] * x[i] + v[i])
+        self.evolve_increments(t, x, OuInnovations::new(&v, 1))
     }
     fn reverse_factor(
         self,
@@ -129,21 +167,102 @@ impl BergomiDynamics for Bergomi2Factor {
         variance: f64,
         external: bool,
     ) -> ([f64; 2], f64, [f64; 2]) {
+        let a = self.pullback(
+            t,
+            next,
+            vbar,
+            variance,
+            InnovationSource::from_external(external),
+        );
+        (a.state, a.spot, a.volatility)
+    }
+}
+
+use sealed::Sealed;
+
+impl Sealed for Bergomi1Factor {
+    type Coordinates = [f64; 1];
+    fn coordinates(read: impl FnMut(usize) -> f64) -> Self::Coordinates {
+        std::array::from_fn(read)
+    }
+    fn evolve_normals(
+        self,
+        t: BergomiTransition,
+        x: f64,
+        spot: f64,
+        orthogonal: OrthogonalNormals<'_>,
+    ) -> f64 {
+        t.evolve(x, spot, orthogonal.get(0))
+    }
+    fn evolve_increments(self, t: BergomiTransition, x: f64, v: OuInnovations<'_>) -> f64 {
+        t.decay * x + v.get(0)
+    }
+    fn pullback(
+        self,
+        t: BergomiTransition,
+        next: f64,
+        vbar: f64,
+        variance: f64,
+        source: InnovationSource,
+    ) -> FactorAdjoints<f64, Self::Coordinates> {
+        let external = source == InnovationSource::JointOuIncrements;
+        FactorAdjoints {
+            state: next * t.decay + vbar * 2.0 * self.vol_of_vol() * variance,
+            spot: next * if external { 0.0 } else { t.spot_loading },
+            volatility: [next * if external { 1.0 } else { t.orthogonal_loading }],
+        }
+    }
+}
+
+impl Sealed for Bergomi2Factor {
+    type Coordinates = [f64; 2];
+    fn coordinates(read: impl FnMut(usize) -> f64) -> Self::Coordinates {
+        std::array::from_fn(read)
+    }
+    fn evolve_normals(
+        self,
+        t: Bergomi2FactorTransition,
+        x: [f64; 2],
+        spot: f64,
+        orthogonal: OrthogonalNormals<'_>,
+    ) -> [f64; 2] {
+        t.evolve(x, [spot, orthogonal.get(0), orthogonal.get(1)])
+    }
+    fn evolve_increments(
+        self,
+        t: Bergomi2FactorTransition,
+        x: [f64; 2],
+        v: OuInnovations<'_>,
+    ) -> [f64; 2] {
+        std::array::from_fn(|i| t.decay[i] * x[i] + v.get(i))
+    }
+    fn pullback(
+        self,
+        t: Bergomi2FactorTransition,
+        next: [f64; 2],
+        vbar: f64,
+        variance: f64,
+        source: InnovationSource,
+    ) -> FactorAdjoints<[f64; 2], Self::Coordinates> {
         let w = self.normalized_weights();
         let prev = std::array::from_fn(|i| {
             next[i] * t.decay[i] + vbar * 2.0 * self.vol_of_vol() * w[i] * variance
         });
-        if external {
-            (prev, 0.0, next)
+        if source == InnovationSource::JointOuIncrements {
+            FactorAdjoints {
+                state: prev,
+                spot: 0.0,
+                volatility: next,
+            }
         } else {
-            (
-                prev,
-                next[0] * t.lower[1][0] + next[1] * t.lower[2][0],
-                [
+            FactorAdjoints {
+                state: prev,
+                spot: next[0] * t.lower[1][0] + next[1] * t.lower[2][0],
+                volatility: [
                     next[0] * t.lower[1][1] + next[1] * t.lower[2][1],
                     next[1] * t.lower[2][2],
                 ],
-            )
+            }
         }
     }
 }

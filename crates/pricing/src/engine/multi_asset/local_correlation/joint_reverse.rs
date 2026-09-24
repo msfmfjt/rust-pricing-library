@@ -1,8 +1,68 @@
 //! Reverse the finite coupled simulation, including OU/Volterra histories,
 //! stochastic discount weights and the centered rate-tail correction.
 use super::*;
+use crate::models::rates::CenteredRateState;
+
+// Reused within one calibration pullback. Every entry is overwritten before
+// use, and the particle/node/endpoint accumulation order remains unchanged.
+struct JointMomentWorkspace {
+    sigmas: Vec<f64>,
+    weighted: Vec<f64>,
+    cross: Vec<f64>,
+}
+
+impl JointMomentWorkspace {
+    fn new(assets: usize) -> Self {
+        Self {
+            sigmas: vec![0.0; assets],
+            weighted: vec![0.0; assets],
+            cross: vec![0.0; assets],
+        }
+    }
+}
 
 impl LocalCorrelationCalibration {
+    #[allow(clippy::too_many_arguments)]
+    fn reverse_joint_quote(
+        &self,
+        i: usize,
+        row: usize,
+        state: &[f64],
+        seeds: [f64; 3],
+        bars: &mut [Vec<f64>],
+        parameters: &mut [f64],
+    ) -> Result<(), E> {
+        let j = self.joint.as_ref().unwrap();
+        let Some(hw) = &j.assets[i].hw else {
+            bars[row][i] += seeds[0];
+            return Ok(());
+        };
+        let spot = hw.dividends.initial_spot();
+        let r = j.rate.unwrap();
+        let node = &hw.dividends.nodes()[row];
+        let [f, zeta, h] = j.quote_state(i, row, state)?;
+        let [fb, zb, hb] = seeds;
+        let mut coefficients = node.zero_adjoints();
+        let residual = node
+            .reverse_target(
+                spot * state[i],
+                state[r],
+                fb / spot,
+                zb / spot,
+                &mut coefficients,
+            )
+            .map_err(E::numerical)?;
+        bars[row][i] += residual * spot;
+        bars[row][r] += (fb * node.reserve_rate_derivative(state[r])
+            + zb * node.reserve_loading_rate_derivative(state[r]))
+            / (spot * node.scale());
+        parameters[hw.volatility_parameter_count()] +=
+            residual * state[i] - (fb * f + zb * zeta + hb * h) / spot;
+        coefficients.deterministic_reserve += hb / (spot * node.scale());
+        coefficients.scale -= hb * h / node.scale();
+        hw.add_node_parameters(row, &coefficients, parameters);
+        Ok(())
+    }
     #[allow(clippy::too_many_arguments)]
     fn reverse_joint_sigma(
         &self,
@@ -17,12 +77,39 @@ impl LocalCorrelationCalibration {
         let Some(surface) = j.surface(i) else {
             return self.reverse_sigma(i, row, h[row][i], seed, &mut bars[row][i], parameters);
         };
-        let lookup = crate::engine::processes::hull_white::reverse::lookup(surface, row, h[row][i]);
+        let f = if let Some(hw) = &j.assets[i].hw {
+            hw.dividends.nodes()[row]
+                .target_state(
+                    h[row][i] * hw.dividends.initial_spot(),
+                    h[row][j.rate.unwrap()],
+                )
+                .map_err(E::numerical)?
+                .0
+        } else {
+            h[row][i]
+        };
+        let lookup = crate::engine::processes::hull_white::reverse::lookup(surface, row, f);
         let sigma = self.joint_sigma(i, row, h)?;
         let log_bar = seed * sigma;
         let lbar = 0.5 * log_bar / lookup.value;
         crate::engine::processes::hull_white::reverse::transpose_lookup(lookup, lbar, parameters);
-        bars[row][i] += lbar * lookup.slope / h[row][i];
+        let fbar = lbar * lookup.slope / f;
+        if let Some(hw) = &j.assets[i].hw {
+            let spot = hw.dividends.initial_spot();
+            let r = j.rate.unwrap();
+            let node = &hw.dividends.nodes()[row];
+            let mut coefficients = node.zero_adjoints();
+            let residual_bar = node
+                .reverse_target(spot * h[row][i], h[row][r], fbar, 0.0, &mut coefficients)
+                .map_err(E::numerical)?;
+            bars[row][i] += spot * residual_bar;
+            bars[row][r] += fbar * node.reserve_rate_derivative(h[row][r]) / node.scale();
+            parameters[hw.volatility_parameter_count()] +=
+                residual_bar * h[row][i] - lbar * lookup.slope / spot;
+            hw.add_node_parameters(row, &coefficients, parameters);
+        } else {
+            bars[row][i] += fbar;
+        }
         let v = j.offsets[i];
         match j.configs[i].as_ref().unwrap() {
             MultiAssetBergomiLsvConfig::OneFactor(c) => {
@@ -65,7 +152,7 @@ impl LocalCorrelationCalibration {
         let j = self.joint.as_ref().unwrap();
         let n = self.models.len();
         let dt = self.times[row + 1] - self.times[row];
-        let b = self.basket(&h[row]);
+        let b = self.joint_basket(row, &h[row])?;
         let lookup = self.lookup(row, b.ln());
         let lambda = lookup.value;
         let endpoints = j.endpoint_noises(row, z);
@@ -103,12 +190,17 @@ impl LocalCorrelationCalibration {
         }
         if let Some(r) = j.rate {
             let kernel = &j.assets[0].hw.as_ref().unwrap().process.kernels[row];
-            integral_bar += next_bar[r + 1];
-            bars[row][r + 1] += next_bar[r + 1];
-            bars[row][r] += integral_bar * kernel.transition.integral_loading
-                + next_bar[r] * kernel.transition.rate_decay;
-            noise_bar[r] += next_bar[r];
-            noise_bar[r + 1] += integral_bar;
+            let rate_bar = kernel.rate.pullback(
+                CenteredRateState {
+                    factor: next_bar[r],
+                    integral: next_bar[r + 1],
+                },
+                integral_bar,
+            );
+            bars[row][r + 1] += rate_bar.state.integral;
+            bars[row][r] += rate_bar.state.factor;
+            noise_bar[r] += rate_bar.innovations.factor;
+            noise_bar[r + 1] += rate_bar.innovations.integral;
         }
         let lambda_bar = if lambda > 0.0 && lambda < 1.0 {
             noise_bar
@@ -122,8 +214,15 @@ impl LocalCorrelationCalibration {
             0.0
         };
         lookup.transpose(lambda_bar, mixing);
-        for (bar, w) in bars[row][..n].iter_mut().zip(&self.config.basket_weights) {
-            *bar += lambda_bar * lookup.derivative * w / b;
+        for (i, &w) in self.config.basket_weights.iter().enumerate() {
+            self.reverse_joint_quote(
+                i,
+                row,
+                &h[row],
+                [lambda_bar * lookup.derivative * w / b, 0.0, 0.0],
+                bars,
+                &mut parameters[i],
+            )?;
         }
         Ok(())
     }
@@ -165,6 +264,7 @@ impl LocalCorrelationCalibration {
         }
         Ok((parameters, mixing))
     }
+    #[allow(clippy::too_many_arguments)]
     fn reverse_joint_moments(
         &self,
         row: usize,
@@ -173,26 +273,56 @@ impl LocalCorrelationCalibration {
         seeds: [f64; 2],
         bars: &mut [Vec<f64>],
         parameters: &mut [Vec<f64>],
+        workspace: &mut JointMomentWorkspace,
     ) -> Result<(), E> {
         let n = self.models.len();
-        let s = &h[row];
-        let b = self.basket(s);
-        let sigmas = (0..n)
-            .map(|i| self.joint_sigma(i, row, h))
-            .collect::<Result<Vec<_>, _>>()?;
-        let a: Vec<_> = (0..n)
-            .map(|i| self.config.basket_weights[i] * s[i] * sigmas[i])
-            .collect();
+        let j = self.joint.as_ref().unwrap();
+        let state = &h[row];
+        let basket = self.joint_basket(row, state)?;
+        let JointMomentWorkspace {
+            sigmas,
+            weighted: a,
+            cross,
+        } = workspace;
+        for (i, sigma) in sigmas.iter_mut().enumerate() {
+            *sigma = self.joint_sigma(i, row, h)?;
+        }
+        for (i, value) in a.iter_mut().enumerate() {
+            *value = self.config.basket_weights[i] * state[i] * sigmas[i];
+        }
+        let mut rate_loading = 0.0;
+        for (i, w) in self.config.basket_weights.iter().enumerate() {
+            rate_loading += w * j.quote_state(i, row, state)?[1];
+        }
         for e in 0..2 {
-            let basket_bar = -2.0 * seeds[e] * q[e] / b;
+            let matrix = &self.endpoints[self.entries[row]][e];
+            for (i, value) in cross.iter_mut().enumerate() {
+                *value = j.rate.map_or(0.0, |r| {
+                    let c = &j.drivers[e].entries[self.entries[row]];
+                    c.canonical()[i * c.dimension() + r]
+                });
+            }
+            let multiplier = 2.0 * seeds[e] / (basket * basket);
+            let basket_bar = -2.0 * seeds[e] * q[e] / basket;
+            let rate_bar = multiplier
+                * (rate_loading + a.iter().zip(cross.iter()).map(|(a, r)| a * r).sum::<f64>());
             for i in 0..n {
-                let ab = 2.0 * seeds[e] / (b * b)
-                    * (0..n)
-                        .map(|k| self.endpoints[self.entries[row]][e].canonical()[i * n + k] * a[k])
-                        .sum::<f64>();
+                let ab = multiplier
+                    * ((0..n)
+                        .map(|k| matrix.canonical()[i * n + k] * a[k])
+                        .sum::<f64>()
+                        + rate_loading * cross[i]);
                 let w = self.config.basket_weights[i];
-                bars[row][i] += ab * w * sigmas[i] + basket_bar * w;
-                self.reverse_joint_sigma(i, row, h, ab * w * s[i], bars, &mut parameters[i])?;
+                bars[row][i] += ab * w * sigmas[i];
+                self.reverse_joint_sigma(i, row, h, ab * w * state[i], bars, &mut parameters[i])?;
+                self.reverse_joint_quote(
+                    i,
+                    row,
+                    state,
+                    [basket_bar * w, rate_bar * w, 0.0],
+                    bars,
+                    &mut parameters[i],
+                )?;
             }
         }
         Ok(())
@@ -211,7 +341,6 @@ impl LocalCorrelationCalibration {
         let nt = self.times.len();
         let np = self.config.particles.particle_count();
         let m = self.log_nodes().len();
-        let n = self.models.len();
         let histories: Vec<Vec<Vec<f64>>> = (0..np)
             .map(|p| trace.iter().map(|row| row[p].clone()).collect())
             .collect();
@@ -228,6 +357,7 @@ impl LocalCorrelationCalibration {
                     .len())
         ];
         let mut density = vec![0.0; nt * m];
+        let mut moment_workspace = JointMomentWorkspace::new(self.models.len());
         for row in (0..nt).rev() {
             if row + 1 < nt {
                 for p in 0..np {
@@ -280,7 +410,7 @@ impl LocalCorrelationCalibration {
                 let x = self.log_nodes()[k];
                 for p in 0..np {
                     let h = &histories[p];
-                    let b = self.basket(&h[row]);
+                    let b = self.joint_basket(row, &h[row])?;
                     let u = (b.ln() - x) / self.config.particles.log_bandwidth();
                     let kernel = if row == 0 { 1.0 } else { quartic(u) };
                     if kernel == 0.0 {
@@ -296,6 +426,7 @@ impl LocalCorrelationCalibration {
                         mb.map(|v| v * weight / sum),
                         &mut bars[p],
                         &mut parameters,
+                        &mut moment_workspace,
                     )?;
                     let wb = (mb[0] * (q[0] - mean[0]) + mb[1] * (q[1] - mean[1])) / sum;
                     if let Some(r) = j.rate {
@@ -304,11 +435,15 @@ impl LocalCorrelationCalibration {
                     if row > 0 {
                         let log_bar =
                             wb * d * quartic_derivative(u) / self.config.particles.log_bandwidth();
-                        for (bar, w) in bars[p][row][..n]
-                            .iter_mut()
-                            .zip(&self.config.basket_weights)
-                        {
-                            *bar += log_bar * w / b;
+                        for (i, &w) in self.config.basket_weights.iter().enumerate() {
+                            self.reverse_joint_quote(
+                                i,
+                                row,
+                                &h[row],
+                                [log_bar * w / b, 0.0, 0.0],
+                                &mut bars[p],
+                                &mut parameters[i],
+                            )?;
                         }
                     }
                 }
@@ -317,8 +452,8 @@ impl LocalCorrelationCalibration {
                     let pdf = j.target.as_ref().unwrap().log_densities()[row * m + k];
                     let above: Vec<_> = histories
                         .iter()
-                        .map(|h| self.basket(&h[row]).ln() > x)
-                        .collect();
+                        .map(|h| self.joint_basket(row, &h[row]).map(|b| b.ln() > x))
+                        .collect::<Result<_, _>>()?;
                     let da = dr
                         .iter()
                         .zip(&above)
@@ -332,8 +467,20 @@ impl LocalCorrelationCalibration {
                         .map(|(v, _)| v.0 * v.1)
                         .sum::<f64>();
                     let q = ya - da / total_d * total_y;
-                    let qbar = 2.0 * cb / (np as f64 * pdf);
-                    density[row * m + k] -= 2.0 * cb * q / (np as f64 * pdf * pdf);
+                    let factor = 1.0 + self.joint_basket_shift(row) / x.exp();
+                    let qbar = 2.0 * cb * factor / (np as f64 * pdf);
+                    density[row * m + k] -= 2.0 * cb * factor * q / (np as f64 * pdf * pdf);
+                    let hbar = 2.0 * cb * q / (np as f64 * pdf * x.exp());
+                    for (i, &w) in self.config.basket_weights.iter().enumerate() {
+                        self.reverse_joint_quote(
+                            i,
+                            row,
+                            &histories[0][row],
+                            [0.0, 0.0, hbar * w],
+                            &mut bars[0],
+                            &mut parameters[i],
+                        )?;
+                    }
                     // Empirically centered tails. Frozen indicators/donors define
                     // the finite-program derivative away from exact ties.
                     for p in 0..np {

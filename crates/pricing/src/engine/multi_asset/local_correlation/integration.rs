@@ -1,6 +1,7 @@
 use super::super::evaluate::Layout;
 use super::super::path::AssetPath;
 use super::*;
+use crate::engine::calibration::capabilities::CalibrationReverse;
 use crate::mc::DeterministicStatistics;
 use std::sync::Arc;
 
@@ -33,8 +34,8 @@ impl MultiAssetPricingPlan {
             }
             Ok(AssetPath {
                 spots, pre_spots,
-                spot_derivatives: f.iter().zip(&a.coordinates).map(|(f, c)| c.b()*f/initial).collect(),
-                pre_spot_derivatives: f.iter().zip(&a.pre_coordinates).map(|(f, c)| c.b()*f/initial).collect(),
+                spot_derivatives: f.iter().zip(&a.coordinates).map(|(f, c)| c.spot_scale()*f/initial).collect(),
+                pre_spot_derivatives: f.iter().zip(&a.pre_coordinates).map(|(f, c)| c.spot_scale()*f/initial).collect(),
                 bs_vega: vec![0.0; self.times.len()], local: None, lsv: None, hw: None,
                 local_correlation: Some(Arc::clone(&path)),
             })
@@ -84,7 +85,7 @@ impl MultiAssetPricingPlan {
             .iter()
             .map(|s| s.sum().total() / units as f64)
             .collect();
-        let (mut assets, basket) = c.reverse_calibration(&mean)?;
+        let (mut assets, basket) = c.calibration_pullback(&mean)?;
         for (values, &(o, n)) in assets.iter_mut().zip(&layout.vega) {
             for (value, stat) in values.iter_mut().zip(&stats[o..o + n]) {
                 *value += stat.sum().total() / units as f64;
@@ -98,6 +99,8 @@ impl MultiAssetPricingPlan {
                 } else {
                     a.lsv.as_ref().unwrap().target_reverse(values)?
                 };
+            } else if a.hw.is_some() {
+                values.truncate(1);
             }
         }
         Ok(Some(

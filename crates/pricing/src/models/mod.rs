@@ -7,8 +7,11 @@ mod bergomi_dynamics;
 mod bergomi_two_factor;
 pub mod hull_white;
 pub mod hull_white_dividends;
+pub(crate) mod rates;
 mod rough_bergomi;
 mod spec;
+pub mod stochastic_dividends;
+mod volatility_inputs;
 
 pub use bergomi::{Bergomi1Factor, BergomiTransition};
 pub use bergomi_dynamics::BergomiDynamics;
@@ -21,6 +24,9 @@ pub use hull_white::{
     HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
 };
 pub use rough_bergomi::RoughBergomi;
+pub(crate) use volatility_inputs::{
+    HistoryInnovations, InnovationSource, OrthogonalNormals, OuInnovations,
+};
 
 pub use spec::{
     Black76Spec, BlackScholesSpec, LocalVolatilityReportingBasis, LocalVolatilitySpec, ModelSpec,
@@ -31,3 +37,7 @@ pub use spec::{
 pub const fn market_foundation() -> &'static str {
     crate::market::foundation_role()
 }
+
+pub use stochastic_dividends::{
+    BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
+};

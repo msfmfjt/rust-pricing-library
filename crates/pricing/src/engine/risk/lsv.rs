@@ -3,6 +3,8 @@
 //! keeps calibrated Local-variance risk distinct from market-IV VegaKT.
 
 use crate::core::PathIndex;
+use crate::engine::calibration::capabilities::CalibrationReverse;
+use crate::engine::processes::capabilities::PathReverse;
 use crate::engine::processes::rough_lsv::ROUGH_RANDOM_BLOCKS;
 use crate::market::LocalVarianceGrid;
 use crate::mc::lsv::{
@@ -18,6 +20,13 @@ use crate::mc::{
 };
 use crate::models::{Bergomi1Factor, BergomiDynamics, ModelSpec, RoughBergomi};
 use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
+
+#[cfg(test)]
+mod capability_tests;
+mod evaluation;
+mod models;
+use evaluation::{Evaluation, PriceOnly, Recalibrated};
+use models::{CalibratedModel, LeveragePathModel, PathModel};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LsvPrice {
@@ -45,153 +54,6 @@ pub struct LsvLocalVarianceRisk {
 }
 
 type RiskOutput = Option<(Vec<f64>, Option<Vec<f64>>)>;
-
-/// A calibrated LSV model the shared pricing core can evaluate.
-trait CalibratedModel: Clone + std::fmt::Debug + Send + Sync {
-    type Plan: PathModel;
-    const SCHEME: &'static str;
-    /// Independent Gaussian blocks per time step in the pricing layout.
-    const RANDOM_BLOCKS: usize;
-    fn surface(&self) -> &LsvLeverageSurface;
-    fn config(&self) -> &LsvParticleConfig;
-    fn target(&self) -> &LocalVarianceGrid;
-    fn reverse_leverage(&self, adjoints: &[f64]) -> Result<Vec<f64>, LsvError>;
-    fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<Self::Plan, LsvError>;
-}
-
-/// The path plan of a calibrated LSV model.
-trait PathModel: Clone + std::fmt::Debug + Send + Sync {
-    type Path;
-    fn times(&self) -> &[f64];
-    fn pseudo_shocks(
-        &self,
-        seed: u64,
-        path: u64,
-        domain: RandomDomain,
-    ) -> Result<Vec<f64>, LsvError>;
-    fn evolve_states(
-        &self,
-        initial_f: f64,
-        shocks: &[f64],
-        states: &mut Vec<f64>,
-    ) -> Result<(), LsvError>;
-    fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<Self::Path, LsvError>;
-    fn path_states(path: &Self::Path) -> &[f64];
-    fn leverage_adjoints(path: &Self::Path, seeds: &[f64]) -> Result<Box<[f64]>, LsvError>;
-}
-
-impl<F: BergomiDynamics> CalibratedModel for CalibratedBergomiLsv<F> {
-    type Plan = BergomiLsvPlan<F>;
-    const SCHEME: &'static str = if F::FACTOR_COUNT == 1 {
-        BERGOMI_LSV_SCHEME
-    } else {
-        BERGOMI_TWO_FACTOR_LSV_SCHEME
-    };
-    const RANDOM_BLOCKS: usize = 1 + F::FACTOR_COUNT;
-    fn surface(&self) -> &LsvLeverageSurface {
-        self.surface()
-    }
-    fn config(&self) -> &LsvParticleConfig {
-        self.config()
-    }
-    fn target(&self) -> &LocalVarianceGrid {
-        self.target()
-    }
-    fn reverse_leverage(&self, adjoints: &[f64]) -> Result<Vec<f64>, LsvError> {
-        self.reverse_leverage(adjoints)
-    }
-    fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<BergomiLsvPlan<F>, LsvError> {
-        self.pricing_plan(grid)
-    }
-}
-
-impl<F: BergomiDynamics> PathModel for BergomiLsvPlan<F> {
-    type Path = BergomiLsvPath<F>;
-    fn times(&self) -> &[f64] {
-        self.times()
-    }
-    fn pseudo_shocks(
-        &self,
-        seed: u64,
-        path: u64,
-        domain: RandomDomain,
-    ) -> Result<Vec<f64>, LsvError> {
-        self.pseudo_shocks(seed, path, domain)
-    }
-    fn evolve_states(
-        &self,
-        initial_f: f64,
-        shocks: &[f64],
-        states: &mut Vec<f64>,
-    ) -> Result<(), LsvError> {
-        self.evolve_states(initial_f, shocks, states)
-    }
-    fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<BergomiLsvPath<F>, LsvError> {
-        self.evolve_path(initial_f, shocks)
-    }
-    fn path_states(path: &BergomiLsvPath<F>) -> &[f64] {
-        path.states()
-    }
-    fn leverage_adjoints(path: &BergomiLsvPath<F>, seeds: &[f64]) -> Result<Box<[f64]>, LsvError> {
-        Ok(path.reverse(seeds)?.squared_leverage)
-    }
-}
-
-impl CalibratedModel for CalibratedRoughBergomiLsv {
-    type Plan = RoughBergomiLsvPlan;
-    const SCHEME: &'static str = ROUGH_BERGOMI_LSV_SCHEME;
-    const RANDOM_BLOCKS: usize = ROUGH_RANDOM_BLOCKS;
-    fn surface(&self) -> &LsvLeverageSurface {
-        self.surface()
-    }
-    fn config(&self) -> &LsvParticleConfig {
-        self.config()
-    }
-    fn target(&self) -> &LocalVarianceGrid {
-        self.target()
-    }
-    fn reverse_leverage(&self, adjoints: &[f64]) -> Result<Vec<f64>, LsvError> {
-        self.reverse_leverage(adjoints)
-    }
-    fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<RoughBergomiLsvPlan, LsvError> {
-        self.pricing_plan(grid)
-    }
-}
-
-impl PathModel for RoughBergomiLsvPlan {
-    type Path = RoughBergomiLsvPath;
-    fn times(&self) -> &[f64] {
-        self.times()
-    }
-    fn pseudo_shocks(
-        &self,
-        seed: u64,
-        path: u64,
-        domain: RandomDomain,
-    ) -> Result<Vec<f64>, LsvError> {
-        self.pseudo_shocks(seed, path, domain)
-    }
-    fn evolve_states(
-        &self,
-        initial_f: f64,
-        shocks: &[f64],
-        states: &mut Vec<f64>,
-    ) -> Result<(), LsvError> {
-        self.evolve_states(initial_f, shocks, states)
-    }
-    fn evolve_path(&self, initial_f: f64, shocks: &[f64]) -> Result<RoughBergomiLsvPath, LsvError> {
-        self.evolve_path(initial_f, shocks)
-    }
-    fn path_states(path: &RoughBergomiLsvPath) -> &[f64] {
-        path.states()
-    }
-    fn leverage_adjoints(
-        path: &RoughBergomiLsvPath,
-        seeds: &[f64],
-    ) -> Result<Box<[f64]>, LsvError> {
-        Ok(path.reverse(seeds)?.squared_leverage)
-    }
-}
 
 /// Everything after the model choice: target refinement, calibration, the
 /// independent MC/RQMC pricing loop and the calibrated local-variance reverse.
@@ -393,19 +255,21 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
     }
 
     fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
-        Ok(self.run(false)?.0)
+        Ok(self.run::<PriceOnly>()?.0)
     }
 
-    fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
+    fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError>
+    where
+        C: CalibrationReverse<Adjoints = Vec<f64>, Error = LsvError>,
+        C::Plan: LeveragePathModel,
+    {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "LSV discontinuous payoff requires explicit smoothing",
             });
         }
-        if !self.calibration.config().retain_reverse_trace() {
-            return Err(LsvError::ReverseTraceNotRetained.into());
-        }
-        let (price, risk) = self.run(true)?;
+        self.calibration.validate_calibration_reverse()?;
+        let (price, risk) = self.run::<Recalibrated>()?;
         let (values, standard_errors) = risk.expect("risk was requested");
         Ok(LsvLocalVarianceRisk {
             price,
@@ -417,8 +281,11 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
         })
     }
 
-    fn target_reverse(&self, leverage: &[f64]) -> Result<Vec<f64>, MonteCarloError> {
-        let refined = self.calibration.reverse_leverage(leverage)?;
+    fn target_reverse(&self, leverage: &[f64]) -> Result<Vec<f64>, MonteCarloError>
+    where
+        C: CalibrationReverse<Adjoints = Vec<f64>, Error = LsvError>,
+    {
+        let refined = self.calibration.calibration_pullback(leverage)?;
         let m = self.original_target.log_moneyness_nodes().len();
         let mut original = vec![0.0; self.original_target.values().len()];
         for (r, &t) in self.calibration.target().time_nodes().iter().enumerate() {
@@ -466,11 +333,10 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
         }
     }
 
-    fn sample(
+    fn sample<M: Evaluation<C>>(
         &self,
         shocks: &[f64],
         path: u64,
-        risk: bool,
         antithetic: bool,
         output: &mut [f64],
     ) -> Result<(), MonteCarloError> {
@@ -480,37 +346,15 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
             &[1.0][..]
         } {
             let shocks = shocks.iter().map(|z| z * sign).collect::<Vec<_>>();
-            let initial_f = self.calibration.surface().initial_f();
             let weight = if antithetic { 0.5 } else { 1.0 };
-            if !risk {
-                // Price only: the same states without the reverse-mode records.
-                let mut states = Vec::new();
-                self.path_plan
-                    .evolve_states(initial_f, &shocks, &mut states)?;
-                let (price, _) = self.base.lsv_payoff(&states, PathIndex::new(path), false)?;
-                output[0] += weight * price;
-                continue;
-            }
-            let recorded = self.path_plan.evolve_path(initial_f, &shocks)?;
-            let (price, seeds) = self.base.lsv_payoff(
-                C::Plan::path_states(&recorded),
-                PathIndex::new(path),
-                true,
-            )?;
-            output[0] += weight * price;
-            if let Some(seeds) = seeds {
-                let adjoints = C::Plan::leverage_adjoints(&recorded, &seeds)?;
-                for (v, &a) in output[1..].iter_mut().zip(adjoints.iter()) {
-                    *v += weight * a;
-                }
-            }
+            M::observe(self, &shocks, path, weight, output)?;
         }
         Ok(())
     }
 
-    fn run(&self, risk: bool) -> Result<(LsvPrice, RiskOutput), MonteCarloError> {
+    fn run<M: Evaluation<C>>(&self) -> Result<(LsvPrice, RiskOutput), MonteCarloError> {
         let executor = DeterministicExecutor::new(self.policy)?;
-        let width = 1 + if risk {
+        let width = 1 + if M::RISK {
             self.calibration.surface().squared_leverage().len()
         } else {
             0
@@ -526,17 +370,9 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
                         RandomDomain::Valuation,
                     )?;
                     let z = self.apply_bridge(z, bridge.as_ref())?;
-                    self.sample(&z, i, risk, engine.variance_reduction().antithetic(), out)
+                    self.sample::<M>(&z, i, engine.variance_reduction().antithetic(), out)
                 })?;
-                let gradient = if risk {
-                    let leverage = stats[1..]
-                        .iter()
-                        .map(|s| s.sum().total() / n as f64)
-                        .collect::<Vec<_>>();
-                    Some((self.target_reverse(&leverage)?, None))
-                } else {
-                    None
-                };
+                let gradient = M::target_gradient(self, &stats, n)?.map(|values| (values, None));
                 (stats[0], n, engine.evaluated_paths(), gradient)
             }
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
@@ -569,28 +405,20 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
                             })
                             .collect::<Result<Vec<_>, LsvError>>()?;
                         let z = self.apply_bridge(z, bridge.as_ref())?;
-                        self.sample(
+                        self.sample::<M>(
                             &z,
                             u64::from(scramble) * n + i,
-                            risk,
                             engine.variance_reduction().antithetic(),
                             out,
                         )
                     })?;
                     prices.push(stats[0].sum().total() / n as f64);
-                    if risk {
-                        risks.push(
-                            self.target_reverse(
-                                &stats[1..]
-                                    .iter()
-                                    .map(|s| s.sum().total() / n as f64)
-                                    .collect::<Vec<_>>(),
-                            )?,
-                        );
+                    if let Some(gradient) = M::target_gradient(self, &stats, n)? {
+                        risks.push(gradient);
                     }
                 }
                 let count = u64::from(engine.scramble_count().get());
-                let gradient = if risk {
+                let gradient = if M::RISK {
                     let mut means = Vec::new();
                     let mut errors = Vec::new();
                     for j in 0..self.original_target.values().len() {

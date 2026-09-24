@@ -4,6 +4,7 @@ use super::super::lsv::LsvDrivers;
 use super::*;
 use crate::market::{CorrelationFactor, CorrelationToleranceConfig};
 use crate::models::hull_white::b;
+use crate::models::rates::GaussianRateCovariance;
 
 pub(in crate::engine::multi_asset) fn compile_drivers(
     correlation: &CorrelationTermStructure,
@@ -115,33 +116,21 @@ pub(in crate::engine::multi_asset) fn compile_drivers(
         let mut covariance = vec![vec![0.0; width]; width];
         let dt = pair[1] - pair[0];
         let rate = rates
-            .transition(
-                pair[0],
-                pair[1],
-                0.0,
-                HybridCorrelation::new(0.0, 0.0, 0.0).map_err(E::numerical)?,
-            )
-            .map_err(E::numerical)?
-            .covariance;
-        covariance[d][d] = rate[2][2];
-        covariance[d + 1][d + 1] = rate[3][3];
-        covariance[d][d + 1] = rate[2][3];
-        covariance[d + 1][d] = rate[3][2];
+            .rate_covariance(pair[0], pair[1])
+            .map_err(E::numerical)?;
+        covariance[d][d] = rate.factor_variance;
+        covariance[d + 1][d + 1] = rate.integral_variance;
+        covariance[d][d + 1] = rate.factor_integral;
+        covariance[d + 1][d] = rate.factor_integral;
         for i in 0..d {
             for j in 0..d {
                 covariance[i][j] = brownian[i * (d + 1) + j] * b(reversions[i] + reversions[j], dt);
             }
             let cross = rates
-                .transition(
-                    pair[0],
-                    pair[1],
-                    reversions[i],
-                    HybridCorrelation::new(0.0, 0.0, 1.0).map_err(E::numerical)?,
-                )
-                .map_err(E::numerical)?
-                .covariance;
-            for (col, source) in [(d, 2), (d + 1, 3)] {
-                covariance[i][col] = brownian[i * (d + 1) + d] * cross[1][source];
+                .ou_rate_covariance(pair[0], pair[1], reversions[i])
+                .map_err(E::numerical)?;
+            for (col, value) in [(d, cross.factor), (d + 1, cross.integral)] {
+                covariance[i][col] = brownian[i * (d + 1) + d] * value;
                 covariance[col][i] = covariance[i][col];
             }
         }

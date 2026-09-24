@@ -115,6 +115,21 @@ class HullWhiteLsvTarget:
 class HullWhiteEquityPlan:
     """Experimental BS/Bergomi/rough Bergomi + HW, LSV and escrowed cash dividends."""
     @staticmethod
+    def compile_bergomi(
+        request: PricingRequest, rate_model: HullWhiteModel, *,
+        vol_mean_reversion: float, vol_of_vol: float, equity_vol_correlation: float,
+        equity_rate_correlation: float, vol_rate_correlation: float, maximum_step: float,
+        worker_threads: int, reduction_block_size: int | None = None,
+    ) -> HullWhiteEquityPlan: ...
+    @staticmethod
+    def compile_bergomi_two_factor(
+        request: PricingRequest, rate_model: HullWhiteModel, *,
+        mean_reversions: Sequence[float], vol_of_vol: float, mixing_weight: float,
+        spot_correlations: Sequence[float], factor_correlation: float,
+        equity_rate_correlation: float, vol_rate_correlations: Sequence[float],
+        maximum_step: float, worker_threads: int, reduction_block_size: int | None = None,
+    ) -> HullWhiteEquityPlan: ...
+    @staticmethod
     def compile_rough_bergomi(
         request: PricingRequest, rough_model: RoughBergomiModel, rate_model: HullWhiteModel, *,
         equity_rate_correlation: float, vol_rate_correlation: float, maximum_step: float,
@@ -185,6 +200,89 @@ class HullWhiteEquityPlan:
     def calibration_discount_means(self) -> list[float]: ...
     @property
     def calibration_discounted_equity_means(self) -> list[float]: ...
+
+
+class StochasticDividendPlan:
+    """Buehler cash dividends, constant residual volatility and deterministic carry.
+
+    Fixed-cash market amounts are Q-means; only price-only requests are accepted.
+    Correlation is between residual-equity and dividend Brownian drivers.
+    """
+    @staticmethod
+    def compile_bs(
+        request: PricingRequest, *, mean_reversion: float, equity_linkage: float,
+        dividend_volatility: float, equity_dividend_correlation: float,
+        maximum_step: float, worker_threads: int, reduction_block_size: int | None = None,
+    ) -> StochasticDividendPlan: ...
+    @staticmethod
+    def compile_bergomi(request: PricingRequest, *, mean_reversion: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendPlan: ...
+    @staticmethod
+    def compile_bergomi_two_factor(request: PricingRequest, *, mean_reversions: Sequence[float], vol_of_vol: float, mixing_weight: float, spot_correlations: Sequence[float], factor_correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlations: Sequence[float], maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendPlan: ...
+    def evaluate(self) -> StochasticDividendPrice: ...
+    @property
+    def plan_fingerprint(self) -> str: ...
+    @property
+    def time_nodes(self) -> list[float]: ...
+    @property
+    def random_factor_count(self) -> int: ...
+    @property
+    def risky_spot(self) -> float: ...
+    @property
+    def scheme(self) -> str: ...
+
+
+class StochasticDividendPrice:
+    @property
+    def value(self) -> float: ...
+    @property
+    def standard_error(self) -> float: ...
+    @property
+    def independent_sampling_units(self) -> int: ...
+    @property
+    def evaluated_paths(self) -> int: ...
+    @property
+    def plan_fingerprint(self) -> str: ...
+    @property
+    def scheme(self) -> str: ...
+    @property
+    def uncertainty_scope(self) -> Literal["pricing_only"]: ...
+
+
+class StochasticVolatilityPlan:
+    """Pure 1F/2F/rough Bergomi, deterministic curves and flat initial variance.
+
+    The BlackScholes request supplies sigma0. No LV target or particles.
+    Markovian vol_of_vol is nu (log volatility); rough uses eta (log variance).
+    """
+    @staticmethod
+    def compile_bergomi(
+        request: PricingRequest, *, mean_reversion: float, vol_of_vol: float,
+        correlation: float, maximum_step: float, worker_threads: int,
+        reduction_block_size: int | None = None,
+    ) -> StochasticVolatilityPlan: ...
+    @staticmethod
+    def compile_bergomi_two_factor(
+        request: PricingRequest, *, mean_reversions: Sequence[float], vol_of_vol: float,
+        mixing_weight: float, spot_correlations: Sequence[float], factor_correlation: float,
+        maximum_step: float, worker_threads: int, reduction_block_size: int | None = None,
+    ) -> StochasticVolatilityPlan: ...
+    @staticmethod
+    def compile_rough_bergomi(
+        request: PricingRequest, rough_model: RoughBergomiModel, *, maximum_step: float,
+        worker_threads: int, reduction_block_size: int | None = None,
+    ) -> StochasticVolatilityPlan: ...
+    def evaluate(self) -> HullWhitePrice: ...
+    def evaluate_aad(self) -> HullWhiteAadRisk: ...
+    @property
+    def cash_dividend_model(self) -> str | None: ...
+    @property
+    def risky_spot(self) -> float: ...
+    @property
+    def plan_fingerprint(self) -> str: ...
+    @property
+    def time_nodes(self) -> list[float]: ...
+    @property
+    def random_factor_count(self) -> int: ...
 
 
 class HullWhitePrice:

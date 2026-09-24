@@ -321,6 +321,13 @@ fn joint_local_correlation_hw_cash_dividends_discounting_and_curve_risk() {
                 DividendQuote::fixed_cash_and_proportional(2.0, 0.03, EventId::new(1)).unwrap(),
             )
             .unwrap(),
+            // Remains in the stochastic reserve at all positive pricing nodes.
+            DividendEvent::new(
+                EventId::new(2),
+                1.5,
+                DividendQuote::fixed_cash(3.0, EventId::new(2)).unwrap(),
+            )
+            .unwrap(),
         ],
     );
     c.base.product = MultiAssetProduct::basket(
@@ -370,6 +377,28 @@ fn joint_local_correlation_hw_cash_dividends_discounting_and_curve_risk() {
             out.risks[i].delta.value().get(),
             (bump(1e-4) - bump(-1e-4)) / 2e-4,
         );
+        let h = 0.001 * c.base.markets[i].forward().spot().get();
+        let delta = |amount| {
+            let mut bumped = c.clone();
+            bumped.base.markets[i] = bump_market(
+                &c.base.markets[i],
+                c.base.markets[i].forward().spot().get() + amount,
+            );
+            bumped
+                .compile(1)
+                .unwrap()
+                .evaluate_aad(MultiAssetRiskConfig::default())
+                .unwrap()
+                .risks
+        };
+        let up = delta(h);
+        let down = delta(-h);
+        for j in 0..2 {
+            fd(
+                out.gamma[j][i].value().get(),
+                (up[j].delta.value().get() - down[j].delta.value().get()) / (2.0 * h),
+            );
+        }
     }
     let shifted = |h: f64| {
         let mut b = c.clone();
@@ -384,23 +413,24 @@ fn joint_local_correlation_hw_cash_dividends_discounting_and_curve_risk() {
                     m.forward().spot().get(),
                     0.025 + h,
                     0.01 * (i + 1) as f64,
-                    if i == 0 {
-                        vec![
-                            DividendEvent::new(
-                                EventId::new(1),
-                                0.5,
-                                DividendQuote::fixed_cash_and_proportional(
-                                    2.0,
-                                    0.03,
-                                    EventId::new(1),
+                    m.forward().discrete_dividends().map_or_else(Vec::new, |d| {
+                        d.events()
+                            .iter()
+                            .map(|e| {
+                                DividendEvent::new(
+                                    e.event(),
+                                    e.ex_time(),
+                                    DividendQuote::fixed_cash_and_proportional(
+                                        e.fixed_cash(),
+                                        e.beta(),
+                                        e.event(),
+                                    )
+                                    .unwrap(),
                                 )
-                                .unwrap(),
-                            )
-                            .unwrap(),
-                        ]
-                    } else {
-                        vec![]
-                    },
+                                .unwrap()
+                            })
+                            .collect()
+                    }),
                 )
             })
             .collect();

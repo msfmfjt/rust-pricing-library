@@ -1,5 +1,7 @@
 //! Type dispatch at the asset boundary; numerical kernels remain shared.
 use super::lsv::MultiAssetBergomiLsvConfig;
+use crate::engine::calibration::capabilities::CalibrationReverse;
+use crate::engine::processes::capabilities::PathReverse;
 use crate::market::LocalVarianceGrid;
 use crate::mc::LocalVolTimeGrid;
 use crate::mc::lsv::{
@@ -78,16 +80,26 @@ impl LsvCalibration {
             Self::Two(_) => 2,
         }
     }
-    pub fn reverse_leverage(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
-        match self {
-            Self::One(c) => c.reverse_leverage(seeds),
-            Self::Two(c) => c.reverse_leverage(seeds),
-        }
-    }
     pub fn pricing_plan(&self, grid: &LocalVolTimeGrid) -> Result<LsvProcess, LsvError> {
         match self {
             Self::One(c) => Ok(LsvProcess::One(c.pricing_plan(grid)?)),
             Self::Two(c) => Ok(LsvProcess::Two(c.pricing_plan(grid)?)),
+        }
+    }
+}
+impl CalibrationReverse for LsvCalibration {
+    type Adjoints = Vec<f64>;
+    type Error = LsvError;
+    fn validate_calibration_reverse(&self) -> Result<(), LsvError> {
+        match self {
+            Self::One(c) => c.validate_calibration_reverse(),
+            Self::Two(c) => c.validate_calibration_reverse(),
+        }
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+        match self {
+            Self::One(c) => c.calibration_pullback(seeds),
+            Self::Two(c) => c.calibration_pullback(seeds),
         }
     }
 }
@@ -115,8 +127,8 @@ impl LsvPath {
     }
     pub fn reverse_leverage(&self, seeds: &[f64]) -> Result<Box<[f64]>, LsvError> {
         match self {
-            Self::One(p) => Ok(p.reverse(seeds)?.squared_leverage),
-            Self::Two(p) => Ok(p.reverse(seeds)?.squared_leverage),
+            Self::One(p) => Ok(p.path_pullback(seeds)?.squared_leverage),
+            Self::Two(p) => Ok(p.path_pullback(seeds)?.squared_leverage),
         }
     }
 }

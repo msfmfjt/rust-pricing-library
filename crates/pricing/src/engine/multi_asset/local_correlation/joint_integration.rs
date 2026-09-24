@@ -24,42 +24,26 @@ impl MultiAssetPricingPlan {
                     .iter()
                     .enumerate()
                     .map(|(row, s)| HybridState {
-                        normalized_equity: s[i],
+                        normalized_equity: s[i] * spot,
                         volatility_factor: j.log_multiplier(i, row, &path.states),
                         rate_factor: s[r],
                         integrated_rate_factor: s[r + 1],
                     })
                     .collect();
-                let physical_states: Vec<_> = states
-                    .iter()
-                    .map(|s| HybridState {
-                        normalized_equity: s.normalized_equity * spot,
-                        ..*s
-                    })
-                    .collect();
-                let affine = hw.affine.record(&physical_states).map_err(E::numerical)?;
+                let (spots, pre_spots, spot_derivatives, pre_spot_derivatives) =
+                    hw.observations(&states)?;
                 Ok(AssetPath {
-                    spots: affine.spots.iter().map(|(s, _)| *s).collect(),
-                    pre_spots: affine.spots.iter().map(|(s, p)| p.unwrap_or(*s)).collect(),
-                    spot_derivatives: states
-                        .iter()
-                        .enumerate()
-                        .map(|(k, s)| hw.affine.scale(k, false) * s.normalized_equity)
-                        .collect(),
-                    pre_spot_derivatives: states
-                        .iter()
-                        .enumerate()
-                        .map(|(k, s)| hw.affine.scale(k, true) * s.normalized_equity)
-                        .collect(),
+                    spots,
+                    pre_spots,
+                    spot_derivatives,
+                    pre_spot_derivatives,
                     bs_vega: Vec::new(),
                     local: None,
                     lsv: None,
                     local_correlation: Some(Arc::clone(&path)),
                     hw: Some(HwAssetPath {
                         states,
-                        physical_states,
                         equity_increments: Vec::new(),
-                        affine,
                     }),
                 })
             })
@@ -100,21 +84,17 @@ impl MultiAssetPricingPlan {
         for (i, (a, p)) in self.assets.iter().zip(paths).enumerate() {
             let hw = a.hw.as_ref().unwrap();
             let path = p.hw.as_ref().unwrap();
-            let adj = hw
-                .affine
-                .reverse(&path.affine, &path.physical_states, &physical[i], 1.0)
-                .map_err(E::numerical)?;
-            for (seed, bar) in seeds[i].iter_mut().zip(&adj.equity) {
-                *seed += a.forward.spot().get() * bar;
+            let (offset, count) = layout.vega[i];
+            let parameters = &mut output[offset..offset + count];
+            let (equity, rate) = hw.observation_reverse(&path.states, &physical[i], parameters)?;
+            let spot = a.forward.spot().get();
+            for (row, (&bar, &rbar)) in equity.iter().zip(&rate).enumerate() {
+                seeds[i][row] += spot * bar;
+                seeds[r][row] += rbar;
+                parameters[hw.volatility_parameter_count()] +=
+                    bar * path.states[row].normalized_equity / spot;
             }
-            for (seed, bar) in seeds[r + 1].iter_mut().zip(&adj.integrated_rate) {
-                *seed += bar;
-            }
-            for (k, v) in adj.discount_log_df.iter().enumerate() {
-                output[doff + k] += v;
-            }
-            let (offset, count) = layout.dividends[i];
-            output[offset..offset + count].copy_from_slice(&adj.dividend_log_df);
+            output[1 + i] = 0.0;
         }
         let hw = self.hull_white.as_ref().unwrap();
         let states = &paths[0].hw.as_ref().unwrap().states;
@@ -125,7 +105,7 @@ impl MultiAssetPricingPlan {
             )?[0];
             let pv = value * hw.discount(c, states)?;
             seeds[r + 1][c.observation_node] -= pv;
-            seeds[r][c.observation_node] -= c.rate_loading * pv;
+            seeds[r][c.observation_node] -= c.rate_discount.loading.duration() * pv;
             transpose_log_curve(
                 self.assets[0].forward.discount_curve(),
                 c.payment_time,
@@ -137,7 +117,9 @@ impl MultiAssetPricingPlan {
         let (direct, mixing) =
             cal.reverse_joint_path(paths[0].local_correlation.as_ref().unwrap(), &seeds)?;
         for (v, &(o, n)) in direct.iter().zip(&layout.vega) {
-            output[o..o + n].copy_from_slice(v);
+            for (a, b) in output[o..o + n].iter_mut().zip(v) {
+                *a += b;
+            }
         }
         let (o, n) = layout.local_correlation;
         output[o..o + n].copy_from_slice(&mixing);

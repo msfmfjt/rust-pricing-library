@@ -12,12 +12,12 @@ use crate::market::{
 };
 
 use crate::models::hull_white::hw_valid;
+use crate::models::rates::{CenteredRateState, GaussianRateStep, RateEvolution, RateInnovations};
 
 use crate::models::hull_white_dividends::HullWhiteDividendPlan;
 
 use crate::models::{
-    Bergomi1Factor, HullWhite1Factor, HullWhiteError, HullWhiteHybridTransition, HybridCorrelation,
-    RoughBergomi,
+    Bergomi1Factor, HullWhite1Factor, HullWhiteError, HybridCorrelation, RoughBergomi,
 };
 
 use pricing_numerics::{NeumaierSum, standard_normal_pdf};
@@ -127,10 +127,10 @@ impl HybridState {
 
 #[derive(Clone, Debug)]
 pub(in crate::engine) struct Kernel {
-    pub(in crate::engine) transition: HullWhiteHybridTransition,
+    pub(in crate::engine) rate: GaussianRateStep,
+    vol_decay: f64,
     pub(in crate::engine) loading: [[f64; 4]; 4],
     pub(in crate::engine) dt: f64,
-    pub(in crate::engine) integrated_shift: f64,
 }
 
 impl Kernel {
@@ -144,9 +144,13 @@ impl Kernel {
         let transition = rates.transition(start, end, k, corr)?;
         Ok(Self {
             loading: covariance_loading(transition.covariance)?,
-            transition,
+            rate: GaussianRateStep::new(
+                transition.rate_decay,
+                transition.integral_loading,
+                rates.integrated_shift(start, end)?,
+            ),
+            vol_decay: transition.vol_decay,
             dt: end - start,
-            integrated_shift: rates.integrated_shift(start, end)?,
         })
     }
     pub(in crate::engine) fn advance(
@@ -176,15 +180,24 @@ impl Kernel {
         step: usize,
     ) -> Result<HybridState, HullWhiteMcError> {
         let variance = leverage_squared * (2.0 * nu * state.volatility_factor).exp();
-        let integral = self.transition.integral_loading * state.rate_factor + noise[3];
+        let rate = self.rate.advance(
+            CenteredRateState {
+                factor: state.rate_factor,
+                integral: state.integrated_rate_factor,
+            },
+            RateInnovations {
+                factor: noise[2],
+                integral: noise[3],
+            },
+        );
         let next = HybridState {
             normalized_equity: state.normalized_equity
-                * (integral + self.integrated_shift - 0.5 * variance * self.dt
+                * (rate.step_integral + rate.integrated_shift - 0.5 * variance * self.dt
                     + variance.sqrt() * noise[0])
                     .exp(),
-            volatility_factor: self.transition.vol_decay * state.volatility_factor + noise[1],
-            rate_factor: self.transition.rate_decay * state.rate_factor + noise[2],
-            integrated_rate_factor: state.integrated_rate_factor + integral,
+            volatility_factor: self.vol_decay * state.volatility_factor + noise[1],
+            rate_factor: rate.state.factor,
+            integrated_rate_factor: rate.state.integral,
         };
         if !variance.is_finite()
             || !next.normalized_equity.is_finite()
@@ -240,6 +253,16 @@ pub(in crate::engine) fn covariance_loading<const N: usize>(
 #[derive(Clone, Debug)]
 pub enum HybridEquityVolatility {
     BlackScholes(f64),
+    /// Pure SV with flat initial forward variance and normalized OU variance.
+    Bergomi {
+        factor: Bergomi1Factor,
+        initial_volatility: f64,
+    },
+    Bergomi2Factor {
+        factor: crate::models::Bergomi2Factor,
+        second_vol_rate_correlation: f64,
+        initial_volatility: f64,
+    },
     RoughBergomi {
         factor: RoughBergomi,
         initial_volatility: f64,
@@ -260,6 +283,22 @@ pub enum HybridEquityVolatility {
 }
 
 impl HybridEquityVolatility {
+    /// Driver selection is independent of whether leverage was calibrated.
+    pub(in crate::engine) fn factor(&self) -> Option<HybridVolatilityFactor> {
+        match self {
+            Self::Bergomi { factor, .. } => Some((*factor).into()),
+            Self::Bergomi2Factor {
+                factor,
+                second_vol_rate_correlation,
+                ..
+            } => Some(HybridVolatilityFactor::BergomiTwoFactor {
+                factor: *factor,
+                second_vol_rate_correlation: *second_vol_rate_correlation,
+            }),
+            Self::RoughBergomi { factor, .. } => Some((*factor).into()),
+            _ => self.lsv().map(|(factor, _)| factor),
+        }
+    }
     pub(in crate::engine) fn lsv(&self) -> Option<(HybridVolatilityFactor, &LsvLeverageSurface)> {
         match self {
             Self::Bergomi2FactorLsv {
@@ -289,6 +328,14 @@ impl HybridEquityVolatility {
     pub(in crate::engine) fn direct_volatility(&self) -> Option<f64> {
         match self {
             Self::BlackScholes(v)
+            | Self::Bergomi {
+                initial_volatility: v,
+                ..
+            }
+            | Self::Bergomi2Factor {
+                initial_volatility: v,
+                ..
+            }
             | Self::RoughBergomi {
                 initial_volatility: v,
                 ..
@@ -297,10 +344,48 @@ impl HybridEquityVolatility {
         }
     }
     pub(in crate::engine) fn log_vol_coefficient(&self) -> f64 {
-        self.lsv().map_or_else(
-            || self.rough().map_or(0.0, |v| 0.5 * v.vol_of_vol()),
-            |(v, _)| v.vol_of_vol(),
-        )
+        self.factor()
+            .map_or(0.0, HybridVolatilityFactor::vol_of_vol)
+    }
+    /// Center X by nu*Var[X], so exp(2*nu*X_centered) has mean one.
+    /// LSV retains its historical uncentered multiplier; rough centers its
+    /// finite-grid Volterra history in the existing driver.
+    fn ou_centering(&self, times: &[f64]) -> Result<Box<[f64]>, HullWhiteMcError> {
+        if !matches!(self, Self::Bergomi { .. } | Self::Bergomi2Factor { .. }) {
+            return Ok(Box::new([]));
+        }
+        times
+            .iter()
+            .enumerate()
+            .map(|(i, &t)| {
+                let variance = if t == 0.0 {
+                    0.0
+                } else {
+                    match self {
+                        Self::Bergomi { factor, .. } => {
+                            factor.transition(t).map_err(LsvError::from)?.variance
+                        }
+                        Self::Bergomi2Factor { factor, .. } => {
+                            let transition = factor.transition(t).map_err(LsvError::from)?;
+                            let w = factor.normalized_weights();
+                            // Sum squared loadings avoids cancellation near singular
+                            // negative factor correlation and equal mixing weights.
+                            (0..3)
+                                .map(|j| {
+                                    (w[0] * transition.lower[1][j] + w[1] * transition.lower[2][j])
+                                        .powi(2)
+                                })
+                                .sum()
+                        }
+                        _ => unreachable!(),
+                    }
+                };
+                let shift = self.log_vol_coefficient() * variance;
+                hw_valid(shift, "pure_bergomi_centering", i, true)?;
+                Ok(shift)
+            })
+            .collect::<Result<Vec<_>, HullWhiteMcError>>()
+            .map(Vec::into_boxed_slice)
     }
 }
 
@@ -314,6 +399,8 @@ pub struct HullWhiteEquityPlan {
     pub(in crate::engine) dividends: Option<HullWhiteDividendPlan>,
     pub(in crate::engine) rough_driver: Option<RoughBergomiDriverPlan>,
     pub(in crate::engine) two_factor_driver: Option<Bergomi2FactorHullWhiteDriverPlan>,
+    /// Only pure Markovian SV uses this shift; legacy paths keep their arithmetic.
+    ou_centering: Box<[f64]>,
 }
 
 impl HullWhiteEquityPlan {
@@ -326,15 +413,12 @@ impl HullWhiteEquityPlan {
         if let Some(sigma) = volatility.direct_volatility() {
             hw_valid(sigma, "equity_volatility", 0, true)?;
         }
-        if let Some(factor) = volatility.rough()
+        if let Some(factor) = volatility.factor()
             && factor.correlation() != correlation.equity_vol
         {
             return Err(invalid("equity_vol_correlation_mismatch", 0));
         }
-        let k = if let Some((factor, leverage)) = volatility.lsv() {
-            if factor.correlation() != correlation.equity_vol {
-                return Err(invalid("equity_vol_correlation_mismatch", 0));
-            }
+        if let Some((_, leverage)) = volatility.lsv() {
             let end = grid.nodes()[grid.nodes().len() - 1];
             if end > leverage.times()[leverage.times().len() - 1] {
                 return Err(invalid("leverage_time_coverage", 0));
@@ -349,17 +433,17 @@ impl HullWhiteEquityPlan {
                     return Err(invalid("missing_leverage_knot", i));
                 }
             }
-            factor.mean_reversion()
-        } else {
-            0.0
-        };
+        }
+        let k = volatility
+            .factor()
+            .map_or(0.0, HybridVolatilityFactor::mean_reversion);
         let rough_driver = volatility
             .rough()
             .map(|factor| RoughBergomiDriverPlan::new(factor, &rates, correlation, grid))
             .transpose()?;
         let two_factor_driver = volatility
-            .lsv()
-            .map(|(f, _)| f.two_factor_driver(&rates, correlation, grid.nodes()))
+            .factor()
+            .map(|f| f.two_factor_driver(&rates, correlation, grid.nodes()))
             .transpose()?
             .flatten();
         let kernels = grid
@@ -367,6 +451,7 @@ impl HullWhiteEquityPlan {
             .windows(2)
             .map(|w| Kernel::new(&rates, k, correlation, w[0], w[1]))
             .collect::<Result<Vec<_>, _>>()?;
+        let ou_centering = volatility.ou_centering(grid.nodes())?;
         Ok(Self {
             rates,
             volatility,
@@ -376,6 +461,7 @@ impl HullWhiteEquityPlan {
             dividends: None,
             rough_driver,
             two_factor_driver,
+            ou_centering,
         })
     }
     pub fn with_dividends(
@@ -417,6 +503,26 @@ impl HullWhiteEquityPlan {
     pub fn parameter_fingerprint_bytes(&self) -> Vec<u8> {
         let values = match &self.volatility {
             HybridEquityVolatility::BlackScholes(sigma) => vec![0.0, *sigma],
+            HybridEquityVolatility::Bergomi {
+                factor,
+                initial_volatility,
+            } => vec![
+                5.0,
+                factor.mean_reversion(),
+                factor.vol_of_vol(),
+                factor.correlation(),
+                *initial_volatility,
+            ],
+            HybridEquityVolatility::Bergomi2Factor {
+                factor,
+                second_vol_rate_correlation,
+                initial_volatility,
+            } => {
+                use crate::models::BergomiDynamics;
+                let mut values = vec![6.0, *second_vol_rate_correlation, *initial_volatility];
+                values.extend(factor.parameters());
+                values
+            }
             HybridEquityVolatility::RoughBergomi {
                 factor,
                 initial_volatility,
@@ -508,7 +614,9 @@ impl HullWhiteEquityPlan {
                 [noise[0], noise[1], noise[2], noise[3]],
                 i,
             )?;
-            if let HybridEquityVolatility::Bergomi2FactorLsv { factor, .. } = self.volatility {
+            if let Some(HybridVolatilityFactor::BergomiTwoFactor { factor, .. }) =
+                self.volatility.factor()
+            {
                 let k = factor.mean_reversions();
                 x[0] = (-k[0] * kernel.dt).exp() * x[0] + noise[1];
                 x[1] = (-k[1] * kernel.dt).exp() * x[1] + noise[4];
@@ -521,6 +629,7 @@ impl HullWhiteEquityPlan {
                     false,
                 )?;
             }
+            self.center_ou_state(&mut state, i)?;
             if let Some(values) = &rough {
                 state.volatility_factor = values[i + 1];
             }
@@ -559,8 +668,18 @@ impl HullWhiteEquityPlan {
         self.is_rough() && self.volatility.direct_volatility().is_some()
     }
     #[must_use]
+    pub fn is_direct_stochastic_volatility(&self) -> bool {
+        self.volatility.factor().is_some() && self.volatility.direct_volatility().is_some()
+    }
+    #[must_use]
     pub fn scheme(&self) -> &'static str {
-        if self.two_factor_driver.is_some() {
+        if !self.ou_centering.is_empty() {
+            if self.two_factor_driver.is_some() {
+                "bergomi-two-factor-pure-hw-normalized-log-euler-v1"
+            } else {
+                "bergomi-one-factor-pure-hw-normalized-log-euler-v1"
+            }
+        } else if self.two_factor_driver.is_some() {
             BERGOMI_TWO_FACTOR_HW_SCHEME
         } else if self.is_rough() {
             ROUGH_BERGOMI_SCHEME
@@ -628,9 +747,33 @@ impl HullWhiteEquityPlan {
             if let Some(values) = &factor_values {
                 state.volatility_factor = values[i + 1];
             }
+            self.center_ou_state(&mut state, i)?;
             states.push(state);
         }
         Ok(states)
+    }
+    fn center_ou_state(
+        &self,
+        state: &mut HybridState,
+        step: usize,
+    ) -> Result<(), HullWhiteMcError> {
+        if !self.ou_centering.is_empty() {
+            // The 2F driver supplies a fresh raw weighted state. The 1F kernel
+            // advanced the already centered previous state by its OU decay.
+            let carried_shift = if self.two_factor_driver.is_some() {
+                0.0
+            } else {
+                self.kernels[step].vol_decay * self.ou_centering[step]
+            };
+            state.volatility_factor -= self.ou_centering[step + 1] - carried_shift;
+            hw_valid(
+                state.volatility_factor,
+                "pure_bergomi_centered_state",
+                step + 1,
+                false,
+            )?;
+        }
+        Ok(())
     }
 }
 

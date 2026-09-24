@@ -1,10 +1,10 @@
 # Hull–White cash-dividend calculation specifications
 
-Date: 2026-09-13. Status: experimental price and coordinate contracts.
+Date: 2026-09-20. Status: experimental price and coordinate contracts.
 Base: [HW contracts](hull-white-calculation-specifications.md), PR #48.
 First-order risk is specified separately in the [AAD contracts](hull-white-aad.md).
 
-## Explicit model and API
+## Default model and API
 
 Fixed cash amounts are known in advance and paid at their ex-times. At event i,
 `S_i+ = (1-beta_i)*S_i- - D_i`. The existing request's `DividendEvent` types
@@ -12,19 +12,17 @@ represent fixed cash, proportional, or mixed payouts. The entire supplied
 schedule matters, including cash payments after option expiry. Amount uncertainty
 and a separate dividend payment date are not modeled here.
 
-Use Rust `HullWhiteEquityPricingPlan::compile_bs_with_cash_dividends` or
-`compile_lsv_with_cash_dividends`. In Python, keep the existing compiler and add
-`cash_dividend_model="escrowed"`. `None` retains the previous behavior and its
-cash-dividend rejection. Plan and price metadata identify
-`escrowed-hw-bonds-v1`; `plan.risky_spot` reports the initial residual equity.
-The [Python example](../../examples/python/hull_white_lsv.py) covers this mode.
+All Rust/Python default compilers use escrowed dividends, including single-asset,
+multi-asset and local-correlation plans. Rust `*_with_cash_dividends` and Python
+`cash_dividend_model="escrowed"` remain compatibility aliases; `None` has the
+same behavior. Plan and price metadata identify `escrowed-hw-bonds-v1` and
+`plan.risky_spot` reports initial residual equity.
 
-This choice is a model change, not a deterministic spot/strike adjustment. In
-BS mode the supplied volatility applies to the residual equity. In LSV mode the
-input smile describes the continuous deterministic escrow coordinate defined
-below. Neither interpretation is an unadjusted Black implied volatility on
-physical Spot. Existing deterministic dividend, LV and LSV entry points are
-unchanged. The stable JSON stores the payout schedule but not this compile flag.
+BS volatility applies to residual equity; LSV targets describe the deterministic
+escrow quote coordinate below. Deterministic-rate simulations use the same
+funding convention. IV inputs must be expressed in the escrow quote coordinate.
+Request schemas keep the payout schedule; the removed simulation selector is
+not serialized.
 
 ## Reserve and physical Spot
 
@@ -94,8 +92,8 @@ The paired input grid describes normalized calls
 target density is `p_log=K*p_F^T`. To use market options at physical strike K_S,
 convert to `K_F=(K_S-A0(t))/c(t)` and divide the discounted call price by c(t).
 Construct a consistent smooth target in that coordinate. Simply feeding a
-spot-IV eSSVI surface unchanged is not that conversion. Quote conversion and
-fitting across ex-dates remain the caller's responsibility; the target
+spot-IV eSSVI surface unchanged is not that conversion. Quote preparation and
+subsequent interpolation/fitting are the caller's responsibility; the target
 constructor's no-repair policy still applies.
 
 Discounted Ito/Tanaka for the F call has rate drift
@@ -134,9 +132,11 @@ now describe F; its discounted mean is S0 because `E[Dbar*y]=0`.
 
 ## Domain, grid and uncertainty
 
-- All in-horizon dividend ex-times must be on the grid. BS compilation inserts
-  them. LSV requires the paired target grid to contain them exactly, including
+- All in-horizon fixed-cash ex-times must be on the grid. BS compilation inserts
+  dividend times. LSV requires the paired target grid to contain cash times exactly, including
   zero/expiry collisions; no interpolation of the initial singular density.
+  Pure proportional jumps cancel from F, zeta and h and need no extra
+  calibration node unless a payoff observation requires it.
   The existing request compiler requires the effective variance grid to end
   exactly at product expiry, even when its dividend schedule extends beyond it.
 - F must be strictly positive for the log-coordinate LSV scheme. Although S
@@ -144,7 +144,7 @@ now describe F; its discounted mean is S0 because `E[Dbar*y]=0`.
   F nonpositive. Such a calibration/pricing path errors; it is never clamped.
 - U0 and scale must be positive and all reserve coefficients representable.
   The existing request/payoff compiler's positive-forward validation also applies;
-  this opt-in does not relax those pre-existing gates.
+  escrowed simulation does not relax those gates.
 - A dividend reserve plan must use the same HW parameters, initial Spot and
   time grid as the evolution/calibration plan. Mismatches are rejected.
 - Pricing and calibration use the same reconstructed F to query leverage, but
@@ -154,16 +154,17 @@ now describe F; its discounted mean is S0 because `E[Dbar*y]=0`.
 - Pricing SE excludes calibration noise, kernel bias and log-Euler time bias.
   The explicit AAD extension includes initial-curve DV01 and paired target
   sensitivities. [Quote-node VegaKT](hull-white-vegakt.md) is available for
-  converted escrow F IV inputs. Physical quote conversion adjoints, Gamma and
-  dividend-amount risk remain unsupported.
+  escrow F IV inputs. This single-asset HW API does not return Gamma or
+  dividend-amount risk; the multi-asset API
+  supports recalibrated central-Delta Gamma.
 
 ## References
 
 - Buehler, [Volatility Modelling with Cash Dividends and Simple Credit Risk](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1141877),
   equity decomposition with a future-dividend reserve. Credit/default modeling
   from that work is outside this implementation.
-- Henry-Labordère, [Equity modelling with local stochastic volatility and
-  stochastic dividends](https://www.risk.net/media/download/991346/download),
+- Henry-Labordère and Guennoun (2018), [Equity modelling with local stochastic volatility and
+  stochastic discrete dividends](https://www.risk.net/media/download/991346/download),
   particle calibration with an additional dividend diffusion and a quadratic
   leverage equation. That article uses deterministic rates and stochastic
   dividend amounts; here amounts are fixed and their HW bond values fluctuate.

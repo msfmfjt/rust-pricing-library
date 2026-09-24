@@ -10,6 +10,8 @@ pub mod lsv;
 mod monte_carlo;
 pub mod multi_asset;
 mod plan;
+pub mod stochastic_dividends;
+pub mod stochastic_volatility;
 mod wire;
 
 #[doc(hidden)]

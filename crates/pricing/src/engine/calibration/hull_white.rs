@@ -8,6 +8,7 @@ use crate::mc::lsv::{LsvError, LsvLeverageSurface, LsvParticleConfig};
 use crate::mc::{Philox4x32, RandomCoordinate, RandomDomain};
 use crate::models::hull_white::hw_valid;
 use crate::models::hull_white_dividends::HullWhiteDividendPlan;
+use crate::models::rates::{GaussianDiscount, RateDiscount};
 use crate::models::{Bergomi1Factor, HullWhite1Factor, HybridCorrelation, RoughBergomi};
 use pricing_numerics::NeumaierSum;
 
@@ -179,12 +180,12 @@ pub fn calibrate_hybrid_lsv_with_dividends(
     let mut trace = config.retain_reverse_trace().then(Vec::new);
     for (r, &t) in times.iter().enumerate() {
         let shift = rates.rate_shift(t)?;
-        let half_v = 0.5 * rates.integrated_variance(t)?;
+        let rate_discount = GaussianDiscount::new(rates.integrated_variance(t)?);
         let mut sorted = states
             .iter()
             .map(|s| {
                 let (f, rate_loading) = target_state(dividends, r, *s)?;
-                let weight = (-s.integrated_rate_factor - half_v).exp();
+                let weight = rate_discount.relative_discount(s.integrated_rate_factor);
                 let a2 = (2.0 * factor.vol_of_vol() * s.volatility_factor).exp();
                 let ratio = s.normalized_equity / f;
                 let rate_ratio = rate_loading / f;

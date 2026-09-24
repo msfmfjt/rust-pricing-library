@@ -2,6 +2,7 @@
 
 use crate::market::{DiscountCurve, EquityForward, LogLinearDiscountCurve};
 use crate::models::hull_white::{b, hw_valid};
+use crate::models::rates::BondStateLoading;
 use crate::models::{HullWhite1Factor, HullWhiteError};
 
 pub const HULL_WHITE_CASH_DIVIDEND_MODEL: &str = "escrowed-hw-bonds-v1";
@@ -10,7 +11,7 @@ pub const HULL_WHITE_CASH_DIVIDEND_MODEL: &str = "escrowed-hw-bonds-v1";
 struct BondTerm {
     amount: f64,
     deterministic_amount: f64,
-    duration: f64,
+    loading: BondStateLoading,
     maturity: f64,
 }
 
@@ -43,6 +44,27 @@ pub struct HullWhiteDividendNode {
     event: Option<(f64, f64)>,
 }
 impl HullWhiteDividendNode {
+    pub(crate) fn coefficient_count(&self) -> usize {
+        2 + self.bonds.len()
+    }
+    /// Derivative of the reserve with respect to the centered short-rate state.
+    pub(crate) fn reserve_rate_derivative(&self, x: f64) -> f64 {
+        self.bonds
+            .iter()
+            .map(|b| b.loading.rate_derivative(b.amount, x))
+            .sum()
+    }
+    pub(crate) fn reserve_loading_rate_derivative(&self, x: f64) -> f64 {
+        self.rate_volatility
+            * self
+                .bonds
+                .iter()
+                .map(|b| b.loading.rate_second_derivative(b.amount, x))
+                .sum::<f64>()
+    }
+    pub(crate) fn pre_scale(&self) -> f64 {
+        self.scale / self.event.map_or(1.0, |(_, beta)| 1.0 - beta)
+    }
     #[must_use]
     pub fn zero_adjoints(&self) -> HullWhiteDividendNodeAdjoints {
         HullWhiteDividendNodeAdjoints {
@@ -62,8 +84,8 @@ impl HullWhiteDividendNode {
             return Err(invalid("dividend_adjoint_shape"));
         }
         for (term, bar) in self.bonds.iter().zip(&mut out.bond_amounts) {
-            *bar += (-term.duration * x).exp()
-                * (amount_bar - self.rate_volatility * term.duration * loading_bar);
+            *bar += term.loading.multiplier(x)
+                * (amount_bar - self.rate_volatility * term.loading.duration() * loading_bar);
         }
         Ok(())
     }
@@ -119,9 +141,9 @@ impl HullWhiteDividendNode {
         hw_valid(rate_factor, "dividend_rate_factor", 0, false)?;
         let (mut amount, mut duration_amount) = (0.0, 0.0);
         for term in &self.bonds {
-            let v = term.amount * (-term.duration * rate_factor).exp();
+            let v = term.amount * term.loading.multiplier(rate_factor);
             amount += v;
-            duration_amount += term.duration * v;
+            duration_amount += term.loading.duration() * v;
         }
         let loading = -self.rate_volatility * duration_amount;
         hw_valid(amount, "dividend_reserve", 0, true)?;
@@ -175,7 +197,12 @@ impl HullWhiteDividendPlan {
         }
         let events = market.discrete_dividends().map_or(&[][..], |d| d.events());
         let horizon = times[times.len() - 1];
-        for e in events.iter().filter(|e| e.ex_time() <= horizon) {
+        // Pure proportional jumps cancel from F, zeta and h. They need no
+        // calibration node unless a contractual observation requires one.
+        for e in events
+            .iter()
+            .filter(|e| e.ex_time() <= horizon && e.fixed_cash() != 0.0)
+        {
             if !times.contains(&e.ex_time()) {
                 return Err(invalid("missing_dividend_time"));
             }
@@ -217,7 +244,7 @@ impl HullWhiteDividendPlan {
                 bonds.push(BondTerm {
                     amount: det * rates.relative_bond(t, e.ex_time(), 0.0)?,
                     deterministic_amount: det,
-                    duration: b(rates.mean_reversion(), e.ex_time() - t),
+                    loading: BondStateLoading::new(b(rates.mean_reversion(), e.ex_time() - t)),
                     maturity: e.ex_time(),
                 });
             }
@@ -339,7 +366,7 @@ impl HullWhiteDividendPlan {
             }
             bytes.extend_from_slice(&(n.bonds.len() as u64).to_be_bytes());
             for term in &n.bonds {
-                for v in [term.amount, term.duration] {
+                for v in [term.amount, term.loading.duration()] {
                     bytes.extend_from_slice(&v.to_bits().to_be_bytes());
                 }
             }

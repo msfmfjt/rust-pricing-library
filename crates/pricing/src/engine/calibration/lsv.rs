@@ -7,13 +7,16 @@
 //! of calibration particles. Reverse differentiation includes the conditional
 //! expectation estimator, rather than freezing it under a Dupire variance bump.
 
+use super::capabilities::CalibrationReverse;
 use crate::engine::processes::lsv::*;
 use crate::engine::processes::rough_lsv::{ROUGH_RANDOM_BLOCKS, RoughBergomiLsvPlan, RoughKernel};
 use crate::market::LocalVarianceGrid;
 use crate::mc::{
     DeterministicExecutor, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain,
 };
-use crate::models::{Bergomi1Factor, BergomiDynamics, RoughBergomi};
+use crate::models::{
+    Bergomi1Factor, BergomiDynamics, HistoryInnovations, OrthogonalNormals, RoughBergomi,
+};
 use pricing_numerics::NeumaierSum;
 use rayon::prelude::*;
 
@@ -98,21 +101,19 @@ impl<F: BergomiDynamics> ParticleDriver for MarkovDriver<F> {
         r: usize,
         z: f64,
     ) -> Result<F::State, LsvError> {
-        let z2 = self.rng.standard_normal(RandomCoordinate::new(
-            i as u64,
-            (self.nstep + r) as u32,
-            RandomDomain::LsvCalibration,
-        ));
-        let z3 = if F::FACTOR_COUNT == 2 {
+        let orthogonal = F::coordinates(|factor| {
             self.rng.standard_normal(RandomCoordinate::new(
                 i as u64,
-                (2 * self.nstep + r) as u32,
+                ((factor + 1) * self.nstep + r) as u32,
                 RandomDomain::LsvCalibration,
             ))
-        } else {
-            0.0
-        };
-        let next = self.factor.evolve(step, state, z, [z2, z3]);
+        });
+        let next = self.factor.evolve_normals(
+            step,
+            state,
+            z,
+            OrthogonalNormals::new(orthogonal.as_ref(), 1),
+        );
         if !F::finite(next) {
             return Err(LsvError::NonFiniteState {
                 time_index: r + 1,
@@ -270,7 +271,13 @@ fn calibrate_rough(
             near.push(q);
         }
         let mut log_multipliers = Vec::with_capacity(nt);
-        kernel.log_multipliers(&dw, &near, &mut log_multipliers)?;
+        kernel.prepare_history(
+            HistoryInnovations {
+                increments: &dw,
+                near_cell: &near,
+            },
+            &mut log_multipliers,
+        )?;
         for (a, m) in out.iter_mut().zip(log_multipliers) {
             *a = (0.5 * m).exp();
         }
@@ -648,7 +655,35 @@ impl CalibratedRoughBergomiLsv {
     }
 }
 
+impl<F: BergomiDynamics> CalibrationReverse for CalibratedBergomiLsv<F> {
+    type Adjoints = Vec<f64>;
+    type Error = LsvError;
+    fn validate_calibration_reverse(&self) -> Result<(), LsvError> {
+        self.core.validate_reverse()
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.reverse_leverage(seeds)
+    }
+}
+
+impl CalibrationReverse for CalibratedRoughBergomiLsv {
+    type Adjoints = Vec<f64>;
+    type Error = LsvError;
+    fn validate_calibration_reverse(&self) -> Result<(), LsvError> {
+        self.core.validate_reverse()
+    }
+    fn calibration_pullback(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+        self.reverse_leverage(seeds)
+    }
+}
+
 impl Calibration {
+    fn validate_reverse(&self) -> Result<(), LsvError> {
+        self.trace
+            .as_ref()
+            .map(|_| ())
+            .ok_or(LsvError::ReverseTraceNotRetained)
+    }
     fn reverse(&self, leverage_adjoints: &[f64], trivial: bool) -> Result<Vec<f64>, LsvError> {
         length(
             "leverage_adjoints",

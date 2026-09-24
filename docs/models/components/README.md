@@ -11,6 +11,7 @@ Published sources are collected in the [bibliography](../../references.md).
 | Black–Scholes and Black-76 | [European diagnostics](../european-bs-diagnostics.md) | [European Black–Scholes](../../../examples/python/european_bs.py) |
 | Local Volatility and Dupire | [Local Volatility calculation specifications](../local-vol-vegakt-calculation-specifications.md) | [Local Volatility](../../../examples/python/local_vol_vegakt.py) |
 | Local-stochastic volatility | [LSV calculation specifications](../lsv-calculation-specifications.md) | [Bergomi LSV](../../../examples/python/bergomi_lsv.py) |
+| Pure stochastic volatility | [1F/2F/rough Bergomi](../pure-stochastic-volatility.md) | [Pure Bergomi](../../../examples/python/pure_bergomi.py) |
 | Bergomi volatility factors | [Two-factor factor contracts](../bergomi-two-factor-lsv.md) | [Two-factor Bergomi](../../../examples/python/multi_asset_bergomi_two_factor.py) |
 | Rough Bergomi volatility | [Rough Bergomi contracts](../rough-bergomi.md) | [Rough Bergomi](../../../examples/python/rough_bergomi.py) |
 
@@ -19,7 +20,8 @@ Published sources are collected in the [bibliography](../../references.md).
 | Component | Detailed reference | Example |
 | --- | --- | --- |
 | Hull–White short rate | [Hull–White calculation specifications](../hull-white-calculation-specifications.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
-| Cash-dividend coordinates | [Paid-cash dividends](../hull-white-affine-dividends.md), [escrowed cash dividends](../hull-white-cash-dividends.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
+| Cash-dividend coordinates | [Escrowed reserves and calibration coordinates](../hull-white-cash-dividends.md) | [Hull–White LSV](../../../examples/python/hull_white_lsv.py) |
+| Stochastic cash dividends | [Buehler factor and deterministic-rate pricing](../stochastic-dividends.md) | [Stochastic dividends](../../../examples/python/stochastic_dividends.py) |
 
 ## Surfaces and calibration targets
 

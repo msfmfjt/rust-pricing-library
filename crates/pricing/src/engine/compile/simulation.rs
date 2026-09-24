@@ -365,26 +365,28 @@ impl SimulationPlan {
         {
             let mut hash = blake3::Hasher::new();
             hash.update(plan_fingerprint.as_bytes());
-            hash.update(b"affine-paid-cash-deterministic-carry-v2");
+            hash.update(b"escrowed-deterministic-reserve-v1");
             Fingerprint::from_bytes(*hash.finalize().as_bytes())
         } else {
             plan_fingerprint
         };
+        let residual_spot = spot
+            - market_forward
+                .discrete_dividends()
+                .map_or(0.0, |d| d.initial_reserve());
         if let Some(gamma) = request.risk().gamma() {
             let bump = resolve_spot_bump(gamma, spot);
-            if !bump.is_finite() || bump >= spot {
+            if !bump.is_finite() || bump >= residual_spot {
                 return Err(MonteCarloError::InvalidGammaBump {
                     spot_bits: spot.to_bits(),
                     bump_bits: bump.to_bits(),
                 });
             }
         }
-        let validation_spot_bump = request
-            .risk()
-            .gamma()
-            .map_or(spot * DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP, |gamma| {
-                resolve_spot_bump(gamma, spot)
-            });
+        let validation_spot_bump = request.risk().gamma().map_or(
+            (spot * DEFAULT_VALIDATION_RELATIVE_SPOT_BUMP).min(0.5 * residual_spot),
+            |gamma| resolve_spot_bump(gamma, spot),
+        );
         let validation_volatility_bump = if volatility == 0.0 {
             0.0
         } else {

@@ -1,5 +1,7 @@
 //! Shared multi-asset compiler, sampling, path evolution and risk execution.
 mod compile;
+mod composition;
+mod driver_layout;
 mod evaluate;
 mod hull_white;
 mod local_correlation;
@@ -26,6 +28,8 @@ pub use lsv::{
     MultiAssetRoughLsvConfig,
 };
 
+type MarketWeights = Vec<(usize, Vec<(usize, f64)>)>;
+
 #[derive(Clone, Debug)]
 pub struct MultiAssetPricingPlan {
     valuation_date: Date,
@@ -39,7 +43,9 @@ pub struct MultiAssetPricingPlan {
     bridge: Option<BrownianBridgePlan>,
     qmc: Option<RqmcPlan>,
     fingerprint: String,
+    market_weights: std::sync::Arc<std::sync::OnceLock<MarketWeights>>,
     lsv_drivers: Option<lsv::LsvDrivers>,
+    driver_layout: driver_layout::DriverLayout,
     hull_white: Option<hull_white::HwContext>,
     local_correlation: Option<std::sync::Arc<LocalCorrelationCalibration>>,
 }

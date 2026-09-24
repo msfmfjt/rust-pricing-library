@@ -223,17 +223,19 @@ including the two HW coordinates and rough near-cell auxiliaries. The
 endpoint 0. Use `local_correlation_calibration.driver_correlation_at(t,x)` for
 the effective full Brownian correlation; `correlation_at` returns its spot block.
 
-With centered rate X, initial instantaneous forward rate f_0, relative discount
-\(\bar D=D/P(0,t)\), and normalized equities U_i,
+With centered rate X and relative discount `Dbar=D/P0`, store each unit residual
+state `U_i=R_i/S0_i`. For calibration and lambda lookup use escrow quote states
+`F_i=U_i+(A_i-A0_i)/(scale_i*S0_i)`, with rate loading
+`z_i=vA_i/(scale_i*S0_i)` and deterministic shift
+`h_i=A0_i/(scale_i*S0_i)`. The basket is `B=sum w_i*F_i`, `H=sum w_i*h_i`.
 
-\[
-dU_i/U_i=(r-f_0)dt+\sigma_i dW_i,\quad B=\sum_i w_iU_i,
-\quad c_e=\frac{E[\bar D q_e\mid\log B=x]}{E[\bar D\mid\log B=x]},
-\]
-\[
-\lambda_{raw}=\frac{v_B-c_0-\mathcal R}{c_1-c_0},\qquad
-\mathcal R=\frac{2E[\bar D(r-f_0)1_{\log B>x}]}{p_{\log B}^{\,t}(x)}.
-\]
+Its equity loadings are `a_i=w_i*U_i*sigma_i`, rate loading `z=sum w_i*z_i`.
+At endpoint e, the relative instantaneous basket variance is
+`q_e=(sum_ij a_i*rho_e,ij*a_j + 2*z*sum_i a_i*rho_e,ir + z*z)/B^2`.
+The discounted conditional means are `c_e=E[Dbar*q_e|log B=x]/E[Dbar|log B=x]`.
+Mixing remains `lambda_raw=(v_B-c_0-rate_correction)/(c_1-c_0)`, with
+`rate_correction=2*(1+H/exp(x))*E[Dbar*(r-f0)*1(log B>x)]/p_logB(x)`.
+The no-reserve limit recovers the previous normalized-equity equations.
 
 The density is a **T-forward density of log B**, not a log of a density. It
 uses the existing `HullWhiteLsvTarget` convention. Rate tails are empirically
@@ -244,7 +246,8 @@ weights and ESS use `Dbar*K`. Cells with zero positive-time density under
 stochastic rates are unsupported. Fallback borrows both moments and the rate
 correction from the donor; the query retains its own variance target.
 `rate_corrections` exposes the contribution, and `attained_variances` includes
-it. Under HW, `particle_means` reports mean discounted normalized U_i.
+it. Under HW, `particle_means` reports mean discounted residual states U_i;
+leverage boundary counts and conditioning use the escrow F_i coordinates.
 
 Explicit paired targets must contain every common grid time. Targets built
 with `HullWhiteLsvTarget.from_market_iv` are regenerated from their retained
@@ -260,8 +263,8 @@ MC joint volatility/density/quote standard errors are absent.
 
 The reverse propagates lambda feedback through every spot, OU, rough history,
 rate state, integrated rate, discounted regression weight and centered rate
-tail. Physical cash dividends include the derivative of realized stochastic
-carry; payment lags include the conditional bond discount derivative. Tail
+tail. Physical cash dividends include the derivative of the bond reserve, residual
+funding and escrow quote maps; payment lags include the conditional bond discount derivative. Tail
 membership, support donors and active sets are held fixed. As for marginal
 HW particle calibration, this is the finite-program derivative away from tail
 indicator ties, not a smoothed density derivative of a moving indicator.

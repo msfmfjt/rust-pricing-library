@@ -1,7 +1,11 @@
 # Use paid-cash affine dividends by default with Hull–White
 
-Date: 2026-09-14. Status: implemented, experimental model contract.
+Date: 2026-09-14. Status: superseded by [ADR 0009](0009-escrowed-simulation-and-iv-conversion.md)
+and [ADR 0010](0010-remove-paid-cash.md).
 Baseline: main `244678f80f1f0c344d2d86b55ec8ceb874ce59e6`.
+
+This document records the historical model. Its simulation and IV quote APIs
+are no longer supported.
 
 ## Context and decision
 
@@ -46,8 +50,10 @@ forward, not the zero-rate-volatility limit of this model.
 
 ## Verification and limits
 
-See [the calculation and API specifications](../../docs/models/hull-white-affine-dividends.md) and
-`crates/pricing/tests/hull_white_affine.rs`. Test deterministic limits against an
+The original verification used the now-removed
+`crates/pricing/tests/hull_white_affine.rs`. Current behavior is specified in
+[the escrowed model reference](../../docs/models/hull-white-cash-dividends.md).
+The historical gates tested deterministic limits against an
 independent carried-cash forward and shifted-Black reference; check discounted
 gains pathwise, event collisions, missing cash dates, nonpositive paths, future
 payout exclusion, all curve-pillar AADs, recalibrated VegaKT and worker/RQMC replay.
