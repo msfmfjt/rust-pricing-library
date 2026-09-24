@@ -2,7 +2,9 @@
 //! capability is implied by compilation. First-order risk is requested explicitly.
 
 mod aad;
+mod gamma;
 pub use aad::StochasticDividendAadRisk;
+pub use gamma::StochasticDividendGammaRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;

@@ -172,6 +172,33 @@ impl ReverseContext {
         Ok(())
     }
 
+    /// Spot-only slice of the reverse: the normalized f/Y states and OU
+    /// innovations do not depend on S0. Match the full reverse's node order and
+    /// arithmetic, including both pre- and post-dividend payoff seeds.
+    pub fn spot_pullback(
+        &self,
+        states: &[BuehlerDividendState],
+        seeds: &[(f64, f64)],
+    ) -> Result<f64, StochasticDividendError> {
+        if states.len() != self.nodes.len() || seeds.len() != states.len() {
+            return Err(invalid("spot_reverse_shape"));
+        }
+        let mut out = 0.0;
+        for i in (0..states.len()).rev() {
+            let state = states[i];
+            let jac = &self.nodes[i];
+            let (post, pre) = seeds[i];
+            out += (post + pre)
+                * (state.equity * jac.equity[0]
+                    + state.dividend * jac.dividend[0]
+                    + jac.constant[0]);
+        }
+        if !out.is_finite() {
+            return Err(invalid("spot_reverse_result"));
+        }
+        Ok(out)
+    }
+
     pub fn pullback(
         &self,
         plan: &StochasticDividendPathPlan,

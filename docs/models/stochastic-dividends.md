@@ -329,3 +329,56 @@ See the [example](../../examples/python/stochastic_dividend_correlation_risk.py)
 Dates, simulation grid and payoff-smoothing width are held fixed. The reported
 standard errors cover sampling only, not timestep/model uncertainty. There is no
 new continuous-time convergence, HW/rough/LSV/multi-asset or VegaKT claim.
+
+## Gamma with common-noise AAD Delta bumps
+
+`evaluate_gamma(GammaConfig)` in Rust, or Python
+`evaluate_gamma(gamma_relative_bump=0.01)`, evaluates
+
+\[
+\Gamma_h = \frac{\Delta_{\mathrm{AAD}}(S_0+h)-\Delta_{\mathrm{AAD}}(S_0-h)}{2h}.
+\]
+
+Specify exactly one `gamma_absolute_bump` or `gamma_relative_bump` in Python.
+Relative bumps resolve against the initial physical Spot, not funded residual
+Spot. The result always includes the half/base/double ladder, in that order:
+`spot_bumps`, `gamma_estimates`, `gamma_standard_errors`. `gamma` and
+`standard_error` select the base bump. `delta_change_per_one_percent_spot` is
+`0.01 * S0 * Gamma_h`, a linearized Delta change, not Gamma price P&L.
+`bump_differences` and `bump_difference_standard_errors` report half-minus-base
+and base-minus-double estimates and their paired errors. No extrapolation or
+adaptive bump selection is performed.
+
+All bumps hold the cash-mean schedule, model parameters, correlations, curves,
+contract constants, grid and smoothing width fixed. Each shifted reserve is
+rebuilt, including the post-expiry funding. Normalized state paths can be reused
+because they do not depend on initial Spot in these BS/pure-Bergomi models.
+All six shifted Spots must be representable and leave positive funded residual
+Spot. Unsmoothed discontinuous payoffs reject before sampling; explicit smoothing
+returns Gamma of the smoothed payoff. Vanilla calls/puts may use bumped Delta.
+
+The `StochasticDividendGammaRisk` result includes the original price and Delta
+with their existing sampling errors, plus a separate `risk_fingerprint` that
+identifies the method and bump convention/ladder. `price.evaluated_paths` counts
+simulated state paths including antithetics; `payoff_evaluations` is seven times
+that count. No second reverse is implied by the method label
+`buehler-common-noise-aad-delta-gamma-v1`.
+
+Gamma SE is estimated from the paired Delta difference, not two independent
+Delta errors. MC uses independent antithetic units and RQMC uses scramble means.
+Neither sampling error nor adjacent-ladder gaps bound finite-bump, timestep,
+smoothing or calibration error. In a small sample, tiny bumps near vanilla kinks
+can give zero Gamma/SE simply because no paths cross the strike. The ladder is a
+diagnostic, not a convergence certificate. The original price and AAD methods,
+including their singular-covariance domains, are unchanged.
+
+```python
+risk = plan.evaluate_gamma(gamma_relative_bump=0.01)
+print(risk.gamma, risk.standard_error)
+print(risk.spot_bumps, risk.gamma_estimates)
+print(risk.bump_differences, risk.bump_difference_standard_errors)
+```
+
+See the [example](../../examples/python/stochastic_dividend_gamma.py),
+[decision](../../design/adr/0018-stochastic-dividend-gamma.md) and
+[validation protocol](../../design/validation/stochastic-dividend-gamma.md).
