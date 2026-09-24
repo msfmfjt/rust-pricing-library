@@ -1,6 +1,8 @@
 //! Reverse of the positive Buehler split and full carry-funded cash reserve.
-//! OU/correlation inputs and the compiled time grid are fixed. No bumps are used.
+//! Optional prepared OU/model/correlation scopes share the unchanged split.
+//! The compiled time grid is fixed. No bumps are used.
 
+use super::bergomi::correlation_reverse::{self, BergomiCorrelationReverse};
 use super::bergomi::parameter_reverse::BergomiParameterReverse;
 use super::*;
 use crate::models::hull_white_dividends::transpose_log_curve;
@@ -23,6 +25,8 @@ pub(in crate::engine) struct ReverseContext {
     nodes: Vec<NodeJacobian>,
     payment_weights: Vec<f64>,
     bergomi: Option<BergomiParameterReverse>,
+    correlation: Option<BergomiCorrelationReverse>,
+    correlation_start: Option<usize>,
 }
 impl ReverseContext {
     pub fn new(
@@ -115,6 +119,8 @@ impl ReverseContext {
             nodes,
             payment_weights,
             bergomi: None,
+            correlation: None,
+            correlation_start: None,
         })
     }
 
@@ -137,6 +143,32 @@ impl ReverseContext {
             .extend(prepared.labels().iter().map(|s| (*s).to_owned()));
         self.payment_weights.resize(self.labels.len(), 0.0);
         self.bergomi = Some(prepared);
+        Ok(())
+    }
+
+    /// Append raw symmetric Brownian-correlation entry partials. Bergomi plans
+    /// include the entire existing model-parameter prefix, BS the basic prefix.
+    pub fn enable_correlations(
+        &mut self,
+        path: &StochasticDividendPathPlan,
+    ) -> Result<(), StochasticDividendError> {
+        let rho = path.model.equity_dividend_correlation();
+        if (1.0 - rho) * (1.0 + rho) <= 1e-10 {
+            return Err(correlation_reverse::unsupported());
+        }
+        if let Some(kernel) = &path.bergomi {
+            // Check the instantaneous domain before the existing model-risk scope.
+            let prepared = BergomiCorrelationReverse::new(kernel, rho, &path.times)?;
+            self.enable_bergomi_parameters(path)?;
+            self.correlation_start = Some(self.labels.len());
+            self.labels
+                .extend(prepared.labels().iter().map(|s| (*s).to_owned()));
+            self.correlation = Some(prepared);
+        } else {
+            self.correlation_start = Some(self.labels.len());
+            self.labels.push("equity_dividend_correlation".into());
+        }
+        self.payment_weights.resize(self.labels.len(), 0.0);
         Ok(())
     }
 
@@ -219,6 +251,12 @@ impl ReverseContext {
             out[3] += y_bar * b * (s.equity - 1.0);
             let half_bar = noise_bar * ed;
             out[4] += noise_bar * noise * (zd - v) * root;
+            if let Some(start) = self.correlation_start {
+                // Direct dividend-driver rotation. OU loading effects are added
+                // separately below, so no indirect volatility effect is lost.
+                let dr = z[0] - rho / ((1.0 - rho) * (1.0 + rho)).sqrt() * z[1];
+                out[start] += noise_bar * noise * v * dr;
+            }
             out[1] += next_f_bar * s.equity * (z[0] - u) * root * loadings[i - 1];
             if let Some(bars) = &mut loading_bars {
                 bars[i - 1] = next_f_bar * s.equity * (z[0] - u) * root * plan.volatility;
@@ -229,11 +267,22 @@ impl ReverseContext {
             y_bar = half_bar * a;
         }
         if let (Some(prepared), Some(bars), Some(kernel)) =
-            (&self.bergomi, loading_bars, &plan.bergomi)
+            (&self.bergomi, &loading_bars, &plan.bergomi)
         {
-            let extra = prepared.pullback(kernel, normals, &bars)?;
-            let start = out.len() - extra.len();
-            out[start..].copy_from_slice(&extra);
+            let extra = prepared.pullback(kernel, normals, bars)?;
+            let start = self.nodes[0].equity.len();
+            out[start..start + extra.len()].copy_from_slice(&extra);
+        }
+        if let (Some(prepared), Some(start), Some(bars), Some(kernel)) = (
+            &self.correlation,
+            self.correlation_start,
+            &loading_bars,
+            &plan.bergomi,
+        ) {
+            let extra = prepared.pullback(kernel, normals, bars)?;
+            for (bar, extra) in out[start..].iter_mut().zip(extra) {
+                *bar += extra;
+            }
         }
         if out.iter().any(|v| !v.is_finite()) {
             return Err(invalid("reverse_result"));

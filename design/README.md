@@ -43,6 +43,7 @@ documents the public API migration.
 | [0015](adr/0015-stochastic-dividend-risk.md) | Buehler first-order reverse and timestep refinement |
 
 | [0016](adr/0016-stochastic-dividend-bergomi-risk.md) | Optional Bergomi parameter reverse with stochastic dividends |
+| [0017](adr/0017-stochastic-dividend-correlation-risk.md) | Optional raw Brownian-correlation reverse with stochastic dividends |
 
 ## Implementation roadmaps and acceptance
 
@@ -106,3 +107,6 @@ Repository-local links in both `docs/` and `design/` are checked by
 Escrowed simulation and IV conversion: [validation record](validation/escrowed-dividends.md).
 
 - [Stochastic-dividend risk and refinement](validation/stochastic-dividend-risk.md)
+
+The [correlation-risk validation protocol](validation/stochastic-dividend-correlation-risk.md)
+separates raw-entry derivatives from the instantaneous/integrated numerical domain.

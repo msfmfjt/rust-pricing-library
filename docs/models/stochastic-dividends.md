@@ -283,3 +283,49 @@ See the [runnable example](../../examples/python/stochastic_dividend_bergomi_ris
 [decision](../../design/adr/0016-stochastic-dividend-bergomi-risk.md) and
 [validation record](../../design/validation/stochastic-dividend-bergomi-risk.md).
 The reported uncertainties are sampling errors, not timestep/model uncertainty.
+
+## Correlation risk
+
+`evaluate_correlation_aad()` returns all existing basic-AAD results for BS or all
+Bergomi-parameter-AAD results for 1F/2F as an exact prefix, then appends raw
+Brownian-correlation entry partials. It is opt-in; older risk methods still hold
+correlations fixed. The method label is `buehler-joint-correlation-reverse-v1`.
+
+| Appended order | BS | 1F | 2F |
+| --- | --- | --- | --- |
+| `equity_dividend_correlation` | Yes | Yes | Yes |
+| `spot_volatility_correlation[0]` | - | Yes | Yes |
+| `spot_volatility_correlation[1]` | - | - | Yes |
+| `dividend_volatility_correlation[0]` | - | Yes | Yes |
+| `dividend_volatility_correlation[1]` | - | - | Yes |
+| `volatility_factor_correlation` | - | - | Yes |
+
+Each partial varies one symmetric off-diagonal pair while holding all other raw
+correlations fixed. Values are price per unit correlation, not per percentage
+point; `0.01 * derivative` is a one-percentage-point linear approximation only
+within the valid domain. The calculation includes dividend-driver rotation,
+integrated OU covariance/factorization, and (2F) normalized weights and centering.
+It is not the risk of a PSD-projected or recalibrated market model.
+
+Both the instantaneous and integrated normalized-correlation Cholesky pivots,
+and 2F weight variance, must exceed `1e-10`. BS requires `1-rho_SD^2 > 1e-10`.
+Outside this numerical domain the new method rejects before sampling. It does
+not clip or regularize correlations, and existing price/basic/model-risk methods
+retain their own domains. Even if OU integration makes the covariance nonsingular,
+an instantaneous singular matrix does not admit independent raw entry partials.
+The guard applies even when some factors have zero loading. Near the boundary,
+large sampling errors are possible despite a successful domain check.
+
+```python
+risk = plan.evaluate_correlation_aad()
+for label, value, se in zip(risk.parameter_labels, risk.derivatives, risk.standard_errors):
+    if "correlation" in label:
+        print(label, value, se)
+```
+
+See the [example](../../examples/python/stochastic_dividend_correlation_risk.py),
+[decision](../../design/adr/0017-stochastic-dividend-correlation-risk.md) and
+[validation protocol](../../design/validation/stochastic-dividend-correlation-risk.md).
+Dates, simulation grid and payoff-smoothing width are held fixed. The reported
+standard errors cover sampling only, not timestep/model uncertainty. There is no
+new continuous-time convergence, HW/rough/LSV/multi-asset or VegaKT claim.
