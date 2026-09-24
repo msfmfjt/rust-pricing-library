@@ -15,15 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 3
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Materialize hash-verified candidate and retain exact source
+      - name: Materialize corrected hash-verified candidate
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$(git rev-parse HEAD^)" = 53a0de3ab593d431c0c82c511ea91368d63c85c6
+          test "$(git rev-parse HEAD^)" = 6ea5e541481175fafd97c77d45eff290613b1795
           python - <<'PY'
           import base64, hashlib, json, lzma, os, pathlib, urllib.request
           parts=[]
@@ -38,6 +38,15 @@ jobs:
           git apply --index /tmp/hw-aad.patch
           git rm .github/workflows/stochastic-dividend-hw-aad-build.yml
           test "$(git write-tree)" = 749ca93901bd3a3bd12f488725c80702d1d0f608
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('crates/pricing/tests/stochastic_dividend_hull_white_risk.rs')
+          s=p.read_text()
+          assert s.count('.unwrap()0.0')==1
+          p.write_text(s.replace('.unwrap()0.0','.unwrap().0'))
+          PY
+          git add -u
+          test "$(git write-tree)" = ed9c1ae96b67a55a586d25c344c3cec44cacbc4d
           cargo fmt --all
           git add -u
           git config user.name 'github-actions[bot]'
