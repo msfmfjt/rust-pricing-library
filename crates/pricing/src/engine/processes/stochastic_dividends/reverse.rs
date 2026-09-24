@@ -1,6 +1,7 @@
 //! Reverse of the positive Buehler split and full carry-funded cash reserve.
 //! OU/correlation inputs and the compiled time grid are fixed. No bumps are used.
 
+use super::bergomi::parameter_reverse::BergomiParameterReverse;
 use super::*;
 use crate::models::hull_white_dividends::transpose_log_curve;
 
@@ -21,6 +22,7 @@ pub(in crate::engine) struct ReverseContext {
     pub repo_spread_times: Vec<f64>,
     nodes: Vec<NodeJacobian>,
     payment_weights: Vec<f64>,
+    bergomi: Option<BergomiParameterReverse>,
 }
 impl ReverseContext {
     pub fn new(
@@ -112,7 +114,30 @@ impl ReverseContext {
             repo_spread_times,
             nodes,
             payment_weights,
+            bergomi: None,
         })
+    }
+
+    pub fn enable_bergomi_parameters(
+        &mut self,
+        path: &StochasticDividendPathPlan,
+    ) -> Result<(), StochasticDividendError> {
+        let kernel = path
+            .bergomi
+            .as_ref()
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "evaluate_bergomi_aad requires a 1F or 2F Bergomi plan",
+            })?;
+        let prepared = BergomiParameterReverse::new(
+            kernel,
+            path.model.equity_dividend_correlation(),
+            &path.times,
+        )?;
+        self.labels
+            .extend(prepared.labels().iter().map(|s| (*s).to_owned()));
+        self.payment_weights.resize(self.labels.len(), 0.0);
+        self.bergomi = Some(prepared);
+        Ok(())
     }
 
     pub fn pullback(
@@ -143,6 +168,7 @@ impl ReverseContext {
             .iter()
             .map(|w| discounted_payoff * w)
             .collect::<Vec<_>>();
+        let mut loading_bars = self.bergomi.as_ref().map(|_| vec![0.0; states.len() - 1]);
         let mut f_bar = 0.0;
         let mut y_bar = 0.0;
         let model = plan.model;
@@ -157,7 +183,7 @@ impl ReverseContext {
             let total = post + pre;
             f_bar += total * node.equity_coefficient;
             y_bar += total * node.dividend_coefficient + pre * node.event_mean_cash.unwrap_or(0.0);
-            for (j, bar) in out.iter_mut().enumerate() {
+            for (j, bar) in out[..jac.equity.len()].iter_mut().enumerate() {
                 *bar += total
                     * (s.equity * jac.equity[j] + s.dividend * jac.dividend[j] + jac.constant[j]);
             }
@@ -194,10 +220,20 @@ impl ReverseContext {
             let half_bar = noise_bar * ed;
             out[4] += noise_bar * noise * (zd - v) * root;
             out[1] += next_f_bar * s.equity * (z[0] - u) * root * loadings[i - 1];
+            if let Some(bars) = &mut loading_bars {
+                bars[i - 1] = next_f_bar * s.equity * (z[0] - u) * root * plan.volatility;
+            }
             out[2] += half_bar * (-0.5 * dt * a) * (old.dividend - model.target(old.equity));
             out[3] += half_bar * b * (old.equity - 1.0);
             f_bar = next_f_bar * ef + half_bar * b * alpha;
             y_bar = half_bar * a;
+        }
+        if let (Some(prepared), Some(bars), Some(kernel)) =
+            (&self.bergomi, loading_bars, &plan.bergomi)
+        {
+            let extra = prepared.pullback(kernel, normals, &bars)?;
+            let start = out.len() - extra.len();
+            out[start..].copy_from_slice(&extra);
         }
         if out.iter().any(|v| !v.is_finite()) {
             return Err(invalid("reverse_result"));
