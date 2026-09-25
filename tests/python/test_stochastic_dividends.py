@@ -659,6 +659,14 @@ class StochasticDividendTest(unittest.TestCase):
                 dividend_volatility_correlation_bump=dividend_vol_bump,
             )
 
+        # Individual bumped entries can remain inside [-1, 1] while the
+        # full instantaneous 3x3 Brownian matrix leaves the PSD domain.
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_correlation_risk(
+                equity_volatility_correlation_bump=equity_vol_bump,
+                dividend_volatility_correlation_bump=0.84,
+            )
+
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
         result = p.evaluate()
