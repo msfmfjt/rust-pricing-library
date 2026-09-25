@@ -245,10 +245,12 @@ class StochasticDividendHullWhitePlan:
 class StochasticDividendPlan:
     """Buehler cash dividends with BS/Bergomi/rough volatility and deterministic carry.
 
-    Fixed-cash market amounts are Q-means; only price-only requests are accepted.
-    Correlation is between residual-equity and dividend Brownian drivers.
-    The LSV factories calibrate the funded residual-equity coordinate, not
-    reconstructed physical stock. Recalibrated Local-variance node risk is exposed
+    Fixed-cash market amounts are Q-means. Generic Delta/Gamma/scalar-Vega request
+    flags remain unsupported by the stochastic-dividend factories; dedicated
+    explicit risk methods are used instead. Correlation is between residual-equity
+    and dividend Brownian drivers. The LSV factories calibrate the funded
+    residual-equity coordinate, not reconstructed physical stock. Recalibrated
+    Local-variance/VegaKT risk and scale-invariant physical-Spot Delta are exposed
     explicitly; legacy AAD/Gamma remain unsupported for calibrated LSV plans.
     Constructors take price-only requests. Rough plans support basic/H-eta AAD,
     paired Delta-bump Gamma, and raw correlation AAD in the instantaneous SPD
