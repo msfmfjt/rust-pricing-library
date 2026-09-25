@@ -374,13 +374,11 @@ impl StochasticDividendPathPlan {
         {
             return Err(invalid("lsv_leverage_reverse_shape"));
         }
-        let kernel = self
-            .bergomi
-            .as_ref()
-            .filter(|k| k.is_lsv())
-            .ok_or(StochasticDividendError::Unsupported {
+        let kernel = self.bergomi.as_ref().filter(|k| k.is_lsv()).ok_or(
+            StochasticDividendError::Unsupported {
                 feature: "local-variance risk requires a residual-equity LSV plan",
-            })?;
+            },
+        )?;
         let mut equity_seeds = Vec::with_capacity(states.len());
         let mut dividend_seeds = Vec::with_capacity(states.len());
         for (node, &(post, pre)) in self.nodes.iter().zip(seeds) {
