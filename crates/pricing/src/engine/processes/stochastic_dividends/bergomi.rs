@@ -423,6 +423,24 @@ mod tests {
         }
     }
     #[test]
+    fn plain_zero_volatility_skips_extreme_bergomi_multiplier() {
+        let dividend = BuehlerDividendModel::new(0.7, 0.0, 0.0, 0.0).unwrap();
+        let factor = Bergomi1Factor::new(0.8, 1_000.0, 0.0).unwrap();
+        let times = [0.0, 0.5, 1.0];
+        let normals = [0.0, 0.0, 10.0, 0.0, 0.0, 0.0];
+
+        let states = BergomiDividendKernel::one(dividend, factor, 0.0, &times)
+            .unwrap()
+            .evolve(dividend, 0.0, &times, &normals)
+            .unwrap();
+        assert_eq!(states.len(), 3);
+        for state in states {
+            assert_eq!(state.equity(), 1.0);
+            assert_eq!(state.dividend(), 1.0);
+        }
+    }
+
+    #[test]
     fn constant_residual_lsv_matches_flat_bergomi_volatility() {
         let dividend = BuehlerDividendModel::new(0.7, 0.6, 0.35, -0.25).unwrap();
         let factor = Bergomi1Factor::new(0.8, 0.0, -0.4).unwrap();
