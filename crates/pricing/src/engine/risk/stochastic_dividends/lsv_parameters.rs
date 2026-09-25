@@ -162,24 +162,25 @@ impl StochasticDividendPricingPlan {
                 let count = config.points_per_scramble().get();
                 let mut means = Vec::with_capacity(config.scramble_count().get() as usize);
                 for scramble in 0..config.scramble_count().get() {
-                    let stats = executor.try_map_reduce_statistics_vector(count, WIDTH, |p, out| {
-                        let z = (0..dimension)
-                            .map(|d| {
-                                let u = qmc
-                                    .uniform(scramble, p, d)
-                                    .map_err(|_| invalid("rqmc_uniform"))?;
-                                inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
-                            })
-                            .collect::<Result<Vec<_>, _>>()?;
-                        self.sample_lsv_bergomi_parameter_risk(
-                            &scenarios,
-                            [mean_reversion_bump, vol_of_vol_bump],
-                            z,
-                            bridge.as_ref(),
-                            config.variance_reduction().antithetic(),
-                            out,
-                        )
-                    })?;
+                    let stats =
+                        executor.try_map_reduce_statistics_vector(count, WIDTH, |p, out| {
+                            let z = (0..dimension)
+                                .map(|d| {
+                                    let u = qmc
+                                        .uniform(scramble, p, d)
+                                        .map_err(|_| invalid("rqmc_uniform"))?;
+                                    inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            self.sample_lsv_bergomi_parameter_risk(
+                                &scenarios,
+                                [mean_reversion_bump, vol_of_vol_bump],
+                                z,
+                                bridge.as_ref(),
+                                config.variance_reduction().antithetic(),
+                                out,
+                            )
+                        })?;
                     means.push(
                         stats
                             .iter()
@@ -303,10 +304,8 @@ impl StochasticDividendPricingPlan {
             for parameter in 0..2 {
                 let down =
                     self.discounted_payoff_for_lsv_path(&scenarios[2 * parameter].path, &shocks)?;
-                let up = self.discounted_payoff_for_lsv_path(
-                    &scenarios[2 * parameter + 1].path,
-                    &shocks,
-                )?;
+                let up = self
+                    .discounted_payoff_for_lsv_path(&scenarios[2 * parameter + 1].path, &shocks)?;
                 out[1 + parameter] += (up - down) / (2.0 * bumps[parameter]);
             }
         }
