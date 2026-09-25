@@ -167,9 +167,9 @@ impl StochasticDividendPricingPlan {
     ) -> Result<(Self, LocalVarianceGrid, LocalVarianceGrid, LocalVolTimeGrid), MonteCarloError>
     {
         let risk = request.risk();
-        if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
+        if risk.delta() || risk.gamma().is_some() || risk.vega() {
             return Err(StochasticDividendError::Unsupported {
-                feature: "Greeks for residual-equity LSV; submit a price-only request",
+                feature: "Delta, Gamma and scalar Vega for residual-equity LSV; use the dedicated recalibration-aware risk methods",
             }
             .into());
         }
