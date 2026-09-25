@@ -6,6 +6,7 @@
 //! Local-variance grid. Calibration randomness is fixed by its explicit seed.
 
 use super::*;
+use crate::VegaKtResult;
 use crate::mc::lsv::LsvError;
 use crate::models::BergomiDynamics;
 use crate::risk::{
@@ -13,7 +14,6 @@ use crate::risk::{
     vega_kt_bucket_estimates, vega_kt_full_bucket_covariance, vega_kt_projection_from_parts,
     vega_kt_report,
 };
-use crate::VegaKtResult;
 
 const METHOD: &str = "buehler-residual-lsv-path-and-discrete-particle-vjp-v1";
 
