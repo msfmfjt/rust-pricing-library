@@ -431,10 +431,10 @@ impl PyStochasticDividendPrice {
     fn scheme(&self) -> &'static str {
         self.inner.scheme
     }
-    /// Sampling error only; does not include timestep or parameter uncertainty.
+    /// Sampling error only; LSV conditions on the finite particle calibration.
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
-        "pricing_only"
+        self.inner.uncertainty_scope()
     }
 }
 
