@@ -459,6 +459,24 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyVegaKtResult { inner })
             .map_err(pricing_exception)
     }
+    /// Residual-LSV Gamma re-anchors the leverage surface under every Spot bump.
+    #[pyo3(signature=(*, gamma_absolute_bump=None, gamma_relative_bump=None))]
+    fn evaluate_lsv_gamma(
+        &self,
+        py: Python<'_>,
+        gamma_absolute_bump: Option<f64>,
+        gamma_relative_bump: Option<f64>,
+    ) -> PyResult<PyStochasticDividendGammaRisk> {
+        let bump = match (gamma_absolute_bump, gamma_relative_bump) {
+            (Some(h), None) => SpotBump::absolute(h),
+            (None, Some(h)) => SpotBump::relative(h),
+            _ => return Err(invalid(py, "specify exactly one LSV Gamma Spot bump")),
+        }
+        .map_err(|e| invalid(py, e))?;
+        py.detach(|| self.inner.evaluate_lsv_gamma(GammaConfig::new(bump)))
+            .map(|inner| PyStochasticDividendGammaRisk { inner })
+            .map_err(pricing_exception)
+    }
     /// Exactly one absolute or relative Spot bump is required. A half/base/double
     /// ladder is evaluated with common normals; all other inputs remain fixed.
     #[pyo3(signature=(*, gamma_absolute_bump=None, gamma_relative_bump=None))]

@@ -586,6 +586,95 @@ class StochasticDividendTest(unittest.TestCase):
         with self.assertRaises(rp.PricingError):
             compile_plan().evaluate_lsv_market_risk()
 
+    def test_residual_lsv_gamma_reanchors_surface_and_matches_recompiled_deltas(self):
+        request = make_lsv_request(points=16)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        bump = 0.1
+        plan = compile_lsv(request, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_gamma(gamma_absolute_bump=bump)
+        delta = plan.evaluate_lsv_spot_risk()
+
+        self.assertEqual(risk.delta, delta.delta)
+        self.assertEqual(risk.delta_standard_error, delta.delta_standard_error)
+        self.assertEqual(risk.spot_bumps, [0.5 * bump, bump, 2.0 * bump])
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-scale-invariant-aad-delta-gamma-v1",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.gamma_estimates))
+        self.assertTrue(all(x >= 0.0 for x in risk.gamma_standard_errors))
+
+        for actual, h in zip(risk.gamma_estimates, risk.spot_bumps):
+            down = compile_lsv(
+                make_lsv_request(points=16, spot=100.0 - h),
+                worker_threads=1,
+                **common,
+            )
+            up = compile_lsv(
+                make_lsv_request(points=16, spot=100.0 + h),
+                worker_threads=1,
+                **common,
+            )
+            self.assertTrue(
+                all(
+                    abs(a - b) <= 3e-13
+                    for a, b in zip(plan.lsv_squared_leverage, down.lsv_squared_leverage)
+                )
+            )
+            self.assertTrue(
+                all(
+                    abs(a - b) <= 3e-13
+                    for a, b in zip(plan.lsv_squared_leverage, up.lsv_squared_leverage)
+                )
+            )
+            expected = (
+                up.evaluate_lsv_spot_risk().delta
+                - down.evaluate_lsv_spot_risk().delta
+            ) / (2.0 * h)
+            self.assertAlmostEqual(actual, expected, delta=3e-8)
+
+        parallel = compile_lsv(request, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_gamma(gamma_absolute_bump=bump)
+        self.assertEqual(parallel_risk.delta, risk.delta)
+        self.assertEqual(parallel_risk.gamma_estimates, risk.gamma_estimates)
+        self.assertEqual(
+            parallel_risk.gamma_standard_errors,
+            risk.gamma_standard_errors,
+        )
+        self.assertEqual(
+            parallel_risk.bump_difference_standard_errors,
+            risk.bump_difference_standard_errors,
+        )
+
+        no_trace = compile_lsv(
+            request,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_gamma(gamma_absolute_bump=bump)
+        self.assertTrue(math.isfinite(no_trace.gamma))
+
+        two_factor = compile_lsv(
+            request,
+            two_factor=True,
+            worker_threads=2,
+            **common,
+        ).evaluate_lsv_gamma(gamma_relative_bump=0.001)
+        self.assertTrue(math.isfinite(two_factor.gamma))
+
+        with self.assertRaises(rp.PricingError):
+            compile_plan().evaluate_lsv_gamma(gamma_absolute_bump=bump)
+        with self.assertRaises(rp.ValidationError):
+            plan.evaluate_lsv_gamma()
+        with self.assertRaises(rp.ValidationError):
+            plan.evaluate_lsv_gamma(
+                gamma_absolute_bump=bump,
+                gamma_relative_bump=0.001,
+            )
+
     def test_residual_lsv_spot_reverse_matches_full_recompile_fd(self):
         h = 1.0e-3
         common = dict(
