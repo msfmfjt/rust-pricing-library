@@ -34,24 +34,34 @@ fn request(cash: &[(f64, f64)]) -> PricingRequest {
         "../../../fixtures/v1/pricing_request.golden.json"
     ))
     .unwrap();
-    v["market"]["discrete_dividends"] = json!(cash.iter().enumerate().map(|(i, (t, amount))|
-        json!({"event_id": i + 1, "ex_time": t,
-            "quote": {"type": "fixed_cash", "amount": amount}})).collect::<Vec<_>>());
+    v["market"]["discrete_dividends"] = json!(
+        cash.iter()
+            .enumerate()
+            .map(|(i, (t, amount))| json!({"event_id": i + 1, "ex_time": t,
+            "quote": {"type": "fixed_cash", "amount": amount}}))
+            .collect::<Vec<_>>()
+    );
     parse_request_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT).unwrap()
 }
 fn path(r: &PricingRequest, a: f64, k: f64, n: usize) -> Path {
-    let grid = LocalVolTimeGrid::compile(
-        (1..=n).map(|i| i as f64 / n as f64).collect(),
-        1.0,
-    )
-    .unwrap();
+    let grid =
+        LocalVolTimeGrid::compile((1..=n).map(|i| i as f64 / n as f64).collect(), 1.0).unwrap();
     Path::compile_bs(
-        r.market().equity().forward(), model(k), SIGMA, &rates(a), RHO_FR, RHO_DR, &grid,
+        r.market().equity().forward(),
+        model(k),
+        SIGMA,
+        &rates(a),
+        RHO_FR,
+        RHO_DR,
+        &grid,
     )
     .unwrap()
 }
 fn close(x: f64, y: f64, tolerance: f64) {
-    assert!((x - y).abs() < tolerance, "{x} != {y}; tolerance={tolerance}");
+    assert!(
+        (x - y).abs() < tolerance,
+        "{x} != {y}; tolerance={tolerance}"
+    );
 }
 
 // Independent elementary-kernel quadrature, including knots inside an interval.
@@ -67,12 +77,26 @@ fn covariance(a: f64, start: f64, end: f64) -> Matrix {
     for (index, &left) in KNOTS.iter().enumerate() {
         let lo = start.max(left);
         let hi = end.min(KNOTS.get(index + 1).copied().unwrap_or(end));
-        if hi <= lo { continue; }
+        if hi <= lo {
+            continue;
+        }
         let h = (hi - lo) / 64.0;
         for p in 0..=64 {
             let tau = end - (lo + p as f64 * h);
-            let kernel = [1.0, 1.0, VOLS[index] * (-a * tau).exp(), VOLS[index] * b(a, tau)];
-            let weight = h / 3.0 * if p == 0 || p == 64 { 1.0 } else if p % 2 == 0 { 2.0 } else { 4.0 };
+            let kernel = [
+                1.0,
+                1.0,
+                VOLS[index] * (-a * tau).exp(),
+                VOLS[index] * b(a, tau),
+            ];
+            let weight = h / 3.0
+                * if p == 0 || p == 64 {
+                    1.0
+                } else if p % 2 == 0 {
+                    2.0
+                } else {
+                    4.0
+                };
             for (i, row) in result.iter_mut().enumerate() {
                 for (j, value) in row.iter_mut().enumerate() {
                     *value += weight * rho[i][j] * kernel[i] * kernel[j];
@@ -95,15 +119,31 @@ fn lower(c: Matrix) -> Matrix {
     l
 }
 fn loadings(a: f64, n: usize) -> Vec<Matrix> {
-    (0..n).map(|i| lower(covariance(a, i as f64 / n as f64, (i + 1) as f64 / n as f64))).collect()
+    (0..n)
+        .map(|i| {
+            lower(covariance(
+                a,
+                i as f64 / n as f64,
+                (i + 1) as f64 / n as f64,
+            ))
+        })
+        .collect()
 }
 fn fine_innovations(rng: &Philox4x32, unit: u64, lowers: &[Matrix]) -> Vec<[f64; 4]> {
-    lowers.iter().enumerate().map(|(step, l)| {
-        let z: [f64; 4] = std::array::from_fn(|j| rng.standard_normal(RandomCoordinate::new(
-            unit, (4 * step + j) as u32, RandomDomain::Valuation,
-        )));
-        std::array::from_fn(|i| (0..=i).map(|j| l[i][j] * z[j]).sum())
-    }).collect()
+    lowers
+        .iter()
+        .enumerate()
+        .map(|(step, l)| {
+            let z: [f64; 4] = std::array::from_fn(|j| {
+                rng.standard_normal(RandomCoordinate::new(
+                    unit,
+                    (4 * step + j) as u32,
+                    RandomDomain::Valuation,
+                ))
+            });
+            std::array::from_fn(|i| (0..=i).map(|j| l[i][j] * z[j]).sum())
+        })
+        .collect()
 }
 fn coupled_normals(a: f64, fine: &[[f64; 4]], lowers: &[Matrix]) -> Vec<f64> {
     assert_eq!(fine.len() % lowers.len(), 0);
@@ -136,14 +176,18 @@ fn continuous_moments(a: f64, steps: usize) -> [f64; 2] {
         let eta = VOLS[KNOTS.partition_point(|&s| s <= t + h * 0.5) - 1];
         let rhs = |s: f64, v: [f64; 2]| {
             let tilt = eta * b(a, 1.0 - s);
-            [-SIGMA * RHO_FR * tilt * v[0],
-             0.7 * ALPHA * v[0] + 0.7 * (1.0 - ALPHA) - (0.7 + NU * RHO_DR * tilt) * v[1]]
+            [
+                -SIGMA * RHO_FR * tilt * v[0],
+                0.7 * ALPHA * v[0] + 0.7 * (1.0 - ALPHA) - (0.7 + NU * RHO_DR * tilt) * v[1],
+            ]
         };
         let k1 = rhs(t, m);
         let k2 = rhs(t + h * 0.5, std::array::from_fn(|j| m[j] + h * 0.5 * k1[j]));
         let k3 = rhs(t + h * 0.5, std::array::from_fn(|j| m[j] + h * 0.5 * k2[j]));
         let k4 = rhs(t + h, std::array::from_fn(|j| m[j] + h * k3[j]));
-        for j in 0..2 { m[j] += h / 6.0 * (k1[j] + 2.0 * k2[j] + 2.0 * k3[j] + k4[j]); }
+        for j in 0..2 {
+            m[j] += h / 6.0 * (k1[j] + 2.0 * k2[j] + 2.0 * k3[j] + k4[j]);
+        }
     }
     m
 }
@@ -163,7 +207,9 @@ fn split_moments(a: f64, steps: usize) -> [f64; 2] {
         let mut next = [0.0; 2];
         for &(z0, w0) in &rule {
             for &(z1, w1) in &rule {
-                let s = model(0.7).evolve(m, SIGMA, 1.0 / steps as f64, [z0 + shift[0], z1 + shift[1]]).unwrap();
+                let s = model(0.7)
+                    .evolve(m, SIGMA, 1.0 / steps as f64, [z0 + shift[0], z1 + shift[1]])
+                    .unwrap();
                 next[0] += w0 * w1 * s.equity();
                 next[1] += w0 * w1 * s.dividend();
             }
@@ -177,7 +223,9 @@ fn split_moments(a: f64, steps: usize) -> [f64; 2] {
 fn discounted_dividend_moments_converge_to_independent_continuous_time_ode() {
     for a in [0.0, 0.4] {
         let reference = continuous_moments(a, 32768);
-        for (x, y) in reference.into_iter().zip(continuous_moments(a, 16384)) { close(x, y, 2e-12); }
+        for (x, y) in reference.into_iter().zip(continuous_moments(a, 16384)) {
+            close(x, y, 2e-12);
+        }
         let p = path(&request(&[(1.0, 3.0)]), a, 0.7, 16);
         close(p.initial_dividend_forwards()[0] / 3.0, reference[1], 2e-11);
         let mut errors = Vec::new();
@@ -185,12 +233,17 @@ fn discounted_dividend_moments_converge_to_independent_continuous_time_ode() {
             let m = split_moments(a, n);
             close(m[0], reference[0], 2e-12);
             let error = (m[1] - reference[1]).abs();
-            println!("{}", json!({"check":"discounted_moment", "rate_reversion":a,
-                "steps":n, "split_moments":m, "continuous_moments":reference, "dividend_error":error}));
+            println!(
+                "{}",
+                json!({"check":"discounted_moment", "rate_reversion":a,
+                "steps":n, "split_moments":m, "continuous_moments":reference, "dividend_error":error})
+            );
             errors.push(error);
         }
         assert!(errors[4] < 5e-8);
-        for pair in errors.windows(2) { assert!(pair[0] / pair[1] > 3.5, "{errors:?}"); }
+        for pair in errors.windows(2) {
+            assert!(pair[0] / pair[1] > 3.5, "{errors:?}");
+        }
     }
 }
 
@@ -199,8 +252,22 @@ fn gaussian_coupling_preserves_shared_states_and_the_zero_reversion_limit() {
     let r = request(&[(0.5, 4.0), (1.0, 3.0), (1.5, 12.0)]);
     for a in [0.0, 0.4] {
         for (start, end) in [(0.0, 0.0625), (0.25, 1.0), (1.0, 1.5)] {
-            let actual = rates(a).transition(start, end, 0.0, HybridCorrelation::new(RHO_FD, RHO_FR, RHO_DR).unwrap()).unwrap().covariance;
-            for (left, right) in actual.iter().flatten().zip(covariance(a, start, end).iter().flatten()) { close(*left, *right, 2e-13); }
+            let actual = rates(a)
+                .transition(
+                    start,
+                    end,
+                    0.0,
+                    HybridCorrelation::new(RHO_FD, RHO_FR, RHO_DR).unwrap(),
+                )
+                .unwrap()
+                .covariance;
+            for (left, right) in actual
+                .iter()
+                .flatten()
+                .zip(covariance(a, start, end).iter().flatten())
+            {
+                close(*left, *right, 2e-13);
+            }
         }
         let lowers: Vec<_> = LEVELS.iter().map(|&n| loadings(a, n)).collect();
         let rng = Philox4x32::from_seed(421);
@@ -209,17 +276,34 @@ fn gaussian_coupling_preserves_shared_states_and_the_zero_reversion_limit() {
             for unit in 0..8 {
                 let fine = fine_innovations(&rng, unit, &lowers[4]);
                 for sign in [-1.0, 1.0] {
-                    let states: Vec<_> = plans.iter().zip(&lowers).map(|(p, l)| {
-                        let z: Vec<_> = coupled_normals(a, &fine, l).iter().map(|v| sign * v).collect();
-                        p.evolve_path(&z).unwrap()
-                    }).collect();
+                    let states: Vec<_> = plans
+                        .iter()
+                        .zip(&lowers)
+                        .map(|(p, l)| {
+                            let z: Vec<_> = coupled_normals(a, &fine, l)
+                                .iter()
+                                .map(|v| sign * v)
+                                .collect();
+                            p.evolve_path(&z).unwrap()
+                        })
+                        .collect();
                     for (level, &n) in LEVELS[..4].iter().enumerate() {
                         for (i, s) in states[level].iter().enumerate() {
                             let reference = states[4][i * 256 / n];
                             close(s.factors().equity(), reference.factors().equity(), 3e-12);
                             close(s.rate_factor(), reference.rate_factor(), 3e-12);
-                            close(s.integrated_rate_factor(), reference.integrated_rate_factor(), 3e-12);
-                            if k == 0.0 { close(s.factors().dividend(), reference.factors().dividend(), 3e-12); }
+                            close(
+                                s.integrated_rate_factor(),
+                                reference.integrated_rate_factor(),
+                                3e-12,
+                            );
+                            if k == 0.0 {
+                                close(
+                                    s.factors().dividend(),
+                                    reference.factors().dividend(),
+                                    3e-12,
+                                );
+                            }
                         }
                     }
                 }
@@ -237,8 +321,14 @@ impl Payoffs {
     fn new(a: f64) -> Self {
         let hw = rates(a);
         Self {
-            growth: [0.5, 1.0].map(|t| (0.98_f64 / 0.95).powf(t) * (0.5 * hw.integrated_variance(t).unwrap()).exp()),
-            discount: [1.0, 1.25].map(|u| 0.95_f64.powf(u) * hw.relative_discount(1.0, 0.0).unwrap() * hw.relative_bond(1.0, u, 0.0).unwrap()),
+            growth: [0.5, 1.0].map(|t| {
+                (0.98_f64 / 0.95).powf(t) * (0.5 * hw.integrated_variance(t).unwrap()).exp()
+            }),
+            discount: [1.0, 1.25].map(|u| {
+                0.95_f64.powf(u)
+                    * hw.relative_discount(1.0, 0.0).unwrap()
+                    * hw.relative_bond(1.0, u, 0.0).unwrap()
+            }),
             duration: [0.0, b(a, 0.25)],
         }
     }
@@ -251,14 +341,31 @@ impl Payoffs {
         let mut delta = [0.0; 2];
         for (j, i) in [n / 2, n].into_iter().enumerate() {
             spot[j] = p.spots(i, states[i]).unwrap().0;
-            delta[j] = self.growth[j] * states[i].integrated_rate_factor().exp() * states[i].factors().equity();
+            delta[j] = self.growth[j]
+                * states[i].integrated_rate_factor().exp()
+                * states[i].factors().equity();
         }
         let s = [spot[1], 0.4 * spot[0] + 0.6 * spot[1]];
         let d = [delta[1], 0.4 * delta[0] + 0.6 * delta[1]];
         std::array::from_fn(|product| {
-            let df = self.discount[product] * (-states[n].integrated_rate_factor() - self.duration[product] * states[n].rate_factor()).exp();
-            let derivative = |shift: f64| if s[product] + shift * d[product] > 100.0 { df * d[product] } else { 0.0 };
-            let mut sample = [df * (s[product] - 100.0).max(0.0), derivative(0.0), 0.0, 0.0, 0.0];
+            let df = self.discount[product]
+                * (-states[n].integrated_rate_factor()
+                    - self.duration[product] * states[n].rate_factor())
+                .exp();
+            let derivative = |shift: f64| {
+                if s[product] + shift * d[product] > 100.0 {
+                    df * d[product]
+                } else {
+                    0.0
+                }
+            };
+            let mut sample = [
+                df * (s[product] - 100.0).max(0.0),
+                derivative(0.0),
+                0.0,
+                0.0,
+                0.0,
+            ];
             for (j, h) in [0.5, 1.0, 2.0].into_iter().enumerate() {
                 sample[j + 2] = (derivative(h) - derivative(-h)) / (2.0 * h);
             }
@@ -269,7 +376,10 @@ impl Payoffs {
 fn moments(samples: &[f64]) -> (f64, f64) {
     let n = samples.len() as f64;
     let mean = samples.iter().sum::<f64>() / n;
-    (mean, (samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n * (n - 1.0))).sqrt())
+    (
+        mean,
+        (samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n * (n - 1.0))).sqrt(),
+    )
 }
 
 #[test]
@@ -282,7 +392,8 @@ fn coupled_hull_white_price_delta_and_gamma_refinement() {
         let payoffs = Payoffs::new(a);
         for seed in [421, 1607] {
             let rng = Philox4x32::from_seed(seed);
-            let mut samples: [[Vec<[f64; 5]>; 2]; 5] = std::array::from_fn(|_| std::array::from_fn(|_| Vec::with_capacity(4096)));
+            let mut samples: [[Vec<[f64; 5]>; 2]; 5] =
+                std::array::from_fn(|_| std::array::from_fn(|_| Vec::with_capacity(4096)));
             for unit in 0..4096 {
                 let fine = fine_innovations(&rng, unit, &lowers[4]);
                 for (j, (p, l)) in plans.iter().zip(&lowers).enumerate() {
@@ -292,27 +403,44 @@ fn coupled_hull_white_price_delta_and_gamma_refinement() {
                         let normals: Vec<_> = z.iter().map(|v| sign * v).collect();
                         let value = payoffs.evaluate(p, &p.evolve_path(&normals).unwrap());
                         for product in 0..2 {
-                            for quantity in 0..5 { pair[product][quantity] += 0.5 * value[product][quantity]; }
+                            for quantity in 0..5 {
+                                pair[product][quantity] += 0.5 * value[product][quantity];
+                            }
                         }
                     }
-                    for (product, value) in pair.into_iter().enumerate() { samples[j][product].push(value); }
+                    for (product, value) in pair.into_iter().enumerate() {
+                        samples[j][product].push(value);
+                    }
                 }
             }
             for product in 0..2 {
-                for (quantity, name) in ["price", "delta", "gamma_0.5", "gamma_1", "gamma_2"].iter().enumerate() {
+                for (quantity, name) in ["price", "delta", "gamma_0.5", "gamma_1", "gamma_2"]
+                    .iter()
+                    .enumerate()
+                {
                     for (j, &n) in LEVELS.iter().enumerate() {
-                        let values: Vec<_> = samples[j][product].iter().map(|s| s[quantity]).collect();
-                        let differences: Vec<_> = samples[j][product].iter().zip(&samples[4][product]).map(|(x, y)| x[quantity] - y[quantity]).collect();
+                        let values: Vec<_> =
+                            samples[j][product].iter().map(|s| s[quantity]).collect();
+                        let differences: Vec<_> = samples[j][product]
+                            .iter()
+                            .zip(&samples[4][product])
+                            .map(|(x, y)| x[quantity] - y[quantity])
+                            .collect();
                         let (mean, se) = moments(&values);
                         let (difference, paired_se) = moments(&differences);
-                        println!("{}", json!({"check":"paired_refinement", "rate_reversion":a,
+                        println!(
+                            "{}",
+                            json!({"check":"paired_refinement", "rate_reversion":a,
                             "seed":seed, "product":if product == 0 {"european"} else {"delayed_asian"},
                             "quantity":name, "steps":n, "reference_steps":256, "antithetic_units":4096,
-                            "estimate":mean, "standard_error":se, "paired_difference":difference, "paired_se":paired_se}));
+                            "estimate":mean, "standard_error":se, "paired_difference":difference, "paired_se":paired_se})
+                        );
                         if j == 3 {
                             let budget = if quantity == 0 { 0.02 } else { 0.002 };
-                            assert!(difference.abs() + 4.0 * paired_se < budget,
-                                "a={a}, seed={seed}, product={product}, {name}: diff={difference}, SE={paired_se}, budget={budget}");
+                            assert!(
+                                difference.abs() + 4.0 * paired_se < budget,
+                                "a={a}, seed={seed}, product={product}, {name}: diff={difference}, SE={paired_se}, budget={budget}"
+                            );
                         }
                     }
                 }
