@@ -360,6 +360,28 @@ amounts and nonzero curve log-DF pillars, checks that calibrated leverage values
 remain unchanged up to floating-point scale effects, and verifies the reported
 adjoints against common-random central differences.
 
+Buehler dividend-model parameter risk is available through
+`evaluate_lsv_dividend_model_risk(...)` for dividend mean reversion, equity
+linkage, dividend volatility and equity/dividend Brownian correlation. None of
+these four parameters enters the marginal residual-equity/Bergomi particle
+calibration. The production estimator therefore holds the calibrated leverage
+surface fixed exactly, rebuilds the Buehler/joint pricing path for each up/down
+scenario, and uses common-random central differences.
+
+The mean-reversion and dividend-volatility bumps must stay in the nonnegative
+domain, the equity-linkage bump inside `[0,1]`, and the correlation bump inside
+`[-1,1]`; the bumped full joint Brownian matrix must also remain admissible.
+There is no one-sided fallback or adaptive bump. Both 1F and 2F residual-LSV
+plans use the same API. The method label is
+`buehler-residual-lsv-common-noise-fixed-calibration-dividend-model-v1`.
+
+This is deliberately a fixed-calibration finite-bump model-parameter risk, not
+the Local-variance calibration VJP and not the fixed-volatility
+`evaluate_aad()` contract. It does not require `retain_reverse_trace=true`.
+Validation independently recompiles all four bumped models and requires every
+resulting calibrated squared-leverage surface to be identical to the base
+surface before comparing the common-random central differences.
+
 1F Bergomi model-parameter risk is available through
 `evaluate_lsv_bergomi_parameter_risk(mean_reversion_bump=..., vol_of_vol_bump=...)`.
 This is intentionally **not** the fixed-leverage Bergomi AAD used by pure-SV
@@ -447,8 +469,8 @@ Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now cover Local-variance risk,
 residual-surface VegaKT, physical-Spot Delta, cash-mean and deterministic-curve
-risk, 1F Bergomi parameter/correlation risk, and 2F Bergomi
-parameter/correlation risk.
+risk, Buehler dividend-model parameter risk, 1F Bergomi parameter/correlation
+risk, and 2F Bergomi parameter/correlation risk.
 
 ## First-order risk
 
