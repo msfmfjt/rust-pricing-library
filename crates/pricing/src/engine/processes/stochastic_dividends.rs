@@ -11,6 +11,7 @@ use std::sync::Arc;
 use crate::MonteCarloError;
 use crate::market::EquityForward;
 use crate::mc::LocalVolTimeGrid;
+use crate::mc::lsv::LsvLeverageSurface;
 use crate::models::stochastic_dividends::{invalid, nonnegative, positive};
 use crate::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use crate::models::{BuehlerDividendModel, BuehlerDividendState, StochasticDividendError};
@@ -315,6 +316,48 @@ impl StochasticDividendPathPlan {
         Ok(self)
     }
 
+    pub(in crate::engine) fn with_bergomi_lsv(
+        mut self,
+        factor: Bergomi1Factor,
+        correlation: f64,
+        leverage: LsvLeverageSurface,
+    ) -> Result<Self, MonteCarloError> {
+        self.bergomi = Some(
+            BergomiDividendKernel::one(self.model, factor, correlation, &self.times)?
+                .with_leverage(leverage, &self.times)?,
+        );
+        self.rough = None;
+        self.set_dimension()?;
+        Ok(self)
+    }
+
+    pub(in crate::engine) fn with_bergomi_two_factor_lsv(
+        mut self,
+        factor: Bergomi2Factor,
+        correlations: [f64; 2],
+        leverage: LsvLeverageSurface,
+    ) -> Result<Self, MonteCarloError> {
+        self.bergomi = Some(
+            BergomiDividendKernel::two(self.model, factor, correlations, &self.times)?
+                .with_leverage(leverage, &self.times)?,
+        );
+        self.rough = None;
+        self.set_dimension()?;
+        Ok(self)
+    }
+
+    #[must_use]
+    pub(in crate::engine) fn is_lsv(&self) -> bool {
+        self.bergomi.as_ref().is_some_and(BergomiDividendKernel::is_lsv)
+    }
+
+    #[must_use]
+    pub(in crate::engine) fn lsv_surface(&self) -> Option<&LsvLeverageSurface> {
+        self.bergomi
+            .as_ref()
+            .and_then(BergomiDividendKernel::lsv_surface)
+    }
+
     /// Rebuild only spot-dependent escrow coefficients on the identical grid.
     /// Normalized f/Y and OU dynamics have no initial-Spot dependence in these
     /// BS/pure-SV models. Preserve the kernel and every reserved random coordinate.
@@ -351,7 +394,7 @@ impl StochasticDividendPathPlan {
     }
 
     #[must_use]
-    pub const fn scheme(&self) -> &'static str {
+    pub fn scheme(&self) -> &'static str {
         if self.rough.is_some() {
             return rough::SCHEME;
         }
