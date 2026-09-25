@@ -287,10 +287,42 @@ cases the calibration seed, particle count, bandwidth, fallback decisions,
 time grid and model parameters are fixed. Calibration sampling/model uncertainty
 is therefore excluded.
 
+Market-IV reporting on the **same residual-equity coordinate** is available
+through `evaluate_vega_kt()` when the request contains a VegaKT configuration
+and the `LocalVolatility` target contains a reporting-IV basis. The
+Local-variance VJP is first converted nodewise to Local-volatility sensitivity,
+
+[
+rac{partial P}{partial sigma_{loc,res}}
+=
+2sigma_{loc,res}
+rac{partial P}{partial sigma^2_{loc,res}},
+]
+
+and is then passed through the shared density gate and first-order VegaKT
+projection. This ordering is important: particle leverage is recalibrated
+*before* the market-IV projection, so VegaKT includes the finite-particle
+calibration response instead of freezing the leverage surface.
+
+For RQMC, each scramble-level recalibrated gradient is projected separately;
+bucket sample variances, price/bucket covariances and optional full bucket
+covariance therefore have the same independent-unit meaning as elsewhere in
+the library. For pseudo-MC the expensive calibration VJP is applied once to
+the aggregate gradient, so the result is a point VegaKT estimate and its bucket
+sampling variances/covariances are absent. The projection remains conditional
+on the fixed calibration seed and particle cloud.
+
+This VegaKT is **not physical-stock (S) VegaKT**. Reporting maturities,
+log-moneyness nodes and quoted implied volatilities must describe the
+(F^{res}) market surface used to define the residual-equity Dupire target.
+Using a physical-stock reporting surface would mix coordinates and is outside
+the current model contract.
+
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
-freeze calibrated leverage if reused unchanged. The Local-variance method does
-not report Spot, curve, cash-mean, Bergomi-parameter or market-IV VegaKT risk.
+freeze calibrated leverage if reused unchanged. The dedicated Local-variance
+and VegaKT methods still do not report Spot, curve, cash-mean or
+Bergomi-parameter risk.
 
 ## First-order risk
 
