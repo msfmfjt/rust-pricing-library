@@ -213,65 +213,65 @@ American exercise and continuous barriers remain unsupported here.
 
 ## Residual-equity LSV coupling
 
-Rust `StochasticDividendPricingPlan::compile_bergomi_lsv` and
-`compile_bergomi_two_factor_lsv`, with matching Python factories on
-`StochasticDividendPlan`, combine the Buehler cash-dividend state with the
+Rust \`StochasticDividendPricingPlan::compile_bergomi_lsv\` and
+\`compile_bergomi_two_factor_lsv\`, with matching Python factories on
+\`StochasticDividendPlan\`, combine the Buehler cash-dividend state with the
 existing particle-calibrated Bergomi LSV machinery.
 
-The request model must be `LocalVolatility`, but its target has a narrower
+The request model must be \`LocalVolatility\`, but its target has a narrower
 meaning than in the ordinary single-stock Local Volatility engine. Let
 
-[
- F_t^{res}=x_0 f_t
-]
+\[
+F_t^{res}=x_0 f_t
+\]
 
 be funded residual equity before deterministic carry reconstruction. The target
-grid is interpreted as local variance of (F^{res}), with log-moneyness
-(log(F_t^{res}/x_0)). The existing particle calibration computes
+grid is interpreted as local variance of \(F^{res}\), with log-moneyness
+\(\log(F_t^{res}/x_0)\). The existing particle calibration computes
 
-[
- L^2(t,k)=
- rac{sigma_{loc,res}^2(t,k)}
-      {mathbb E[A_t^2mid log(F_t^{res}/x_0)=k]},
-]
+\[
+L^2(t,k)=
+\frac{\sigma_{loc,res}^2(t,k)}
+{\mathbb E[A_t^2\mid \log(F_t^{res}/x_0)=k]},
+\]
 
-where (A_t) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
+where \(A_t\) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
 
-[
- rac{dF_t^{res}}{F_t^{res}}
- =L(t,F_t^{res})A_t,dW_t^f.
-]
+\[
+\frac{dF_t^{res}}{F_t^{res}}
+ =L(t,F_t^{res})A_t\,dW_t^f.
+\]
 
-The Buehler dividend factor (Y) is added only to the joint pricing system. Its
+The Buehler dividend factor \(Y\) is added only to the joint pricing system. Its
 correlations with equity and Bergomi factors do not change the marginal
-((F^{res},A)) calibration problem as long as the equity/Bergomi correlation
+\((F^{res},A)\) calibration problem as long as the equity/Bergomi correlation
 submatrix is unchanged. The full pricing Brownian matrix is still validated and
 the OU cross-covariances are integrated exactly as for the plain Bergomi
 coupling.
 
 This is **not** a physical-stock Dupire calibration. Physical stock is
 
-[
- S_t=a(t)f_t+b(t)Y_t+c(t),
-]
+\[
+S_t=a(t)f_t+b(t)Y_t+c(t),
+\]
 
 so its instantaneous diffusion contains both residual-equity and dividend-factor
-exposures. Matching a local-volatility surface quoted directly on (S) therefore
-requires a different conditional-moment calibration with the (Y) state in the
+exposures. Matching a local-volatility surface quoted directly on \(S\) therefore
+requires a different conditional-moment calibration with the \(Y\) state in the
 target; the current API does not claim that fit.
 
 The execution grid contains all Local Volatility target knots, contractual
 observation times and dividend ex-dates, and is further refined by
-`maximum_step`. Calibration and pricing use the same grid. The plan exposes
-`lsv_time_nodes`, `lsv_log_moneyness_nodes`,
-`lsv_squared_leverage` and `lsv_initial_residual_equity` for audit.
+\`maximum_step\`. Calibration and pricing use the same grid. The plan exposes
+\`lsv_time_nodes\`, \`lsv_log_moneyness_nodes\`,
+\`lsv_squared_leverage\` and \`lsv_initial_residual_equity\` for audit.
 Scheme identifiers are
-`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1` and
-`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1`.
+\`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1\` and
+\`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1\`.
 
 Local-variance risk is opt-in through
-`evaluate_local_variance_risk()`. Compile the LSV factory with
-`retain_reverse_trace=true`; otherwise the risk call fails before valuation
+\`evaluate_local_variance_risk()\`. Compile the LSV factory with
+\`retain_reverse_trace=true\`; otherwise the risk call fails before valuation
 sampling. The reverse first maps payoff seeds on reconstructed physical Spot
 through the Buehler positive split to every squared-leverage node, including
 the dependence of leverage interpolation on the residual-equity state. It then
@@ -280,14 +280,14 @@ uses the existing finite-particle calibration VJP to return sensitivities to the
 motion and kernel-regression feedback.
 
 The method label is
-`buehler-residual-lsv-path-and-discrete-particle-vjp-v1`. RQMC node standard
+\`buehler-residual-lsv-path-and-discrete-particle-vjp-v1\`. RQMC node standard
 errors are computed across scramble-level recalibrated gradients; pseudo-MC
 returns node gradients without a separate gradient standard error. In both
 cases the calibration seed, particle count, bandwidth, fallback decisions,
 time grid and model parameters are fixed. Calibration sampling/model uncertainty
 is therefore excluded.
 
-Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
+Existing \`evaluate_aad\`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The Local-variance method does
 not report Spot, curve, cash-mean, Bergomi-parameter or market-IV VegaKT risk.
