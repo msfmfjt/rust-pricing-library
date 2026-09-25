@@ -286,6 +286,21 @@ impl StochasticDividendPathPlan {
         Ok(self)
     }
 
+    pub(in crate::engine) fn with_rough_bergomi_lsv(
+        mut self,
+        factor: RoughBergomi,
+        correlation: f64,
+        leverage: LsvLeverageSurface,
+    ) -> Result<Self, MonteCarloError> {
+        self.rough = Some(Arc::new(
+            RoughDividendKernel::compile(self.model, factor, correlation, &self.times)?
+                .with_leverage(leverage, &self.times)?,
+        ));
+        self.bergomi = None;
+        self.set_dimension()?;
+        Ok(self)
+    }
+
     pub(in crate::engine) fn with_bergomi(
         mut self,
         factor: Bergomi1Factor,
@@ -348,16 +363,25 @@ impl StochasticDividendPathPlan {
 
     #[must_use]
     pub(in crate::engine) fn is_lsv(&self) -> bool {
-        self.bergomi
+        self.rough
             .as_ref()
-            .is_some_and(BergomiDividendKernel::is_lsv)
+            .is_some_and(|kernel| kernel.is_lsv())
+            || self
+                .bergomi
+                .as_ref()
+                .is_some_and(BergomiDividendKernel::is_lsv)
     }
 
     #[must_use]
     pub(in crate::engine) fn lsv_surface(&self) -> Option<&LsvLeverageSurface> {
-        self.bergomi
+        self.rough
             .as_ref()
-            .and_then(BergomiDividendKernel::lsv_surface)
+            .and_then(|kernel| kernel.lsv_surface())
+            .or_else(|| {
+                self.bergomi
+                    .as_ref()
+                    .and_then(BergomiDividendKernel::lsv_surface)
+            })
     }
 
     /// Pull a payoff seed on reconstructed physical Spot back to the calibrated
@@ -374,11 +398,13 @@ impl StochasticDividendPathPlan {
         {
             return Err(invalid("lsv_leverage_reverse_shape"));
         }
-        let kernel = self.bergomi.as_ref().filter(|k| k.is_lsv()).ok_or(
-            StochasticDividendError::Unsupported {
+        let bergomi = self.bergomi.as_ref().filter(|kernel| kernel.is_lsv());
+        let rough = self.rough.as_ref().filter(|kernel| kernel.is_lsv());
+        if bergomi.is_none() && rough.is_none() {
+            return Err(StochasticDividendError::Unsupported {
                 feature: "local-variance risk requires a residual-equity LSV plan",
-            },
-        )?;
+            });
+        }
         let mut equity_seeds = Vec::with_capacity(states.len());
         let mut dividend_seeds = Vec::with_capacity(states.len());
         for (node, &(post, pre)) in self.nodes.iter().zip(seeds) {
@@ -388,14 +414,27 @@ impl StochasticDividendPathPlan {
                 total * node.dividend_coefficient + pre * node.event_mean_cash.unwrap_or(0.0),
             );
         }
-        kernel.lsv_leverage_pullback(
-            self.model,
-            &self.times,
-            normals,
-            states,
-            &equity_seeds,
-            &dividend_seeds,
-        )
+        if let Some(kernel) = rough {
+            kernel.lsv_leverage_pullback(
+                self.model,
+                &self.times,
+                normals,
+                states,
+                &equity_seeds,
+                &dividend_seeds,
+            )
+        } else {
+            bergomi
+                .expect("LSV kernel checked above")
+                .lsv_leverage_pullback(
+                    self.model,
+                    &self.times,
+                    normals,
+                    states,
+                    &equity_seeds,
+                    &dividend_seeds,
+                )
+        }
     }
 
     /// Rebuild only spot-dependent escrow coefficients on the identical grid.
@@ -435,8 +474,8 @@ impl StochasticDividendPathPlan {
 
     #[must_use]
     pub fn scheme(&self) -> &'static str {
-        if self.rough.is_some() {
-            return rough::SCHEME;
+        if let Some(kernel) = &self.rough {
+            return kernel.scheme();
         }
         match &self.bergomi {
             None => crate::models::STOCHASTIC_DIVIDEND_SCHEME,
