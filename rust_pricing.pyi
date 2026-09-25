@@ -252,7 +252,7 @@ class StochasticDividendPlan:
     and dividend Brownian drivers. The LSV factories calibrate the funded
     residual-equity coordinate, not reconstructed physical stock. Recalibrated
     Local-variance/VegaKT risk and scale-invariant physical-Spot Delta are exposed
-    explicitly; legacy AAD/Gamma remain unsupported for calibrated LSV plans.
+    explicitly; fixed-calibration AAD remains unsupported for calibrated LSV plans.
     Constructors take price-only requests. Rough plans support basic/H-eta AAD,
     paired Delta-bump Gamma, and raw correlation AAD in the instantaneous SPD
     interior (pivots > 1e-10). Only the 1F/2F-specific risk method rejects rough.
@@ -271,6 +271,8 @@ class StochasticDividendPlan:
     def compile_bergomi_lsv(request: PricingRequest, *, mean_reversion: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, particle_count: int, calibration_seed: int, log_bandwidth: float, minimum_effective_samples: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None, retain_reverse_trace: bool = False) -> StochasticDividendPlan: ...
     @staticmethod
     def compile_bergomi_two_factor_lsv(request: PricingRequest, *, mean_reversions: Sequence[float], vol_of_vol: float, mixing_weight: float, spot_correlations: Sequence[float], factor_correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlations: Sequence[float], particle_count: int, calibration_seed: int, log_bandwidth: float, minimum_effective_samples: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None, retain_reverse_trace: bool = False) -> StochasticDividendPlan: ...
+    @staticmethod
+    def compile_rough_bergomi_lsv(request: PricingRequest, *, hurst: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, particle_count: int, calibration_seed: int, log_bandwidth: float, minimum_effective_samples: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None, retain_reverse_trace: bool = False) -> StochasticDividendPlan: ...
     @staticmethod
     def compile_rough_bergomi(request: PricingRequest, *, hurst: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendPlan: ...
     def evaluate(self) -> StochasticDividendPrice: ...
