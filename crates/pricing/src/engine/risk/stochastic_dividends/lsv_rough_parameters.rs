@@ -305,12 +305,12 @@ impl StochasticDividendPricingPlan {
             &[1.0][..]
         } {
             let shocks = z.iter().map(|value| sign * value).collect::<Vec<_>>();
-            out[0] += self.discounted_payoff_for_lsv_path(&self.path, &shocks)?;
+            out[0] += self.discounted_payoff_for_rough_lsv_parameter_path(&self.path, &shocks)?;
             for parameter in 0..2 {
                 let down =
-                    self.discounted_payoff_for_lsv_path(&scenarios[2 * parameter].path, &shocks)?;
+                    self.discounted_payoff_for_rough_lsv_parameter_path(&scenarios[2 * parameter].path, &shocks)?;
                 let up = self
-                    .discounted_payoff_for_lsv_path(&scenarios[2 * parameter + 1].path, &shocks)?;
+                    .discounted_payoff_for_rough_lsv_parameter_path(&scenarios[2 * parameter + 1].path, &shocks)?;
                 out[1 + parameter] += (up - down) / (2.0 * bumps[parameter]);
             }
         }
@@ -322,7 +322,7 @@ impl StochasticDividendPricingPlan {
         Ok(())
     }
 
-    fn discounted_payoff_for_lsv_path(
+    fn discounted_payoff_for_rough_lsv_parameter_path(
         &self,
         path: &StochasticDividendPathPlan,
         shocks: &[f64],
