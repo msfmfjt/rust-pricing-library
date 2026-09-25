@@ -8,6 +8,8 @@ use crate::models::BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES;
 use pricing_numerics::{CorrelationFactor, NeumaierSum};
 
 pub(super) const SCHEME: &str = "buehler-rough-bergomi-joint-hybrid-positive-split-v1";
+pub(super) const LSV_SCHEME: &str =
+    "buehler-rough-bergomi-residual-lsv-joint-hybrid-positive-split-v1";
 // A dense triangular history with 4096 steps needs about 64 MiB of scalar weights.
 // Reject before constructing it; do not silently switch to a Markovian surrogate.
 const MAX_STEPS: usize = 4096;
@@ -20,6 +22,7 @@ pub(super) struct RoughDividendKernel {
     weights: Box<[Box<[f64]>]>,
     variances: Box<[f64]>,
     steps: Box<[NearCell]>,
+    leverage: Option<LsvLeverageSurface>,
 }
 #[derive(Clone, Copy, Debug)]
 struct NearCell {
@@ -84,10 +87,39 @@ impl RoughDividendKernel {
             weights: weights.into_boxed_slice(),
             variances: variances.into_boxed_slice(),
             steps: steps.into_boxed_slice(),
+            leverage: None,
         })
     }
+
+    pub(super) fn with_leverage(
+        mut self,
+        surface: LsvLeverageSurface,
+        times: &[f64],
+    ) -> Result<Self, StochasticDividendError> {
+        crate::engine::processes::lsv::step_rows(&surface, times)
+            .map_err(|_| invalid("rough_lsv_leverage_surface"))?;
+        self.leverage = Some(surface);
+        Ok(self)
+    }
+
+    pub(super) fn is_lsv(&self) -> bool {
+        self.leverage.is_some()
+    }
+
+    pub(super) fn lsv_surface(&self) -> Option<&LsvLeverageSurface> {
+        self.leverage.as_ref()
+    }
+
+    pub(super) fn scheme(&self) -> &'static str {
+        if self.leverage.is_some() {
+            LSV_SCHEME
+        } else {
+            SCHEME
+        }
+    }
+
     pub(super) fn hash_parameters(&self, hash: &mut blake3::Hasher) {
-        hash.update(SCHEME.as_bytes());
+        hash.update(self.scheme().as_bytes());
         for x in [
             self.factor.hurst(),
             self.factor.vol_of_vol(),
@@ -95,6 +127,19 @@ impl RoughDividendKernel {
             self.dividend_volatility_correlation,
         ] {
             hash.update(&x.to_bits().to_le_bytes());
+        }
+        if let Some(surface) = &self.leverage {
+            hash.update(b"residual-lsv-squared-leverage-v1");
+            hash.update(&surface.initial_f().to_bits().to_le_bytes());
+            for &x in surface.times() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
+            for &x in surface.log_nodes() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
+            for &x in surface.squared_leverage() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
         }
     }
     fn innovations(&self, step: usize, z: &[f64; 4]) -> (f64, f64) {
@@ -170,11 +215,22 @@ impl RoughDividendKernel {
         for (i, z) in normals.as_chunks::<4>().0.iter().enumerate() {
             // Use the PREVIOUS node's Volterra history. The next history is
             // built only after evolving f/Y, so no same-step look-ahead occurs.
-            let sigma = if sigma0 == 0.0 || eta == 0.0 {
+            let multiplier =
+                (0.5 * eta * driver - 0.25 * eta * eta * self.variances[i]).exp();
+            positive(multiplier, "rough_volatility_multiplier")?;
+            let sigma = if let Some(surface) = &self.leverage {
+                let residual_f = surface.initial_f() * state.equity();
+                positive(residual_f, "rough_lsv_residual_equity")?;
+                let leverage_squared = surface
+                    .squared_leverage_at(times[i], residual_f)
+                    .map_err(|_| invalid("rough_lsv_leverage_lookup"))?;
+                let sigma = leverage_squared.sqrt() * multiplier;
+                positive(sigma, "rough_lsv_equity_volatility")?;
+                sigma
+            } else if sigma0 == 0.0 || eta == 0.0 {
                 sigma0
             } else {
-                let sigma =
-                    sigma0 * (0.5 * eta * driver - 0.25 * eta * eta * self.variances[i]).exp();
+                let sigma = sigma0 * multiplier;
                 positive(sigma, "rough_equity_volatility")?;
                 sigma
             };
