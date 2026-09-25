@@ -160,7 +160,15 @@ impl StochasticDividendPricingPlan {
         // Start from the established LSV grid so every contractual and target
         // knot is retained, then optionally refine further for the Buehler split.
         let lsv_grid = base.lsv_time_grid()?;
-        let mut required_times = lsv_grid.nodes().to_vec();
+        // The shared LocalVol runtime keeps all deterministic dividend events,
+        // including cash after option expiry. Buehler funding also keeps those
+        // cash means, but the stochastic path itself must stop at expiry.
+        let mut required_times = lsv_grid
+            .nodes()
+            .iter()
+            .copied()
+            .filter(|t| *t <= expiry)
+            .collect::<Vec<_>>();
         required_times.extend(
             target
                 .local_variance_grid()
