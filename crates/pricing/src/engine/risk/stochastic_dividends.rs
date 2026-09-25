@@ -60,7 +60,6 @@ enum StochasticDividendLsvCalibration {
     Two {
         calibration: CalibratedBergomiLsv<Bergomi2Factor>,
         original_target: LocalVarianceGrid,
-        dividend_volatility_correlations: [f64; 2],
     },
 }
 
@@ -342,7 +341,6 @@ impl StochasticDividendPricingPlan {
         plan.lsv = Some(StochasticDividendLsvCalibration::Two {
             calibration,
             original_target,
-            dividend_volatility_correlations,
         });
         plan.finish_lsv(&particles)?;
         debug_assert_eq!(plan.path.times(), grid.nodes());
