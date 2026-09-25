@@ -405,13 +405,30 @@ correlations are fixed in this method. The method label is
 As with the 1F forward-recalibration risk, `retain_reverse_trace=true` is not
 required.
 
+2F correlation risk is available through
+`evaluate_lsv_bergomi_two_factor_correlation_risk(...)`. The two spot/volatility
+correlations and the volatility-factor correlation belong to the marginal
+residual-equity/Bergomi system, so their up/down scenarios rerun the full
+finite-particle LSV calibration. The two dividend/volatility correlations affect
+only the joint Buehler pricing Brownian matrix; their scenarios reuse the
+calibrated leverage surface exactly and rebuild only the joint pricing kernel.
+
+All five derivatives use central bumps with common valuation random numbers and
+paired MC/RQMC sampling errors. Each scalar bump must stay inside the individual
+correlation range and every bumped full correlation matrix must remain
+admissible. The method label is
+`buehler-residual-lsv-common-noise-bergomi-2f-correlation-v1`.
+This is a forward selective-recalibration risk and does not require a retained
+calibration reverse trace.
+
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now
 cover Local-variance risk, residual-surface VegaKT, physical-Spot Delta and
 1F Bergomi mean-reversion/vol-of-vol risk and the two 1F Bergomi/dividend
 correlations and 2F Bergomi model-parameter risk, but not curve, cash-mean or
-2F correlation risk.
+2F correlation risk is also covered by the dedicated selective-recalibration
+method above.
 
 ## First-order risk
 
