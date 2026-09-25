@@ -413,7 +413,7 @@ fn coupled_hull_white_price_delta_and_gamma_refinement() {
                     }
                 }
             }
-            for product in 0..2 {
+            for (product, reference) in samples[4].iter().enumerate() {
                 for (quantity, name) in ["price", "delta", "gamma_0.5", "gamma_1", "gamma_2"]
                     .iter()
                     .enumerate()
@@ -423,7 +423,7 @@ fn coupled_hull_white_price_delta_and_gamma_refinement() {
                             samples[j][product].iter().map(|s| s[quantity]).collect();
                         let differences: Vec<_> = samples[j][product]
                             .iter()
-                            .zip(&samples[4][product])
+                            .zip(reference)
                             .map(|(x, y)| x[quantity] - y[quantity])
                             .collect();
                         let (mean, se) = moments(&values);
