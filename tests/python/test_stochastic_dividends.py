@@ -161,6 +161,7 @@ class StochasticDividendTest(unittest.TestCase):
         result = p.evaluate()
         self.assertTrue(math.isfinite(result.value))
         self.assertGreater(result.standard_error, 0.0)
+        self.assertEqual(result.uncertainty_scope, "pricing_conditional_on_calibration")
         self.assertEqual(result.scheme,
                          "buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1")
         self.assertEqual(p.random_factor_count, 3)
