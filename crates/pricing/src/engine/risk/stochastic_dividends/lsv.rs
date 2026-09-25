@@ -7,6 +7,7 @@
 
 use super::*;
 use crate::VegaKtResult;
+use crate::engine::processes::stochastic_dividends::reverse::ReverseContext;
 use crate::mc::lsv::LsvError;
 use crate::models::BergomiDynamics;
 use crate::risk::{
@@ -16,6 +17,17 @@ use crate::risk::{
 };
 
 const METHOD: &str = "buehler-residual-lsv-path-and-discrete-particle-vjp-v1";
+const SPOT_METHOD: &str = "buehler-residual-lsv-scale-invariant-spot-reverse-v1";
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StochasticDividendLsvSpotRisk {
+    pub price: StochasticDividendPrice,
+    /// dPrice / d physical Spot with the residual-equity LSV surface
+    /// re-anchored to the bumped funded residual equity.
+    pub delta: f64,
+    pub delta_standard_error: f64,
+    pub method: &'static str,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StochasticDividendLocalVarianceRisk {
@@ -99,6 +111,185 @@ fn target_reverse<F: BergomiDynamics>(
         }
     }
     Ok(original)
+}
+
+impl StochasticDividendPricingPlan {
+    /// Physical-Spot Delta for residual-equity LSV. The particle calibration is
+    /// homogeneous in its initial residual equity because both the calibration
+    /// kernel and leverage lookup use log(F/F0). Recalibrating after a Spot bump
+    /// therefore leaves the squared-leverage values unchanged while re-anchoring
+    /// the surface initial_f. Normalized f/Y pricing states are consequently
+    /// Spot-independent, and the exact finite-algorithm Delta is the Buehler
+    /// reconstruction-coefficient reverse.
+    pub fn evaluate_lsv_spot_risk(
+        &self,
+    ) -> Result<StochasticDividendLsvSpotRisk, MonteCarloError> {
+        if self.lsv.is_none() || !self.path.is_lsv() {
+            return Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "LSV Spot risk requires a stochastic-dividend residual LSV plan",
+            });
+        }
+        if !self.risk_supported {
+            return Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "stochastic-dividend LSV discontinuous payoff requires explicit smoothing",
+            });
+        }
+
+        let context = ReverseContext::new(&self.path, &self.market, self.payment_time)?;
+        let executor = DeterministicExecutor::new(self.policy)?;
+        let dimension = self.path.random_dimension();
+        let (price_stats, delta_stats, units, paths) = match self.engine {
+            EngineConfig::PseudoMonteCarlo(config) => {
+                let count = config.independent_sampling_units().get();
+                let bridge = self.bridge(config.variance_reduction())?;
+                let rng = Philox4x32::from_seed(config.master_seed());
+                let stats = executor.try_map_reduce_statistics_vector(count, 2, |p, out| {
+                    let z = (0..dimension)
+                        .map(|d| {
+                            rng.standard_normal(RandomCoordinate::new(
+                                p,
+                                d,
+                                RandomDomain::Valuation,
+                            ))
+                        })
+                        .collect();
+                    self.sample_lsv_spot_risk(
+                        &context,
+                        z,
+                        bridge.as_ref(),
+                        config.variance_reduction().antithetic(),
+                        out,
+                    )
+                })?;
+                (stats[0], stats[1], count, config.evaluated_paths())
+            }
+            EngineConfig::RandomizedQuasiMonteCarlo(config) => {
+                let qmc = RqmcPlan::compile(config, dimension)?;
+                let bridge = self.bridge(config.variance_reduction())?;
+                let count = config.points_per_scramble().get();
+                let mut prices = Vec::with_capacity(config.scramble_count().get() as usize);
+                let mut deltas = Vec::with_capacity(config.scramble_count().get() as usize);
+                for scramble in 0..config.scramble_count().get() {
+                    let stats =
+                        executor.try_map_reduce_statistics_vector(count, 2, |p, out| {
+                            let z = (0..dimension)
+                                .map(|d| {
+                                    let u = qmc
+                                        .uniform(scramble, p, d)
+                                        .map_err(|_| invalid("rqmc_uniform"))?;
+                                    inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            self.sample_lsv_spot_risk(
+                                &context,
+                                z,
+                                bridge.as_ref(),
+                                config.variance_reduction().antithetic(),
+                                out,
+                            )
+                        })?;
+                    prices.push(stats[0].sum().total() / count as f64);
+                    deltas.push(stats[1].sum().total() / count as f64);
+                }
+                let scrambles = u64::from(config.scramble_count().get());
+                (
+                    DeterministicStatistics::from_ordered_values_two_pass(&prices),
+                    DeterministicStatistics::from_ordered_values_two_pass(&deltas),
+                    scrambles,
+                    u128::from(count)
+                        * u128::from(scrambles)
+                        * if config.variance_reduction().antithetic() {
+                            2
+                        } else {
+                            1
+                        },
+                )
+            }
+        };
+
+        let value = price_stats.sum().total() / units as f64;
+        let standard_error = estimator_error(price_stats, units)?;
+        let delta = delta_stats.sum().total() / units as f64;
+        let delta_standard_error = estimator_error(delta_stats, units)?;
+        if !value.is_finite()
+            || !standard_error.is_finite()
+            || !delta.is_finite()
+            || !delta_standard_error.is_finite()
+        {
+            return Err(invalid("lsv_spot_risk_estimator").into());
+        }
+        Ok(StochasticDividendLsvSpotRisk {
+            price: StochasticDividendPrice {
+                value,
+                standard_error,
+                independent_sampling_units: units,
+                evaluated_paths: paths,
+                plan_fingerprint: self.fingerprint,
+                scheme: self.scheme(),
+            },
+            delta,
+            delta_standard_error,
+            method: SPOT_METHOD,
+        })
+    }
+
+    fn sample_lsv_spot_risk(
+        &self,
+        context: &ReverseContext,
+        mut z: Vec<f64>,
+        bridge: Option<&BrownianBridgePlan>,
+        antithetic: bool,
+        out: &mut [f64],
+    ) -> Result<(), MonteCarloError> {
+        if out.len() != 2 {
+            return Err(invalid("lsv_spot_risk_width").into());
+        }
+        if let Some(bridge) = bridge {
+            let count = self.random_factor_count();
+            for factor in 0..count {
+                let input = z
+                    .iter()
+                    .skip(factor)
+                    .step_by(count)
+                    .copied()
+                    .collect::<Vec<_>>();
+                let output = bridge
+                    .apply_one_factor(&input)
+                    .map_err(|e| MonteCarloError::LocalVol(e.into()))?;
+                for (step, value) in output.into_iter().enumerate() {
+                    z[count * step + factor] = value;
+                }
+            }
+        }
+
+        out.fill(0.0);
+        for &sign in if antithetic {
+            &[1.0, -1.0][..]
+        } else {
+            &[1.0][..]
+        } {
+            let shocks = z.iter().map(|v| sign * v).collect::<Vec<_>>();
+            let states = self.path.evolve_path(&shocks)?;
+            let spots = self
+                .path
+                .nodes()
+                .iter()
+                .zip(&states)
+                .map(|(node, state)| node.spots(*state))
+                .collect::<Result<Vec<_>, _>>()?;
+            let (payoff, seeds) = self
+                .base
+                .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
+            out[0] += payoff;
+            out[1] += context.spot_pullback(&states, &seeds)?;
+        }
+        if antithetic {
+            for value in out {
+                *value *= 0.5;
+            }
+        }
+        Ok(())
+    }
 }
 
 impl StochasticDividendPricingPlan {
