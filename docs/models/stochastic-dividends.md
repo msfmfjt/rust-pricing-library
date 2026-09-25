@@ -338,6 +338,30 @@ Validation compares the analytic Delta with a full up/down recompile: the
 recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
 
+Residual-LSV Spot Gamma is available through `evaluate_lsv_gamma()`.
+It uses the same half/base/double Spot-bump ladder as the non-LSV Gamma API, but
+every shifted scenario rebuilds the Buehler physical-Spot coefficients and
+re-anchors the LSV surface `initial_f` to the shifted funded residual equity.
+The calibrated squared-leverage values are unchanged. Because leverage lookup
+uses the relative coordinate (log(F/F_0^{res})), normalized (f/Y) states
+are identical across the six Spot scenarios and can be reused with common
+valuation random numbers.
+
+Gamma is the central difference of the exact scale-invariant LSV Spot Delta,
+not a second reverse pass. The result uses the existing
+`StochasticDividendGammaRisk` ladder diagnostics and has method label
+`buehler-residual-lsv-scale-invariant-aad-delta-gamma-v1`. Sampling errors
+are computed on the paired Gamma estimators. Bump differences remain numerical
+convergence diagnostics rather than certified error bounds.
+
+The dedicated method works for both 1F and 2F residual-LSV plans and does not
+require `retain_reverse_trace=true`. Validation compares every ladder entry
+with independently recompiled up/down plans and their
+`evaluate_lsv_spot_risk()` Deltas while checking that calibrated leverage
+values remain unchanged. The legacy `evaluate_gamma()` continues to reject
+LSV plans so the fixed-leverage non-LSV contract cannot be selected
+accidentally.
+
 Spot, fixed-cash mean and deterministic curve risk can be requested together
 through `evaluate_lsv_market_risk()`. The requested residual-equity
 Local-variance grid is held fixed. Cash amounts and discount/repo-spread curves
@@ -468,9 +492,9 @@ calibration reverse trace.
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now cover Local-variance risk,
-residual-surface VegaKT, physical-Spot Delta, cash-mean and deterministic-curve
-risk, Buehler dividend-model parameter risk, 1F Bergomi parameter/correlation
-risk, and 2F Bergomi parameter/correlation risk.
+residual-surface VegaKT, physical-Spot Delta/Gamma, cash-mean and
+deterministic-curve risk, Buehler dividend-model parameter risk, 1F Bergomi
+parameter/correlation risk, and 2F Bergomi parameter/correlation risk.
 
 ## First-order risk
 
