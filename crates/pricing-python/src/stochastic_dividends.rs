@@ -283,6 +283,64 @@ impl PyStochasticDividendPlan {
 
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, *, hurst, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None, retain_reverse_trace=false))]
+    fn compile_rough_bergomi_lsv(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        hurst: f64,
+        vol_of_vol: f64,
+        correlation: f64,
+        dividend_mean_reversion: f64,
+        equity_linkage: f64,
+        dividend_volatility: f64,
+        equity_dividend_correlation: f64,
+        dividend_volatility_correlation: f64,
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        retain_reverse_trace: bool,
+    ) -> PyResult<Self> {
+        let factor =
+            RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
+        let model = BuehlerDividendModel::new(
+            dividend_mean_reversion,
+            equity_linkage,
+            dividend_volatility,
+            equity_dividend_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            retain_reverse_trace,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        py.detach(|| {
+            StochasticDividendPricingPlan::compile_rough_bergomi_lsv(
+                &request,
+                model,
+                factor,
+                dividend_volatility_correlation,
+                particles,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(request, *, hurst, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, maximum_step, worker_threads, reduction_block_size=None))]
     fn compile_rough_bergomi(
         py: Python<'_>,
