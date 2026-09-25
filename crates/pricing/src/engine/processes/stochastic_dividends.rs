@@ -360,6 +360,46 @@ impl StochasticDividendPathPlan {
             .and_then(BergomiDividendKernel::lsv_surface)
     }
 
+    /// Pull a payoff seed on reconstructed physical Spot back to the calibrated
+    /// squared-leverage surface in funded residual-equity coordinates.
+    pub(in crate::engine) fn lsv_leverage_pullback(
+        &self,
+        normals: &[f64],
+        states: &[BuehlerDividendState],
+        seeds: &[(f64, f64)],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        if normals.len() != self.dimension as usize
+            || states.len() != self.times.len()
+            || seeds.len() != self.times.len()
+        {
+            return Err(invalid("lsv_leverage_reverse_shape"));
+        }
+        let kernel = self
+            .bergomi
+            .as_ref()
+            .filter(|k| k.is_lsv())
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "local-variance risk requires a residual-equity LSV plan",
+            })?;
+        let mut equity_seeds = Vec::with_capacity(states.len());
+        let mut dividend_seeds = Vec::with_capacity(states.len());
+        for (node, &(post, pre)) in self.nodes.iter().zip(seeds) {
+            let total = post + pre;
+            equity_seeds.push(total * node.equity_coefficient);
+            dividend_seeds.push(
+                total * node.dividend_coefficient + pre * node.event_mean_cash.unwrap_or(0.0),
+            );
+        }
+        kernel.lsv_leverage_pullback(
+            self.model,
+            &self.times,
+            normals,
+            states,
+            &equity_seeds,
+            &dividend_seeds,
+        )
+    }
+
     /// Rebuild only spot-dependent escrow coefficients on the identical grid.
     /// Normalized f/Y and OU dynamics have no initial-Spot dependence in these
     /// BS/pure-SV models. Preserve the kernel and every reserved random coordinate.
