@@ -285,9 +285,16 @@ No license has been selected yet. Publication of this repository does not itself
 
 ### Stochastic discrete cash dividends
 
-The separate Rust `StochasticDividendPricingPlan::compile_bs` and Python
-`StochasticDividendPlan.compile_bs` entry points add a Buehler cash-dividend
-factor with deterministic rates and constant residual-equity volatility.
-See the [model and support limits](docs/models/stochastic-dividends.md) and
-[runnable example](examples/python/stochastic_dividends.py). This is price-only;
-SV/LSV/HW composition and AAD/VegaKT are not implied by the new component.
+Dedicated Rust `StochasticDividendPricingPlan` and Python `StochasticDividendPlan`
+entry points support Buehler cash dividends with BS, 1F/2F Bergomi or rough
+Bergomi at deterministic rates. The separate Rust
+`StochasticDividendHullWhitePricingPlan` and Python `StochasticDividendHullWhitePlan`
+combine constant residual-equity volatility with Hull–White rates.
+
+These plans expose opt-in first-order AAD and finite-bump Spot Gamma; constructors
+still require price-only request flags. See the
+[stochastic-dividend models and limits](docs/models/stochastic-dividends.md),
+[Hull–White model and risk scopes](docs/models/stochastic-dividends-hull-white.md),
+and [Hull–White risk example](examples/python/stochastic_dividend_hull_white_risk.py).
+Cash inputs are Q means. Market-IV calibration, VegaKT, LSV and stochastic-volatility
+plus Hull–White composition are not available for these stochastic-dividend plans.
