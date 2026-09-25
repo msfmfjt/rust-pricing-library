@@ -4,7 +4,7 @@ use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
-    StochasticDividendPrice, StochasticDividendPricingPlan,
+    StochasticDividendLocalVarianceRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -154,7 +154,7 @@ impl PyStochasticDividendPlan {
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, *, mean_reversion, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, *, mean_reversion, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None, retain_reverse_trace=false))]
     fn compile_bergomi_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -173,6 +173,7 @@ impl PyStochasticDividendPlan {
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        retain_reverse_trace: bool,
     ) -> PyResult<Self> {
         let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
             .map_err(|e| invalid(py, e))?;
@@ -188,7 +189,7 @@ impl PyStochasticDividendPlan {
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
-            false,
+            retain_reverse_trace,
         )
         .map_err(|e| invalid(py, e))?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
@@ -211,7 +212,7 @@ impl PyStochasticDividendPlan {
 
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlations, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlations, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None, retain_reverse_trace=false))]
     fn compile_bergomi_two_factor_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -232,6 +233,7 @@ impl PyStochasticDividendPlan {
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        retain_reverse_trace: bool,
     ) -> PyResult<Self> {
         let factor = Bergomi2Factor::new(
             mean_reversions,
@@ -253,7 +255,7 @@ impl PyStochasticDividendPlan {
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
-            false,
+            retain_reverse_trace,
         )
         .map_err(|e| invalid(py, e))?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
@@ -320,6 +322,14 @@ impl PyStochasticDividendPlan {
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyStochasticDividendPrice> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyStochasticDividendPrice { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_local_variance_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyStochasticDividendLocalVarianceRisk> {
+        py.detach(|| self.inner.evaluate_local_variance_risk())
+            .map(|inner| PyStochasticDividendLocalVarianceRisk { inner })
             .map_err(pricing_exception)
     }
     /// Exactly one absolute or relative Spot bump is required. A half/base/double
@@ -435,6 +445,54 @@ impl PyStochasticDividendPrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         self.inner.uncertainty_scope()
+    }
+}
+
+/// Recalibration-aware risk to residual-equity Dupire Local-variance nodes.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLocalVarianceRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLocalVarianceRisk {
+    pub(super) inner: StochasticDividendLocalVarianceRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLocalVarianceRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn time_nodes(&self) -> Vec<f64> {
+        self.inner.time_nodes.to_vec()
+    }
+    #[getter]
+    fn log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn node_adjoints(&self) -> Vec<f64> {
+        self.inner.node_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Option<Vec<f64>> {
+        self.inner.standard_errors.as_ref().map(|v| v.to_vec())
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "relative_dupire_variance_nodes_in_residual_equity"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_fixed_calibration_seed_and_particle_count"
     }
 }
 
