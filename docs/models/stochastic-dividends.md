@@ -342,9 +342,7 @@ values.
 `evaluate_lsv_bergomi_parameter_risk(mean_reversion_bump=..., vol_of_vol_bump=...)`.
 This is intentionally **not** the fixed-leverage Bergomi AAD used by pure-SV
 plans. Four scenarios are built for
-(kpm h_k) and (
-upm h_
-u). Each scenario reruns the finite-particle
+\(k\pm h_k\) and \(\nu\pm h_\nu\). Each scenario reruns the finite-particle
 LSV calibration using the same calibration seed, particle count, bandwidth,
 fallback rules and grid, then reprices with common valuation random numbers.
 The reported derivatives therefore include both the direct pricing response
