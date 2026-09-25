@@ -72,14 +72,12 @@ fn target_reverse<F: BergomiDynamics>(
     let m = original_target.log_moneyness_nodes().len();
     let mut original = vec![0.0; original_target.values().len()];
     for (r, &t) in calibration.target().time_nodes().iter().enumerate() {
-        for (j, &x) in original_target
-            .log_moneyness_nodes()
-            .iter()
-            .enumerate()
-        {
-            original_target
-                .interpolate(t, x)?
-                .transpose_accumulate(refined[r * m + j], &mut original, m);
+        for (j, &x) in original_target.log_moneyness_nodes().iter().enumerate() {
+            original_target.interpolate(t, x)?.transpose_accumulate(
+                refined[r * m + j],
+                &mut original,
+                m,
+            );
         }
     }
     Ok(original)
@@ -281,9 +279,7 @@ impl StochasticDividendPricingPlan {
             let (payoff, seeds) = self
                 .base
                 .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
-            let leverage = self
-                .path
-                .lsv_leverage_pullback(&shocks, &states, &seeds)?;
+            let leverage = self.path.lsv_leverage_pullback(&shocks, &states, &seeds)?;
             if out.len() != leverage.len() + 1 {
                 return Err(invalid("lsv_local_variance_risk_width").into());
             }
