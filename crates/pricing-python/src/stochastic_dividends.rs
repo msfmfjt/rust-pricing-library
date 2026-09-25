@@ -539,11 +539,7 @@ impl PyStochasticDividendPrice {
 }
 
 /// 2F Bergomi correlation risk with selective residual-LSV recalibration.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvBergomi2FactorCorrelationRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorCorrelationRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
     pub(super) inner: StochasticDividendLsvBergomi2FactorCorrelationRisk,
