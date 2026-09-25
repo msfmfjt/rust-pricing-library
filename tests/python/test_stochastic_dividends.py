@@ -45,6 +45,48 @@ def make_lsv_request(dividends=((0.5, 6.0), (1.4, 3.0)), points=64, local_varian
     return rp.PricingRequest.from_json(json.dumps(data))
 
 
+def make_lsv_vegakt_request(points=32, full_bucket_covariance=True):
+    half = 182.0 / 365.0
+    return rp.PricingRequest(
+        "2026-09-04",
+        rp.Product.european_vanilla(1, 2, "2027-09-04", 100.0, 1.0, "call"),
+        rp.Market.equity(
+            2,
+            1,
+            100.0,
+            rp.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95]),
+            rp.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98]),
+            discrete_dividends=[
+                rp.DividendEvent.fixed_cash(1, half, 6.0),
+                rp.DividendEvent.fixed_cash(2, 0.8, 3.0),
+            ],
+        ),
+        rp.Model.local_volatility_from_grid_with_reporting_basis(
+            [0.0, half, 1.0],
+            [-0.5, 0.0, 0.5],
+            [0.04] * 9,
+            1e-8,
+            4.0,
+            [half, 1.0],
+            [-0.5, 0.0, 0.5],
+            [0.2] * 6,
+        ),
+        rp.Engine.randomized_quasi_monte_carlo(
+            points,
+            91,
+            scramble_count=4,
+            antithetic=True,
+            brownian_bridge=True,
+        ),
+        rp.RiskRequest(
+            vega_kt_maturity_nodes=["2027-03-05", "2027-09-04"],
+            vega_kt_log_forward_moneyness_nodes=[-0.5, 0.0, 0.5],
+            vega_kt_relative_density_threshold=1e-8,
+            vega_kt_full_bucket_covariance=full_bucket_covariance,
+        ),
+    )
+
+
 def compile_lsv(request=None, two_factor=False, worker_threads=2, **kwargs):
     common = dict(
         dividend_mean_reversion=0.7,
@@ -188,6 +230,8 @@ class StochasticDividendTest(unittest.TestCase):
             p.evaluate_aad()
         with self.assertRaises(rp.PricingError):
             p.evaluate_gamma(gamma_relative_bump=0.01)
+        with self.assertRaises(rp.PricingError):
+            p.evaluate_vega_kt()
 
         local_risk = p.evaluate_local_variance_risk()
         self.assertAlmostEqual(local_risk.price.value, result.value, delta=2e-13)
@@ -229,6 +273,75 @@ class StochasticDividendTest(unittest.TestCase):
         fd = (up - down) / (2.0 * bump)
         tolerance = max(5.0e-4, 5.0e-3 * abs(fd))
         self.assertAlmostEqual(risk.node_adjoints[index], fd, delta=tolerance)
+
+    def test_residual_lsv_vegakt_uses_recalibrated_target_risk(self):
+        request = make_lsv_vegakt_request()
+        p = compile_lsv(
+            request,
+            particle_count=128,
+            reduction_block_size=16,
+            worker_threads=1,
+        )
+        local_risk = p.evaluate_local_variance_risk()
+        vega_kt = p.evaluate_vega_kt()
+
+        self.assertEqual(len(vega_kt.coordinates), 6)
+        self.assertEqual(len(vega_kt.raw_buckets), 6)
+        self.assertTrue(all(math.isfinite(x) for x in vega_kt.raw_buckets))
+        self.assertEqual(vega_kt.covariance_layout, "full_bucket_matrix_row_major")
+        self.assertIsNotNone(vega_kt.full_bucket_covariance)
+        self.assertEqual(len(vega_kt.full_bucket_covariance), 36)
+        self.assertEqual(vega_kt.policy_label, "equation_11_first_order_v1")
+        self.assertTrue(
+            all(
+                estimate.sample_variance is not None
+                for estimate in vega_kt.estimates
+            )
+        )
+
+        # The VegaKT pre-projection is the parallel Local-volatility derivative
+        # of the original residual-equity target after the particle-calibration VJP.
+        expected_parallel_vega = sum(
+            2.0 * math.sqrt(0.04) * adjoint
+            for adjoint in local_risk.node_adjoints
+        )
+        self.assertAlmostEqual(
+            vega_kt.projection.pre_projection,
+            expected_parallel_vega,
+            delta=2e-11,
+        )
+        self.assertAlmostEqual(
+            sum(vega_kt.raw_buckets) + vega_kt.projection.signed_residual,
+            vega_kt.projection.pre_projection,
+            delta=2e-11,
+        )
+
+        # Calibration, VJP, reporting projection and scramble covariance are
+        # deterministic across worker counts.
+        q = compile_lsv(
+            request,
+            particle_count=128,
+            reduction_block_size=16,
+            worker_threads=3,
+        )
+        q_vega_kt = q.evaluate_vega_kt()
+        self.assertEqual(q_vega_kt.raw_buckets, vega_kt.raw_buckets)
+        self.assertEqual(
+            [estimate.sample_variance for estimate in q_vega_kt.estimates],
+            [estimate.sample_variance for estimate in vega_kt.estimates],
+        )
+        self.assertEqual(
+            q_vega_kt.full_bucket_covariance,
+            vega_kt.full_bucket_covariance,
+        )
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(
+                request,
+                particle_count=128,
+                reduction_block_size=16,
+                retain_reverse_trace=False,
+            ).evaluate_vega_kt()
 
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
