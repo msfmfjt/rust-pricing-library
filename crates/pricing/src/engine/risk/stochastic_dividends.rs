@@ -6,12 +6,14 @@ mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
 mod lsv_correlations;
+mod lsv_correlations_2f;
 mod lsv_parameters;
 mod lsv_parameters_2f;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
 pub use lsv_correlations::StochasticDividendLsvCorrelationRisk;
+pub use lsv_correlations_2f::StochasticDividendLsvBergomi2FactorCorrelationRisk;
 pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 pub use lsv_parameters_2f::StochasticDividendLsvBergomi2FactorRisk;
 
