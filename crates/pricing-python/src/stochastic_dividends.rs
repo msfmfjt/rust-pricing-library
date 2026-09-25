@@ -154,7 +154,7 @@ impl PyStochasticDividendPlan {
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, *, mean_reversion, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, retain_reverse_trace, maximum_step, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, *, mean_reversion, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None, retain_reverse_trace=false))]
     fn compile_bergomi_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -170,10 +170,10 @@ impl PyStochasticDividendPlan {
         calibration_seed: u64,
         log_bandwidth: f64,
         minimum_effective_samples: f64,
-        retain_reverse_trace: bool,
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        retain_reverse_trace: bool,
     ) -> PyResult<Self> {
         let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
             .map_err(|e| invalid(py, e))?;
@@ -212,7 +212,7 @@ impl PyStochasticDividendPlan {
 
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlations, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, retain_reverse_trace, maximum_step, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlations, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None, retain_reverse_trace=false))]
     fn compile_bergomi_two_factor_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -230,10 +230,10 @@ impl PyStochasticDividendPlan {
         calibration_seed: u64,
         log_bandwidth: f64,
         minimum_effective_samples: f64,
-        retain_reverse_trace: bool,
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        retain_reverse_trace: bool,
     ) -> PyResult<Self> {
         let factor = Bergomi2Factor::new(
             mean_reversions,
