@@ -997,6 +997,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "StochasticDividendPrice",
         "StochasticDividendAadRisk",
         "StochasticDividendGammaRisk",
+        "StochasticDividendLocalVarianceRisk",
         'MultiAssetHullWhiteCalibration',
         'MultiAssetHullWhiteLsvRisk',
         'MultiAssetHullWhiteCurveRisk',
