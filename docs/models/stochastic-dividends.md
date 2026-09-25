@@ -423,12 +423,10 @@ calibration reverse trace.
 
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
-freeze calibrated leverage if reused unchanged. The dedicated LSV methods now
-cover Local-variance risk, residual-surface VegaKT, physical-Spot Delta and
-1F Bergomi mean-reversion/vol-of-vol risk and the two 1F Bergomi/dividend
-correlations and 2F Bergomi model-parameter risk, but not curve, cash-mean or
-2F correlation risk is also covered by the dedicated selective-recalibration
-method above.
+freeze calibrated leverage if reused unchanged. The dedicated LSV methods now cover Local-variance risk,
+residual-surface VegaKT, physical-Spot Delta, 1F Bergomi parameter/correlation
+risk, and 2F Bergomi parameter/correlation risk. Curve and cash-mean risk remain
+separate extensions.
 
 ## First-order risk
 
