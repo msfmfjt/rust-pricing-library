@@ -279,8 +279,6 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
             .enumerate()
         {
             let factor: f64 = self.weights.iter().zip(x).map(|(w, x)| w * x).sum();
-            let multiplier = (self.vol_of_vol * (factor - self.centering[i])).exp();
-            positive(multiplier, "bergomi_volatility_multiplier")?;
             let sigma = if let Some(surface) = &self.leverage {
                 // The calibrated surface lives in the *funded residual-equity*
                 // coordinate F_res = F_res(0) * f. It is deliberately not a
@@ -290,13 +288,17 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
                 let leverage_squared = surface
                     .squared_leverage_at(times[i], residual_f)
                     .map_err(|_| invalid("lsv_leverage_lookup"))?;
+                let multiplier = (self.vol_of_vol * (factor - self.centering[i])).exp();
                 let sigma = leverage_squared.sqrt() * multiplier;
                 positive(sigma, "lsv_equity_volatility")?;
                 sigma
             } else if sigma0 == 0.0 {
+                // Preserve the original pure-Bergomi zero-volatility branch:
+                // do not evaluate the stochastic-volatility exponential.
                 0.0
             } else {
-                let sigma = sigma0 * multiplier;
+                let sigma =
+                    sigma0 * (self.vol_of_vol * (factor - self.centering[i])).exp();
                 positive(sigma, "bergomi_volatility")?;
                 sigma
             };
