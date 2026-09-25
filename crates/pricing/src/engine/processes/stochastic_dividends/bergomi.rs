@@ -425,13 +425,8 @@ mod tests {
         let dividend = BuehlerDividendModel::new(0.7, 0.6, 0.35, -0.25).unwrap();
         let factor = Bergomi1Factor::new(0.8, 0.0, -0.4).unwrap();
         let times = [0.0, 0.5, 1.0];
-        let surface = LsvLeverageSurface::new(
-            times.to_vec(),
-            vec![-1.0, 1.0],
-            vec![0.04; 6],
-            90.0,
-        )
-        .unwrap();
+        let surface =
+            LsvLeverageSurface::new(times.to_vec(), vec![-1.0, 1.0], vec![0.04; 6], 90.0).unwrap();
         let normals = [0.2, -0.7, 1.1, -0.3, 0.5, -1.4];
 
         let plain = BergomiDividendKernel::one(dividend, factor, 0.15, &times)
@@ -446,9 +441,7 @@ mod tests {
             lsv_kernel.scheme(),
             "buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1"
         );
-        let lsv = lsv_kernel
-            .evolve(dividend, 0.0, &times, &normals)
-            .unwrap();
+        let lsv = lsv_kernel.evolve(dividend, 0.0, &times, &normals).unwrap();
 
         for (a, b) in plain.iter().zip(lsv.iter()) {
             assert!((a.equity() - b.equity()).abs() < 2e-15);
