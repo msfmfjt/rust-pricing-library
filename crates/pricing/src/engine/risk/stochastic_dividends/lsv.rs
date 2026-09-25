@@ -60,6 +60,7 @@ impl StochasticDividendLsvCalibration {
         let retained = match self {
             Self::One { calibration, .. } => calibration.config().retain_reverse_trace(),
             Self::Two { calibration, .. } => calibration.config().retain_reverse_trace(),
+            Self::Rough { calibration, .. } => calibration.config().retain_reverse_trace(),
         };
         if retained {
             Ok(())
@@ -74,6 +75,9 @@ impl StochasticDividendLsvCalibration {
                 original_target, ..
             }
             | Self::Two {
+                original_target, ..
+            }
+            | Self::Rough {
                 original_target, ..
             } => original_target,
         }
@@ -91,6 +95,14 @@ impl StochasticDividendLsvCalibration {
                 original_target,
                 ..
             } => target_reverse(calibration, original_target, leverage),
+            Self::Rough {
+                calibration,
+                original_target,
+                ..
+            } => {
+                let refined = calibration.reverse_leverage(leverage)?;
+                map_refined_target(calibration.target(), original_target, &refined)
+            }
         }
     }
 }
@@ -101,9 +113,20 @@ fn target_reverse<F: BergomiDynamics>(
     leverage: &[f64],
 ) -> Result<Vec<f64>, MonteCarloError> {
     let refined = calibration.reverse_leverage(leverage)?;
+    map_refined_target(calibration.target(), original_target, &refined)
+}
+
+fn map_refined_target(
+    refined_target: &LocalVarianceGrid,
+    original_target: &LocalVarianceGrid,
+    refined: &[f64],
+) -> Result<Vec<f64>, MonteCarloError> {
     let m = original_target.log_moneyness_nodes().len();
+    if refined.len() != refined_target.values().len() {
+        return Err(invalid("lsv_refined_target_adjoint_count").into());
+    }
     let mut original = vec![0.0; original_target.values().len()];
-    for (r, &t) in calibration.target().time_nodes().iter().enumerate() {
+    for (r, &t) in refined_target.time_nodes().iter().enumerate() {
         for (j, &x) in original_target.log_moneyness_nodes().iter().enumerate() {
             original_target.interpolate(t, x)?.transpose_accumulate(
                 refined[r * m + j],
