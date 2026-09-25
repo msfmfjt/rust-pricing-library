@@ -5,9 +5,11 @@ mod aad;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
+mod lsv_parameters;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
+pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
