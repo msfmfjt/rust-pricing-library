@@ -387,13 +387,31 @@ squared-leverage surface exactly, making the no-recalibration boundary explicit.
 The current method applies only to 1F Bergomi residual LSV; 2F cross-factor
 correlations remain a separate extension.
 
+2F Bergomi model-parameter risk is available through
+`evaluate_lsv_bergomi_two_factor_parameter_risk(mean_reversion_bumps=...,
+vol_of_vol_bump=..., mixing_weight_bump=...)`. It reports derivatives with
+respect to the ordered factor mean reversions `k1`, `k2`, common
+log-volatility vol-of-vol and the raw mixing weight `theta`. Every up/down
+scenario reruns the finite-particle residual-LSV calibration with the same
+calibration seed and reprices with common valuation random numbers, so the
+reported derivatives include the induced change in normalized factor weights,
+conditional moments and calibrated leverage.
+
+The mixing-weight bump must stay inside `[0,1]`; mean reversions and
+vol-of-vol must remain nonnegative. There is no one-sided fallback or adaptive
+bump. Spot/vol correlations, factor correlation and both dividend/vol
+correlations are fixed in this method. The method label is
+`buehler-residual-lsv-common-noise-full-recalibration-bergomi-2f-v1`.
+As with the 1F forward-recalibration risk, `retain_reverse_trace=true` is not
+required.
+
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now
 cover Local-variance risk, residual-surface VegaKT, physical-Spot Delta and
 1F Bergomi mean-reversion/vol-of-vol risk and the two 1F Bergomi/dividend
-correlations, but not curve, cash-mean, 2F Bergomi-parameter or 2F correlation
-risk.
+correlations and 2F Bergomi model-parameter risk, but not curve, cash-mean or
+2F correlation risk.
 
 ## First-order risk
 
