@@ -816,6 +816,35 @@ class StochasticDividendTest(unittest.TestCase):
         tolerance = max(5.0e-4, 5.0e-3 * abs(fd))
         self.assertAlmostEqual(risk.node_adjoints[index], fd, delta=tolerance)
 
+    def test_rough_residual_lsv_vegakt_uses_recalibrated_target_risk(self):
+        request = make_lsv_vegakt_request(points=16)
+        plan = compile_lsv(
+            request,
+            rough=True,
+            particle_count=64,
+            reduction_block_size=16,
+            worker_threads=1,
+        )
+        local_risk = plan.evaluate_local_variance_risk()
+        vega_kt = plan.evaluate_vega_kt()
+
+        self.assertEqual(len(vega_kt.raw_buckets), 6)
+        self.assertTrue(all(math.isfinite(x) for x in vega_kt.raw_buckets))
+        expected_parallel_vega = sum(
+            2.0 * math.sqrt(0.04) * adjoint
+            for adjoint in local_risk.node_adjoints
+        )
+        self.assertAlmostEqual(
+            vega_kt.projection.pre_projection,
+            expected_parallel_vega,
+            delta=3e-10,
+        )
+        self.assertAlmostEqual(
+            sum(vega_kt.raw_buckets) + vega_kt.projection.signed_residual,
+            vega_kt.projection.pre_projection,
+            delta=3e-10,
+        )
+
     def test_residual_lsv_vegakt_uses_recalibrated_target_risk(self):
         request = make_lsv_vegakt_request()
         p = compile_lsv(
