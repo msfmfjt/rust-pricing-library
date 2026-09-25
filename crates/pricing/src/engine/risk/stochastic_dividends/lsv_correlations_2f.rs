@@ -114,7 +114,10 @@ impl StochasticDividendPricingPlan {
             self.recalibrated_two_factor_correlation_scenario(
                 calibration,
                 make(
-                    [spot_correlations[0] - spot_volatility_correlation_bumps[0], spot_correlations[1]],
+                    [
+                        spot_correlations[0] - spot_volatility_correlation_bumps[0],
+                        spot_correlations[1],
+                    ],
                     factor.factor_correlation(),
                 )?,
                 dividend_correlations,
@@ -123,7 +126,10 @@ impl StochasticDividendPricingPlan {
             self.recalibrated_two_factor_correlation_scenario(
                 calibration,
                 make(
-                    [spot_correlations[0] + spot_volatility_correlation_bumps[0], spot_correlations[1]],
+                    [
+                        spot_correlations[0] + spot_volatility_correlation_bumps[0],
+                        spot_correlations[1],
+                    ],
                     factor.factor_correlation(),
                 )?,
                 dividend_correlations,
@@ -132,7 +138,10 @@ impl StochasticDividendPricingPlan {
             self.recalibrated_two_factor_correlation_scenario(
                 calibration,
                 make(
-                    [spot_correlations[0], spot_correlations[1] - spot_volatility_correlation_bumps[1]],
+                    [
+                        spot_correlations[0],
+                        spot_correlations[1] - spot_volatility_correlation_bumps[1],
+                    ],
                     factor.factor_correlation(),
                 )?,
                 dividend_correlations,
@@ -141,7 +150,10 @@ impl StochasticDividendPricingPlan {
             self.recalibrated_two_factor_correlation_scenario(
                 calibration,
                 make(
-                    [spot_correlations[0], spot_correlations[1] + spot_volatility_correlation_bumps[1]],
+                    [
+                        spot_correlations[0],
+                        spot_correlations[1] + spot_volatility_correlation_bumps[1],
+                    ],
                     factor.factor_correlation(),
                 )?,
                 dividend_correlations,
@@ -168,22 +180,34 @@ impl StochasticDividendPricingPlan {
             self.fixed_two_factor_correlation_scenario(
                 calibration,
                 factor,
-                [dividend_correlations[0] - dividend_volatility_correlation_bumps[0], dividend_correlations[1]],
+                [
+                    dividend_correlations[0] - dividend_volatility_correlation_bumps[0],
+                    dividend_correlations[1],
+                ],
             )?,
             self.fixed_two_factor_correlation_scenario(
                 calibration,
                 factor,
-                [dividend_correlations[0] + dividend_volatility_correlation_bumps[0], dividend_correlations[1]],
+                [
+                    dividend_correlations[0] + dividend_volatility_correlation_bumps[0],
+                    dividend_correlations[1],
+                ],
             )?,
             self.fixed_two_factor_correlation_scenario(
                 calibration,
                 factor,
-                [dividend_correlations[0], dividend_correlations[1] - dividend_volatility_correlation_bumps[1]],
+                [
+                    dividend_correlations[0],
+                    dividend_correlations[1] - dividend_volatility_correlation_bumps[1],
+                ],
             )?,
             self.fixed_two_factor_correlation_scenario(
                 calibration,
                 factor,
-                [dividend_correlations[0], dividend_correlations[1] + dividend_volatility_correlation_bumps[1]],
+                [
+                    dividend_correlations[0],
+                    dividend_correlations[1] + dividend_volatility_correlation_bumps[1],
+                ],
             )?,
         ];
         let bumps = [
@@ -202,9 +226,13 @@ impl StochasticDividendPricingPlan {
                 let rng = Philox4x32::from_seed(config.master_seed());
                 let stats = executor.try_map_reduce_statistics_vector(count, WIDTH, |p, out| {
                     let z = (0..dimension)
-                        .map(|d| rng.standard_normal(RandomCoordinate::new(
-                            p, d, RandomDomain::Valuation,
-                        )))
+                        .map(|d| {
+                            rng.standard_normal(RandomCoordinate::new(
+                                p,
+                                d,
+                                RandomDomain::Valuation,
+                            ))
+                        })
                         .collect();
                     self.sample_lsv_bergomi_two_factor_correlation_risk(
                         &scenarios,
@@ -261,7 +289,11 @@ impl StochasticDividendPricingPlan {
                     scrambles,
                     u128::from(count)
                         * u128::from(scrambles)
-                        * if config.variance_reduction().antithetic() { 2 } else { 1 },
+                        * if config.variance_reduction().antithetic() {
+                            2
+                        } else {
+                            1
+                        },
                 )
             }
         };
@@ -355,7 +387,12 @@ impl StochasticDividendPricingPlan {
         if let Some(bridge) = bridge {
             let count = self.random_factor_count();
             for factor in 0..count {
-                let input = z.iter().skip(factor).step_by(count).copied().collect::<Vec<_>>();
+                let input = z
+                    .iter()
+                    .skip(factor)
+                    .step_by(count)
+                    .copied()
+                    .collect::<Vec<_>>();
                 let output = bridge
                     .apply_one_factor(&input)
                     .map_err(|e| MonteCarloError::LocalVol(e.into()))?;
@@ -366,9 +403,14 @@ impl StochasticDividendPricingPlan {
         }
 
         out.fill(0.0);
-        for &sign in if antithetic { &[1.0, -1.0][..] } else { &[1.0][..] } {
+        for &sign in if antithetic {
+            &[1.0, -1.0][..]
+        } else {
+            &[1.0][..]
+        } {
             let shocks = z.iter().map(|value| sign * value).collect::<Vec<_>>();
-            out[0] += self.discounted_payoff_for_two_factor_correlation_path(&self.path, &shocks)?;
+            out[0] +=
+                self.discounted_payoff_for_two_factor_correlation_path(&self.path, &shocks)?;
             for parameter in 0..5 {
                 let down = self.discounted_payoff_for_two_factor_correlation_path(
                     &scenarios[2 * parameter].path,
