@@ -288,8 +288,8 @@ time grid and model parameters are fixed. Calibration sampling/model uncertainty
 is therefore excluded.
 
 Market-IV reporting on the **same residual-equity coordinate** is available
-through \`evaluate_vega_kt()\` when the request contains a VegaKT configuration
-and the \`LocalVolatility\` target contains a reporting-IV basis. The
+through `evaluate_vega_kt()` when the request contains a VegaKT configuration
+and the `LocalVolatility` target contains a reporting-IV basis. The
 Local-variance VJP is first converted nodewise to Local-volatility sensitivity,
 
 \[
