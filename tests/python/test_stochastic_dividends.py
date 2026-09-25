@@ -24,12 +24,13 @@ def make_request(sigma=0.2, dividends=((1.4, 25.0),), strike=100.0, points=2048,
     )
 
 
-def make_lsv_request(dividends=((0.5, 6.0), (1.4, 3.0)), points=64):
+def make_lsv_request(dividends=((0.5, 6.0), (1.4, 3.0)), points=64, local_variances=None):
     data = json.loads(Path("fixtures/v1/pricing_request.golden.json").read_text())
     data["model"] = {"type": "local_volatility", "local_variance_grid": {
         "time_nodes": [0.0, 0.5, 1.0],
         "log_forward_moneyness_nodes": [-0.5, 0.0, 0.5],
-        "shape": [3, 3], "values": [0.04] * 9, "floor": 1e-8, "cap": 4.0}}
+        "shape": [3, 3], "values": list(local_variances or [0.04] * 9),
+        "floor": 1e-8, "cap": 4.0}}
     data["market"]["discrete_dividends"] = [
         {"event_id": i + 1, "ex_time": t, "quote": {"type": "fixed_cash", "amount": d}}
         for i, (t, d) in enumerate(dividends)
@@ -54,6 +55,7 @@ def compile_lsv(request=None, two_factor=False, worker_threads=2, **kwargs):
         calibration_seed=42,
         log_bandwidth=0.35,
         minimum_effective_samples=5.0,
+        retain_reverse_trace=True,
         maximum_step=0.25,
         worker_threads=worker_threads,
         reduction_block_size=32,
@@ -182,6 +184,47 @@ class StochasticDividendTest(unittest.TestCase):
             p.evaluate_aad()
         with self.assertRaises(rp.PricingError):
             p.evaluate_gamma(gamma_relative_bump=0.01)
+
+        local_risk = p.evaluate_local_variance_risk()
+        self.assertAlmostEqual(local_risk.price.value, result.value, delta=2e-13)
+        self.assertEqual(local_risk.time_nodes, [0.0, 0.5, 1.0])
+        self.assertEqual(local_risk.log_moneyness_nodes, [-0.5, 0.0, 0.5])
+        self.assertEqual(len(local_risk.node_adjoints), 9)
+        self.assertTrue(all(math.isfinite(x) for x in local_risk.node_adjoints))
+        self.assertIsNotNone(local_risk.standard_errors)
+        self.assertEqual(len(local_risk.standard_errors), 9)
+        self.assertEqual(
+            local_risk.method,
+            "buehler-residual-lsv-path-and-discrete-particle-vjp-v1",
+        )
+        self.assertEqual(
+            local_risk.coordinate,
+            "relative_dupire_variance_nodes_in_residual_equity",
+        )
+
+        # The reverse trace is an explicit memory/capability choice. Missing it
+        # must fail before valuation rather than silently freeze leverage.
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(retain_reverse_trace=False).evaluate_local_variance_risk()
+
+    def test_residual_lsv_local_variance_reverse_matches_recalibrated_fd(self):
+        base_values = [0.04] * 9
+        plan = compile_lsv(make_lsv_request(points=32, local_variances=base_values),
+                           particle_count=128, reduction_block_size=16)
+        risk = plan.evaluate_local_variance_risk()
+        index = 4
+        bump = 1.0e-5
+        plus = list(base_values)
+        minus = list(base_values)
+        plus[index] += bump
+        minus[index] -= bump
+        up = compile_lsv(make_lsv_request(points=32, local_variances=plus),
+                         particle_count=128, reduction_block_size=16).evaluate().value
+        down = compile_lsv(make_lsv_request(points=32, local_variances=minus),
+                           particle_count=128, reduction_block_size=16).evaluate().value
+        fd = (up - down) / (2.0 * bump)
+        tolerance = max(5.0e-4, 5.0e-3 * abs(fd))
+        self.assertAlmostEqual(risk.node_adjoints[index], fd, delta=tolerance)
 
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
