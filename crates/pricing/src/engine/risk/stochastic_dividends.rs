@@ -12,9 +12,7 @@ pub use lsv::StochasticDividendLocalVarianceRisk;
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
 use crate::market::LocalVarianceGrid;
-use crate::mc::lsv::{
-    CalibratedBergomiLsv, LsvParticleConfig, calibrate_bergomi_lsv_parallel,
-};
+use crate::mc::lsv::{CalibratedBergomiLsv, LsvParticleConfig, calibrate_bergomi_lsv_parallel};
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain, RqmcPlan,
@@ -166,10 +164,8 @@ impl StochasticDividendPricingPlan {
         model: BuehlerDividendModel,
         maximum_step: f64,
         policy: ExecutionPolicy,
-    ) -> Result<
-        (Self, LocalVarianceGrid, LocalVarianceGrid, LocalVolTimeGrid),
-        MonteCarloError,
-    > {
+    ) -> Result<(Self, LocalVarianceGrid, LocalVarianceGrid, LocalVolTimeGrid), MonteCarloError>
+    {
         let risk = request.risk();
         if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
             return Err(StochasticDividendError::Unsupported {
