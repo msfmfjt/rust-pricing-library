@@ -332,6 +332,15 @@ impl StochasticDividendPricingPlan {
                 *dividend_volatility_correlations,
                 calibration.surface().clone(),
             )?,
+            StochasticDividendLsvCalibration::Rough {
+                calibration,
+                dividend_volatility_correlation,
+                ..
+            } => base.with_rough_bergomi_lsv(
+                calibration.model(),
+                *dividend_volatility_correlation,
+                calibration.surface().clone(),
+            )?,
         };
         if path.random_dimension() != self.path.random_dimension() {
             return Err(invalid("lsv_dividend_model_random_dimension").into());
