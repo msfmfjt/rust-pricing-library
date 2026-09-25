@@ -288,16 +288,16 @@ time grid and model parameters are fixed. Calibration sampling/model uncertainty
 is therefore excluded.
 
 Market-IV reporting on the **same residual-equity coordinate** is available
-through `evaluate_vega_kt()` when the request contains a VegaKT configuration
-and the `LocalVolatility` target contains a reporting-IV basis. The
+through \`evaluate_vega_kt()\` when the request contains a VegaKT configuration
+and the \`LocalVolatility\` target contains a reporting-IV basis. The
 Local-variance VJP is first converted nodewise to Local-volatility sensitivity,
 
-[
-rac{partial P}{partial sigma_{loc,res}}
+\[
+\frac{\partial P}{\partial \sigma_{loc,res}}
 =
-2sigma_{loc,res}
-rac{partial P}{partial sigma^2_{loc,res}},
-]
+2\sigma_{loc,res}
+\frac{\partial P}{\partial \sigma^2_{loc,res}},
+\]
 
 and is then passed through the shared density gate and first-order VegaKT
 projection. This ordering is important: particle leverage is recalibrated
@@ -312,9 +312,9 @@ the aggregate gradient, so the result is a point VegaKT estimate and its bucket
 sampling variances/covariances are absent. The projection remains conditional
 on the fixed calibration seed and particle cloud.
 
-This VegaKT is **not physical-stock (S) VegaKT**. Reporting maturities,
+This VegaKT is **not physical-stock \(S\) VegaKT**. Reporting maturities,
 log-moneyness nodes and quoted implied volatilities must describe the
-(F^{res}) market surface used to define the residual-equity Dupire target.
+\(F^{res}\) market surface used to define the residual-equity Dupire target.
 Using a physical-stock reporting surface would mix coordinates and is outside
 the current model contract.
 
