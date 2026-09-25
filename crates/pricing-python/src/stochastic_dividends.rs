@@ -7,7 +7,8 @@ use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
     StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomiRisk,
-    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
+    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
+    StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -354,6 +355,22 @@ impl PyStochasticDividendPlan {
         .map(|inner| PyStochasticDividendLsvBergomiRisk { inner })
         .map_err(pricing_exception)
     }
+    #[pyo3(signature=(*, equity_volatility_correlation_bump, dividend_volatility_correlation_bump))]
+    fn evaluate_lsv_correlation_risk(
+        &self,
+        py: Python<'_>,
+        equity_volatility_correlation_bump: f64,
+        dividend_volatility_correlation_bump: f64,
+    ) -> PyResult<PyStochasticDividendLsvCorrelationRisk> {
+        py.detach(|| {
+            self.inner.evaluate_lsv_correlation_risk(
+                equity_volatility_correlation_bump,
+                dividend_volatility_correlation_bump,
+            )
+        })
+        .map(|inner| PyStochasticDividendLsvCorrelationRisk { inner })
+        .map_err(pricing_exception)
+    }
     fn evaluate_vega_kt(&self, py: Python<'_>) -> PyResult<PyVegaKtResult> {
         py.detach(|| self.inner.evaluate_vega_kt())
             .map(|inner| PyVegaKtResult { inner })
@@ -472,6 +489,58 @@ impl PyStochasticDividendPrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         self.inner.uncertainty_scope()
+    }
+}
+
+/// 1F Bergomi correlation risk with selective residual-LSV recalibration.
+#[pyclass(frozen, name = "StochasticDividendLsvCorrelationRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLsvCorrelationRisk {
+    pub(super) inner: StochasticDividendLsvCorrelationRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLsvCorrelationRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_labels(&self) -> Vec<String> {
+        self.inner.parameter_labels.to_vec()
+    }
+    #[getter]
+    fn derivatives(&self) -> Vec<f64> {
+        self.inner.derivatives.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn correlation_bumps(&self) -> Vec<f64> {
+        self.inner.correlation_bumps.to_vec()
+    }
+    #[getter]
+    fn equity_volatility_correlation_derivative(&self) -> f64 {
+        self.inner.equity_volatility_correlation_derivative()
+    }
+    #[getter]
+    fn dividend_volatility_correlation_derivative(&self) -> f64 {
+        self.inner.dividend_volatility_correlation_derivative()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "one_factor_bergomi_correlations_with_selective_residual_lsv_recalibration"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_fixed_calibration_seed_and_correlation_bumps"
     }
 }
 
