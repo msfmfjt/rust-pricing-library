@@ -448,5 +448,4 @@ mod tests {
             assert!((a.dividend() - b.dividend()).abs() < 2e-15);
         }
     }
-
 }
