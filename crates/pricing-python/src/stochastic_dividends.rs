@@ -350,6 +350,26 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendLsvMarketRisk { inner })
             .map_err(pricing_exception)
     }
+    #[pyo3(signature=(*, dividend_mean_reversion_bump, equity_linkage_bump, dividend_volatility_bump, equity_dividend_correlation_bump))]
+    fn evaluate_lsv_dividend_model_risk(
+        &self,
+        py: Python<'_>,
+        dividend_mean_reversion_bump: f64,
+        equity_linkage_bump: f64,
+        dividend_volatility_bump: f64,
+        equity_dividend_correlation_bump: f64,
+    ) -> PyResult<PyStochasticDividendLsvDividendModelRisk> {
+        py.detach(|| {
+            self.inner.evaluate_lsv_dividend_model_risk(
+                dividend_mean_reversion_bump,
+                equity_linkage_bump,
+                dividend_volatility_bump,
+                equity_dividend_correlation_bump,
+            )
+        })
+        .map(|inner| PyStochasticDividendLsvDividendModelRisk { inner })
+        .map_err(pricing_exception)
+    }
     #[pyo3(signature=(*, mean_reversion_bump, vol_of_vol_bump))]
     fn evaluate_lsv_bergomi_parameter_risk(
         &self,
@@ -784,6 +804,66 @@ impl PyStochasticDividendLsvBergomiRisk {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         "pricing_sampling_only_fixed_calibration_seed_and_parameter_bumps"
+    }
+}
+
+/// Buehler dividend-model parameter risk with fixed residual-LSV calibration.
+#[pyclass(frozen, name = "StochasticDividendLsvDividendModelRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLsvDividendModelRisk {
+    pub(super) inner: StochasticDividendLsvDividendModelRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLsvDividendModelRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_labels(&self) -> Vec<String> {
+        self.inner.parameter_labels.to_vec()
+    }
+    #[getter]
+    fn derivatives(&self) -> Vec<f64> {
+        self.inner.derivatives.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn parameter_bumps(&self) -> Vec<f64> {
+        self.inner.parameter_bumps.to_vec()
+    }
+    #[getter]
+    fn dividend_mean_reversion_derivative(&self) -> f64 {
+        self.inner.dividend_mean_reversion_derivative()
+    }
+    #[getter]
+    fn equity_linkage_derivative(&self) -> f64 {
+        self.inner.equity_linkage_derivative()
+    }
+    #[getter]
+    fn dividend_volatility_derivative(&self) -> f64 {
+        self.inner.dividend_volatility_derivative()
+    }
+    #[getter]
+    fn equity_dividend_correlation_derivative(&self) -> f64 {
+        self.inner.equity_dividend_correlation_derivative()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "buehler_dividend_model_parameters_with_fixed_residual_lsv_calibration"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_fixed_calibration_and_parameter_bumps"
     }
 }
 
