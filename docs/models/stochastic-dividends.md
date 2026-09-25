@@ -213,10 +213,11 @@ American exercise and continuous barriers remain unsupported here.
 
 ## Residual-equity LSV coupling
 
-Rust `StochasticDividendPricingPlan::compile_bergomi_lsv` and
-`compile_bergomi_two_factor_lsv`, with matching Python factories on
-`StochasticDividendPlan`, combine the Buehler cash-dividend state with the
-existing particle-calibrated Bergomi LSV machinery.
+Rust `StochasticDividendPricingPlan::compile_bergomi_lsv`,
+`compile_bergomi_two_factor_lsv` and `compile_rough_bergomi_lsv`, with
+matching Python factories on `StochasticDividendPlan`, combine the Buehler
+cash-dividend state with the existing particle-calibrated Markovian or rough
+Bergomi LSV machinery.
 
 The request model must be `LocalVolatility`, but its target has a narrower
 meaning than in the ordinary single-stock Local Volatility engine. Let
@@ -235,7 +236,8 @@ L^2(t,k)=
 {\mathbb E[A_t^2\mid \log(F_t^{res}/x_0)=k]},
 \]
 
-where \(A_t\) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
+where \(A_t\) is the 1F/2F Bergomi multiplier or the finite-grid rough
+Bergomi volatility multiplier. Pricing then uses
 
 \[
 \frac{dF_t^{res}}{F_t^{res}}
@@ -243,11 +245,12 @@ where \(A_t\) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
 \]
 
 The Buehler dividend factor \(Y\) is added only to the joint pricing system. Its
-correlations with equity and Bergomi factors do not change the marginal
-\((F^{res},A)\) calibration problem as long as the equity/Bergomi correlation
-submatrix is unchanged. The full pricing Brownian matrix is still validated and
-the OU cross-covariances are integrated exactly as for the plain Bergomi
-coupling.
+correlations with equity and volatility factors do not change the marginal
+\((F^{res},A)\) calibration problem as long as the equity/volatility marginal
+law is unchanged. The full pricing Brownian matrix is still validated. Markovian
+OU cross-covariances use the exact integrated law; rough paths use the same
+finite-grid Volterra history and newest-cell construction in calibration and
+pricing.
 
 This is **not** a physical-stock Dupire calibration. Physical stock is
 
@@ -266,8 +269,9 @@ observation times and dividend ex-dates, and is further refined by
 `lsv_time_nodes`, `lsv_log_moneyness_nodes`,
 `lsv_squared_leverage` and `lsv_initial_residual_equity` for audit.
 Scheme identifiers are
-`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1` and
-`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1`.
+`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1`,
+`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1` and
+`buehler-rough-bergomi-residual-lsv-joint-hybrid-positive-split-v1`.
 
 Local-variance risk is opt-in through
 `evaluate_local_variance_risk()`. Compile the LSV factory with
@@ -675,7 +679,12 @@ See the [example](../../examples/python/stochastic_dividend_gamma.py),
 
 Rust `StochasticDividendPricingPlan::compile_rough_bergomi` and Python
 `StochasticDividendPlan.compile_rough_bergomi` combine the same Buehler reserve
-with a Riemann--Liouville rough variance driver. The parameter domain is
+with a Riemann--Liouville rough variance driver. The corresponding
+`compile_rough_bergomi_lsv` factories calibrate the same finite-grid rough
+driver to the funded residual-equity Local-variance target described above.
+The direct rough factory reads sigma0 from a Black-Scholes request; the rough-LSV
+factory instead requires a `LocalVolatility` request and particle-calibration
+configuration. The parameter domain is
 `0 < hurst <= 0.5`, `vol_of_vol >= 0`, with finite inputs and a PSD joint
 Brownian matrix for residual equity, dividend and variance drivers. Specify
 `correlation` for f/variance, `equity_dividend_correlation` for f/dividend and
@@ -712,9 +721,13 @@ plan = rp.StochasticDividendPlan.compile_rough_bergomi(
 result = plan.evaluate()
 ```
 
-**This rough-dividend factory supports prices, basic/H-eta AAD, Gamma and
-correlation AAD in the instantaneous SPD interior.** The 1F/2F-only
-`evaluate_bergomi_aad()` still rejects rough plans explicitly; the BS/1F/2F methods retain their original support. Shared payoff graphs can still price discrete
+**The direct rough-dividend factory supports prices, basic/H-eta AAD, Gamma and
+correlation AAD in the instantaneous SPD interior.** Rough residual-LSV plans
+instead use the dedicated LSV risk contract: recalibrated Local-variance risk
+and VegaKT, scale-invariant Spot Delta/Gamma, market risk and Buehler
+dividend-model risk are available, while fixed-calibration AAD remains rejected.
+The 1F/2F-specific Bergomi parameter/correlation risk methods also reject rough
+plans explicitly. Shared payoff graphs can still price discrete
 path-dependent contracts, but the new acceptance tests cover terminal calls and
 cash-event/path construction, not broad rough-dividend exotic accuracy.
 American exercise, continuous barriers, proportional cash mixtures, stochastic
