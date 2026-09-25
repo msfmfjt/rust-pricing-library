@@ -206,6 +206,54 @@ impl ReverseContext {
         Ok(())
     }
 
+    /// Pull reconstructed physical-Spot payoff seeds back through market
+    /// reconstruction inputs only. Normalized f/Y states are held fixed.
+    ///
+    /// This is exact for Spot, fixed-cash means and deterministic curve inputs
+    /// whenever residual LSV is re-anchored with funded residual equity while
+    /// its relative-coordinate leverage values are unchanged. Model parameters
+    /// and volatility inputs in the returned vector are only the reconstruction
+    /// component of their derivative and must not be exposed as complete risk.
+    pub fn market_reconstruction_pullback(
+        &self,
+        states: &[BuehlerDividendState],
+        seeds: &[(f64, f64)],
+        discounted_payoff: f64,
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        if states.len() != self.nodes.len() || seeds.len() != states.len() {
+            return Err(invalid("market_reconstruction_reverse_shape"));
+        }
+        if !discounted_payoff.is_finite()
+            || seeds
+                .iter()
+                .any(|(post, pre)| !post.is_finite() || !pre.is_finite())
+        {
+            return Err(invalid("market_reconstruction_reverse_seed"));
+        }
+        let mut out = self
+            .payment_weights
+            .iter()
+            .map(|weight| discounted_payoff * weight)
+            .collect::<Vec<_>>();
+        for ((state, seed), jac) in states.iter().zip(seeds).zip(&self.nodes) {
+            let (post, pre) = *seed;
+            let total = post + pre;
+            for (bar, ((equity, dividend), constant)) in out
+                .iter_mut()
+                .zip(jac.equity.iter().zip(&jac.dividend).zip(&jac.constant))
+            {
+                *bar += total * (state.equity * *equity + state.dividend * *dividend + *constant);
+            }
+            for &j in &jac.event_indices {
+                out[j] += pre * state.dividend;
+            }
+        }
+        if out.iter().any(|value| !value.is_finite()) {
+            return Err(invalid("market_reconstruction_reverse_result"));
+        }
+        Ok(out)
+    }
+
     /// Spot-only slice of the reverse: the normalized f/Y states and OU
     /// innovations do not depend on S0. For residual LSV this statement assumes
     /// the relative leverage surface is re-anchored with its initial_f when

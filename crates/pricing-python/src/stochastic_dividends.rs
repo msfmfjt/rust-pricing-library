@@ -8,8 +8,8 @@ use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
     StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomi2FactorCorrelationRisk,
     StochasticDividendLsvBergomi2FactorRisk, StochasticDividendLsvBergomiRisk,
-    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
-    StochasticDividendPricingPlan,
+    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvMarketRisk,
+    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -340,6 +340,14 @@ impl PyStochasticDividendPlan {
     fn evaluate_lsv_spot_risk(&self, py: Python<'_>) -> PyResult<PyStochasticDividendLsvSpotRisk> {
         py.detach(|| self.inner.evaluate_lsv_spot_risk())
             .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_lsv_market_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyStochasticDividendLsvMarketRisk> {
+        py.detach(|| self.inner.evaluate_lsv_market_risk())
+            .map(|inner| PyStochasticDividendLsvMarketRisk { inner })
             .map_err(pricing_exception)
     }
     #[pyo3(signature=(*, mean_reversion_bump, vol_of_vol_bump))]
@@ -776,6 +784,86 @@ impl PyStochasticDividendLsvBergomiRisk {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         "pricing_sampling_only_fixed_calibration_seed_and_parameter_bumps"
+    }
+}
+
+/// Spot/cash/curve risk with scale-invariant residual-LSV re-anchoring.
+#[pyclass(frozen, name = "StochasticDividendLsvMarketRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLsvMarketRisk {
+    pub(super) inner: StochasticDividendLsvMarketRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLsvMarketRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn cash_times(&self) -> Vec<f64> {
+        self.inner.cash_times.to_vec()
+    }
+    #[getter]
+    fn cash_mean_adjoints(&self) -> Vec<f64> {
+        self.inner.cash_mean_adjoints.to_vec()
+    }
+    #[getter]
+    fn cash_mean_standard_errors(&self) -> Vec<f64> {
+        self.inner.cash_mean_standard_errors.to_vec()
+    }
+    #[getter]
+    fn discount_times(&self) -> Vec<f64> {
+        self.inner.discount_times.to_vec()
+    }
+    #[getter]
+    fn discount_log_df_adjoints(&self) -> Vec<f64> {
+        self.inner.discount_log_df_adjoints.to_vec()
+    }
+    #[getter]
+    fn discount_log_df_standard_errors(&self) -> Vec<f64> {
+        self.inner.discount_log_df_standard_errors.to_vec()
+    }
+    #[getter]
+    fn discount_node_dv01(&self) -> Vec<f64> {
+        self.inner.discount_node_dv01()
+    }
+    #[getter]
+    fn repo_spread_times(&self) -> Vec<f64> {
+        self.inner.repo_spread_times.to_vec()
+    }
+    #[getter]
+    fn repo_spread_log_df_adjoints(&self) -> Vec<f64> {
+        self.inner.repo_spread_log_df_adjoints.to_vec()
+    }
+    #[getter]
+    fn repo_spread_log_df_standard_errors(&self) -> Vec<f64> {
+        self.inner.repo_spread_log_df_standard_errors.to_vec()
+    }
+    #[getter]
+    fn repo_spread_node_dv01(&self) -> Vec<f64> {
+        self.inner.repo_spread_node_dv01()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "spot_cash_and_log_df_curves_with_residual_lsv_reanchoring"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_scale_invariant_calibration"
     }
 }
 
