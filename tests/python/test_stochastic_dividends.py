@@ -667,6 +667,109 @@ class StochasticDividendTest(unittest.TestCase):
                 dividend_volatility_correlation_bump=0.84,
             )
 
+    def test_residual_lsv_two_factor_parameter_risk_recalibrates_full_model(self):
+        request = make_lsv_request(points=16)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        k_bumps = [0.02, 0.03]
+        nu_bump = 0.01
+        theta_bump = 0.02
+        plan = compile_lsv(request, two_factor=True, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_bergomi_two_factor_parameter_risk(
+            mean_reversion_bumps=k_bumps,
+            vol_of_vol_bump=nu_bump,
+            mixing_weight_bump=theta_bump,
+        )
+
+        self.assertEqual(
+            risk.parameter_labels,
+            [
+                "bergomi_mean_reversion[0]",
+                "bergomi_mean_reversion[1]",
+                "bergomi_vol_of_vol",
+                "bergomi_mixing_weight",
+            ],
+        )
+        self.assertEqual(risk.parameter_bumps, [k_bumps[0], k_bumps[1], nu_bump, theta_bump])
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-common-noise-full-recalibration-bergomi-2f-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "two_factor_bergomi_parameters_with_full_residual_lsv_recalibration",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives))
+        self.assertTrue(all(x >= 0.0 for x in risk.standard_errors))
+        self.assertAlmostEqual(risk.price.value, plan.evaluate().value, delta=2e-13)
+
+        scenarios = [
+            (dict(mean_reversions=[0.8-k_bumps[0], 2.1]), dict(mean_reversions=[0.8+k_bumps[0], 2.1]), k_bumps[0]),
+            (dict(mean_reversions=[0.8, 2.1-k_bumps[1]]), dict(mean_reversions=[0.8, 2.1+k_bumps[1]]), k_bumps[1]),
+            (dict(vol_of_vol=0.3-nu_bump), dict(vol_of_vol=0.3+nu_bump), nu_bump),
+            (dict(mixing_weight=0.35-theta_bump), dict(mixing_weight=0.35+theta_bump), theta_bump),
+        ]
+        finite_differences = []
+        for down_kwargs, up_kwargs, bump in scenarios:
+            down = compile_lsv(
+                request,
+                two_factor=True,
+                worker_threads=1,
+                **(common | down_kwargs),
+            ).evaluate()
+            up = compile_lsv(
+                request,
+                two_factor=True,
+                worker_threads=1,
+                **(common | up_kwargs),
+            ).evaluate()
+            finite_differences.append((up.value-down.value)/(2.0*bump))
+        for actual, expected in zip(risk.derivatives, finite_differences):
+            self.assertAlmostEqual(actual, expected, delta=3e-10)
+
+        parallel = compile_lsv(request, two_factor=True, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_bergomi_two_factor_parameter_risk(
+            mean_reversion_bumps=k_bumps,
+            vol_of_vol_bump=nu_bump,
+            mixing_weight_bump=theta_bump,
+        )
+        self.assertEqual(parallel_risk.derivatives, risk.derivatives)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        no_trace = compile_lsv(
+            request,
+            two_factor=True,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_bergomi_two_factor_parameter_risk(
+            mean_reversion_bumps=k_bumps,
+            vol_of_vol_bump=nu_bump,
+            mixing_weight_bump=theta_bump,
+        )
+        self.assertTrue(all(math.isfinite(x) for x in no_trace.derivatives))
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(request, **common).evaluate_lsv_bergomi_two_factor_parameter_risk(
+                mean_reversion_bumps=k_bumps,
+                vol_of_vol_bump=nu_bump,
+                mixing_weight_bump=theta_bump,
+            )
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_bergomi_two_factor_parameter_risk(
+                mean_reversion_bumps=k_bumps,
+                vol_of_vol_bump=nu_bump,
+                mixing_weight_bump=0.4,
+            )
+        with self.assertRaises((rp.ValidationError, ValueError)):
+            plan.evaluate_lsv_bergomi_two_factor_parameter_risk(
+                mean_reversion_bumps=[k_bumps[0]],
+                vol_of_vol_bump=nu_bump,
+                mixing_weight_bump=theta_bump,
+            )
+
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
         result = p.evaluate()

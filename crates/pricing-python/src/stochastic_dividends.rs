@@ -6,9 +6,9 @@ use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
-    StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomiRisk,
-    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
-    StochasticDividendPricingPlan,
+    StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomi2FactorRisk,
+    StochasticDividendLsvBergomiRisk, StochasticDividendLsvCorrelationRisk,
+    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -371,6 +371,27 @@ impl PyStochasticDividendPlan {
         .map(|inner| PyStochasticDividendLsvCorrelationRisk { inner })
         .map_err(pricing_exception)
     }
+    #[pyo3(signature=(*, mean_reversion_bumps, vol_of_vol_bump, mixing_weight_bump))]
+    fn evaluate_lsv_bergomi_two_factor_parameter_risk(
+        &self,
+        py: Python<'_>,
+        mean_reversion_bumps: Vec<f64>,
+        vol_of_vol_bump: f64,
+        mixing_weight_bump: f64,
+    ) -> PyResult<PyStochasticDividendLsvBergomi2FactorRisk> {
+        let bumps: [f64; 2] = mean_reversion_bumps
+            .try_into()
+            .map_err(|_| invalid(py, "mean_reversion_bumps must contain exactly two values"))?;
+        py.detach(|| {
+            self.inner.evaluate_lsv_bergomi_two_factor_parameter_risk(
+                bumps,
+                vol_of_vol_bump,
+                mixing_weight_bump,
+            )
+        })
+        .map(|inner| PyStochasticDividendLsvBergomi2FactorRisk { inner })
+        .map_err(pricing_exception)
+    }
     fn evaluate_vega_kt(&self, py: Python<'_>) -> PyResult<PyVegaKtResult> {
         py.detach(|| self.inner.evaluate_vega_kt())
             .map(|inner| PyVegaKtResult { inner })
@@ -489,6 +510,62 @@ impl PyStochasticDividendPrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         self.inner.uncertainty_scope()
+    }
+}
+
+/// Full-recalibration 2F Bergomi parameter risk for residual-equity LSV.
+#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLsvBergomi2FactorRisk {
+    pub(super) inner: StochasticDividendLsvBergomi2FactorRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLsvBergomi2FactorRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_labels(&self) -> Vec<String> {
+        self.inner.parameter_labels.to_vec()
+    }
+    #[getter]
+    fn derivatives(&self) -> Vec<f64> {
+        self.inner.derivatives.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn parameter_bumps(&self) -> Vec<f64> {
+        self.inner.parameter_bumps.to_vec()
+    }
+    #[getter]
+    fn mean_reversion_derivatives(&self) -> Vec<f64> {
+        self.inner.mean_reversion_derivatives().to_vec()
+    }
+    #[getter]
+    fn vol_of_vol_derivative(&self) -> f64 {
+        self.inner.vol_of_vol_derivative()
+    }
+    #[getter]
+    fn mixing_weight_derivative(&self) -> f64 {
+        self.inner.mixing_weight_derivative()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "two_factor_bergomi_parameters_with_full_residual_lsv_recalibration"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_fixed_calibration_seed_and_parameter_bumps"
     }
 }
 
