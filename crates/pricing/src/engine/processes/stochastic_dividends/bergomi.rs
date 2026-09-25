@@ -285,7 +285,7 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
                 // The calibrated surface lives in the *funded residual-equity*
                 // coordinate F_res = F_res(0) * f. It is deliberately not a
                 // local-volatility fit to physical stock S=a*f+b*Y+c.
-                let residual_f = surface.initial_f() * state.equity;
+                let residual_f = surface.initial_f() * state.equity();
                 positive(residual_f, "lsv_residual_equity")?;
                 let leverage_squared = surface
                     .squared_leverage_at(times[i], residual_f)
