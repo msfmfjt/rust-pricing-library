@@ -269,12 +269,28 @@ Scheme identifiers are
 `buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1` and
 `buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1`.
 
-This first LSV slice is price-only. Existing `evaluate_aad`,
-Bergomi/correlation AAD and common-noise Gamma are rejected before sampling:
-they would freeze a calibrated leverage surface and would therefore omit
-recalibration feedback. A later risk extension must differentiate the LSV
-calibration and the Buehler path jointly rather than reusing the plain-Bergomi
-reverse.
+Local-variance risk is opt-in through
+`evaluate_local_variance_risk()`. Compile the LSV factory with
+`retain_reverse_trace=true`; otherwise the risk call fails before valuation
+sampling. The reverse first maps payoff seeds on reconstructed physical Spot
+through the Buehler positive split to every squared-leverage node, including
+the dependence of leverage interpolation on the residual-equity state. It then
+uses the existing finite-particle calibration VJP to return sensitivities to the
+**original requested residual-equity Local-variance grid**, including particle
+motion and kernel-regression feedback.
+
+The method label is
+`buehler-residual-lsv-path-and-discrete-particle-vjp-v1`. RQMC node standard
+errors are computed across scramble-level recalibrated gradients; pseudo-MC
+returns node gradients without a separate gradient standard error. In both
+cases the calibration seed, particle count, bandwidth, fallback decisions,
+time grid and model parameters are fixed. Calibration sampling/model uncertainty
+is therefore excluded.
+
+Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
+rejected on LSV plans: those APIs report a different risk contract and would
+freeze calibrated leverage if reused unchanged. The Local-variance method does
+not report Spot, curve, cash-mean, Bergomi-parameter or market-IV VegaKT risk.
 
 ## First-order risk
 
