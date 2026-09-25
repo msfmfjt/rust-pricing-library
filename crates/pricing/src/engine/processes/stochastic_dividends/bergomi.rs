@@ -297,8 +297,7 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
                 // do not evaluate the stochastic-volatility exponential.
                 0.0
             } else {
-                let sigma =
-                    sigma0 * (self.vol_of_vol * (factor - self.centering[i])).exp();
+                let sigma = sigma0 * (self.vol_of_vol * (factor - self.centering[i])).exp();
                 positive(sigma, "bergomi_volatility")?;
                 sigma
             };
