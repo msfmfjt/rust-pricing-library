@@ -169,8 +169,7 @@ fn hw_gamma_paired_errors_match_independent_ho_lee_mc_units_and_rqmc_scrambles()
             let out = plan.evaluate_gamma(config(1.0)).unwrap();
             let payment = 456.0 / 365.0;
             let variance = |t: f64| eta * eta * t.powi(3) / 3.0;
-            let reserve =
-                3.0 * 0.95 / 0.98 + 25.0 * 0.95_f64.powf(1.4) / 0.98_f64.powf(1.4);
+            let reserve = 3.0 * 0.95 / 0.98 + 25.0 * 0.95_f64.powf(1.4) / 0.98_f64.powf(1.4);
             let single = |z: [f64; 4]| {
                 let mut gamma = [0.0; 3];
                 for &sign in if antithetic {
@@ -179,15 +178,12 @@ fn hw_gamma_paired_errors_match_independent_ho_lee_mc_units_and_rqmc_scrambles()
                     &[1.0][..]
                 } {
                     let f = (-0.5 * 0.2 * 0.2 + 0.2 * sign * z[0]).exp();
-                    let zd =
-                        -0.35 * sign * z[0] + (1.0 - 0.35_f64.powi(2)).sqrt() * sign * z[1];
+                    let zd = -0.35 * sign * z[0] + (1.0 - 0.35_f64.powi(2)).sqrt() * sign * z[1];
                     let y = (-0.5 * 0.45 * 0.45 + 0.45 * zd).exp();
                     let x = eta * sign * z[2];
                     let integral = eta * sign * (0.5 * z[2] + z[3] / 12.0_f64.sqrt());
                     let growth = 0.98 / 0.95 * (integral + 0.5 * variance(1.0)).exp();
-                    let future_cash = 25.0 * 0.98 / 0.98_f64.powf(1.4)
-                        * 0.95_f64.powf(1.4)
-                        / 0.95
+                    let future_cash = 25.0 * 0.98 / 0.98_f64.powf(1.4) * 0.95_f64.powf(1.4) / 0.95
                         * (0.5 * (-variance(1.4) + variance(1.0) + variance(0.4)) - 0.4 * x).exp()
                         * y;
                     let discount = 0.95_f64.powf(payment)

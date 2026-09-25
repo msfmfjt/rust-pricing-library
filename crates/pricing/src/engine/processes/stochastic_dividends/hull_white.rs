@@ -304,7 +304,10 @@ impl StochasticDividendHullWhitePathPlan {
 
     /// Initial funding at another Spot, with every Q cash mean and conditional
     /// claim fixed. Sum in the original compile order, including future cash.
-    pub(in crate::engine) fn risky_spot_at(&self, spot: f64) -> Result<f64, StochasticDividendError> {
+    pub(in crate::engine) fn risky_spot_at(
+        &self,
+        spot: f64,
+    ) -> Result<f64, StochasticDividendError> {
         positive(spot, "gamma_shifted_spot")?;
         let mut reserve = 0.0;
         for claim in &self.nodes[0].claims {
