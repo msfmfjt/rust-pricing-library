@@ -6,6 +6,7 @@ pub(super) mod correlation_reverse;
 pub(super) mod parameter_reverse;
 
 use super::*;
+use crate::mc::lsv::LsvLeverageSurface;
 use crate::models::{BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES, ou_kernel_correlation};
 use pricing_numerics::CorrelationFactor;
 
@@ -22,6 +23,9 @@ pub(super) struct Kernel<const N: usize, const D: usize> {
     steps: Box<[Step<N, D>]>,
     centering: Box<[f64]>,
     identity: Box<[f64]>,
+    /// Optional calibrated squared leverage in the funded residual-equity coordinate.
+    /// `None` preserves the original pure-Bergomi arithmetic bit for bit.
+    leverage: Option<LsvLeverageSurface>,
 }
 #[derive(Clone, Debug)]
 struct Step<const N: usize, const D: usize> {
@@ -83,10 +87,43 @@ impl BergomiDividendKernel {
             ],
         )?))
     }
+    pub(super) fn with_leverage(
+        mut self,
+        surface: LsvLeverageSurface,
+        times: &[f64],
+    ) -> Result<Self, StochasticDividendError> {
+        crate::engine::processes::lsv::step_rows(&surface, times)
+            .map_err(|_| invalid("lsv_leverage_surface"))?;
+        match &mut self {
+            Self::One(k) => k.leverage = Some(surface),
+            Self::Two(k) => k.leverage = Some(surface),
+        }
+        Ok(self)
+    }
+
+    pub(super) fn is_lsv(&self) -> bool {
+        match self {
+            Self::One(k) => k.leverage.is_some(),
+            Self::Two(k) => k.leverage.is_some(),
+        }
+    }
+
+    pub(super) fn lsv_surface(&self) -> Option<&LsvLeverageSurface> {
+        match self {
+            Self::One(k) => k.leverage.as_ref(),
+            Self::Two(k) => k.leverage.as_ref(),
+        }
+    }
+
     pub(super) fn volatility_loadings(
         &self,
         z: &[f64],
     ) -> Result<Vec<f64>, StochasticDividendError> {
+        if self.is_lsv() {
+            return Err(StochasticDividendError::Unsupported {
+                feature: "residual-equity LSV reverse; use price-only evaluation",
+            });
+        }
         match self {
             Self::One(k) => k.volatility_loadings(z),
             Self::Two(k) => k.volatility_loadings(z),
@@ -98,8 +135,14 @@ impl BergomiDividendKernel {
             Self::Two(_) => 4,
         }
     }
-    pub(super) const fn scheme(&self) -> &'static str {
+    pub(super) fn scheme(&self) -> &'static str {
         match self {
+            Self::One(k) if k.leverage.is_some() => {
+                "buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1"
+            }
+            Self::Two(k) if k.leverage.is_some() => {
+                "buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1"
+            }
             Self::One(_) => "buehler-bergomi-1f-joint-ou-positive-split-v1",
             Self::Two(_) => "buehler-bergomi-2f-joint-ou-positive-split-v1",
         }
@@ -112,6 +155,19 @@ impl BergomiDividendKernel {
         };
         for x in parameters.iter() {
             hash.update(&x.to_bits().to_le_bytes());
+        }
+        if let Some(surface) = self.lsv_surface() {
+            hash.update(b"residual-lsv-squared-leverage-v1");
+            hash.update(&surface.initial_f().to_bits().to_le_bytes());
+            for &x in surface.times() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
+            for &x in surface.log_nodes() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
+            for &x in surface.squared_leverage() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
         }
     }
     pub(super) fn evolve(
@@ -177,6 +233,7 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
             steps: steps.into_boxed_slice(),
             centering: centering.into_boxed_slice(),
             identity: identity.into_boxed_slice(),
+            leverage: None,
         })
     }
     // Identical OU recurrence to `evolve`; correlation/OU parameters are fixed
@@ -222,10 +279,24 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
             .enumerate()
         {
             let factor: f64 = self.weights.iter().zip(x).map(|(w, x)| w * x).sum();
-            let sigma = if sigma0 == 0.0 {
+            let multiplier = (self.vol_of_vol * (factor - self.centering[i])).exp();
+            positive(multiplier, "bergomi_volatility_multiplier")?;
+            let sigma = if let Some(surface) = &self.leverage {
+                // The calibrated surface lives in the *funded residual-equity*
+                // coordinate F_res = F_res(0) * f. It is deliberately not a
+                // local-volatility fit to physical stock S=a*f+b*Y+c.
+                let residual_f = surface.initial_f() * state.equity;
+                positive(residual_f, "lsv_residual_equity")?;
+                let leverage_squared = surface
+                    .squared_leverage_at(times[i], residual_f)
+                    .map_err(|_| invalid("lsv_leverage_lookup"))?;
+                let sigma = leverage_squared.sqrt() * multiplier;
+                positive(sigma, "lsv_equity_volatility")?;
+                sigma
+            } else if sigma0 == 0.0 {
                 0.0
             } else {
-                let sigma = sigma0 * (self.vol_of_vol * (factor - self.centering[i])).exp();
+                let sigma = sigma0 * multiplier;
                 positive(sigma, "bergomi_volatility")?;
                 sigma
             };
