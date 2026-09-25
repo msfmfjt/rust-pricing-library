@@ -401,12 +401,21 @@ impl PyStochasticDividendPlan {
         factor_correlation_bump: f64,
         dividend_volatility_correlation_bumps: Vec<f64>,
     ) -> PyResult<PyStochasticDividendLsvBergomi2FactorCorrelationRisk> {
-        let spot_bumps: [f64; 2] = spot_volatility_correlation_bumps
-            .try_into()
-            .map_err(|_| invalid(py, "spot_volatility_correlation_bumps must contain exactly two values"))?;
-        let dividend_bumps: [f64; 2] = dividend_volatility_correlation_bumps
-            .try_into()
-            .map_err(|_| invalid(py, "dividend_volatility_correlation_bumps must contain exactly two values"))?;
+        let spot_bumps: [f64; 2] = spot_volatility_correlation_bumps.try_into().map_err(|_| {
+            invalid(
+                py,
+                "spot_volatility_correlation_bumps must contain exactly two values",
+            )
+        })?;
+        let dividend_bumps: [f64; 2] =
+            dividend_volatility_correlation_bumps
+                .try_into()
+                .map_err(|_| {
+                    invalid(
+                        py,
+                        "dividend_volatility_correlation_bumps must contain exactly two values",
+                    )
+                })?;
         py.detach(|| {
             self.inner.evaluate_lsv_bergomi_two_factor_correlation_risk(
                 spot_bumps,
@@ -539,7 +548,11 @@ impl PyStochasticDividendPrice {
 }
 
 /// 2F Bergomi correlation risk with selective residual-LSV recalibration.
-#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorCorrelationRisk", skip_from_py_object)]
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLsvBergomi2FactorCorrelationRisk",
+    skip_from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
     pub(super) inner: StochasticDividendLsvBergomi2FactorCorrelationRisk,
@@ -570,7 +583,9 @@ impl PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
     }
     #[getter]
     fn spot_volatility_correlation_derivatives(&self) -> Vec<f64> {
-        self.inner.spot_volatility_correlation_derivatives().to_vec()
+        self.inner
+            .spot_volatility_correlation_derivatives()
+            .to_vec()
     }
     #[getter]
     fn factor_correlation_derivative(&self) -> f64 {
@@ -578,7 +593,9 @@ impl PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
     }
     #[getter]
     fn dividend_volatility_correlation_derivatives(&self) -> Vec<f64> {
-        self.inner.dividend_volatility_correlation_derivatives().to_vec()
+        self.inner
+            .dividend_volatility_correlation_derivatives()
+            .to_vec()
     }
     #[getter]
     fn method(&self) -> &'static str {
@@ -595,7 +612,11 @@ impl PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
 }
 
 /// Full-recalibration 2F Bergomi parameter risk for residual-equity LSV.
-#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorRisk", skip_from_py_object)]
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLsvBergomi2FactorRisk",
+    skip_from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomi2FactorRisk {
     pub(super) inner: StochasticDividendLsvBergomi2FactorRisk,
@@ -651,7 +672,11 @@ impl PyStochasticDividendLsvBergomi2FactorRisk {
 }
 
 /// 1F Bergomi correlation risk with selective residual-LSV recalibration.
-#[pyclass(frozen, name = "StochasticDividendLsvCorrelationRisk", skip_from_py_object)]
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLsvCorrelationRisk",
+    skip_from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvCorrelationRisk {
     pub(super) inner: StochasticDividendLsvCorrelationRisk,
