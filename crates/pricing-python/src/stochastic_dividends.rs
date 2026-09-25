@@ -1,5 +1,5 @@
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
-use pricing::mc::ExecutionPolicy;
+use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
 use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
@@ -154,6 +154,128 @@ impl PyStochasticDividendPlan {
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, *, mean_reversion, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_bergomi_lsv(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        mean_reversion: f64,
+        vol_of_vol: f64,
+        correlation: f64,
+        dividend_mean_reversion: f64,
+        equity_linkage: f64,
+        dividend_volatility: f64,
+        equity_dividend_correlation: f64,
+        dividend_volatility_correlation: f64,
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
+            .map_err(|e| invalid(py, e))?;
+        let model = BuehlerDividendModel::new(
+            dividend_mean_reversion,
+            equity_linkage,
+            dividend_volatility,
+            equity_dividend_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            false,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        py.detach(|| {
+            StochasticDividendPricingPlan::compile_bergomi_lsv(
+                &request,
+                model,
+                factor,
+                dividend_volatility_correlation,
+                particles,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(request, *, mean_reversions, vol_of_vol, mixing_weight, spot_correlations, factor_correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlations, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None))]
+    fn compile_bergomi_two_factor_lsv(
+        py: Python<'_>,
+        request: &PyPricingRequest,
+        mean_reversions: [f64; 2],
+        vol_of_vol: f64,
+        mixing_weight: f64,
+        spot_correlations: [f64; 2],
+        factor_correlation: f64,
+        dividend_mean_reversion: f64,
+        equity_linkage: f64,
+        dividend_volatility: f64,
+        equity_dividend_correlation: f64,
+        dividend_volatility_correlations: [f64; 2],
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        maximum_step: f64,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let factor = Bergomi2Factor::new(
+            mean_reversions,
+            vol_of_vol,
+            mixing_weight,
+            spot_correlations,
+            factor_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let model = BuehlerDividendModel::new(
+            dividend_mean_reversion,
+            equity_linkage,
+            dividend_volatility,
+            equity_dividend_correlation,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            false,
+        )
+        .map_err(|e| invalid(py, e))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| invalid(py, e))?;
+        let request = request.inner.clone();
+        py.detach(|| {
+            StochasticDividendPricingPlan::compile_bergomi_two_factor_lsv(
+                &request,
+                model,
+                factor,
+                dividend_volatility_correlations,
+                particles,
+                maximum_step,
+                policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(request, *, hurst, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, maximum_step, worker_threads, reduction_block_size=None))]
     fn compile_rough_bergomi(
         py: Python<'_>,
@@ -258,6 +380,24 @@ impl PyStochasticDividendPlan {
     #[getter]
     fn scheme(&self) -> &'static str {
         self.inner.scheme()
+    }
+    #[getter]
+    fn lsv_time_nodes(&self) -> Option<Vec<f64>> {
+        self.inner.lsv_time_nodes().map(<[f64]>::to_vec)
+    }
+    #[getter]
+    fn lsv_log_moneyness_nodes(&self) -> Option<Vec<f64>> {
+        self.inner
+            .lsv_log_moneyness_nodes()
+            .map(<[f64]>::to_vec)
+    }
+    #[getter]
+    fn lsv_squared_leverage(&self) -> Option<Vec<f64>> {
+        self.inner.lsv_squared_leverage().map(<[f64]>::to_vec)
+    }
+    #[getter]
+    fn lsv_initial_residual_equity(&self) -> Option<f64> {
+        self.inner.lsv_initial_residual_equity()
     }
 }
 
