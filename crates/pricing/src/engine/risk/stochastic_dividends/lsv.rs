@@ -84,6 +84,7 @@ impl StochasticDividendLsvCalibration {
             Self::One {
                 calibration,
                 original_target,
+                ..
             } => target_reverse(calibration, original_target, leverage),
             Self::Two {
                 calibration,

@@ -5,9 +5,11 @@ mod aad;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
+mod lsv_parameters;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
+pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
@@ -53,6 +55,7 @@ enum StochasticDividendLsvCalibration {
     One {
         calibration: CalibratedBergomiLsv<Bergomi1Factor>,
         original_target: LocalVarianceGrid,
+        dividend_volatility_correlation: f64,
     },
     Two {
         calibration: CalibratedBergomiLsv<Bergomi2Factor>,
@@ -303,6 +306,7 @@ impl StochasticDividendPricingPlan {
         plan.lsv = Some(StochasticDividendLsvCalibration::One {
             calibration,
             original_target,
+            dividend_volatility_correlation,
         });
         plan.finish_lsv(&particles)?;
         debug_assert_eq!(plan.path.times(), grid.nodes());
