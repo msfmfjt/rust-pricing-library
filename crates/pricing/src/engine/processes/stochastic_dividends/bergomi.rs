@@ -193,22 +193,12 @@ impl BergomiDividendKernel {
         dividend_seeds: &[f64],
     ) -> Result<Vec<f64>, StochasticDividendError> {
         match self {
-            Self::One(k) => k.lsv_leverage_pullback(
-                model,
-                times,
-                normals,
-                states,
-                equity_seeds,
-                dividend_seeds,
-            ),
-            Self::Two(k) => k.lsv_leverage_pullback(
-                model,
-                times,
-                normals,
-                states,
-                equity_seeds,
-                dividend_seeds,
-            ),
+            Self::One(k) => {
+                k.lsv_leverage_pullback(model, times, normals, states, equity_seeds, dividend_seeds)
+            }
+            Self::Two(k) => {
+                k.lsv_leverage_pullback(model, times, normals, states, equity_seeds, dividend_seeds)
+            }
         }
     }
 }
@@ -354,9 +344,12 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
         equity_seeds: &[f64],
         dividend_seeds: &[f64],
     ) -> Result<Vec<f64>, StochasticDividendError> {
-        let surface = self.leverage.as_ref().ok_or(StochasticDividendError::Unsupported {
-            feature: "local-variance risk requires a residual-equity LSV plan",
-        })?;
+        let surface = self
+            .leverage
+            .as_ref()
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "local-variance risk requires a residual-equity LSV plan",
+            })?;
         let n = self.steps.len();
         if times.len() != n + 1
             || states.len() != n + 1
@@ -417,8 +410,7 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
                 .zip(factor_states[step_index])
                 .map(|(w, x)| w * x)
                 .sum();
-            let multiplier =
-                (self.vol_of_vol * (factor - self.centering[step_index])).exp();
+            let multiplier = (self.vol_of_vol * (factor - self.centering[step_index])).exp();
             let residual_f = surface.initial_f() * old.equity;
             let lookup = surface
                 .lookup(times[step_index], residual_f)
@@ -448,7 +440,6 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
         }
         Ok(leverage_bar)
     }
-
 }
 
 impl<const N: usize, const D: usize> Step<N, D> {
