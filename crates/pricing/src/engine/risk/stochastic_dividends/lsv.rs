@@ -121,9 +121,7 @@ impl StochasticDividendPricingPlan {
     /// the surface initial_f. Normalized f/Y pricing states are consequently
     /// Spot-independent, and the exact finite-algorithm Delta is the Buehler
     /// reconstruction-coefficient reverse.
-    pub fn evaluate_lsv_spot_risk(
-        &self,
-    ) -> Result<StochasticDividendLsvSpotRisk, MonteCarloError> {
+    pub fn evaluate_lsv_spot_risk(&self) -> Result<StochasticDividendLsvSpotRisk, MonteCarloError> {
         if self.lsv.is_none() || !self.path.is_lsv() {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "LSV Spot risk requires a stochastic-dividend residual LSV plan",
@@ -179,24 +177,23 @@ impl StochasticDividendPricingPlan {
                 let mut prices = Vec::with_capacity(config.scramble_count().get() as usize);
                 let mut deltas = Vec::with_capacity(config.scramble_count().get() as usize);
                 for scramble in 0..config.scramble_count().get() {
-                    let stats =
-                        executor.try_map_reduce_statistics_vector(count, 2, |p, out| {
-                            let z = (0..dimension)
-                                .map(|d| {
-                                    let u = qmc
-                                        .uniform(scramble, p, d)
-                                        .map_err(|_| invalid("rqmc_uniform"))?;
-                                    inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
-                                })
-                                .collect::<Result<Vec<_>, _>>()?;
-                            self.sample_lsv_spot_risk(
-                                &context,
-                                z,
-                                bridge.as_ref(),
-                                config.variance_reduction().antithetic(),
-                                out,
-                            )
-                        })?;
+                    let stats = executor.try_map_reduce_statistics_vector(count, 2, |p, out| {
+                        let z = (0..dimension)
+                            .map(|d| {
+                                let u = qmc
+                                    .uniform(scramble, p, d)
+                                    .map_err(|_| invalid("rqmc_uniform"))?;
+                                inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        self.sample_lsv_spot_risk(
+                            &context,
+                            z,
+                            bridge.as_ref(),
+                            config.variance_reduction().antithetic(),
+                            out,
+                        )
+                    })?;
                     prices.push(stats[0].sum().total() / count as f64);
                     deltas.push(stats[1].sum().total() / count as f64);
                 }
