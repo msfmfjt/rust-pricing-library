@@ -11,8 +11,8 @@ pub use crate::engine::processes::stochastic_dividends::{
     StochasticDividendNode, StochasticDividendPathPlan,
 };
 pub use crate::engine::risk::stochastic_dividends::{
-    StochasticDividendAadRisk, StochasticDividendGammaRisk, StochasticDividendPrice,
-    StochasticDividendPricingPlan,
+    StochasticDividendAadRisk, StochasticDividendGammaRisk, StochasticDividendLocalVarianceRisk,
+    StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 pub use crate::models::{
     BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
