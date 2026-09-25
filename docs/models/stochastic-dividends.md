@@ -318,11 +318,31 @@ log-moneyness nodes and quoted implied volatilities must describe the
 Using a physical-stock reporting surface would mix coordinates and is outside
 the current model contract.
 
+Physical-Spot Delta is available separately through
+`evaluate_lsv_spot_risk()`. This does **not** freeze the calibrated LSV
+surface. The calibration is homogeneous in its initial residual equity
+\(F_0^{res}\): calibration particles scale with \(F_0^{res}\), while both
+the kernel and leverage lookup use \(\log(F/F_0^{res})\). A Spot bump
+therefore re-anchors the surface `initial_f` but leaves every calibrated
+squared-leverage value unchanged. With that re-anchoring, the normalized
+\(f/Y\) pricing dynamics are Spot-independent, so the finite-algorithm Delta
+is exactly the reverse of the Buehler physical-Spot reconstruction
+coefficients.
+
+The method label is
+`buehler-residual-lsv-scale-invariant-spot-reverse-v1`. MC standard error is
+computed over independent antithetic units when enabled; RQMC uses scramble
+means. Unlike Local-variance/VegaKT risk, this Spot calculation does not need
+`retain_reverse_trace=true`, because no particle-calibration VJP is required.
+Validation compares the analytic Delta with a full up/down recompile: the
+recompiled plans have shifted residual-equity anchors and unchanged leverage
+values.
+
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
-freeze calibrated leverage if reused unchanged. The dedicated Local-variance
-and VegaKT methods still do not report Spot, curve, cash-mean or
-Bergomi-parameter risk.
+freeze calibrated leverage if reused unchanged. The dedicated LSV methods now
+cover Local-variance risk, residual-surface VegaKT and physical-Spot Delta, but
+not curve, cash-mean or Bergomi-parameter risk.
 
 ## First-order risk
 
