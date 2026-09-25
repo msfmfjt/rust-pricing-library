@@ -61,7 +61,8 @@ class StochasticDividendHullWhiteRiskTest(unittest.TestCase):
         self.assertNotEqual(r.price.plan_fingerprint,other.price.plan_fingerprint)
         copy=r.derivatives;copy[0]=1e9;self.assertNotEqual(r.delta,1e9)
         with self.assertRaises(AttributeError):r.delta=0.
-        for name in ['evaluate_gamma','evaluate_rough_aad']:
+        self.assertTrue(hasattr(p,'evaluate_gamma'))
+        for name in ['evaluate_rough_aad']:
             self.assertFalse(hasattr(p,name))
 
     def test_correlation_aad_prefix_replay_and_full_recompile(self):

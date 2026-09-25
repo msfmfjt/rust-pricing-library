@@ -1,6 +1,7 @@
 //! BS/Buehler/Hull--White adapter. Explicit basic AAD holds rate-model
 //! parameters and correlations fixed; deterministic-rate plans are unchanged.
 mod aad;
+mod gamma;
 use super::StochasticDividendPrice;
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::hull_white::{
