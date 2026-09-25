@@ -310,6 +310,129 @@ class StochasticDividendTest(unittest.TestCase):
         no_trace_spot = compile_lsv(retain_reverse_trace=False).evaluate_lsv_spot_risk()
         self.assertTrue(math.isfinite(no_trace_spot.delta))
 
+    def test_residual_lsv_dividend_model_risk_keeps_calibration_fixed(self):
+        request = make_lsv_request(points=16)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        bumps = dict(
+            dividend_mean_reversion_bump=0.02,
+            equity_linkage_bump=0.02,
+            dividend_volatility_bump=0.01,
+            equity_dividend_correlation_bump=0.02,
+        )
+        plan = compile_lsv(request, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_dividend_model_risk(**bumps)
+
+        self.assertEqual(
+            risk.parameter_labels,
+            [
+                "dividend_mean_reversion",
+                "equity_linkage",
+                "dividend_volatility",
+                "equity_dividend_correlation",
+            ],
+        )
+        self.assertEqual(
+            risk.parameter_bumps,
+            [
+                bumps["dividend_mean_reversion_bump"],
+                bumps["equity_linkage_bump"],
+                bumps["dividend_volatility_bump"],
+                bumps["equity_dividend_correlation_bump"],
+            ],
+        )
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-common-noise-fixed-calibration-dividend-model-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "buehler_dividend_model_parameters_with_fixed_residual_lsv_calibration",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives))
+        self.assertTrue(all(x >= 0.0 for x in risk.standard_errors))
+        self.assertAlmostEqual(risk.price.value, plan.evaluate().value, delta=2e-13)
+
+        scenarios = [
+            (
+                dict(dividend_mean_reversion=0.7-bumps["dividend_mean_reversion_bump"]),
+                dict(dividend_mean_reversion=0.7+bumps["dividend_mean_reversion_bump"]),
+                bumps["dividend_mean_reversion_bump"],
+            ),
+            (
+                dict(equity_linkage=0.6-bumps["equity_linkage_bump"]),
+                dict(equity_linkage=0.6+bumps["equity_linkage_bump"]),
+                bumps["equity_linkage_bump"],
+            ),
+            (
+                dict(dividend_volatility=0.35-bumps["dividend_volatility_bump"]),
+                dict(dividend_volatility=0.35+bumps["dividend_volatility_bump"]),
+                bumps["dividend_volatility_bump"],
+            ),
+            (
+                dict(
+                    equity_dividend_correlation=-0.25
+                    - bumps["equity_dividend_correlation_bump"]
+                ),
+                dict(
+                    equity_dividend_correlation=-0.25
+                    + bumps["equity_dividend_correlation_bump"]
+                ),
+                bumps["equity_dividend_correlation_bump"],
+            ),
+        ]
+        finite_differences = []
+        for down_kwargs, up_kwargs, bump in scenarios:
+            down = compile_lsv(
+                request,
+                worker_threads=1,
+                **(common | down_kwargs),
+            )
+            up = compile_lsv(
+                request,
+                worker_threads=1,
+                **(common | up_kwargs),
+            )
+            self.assertEqual(down.lsv_squared_leverage, plan.lsv_squared_leverage)
+            self.assertEqual(up.lsv_squared_leverage, plan.lsv_squared_leverage)
+            finite_differences.append(
+                (up.evaluate().value - down.evaluate().value) / (2.0 * bump)
+            )
+
+        for actual, expected in zip(risk.derivatives, finite_differences):
+            self.assertAlmostEqual(actual, expected, delta=3e-10)
+
+        parallel = compile_lsv(request, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_dividend_model_risk(**bumps)
+        self.assertEqual(parallel_risk.derivatives, risk.derivatives)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        no_trace = compile_lsv(
+            request,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_dividend_model_risk(**bumps)
+        self.assertTrue(all(math.isfinite(x) for x in no_trace.derivatives))
+
+        two_factor = compile_lsv(
+            request,
+            two_factor=True,
+            worker_threads=2,
+            **common,
+        ).evaluate_lsv_dividend_model_risk(**bumps)
+        self.assertEqual(two_factor.parameter_labels, risk.parameter_labels)
+        self.assertTrue(all(math.isfinite(x) for x in two_factor.derivatives))
+
+        with self.assertRaises(rp.PricingError):
+            compile_plan().evaluate_lsv_dividend_model_risk(**bumps)
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_dividend_model_risk(
+                **(bumps | {"equity_linkage_bump": 0.7})
+            )
+
     def test_residual_lsv_market_risk_matches_full_recompile(self):
         request = make_lsv_request(points=16)
         common = dict(
