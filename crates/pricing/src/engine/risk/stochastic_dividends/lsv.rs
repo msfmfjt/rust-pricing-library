@@ -129,6 +129,15 @@ impl StochasticDividendPricingPlan {
                 model: "LSV Spot risk requires a stochastic-dividend residual LSV plan",
             });
         }
+        let surface = self
+            .path
+            .lsv_surface()
+            .ok_or(MonteCarloError::UnsupportedRiskForModel {
+                model: "LSV Spot risk requires a stochastic-dividend residual LSV surface",
+            })?;
+        if surface.initial_f().to_bits() != self.path.risky_spot().to_bits() {
+            return Err(invalid("lsv_spot_anchor").into());
+        }
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend LSV discontinuous payoff requires explicit smoothing",
