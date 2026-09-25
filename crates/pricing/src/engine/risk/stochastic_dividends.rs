@@ -33,6 +33,19 @@ pub struct StochasticDividendPrice {
     pub scheme: &'static str,
 }
 
+impl StochasticDividendPrice {
+    /// Monte Carlo uncertainty only. LSV prices condition on the finite
+    /// particle calibration; calibration sampling/model uncertainty is excluded.
+    #[must_use]
+    pub fn uncertainty_scope(&self) -> &'static str {
+        if self.scheme.contains("residual-lsv") {
+            "pricing_conditional_on_calibration"
+        } else {
+            "pricing_only"
+        }
+    }
+}
+
 /// Constant-volatility or pure Bergomi residual equity with a stochastic cash
 /// reserve. The request volatility is the initial residual-equity volatility,
 /// not physical-stock implied volatility. `evaluate_aad` requests first-order
