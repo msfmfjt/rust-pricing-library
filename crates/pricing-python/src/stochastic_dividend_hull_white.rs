@@ -1,8 +1,11 @@
 //! Dedicated HW API; it never dispatches deterministic-rate AAD.
-use super::stochastic_dividends::{PyStochasticDividendAadRisk, PyStochasticDividendPrice};
+use super::stochastic_dividends::{
+    PyStochasticDividendAadRisk, PyStochasticDividendGammaRisk, PyStochasticDividendPrice,
+};
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{BuehlerDividendModel, HullWhite1Factor};
+use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::StochasticDividendHullWhitePricingPlan;
 use pyo3::prelude::*;
 
@@ -90,6 +93,25 @@ impl PyStochasticDividendHullWhitePlan {
     fn evaluate_correlation_aad(&self, py: Python<'_>) -> PyResult<PyStochasticDividendAadRisk> {
         py.detach(|| self.inner.evaluate_correlation_aad())
             .map(|inner| PyStochasticDividendAadRisk { inner })
+            .map_err(pricing_exception)
+    }
+    /// Exactly one absolute or relative Spot bump is required. The returned
+    /// half/base/double ladder uses paired AAD Delta with fixed model inputs.
+    #[pyo3(signature=(*, gamma_absolute_bump=None, gamma_relative_bump=None))]
+    fn evaluate_gamma(
+        &self,
+        py: Python<'_>,
+        gamma_absolute_bump: Option<f64>,
+        gamma_relative_bump: Option<f64>,
+    ) -> PyResult<PyStochasticDividendGammaRisk> {
+        let bump = match (gamma_absolute_bump, gamma_relative_bump) {
+            (Some(h), None) => SpotBump::absolute(h),
+            (None, Some(h)) => SpotBump::relative(h),
+            _ => return Err(invalid(py, "specify exactly one Gamma Spot bump")),
+        }
+        .map_err(|e| invalid(py, e))?;
+        py.detach(|| self.inner.evaluate_gamma(GammaConfig::new(bump)))
+            .map(|inner| PyStochasticDividendGammaRisk { inner })
             .map_err(pricing_exception)
     }
     #[getter]

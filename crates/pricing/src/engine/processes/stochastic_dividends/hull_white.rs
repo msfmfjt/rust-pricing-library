@@ -299,8 +299,35 @@ impl StochasticDividendHullWhitePathPlan {
         index: usize,
         state: StochasticDividendHullWhiteState,
     ) -> Result<(f64, Option<f64>), StochasticDividendError> {
+        self.spots_with_risky_spot(index, state, self.risky_spot)
+    }
+
+    /// Initial funding at another Spot, with every Q cash mean and conditional
+    /// claim fixed. Sum in the original compile order, including future cash.
+    pub(in crate::engine) fn risky_spot_at(
+        &self,
+        spot: f64,
+    ) -> Result<f64, StochasticDividendError> {
+        positive(spot, "gamma_shifted_spot")?;
+        let mut reserve = 0.0;
+        for claim in &self.nodes[0].claims {
+            reserve += claim.carry_weight * self.initial_claims[claim.index];
+        }
+        let risky_spot = spot - reserve;
+        positive(risky_spot, "funded_residual_equity")?;
+        Ok(risky_spot)
+    }
+
+    /// Spot-only scenarios reuse the normalized factors and conditional cash
+    /// claims. The caller validates the funded risky spot before sampling.
+    pub(in crate::engine) fn spots_with_risky_spot(
+        &self,
+        index: usize,
+        state: StochasticDividendHullWhiteState,
+        risky_spot: f64,
+    ) -> Result<(f64, Option<f64>), StochasticDividendError> {
         let node = self.nodes.get(index).ok_or(invalid("time_node_index"))?;
-        let mut post = self.risky_spot
+        let mut post = risky_spot
             * node.residual_growth
             * (state.integrated_rate_factor + node.half_integral_variance).exp()
             * state.factors.equity();

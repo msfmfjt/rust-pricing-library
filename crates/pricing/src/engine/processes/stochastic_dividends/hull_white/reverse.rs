@@ -6,6 +6,33 @@ use super::*;
 use crate::engine::processes::stochastic_dividends::{blend, decay};
 use crate::models::hull_white_dividends::transpose_log_curve;
 
+impl StochasticDividendHullWhitePathPlan {
+    /// Spot-only slice of the full reverse, in the same node order and with
+    /// the same arithmetic. The normalized factors and rate states are S0
+    /// invariant; cash claims and the initial cash reserve have zero S0 derivative.
+    pub(in crate::engine) fn spot_pullback(
+        &self,
+        states: &[StochasticDividendHullWhiteState],
+        seeds: &[(f64, f64)],
+    ) -> Result<f64, StochasticDividendError> {
+        if states.len() != self.nodes.len() || seeds.len() != states.len() {
+            return Err(invalid("hw_spot_reverse_shape"));
+        }
+        let mut out = 0.0;
+        for i in (0..states.len()).rev() {
+            let state = states[i];
+            let node = &self.nodes[i];
+            let (post, pre) = seeds[i];
+            let growth = node.residual_growth
+                * (state.integrated_rate_factor + node.half_integral_variance).exp();
+            out += (post + pre) * growth * state.factors.equity();
+        }
+        if !out.is_finite() {
+            return Err(invalid("hw_spot_reverse_result"));
+        }
+        Ok(out)
+    }
+}
 #[derive(Clone, Debug)]
 struct ClaimJacobian {
     // Unit-mean carry-weighted bond at x=0. Never divide by a cash mean.
