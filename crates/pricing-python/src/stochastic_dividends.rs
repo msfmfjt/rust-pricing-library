@@ -6,7 +6,8 @@ use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
-    StochasticDividendLocalVarianceRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
+    StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
+    StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -334,6 +335,14 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendLocalVarianceRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_lsv_spot_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyStochasticDividendLsvSpotRisk> {
+        py.detach(|| self.inner.evaluate_lsv_spot_risk())
+            .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_vega_kt(&self, py: Python<'_>) -> PyResult<PyVegaKtResult> {
         py.detach(|| self.inner.evaluate_vega_kt())
             .map(|inner| PyVegaKtResult { inner })
@@ -452,6 +461,42 @@ impl PyStochasticDividendPrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         self.inner.uncertainty_scope()
+    }
+}
+
+/// Physical-Spot Delta with the residual-equity LSV surface re-anchored.
+#[pyclass(frozen, name = "StochasticDividendLsvSpotRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLsvSpotRisk {
+    pub(super) inner: StochasticDividendLsvSpotRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLsvSpotRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "physical_spot_with_residual_lsv_reanchoring"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_scale_invariant_calibration"
     }
 }
 
