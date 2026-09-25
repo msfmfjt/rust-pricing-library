@@ -109,7 +109,9 @@ impl StochasticDividendPricingPlan {
         let leverage_count = self
             .path
             .lsv_surface()
-            .expect("LSV calibration and path are compiled together")
+            .ok_or(MonteCarloError::UnsupportedRiskForModel {
+                model: "local-variance risk requires a stochastic-dividend residual LSV path",
+            })?
             .squared_leverage()
             .len();
         let width = 1 + leverage_count;
