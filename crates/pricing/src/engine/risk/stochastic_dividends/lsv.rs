@@ -6,8 +6,14 @@
 //! Local-variance grid. Calibration randomness is fixed by its explicit seed.
 
 use super::*;
+use crate::VegaKtResult;
 use crate::mc::lsv::LsvError;
 use crate::models::BergomiDynamics;
+use crate::risk::{
+    local_vega_density_from_node_adjoints, project_local_vega_nodes_to_reporting_iv,
+    vega_kt_bucket_estimates, vega_kt_full_bucket_covariance, vega_kt_projection_from_parts,
+    vega_kt_report,
+};
 
 const METHOD: &str = "buehler-residual-lsv-path-and-discrete-particle-vjp-v1";
 
@@ -23,6 +29,18 @@ pub struct StochasticDividendLocalVarianceRisk {
     /// not included because the calibration seed and particle cloud are fixed.
     pub standard_errors: Option<Box<[f64]>>,
     pub method: &'static str,
+}
+
+struct LsvLocalVarianceSamples {
+    price_stats: DeterministicStatistics,
+    units: u64,
+    paths: u128,
+    node_adjoints: Vec<f64>,
+    node_errors: Option<Vec<f64>>,
+    /// Independent sampling units used for VegaKT covariance estimation:
+    /// one aggregate pseudo-MC estimate or one row per RQMC scramble.
+    price_samples: Vec<f64>,
+    node_samples: Vec<Vec<f64>>,
 }
 
 impl StochasticDividendLsvCalibration {
@@ -91,6 +109,141 @@ impl StochasticDividendPricingPlan {
     pub fn evaluate_local_variance_risk(
         &self,
     ) -> Result<StochasticDividendLocalVarianceRisk, MonteCarloError> {
+        let samples = self.lsv_local_variance_samples()?;
+        let value = samples.price_stats.sum().total() / samples.units as f64;
+        let standard_error = estimator_error(samples.price_stats, samples.units)?;
+        if !value.is_finite()
+            || !standard_error.is_finite()
+            || samples.node_adjoints.iter().any(|x| !x.is_finite())
+            || samples
+                .node_errors
+                .as_ref()
+                .is_some_and(|v| v.iter().any(|x| !x.is_finite()))
+        {
+            return Err(invalid("lsv_local_variance_risk_estimator").into());
+        }
+
+        let target = self
+            .lsv
+            .as_ref()
+            .expect("LSV samples require an LSV calibration")
+            .original_target();
+        Ok(StochasticDividendLocalVarianceRisk {
+            price: StochasticDividendPrice {
+                value,
+                standard_error,
+                independent_sampling_units: samples.units,
+                evaluated_paths: samples.paths,
+                plan_fingerprint: self.fingerprint,
+                scheme: self.scheme(),
+            },
+            time_nodes: target.time_nodes().into(),
+            log_moneyness_nodes: target.log_moneyness_nodes().into(),
+            node_adjoints: samples.node_adjoints.into_boxed_slice(),
+            standard_errors: samples.node_errors.map(Vec::into_boxed_slice),
+            method: METHOD,
+        })
+    }
+
+    /// VegaKT of the residual-equity market-IV reporting surface. The reverse
+    /// first includes finite-particle leverage recalibration, then converts
+    /// Dupire-variance adjoints to Local-volatility adjoints and reuses the
+    /// shared first-order reporting-IV projection.
+    pub fn evaluate_vega_kt(&self) -> Result<VegaKtResult, MonteCarloError> {
+        let vega_kt = self
+            .base
+            .local_volatility
+            .as_ref()
+            .and_then(|runtime| runtime.vega_kt.as_ref())
+            .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?;
+        let samples = self.lsv_local_variance_samples()?;
+        let lsv = self
+            .lsv
+            .as_ref()
+            .expect("LSV samples require an LSV calibration");
+        let target = lsv.original_target();
+        let x_count = target.log_moneyness_nodes().len();
+        let bucket_count = vega_kt.basis.bucket_count();
+        let mut raw_bucket_samples =
+            Vec::with_capacity(samples.node_samples.len().saturating_mul(bucket_count));
+
+        for node_sample in &samples.node_samples {
+            let local_vol_adjoints = local_vol_node_adjoints(target, node_sample)?;
+            let mut buckets = vec![0.0; bucket_count];
+            for (time_index, maturity) in target.time_nodes().iter().copied().enumerate() {
+                if maturity == 0.0 {
+                    continue;
+                }
+                let row_start = time_index * x_count;
+                let row_end = row_start + x_count;
+                let density = local_vega_density_from_node_adjoints(
+                    &local_vol_adjoints[row_start..row_end],
+                    target.log_moneyness_nodes(),
+                )?;
+                let density_row = vega_kt
+                    .density_rows
+                    .iter()
+                    .find(|row| row.maturity().get().to_bits() == maturity.to_bits())
+                    .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
+                let projection = project_local_vega_nodes_to_reporting_iv(
+                    &vega_kt.basis,
+                    maturity,
+                    target.log_moneyness_nodes(),
+                    &density,
+                    density_row.active_domain(),
+                )?;
+                for (bucket, projected) in buckets.iter_mut().zip(projection.raw_buckets()) {
+                    *bucket += *projected;
+                }
+            }
+            raw_bucket_samples.extend(buckets);
+        }
+
+        let estimates =
+            vega_kt_bucket_estimates(&samples.price_samples, &raw_bucket_samples, bucket_count)?;
+        let raw_bucket_means = estimates
+            .iter()
+            .map(|estimate| estimate.raw_mean())
+            .collect::<Vec<_>>();
+        let local_vol_adjoints = local_vol_node_adjoints(target, &samples.node_adjoints)?;
+        let mean_vega = local_vol_adjoints
+            .iter()
+            .copied()
+            .collect::<pricing_numerics::NeumaierSum>()
+            .total();
+        let bucket_sum = raw_bucket_means
+            .iter()
+            .copied()
+            .collect::<pricing_numerics::NeumaierSum>()
+            .total();
+        let projection = vega_kt_projection_from_parts(
+            raw_bucket_means,
+            mean_vega - bucket_sum,
+            mean_vega,
+            Default::default(),
+        )?;
+        let full_bucket_covariance = if vega_kt.full_bucket_covariance {
+            Some(vega_kt_full_bucket_covariance(
+                &raw_bucket_samples,
+                bucket_count,
+            )?)
+        } else {
+            None
+        };
+        let density_row = vega_kt
+            .density_rows
+            .last()
+            .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
+        Ok(VegaKtResult::try_from(&vega_kt_report(
+            &vega_kt.basis,
+            density_row,
+            projection,
+            estimates,
+            full_bucket_covariance,
+        )?)?)
+    }
+
+    fn lsv_local_variance_samples(&self) -> Result<LsvLocalVarianceSamples, MonteCarloError> {
         let lsv = self
             .lsv
             .as_ref()
@@ -118,7 +271,7 @@ impl StochasticDividendPricingPlan {
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
 
-        let (price_stats, units, paths, node_adjoints, node_errors) = match self.engine {
+        match self.engine {
             EngineConfig::PseudoMonteCarlo(config) => {
                 let count = config.independent_sampling_units().get();
                 let bridge = self.bridge(config.variance_reduction())?;
@@ -144,13 +297,16 @@ impl StochasticDividendPricingPlan {
                     .iter()
                     .map(|s| s.sum().total() / count as f64)
                     .collect::<Vec<_>>();
-                (
-                    stats[0],
-                    count,
-                    config.evaluated_paths(),
-                    lsv.target_reverse(&leverage)?,
-                    None,
-                )
+                let node_adjoints = lsv.target_reverse(&leverage)?;
+                Ok(LsvLocalVarianceSamples {
+                    price_stats: stats[0],
+                    units: count,
+                    paths: config.evaluated_paths(),
+                    price_samples: vec![stats[0].sum().total() / count as f64],
+                    node_samples: vec![node_adjoints.clone()],
+                    node_adjoints,
+                    node_errors: None,
+                })
             }
             EngineConfig::RandomizedQuasiMonteCarlo(config) => {
                 let qmc = RqmcPlan::compile(config, dimension)?;
@@ -192,50 +348,23 @@ impl StochasticDividendPricingPlan {
                     means.push(stat.sum().total() / scrambles as f64);
                     errors.push(estimator_error(stat, scrambles)?);
                 }
-                (
-                    DeterministicStatistics::from_ordered_values_two_pass(&prices),
-                    scrambles,
-                    u128::from(count)
+                Ok(LsvLocalVarianceSamples {
+                    price_stats: DeterministicStatistics::from_ordered_values_two_pass(&prices),
+                    units: scrambles,
+                    paths: u128::from(count)
                         * u128::from(scrambles)
                         * if config.variance_reduction().antithetic() {
                             2
                         } else {
                             1
                         },
-                    means,
-                    Some(errors),
-                )
+                    price_samples: prices,
+                    node_samples: risks,
+                    node_adjoints: means,
+                    node_errors: Some(errors),
+                })
             }
-        };
-
-        let value = price_stats.sum().total() / units as f64;
-        let standard_error = estimator_error(price_stats, units)?;
-        if !value.is_finite()
-            || !standard_error.is_finite()
-            || node_adjoints.iter().any(|x| !x.is_finite())
-            || node_errors
-                .as_ref()
-                .is_some_and(|v| v.iter().any(|x| !x.is_finite()))
-        {
-            return Err(invalid("lsv_local_variance_risk_estimator").into());
         }
-
-        let target = lsv.original_target();
-        Ok(StochasticDividendLocalVarianceRisk {
-            price: StochasticDividendPrice {
-                value,
-                standard_error,
-                independent_sampling_units: units,
-                evaluated_paths: paths,
-                plan_fingerprint: self.fingerprint,
-                scheme: self.scheme(),
-            },
-            time_nodes: target.time_nodes().into(),
-            log_moneyness_nodes: target.log_moneyness_nodes().into(),
-            node_adjoints: node_adjoints.into_boxed_slice(),
-            standard_errors: node_errors.map(Vec::into_boxed_slice),
-            method: METHOD,
-        })
     }
 
     fn sample_lsv_local_variance_risk(
@@ -297,6 +426,27 @@ impl StochasticDividendPricingPlan {
         }
         Ok(())
     }
+}
+
+fn local_vol_node_adjoints(
+    target: &LocalVarianceGrid,
+    node_adjoints: &[f64],
+) -> Result<Vec<f64>, MonteCarloError> {
+    if node_adjoints.len() != target.values().len() {
+        return Err(invalid("lsv_local_variance_node_count").into());
+    }
+    node_adjoints
+        .iter()
+        .zip(target.values())
+        .map(|(adjoint, variance)| {
+            let value = 2.0 * variance.sqrt() * adjoint;
+            if value.is_finite() {
+                Ok(value)
+            } else {
+                Err(invalid("lsv_local_volatility_adjoint").into())
+            }
+        })
+        .collect()
 }
 
 fn estimator_error(
