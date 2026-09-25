@@ -335,10 +335,7 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendLocalVarianceRisk { inner })
             .map_err(pricing_exception)
     }
-    fn evaluate_lsv_spot_risk(
-        &self,
-        py: Python<'_>,
-    ) -> PyResult<PyStochasticDividendLsvSpotRisk> {
+    fn evaluate_lsv_spot_risk(&self, py: Python<'_>) -> PyResult<PyStochasticDividendLsvSpotRisk> {
         py.detach(|| self.inner.evaluate_lsv_spot_risk())
             .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
             .map_err(pricing_exception)
