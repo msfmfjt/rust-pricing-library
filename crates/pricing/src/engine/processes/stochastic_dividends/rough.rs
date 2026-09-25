@@ -8,6 +8,8 @@ use crate::models::BERGOMI_TWO_FACTOR_CORRELATION_TOLERANCES;
 use pricing_numerics::{CorrelationFactor, NeumaierSum};
 
 pub(super) const SCHEME: &str = "buehler-rough-bergomi-joint-hybrid-positive-split-v1";
+pub(super) const LSV_SCHEME: &str =
+    "buehler-rough-bergomi-residual-lsv-joint-hybrid-positive-split-v1";
 // A dense triangular history with 4096 steps needs about 64 MiB of scalar weights.
 // Reject before constructing it; do not silently switch to a Markovian surrogate.
 const MAX_STEPS: usize = 4096;
@@ -20,6 +22,7 @@ pub(super) struct RoughDividendKernel {
     weights: Box<[Box<[f64]>]>,
     variances: Box<[f64]>,
     steps: Box<[NearCell]>,
+    leverage: Option<LsvLeverageSurface>,
 }
 #[derive(Clone, Copy, Debug)]
 struct NearCell {
@@ -84,10 +87,39 @@ impl RoughDividendKernel {
             weights: weights.into_boxed_slice(),
             variances: variances.into_boxed_slice(),
             steps: steps.into_boxed_slice(),
+            leverage: None,
         })
     }
+
+    pub(super) fn with_leverage(
+        mut self,
+        surface: LsvLeverageSurface,
+        times: &[f64],
+    ) -> Result<Self, StochasticDividendError> {
+        crate::engine::processes::lsv::step_rows(&surface, times)
+            .map_err(|_| invalid("rough_lsv_leverage_surface"))?;
+        self.leverage = Some(surface);
+        Ok(self)
+    }
+
+    pub(super) fn is_lsv(&self) -> bool {
+        self.leverage.is_some()
+    }
+
+    pub(super) fn lsv_surface(&self) -> Option<&LsvLeverageSurface> {
+        self.leverage.as_ref()
+    }
+
+    pub(super) fn scheme(&self) -> &'static str {
+        if self.leverage.is_some() {
+            LSV_SCHEME
+        } else {
+            SCHEME
+        }
+    }
+
     pub(super) fn hash_parameters(&self, hash: &mut blake3::Hasher) {
-        hash.update(SCHEME.as_bytes());
+        hash.update(self.scheme().as_bytes());
         for x in [
             self.factor.hurst(),
             self.factor.vol_of_vol(),
@@ -95,6 +127,19 @@ impl RoughDividendKernel {
             self.dividend_volatility_correlation,
         ] {
             hash.update(&x.to_bits().to_le_bytes());
+        }
+        if let Some(surface) = &self.leverage {
+            hash.update(b"residual-lsv-squared-leverage-v1");
+            hash.update(&surface.initial_f().to_bits().to_le_bytes());
+            for &x in surface.times() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
+            for &x in surface.log_nodes() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
+            for &x in surface.squared_leverage() {
+                hash.update(&x.to_bits().to_le_bytes());
+            }
         }
     }
     fn innovations(&self, step: usize, z: &[f64; 4]) -> (f64, f64) {
@@ -170,11 +215,22 @@ impl RoughDividendKernel {
         for (i, z) in normals.as_chunks::<4>().0.iter().enumerate() {
             // Use the PREVIOUS node's Volterra history. The next history is
             // built only after evolving f/Y, so no same-step look-ahead occurs.
-            let sigma = if sigma0 == 0.0 || eta == 0.0 {
+            let multiplier =
+                (0.5 * eta * driver - 0.25 * eta * eta * self.variances[i]).exp();
+            positive(multiplier, "rough_volatility_multiplier")?;
+            let sigma = if let Some(surface) = &self.leverage {
+                let residual_f = surface.initial_f() * state.equity();
+                positive(residual_f, "rough_lsv_residual_equity")?;
+                let leverage_squared = surface
+                    .squared_leverage_at(times[i], residual_f)
+                    .map_err(|_| invalid("rough_lsv_leverage_lookup"))?;
+                let sigma = leverage_squared.sqrt() * multiplier;
+                positive(sigma, "rough_lsv_equity_volatility")?;
+                sigma
+            } else if sigma0 == 0.0 || eta == 0.0 {
                 sigma0
             } else {
-                let sigma =
-                    sigma0 * (0.5 * eta * driver - 0.25 * eta * eta * self.variances[i]).exp();
+                let sigma = sigma0 * multiplier;
                 positive(sigma, "rough_equity_volatility")?;
                 sigma
             };
@@ -193,6 +249,97 @@ impl RoughDividendKernel {
             increments.push(dw);
         }
         Ok(states)
+    }
+
+    pub(super) fn lsv_leverage_pullback(
+        &self,
+        model: BuehlerDividendModel,
+        times: &[f64],
+        normals: &[f64],
+        states: &[BuehlerDividendState],
+        equity_seeds: &[f64],
+        dividend_seeds: &[f64],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        let surface = self
+            .leverage
+            .as_ref()
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "local-variance risk requires a rough residual-equity LSV plan",
+            })?;
+        let n = self.steps.len();
+        if times.len() != n + 1
+            || states.len() != n + 1
+            || equity_seeds.len() != n + 1
+            || dividend_seeds.len() != n + 1
+            || normals.len() != 4 * n
+        {
+            return Err(invalid("rough_lsv_leverage_reverse_shape"));
+        }
+        if equity_seeds
+            .iter()
+            .chain(dividend_seeds)
+            .any(|x| !x.is_finite())
+        {
+            return Err(invalid("rough_lsv_leverage_reverse_seed"));
+        }
+
+        // The rough Volterra driver depends only on the fixed Brownian history,
+        // not on the Local-variance target. Replay it to recover left-endpoint
+        // volatility multipliers while reversing only the Buehler state/leverage
+        // dependence.
+        let (drivers, _) = self.driver_path(normals)?;
+        let eta = self.factor.vol_of_vol();
+        let mut leverage_bar = vec![0.0; surface.squared_leverage().len()];
+        let mut f_bar = equity_seeds[n];
+        let mut y_bar = dividend_seeds[n];
+        let alpha = model.equity_linkage();
+        let rho = model.equity_dividend_correlation();
+        let rho_root = ((1.0 - rho) * (1.0 + rho)).sqrt();
+
+        for i in (1..=n).rev() {
+            let step_index = i - 1;
+            let old = states[step_index];
+            let new = states[i];
+            let dt = times[i] - times[step_index];
+            let root = dt.sqrt();
+            let z = &normals[4 * step_index..4 * i];
+
+            let (a, b) = super::decay(model.mean_reversion(), 0.5 * dt);
+            let next_f_bar = f_bar + b * alpha * y_bar;
+            let v = model.dividend_volatility() * root;
+            let z_dividend = rho * z[0] + rho_root * z[1];
+            let dividend_exponential = (-0.5 * v * v + v * z_dividend).exp();
+            let half_bar = a * y_bar * dividend_exponential;
+
+            let multiplier = (0.5 * eta * drivers[step_index]
+                - 0.25 * eta * eta * self.variances[step_index])
+                .exp();
+            positive(multiplier, "rough_lsv_reverse_volatility_multiplier")?;
+            let residual_f = surface.initial_f() * old.equity;
+            let lookup = surface
+                .lookup(times[step_index], residual_f)
+                .map_err(|_| invalid("rough_lsv_leverage_lookup"))?;
+            let sigma = lookup.value.sqrt() * multiplier;
+            positive(sigma, "rough_lsv_reverse_equity_volatility")?;
+            let u = sigma * root;
+
+            let sigma_bar = next_f_bar * new.equity * (z[0] - u) * root;
+            let l_bar = sigma_bar * sigma / (2.0 * lookup.value);
+            lookup.transpose(l_bar, &mut leverage_bar);
+            let lookup_state_bar = l_bar * lookup.derivative_log_f / old.equity;
+
+            let equity_exponential = new.equity / old.equity;
+            f_bar = equity_seeds[step_index]
+                + next_f_bar * equity_exponential
+                + half_bar * b * alpha
+                + lookup_state_bar;
+            y_bar = dividend_seeds[step_index] + half_bar * a;
+        }
+
+        if leverage_bar.iter().any(|x| !x.is_finite()) {
+            return Err(invalid("rough_lsv_leverage_reverse_result"));
+        }
+        Ok(leverage_bar)
     }
 }
 

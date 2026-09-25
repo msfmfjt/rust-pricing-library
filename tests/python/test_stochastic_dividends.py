@@ -107,7 +107,7 @@ def make_lsv_vegakt_request(points=32, full_bucket_covariance=True, pseudo=False
     )
 
 
-def compile_lsv(request=None, two_factor=False, worker_threads=2, **kwargs):
+def compile_lsv(request=None, two_factor=False, rough=False, worker_threads=2, **kwargs):
     common = dict(
         dividend_mean_reversion=0.7,
         equity_linkage=0.6,
@@ -122,6 +122,23 @@ def compile_lsv(request=None, two_factor=False, worker_threads=2, **kwargs):
         worker_threads=worker_threads,
         reduction_block_size=32,
     )
+    if two_factor and rough:
+        raise ValueError("choose at most one of two_factor or rough")
+    if rough:
+        params = (
+            dict(
+                hurst=0.1,
+                vol_of_vol=0.6,
+                correlation=-0.4,
+                dividend_volatility_correlation=0.15,
+            )
+            | common
+            | kwargs
+        )
+        return rp.StochasticDividendPlan.compile_rough_bergomi_lsv(
+            request or make_lsv_request(),
+            **params,
+        )
     if two_factor:
         params = (
             dict(
@@ -712,6 +729,74 @@ class StochasticDividendTest(unittest.TestCase):
         tolerance = max(2.0e-4, 2.0e-3 * abs(fd))
         self.assertAlmostEqual(risk.delta, fd, delta=tolerance)
 
+    def test_rough_residual_lsv_price_and_recalibrated_local_variance_risk(self):
+        base_values = [0.04] * 9
+        request = make_lsv_request(points=16, local_variances=base_values)
+        common = dict(
+            rough=True,
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        plan = compile_lsv(request, worker_threads=1, **common)
+        price = plan.evaluate()
+        risk = plan.evaluate_local_variance_risk()
+
+        self.assertTrue(math.isfinite(price.value))
+        self.assertEqual(
+            plan.scheme,
+            "buehler-rough-bergomi-residual-lsv-joint-hybrid-positive-split-v1",
+        )
+        self.assertEqual(plan.random_factor_count, 4)
+        self.assertEqual(len(plan.lsv_squared_leverage), 15)
+        self.assertEqual(len(risk.node_adjoints), 9)
+        self.assertTrue(all(math.isfinite(x) for x in risk.node_adjoints))
+        self.assertEqual(
+            risk.coordinate,
+            "relative_dupire_variance_nodes_in_residual_equity",
+        )
+
+        index = 4
+        bump = 1.0e-5
+        plus = list(base_values)
+        minus = list(base_values)
+        plus[index] += bump
+        minus[index] -= bump
+        up = compile_lsv(
+            make_lsv_request(points=16, local_variances=plus),
+            worker_threads=1,
+            **common,
+        ).evaluate().value
+        down = compile_lsv(
+            make_lsv_request(points=16, local_variances=minus),
+            worker_threads=1,
+            **common,
+        ).evaluate().value
+        fd = (up - down) / (2.0 * bump)
+        tolerance = max(8.0e-4, 8.0e-3 * abs(fd))
+        self.assertAlmostEqual(risk.node_adjoints[index], fd, delta=tolerance)
+
+        parallel = compile_lsv(request, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_local_variance_risk()
+        self.assertEqual(parallel.lsv_squared_leverage, plan.lsv_squared_leverage)
+        self.assertEqual(parallel_risk.node_adjoints, risk.node_adjoints)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        spot = plan.evaluate_lsv_spot_risk()
+        gamma = plan.evaluate_lsv_gamma(gamma_absolute_bump=0.1)
+        market = plan.evaluate_lsv_market_risk()
+        self.assertTrue(math.isfinite(spot.delta))
+        self.assertTrue(math.isfinite(gamma.gamma))
+        self.assertEqual(market.delta, spot.delta)
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(
+                request,
+                retain_reverse_trace=False,
+                worker_threads=1,
+                **{k: v for k, v in common.items() if k != "rough"},
+                rough=True,
+            ).evaluate_local_variance_risk()
+
     def test_residual_lsv_local_variance_reverse_matches_recalibrated_fd(self):
         base_values = [0.04] * 9
         plan = compile_lsv(make_lsv_request(points=32, local_variances=base_values),
@@ -730,6 +815,35 @@ class StochasticDividendTest(unittest.TestCase):
         fd = (up - down) / (2.0 * bump)
         tolerance = max(5.0e-4, 5.0e-3 * abs(fd))
         self.assertAlmostEqual(risk.node_adjoints[index], fd, delta=tolerance)
+
+    def test_rough_residual_lsv_vegakt_uses_recalibrated_target_risk(self):
+        request = make_lsv_vegakt_request(points=16)
+        plan = compile_lsv(
+            request,
+            rough=True,
+            particle_count=64,
+            reduction_block_size=16,
+            worker_threads=1,
+        )
+        local_risk = plan.evaluate_local_variance_risk()
+        vega_kt = plan.evaluate_vega_kt()
+
+        self.assertEqual(len(vega_kt.raw_buckets), 6)
+        self.assertTrue(all(math.isfinite(x) for x in vega_kt.raw_buckets))
+        expected_parallel_vega = sum(
+            2.0 * math.sqrt(0.04) * adjoint
+            for adjoint in local_risk.node_adjoints
+        )
+        self.assertAlmostEqual(
+            vega_kt.projection.pre_projection,
+            expected_parallel_vega,
+            delta=3e-10,
+        )
+        self.assertAlmostEqual(
+            sum(vega_kt.raw_buckets) + vega_kt.projection.signed_residual,
+            vega_kt.projection.pre_projection,
+            delta=3e-10,
+        )
 
     def test_residual_lsv_vegakt_uses_recalibrated_target_risk(self):
         request = make_lsv_vegakt_request()
