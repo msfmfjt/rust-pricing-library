@@ -45,8 +45,24 @@ def make_lsv_request(dividends=((0.5, 6.0), (1.4, 3.0)), points=64, local_varian
     return rp.PricingRequest.from_json(json.dumps(data))
 
 
-def make_lsv_vegakt_request(points=32, full_bucket_covariance=True):
+def make_lsv_vegakt_request(points=32, full_bucket_covariance=True, pseudo=False):
     half = 182.0 / 365.0
+    engine = (
+        rp.Engine.pseudo_monte_carlo(
+            91,
+            points,
+            antithetic=True,
+            brownian_bridge=True,
+        )
+        if pseudo
+        else rp.Engine.randomized_quasi_monte_carlo(
+            points,
+            91,
+            scramble_count=4,
+            antithetic=True,
+            brownian_bridge=True,
+        )
+    )
     return rp.PricingRequest(
         "2026-09-04",
         rp.Product.european_vanilla(1, 2, "2027-09-04", 100.0, 1.0, "call"),
@@ -71,13 +87,7 @@ def make_lsv_vegakt_request(points=32, full_bucket_covariance=True):
             [-0.5, 0.0, 0.5],
             [0.2] * 6,
         ),
-        rp.Engine.randomized_quasi_monte_carlo(
-            points,
-            91,
-            scramble_count=4,
-            antithetic=True,
-            brownian_bridge=True,
-        ),
+        engine,
         rp.RiskRequest(
             vega_kt_maturity_nodes=["2027-03-05", "2027-09-04"],
             vega_kt_log_forward_moneyness_nodes=[-0.5, 0.0, 0.5],
@@ -342,6 +352,34 @@ class StochasticDividendTest(unittest.TestCase):
                 reduction_block_size=16,
                 retain_reverse_trace=False,
             ).evaluate_vega_kt()
+
+    def test_residual_lsv_pseudo_vegakt_is_point_estimate(self):
+        request = make_lsv_vegakt_request(
+            points=32,
+            full_bucket_covariance=False,
+            pseudo=True,
+        )
+        vega_kt = compile_lsv(
+            request,
+            particle_count=64,
+            reduction_block_size=16,
+            worker_threads=2,
+        ).evaluate_vega_kt()
+
+        self.assertEqual(vega_kt.covariance_layout, "price_and_bucket_variance_only")
+        self.assertIsNone(vega_kt.full_bucket_covariance)
+        self.assertTrue(
+            all(
+                estimate.sample_variance is None
+                and estimate.price_covariance is None
+                for estimate in vega_kt.estimates
+            )
+        )
+        self.assertAlmostEqual(
+            sum(vega_kt.raw_buckets) + vega_kt.projection.signed_residual,
+            vega_kt.projection.pre_projection,
+            delta=2e-11,
+        )
 
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
