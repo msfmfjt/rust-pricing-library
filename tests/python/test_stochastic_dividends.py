@@ -177,6 +177,10 @@ class StochasticDividendTest(unittest.TestCase):
         q = compile_lsv(worker_threads=3)
         self.assertEqual(q.evaluate().value, result.value)
         self.assertEqual(q.evaluate().standard_error, result.standard_error)
+        q_risk = q.evaluate_local_variance_risk()
+        p_risk = p.evaluate_local_variance_risk()
+        self.assertEqual(q_risk.node_adjoints, p_risk.node_adjoints)
+        self.assertEqual(q_risk.standard_errors, p_risk.standard_errors)
 
         # The existing fixed-parameter reverse/Gamma are not valid once leverage
         # is calibrated and therefore must never be silently reused.
@@ -234,6 +238,9 @@ class StochasticDividendTest(unittest.TestCase):
                          "buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1")
         self.assertEqual(p.random_factor_count, 4)
         self.assertEqual(len(p.lsv_squared_leverage), 15)
+        risk = p.evaluate_local_variance_risk()
+        self.assertEqual(len(risk.node_adjoints), 9)
+        self.assertTrue(all(math.isfinite(x) for x in risk.node_adjoints))
 
     def test_validation_and_unsupported_risk_are_not_silently_ignored(self):
         for name, value in [("mean_reversion", -1.0), ("equity_linkage", 1.1),
