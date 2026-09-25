@@ -514,11 +514,7 @@ impl PyStochasticDividendPrice {
 }
 
 /// Full-recalibration 2F Bergomi parameter risk for residual-equity LSV.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvBergomi2FactorRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomi2FactorRisk {
     pub(super) inner: StochasticDividendLsvBergomi2FactorRisk,
