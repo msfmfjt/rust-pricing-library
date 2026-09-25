@@ -343,7 +343,7 @@ It uses the same half/base/double Spot-bump ladder as the non-LSV Gamma API, but
 every shifted scenario rebuilds the Buehler physical-Spot coefficients and
 re-anchors the LSV surface `initial_f` to the shifted funded residual equity.
 The calibrated squared-leverage values are unchanged. Because leverage lookup
-uses the relative coordinate (log(F/F_0^{res})), normalized (f/Y) states
+uses the relative coordinate \(\log(F/F_0^{res})\), normalized \(f/Y\) states
 are identical across the six Spot scenarios and can be reused with common
 valuation random numbers.
 
@@ -365,10 +365,10 @@ accidentally.
 Spot, fixed-cash mean and deterministic curve risk can be requested together
 through `evaluate_lsv_market_risk()`. The requested residual-equity
 Local-variance grid is held fixed. Cash amounts and discount/repo-spread curves
-change funded residual equity (F_0^{res}), the affine physical-Spot
+change funded residual equity \(F_0^{res}\), the affine physical-Spot
 reconstruction and, for the discount curve, the payment discount. Re-anchoring
-the residual LSV surface to the new (F_0^{res}) leaves the relative-coordinate
-leverage values and normalized (f/Y) dynamics unchanged, so these market
+the residual LSV surface to the new \(F_0^{res}\) leaves the relative-coordinate
+leverage values and normalized \(f/Y\) dynamics unchanged, so these market
 sensitivities are exact pathwise coefficient reverses rather than finite bumps.
 
 The result reports physical-Spot Delta, cash-mean adjoints in event order,
