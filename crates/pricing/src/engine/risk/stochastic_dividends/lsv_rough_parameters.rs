@@ -1,6 +1,6 @@
 //! Full-recalibration finite-bump model-parameter risk for residual-equity LSV.
 //!
-//! This deliberately does not reuse fixed-leverage Bergomi AAD. Each scenario
+//! This deliberately does not reuse fixed-leverage rough-Bergomi AAD. Each scenario
 //! reruns the finite-particle calibration with the same calibration seed, then
 //! prices with common valuation normals.
 
@@ -83,7 +83,7 @@ impl StochasticDividendPricingPlan {
         validate_parameter_bump(
             factor.vol_of_vol(),
             vol_of_vol_bump,
-            "lsv_rough_rough_bergomi_vol_of_vol_bump",
+            "lsv_rough_bergomi_vol_of_vol_bump",
         )?;
 
         let executor = DeterministicExecutor::new(self.policy)?;
@@ -117,7 +117,7 @@ impl StochasticDividendPricingPlan {
                     factor.vol_of_vol() - vol_of_vol_bump,
                     factor.correlation(),
                 )
-                .map_err(|_| invalid("lsv_rough_rough_bergomi_vol_of_vol_down"))?,
+                .map_err(|_| invalid("lsv_rough_bergomi_vol_of_vol_down"))?,
                 dividend_volatility_correlation,
                 &executor,
             )?,
@@ -128,7 +128,7 @@ impl StochasticDividendPricingPlan {
                     factor.vol_of_vol() + vol_of_vol_bump,
                     factor.correlation(),
                 )
-                .map_err(|_| invalid("lsv_rough_rough_bergomi_vol_of_vol_up"))?,
+                .map_err(|_| invalid("lsv_rough_bergomi_vol_of_vol_up"))?,
                 dividend_volatility_correlation,
                 &executor,
             )?,
@@ -365,7 +365,7 @@ fn estimator_error(
         .ok_or(MonteCarloError::InsufficientSamplingUnits { count: units })?;
     let error = (variance / units as f64).sqrt();
     if !error.is_finite() {
-        return Err(invalid("lsv_bergomi_parameter_standard_error").into());
+        return Err(invalid("lsv_rough_bergomi_parameter_standard_error").into());
     }
     Ok(error)
 }
