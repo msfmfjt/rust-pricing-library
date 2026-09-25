@@ -250,6 +250,97 @@ impl RoughDividendKernel {
         }
         Ok(states)
     }
+
+    pub(super) fn lsv_leverage_pullback(
+        &self,
+        model: BuehlerDividendModel,
+        times: &[f64],
+        normals: &[f64],
+        states: &[BuehlerDividendState],
+        equity_seeds: &[f64],
+        dividend_seeds: &[f64],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        let surface = self
+            .leverage
+            .as_ref()
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "local-variance risk requires a rough residual-equity LSV plan",
+            })?;
+        let n = self.steps.len();
+        if times.len() != n + 1
+            || states.len() != n + 1
+            || equity_seeds.len() != n + 1
+            || dividend_seeds.len() != n + 1
+            || normals.len() != 4 * n
+        {
+            return Err(invalid("rough_lsv_leverage_reverse_shape"));
+        }
+        if equity_seeds
+            .iter()
+            .chain(dividend_seeds)
+            .any(|x| !x.is_finite())
+        {
+            return Err(invalid("rough_lsv_leverage_reverse_seed"));
+        }
+
+        // The rough Volterra driver depends only on the fixed Brownian history,
+        // not on the Local-variance target. Replay it to recover left-endpoint
+        // volatility multipliers while reversing only the Buehler state/leverage
+        // dependence.
+        let (drivers, _) = self.driver_path(normals)?;
+        let eta = self.factor.vol_of_vol();
+        let mut leverage_bar = vec![0.0; surface.squared_leverage().len()];
+        let mut f_bar = equity_seeds[n];
+        let mut y_bar = dividend_seeds[n];
+        let alpha = model.equity_linkage();
+        let rho = model.equity_dividend_correlation();
+        let rho_root = ((1.0 - rho) * (1.0 + rho)).sqrt();
+
+        for i in (1..=n).rev() {
+            let step_index = i - 1;
+            let old = states[step_index];
+            let new = states[i];
+            let dt = times[i] - times[step_index];
+            let root = dt.sqrt();
+            let z = &normals[4 * step_index..4 * i];
+
+            let (a, b) = super::decay(model.mean_reversion(), 0.5 * dt);
+            let next_f_bar = f_bar + b * alpha * y_bar;
+            let v = model.dividend_volatility() * root;
+            let z_dividend = rho * z[0] + rho_root * z[1];
+            let dividend_exponential = (-0.5 * v * v + v * z_dividend).exp();
+            let half_bar = a * y_bar * dividend_exponential;
+
+            let multiplier = (0.5 * eta * drivers[step_index]
+                - 0.25 * eta * eta * self.variances[step_index])
+                .exp();
+            positive(multiplier, "rough_lsv_reverse_volatility_multiplier")?;
+            let residual_f = surface.initial_f() * old.equity;
+            let lookup = surface
+                .lookup(times[step_index], residual_f)
+                .map_err(|_| invalid("rough_lsv_leverage_lookup"))?;
+            let sigma = lookup.value.sqrt() * multiplier;
+            positive(sigma, "rough_lsv_reverse_equity_volatility")?;
+            let u = sigma * root;
+
+            let sigma_bar = next_f_bar * new.equity * (z[0] - u) * root;
+            let l_bar = sigma_bar * sigma / (2.0 * lookup.value);
+            lookup.transpose(l_bar, &mut leverage_bar);
+            let lookup_state_bar = l_bar * lookup.derivative_log_f / old.equity;
+
+            let equity_exponential = new.equity / old.equity;
+            f_bar = equity_seeds[step_index]
+                + next_f_bar * equity_exponential
+                + half_bar * b * alpha
+                + lookup_state_bar;
+            y_bar = dividend_seeds[step_index] + half_bar * a;
+        }
+
+        if leverage_bar.iter().any(|x| !x.is_finite()) {
+            return Err(invalid("rough_lsv_leverage_reverse_result"));
+        }
+        Ok(leverage_bar)
+    }
 }
 
 #[cfg(test)]
