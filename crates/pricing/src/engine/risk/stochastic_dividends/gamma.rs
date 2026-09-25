@@ -63,6 +63,11 @@ impl StochasticDividendPricingPlan {
         &self,
         config: GammaConfig,
     ) -> Result<StochasticDividendGammaRisk, MonteCarloError> {
+        if self.path.is_lsv() {
+            return Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "stochastic-dividend residual LSV requires recalibration-aware Gamma",
+            });
+        }
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend discontinuous payoff requires explicit smoothing",
