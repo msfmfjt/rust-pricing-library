@@ -5,10 +5,12 @@ mod aad;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
+mod lsv_correlations;
 mod lsv_parameters;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
+pub use lsv_correlations::StochasticDividendLsvCorrelationRisk;
 pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 
 use crate::core::DayCountConvention;
