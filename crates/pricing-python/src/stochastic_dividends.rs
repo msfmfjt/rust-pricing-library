@@ -449,7 +449,11 @@ impl PyStochasticDividendPrice {
 }
 
 /// Recalibration-aware risk to residual-equity Dupire Local-variance nodes.
-#[pyclass(frozen, name = "StochasticDividendLocalVarianceRisk", skip_from_py_object)]
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLocalVarianceRisk",
+    skip_from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLocalVarianceRisk {
     pub(super) inner: StochasticDividendLocalVarianceRisk,
