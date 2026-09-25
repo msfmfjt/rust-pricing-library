@@ -62,6 +62,11 @@ impl StochasticDividendPricingPlan {
                     model: "1F Bergomi LSV parameter risk does not apply to a 2F plan",
                 });
             }
+            Some(StochasticDividendLsvCalibration::Rough { .. }) => {
+                return Err(MonteCarloError::UnsupportedRiskForModel {
+                    model: "1F Bergomi LSV parameter risk does not apply to a rough plan",
+                });
+            }
             None => {
                 return Err(MonteCarloError::UnsupportedRiskForModel {
                     model: "Bergomi LSV parameter risk requires a stochastic-dividend residual LSV plan",
