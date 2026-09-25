@@ -9,6 +9,8 @@ pub use gamma::StochasticDividendGammaRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
+use crate::market::LocalVarianceGrid;
+use crate::mc::lsv::{LsvParticleConfig, calibrate_bergomi_lsv_parallel};
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain, RqmcPlan,
@@ -29,6 +31,19 @@ pub struct StochasticDividendPrice {
     pub evaluated_paths: u128,
     pub plan_fingerprint: Fingerprint,
     pub scheme: &'static str,
+}
+
+impl StochasticDividendPrice {
+    /// Monte Carlo uncertainty only. LSV prices condition on the finite
+    /// particle calibration; calibration sampling/model uncertainty is excluded.
+    #[must_use]
+    pub fn uncertainty_scope(&self) -> &'static str {
+        if self.scheme.contains("residual-lsv") {
+            "pricing_conditional_on_calibration"
+        } else {
+            "pricing_only"
+        }
+    }
 }
 
 /// Constant-volatility or pure Bergomi residual equity with a stochastic cash
@@ -125,6 +140,181 @@ impl StochasticDividendPricingPlan {
         })
     }
 
+    /// Build the stochastic-dividend execution grid and a residual-equity
+    /// Local-variance calibration target. The target is interpreted in the funded
+    /// residual coordinate F_res, not physical stock S=a*f+b*Y+c.
+    fn compile_lsv_base(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<(Self, LocalVarianceGrid, LocalVolTimeGrid), MonteCarloError> {
+        let risk = request.risk();
+        if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
+            return Err(StochasticDividendError::Unsupported {
+                feature: "Greeks for residual-equity LSV; submit a price-only request",
+            }
+            .into());
+        }
+        let ModelSpec::LocalVolatility(target) = request.model() else {
+            return Err(StochasticDividendError::Unsupported {
+                feature: "residual-equity LSV requires a LocalVolatility calibration target",
+            }
+            .into());
+        };
+        let expiry = DayCountConvention::Act365F
+            .year_fraction(request.valuation_date(), request.product().expiry());
+        if expiry <= 0.0 {
+            return Err(invalid("positive_horizon").into());
+        }
+        let base = SimulationPlan::compile_hybrid_base(request, policy)?;
+        let market = request.market().equity().forward();
+
+        // Start from the established LSV grid so every contractual and target
+        // knot is retained, then optionally refine further for the Buehler split.
+        let lsv_grid = base.lsv_time_grid()?;
+        // The shared LocalVol runtime keeps all deterministic dividend events,
+        // including cash after option expiry. Buehler funding also keeps those
+        // cash means, but the stochastic path itself must stop at expiry.
+        let mut required_times = lsv_grid
+            .nodes()
+            .iter()
+            .copied()
+            .filter(|t| *t <= expiry)
+            .collect::<Vec<_>>();
+        required_times.extend(
+            target
+                .local_variance_grid()
+                .time_nodes()
+                .iter()
+                .copied()
+                .filter(|t| *t <= expiry),
+        );
+        if let Some(schedule) = market.discrete_dividends() {
+            required_times.extend(
+                schedule
+                    .events()
+                    .iter()
+                    .map(|e| e.ex_time())
+                    .filter(|t| *t <= expiry),
+            );
+        }
+        required_times.push(expiry);
+        let grid = LocalVolTimeGrid::compile(required_times, maximum_step)?;
+
+        let original = target.local_variance_grid();
+        let x = original.log_moneyness_nodes();
+        let mut values = Vec::with_capacity(grid.nodes().len() * x.len());
+        for &t in grid.nodes() {
+            for &k in x {
+                values.push(original.interpolate(t, k)?.value);
+            }
+        }
+        let refined = LocalVarianceGrid::new(
+            grid.nodes().to_vec(),
+            x.to_vec(),
+            values,
+            original.floor(),
+            original.cap(),
+        )?;
+
+        // sigma0 is unused after the calibrated leverage is attached. Zero keeps
+        // this temporary path explicit and avoids assigning physical-stock IV
+        // meaning to the request's LocalVolatility model.
+        let path = StochasticDividendPathPlan::compile(market, model, 0.0, &grid)?;
+        let mut hash = blake3::Hasher::new();
+        hash.update(b"buehler-residual-lsv-base-v1");
+        hash.update(base.plan_fingerprint().as_bytes());
+        for v in [
+            model.mean_reversion(),
+            model.equity_linkage(),
+            model.dividend_volatility(),
+            model.equity_dividend_correlation(),
+            maximum_step,
+        ] {
+            hash.update(&v.to_bits().to_le_bytes());
+        }
+        for &time in path.times() {
+            hash.update(&time.to_bits().to_le_bytes());
+        }
+        let fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        Ok((
+            Self {
+                base,
+                path,
+                engine: request.engine(),
+                policy,
+                fingerprint,
+                market: market.clone(),
+                payment_time: DayCountConvention::Act365F
+                    .year_fraction(request.valuation_date(), request.product().payment_date()),
+                risk_supported: false,
+            },
+            refined,
+            grid,
+        ))
+    }
+
+    /// Particle-calibrated 1F Bergomi LSV for funded residual equity, coupled
+    /// to Buehler stochastic cash dividends. The LocalVolatility request is a
+    /// target for F_res, not for reconstructed physical stock.
+    pub fn compile_bergomi_lsv(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: Bergomi1Factor,
+        dividend_volatility_correlation: f64,
+        particles: LsvParticleConfig,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let (mut plan, target, grid) =
+            Self::compile_lsv_base(request, model, maximum_step, policy)?;
+        let calibration = calibrate_bergomi_lsv_parallel(
+            &target,
+            factor,
+            plan.path.risky_spot(),
+            particles.clone(),
+            &DeterministicExecutor::new(policy)?,
+        )?;
+        plan.path = plan.path.with_bergomi_lsv(
+            factor,
+            dividend_volatility_correlation,
+            calibration.surface().clone(),
+        )?;
+        plan.finish_lsv(&particles)?;
+        debug_assert_eq!(plan.path.times(), grid.nodes());
+        Ok(plan)
+    }
+
+    /// Two-factor counterpart of compile_bergomi_lsv.
+    pub fn compile_bergomi_two_factor_lsv(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: Bergomi2Factor,
+        dividend_volatility_correlations: [f64; 2],
+        particles: LsvParticleConfig,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let (mut plan, target, grid) =
+            Self::compile_lsv_base(request, model, maximum_step, policy)?;
+        let calibration = calibrate_bergomi_lsv_parallel(
+            &target,
+            factor,
+            plan.path.risky_spot(),
+            particles.clone(),
+            &DeterministicExecutor::new(policy)?,
+        )?;
+        plan.path = plan.path.with_bergomi_two_factor_lsv(
+            factor,
+            dividend_volatility_correlations,
+            calibration.surface().clone(),
+        )?;
+        plan.finish_lsv(&particles)?;
+        debug_assert_eq!(plan.path.times(), grid.nodes());
+        Ok(plan)
+    }
+
     /// Request BS volatility is sigma0, not physical stock implied volatility.
     pub fn compile_bergomi(
         request: &PricingRequest,
@@ -181,6 +371,25 @@ impl StochasticDividendPricingPlan {
         let mut hash = blake3::Hasher::new();
         hash.update(self.fingerprint.as_bytes());
         self.path.hash_volatility(&mut hash);
+        self.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        Ok(())
+    }
+
+    fn finish_lsv(&mut self, particles: &LsvParticleConfig) -> Result<(), MonteCarloError> {
+        self.finish_bergomi()?;
+        let mut hash = blake3::Hasher::new();
+        hash.update(self.fingerprint.as_bytes());
+        hash.update(b"particle-calibration-v1");
+        hash.update(&(particles.particle_count() as u64).to_le_bytes());
+        hash.update(&particles.seed().to_le_bytes());
+        hash.update(&particles.log_bandwidth().to_bits().to_le_bytes());
+        hash.update(
+            &particles
+                .minimum_effective_samples()
+                .to_bits()
+                .to_le_bytes(),
+        );
+        hash.update(&[u8::from(particles.retain_reverse_trace())]);
         self.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
         Ok(())
     }
@@ -276,8 +485,27 @@ impl StochasticDividendPricingPlan {
         self.path.risky_spot()
     }
     #[must_use]
-    pub const fn scheme(&self) -> &'static str {
+    pub fn scheme(&self) -> &'static str {
         self.path.scheme()
+    }
+
+    /// Calibration surface in the funded residual-equity coordinate, when this
+    /// is a stochastic-dividend LSV plan.
+    #[must_use]
+    pub fn lsv_time_nodes(&self) -> Option<&[f64]> {
+        self.path.lsv_surface().map(|s| s.times())
+    }
+    #[must_use]
+    pub fn lsv_log_moneyness_nodes(&self) -> Option<&[f64]> {
+        self.path.lsv_surface().map(|s| s.log_nodes())
+    }
+    #[must_use]
+    pub fn lsv_squared_leverage(&self) -> Option<&[f64]> {
+        self.path.lsv_surface().map(|s| s.squared_leverage())
+    }
+    #[must_use]
+    pub fn lsv_initial_residual_equity(&self) -> Option<f64> {
+        self.path.lsv_surface().map(|s| s.initial_f())
     }
 
     fn bridge(&self, vr: VarianceReduction) -> Result<Option<BrownianBridgePlan>, MonteCarloError> {

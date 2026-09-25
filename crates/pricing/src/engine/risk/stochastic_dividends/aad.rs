@@ -107,6 +107,11 @@ impl StochasticDividendPricingPlan {
         &self,
         scope: AadScope,
     ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        if self.path.is_lsv() {
+            return Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "stochastic-dividend residual LSV requires a recalibration-aware reverse",
+            });
+        }
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend discontinuous payoff requires explicit smoothing",
