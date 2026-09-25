@@ -338,6 +338,28 @@ Validation compares the analytic Delta with a full up/down recompile: the
 recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
 
+Spot, fixed-cash mean and deterministic curve risk can be requested together
+through `evaluate_lsv_market_risk()`. The requested residual-equity
+Local-variance grid is held fixed. Cash amounts and discount/repo-spread curves
+change funded residual equity (F_0^{res}), the affine physical-Spot
+reconstruction and, for the discount curve, the payment discount. Re-anchoring
+the residual LSV surface to the new (F_0^{res}) leaves the relative-coordinate
+leverage values and normalized (f/Y) dynamics unchanged, so these market
+sensitivities are exact pathwise coefficient reverses rather than finite bumps.
+
+The result reports physical-Spot Delta, cash-mean adjoints in event order,
+discount-curve and repo-spread-curve log-DF adjoints, sampling standard errors
+for each quantity, and DV01 helpers. Time-zero curve anchors remain zero.
+Dividends after option expiry can still have nonzero cash-mean risk because they
+participate in funded residual equity. The method label is
+`buehler-residual-lsv-scale-invariant-market-reverse-v1`.
+
+This market reverse works for both 1F and 2F residual-LSV plans and does not
+require `retain_reverse_trace=true`. Full-recompile validation bumps cash
+amounts and nonzero curve log-DF pillars, checks that calibrated leverage values
+remain unchanged up to floating-point scale effects, and verifies the reported
+adjoints against common-random central differences.
+
 1F Bergomi model-parameter risk is available through
 `evaluate_lsv_bergomi_parameter_risk(mean_reversion_bump=..., vol_of_vol_bump=...)`.
 This is intentionally **not** the fixed-leverage Bergomi AAD used by pure-SV
@@ -424,9 +446,9 @@ calibration reverse trace.
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now cover Local-variance risk,
-residual-surface VegaKT, physical-Spot Delta, 1F Bergomi parameter/correlation
-risk, and 2F Bergomi parameter/correlation risk. Curve and cash-mean risk remain
-separate extensions.
+residual-surface VegaKT, physical-Spot Delta, cash-mean and deterministic-curve
+risk, 1F Bergomi parameter/correlation risk, and 2F Bergomi
+parameter/correlation risk.
 
 ## First-order risk
 
