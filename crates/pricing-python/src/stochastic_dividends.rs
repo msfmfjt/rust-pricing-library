@@ -387,9 +387,7 @@ impl PyStochasticDividendPlan {
     }
     #[getter]
     fn lsv_log_moneyness_nodes(&self) -> Option<Vec<f64>> {
-        self.inner
-            .lsv_log_moneyness_nodes()
-            .map(<[f64]>::to_vec)
+        self.inner.lsv_log_moneyness_nodes().map(<[f64]>::to_vec)
     }
     #[getter]
     fn lsv_squared_leverage(&self) -> Option<Vec<f64>> {
