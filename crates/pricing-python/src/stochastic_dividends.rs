@@ -8,9 +8,9 @@ use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
     StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomi2FactorCorrelationRisk,
     StochasticDividendLsvBergomi2FactorRisk, StochasticDividendLsvBergomiRisk,
-    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvMarketRisk,
-    StochasticDividendLsvRoughBergomiRisk, StochasticDividendLsvSpotRisk,
-    StochasticDividendPrice, StochasticDividendPricingPlan,
+    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvDividendModelRisk,
+    StochasticDividendLsvMarketRisk, StochasticDividendLsvRoughBergomiRisk,
+    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -847,7 +847,11 @@ impl PyStochasticDividendLsvCorrelationRisk {
 }
 
 /// Full-recalibration rough Bergomi parameter risk for residual-equity LSV.
-#[pyclass(frozen, name = "StochasticDividendLsvRoughBergomiRisk", skip_from_py_object)]
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLsvRoughBergomiRisk",
+    skip_from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvRoughBergomiRisk {
     pub(super) inner: StochasticDividendLsvRoughBergomiRisk,
@@ -951,7 +955,11 @@ impl PyStochasticDividendLsvBergomiRisk {
 }
 
 /// Buehler dividend-model parameter risk with fixed residual-LSV calibration.
-#[pyclass(frozen, name = "StochasticDividendLsvDividendModelRisk", skip_from_py_object)]
+#[pyclass(
+    frozen,
+    name = "StochasticDividendLsvDividendModelRisk",
+    skip_from_py_object
+)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvDividendModelRisk {
     pub(super) inner: StochasticDividendLsvDividendModelRisk,
