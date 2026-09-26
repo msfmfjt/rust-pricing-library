@@ -1002,6 +1002,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "StochasticDividendLsvMarketRisk",
         "StochasticDividendLsvDividendModelRisk",
         "StochasticDividendLsvBergomiRisk",
+        "StochasticDividendLsvRoughBergomiRisk",
         "StochasticDividendLsvCorrelationRisk",
         "StochasticDividendLsvBergomi2FactorRisk",
         "StochasticDividendLsvBergomi2FactorCorrelationRisk",
