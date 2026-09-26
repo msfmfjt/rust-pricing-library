@@ -841,6 +841,8 @@ class StochasticDividendTest(unittest.TestCase):
             correlation=-0.4 + equity_vol_bump,
             **common,
         )
+        self.assertNotEqual(equity_down_plan.lsv_squared_leverage, plan.lsv_squared_leverage)
+        self.assertNotEqual(equity_up_plan.lsv_squared_leverage, plan.lsv_squared_leverage)
         equity_fd = (
             equity_up_plan.evaluate().value - equity_down_plan.evaluate().value
         ) / (2.0 * equity_vol_bump)
