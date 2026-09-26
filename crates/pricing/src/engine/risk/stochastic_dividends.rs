@@ -5,10 +5,10 @@ mod aad;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
-mod lsv_gamma;
 mod lsv_correlations;
 mod lsv_correlations_2f;
 mod lsv_dividend_model;
+mod lsv_gamma;
 mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;
@@ -392,11 +392,9 @@ impl StochasticDividendPricingPlan {
             &DeterministicExecutor::new(policy)?,
         )?;
         let leverage = calibration.surface().clone();
-        plan.path = plan.path.with_rough_bergomi_lsv(
-            factor,
-            dividend_volatility_correlation,
-            leverage,
-        )?;
+        plan.path =
+            plan.path
+                .with_rough_bergomi_lsv(factor, dividend_volatility_correlation, leverage)?;
         plan.lsv = Some(StochasticDividendLsvCalibration::Rough {
             calibration,
             original_target,
