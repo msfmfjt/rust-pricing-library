@@ -726,10 +726,24 @@ correlation AAD in the instantaneous SPD interior.** Rough residual-LSV plans
 instead use the dedicated LSV risk contract: recalibrated Local-variance risk
 and VegaKT, scale-invariant Spot Delta/Gamma, market risk and Buehler
 dividend-model risk are available, while fixed-calibration AAD remains rejected.
-The 1F/2F-specific Bergomi parameter/correlation risk methods also reject rough
-plans explicitly. Shared payoff graphs can still price discrete
-path-dependent contracts, but the new acceptance tests cover terminal calls and
-cash-event/path construction, not broad rough-dividend exotic accuracy.
+Full-recalibration rough-parameter risk is available through
+`evaluate_lsv_rough_bergomi_parameter_risk(hurst_bump=..., vol_of_vol_bump=...)`.
+The H and eta up/down scenarios rerun the finite-particle rough-LSV calibration
+with the same calibration seed and common valuation random numbers.
+
+Rough correlation risk is available through
+`evaluate_lsv_rough_bergomi_correlation_risk(equity_volatility_correlation_bump=...,
+dividend_volatility_correlation_bump=...)`. The equity/rough-volatility
+correlation belongs to the marginal residual-equity calibration and therefore
+reruns that calibration for both bumped scenarios. The dividend/rough-volatility
+correlation affects only the joint Buehler pricing covariance, so its bumped
+scenarios reuse the calibrated leverage surface exactly. Both derivatives use
+central bumps and paired MC/RQMC sampling errors; all scalar and joint
+correlation-domain checks still apply. The 1F/2F-specific Bergomi
+parameter/correlation risk methods continue to reject rough plans explicitly.
+Shared payoff graphs can still price discrete path-dependent contracts, but the
+new acceptance tests cover terminal calls and cash-event/path construction, not
+broad rough-dividend exotic accuracy.
 American exercise, continuous barriers, proportional cash mixtures, stochastic
 rates, multiple assets and leverage/recalibration are not added here.
 
