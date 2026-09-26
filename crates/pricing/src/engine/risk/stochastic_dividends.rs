@@ -5,13 +5,14 @@ mod aad;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
-mod lsv_gamma;
 mod lsv_correlations;
 mod lsv_correlations_2f;
 mod lsv_dividend_model;
+mod lsv_gamma;
 mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;
+mod lsv_rough_parameters;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
@@ -21,6 +22,7 @@ pub use lsv_dividend_model::StochasticDividendLsvDividendModelRisk;
 pub use lsv_market::StochasticDividendLsvMarketRisk;
 pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 pub use lsv_parameters_2f::StochasticDividendLsvBergomi2FactorRisk;
+pub use lsv_rough_parameters::StochasticDividendLsvRoughBergomiRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
@@ -390,11 +392,9 @@ impl StochasticDividendPricingPlan {
             &DeterministicExecutor::new(policy)?,
         )?;
         let leverage = calibration.surface().clone();
-        plan.path = plan.path.with_rough_bergomi_lsv(
-            factor,
-            dividend_volatility_correlation,
-            leverage,
-        )?;
+        plan.path =
+            plan.path
+                .with_rough_bergomi_lsv(factor, dividend_volatility_correlation, leverage)?;
         plan.lsv = Some(StochasticDividendLsvCalibration::Rough {
             calibration,
             original_target,

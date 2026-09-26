@@ -363,9 +363,7 @@ impl StochasticDividendPathPlan {
 
     #[must_use]
     pub(in crate::engine) fn is_lsv(&self) -> bool {
-        self.rough
-            .as_ref()
-            .is_some_and(|kernel| kernel.is_lsv())
+        self.rough.as_ref().is_some_and(|kernel| kernel.is_lsv())
             || self
                 .bergomi
                 .as_ref()

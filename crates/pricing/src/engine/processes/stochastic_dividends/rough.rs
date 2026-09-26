@@ -215,8 +215,7 @@ impl RoughDividendKernel {
         for (i, z) in normals.as_chunks::<4>().0.iter().enumerate() {
             // Use the PREVIOUS node's Volterra history. The next history is
             // built only after evolving f/Y, so no same-step look-ahead occurs.
-            let multiplier =
-                (0.5 * eta * driver - 0.25 * eta * eta * self.variances[i]).exp();
+            let multiplier = (0.5 * eta * driver - 0.25 * eta * eta * self.variances[i]).exp();
             positive(multiplier, "rough_volatility_multiplier")?;
             let sigma = if let Some(surface) = &self.leverage {
                 let residual_f = surface.initial_f() * state.equity();
