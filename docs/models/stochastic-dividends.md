@@ -745,7 +745,7 @@ Shared payoff graphs can still price discrete path-dependent contracts, but the
 new acceptance tests cover terminal calls and cash-event/path construction, not
 broad rough-dividend exotic accuracy.
 American exercise, continuous barriers, proportional cash mixtures, stochastic
-rates, multiple assets and leverage/recalibration are not added here.
+rates and multiple assets are not added by these rough-dividend factories.
 
 History evaluation and compiled storage are O(N^2); a new explicit limit of 4096
 steps avoids unbounded dense-history allocation (~64 MiB of scalar weights).
