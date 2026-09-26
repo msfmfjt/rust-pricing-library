@@ -12,6 +12,7 @@ mod lsv_gamma;
 mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;
+mod lsv_rough_correlations;
 mod lsv_rough_parameters;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
@@ -22,6 +23,7 @@ pub use lsv_dividend_model::StochasticDividendLsvDividendModelRisk;
 pub use lsv_market::StochasticDividendLsvMarketRisk;
 pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 pub use lsv_parameters_2f::StochasticDividendLsvBergomi2FactorRisk;
+pub use lsv_rough_correlations::StochasticDividendLsvRoughBergomiCorrelationRisk;
 pub use lsv_rough_parameters::StochasticDividendLsvRoughBergomiRisk;
 
 use crate::core::DayCountConvention;
