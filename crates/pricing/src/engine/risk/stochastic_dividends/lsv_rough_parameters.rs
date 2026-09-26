@@ -75,11 +75,7 @@ impl StochasticDividendPricingPlan {
         };
 
         let factor = calibration.model();
-        validate_hurst_bump(
-            factor.hurst(),
-            hurst_bump,
-            "lsv_rough_bergomi_hurst_bump",
-        )?;
+        validate_hurst_bump(factor.hurst(), hurst_bump, "lsv_rough_bergomi_hurst_bump")?;
         validate_parameter_bump(
             factor.vol_of_vol(),
             vol_of_vol_bump,
@@ -307,10 +303,14 @@ impl StochasticDividendPricingPlan {
             let shocks = z.iter().map(|value| sign * value).collect::<Vec<_>>();
             out[0] += self.discounted_payoff_for_rough_lsv_parameter_path(&self.path, &shocks)?;
             for parameter in 0..2 {
-                let down =
-                    self.discounted_payoff_for_rough_lsv_parameter_path(&scenarios[2 * parameter].path, &shocks)?;
-                let up = self
-                    .discounted_payoff_for_rough_lsv_parameter_path(&scenarios[2 * parameter + 1].path, &shocks)?;
+                let down = self.discounted_payoff_for_rough_lsv_parameter_path(
+                    &scenarios[2 * parameter].path,
+                    &shocks,
+                )?;
+                let up = self.discounted_payoff_for_rough_lsv_parameter_path(
+                    &scenarios[2 * parameter + 1].path,
+                    &shocks,
+                )?;
                 out[1 + parameter] += (up - down) / (2.0 * bumps[parameter]);
             }
         }
@@ -370,11 +370,7 @@ fn estimator_error(
     Ok(error)
 }
 
-fn validate_hurst_bump(
-    hurst: f64,
-    bump: f64,
-    field: &'static str,
-) -> Result<(), MonteCarloError> {
+fn validate_hurst_bump(hurst: f64, bump: f64, field: &'static str) -> Result<(), MonteCarloError> {
     if !hurst.is_finite()
         || !bump.is_finite()
         || bump <= 0.0
