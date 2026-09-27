@@ -13,6 +13,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'tests/python/hw_dividend_risk_reference.py',
+    'tests/python/test_stochastic_dividend_hull_white_risk_oracle.py',
+    'design/validation/stochastic-dividend-hull-white-risk-oracle.md',
     'crates/pricing/tests/stochastic_dividend_hull_white_refinement.rs',
     'design/validation/stochastic-dividend-hull-white-refinement.md',
     'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/reverse.rs',

@@ -232,6 +232,16 @@ SE, and the complete earlier risk prefix are unchanged. Correlation sampling SE
 is calculated on MC independent units or RQMC scramble means; it excludes grid,
 quadrature, smoothing, calibration and model error.
 
+The [independent cash-risk oracle](../../design/validation/stochastic-dividend-hull-white-risk-oracle.md)
+checks all 15 active Spot, volatility, dividend, cash, curve, HW and correlation
+partials for a delayed one-fixing call with cash at and after expiry. Its
+conditional cash forecasts use a separate forward-measure RK4 ODE; a Gaussian
+integral supplies option prices and reference-price differences supply Greeks.
+The panel includes the Ho–Lee limit and a volatility knot after expiry. These
+are expectations of one finite Buehler split, with Gaussian/ODE/stencil
+resolution controls; they do not establish continuous-time parameter-risk
+convergence.
+
 ### Spot Gamma
 
 `evaluate_gamma(GammaConfig)` in Rust and
