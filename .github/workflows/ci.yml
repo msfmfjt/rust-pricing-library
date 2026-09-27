@@ -34,7 +34,7 @@ jobs:
           set -o pipefail
           {
             cargo test --locked --release -p pricing --lib correlation_sensitivity::tests -- --nocapture
-            cargo test --locked --release -p pricing --test stochastic_dividend_hull_white_risk --test stochastic_dividend_hull_white_correlation_risk -- --nocapture
+            cargo test --locked --release -p pricing --test stochastic_dividend_hull_white_risk --test stochastic_dividend_hull_white_correlation_risk --test stochastic_dividend_hull_white_gamma -- --nocapture
           } 2>&1 | tee stochastic-dividend-hw-risk.log
       - name: Check common-noise refinement
         run: cargo test --locked --release -p pricing --test stochastic_dividend_refinement -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-refinement.log

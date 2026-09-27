@@ -1,4 +1,4 @@
-"""HW/Buehler basic, rate-parameter and raw correlation risk at fixed Q cash means."""
+"""HW/Buehler first-order risk and paired Gamma at fixed Q cash means."""
 import rust_pricing as rp
 
 request = rp.PricingRequest(
@@ -24,4 +24,9 @@ print('Discount-curve node DV01:', risk.discount_node_dv01)
 print('Repo-spread node DV01:', risk.repo_spread_node_dv01)
 for label, derivative, se in zip(risk.parameter_labels, risk.derivatives, risk.standard_errors):
     print(f'{label}: {derivative:.8g}, sampling SE={se:.3g}')
+gamma = plan.evaluate_gamma(gamma_relative_bump=.01)
+for bump, estimate, se in zip(gamma.spot_bumps, gamma.gamma_estimates, gamma.gamma_standard_errors):
+    print(f'Spot bump {bump:g}: Gamma={estimate:.8g}, paired sampling SE={se:.3g}')
+print('Adjacent-bump differences:', gamma.bump_differences)
+print('Paired gap SE:', gamma.bump_difference_standard_errors)
 # These are NOT fixed-dividend-forward or recalibrated market-IV sensitivities.

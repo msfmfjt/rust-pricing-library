@@ -380,7 +380,7 @@ impl PyStochasticDividendAadRisk {
 #[pyclass(frozen, name = "StochasticDividendGammaRisk", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendGammaRisk {
-    inner: StochasticDividendGammaRisk,
+    pub(super) inner: StochasticDividendGammaRisk,
 }
 #[pymethods]
 impl PyStochasticDividendGammaRisk {

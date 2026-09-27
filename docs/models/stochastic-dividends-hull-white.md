@@ -221,6 +221,46 @@ SE, and the complete earlier risk prefix are unchanged. Correlation sampling SE
 is calculated on MC independent units or RQMC scramble means; it excludes grid,
 quadrature, smoothing, calibration and model error.
 
+### Spot Gamma
+
+`evaluate_gamma(GammaConfig)` in Rust and
+`evaluate_gamma(gamma_absolute_bump=... / gamma_relative_bump=...)` in Python
+return the existing immutable `StochasticDividendGammaRisk`. Supply exactly one
+bump convention. The method takes common-noise central differences of AAD Delta
+at absolute Spot widths `[h/2, h, 2h]`; `gamma` and `standard_error` select the
+middle width. This is finite-bump Gamma, without extrapolation. The method label
+is `buehler-bs-hw-common-noise-aad-delta-gamma-v1`.
+
+All Q cash means, conditional claims, rate and dividend parameters, correlations,
+curves, dates/grid, contractual constants and smoothing width remain fixed.
+For each shifted Spot, recompute funded risky equity using the complete initial
+cash reserve, including cash after option expiry. Normalized equity/dividend and
+HW rate states are independent of initial Spot in this BS model, so the seven
+payoff/Spot-adjoint evaluations share one state path and the same stochastic
+payment discount. Both pre- and post-cash payoff seeds enter Delta. This shortcut
+does not imply support for local-volatility or LSV models.
+
+All six shifted Spots must be finite, positive and distinguishable from the
+base Spot; each must leave positive funded residual equity. Invalid ladders fail
+before sampling;
+the method does not adapt the bump or switch to a one-sided estimator. Ordinary
+vanilla kinks are supported. Discontinuous payoffs still require explicit
+smoothing. Fixed singular driver correlations and deterministic rates retain
+Gamma support because the method does not differentiate a Cholesky factor.
+
+Gamma and adjacent-width gaps use paired sampling errors: average antithetic
+pairs first; RQMC uses scramble means. `bump_differences` reports
+`[Gamma(h/2)-Gamma(h), Gamma(h)-Gamma(2h)]`. These are diagnostics rather than
+error bounds or a convergence certificate. Sampling errors exclude finite-bump,
+grid, quadrature, smoothing and model bias. Very small vanilla bumps can produce
+no crossing paths and a misleading zero Gamma/SE in a finite sample.
+
+Baseline price, Delta and their SEs match basic AAD. `payoff_evaluations` is
+seven times the evaluated path count. The separate `risk_fingerprint` includes
+the price-plan identity, HW Gamma method, bump convention and resolved ladder.
+`delta_change_per_one_percent_spot` is `0.01*S0*Gamma(h)`, a linearized Delta
+change rather than a price P&L.
+
 ```python
 risk = plan.evaluate_aad()
 print(risk.delta, risk.initial_volatility_vega_per_vol_point)
@@ -233,6 +273,10 @@ correlation_risk = plan.evaluate_correlation_aad()
 print(list(zip(correlation_risk.parameter_labels[-3:],
                correlation_risk.derivatives[-3:],
                correlation_risk.standard_errors[-3:])))
+
+gamma = plan.evaluate_gamma(gamma_relative_bump=0.01)
+print(gamma.spot_bumps, gamma.gamma_estimates, gamma.gamma_standard_errors)
+print(gamma.bump_differences, gamma.bump_difference_standard_errors)
 ```
 
 See the [risk example](../../examples/python/stochastic_dividend_hull_white_risk.py),
@@ -241,7 +285,9 @@ See the [risk example](../../examples/python/stochastic_dividend_hull_white_risk
 [rate-risk decision](../../design/adr/0024-stochastic-dividend-hull-white-parameter-risk.md)
 and [rate-risk protocol](../../design/validation/stochastic-dividend-hull-white-parameter-risk.md),
 [correlation-risk decision](../../design/adr/0025-stochastic-dividend-hull-white-correlation-risk.md)
-and [correlation-risk protocol](../../design/validation/stochastic-dividend-hull-white-correlation-risk.md).
+and [correlation-risk protocol](../../design/validation/stochastic-dividend-hull-white-correlation-risk.md),
+[Gamma decision](../../design/adr/0026-stochastic-dividend-hull-white-gamma.md)
+and [Gamma protocol](../../design/validation/stochastic-dividend-hull-white-gamma.md).
 
 ## References and examples
 
