@@ -20,11 +20,12 @@ cash. First-order risk is requested explicitly through `evaluate_aad`; see below
 change cover European calls and the discrete-barrier dividend jump; the new
 stochastic model has no dedicated broad exotic accuracy panel yet.
 
-The pure 1F/2F and rough Bergomi factories below extend this scope. This is **not** an
-implementation of stochastic-dividend LSV, stochastic-rate SV/HW hybrids,
-multi-asset dividends, dividend derivatives or dividend-option calibration.
-Those require their own pricing, covariance, calibration and reverse contracts.
-The same model object must not be passed to an existing fixed-cash calibrator.
+The pure 1F/2F Bergomi, residual-equity LSV, rough Bergomi and Hull-White
+factories below extend this scope. The LSV entry point is deliberately a
+calibration of the **funded residual-equity coordinate**, not a direct
+physical-stock local-volatility fit. Multi-asset stochastic dividends, dividend
+derivatives and dividend-option calibration remain separate scopes with their
+own pricing, covariance, calibration and reverse contracts.
 
 ## Model and market meaning
 
@@ -205,8 +206,75 @@ Existing BS stochastic-dividend fingerprints and paths are unchanged.
 The exact Gaussian OU transition is only one part of the algorithm. Nonlinear
 prices retain time-discretization bias. New independent two-step reference tests
 are finite-algorithm checks, not a continuous-time convergence certificate.
-HW, LSV, rough, multi-asset, Greeks, dividend-derivative calibration, American
-exercise and continuous barriers remain unsupported in these factories.
+The plain Bergomi factories do not themselves perform calibration. Hull-White,
+residual-equity LSV and rough Bergomi use the dedicated entry points described
+below. Multi-asset stochastic dividends, dividend-derivative calibration,
+American exercise and continuous barriers remain unsupported here.
+
+## Residual-equity LSV coupling
+
+Rust `StochasticDividendPricingPlan::compile_bergomi_lsv` and
+`compile_bergomi_two_factor_lsv`, with matching Python factories on
+`StochasticDividendPlan`, combine the Buehler cash-dividend state with the
+existing particle-calibrated Bergomi LSV machinery.
+
+The request model must be `LocalVolatility`, but its target has a narrower
+meaning than in the ordinary single-stock Local Volatility engine. Let
+
+[
+ F_t^{res}=x_0 f_t
+]
+
+be funded residual equity before deterministic carry reconstruction. The target
+grid is interpreted as local variance of (F^{res}), with log-moneyness
+(log(F_t^{res}/x_0)). The existing particle calibration computes
+
+[
+ L^2(t,k)=
+ rac{sigma_{loc,res}^2(t,k)}
+      {mathbb E[A_t^2mid log(F_t^{res}/x_0)=k]},
+]
+
+where (A_t) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
+
+[
+ rac{dF_t^{res}}{F_t^{res}}
+ =L(t,F_t^{res})A_t,dW_t^f.
+]
+
+The Buehler dividend factor (Y) is added only to the joint pricing system. Its
+correlations with equity and Bergomi factors do not change the marginal
+((F^{res},A)) calibration problem as long as the equity/Bergomi correlation
+submatrix is unchanged. The full pricing Brownian matrix is still validated and
+the OU cross-covariances are integrated exactly as for the plain Bergomi
+coupling.
+
+This is **not** a physical-stock Dupire calibration. Physical stock is
+
+[
+ S_t=a(t)f_t+b(t)Y_t+c(t),
+]
+
+so its instantaneous diffusion contains both residual-equity and dividend-factor
+exposures. Matching a local-volatility surface quoted directly on (S) therefore
+requires a different conditional-moment calibration with the (Y) state in the
+target; the current API does not claim that fit.
+
+The execution grid contains all Local Volatility target knots, contractual
+observation times and dividend ex-dates, and is further refined by
+`maximum_step`. Calibration and pricing use the same grid. The plan exposes
+`lsv_time_nodes`, `lsv_log_moneyness_nodes`,
+`lsv_squared_leverage` and `lsv_initial_residual_equity` for audit.
+Scheme identifiers are
+`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1` and
+`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1`.
+
+This first LSV slice is price-only. Existing `evaluate_aad`,
+Bergomi/correlation AAD and common-noise Gamma are rejected before sampling:
+they would freeze a calibrated leverage surface and would therefore omit
+recalibration feedback. A later risk extension must differentiate the LSV
+calibration and the Buehler path jointly rather than reusing the plain-Bergomi
+reverse.
 
 ## First-order risk
 
