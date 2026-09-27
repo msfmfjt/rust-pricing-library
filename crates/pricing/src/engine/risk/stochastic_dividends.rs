@@ -7,22 +7,32 @@ pub(crate) mod hull_white;
 mod lsv;
 mod lsv_correlations;
 mod lsv_correlations_2f;
+mod lsv_dividend_model;
+mod lsv_gamma;
 mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;
+mod lsv_rough_correlations;
+mod lsv_rough_parameters;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
 pub use lsv_correlations::StochasticDividendLsvCorrelationRisk;
 pub use lsv_correlations_2f::StochasticDividendLsvBergomi2FactorCorrelationRisk;
+pub use lsv_dividend_model::StochasticDividendLsvDividendModelRisk;
 pub use lsv_market::StochasticDividendLsvMarketRisk;
 pub use lsv_parameters::StochasticDividendLsvBergomiRisk;
 pub use lsv_parameters_2f::StochasticDividendLsvBergomi2FactorRisk;
+pub use lsv_rough_correlations::StochasticDividendLsvRoughBergomiCorrelationRisk;
+pub use lsv_rough_parameters::StochasticDividendLsvRoughBergomiRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
 use crate::market::LocalVarianceGrid;
-use crate::mc::lsv::{CalibratedBergomiLsv, LsvParticleConfig, calibrate_bergomi_lsv_parallel};
+use crate::mc::lsv::{
+    CalibratedBergomiLsv, CalibratedRoughBergomiLsv, LsvParticleConfig,
+    calibrate_bergomi_lsv_parallel, calibrate_rough_bergomi_lsv_parallel,
+};
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain, RqmcPlan,
@@ -70,14 +80,21 @@ enum StochasticDividendLsvCalibration {
         original_target: LocalVarianceGrid,
         dividend_volatility_correlations: [f64; 2],
     },
+    Rough {
+        calibration: CalibratedRoughBergomiLsv,
+        original_target: LocalVarianceGrid,
+        dividend_volatility_correlation: f64,
+    },
 }
 
-/// Constant-volatility or pure Bergomi residual equity with a stochastic cash
-/// reserve. The request volatility is the initial residual-equity volatility,
-/// not physical-stock implied volatility. `evaluate_aad` requests first-order
-/// risk explicitly; constructors continue to accept price-only requests.
-/// Rough plans also support basic AAD, H/eta AAD and finite-bump Spot Gamma;
-/// rough correlation AAD remains unsupported.
+/// Constant-volatility, pure Bergomi or calibrated residual-LSV equity with a
+/// stochastic cash reserve. Pure-volatility factories interpret request
+/// volatility as initial residual-equity volatility; LSV factories require a
+/// LocalVolatility target for funded residual equity, not physical stock.
+/// Constructors accept price-only requests; risk is requested explicitly.
+/// Direct rough plans support basic, H/eta and correlation AAD and finite-bump
+/// Spot Gamma. Calibrated plans use the dedicated recalibration-aware LSV risk
+/// methods, including rough parameter and selective correlation risk.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,
@@ -351,6 +368,41 @@ impl StochasticDividendPricingPlan {
             calibration,
             original_target,
             dividend_volatility_correlations,
+        });
+        plan.finish_lsv(&particles)?;
+        debug_assert_eq!(plan.path.times(), grid.nodes());
+        Ok(plan)
+    }
+
+    /// Particle-calibrated rough Bergomi LSV for funded residual equity.
+    /// The LocalVolatility request remains a target for F_res, not physical stock.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compile_rough_bergomi_lsv(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: RoughBergomi,
+        dividend_volatility_correlation: f64,
+        particles: LsvParticleConfig,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let (mut plan, original_target, target, grid) =
+            Self::compile_lsv_base(request, model, maximum_step, policy)?;
+        let calibration = calibrate_rough_bergomi_lsv_parallel(
+            &target,
+            factor,
+            plan.path.risky_spot(),
+            particles.clone(),
+            &DeterministicExecutor::new(policy)?,
+        )?;
+        let leverage = calibration.surface().clone();
+        plan.path =
+            plan.path
+                .with_rough_bergomi_lsv(factor, dividend_volatility_correlation, leverage)?;
+        plan.lsv = Some(StochasticDividendLsvCalibration::Rough {
+            calibration,
+            original_target,
+            dividend_volatility_correlation,
         });
         plan.finish_lsv(&particles)?;
         debug_assert_eq!(plan.path.times(), grid.nodes());

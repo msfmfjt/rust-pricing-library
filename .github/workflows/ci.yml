@@ -180,6 +180,9 @@ jobs:
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
 
+      - name: Check Python API stub contract
+        run: python -c "from pathlib import Path; from scripts.smoke_test_wheel import exported_stub_api; exported_stub_api(Path('rust_pricing.pyi').read_bytes())"
+
       - name: Check formatting
         run: cargo fmt --all --check
 

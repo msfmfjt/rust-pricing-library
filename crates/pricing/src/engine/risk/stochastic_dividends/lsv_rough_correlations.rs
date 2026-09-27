@@ -1,35 +1,35 @@
-//! Full-recalibration finite-bump 2F Bergomi parameter risk for residual-equity LSV.
+//! Correlation risk for rough Bergomi stochastic-dividend residual LSV.
+//!
+//! Equity/rough-volatility correlation belongs to the marginal residual-equity
+//! LSV calibration and therefore requires full particle recalibration. The
+//! dividend/rough-volatility correlation affects only the joint pricing Brownian
+//! system and leaves the marginal residual-equity calibration unchanged.
 
 use super::*;
-use crate::models::Bergomi2Factor;
+use crate::models::RoughBergomi;
 
-const METHOD: &str = "buehler-residual-lsv-common-noise-full-recalibration-bergomi-2f-v1";
-const WIDTH: usize = 5; // Price, k1, k2, vol-of-vol, mixing weight.
+const METHOD: &str = "buehler-residual-lsv-common-noise-rough-bergomi-correlation-v1";
+const WIDTH: usize = 3; // Price, d/d rho_fV, d/d rho_DV.
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct StochasticDividendLsvBergomi2FactorRisk {
+pub struct StochasticDividendLsvRoughBergomiCorrelationRisk {
     pub price: StochasticDividendPrice,
     pub parameter_labels: Box<[String]>,
     pub derivatives: Box<[f64]>,
     pub standard_errors: Box<[f64]>,
-    pub parameter_bumps: Box<[f64]>,
+    pub correlation_bumps: Box<[f64]>,
     pub method: &'static str,
 }
 
-impl StochasticDividendLsvBergomi2FactorRisk {
+impl StochasticDividendLsvRoughBergomiCorrelationRisk {
     #[must_use]
-    pub fn mean_reversion_derivatives(&self) -> [f64; 2] {
-        [self.derivatives[0], self.derivatives[1]]
+    pub fn equity_volatility_correlation_derivative(&self) -> f64 {
+        self.derivatives[0]
     }
 
     #[must_use]
-    pub fn vol_of_vol_derivative(&self) -> f64 {
-        self.derivatives[2]
-    }
-
-    #[must_use]
-    pub fn mixing_weight_derivative(&self) -> f64 {
-        self.derivatives[3]
+    pub fn dividend_volatility_correlation_derivative(&self) -> f64 {
+        self.derivatives[1]
     }
 }
 
@@ -38,169 +38,101 @@ struct Scenario {
 }
 
 impl StochasticDividendPricingPlan {
-    /// Central finite differences of 2F Bergomi model parameters with full
-    /// particle recalibration for every bumped scenario.
-    pub fn evaluate_lsv_bergomi_two_factor_parameter_risk(
+    /// Central finite-difference correlation risk for rough Bergomi residual LSV.
+    ///
+    /// The equity/volatility correlation belongs to the marginal rough-Bergomi
+    /// particle calibration and therefore triggers full recalibration. The
+    /// dividend/volatility correlation belongs only to the joint Buehler pricing
+    /// Brownian system and reuses the calibrated leverage surface exactly.
+    pub fn evaluate_lsv_rough_bergomi_correlation_risk(
         &self,
-        mean_reversion_bumps: [f64; 2],
-        vol_of_vol_bump: f64,
-        mixing_weight_bump: f64,
-    ) -> Result<StochasticDividendLsvBergomi2FactorRisk, MonteCarloError> {
+        equity_volatility_correlation_bump: f64,
+        dividend_volatility_correlation_bump: f64,
+    ) -> Result<StochasticDividendLsvRoughBergomiCorrelationRisk, MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend LSV discontinuous payoff requires explicit smoothing",
             });
         }
-        let (calibration, dividend_volatility_correlations) = match self.lsv.as_ref() {
-            Some(StochasticDividendLsvCalibration::Two {
+        let (calibration, dividend_volatility_correlation) = match self.lsv.as_ref() {
+            Some(StochasticDividendLsvCalibration::Rough {
                 calibration,
-                dividend_volatility_correlations,
+                dividend_volatility_correlation,
                 ..
-            }) => (calibration, *dividend_volatility_correlations),
+            }) => (calibration, *dividend_volatility_correlation),
             Some(StochasticDividendLsvCalibration::One { .. }) => {
                 return Err(MonteCarloError::UnsupportedRiskForModel {
-                    model: "2F Bergomi LSV parameter risk requires a 2F plan",
+                    model: "rough Bergomi LSV correlation risk does not apply to a 1F Bergomi plan",
                 });
             }
-            Some(StochasticDividendLsvCalibration::Rough { .. }) => {
+            Some(StochasticDividendLsvCalibration::Two { .. }) => {
                 return Err(MonteCarloError::UnsupportedRiskForModel {
-                    model: "2F Bergomi LSV parameter risk does not apply to a rough plan",
+                    model: "rough Bergomi LSV correlation risk does not apply to a 2F Bergomi plan",
                 });
             }
             None => {
                 return Err(MonteCarloError::UnsupportedRiskForModel {
-                    model: "2F Bergomi LSV parameter risk requires a stochastic-dividend residual LSV plan",
+                    model: "rough Bergomi LSV correlation risk requires a stochastic-dividend residual LSV plan",
                 });
             }
         };
 
-        let factor = calibration.factor();
-        let k = factor.mean_reversions();
-        validate_nonnegative_bump(
-            k[0],
-            mean_reversion_bumps[0],
-            "lsv_bergomi_two_factor_mean_reversion_bump_0",
+        let factor = calibration.model();
+        validate_correlation_bump(
+            factor.correlation(),
+            equity_volatility_correlation_bump,
+            "lsv_rough_bergomi_equity_volatility_correlation_bump",
         )?;
-        validate_nonnegative_bump(
-            k[1],
-            mean_reversion_bumps[1],
-            "lsv_bergomi_two_factor_mean_reversion_bump_1",
-        )?;
-        validate_nonnegative_bump(
-            factor.vol_of_vol(),
-            vol_of_vol_bump,
-            "lsv_bergomi_two_factor_vol_of_vol_bump",
-        )?;
-        validate_unit_interval_bump(
-            factor.mixing_weight(),
-            mixing_weight_bump,
-            "lsv_bergomi_two_factor_mixing_weight_bump",
+        validate_correlation_bump(
+            dividend_volatility_correlation,
+            dividend_volatility_correlation_bump,
+            "lsv_rough_bergomi_dividend_volatility_correlation_bump",
         )?;
 
-        let spot_correlations = factor.spot_correlations();
-        let factor_correlation = factor.factor_correlation();
         let executor = DeterministicExecutor::new(self.policy)?;
-        let make = |mean_reversions: [f64; 2], vol_of_vol: f64, mixing_weight: f64| {
-            Bergomi2Factor::new(
-                mean_reversions,
-                vol_of_vol,
-                mixing_weight,
-                spot_correlations,
-                factor_correlation,
-            )
-            .map_err(|_| invalid("lsv_bergomi_two_factor_bumped_model"))
-        };
+        let equity_down = RoughBergomi::new(
+            factor.hurst(),
+            factor.vol_of_vol(),
+            factor.correlation() - equity_volatility_correlation_bump,
+        )
+        .map_err(|_| invalid("lsv_rough_bergomi_equity_volatility_correlation_down"))?;
+        let equity_up = RoughBergomi::new(
+            factor.hurst(),
+            factor.vol_of_vol(),
+            factor.correlation() + equity_volatility_correlation_bump,
+        )
+        .map_err(|_| invalid("lsv_rough_bergomi_equity_volatility_correlation_up"))?;
 
         let scenarios = [
-            self.recalibrated_two_factor_scenario(
+            self.recalibrated_rough_correlation_scenario(
                 calibration,
-                make(
-                    [k[0] - mean_reversion_bumps[0], k[1]],
-                    factor.vol_of_vol(),
-                    factor.mixing_weight(),
-                )?,
-                dividend_volatility_correlations,
+                equity_down,
+                dividend_volatility_correlation,
                 &executor,
             )?,
-            self.recalibrated_two_factor_scenario(
+            self.recalibrated_rough_correlation_scenario(
                 calibration,
-                make(
-                    [k[0] + mean_reversion_bumps[0], k[1]],
-                    factor.vol_of_vol(),
-                    factor.mixing_weight(),
-                )?,
-                dividend_volatility_correlations,
+                equity_up,
+                dividend_volatility_correlation,
                 &executor,
             )?,
-            self.recalibrated_two_factor_scenario(
+            self.fixed_rough_correlation_scenario(
                 calibration,
-                make(
-                    [k[0], k[1] - mean_reversion_bumps[1]],
-                    factor.vol_of_vol(),
-                    factor.mixing_weight(),
-                )?,
-                dividend_volatility_correlations,
-                &executor,
+                factor,
+                dividend_volatility_correlation - dividend_volatility_correlation_bump,
             )?,
-            self.recalibrated_two_factor_scenario(
+            self.fixed_rough_correlation_scenario(
                 calibration,
-                make(
-                    [k[0], k[1] + mean_reversion_bumps[1]],
-                    factor.vol_of_vol(),
-                    factor.mixing_weight(),
-                )?,
-                dividend_volatility_correlations,
-                &executor,
+                factor,
+                dividend_volatility_correlation + dividend_volatility_correlation_bump,
             )?,
-            self.recalibrated_two_factor_scenario(
-                calibration,
-                make(
-                    k,
-                    factor.vol_of_vol() - vol_of_vol_bump,
-                    factor.mixing_weight(),
-                )?,
-                dividend_volatility_correlations,
-                &executor,
-            )?,
-            self.recalibrated_two_factor_scenario(
-                calibration,
-                make(
-                    k,
-                    factor.vol_of_vol() + vol_of_vol_bump,
-                    factor.mixing_weight(),
-                )?,
-                dividend_volatility_correlations,
-                &executor,
-            )?,
-            self.recalibrated_two_factor_scenario(
-                calibration,
-                make(
-                    k,
-                    factor.vol_of_vol(),
-                    factor.mixing_weight() - mixing_weight_bump,
-                )?,
-                dividend_volatility_correlations,
-                &executor,
-            )?,
-            self.recalibrated_two_factor_scenario(
-                calibration,
-                make(
-                    k,
-                    factor.vol_of_vol(),
-                    factor.mixing_weight() + mixing_weight_bump,
-                )?,
-                dividend_volatility_correlations,
-                &executor,
-            )?,
-        ];
-        let bumps = [
-            mean_reversion_bumps[0],
-            mean_reversion_bumps[1],
-            vol_of_vol_bump,
-            mixing_weight_bump,
         ];
 
         let dimension = self.path.random_dimension();
+        let bumps = [
+            equity_volatility_correlation_bump,
+            dividend_volatility_correlation_bump,
+        ];
         let (statistics, units, paths) = match self.engine {
             EngineConfig::PseudoMonteCarlo(config) => {
                 let count = config.independent_sampling_units().get();
@@ -216,7 +148,7 @@ impl StochasticDividendPricingPlan {
                             ))
                         })
                         .collect();
-                    self.sample_lsv_bergomi_two_factor_parameter_risk(
+                    self.sample_lsv_rough_bergomi_correlation_risk(
                         &scenarios,
                         bumps,
                         z,
@@ -243,7 +175,7 @@ impl StochasticDividendPricingPlan {
                                     inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?;
-                            self.sample_lsv_bergomi_two_factor_parameter_risk(
+                            self.sample_lsv_rough_bergomi_correlation_risk(
                                 &scenarios,
                                 bumps,
                                 z,
@@ -289,10 +221,10 @@ impl StochasticDividendPricingPlan {
             .map(|s| estimator_error(*s, units))
             .collect::<Result<Vec<_>, _>>()?;
         if values.iter().chain(&errors).any(|value| !value.is_finite()) {
-            return Err(invalid("lsv_bergomi_two_factor_parameter_risk_estimator").into());
+            return Err(invalid("lsv_rough_bergomi_correlation_risk_estimator").into());
         }
 
-        Ok(StochasticDividendLsvBergomi2FactorRisk {
+        Ok(StochasticDividendLsvRoughBergomiCorrelationRisk {
             price: StochasticDividendPrice {
                 value: values[0],
                 standard_error: errors[0],
@@ -302,54 +234,66 @@ impl StochasticDividendPricingPlan {
                 scheme: self.scheme(),
             },
             parameter_labels: [
-                "bergomi_mean_reversion[0]",
-                "bergomi_mean_reversion[1]",
-                "bergomi_vol_of_vol",
-                "bergomi_mixing_weight",
+                "equity_volatility_correlation",
+                "dividend_volatility_correlation",
             ]
             .map(str::to_owned)
             .into(),
             derivatives: values[1..].into(),
             standard_errors: errors[1..].into(),
-            parameter_bumps: bumps.into(),
+            correlation_bumps: bumps.into(),
             method: METHOD,
         })
     }
 
-    fn recalibrated_two_factor_scenario(
+    fn recalibrated_rough_correlation_scenario(
         &self,
-        calibration: &CalibratedBergomiLsv<Bergomi2Factor>,
-        factor: Bergomi2Factor,
-        dividend_volatility_correlations: [f64; 2],
+        calibration: &CalibratedRoughBergomiLsv,
+        factor: RoughBergomi,
+        dividend_volatility_correlation: f64,
         executor: &DeterministicExecutor,
     ) -> Result<Scenario, MonteCarloError> {
-        let bumped = calibrate_bergomi_lsv_parallel(
+        let bumped = calibrate_rough_bergomi_lsv_parallel(
             calibration.target(),
             factor,
             self.path.risky_spot(),
             calibration.config().clone(),
             executor,
         )?;
-        let path = self.path.clone().with_bergomi_two_factor_lsv(
+        let path = self.path.clone().with_rough_bergomi_lsv(
             factor,
-            dividend_volatility_correlations,
+            dividend_volatility_correlation,
             bumped.surface().clone(),
         )?;
         Ok(Scenario { path })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn sample_lsv_bergomi_two_factor_parameter_risk(
+    fn fixed_rough_correlation_scenario(
         &self,
-        scenarios: &[Scenario; 8],
-        bumps: [f64; 4],
+        calibration: &CalibratedRoughBergomiLsv,
+        factor: RoughBergomi,
+        dividend_volatility_correlation: f64,
+    ) -> Result<Scenario, MonteCarloError> {
+        let path = self.path.clone().with_rough_bergomi_lsv(
+            factor,
+            dividend_volatility_correlation,
+            calibration.surface().clone(),
+        )?;
+        Ok(Scenario { path })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sample_lsv_rough_bergomi_correlation_risk(
+        &self,
+        scenarios: &[Scenario; 4],
+        bumps: [f64; 2],
         mut z: Vec<f64>,
         bridge: Option<&BrownianBridgePlan>,
         antithetic: bool,
         out: &mut [f64],
     ) -> Result<(), MonteCarloError> {
         if out.len() != WIDTH {
-            return Err(invalid("lsv_bergomi_two_factor_parameter_risk_width").into());
+            return Err(invalid("lsv_rough_bergomi_correlation_risk_width").into());
         }
         if let Some(bridge) = bridge {
             let count = self.random_factor_count();
@@ -376,17 +320,17 @@ impl StochasticDividendPricingPlan {
             &[1.0][..]
         } {
             let shocks = z.iter().map(|value| sign * value).collect::<Vec<_>>();
-            out[0] += self.discounted_payoff_for_two_factor_parameter_path(&self.path, &shocks)?;
-            for parameter in 0..4 {
-                let down = self.discounted_payoff_for_two_factor_parameter_path(
-                    &scenarios[2 * parameter].path,
+            out[0] += self.discounted_payoff_for_rough_correlation_path(&self.path, &shocks)?;
+            for correlation in 0..2 {
+                let down = self.discounted_payoff_for_rough_correlation_path(
+                    &scenarios[2 * correlation].path,
                     &shocks,
                 )?;
-                let up = self.discounted_payoff_for_two_factor_parameter_path(
-                    &scenarios[2 * parameter + 1].path,
+                let up = self.discounted_payoff_for_rough_correlation_path(
+                    &scenarios[2 * correlation + 1].path,
                     &shocks,
                 )?;
-                out[1 + parameter] += (up - down) / (2.0 * bumps[parameter]);
+                out[1 + correlation] += (up - down) / (2.0 * bumps[correlation]);
             }
         }
         if antithetic {
@@ -397,7 +341,7 @@ impl StochasticDividendPricingPlan {
         Ok(())
     }
 
-    fn discounted_payoff_for_two_factor_parameter_path(
+    fn discounted_payoff_for_rough_correlation_path(
         &self,
         path: &StochasticDividendPathPlan,
         shocks: &[f64],
@@ -413,35 +357,18 @@ impl StochasticDividendPricingPlan {
     }
 }
 
-fn validate_nonnegative_bump(
-    parameter: f64,
+fn validate_correlation_bump(
+    correlation: f64,
     bump: f64,
     field: &'static str,
 ) -> Result<(), MonteCarloError> {
-    if !parameter.is_finite()
+    if !correlation.is_finite()
         || !bump.is_finite()
         || bump <= 0.0
-        || parameter - bump < 0.0
-        || parameter - bump >= parameter
-        || parameter + bump <= parameter
-    {
-        return Err(invalid(field).into());
-    }
-    Ok(())
-}
-
-fn validate_unit_interval_bump(
-    parameter: f64,
-    bump: f64,
-    field: &'static str,
-) -> Result<(), MonteCarloError> {
-    if !parameter.is_finite()
-        || !bump.is_finite()
-        || bump <= 0.0
-        || parameter - bump < 0.0
-        || parameter + bump > 1.0
-        || parameter - bump >= parameter
-        || parameter + bump <= parameter
+        || correlation - bump < -1.0
+        || correlation + bump > 1.0
+        || correlation - bump >= correlation
+        || correlation + bump <= correlation
     {
         return Err(invalid(field).into());
     }
@@ -458,7 +385,7 @@ fn estimator_error(
         .ok_or(MonteCarloError::InsufficientSamplingUnits { count: units })?;
     let error = (variance / units as f64).sqrt();
     if !error.is_finite() {
-        return Err(invalid("lsv_bergomi_two_factor_parameter_standard_error").into());
+        return Err(invalid("lsv_rough_bergomi_correlation_standard_error").into());
     }
     Ok(error)
 }

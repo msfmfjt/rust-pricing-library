@@ -14,8 +14,9 @@ pub use crate::engine::risk::stochastic_dividends::{
     StochasticDividendAadRisk, StochasticDividendGammaRisk, StochasticDividendLocalVarianceRisk,
     StochasticDividendLsvBergomi2FactorCorrelationRisk, StochasticDividendLsvBergomi2FactorRisk,
     StochasticDividendLsvBergomiRisk, StochasticDividendLsvCorrelationRisk,
-    StochasticDividendLsvMarketRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
-    StochasticDividendPricingPlan,
+    StochasticDividendLsvDividendModelRisk, StochasticDividendLsvMarketRisk,
+    StochasticDividendLsvRoughBergomiCorrelationRisk, StochasticDividendLsvRoughBergomiRisk,
+    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 pub use crate::models::{
     BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,

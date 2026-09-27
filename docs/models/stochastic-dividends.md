@@ -213,10 +213,11 @@ American exercise and continuous barriers remain unsupported here.
 
 ## Residual-equity LSV coupling
 
-Rust `StochasticDividendPricingPlan::compile_bergomi_lsv` and
-`compile_bergomi_two_factor_lsv`, with matching Python factories on
-`StochasticDividendPlan`, combine the Buehler cash-dividend state with the
-existing particle-calibrated Bergomi LSV machinery.
+Rust `StochasticDividendPricingPlan::compile_bergomi_lsv`,
+`compile_bergomi_two_factor_lsv` and `compile_rough_bergomi_lsv`, with
+matching Python factories on `StochasticDividendPlan`, combine the Buehler
+cash-dividend state with the existing particle-calibrated Markovian or rough
+Bergomi LSV machinery.
 
 The request model must be `LocalVolatility`, but its target has a narrower
 meaning than in the ordinary single-stock Local Volatility engine. Let
@@ -235,7 +236,8 @@ L^2(t,k)=
 {\mathbb E[A_t^2\mid \log(F_t^{res}/x_0)=k]},
 \]
 
-where \(A_t\) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
+where \(A_t\) is the 1F/2F Bergomi multiplier or the finite-grid rough
+Bergomi volatility multiplier. Pricing then uses
 
 \[
 \frac{dF_t^{res}}{F_t^{res}}
@@ -243,11 +245,12 @@ where \(A_t\) is the 1F/2F Bergomi volatility multiplier. Pricing then uses
 \]
 
 The Buehler dividend factor \(Y\) is added only to the joint pricing system. Its
-correlations with equity and Bergomi factors do not change the marginal
-\((F^{res},A)\) calibration problem as long as the equity/Bergomi correlation
-submatrix is unchanged. The full pricing Brownian matrix is still validated and
-the OU cross-covariances are integrated exactly as for the plain Bergomi
-coupling.
+correlations with equity and volatility factors do not change the marginal
+\((F^{res},A)\) calibration problem as long as the equity/volatility marginal
+law is unchanged. The full pricing Brownian matrix is still validated. Markovian
+OU cross-covariances use the exact integrated law; rough paths use the same
+finite-grid Volterra history and newest-cell construction in calibration and
+pricing.
 
 This is **not** a physical-stock Dupire calibration. Physical stock is
 
@@ -266,8 +269,9 @@ observation times and dividend ex-dates, and is further refined by
 `lsv_time_nodes`, `lsv_log_moneyness_nodes`,
 `lsv_squared_leverage` and `lsv_initial_residual_equity` for audit.
 Scheme identifiers are
-`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1` and
-`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1`.
+`buehler-bergomi-1f-residual-lsv-joint-ou-positive-split-v1`,
+`buehler-bergomi-2f-residual-lsv-joint-ou-positive-split-v1` and
+`buehler-rough-bergomi-residual-lsv-joint-hybrid-positive-split-v1`.
 
 Local-variance risk is opt-in through
 `evaluate_local_variance_risk()`. Compile the LSV factory with
@@ -338,13 +342,37 @@ Validation compares the analytic Delta with a full up/down recompile: the
 recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
 
+Residual-LSV Spot Gamma is available through `evaluate_lsv_gamma()`.
+It uses the same half/base/double Spot-bump ladder as the non-LSV Gamma API, but
+every shifted scenario rebuilds the Buehler physical-Spot coefficients and
+re-anchors the LSV surface `initial_f` to the shifted funded residual equity.
+The calibrated squared-leverage values are unchanged. Because leverage lookup
+uses the relative coordinate \(\log(F/F_0^{res})\), normalized \(f/Y\) states
+are identical across the six Spot scenarios and can be reused with common
+valuation random numbers.
+
+Gamma is the central difference of the exact scale-invariant LSV Spot Delta,
+not a second reverse pass. The result uses the existing
+`StochasticDividendGammaRisk` ladder diagnostics and has method label
+`buehler-residual-lsv-scale-invariant-aad-delta-gamma-v1`. Sampling errors
+are computed on the paired Gamma estimators. Bump differences remain numerical
+convergence diagnostics rather than certified error bounds.
+
+The dedicated method works for both 1F and 2F residual-LSV plans and does not
+require `retain_reverse_trace=true`. Validation compares every ladder entry
+with independently recompiled up/down plans and their
+`evaluate_lsv_spot_risk()` Deltas while checking that calibrated leverage
+values remain unchanged. The legacy `evaluate_gamma()` continues to reject
+LSV plans so the fixed-leverage non-LSV contract cannot be selected
+accidentally.
+
 Spot, fixed-cash mean and deterministic curve risk can be requested together
 through `evaluate_lsv_market_risk()`. The requested residual-equity
 Local-variance grid is held fixed. Cash amounts and discount/repo-spread curves
-change funded residual equity (F_0^{res}), the affine physical-Spot
+change funded residual equity \(F_0^{res}\), the affine physical-Spot
 reconstruction and, for the discount curve, the payment discount. Re-anchoring
-the residual LSV surface to the new (F_0^{res}) leaves the relative-coordinate
-leverage values and normalized (f/Y) dynamics unchanged, so these market
+the residual LSV surface to the new \(F_0^{res}\) leaves the relative-coordinate
+leverage values and normalized \(f/Y\) dynamics unchanged, so these market
 sensitivities are exact pathwise coefficient reverses rather than finite bumps.
 
 The result reports physical-Spot Delta, cash-mean adjoints in event order,
@@ -359,6 +387,28 @@ require `retain_reverse_trace=true`. Full-recompile validation bumps cash
 amounts and nonzero curve log-DF pillars, checks that calibrated leverage values
 remain unchanged up to floating-point scale effects, and verifies the reported
 adjoints against common-random central differences.
+
+Buehler dividend-model parameter risk is available through
+`evaluate_lsv_dividend_model_risk(...)` for dividend mean reversion, equity
+linkage, dividend volatility and equity/dividend Brownian correlation. None of
+these four parameters enters the marginal residual-equity/Bergomi particle
+calibration. The production estimator therefore holds the calibrated leverage
+surface fixed exactly, rebuilds the Buehler/joint pricing path for each up/down
+scenario, and uses common-random central differences.
+
+The mean-reversion and dividend-volatility bumps must stay in the nonnegative
+domain, the equity-linkage bump inside `[0,1]`, and the correlation bump inside
+`[-1,1]`; the bumped full joint Brownian matrix must also remain admissible.
+There is no one-sided fallback or adaptive bump. Both 1F and 2F residual-LSV
+plans use the same API. The method label is
+`buehler-residual-lsv-common-noise-fixed-calibration-dividend-model-v1`.
+
+This is deliberately a fixed-calibration finite-bump model-parameter risk, not
+the Local-variance calibration VJP and not the fixed-volatility
+`evaluate_aad()` contract. It does not require `retain_reverse_trace=true`.
+Validation independently recompiles all four bumped models and requires every
+resulting calibrated squared-leverage surface to be identical to the base
+surface before comparing the common-random central differences.
 
 1F Bergomi model-parameter risk is available through
 `evaluate_lsv_bergomi_parameter_risk(mean_reversion_bump=..., vol_of_vol_bump=...)`.
@@ -446,9 +496,9 @@ calibration reverse trace.
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now cover Local-variance risk,
-residual-surface VegaKT, physical-Spot Delta, cash-mean and deterministic-curve
-risk, 1F Bergomi parameter/correlation risk, and 2F Bergomi
-parameter/correlation risk.
+residual-surface VegaKT, physical-Spot Delta/Gamma, cash-mean and
+deterministic-curve risk, Buehler dividend-model parameter risk, 1F Bergomi
+parameter/correlation risk, and 2F Bergomi parameter/correlation risk.
 
 ## First-order risk
 
@@ -629,7 +679,12 @@ See the [example](../../examples/python/stochastic_dividend_gamma.py),
 
 Rust `StochasticDividendPricingPlan::compile_rough_bergomi` and Python
 `StochasticDividendPlan.compile_rough_bergomi` combine the same Buehler reserve
-with a Riemann--Liouville rough variance driver. The parameter domain is
+with a Riemann--Liouville rough variance driver. The corresponding
+`compile_rough_bergomi_lsv` factories calibrate the same finite-grid rough
+driver to the funded residual-equity Local-variance target described above.
+The direct rough factory reads sigma0 from a Black-Scholes request; the rough-LSV
+factory instead requires a `LocalVolatility` request and particle-calibration
+configuration. The parameter domain is
 `0 < hurst <= 0.5`, `vol_of_vol >= 0`, with finite inputs and a PSD joint
 Brownian matrix for residual equity, dividend and variance drivers. Specify
 `correlation` for f/variance, `equity_dividend_correlation` for f/dividend and
@@ -666,13 +721,34 @@ plan = rp.StochasticDividendPlan.compile_rough_bergomi(
 result = plan.evaluate()
 ```
 
-**This rough-dividend factory supports prices, basic/H-eta AAD, Gamma and
-correlation AAD in the instantaneous SPD interior.** The 1F/2F-only
-`evaluate_bergomi_aad()` still rejects rough plans explicitly; the BS/1F/2F methods retain their original support. Shared payoff graphs can still price discrete
-path-dependent contracts, but the new acceptance tests cover terminal calls and
-cash-event/path construction, not broad rough-dividend exotic accuracy.
+**The direct rough-dividend factory supports prices, basic/H-eta AAD, Gamma and
+correlation AAD in the instantaneous SPD interior.** Rough residual-LSV plans
+instead use the dedicated LSV risk contract: recalibrated Local-variance risk
+and VegaKT, scale-invariant Spot Delta/Gamma, market risk and Buehler
+dividend-model risk are available, while fixed-calibration AAD remains rejected.
+Full-recalibration rough-parameter risk is available through
+`evaluate_lsv_rough_bergomi_parameter_risk(hurst_bump=..., vol_of_vol_bump=...)`.
+The H and eta up/down scenarios rerun the finite-particle rough-LSV calibration
+with the same calibration seed and common valuation random numbers.
+
+Rough correlation risk is available through
+`evaluate_lsv_rough_bergomi_correlation_risk(equity_volatility_correlation_bump=...,
+dividend_volatility_correlation_bump=...)`. The equity/rough-volatility
+correlation belongs to the marginal residual-equity calibration and therefore
+reruns that calibration for both bumped scenarios. The dividend/rough-volatility
+correlation affects only the joint Buehler pricing covariance, so its bumped
+scenarios reuse the calibrated leverage surface exactly. Both derivatives use
+central bumps and paired MC/RQMC sampling errors; all scalar and joint
+correlation-domain checks still apply. The 1F/2F-specific Bergomi
+parameter/correlation risk methods continue to reject rough plans explicitly.
+The [rough residual-LSV correlation validation](../../design/validation/stochastic-dividend-rough-lsv-correlation-risk.md)
+records MC/RQMC recompile checks, worker replay, the zero-vol-of-vol limit and
+the boundary between implementation checks and continuous-time accuracy.
+Shared payoff graphs can still price discrete path-dependent contracts, but the
+new acceptance tests cover terminal calls and cash-event/path construction, not
+broad rough-dividend exotic accuracy.
 American exercise, continuous barriers, proportional cash mixtures, stochastic
-rates, multiple assets and leverage/recalibration are not added here.
+rates and multiple assets are not added by these rough-dividend factories.
 
 History evaluation and compiled storage are O(N^2); a new explicit limit of 4096
 steps avoids unbounded dense-history allocation (~64 MiB of scalar weights).
