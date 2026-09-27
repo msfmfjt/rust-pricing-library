@@ -741,6 +741,9 @@ scenarios reuse the calibrated leverage surface exactly. Both derivatives use
 central bumps and paired MC/RQMC sampling errors; all scalar and joint
 correlation-domain checks still apply. The 1F/2F-specific Bergomi
 parameter/correlation risk methods continue to reject rough plans explicitly.
+The [rough residual-LSV correlation validation](../../design/validation/stochastic-dividend-rough-lsv-correlation-risk.md)
+records MC/RQMC recompile checks, worker replay, the zero-vol-of-vol limit and
+the boundary between implementation checks and continuous-time accuracy.
 Shared payoff graphs can still price discrete path-dependent contracts, but the
 new acceptance tests cover terminal calls and cash-event/path construction, not
 broad rough-dividend exotic accuracy.

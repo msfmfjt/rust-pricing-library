@@ -10,8 +10,8 @@ use pricing::stochastic_dividends::{
     StochasticDividendLsvBergomi2FactorRisk, StochasticDividendLsvBergomiRisk,
     StochasticDividendLsvCorrelationRisk, StochasticDividendLsvDividendModelRisk,
     StochasticDividendLsvMarketRisk, StochasticDividendLsvRoughBergomiCorrelationRisk,
-    StochasticDividendLsvRoughBergomiRisk, StochasticDividendLsvSpotRisk,
-    StochasticDividendPrice, StochasticDividendPricingPlan,
+    StochasticDividendLsvRoughBergomiRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
+    StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 

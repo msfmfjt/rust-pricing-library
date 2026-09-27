@@ -87,12 +87,14 @@ enum StochasticDividendLsvCalibration {
     },
 }
 
-/// Constant-volatility or pure Bergomi residual equity with a stochastic cash
-/// reserve. The request volatility is the initial residual-equity volatility,
-/// not physical-stock implied volatility. `evaluate_aad` requests first-order
-/// risk explicitly; constructors continue to accept price-only requests.
-/// Rough plans also support basic AAD, H/eta AAD and finite-bump Spot Gamma;
-/// rough correlation AAD remains unsupported.
+/// Constant-volatility, pure Bergomi or calibrated residual-LSV equity with a
+/// stochastic cash reserve. Pure-volatility factories interpret request
+/// volatility as initial residual-equity volatility; LSV factories require a
+/// LocalVolatility target for funded residual equity, not physical stock.
+/// Constructors accept price-only requests; risk is requested explicitly.
+/// Direct rough plans support basic, H/eta and correlation AAD and finite-bump
+/// Spot Gamma. Calibrated plans use the dedicated recalibration-aware LSV risk
+/// methods, including rough parameter and selective correlation risk.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendPricingPlan {
     base: SimulationPlan,
