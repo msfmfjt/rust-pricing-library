@@ -190,6 +190,37 @@ scale, to exceed `1e-10`; the basic `evaluate_aad()` remains available when the
 rate covariance is singular. Sampling SE covers the pathwise estimator only,
 not quadrature or time-grid error.
 
+`evaluate_correlation_aad()` preserves the entire `evaluate_hull_white_aad()`
+result prefix and appends these raw partials in order:
+
+1. `equity_dividend_correlation`
+2. `equity_rate_correlation`
+3. `dividend_rate_correlation`
+
+Each partial varies one symmetric off-diagonal pair of the instantaneous
+Brownian correlation matrix, holding the other two entries and all other inputs
+fixed. Multiply by `0.01` for a one percentage point correlation move. These are
+fixed-Q-cash-mean sensitivities, without dividend-forward or market-IV
+recalibration. The method differentiates the Cholesky rate innovations, Buehler
+dividend-factor split, Gaussian-tilted cash coefficients, initial reserve,
+post/pre-cash spots and delayed-payment discount. It uses analytic tangents;
+production prices are not bumped. Zero correlations are supported.
+
+Raw two-sided partials require an interior positive-definite driver matrix:
+its Cholesky variance pivots must exceed `1e-10`. Each simulated covariance
+Cholesky diagonal, normalized by its marginal standard deviation, must also
+exceed `1e-10`. Singular or ill-conditioned inputs fail before sampling. Pricing
+and basic fixed-correlation AAD keep their existing boundary support. Zero
+equity or dividend diffusion and the Ho–Lee mean-reversion limit are supported
+when these covariance conditions hold. Discontinuous payoffs require the same
+explicit smoothing as the earlier AAD methods.
+
+The method label is
+`buehler-bs-hw-cash-payoff-forward-correlation-adjoint-v1`. Price, price sampling
+SE, and the complete earlier risk prefix are unchanged. Correlation sampling SE
+is calculated on MC independent units or RQMC scramble means; it excludes grid,
+quadrature, smoothing, calibration and model error.
+
 ```python
 risk = plan.evaluate_aad()
 print(risk.delta, risk.initial_volatility_vega_per_vol_point)
@@ -197,13 +228,20 @@ print(risk.cash_mean_adjoints, risk.discount_node_dv01, risk.repo_spread_node_dv
 
 rate_risk = plan.evaluate_hull_white_aad()
 print(rate_risk.parameter_labels[-1], rate_risk.derivatives[-1])
+
+correlation_risk = plan.evaluate_correlation_aad()
+print(list(zip(correlation_risk.parameter_labels[-3:],
+               correlation_risk.derivatives[-3:],
+               correlation_risk.standard_errors[-3:])))
 ```
 
 See the [risk example](../../examples/python/stochastic_dividend_hull_white_risk.py),
 [decision](../../design/adr/0023-stochastic-dividend-hull-white-risk.md) and
 [basic-risk protocol](../../design/validation/stochastic-dividend-hull-white-risk.md),
 [rate-risk decision](../../design/adr/0024-stochastic-dividend-hull-white-parameter-risk.md)
-and [rate-risk protocol](../../design/validation/stochastic-dividend-hull-white-parameter-risk.md).
+and [rate-risk protocol](../../design/validation/stochastic-dividend-hull-white-parameter-risk.md),
+[correlation-risk decision](../../design/adr/0025-stochastic-dividend-hull-white-correlation-risk.md)
+and [correlation-risk protocol](../../design/validation/stochastic-dividend-hull-white-correlation-risk.md).
 
 ## References and examples
 

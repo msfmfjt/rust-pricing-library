@@ -52,7 +52,8 @@ class StochasticDividendHullWhiteTest(unittest.TestCase):
         self.assertGreater(a.initial_dividend_claim_values[0],0)
         with self.assertRaises(AttributeError): a.risky_spot=0
         self.assertTrue(hasattr(a, 'evaluate_aad'))
-        for name in ['evaluate_rough_aad','evaluate_correlation_aad','evaluate_gamma']:
+        self.assertTrue(hasattr(a, 'evaluate_correlation_aad'))
+        for name in ['evaluate_rough_aad','evaluate_gamma']:
             self.assertFalse(hasattr(a,name))
 
     def test_deterministic_fixed_cash_limit_and_explicit_validation(self):

@@ -15,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = {
     'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/reverse.rs',
     'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/rate_sensitivity.rs',
+    'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/correlation_sensitivity.rs',
+    'crates/pricing/tests/stochastic_dividend_hull_white_correlation_risk.rs',
+    'design/adr/0025-stochastic-dividend-hull-white-correlation-risk.md',
+    'design/validation/stochastic-dividend-hull-white-correlation-risk.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/hull_white/aad.rs',
     'crates/pricing/tests/stochastic_dividend_hull_white_risk.rs',
     'tests/python/test_stochastic_dividend_hull_white_risk.py',

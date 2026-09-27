@@ -29,6 +29,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check first-order reverse
         run: cargo test --locked --release -p pricing --test stochastic_dividend_risk -- --nocapture 2>&1 | tee stochastic-dividend-risk.log
+      - name: Check Hull-White dividend risk
+        run: |
+          set -o pipefail
+          {
+            cargo test --locked --release -p pricing --lib correlation_sensitivity::tests -- --nocapture
+            cargo test --locked --release -p pricing --test stochastic_dividend_hull_white_risk --test stochastic_dividend_hull_white_correlation_risk -- --nocapture
+          } 2>&1 | tee stochastic-dividend-hw-risk.log
       - name: Check common-noise refinement
         run: cargo test --locked --release -p pricing --test stochastic_dividend_refinement -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-refinement.log
       - name: Retain risk and refinement evidence
@@ -38,6 +45,7 @@ jobs:
           name: stochastic-dividend-risk-${{ matrix.os }}
           path: |
             stochastic-dividend-risk.log
+            stochastic-dividend-hw-risk.log
             stochastic-dividend-refinement.log
           retention-days: 14
           if-no-files-found: warn
