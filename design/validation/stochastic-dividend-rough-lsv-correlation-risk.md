@@ -49,19 +49,32 @@ Run the paired-uncertainty checks with:
 cargo test --locked -p pricing --lib lsv_uncertainty_tests -- --nocapture
 ```
 
-These two tests cover 16 panels: pseudo-MC/RQMC, seeds 91/1973, and every
-combination of antithetic sampling and Brownian bridging on/off. Each panel
+Six sampling-error tests cover 48 panels: three contracts, pseudo-MC/RQMC,
+seeds 91/1973, and every combination of antithetic sampling and Brownian
+bridging on/off. Each panel
 fully recompiles the base and eight bumped plans for H, eta, equity/volatility
 correlation and dividend/volatility correlation. The H bump is 0.01; the other
 three bumps are 0.02. All plans use 64 calibration particles, calibration seed
 42, and no retained reverse trace.
 
-The reference evolves primal paths using the original random coordinates,
-reconstructs physical stock from its affine coefficients, and evaluates a
-unit-notional, strike-100 call directly with the one-year discount factor 0.95.
-Cash at 0.5, at expiry 1.0 and after expiry 1.4 remains active; the payoff uses
-post-cash stock at expiry. It does not call the production payoff, bumped-risk
-sampler, statistics reducer or standard-error helpers.
+The reference evolves primal paths using the original random coordinates and
+reconstructs physical stock from its affine coefficients. It does not call the
+production payoff, smoothing, bumped-risk sampler, statistics reducer or
+standard-error helpers. All contracts have unit notional and last fixing at
+one year; simulation stops there even when payment and cash reserves extend
+beyond that date.
+
+| Contract | Independently reconstructed payoff |
+| --- | --- |
+| European | Strike-100 call, paid at expiry with discount factor 0.95. Cash at 0.5, at expiry 1.0 and after expiry 1.4 remains active. |
+| Arithmetic Asian | Strike-95 call on a weighted average: 20% historical fixing 102, 30% post-cash stock at 182/365, 50% post-cash stock at expiry. Payment is at 456/365. |
+| Up-and-in discrete Barrier | Strike-80 call, barrier 105, monitoring at 182/365 and expiry. The hit state includes both sides of cash jumps with compact-C2 width 8. Payment is at 456/365. |
+
+For Asian/Barrier, fixed-cash means 6 and 2 coincide with the two future fixing
+dates, and cash mean 3 after expiry at 1.4 remains in the funded reserve.
+Delayed payment uses the independently extrapolated log-linear discount
+`0.95 ** (456/365)`. Barrier smoothing evaluates the centered quintic and its
+integral directly, instead of the production shifted-coordinate expression.
 
 For pseudo-MC, the 64 independent units average antithetic partners before
 forming up/down payoff differences. For RQMC, the reference first averages
@@ -74,6 +87,11 @@ Every risk SE must exceed 1e-8, and must differ from an incorrectly unpaired
 up/down scenario SE by more than 1e-6. These guards ensure that a zero-error
 case cannot pass vacuously and that the panel detects discarded common-noise
 covariance. Baseline price/SE identity and sampling counts are also checked.
+Every delayed-payment panel must differ by more than 1e-6 from incorrectly
+discounting at the last fixing; every Barrier panel must differ by more than
+1e-6 from monitoring only post-cash stock. A seventh test verifies that exact,
+unsmoothed Barrier parameter/correlation risk is rejected while repeated price
+evaluation remains unchanged.
 The focused three-OS CI job runs these tests in release mode alongside the
 public correlation tests and retains `stochastic-dividend-rough-lsv.log`.
 
@@ -83,10 +101,10 @@ These are finite-particle, fixed-grid implementation checks. The paired
 sampling errors condition on calibration and exclude calibration, time-grid,
 smoothing and model errors. The independent reconstruction verifies the paired
 SE aggregation for price and the four rough parameter/correlation risks at the
-stated inputs. It shares the underlying primal path scheme and random-number
-generators; it does not certify continuous-time Greek convergence or SEs for
-other risk APIs and products.
-Broad path-dependent rough-dividend accuracy remains outside this panel.
+stated inputs and three contracts. It shares the underlying primal path scheme
+and random-number generators; it does not certify continuous-time Greek
+convergence, pricing-scheme accuracy or SEs for other risk APIs and products.
+Broad rough-dividend exotic accuracy remains outside this fixed-grid panel.
 
 Stochastic rates remain unsupported for rough residual-LSV dividends. The
 constant-residual-volatility Hull-White conditional cash-claim formula cannot
