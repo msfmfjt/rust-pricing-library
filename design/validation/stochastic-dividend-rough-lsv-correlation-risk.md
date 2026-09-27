@@ -41,13 +41,51 @@ including the rough LSV factory and both rough risk result classes. CI checks
 the static stub contract before Rust compilation, so missing method/property
 registrations are reported without waiting for wheel builds.
 
+## Independent sampling-error reconstruction
+
+Run the paired-uncertainty checks with:
+
+```sh
+cargo test --locked -p pricing --lib lsv_uncertainty_tests -- --nocapture
+```
+
+These two tests cover 16 panels: pseudo-MC/RQMC, seeds 91/1973, and every
+combination of antithetic sampling and Brownian bridging on/off. Each panel
+fully recompiles the base and eight bumped plans for H, eta, equity/volatility
+correlation and dividend/volatility correlation. The H bump is 0.01; the other
+three bumps are 0.02. All plans use 64 calibration particles, calibration seed
+42, and no retained reverse trace.
+
+The reference evolves primal paths using the original random coordinates,
+reconstructs physical stock from its affine coefficients, and evaluates a
+unit-notional, strike-100 call directly with the one-year discount factor 0.95.
+Cash at 0.5, at expiry 1.0 and after expiry 1.4 remains active; the payoff uses
+post-cash stock at expiry. It does not call the production payoff, bumped-risk
+sampler, statistics reducer or standard-error helpers.
+
+For pseudo-MC, the 64 independent units average antithetic partners before
+forming up/down payoff differences. For RQMC, the reference first averages
+16 points within each of four scrambles. In each case, it applies the ordinary
+two-pass sample-variance formula to the resulting independent paired values.
+The reference price, all four risk means and their five SEs must match the
+public APIs within `2e-10 + 1e-11 * abs(reference)`.
+
+Every risk SE must exceed 1e-8, and must differ from an incorrectly unpaired
+up/down scenario SE by more than 1e-6. These guards ensure that a zero-error
+case cannot pass vacuously and that the panel detects discarded common-noise
+covariance. Baseline price/SE identity and sampling counts are also checked.
+The focused three-OS CI job runs these tests in release mode alongside the
+public correlation tests and retains `stochastic-dividend-rough-lsv.log`.
+
 ## Interpretation and remaining validation
 
 These are finite-particle, fixed-grid implementation checks. The paired
 sampling errors condition on calibration and exclude calibration, time-grid,
-smoothing and model errors. The panel does not independently certify the
-numerical value of every reported nonzero SE or continuous-time Greek
-convergence; full-recompile differences share the same underlying path scheme.
+smoothing and model errors. The independent reconstruction verifies the paired
+SE aggregation for price and the four rough parameter/correlation risks at the
+stated inputs. It shares the underlying primal path scheme and random-number
+generators; it does not certify continuous-time Greek convergence or SEs for
+other risk APIs and products.
 Broad path-dependent rough-dividend accuracy remains outside this panel.
 
 Stochastic rates remain unsupported for rough residual-LSV dividends. The

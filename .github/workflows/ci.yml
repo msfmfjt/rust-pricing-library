@@ -38,6 +38,13 @@ jobs:
           } 2>&1 | tee stochastic-dividend-hw-risk.log
       - name: Check common-noise refinement
         run: cargo test --locked --release -p pricing --test stochastic_dividend_refinement --test stochastic_dividend_hull_white_refinement -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-refinement.log
+      - name: Check rough residual-LSV uncertainty
+        run: |
+          set -o pipefail
+          {
+            cargo test --locked --release -p pricing --lib lsv_uncertainty_tests -- --nocapture
+            cargo test --locked --release -p pricing --test stochastic_dividend_rough_lsv -- --nocapture
+          } 2>&1 | tee stochastic-dividend-rough-lsv.log
       - name: Retain risk and refinement evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -47,6 +54,7 @@ jobs:
             stochastic-dividend-risk.log
             stochastic-dividend-hw-risk.log
             stochastic-dividend-refinement.log
+            stochastic-dividend-rough-lsv.log
           retention-days: 14
           if-no-files-found: warn
 

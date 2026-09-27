@@ -14,6 +14,8 @@ mod lsv_parameters;
 mod lsv_parameters_2f;
 mod lsv_rough_correlations;
 mod lsv_rough_parameters;
+#[cfg(test)]
+mod lsv_uncertainty_tests;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
