@@ -6,8 +6,8 @@ use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
     BuehlerDividendModel, StochasticDividendAadRisk, StochasticDividendGammaRisk,
-    StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
-    StochasticDividendPricingPlan,
+    StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomiRisk,
+    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 use pyo3::prelude::*;
 
@@ -340,6 +340,20 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
             .map_err(pricing_exception)
     }
+    #[pyo3(signature=(*, mean_reversion_bump, vol_of_vol_bump))]
+    fn evaluate_lsv_bergomi_parameter_risk(
+        &self,
+        py: Python<'_>,
+        mean_reversion_bump: f64,
+        vol_of_vol_bump: f64,
+    ) -> PyResult<PyStochasticDividendLsvBergomiRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_lsv_bergomi_parameter_risk(mean_reversion_bump, vol_of_vol_bump)
+        })
+        .map(|inner| PyStochasticDividendLsvBergomiRisk { inner })
+        .map_err(pricing_exception)
+    }
     fn evaluate_vega_kt(&self, py: Python<'_>) -> PyResult<PyVegaKtResult> {
         py.detach(|| self.inner.evaluate_vega_kt())
             .map(|inner| PyVegaKtResult { inner })
@@ -458,6 +472,58 @@ impl PyStochasticDividendPrice {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         self.inner.uncertainty_scope()
+    }
+}
+
+/// Full-recalibration 1F Bergomi parameter risk for residual-equity LSV.
+#[pyclass(frozen, name = "StochasticDividendLsvBergomiRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendLsvBergomiRisk {
+    pub(super) inner: StochasticDividendLsvBergomiRisk,
+}
+#[pymethods]
+impl PyStochasticDividendLsvBergomiRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_labels(&self) -> Vec<String> {
+        self.inner.parameter_labels.to_vec()
+    }
+    #[getter]
+    fn derivatives(&self) -> Vec<f64> {
+        self.inner.derivatives.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn parameter_bumps(&self) -> Vec<f64> {
+        self.inner.parameter_bumps.to_vec()
+    }
+    #[getter]
+    fn mean_reversion_derivative(&self) -> f64 {
+        self.inner.mean_reversion_derivative()
+    }
+    #[getter]
+    fn vol_of_vol_derivative(&self) -> f64 {
+        self.inner.vol_of_vol_derivative()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "one_factor_bergomi_parameters_with_full_residual_lsv_recalibration"
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_sampling_only_fixed_calibration_seed_and_parameter_bumps"
     }
 }
 

@@ -338,11 +338,36 @@ Validation compares the analytic Delta with a full up/down recompile: the
 recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
 
+1F Bergomi model-parameter risk is available through
+`evaluate_lsv_bergomi_parameter_risk(mean_reversion_bump=..., vol_of_vol_bump=...)`.
+This is intentionally **not** the fixed-leverage Bergomi AAD used by pure-SV
+plans. Four scenarios are built for
+\(k\pm h_k\) and \(\nu\pm h_\nu\). Each scenario reruns the finite-particle
+LSV calibration using the same calibration seed, particle count, bandwidth,
+fallback rules and grid, then reprices with common valuation random numbers.
+The reported derivatives therefore include both the direct pricing response
+and the induced leverage-surface response of the finite calibration algorithm.
+
+Only central bumps are supported. Both down-bumped parameters must remain in
+the nonnegative Bergomi domain; there is no one-sided fallback or adaptive bump.
+The Spot/Bergomi correlation and dividend-volatility/Bergomi correlation are
+held fixed. The method currently applies only to the 1F Bergomi residual-LSV
+factory; 2F parameters and correlation risk are separate extensions.
+
+The method label is
+`buehler-residual-lsv-common-noise-full-recalibration-bergomi-1f-v1`.
+MC standard errors are calculated on paired pathwise central differences; RQMC
+uses scramble-level paired differences. This is a forward full-recalibration
+risk and therefore does not require `retain_reverse_trace=true`. Validation
+also performs independent full recompiles at each bumped parameter and checks
+that their central differences reproduce the dedicated risk result.
+
 Existing `evaluate_aad`, Bergomi/correlation AAD and common-noise Gamma remain
 rejected on LSV plans: those APIs report a different risk contract and would
 freeze calibrated leverage if reused unchanged. The dedicated LSV methods now
-cover Local-variance risk, residual-surface VegaKT and physical-Spot Delta, but
-not curve, cash-mean or Bergomi-parameter risk.
+cover Local-variance risk, residual-surface VegaKT, physical-Spot Delta and
+1F Bergomi mean-reversion/vol-of-vol risk, but not curve, cash-mean, 2F
+Bergomi-parameter or correlation risk.
 
 ## First-order risk
 

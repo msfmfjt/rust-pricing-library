@@ -119,23 +119,35 @@ def compile_lsv(request=None, two_factor=False, worker_threads=2, **kwargs):
         reduction_block_size=32,
     )
     if two_factor:
+        params = (
+            dict(
+                mean_reversions=[0.8, 2.1],
+                vol_of_vol=0.3,
+                mixing_weight=0.35,
+                spot_correlations=[-0.4, -0.2],
+                factor_correlation=0.3,
+                dividend_volatility_correlations=[0.15, -0.1],
+            )
+            | common
+            | kwargs
+        )
         return rp.StochasticDividendPlan.compile_bergomi_two_factor_lsv(
             request or make_lsv_request(),
-            mean_reversions=[0.8, 2.1],
-            vol_of_vol=0.3,
-            mixing_weight=0.35,
-            spot_correlations=[-0.4, -0.2],
-            factor_correlation=0.3,
-            dividend_volatility_correlations=[0.15, -0.1],
-            **(common | kwargs),
+            **params,
         )
+    params = (
+        dict(
+            mean_reversion=0.8,
+            vol_of_vol=0.3,
+            correlation=-0.4,
+            dividend_volatility_correlation=0.15,
+        )
+        | common
+        | kwargs
+    )
     return rp.StochasticDividendPlan.compile_bergomi_lsv(
         request or make_lsv_request(),
-        mean_reversion=0.8,
-        vol_of_vol=0.3,
-        correlation=-0.4,
-        dividend_volatility_correlation=0.15,
-        **(common | kwargs),
+        **params,
     )
 
 
@@ -446,6 +458,101 @@ class StochasticDividendTest(unittest.TestCase):
             vega_kt.projection.pre_projection,
             delta=2e-11,
         )
+
+    def test_residual_lsv_bergomi_parameter_risk_recalibrates_full_model(self):
+        request = make_lsv_request(points=32)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        k_bump = 0.02
+        nu_bump = 0.01
+        plan = compile_lsv(request, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_bergomi_parameter_risk(
+            mean_reversion_bump=k_bump,
+            vol_of_vol_bump=nu_bump,
+        )
+
+        self.assertEqual(
+            risk.parameter_labels,
+            ["bergomi_mean_reversion", "bergomi_vol_of_vol"],
+        )
+        self.assertEqual(risk.parameter_bumps, [k_bump, nu_bump])
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-common-noise-full-recalibration-bergomi-1f-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "one_factor_bergomi_parameters_with_full_residual_lsv_recalibration",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives))
+        self.assertTrue(all(x >= 0.0 for x in risk.standard_errors))
+        self.assertAlmostEqual(risk.price.value, plan.evaluate().value, delta=2e-13)
+
+        # Independent full recompiles use the same calibration seed and valuation
+        # random numbers. They must reproduce the dedicated common-noise risk.
+        k_down = compile_lsv(
+            request,
+            worker_threads=1,
+            mean_reversion=0.8 - k_bump,
+            **common,
+        ).evaluate()
+        k_up = compile_lsv(
+            request,
+            worker_threads=1,
+            mean_reversion=0.8 + k_bump,
+            **common,
+        ).evaluate()
+        nu_down = compile_lsv(
+            request,
+            worker_threads=1,
+            vol_of_vol=0.3 - nu_bump,
+            **common,
+        ).evaluate()
+        nu_up = compile_lsv(
+            request,
+            worker_threads=1,
+            vol_of_vol=0.3 + nu_bump,
+            **common,
+        ).evaluate()
+        k_fd = (k_up.value - k_down.value) / (2.0 * k_bump)
+        nu_fd = (nu_up.value - nu_down.value) / (2.0 * nu_bump)
+        self.assertAlmostEqual(risk.mean_reversion_derivative, k_fd, delta=2e-10)
+        self.assertAlmostEqual(risk.vol_of_vol_derivative, nu_fd, delta=2e-10)
+
+        # Calibration and valuation reductions remain deterministic across worker
+        # counts even though all four bumped particle calibrations are rerun.
+        parallel = compile_lsv(request, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_bergomi_parameter_risk(
+            mean_reversion_bump=k_bump,
+            vol_of_vol_bump=nu_bump,
+        )
+        self.assertEqual(parallel_risk.derivatives, risk.derivatives)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        # This is a forward full-recalibration risk, not a calibration VJP.
+        no_trace = compile_lsv(
+            request,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_bergomi_parameter_risk(
+            mean_reversion_bump=k_bump,
+            vol_of_vol_bump=nu_bump,
+        )
+        self.assertTrue(all(math.isfinite(x) for x in no_trace.derivatives))
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(request, two_factor=True, **common).evaluate_lsv_bergomi_parameter_risk(
+                mean_reversion_bump=k_bump,
+                vol_of_vol_bump=nu_bump,
+            )
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_bergomi_parameter_risk(
+                mean_reversion_bump=1.0,
+                vol_of_vol_bump=nu_bump,
+            )
 
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
