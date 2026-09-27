@@ -207,8 +207,11 @@ impl ReverseContext {
     }
 
     /// Spot-only slice of the reverse: the normalized f/Y states and OU
-    /// innovations do not depend on S0. Match the full reverse's node order and
-    /// arithmetic, including both pre- and post-dividend payoff seeds.
+    /// innovations do not depend on S0. For residual LSV this statement assumes
+    /// the relative leverage surface is re-anchored with its initial_f when
+    /// funded residual equity moves; the leverage values themselves are unchanged.
+    /// Match the full reverse's node order and arithmetic, including both pre-
+    /// and post-dividend payoff seeds.
     pub fn spot_pullback(
         &self,
         states: &[BuehlerDividendState],

@@ -7,7 +7,7 @@ pub(crate) mod hull_white;
 mod lsv;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
-pub use lsv::StochasticDividendLocalVarianceRisk;
+pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;

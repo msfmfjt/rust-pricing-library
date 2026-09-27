@@ -24,8 +24,14 @@ def make_request(sigma=0.2, dividends=((1.4, 25.0),), strike=100.0, points=2048,
     )
 
 
-def make_lsv_request(dividends=((0.5, 6.0), (1.4, 3.0)), points=64, local_variances=None):
+def make_lsv_request(
+    dividends=((0.5, 6.0), (1.4, 3.0)),
+    points=64,
+    local_variances=None,
+    spot=100.0,
+):
     data = json.loads(Path("fixtures/v1/pricing_request.golden.json").read_text())
+    data["market"]["spot"] = spot
     data["model"] = {"type": "local_volatility", "local_variance_grid": {
         "time_nodes": [0.0, 0.5, 1.0],
         "log_forward_moneyness_nodes": [-0.5, 0.0, 0.5],
@@ -234,6 +240,11 @@ class StochasticDividendTest(unittest.TestCase):
         self.assertEqual(q_risk.node_adjoints, p_risk.node_adjoints)
         self.assertEqual(q_risk.standard_errors, p_risk.standard_errors)
 
+        q_spot = q.evaluate_lsv_spot_risk()
+        p_spot = p.evaluate_lsv_spot_risk()
+        self.assertEqual(q_spot.delta, p_spot.delta)
+        self.assertEqual(q_spot.delta_standard_error, p_spot.delta_standard_error)
+
         # The existing fixed-parameter reverse/Gamma are not valid once leverage
         # is calibrated and therefore must never be silently reused.
         with self.assertRaises(rp.PricingError):
@@ -260,10 +271,65 @@ class StochasticDividendTest(unittest.TestCase):
             "relative_dupire_variance_nodes_in_residual_equity",
         )
 
+        spot_risk = p.evaluate_lsv_spot_risk()
+        self.assertAlmostEqual(spot_risk.price.value, result.value, delta=2e-13)
+        self.assertTrue(math.isfinite(spot_risk.delta))
+        self.assertGreaterEqual(spot_risk.delta_standard_error, 0.0)
+        self.assertEqual(
+            spot_risk.method,
+            "buehler-residual-lsv-scale-invariant-spot-reverse-v1",
+        )
+        self.assertEqual(
+            spot_risk.coordinate,
+            "physical_spot_with_residual_lsv_reanchoring",
+        )
+
         # The reverse trace is an explicit memory/capability choice. Missing it
         # must fail before valuation rather than silently freeze leverage.
         with self.assertRaises(rp.PricingError):
             compile_lsv(retain_reverse_trace=False).evaluate_local_variance_risk()
+
+        # Spot Delta uses scale invariance of the relative LSV calibration and
+        # therefore does not require the particle calibration reverse trace.
+        no_trace_spot = compile_lsv(retain_reverse_trace=False).evaluate_lsv_spot_risk()
+        self.assertTrue(math.isfinite(no_trace_spot.delta))
+
+    def test_residual_lsv_spot_reverse_matches_full_recompile_fd(self):
+        h = 1.0e-3
+        common = dict(
+            particle_count=128,
+            reduction_block_size=16,
+            worker_threads=2,
+        )
+        base = compile_lsv(make_lsv_request(points=128, spot=100.0), **common)
+        risk = base.evaluate_lsv_spot_risk()
+        up = compile_lsv(make_lsv_request(points=128, spot=100.0 + h), **common)
+        down = compile_lsv(make_lsv_request(points=128, spot=100.0 - h), **common)
+
+        # Relative-coordinate particle calibration is homogeneous in F0. The
+        # leverage values stay fixed while the surface anchor follows residual
+        # equity, which is exactly the convention used by the analytic Delta.
+        self.assertTrue(
+            all(
+                abs(a - b) <= 2e-13
+                for a, b in zip(base.lsv_squared_leverage, up.lsv_squared_leverage)
+            )
+        )
+        self.assertTrue(
+            all(
+                abs(a - b) <= 2e-13
+                for a, b in zip(base.lsv_squared_leverage, down.lsv_squared_leverage)
+            )
+        )
+        self.assertAlmostEqual(
+            up.lsv_initial_residual_equity - down.lsv_initial_residual_equity,
+            2.0 * h,
+            delta=5e-13,
+        )
+
+        fd = (up.evaluate().value - down.evaluate().value) / (2.0 * h)
+        tolerance = max(2.0e-4, 2.0e-3 * abs(fd))
+        self.assertAlmostEqual(risk.delta, fd, delta=tolerance)
 
     def test_residual_lsv_local_variance_reverse_matches_recalibrated_fd(self):
         base_values = [0.04] * 9
