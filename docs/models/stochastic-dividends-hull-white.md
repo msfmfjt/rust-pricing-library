@@ -1,6 +1,6 @@
 # Stochastic cash dividends with Hull–White
 
-Experimental, single-asset, constant residual-equity volatility, with explicit basic AAD.
+Experimental, single-asset, constant residual-equity volatility, with explicit AAD and Spot Gamma.
 Use Rust `StochasticDividendHullWhitePricingPlan::compile_bs` or Python
 `StochasticDividendHullWhitePlan.compile_bs`. This is a separate plan: existing
 BS/1F/2F/rough stochastic-dividend plans and their AAD/Gamma remain unchanged.
@@ -119,8 +119,19 @@ the shared graph a second time by P0(U).
 MC uncertainty uses independent units, with antithetic averaging. RQMC uncertainty
 uses scramble means. `standard_error` excludes time-step, reserve quadrature,
 smoothing, calibration and model uncertainty. The initial sigma is NOT the
-physical-stock market IV. No market-IV calibration, VegaKT or Gamma is available for this separate HW plan.
-Basic AAD is opt-in as specified below.
+physical-stock market IV. No market-IV calibration or VegaKT is available for
+this separate HW plan. AAD and finite-bump Spot Gamma are opt-in as specified below.
+
+The [time-grid refinement protocol](../../design/validation/stochastic-dividend-hull-white-refinement.md)
+checks discounted f/Y moments against an independent continuous-time ODE. It
+also compares European and delayed Asian prices, Delta and three fixed-bump
+Gamma estimates on 16–256 step grids. Coarse paths aggregate the same fine
+Brownian, OU and integrated-rate innovations, including the earlier rate-state
+contribution to each integrated-rate increment. Antithetic units give paired
+grid-difference SEs. The 256-step option reference is still a finite grid; the
+selected consistency budgets do not establish general continuous-time risk
+accuracy or a zero-bump Gamma limit. This panel does not accept convergence of
+the rate/dividend parameter or correlation Greeks.
 
 ## Basic AAD at fixed rate model and correlations
 

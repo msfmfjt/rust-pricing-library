@@ -13,6 +13,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/tests/stochastic_dividend_hull_white_refinement.rs',
+    'design/validation/stochastic-dividend-hull-white-refinement.md',
     'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/reverse.rs',
     'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/rate_sensitivity.rs',
     'crates/pricing/src/engine/processes/stochastic_dividends/hull_white/correlation_sensitivity.rs',
