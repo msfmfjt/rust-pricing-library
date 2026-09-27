@@ -182,6 +182,25 @@ impl BergomiDividendKernel {
             Self::Two(k) => k.evolve(model, sigma0, times, z),
         }
     }
+
+    pub(super) fn lsv_leverage_pullback(
+        &self,
+        model: BuehlerDividendModel,
+        times: &[f64],
+        normals: &[f64],
+        states: &[BuehlerDividendState],
+        equity_seeds: &[f64],
+        dividend_seeds: &[f64],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        match self {
+            Self::One(k) => {
+                k.lsv_leverage_pullback(model, times, normals, states, equity_seeds, dividend_seeds)
+            }
+            Self::Two(k) => {
+                k.lsv_leverage_pullback(model, times, normals, states, equity_seeds, dividend_seeds)
+            }
+        }
+    }
 }
 
 impl<const N: usize, const D: usize> Kernel<N, D> {
@@ -314,6 +333,112 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
             states.push(state);
         }
         Ok(states)
+    }
+
+    fn lsv_leverage_pullback(
+        &self,
+        model: BuehlerDividendModel,
+        times: &[f64],
+        normals: &[f64],
+        states: &[BuehlerDividendState],
+        equity_seeds: &[f64],
+        dividend_seeds: &[f64],
+    ) -> Result<Vec<f64>, StochasticDividendError> {
+        let surface = self
+            .leverage
+            .as_ref()
+            .ok_or(StochasticDividendError::Unsupported {
+                feature: "local-variance risk requires a residual-equity LSV plan",
+            })?;
+        let n = self.steps.len();
+        if times.len() != n + 1
+            || states.len() != n + 1
+            || equity_seeds.len() != n + 1
+            || dividend_seeds.len() != n + 1
+            || normals.len() != D * n
+        {
+            return Err(invalid("lsv_leverage_reverse_shape"));
+        }
+        if equity_seeds
+            .iter()
+            .chain(dividend_seeds)
+            .any(|x| !x.is_finite())
+        {
+            return Err(invalid("lsv_leverage_reverse_seed"));
+        }
+
+        // The Bergomi factors do not depend on the Local-variance target. Replay
+        // their left-endpoint states only to recover the volatility multiplier.
+        let mut x = [0.0; N];
+        let mut factor_states = Vec::with_capacity(n);
+        for (step, z) in self.steps.iter().zip(normals.as_chunks::<D>().0) {
+            factor_states.push(x);
+            for (j, value) in x.iter_mut().enumerate() {
+                *value = step.decay[j] * *value
+                    + step.lower[j].iter().zip(z).map(|(l, z)| l * z).sum::<f64>();
+            }
+        }
+
+        let mut leverage_bar = vec![0.0; surface.squared_leverage().len()];
+        let mut f_bar = equity_seeds[n];
+        let mut y_bar = dividend_seeds[n];
+        let alpha = model.equity_linkage();
+        let rho = model.equity_dividend_correlation();
+        let rho_root = ((1.0 - rho) * (1.0 + rho)).sqrt();
+
+        for i in (1..=n).rev() {
+            let step_index = i - 1;
+            let old = states[step_index];
+            let new = states[i];
+            let dt = times[i] - times[step_index];
+            let root = dt.sqrt();
+            let z = &normals[D * step_index..D * i];
+
+            // Reverse the second Buehler drift half first. The dividend diffusion
+            // itself does not depend on the leverage target, but it feeds the
+            // prior equity through the affine target alpha*f+(1-alpha).
+            let (a, b) = super::decay(model.mean_reversion(), 0.5 * dt);
+            let next_f_bar = f_bar + b * alpha * y_bar;
+            let v = model.dividend_volatility() * root;
+            let z_dividend = rho * z[0] + rho_root * z[1];
+            let dividend_exponential = (-0.5 * v * v + v * z_dividend).exp();
+            let half_bar = a * y_bar * dividend_exponential;
+
+            let factor: f64 = self
+                .weights
+                .iter()
+                .zip(factor_states[step_index])
+                .map(|(w, x)| w * x)
+                .sum();
+            let multiplier = (self.vol_of_vol * (factor - self.centering[step_index])).exp();
+            let residual_f = surface.initial_f() * old.equity;
+            let lookup = surface
+                .lookup(times[step_index], residual_f)
+                .map_err(|_| invalid("lsv_leverage_lookup"))?;
+            let sigma = lookup.value.sqrt() * multiplier;
+            positive(sigma, "lsv_equity_volatility")?;
+            let u = sigma * root;
+
+            // d f_{i+1}/d sigma followed by d sigma/d L^2. The leverage lookup
+            // also moves with log(f), so feed that interpolation derivative into
+            // the old equity state before continuing the Buehler reverse.
+            let sigma_bar = next_f_bar * new.equity * (z[0] - u) * root;
+            let l_bar = sigma_bar * sigma / (2.0 * lookup.value);
+            lookup.transpose(l_bar, &mut leverage_bar);
+            let lookup_state_bar = l_bar * lookup.derivative_log_f / old.equity;
+
+            let equity_exponential = new.equity / old.equity;
+            f_bar = equity_seeds[step_index]
+                + next_f_bar * equity_exponential
+                + half_bar * b * alpha
+                + lookup_state_bar;
+            y_bar = dividend_seeds[step_index] + half_bar * a;
+        }
+
+        if leverage_bar.iter().any(|x| !x.is_finite()) {
+            return Err(invalid("lsv_leverage_reverse_result"));
+        }
+        Ok(leverage_bar)
     }
 }
 

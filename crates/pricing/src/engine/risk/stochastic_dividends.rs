@@ -4,13 +4,15 @@
 mod aad;
 mod gamma;
 pub(crate) mod hull_white;
+mod lsv;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
+pub use lsv::StochasticDividendLocalVarianceRisk;
 
 use crate::core::DayCountConvention;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
 use crate::market::LocalVarianceGrid;
-use crate::mc::lsv::{LsvParticleConfig, calibrate_bergomi_lsv_parallel};
+use crate::mc::lsv::{CalibratedBergomiLsv, LsvParticleConfig, calibrate_bergomi_lsv_parallel};
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,
     ExecutionPolicy, LocalVolTimeGrid, Philox4x32, RandomCoordinate, RandomDomain, RqmcPlan,
@@ -46,6 +48,18 @@ impl StochasticDividendPrice {
     }
 }
 
+#[derive(Clone, Debug)]
+enum StochasticDividendLsvCalibration {
+    One {
+        calibration: CalibratedBergomiLsv<Bergomi1Factor>,
+        original_target: LocalVarianceGrid,
+    },
+    Two {
+        calibration: CalibratedBergomiLsv<Bergomi2Factor>,
+        original_target: LocalVarianceGrid,
+    },
+}
+
 /// Constant-volatility or pure Bergomi residual equity with a stochastic cash
 /// reserve. The request volatility is the initial residual-equity volatility,
 /// not physical-stock implied volatility. `evaluate_aad` requests first-order
@@ -62,6 +76,7 @@ pub struct StochasticDividendPricingPlan {
     market: crate::market::EquityForward,
     payment_time: f64,
     risk_supported: bool,
+    lsv: Option<StochasticDividendLsvCalibration>,
 }
 
 impl StochasticDividendPricingPlan {
@@ -137,6 +152,7 @@ impl StochasticDividendPricingPlan {
                 .year_fraction(request.valuation_date(), request.product().payment_date()),
             risk_supported: request.product().supports_pathwise_risk()
                 || request.risk().payoff_smoothing().is_some(),
+            lsv: None,
         })
     }
 
@@ -148,7 +164,8 @@ impl StochasticDividendPricingPlan {
         model: BuehlerDividendModel,
         maximum_step: f64,
         policy: ExecutionPolicy,
-    ) -> Result<(Self, LocalVarianceGrid, LocalVolTimeGrid), MonteCarloError> {
+    ) -> Result<(Self, LocalVarianceGrid, LocalVarianceGrid, LocalVolTimeGrid), MonteCarloError>
+    {
         let risk = request.risk();
         if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
             return Err(StochasticDividendError::Unsupported {
@@ -202,7 +219,7 @@ impl StochasticDividendPricingPlan {
         required_times.push(expiry);
         let grid = LocalVolTimeGrid::compile(required_times, maximum_step)?;
 
-        let original = target.local_variance_grid();
+        let original = target.local_variance_grid().clone();
         let x = original.log_moneyness_nodes();
         let mut values = Vec::with_capacity(grid.nodes().len() * x.len());
         for &t in grid.nodes() {
@@ -248,8 +265,11 @@ impl StochasticDividendPricingPlan {
                 market: market.clone(),
                 payment_time: DayCountConvention::Act365F
                     .year_fraction(request.valuation_date(), request.product().payment_date()),
-                risk_supported: false,
+                risk_supported: request.product().supports_pathwise_risk()
+                    || request.risk().payoff_smoothing().is_some(),
+                lsv: None,
             },
+            original,
             refined,
             grid,
         ))
@@ -267,7 +287,7 @@ impl StochasticDividendPricingPlan {
         maximum_step: f64,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
-        let (mut plan, target, grid) =
+        let (mut plan, original_target, target, grid) =
             Self::compile_lsv_base(request, model, maximum_step, policy)?;
         let calibration = calibrate_bergomi_lsv_parallel(
             &target,
@@ -276,11 +296,14 @@ impl StochasticDividendPricingPlan {
             particles.clone(),
             &DeterministicExecutor::new(policy)?,
         )?;
-        plan.path = plan.path.with_bergomi_lsv(
-            factor,
-            dividend_volatility_correlation,
-            calibration.surface().clone(),
-        )?;
+        let leverage = calibration.surface().clone();
+        plan.path =
+            plan.path
+                .with_bergomi_lsv(factor, dividend_volatility_correlation, leverage)?;
+        plan.lsv = Some(StochasticDividendLsvCalibration::One {
+            calibration,
+            original_target,
+        });
         plan.finish_lsv(&particles)?;
         debug_assert_eq!(plan.path.times(), grid.nodes());
         Ok(plan)
@@ -296,7 +319,7 @@ impl StochasticDividendPricingPlan {
         maximum_step: f64,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
-        let (mut plan, target, grid) =
+        let (mut plan, original_target, target, grid) =
             Self::compile_lsv_base(request, model, maximum_step, policy)?;
         let calibration = calibrate_bergomi_lsv_parallel(
             &target,
@@ -305,11 +328,16 @@ impl StochasticDividendPricingPlan {
             particles.clone(),
             &DeterministicExecutor::new(policy)?,
         )?;
+        let leverage = calibration.surface().clone();
         plan.path = plan.path.with_bergomi_two_factor_lsv(
             factor,
             dividend_volatility_correlations,
-            calibration.surface().clone(),
+            leverage,
         )?;
+        plan.lsv = Some(StochasticDividendLsvCalibration::Two {
+            calibration,
+            original_target,
+        });
         plan.finish_lsv(&particles)?;
         debug_assert_eq!(plan.path.times(), grid.nodes());
         Ok(plan)
