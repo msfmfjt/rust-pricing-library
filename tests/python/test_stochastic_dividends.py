@@ -554,6 +554,354 @@ class StochasticDividendTest(unittest.TestCase):
                 vol_of_vol_bump=nu_bump,
             )
 
+    def test_residual_lsv_correlation_risk_uses_selective_recalibration(self):
+        request = make_lsv_request(points=32)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        equity_vol_bump = 0.02
+        dividend_vol_bump = 0.02
+        plan = compile_lsv(request, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_correlation_risk(
+            equity_volatility_correlation_bump=equity_vol_bump,
+            dividend_volatility_correlation_bump=dividend_vol_bump,
+        )
+
+        self.assertEqual(
+            risk.parameter_labels,
+            ["equity_volatility_correlation", "dividend_volatility_correlation"],
+        )
+        self.assertEqual(risk.correlation_bumps, [equity_vol_bump, dividend_vol_bump])
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-common-noise-bergomi-1f-correlation-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "one_factor_bergomi_correlations_with_selective_residual_lsv_recalibration",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives))
+        self.assertTrue(all(x >= 0.0 for x in risk.standard_errors))
+        self.assertAlmostEqual(risk.price.value, plan.evaluate().value, delta=2e-13)
+
+        equity_down_plan = compile_lsv(
+            request,
+            worker_threads=1,
+            correlation=-0.4 - equity_vol_bump,
+            **common,
+        )
+        equity_up_plan = compile_lsv(
+            request,
+            worker_threads=1,
+            correlation=-0.4 + equity_vol_bump,
+            **common,
+        )
+        equity_fd = (
+            equity_up_plan.evaluate().value - equity_down_plan.evaluate().value
+        ) / (2.0 * equity_vol_bump)
+        self.assertAlmostEqual(
+            risk.equity_volatility_correlation_derivative,
+            equity_fd,
+            delta=2e-10,
+        )
+
+        dividend_down_plan = compile_lsv(
+            request,
+            worker_threads=1,
+            dividend_volatility_correlation=0.15 - dividend_vol_bump,
+            **common,
+        )
+        dividend_up_plan = compile_lsv(
+            request,
+            worker_threads=1,
+            dividend_volatility_correlation=0.15 + dividend_vol_bump,
+            **common,
+        )
+        self.assertEqual(dividend_down_plan.lsv_squared_leverage, plan.lsv_squared_leverage)
+        self.assertEqual(dividend_up_plan.lsv_squared_leverage, plan.lsv_squared_leverage)
+        dividend_fd = (
+            dividend_up_plan.evaluate().value - dividend_down_plan.evaluate().value
+        ) / (2.0 * dividend_vol_bump)
+        self.assertAlmostEqual(
+            risk.dividend_volatility_correlation_derivative,
+            dividend_fd,
+            delta=2e-10,
+        )
+
+        parallel = compile_lsv(request, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_correlation_risk(
+            equity_volatility_correlation_bump=equity_vol_bump,
+            dividend_volatility_correlation_bump=dividend_vol_bump,
+        )
+        self.assertEqual(parallel_risk.derivatives, risk.derivatives)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        no_trace = compile_lsv(
+            request,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_correlation_risk(
+            equity_volatility_correlation_bump=equity_vol_bump,
+            dividend_volatility_correlation_bump=dividend_vol_bump,
+        )
+        self.assertTrue(all(math.isfinite(x) for x in no_trace.derivatives))
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(request, two_factor=True, **common).evaluate_lsv_correlation_risk(
+                equity_volatility_correlation_bump=equity_vol_bump,
+                dividend_volatility_correlation_bump=dividend_vol_bump,
+            )
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_correlation_risk(
+                equity_volatility_correlation_bump=0.7,
+                dividend_volatility_correlation_bump=dividend_vol_bump,
+            )
+
+        # Individual bumped entries can remain inside [-1, 1] while the
+        # full instantaneous 3x3 Brownian matrix leaves the PSD domain.
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_correlation_risk(
+                equity_volatility_correlation_bump=equity_vol_bump,
+                dividend_volatility_correlation_bump=0.84,
+            )
+
+    def test_residual_lsv_two_factor_parameter_risk_recalibrates_full_model(self):
+        request = make_lsv_request(points=16)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        k_bumps = [0.02, 0.03]
+        nu_bump = 0.01
+        theta_bump = 0.02
+        plan = compile_lsv(request, two_factor=True, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_bergomi_two_factor_parameter_risk(
+            mean_reversion_bumps=k_bumps,
+            vol_of_vol_bump=nu_bump,
+            mixing_weight_bump=theta_bump,
+        )
+
+        self.assertEqual(
+            risk.parameter_labels,
+            [
+                "bergomi_mean_reversion[0]",
+                "bergomi_mean_reversion[1]",
+                "bergomi_vol_of_vol",
+                "bergomi_mixing_weight",
+            ],
+        )
+        self.assertEqual(risk.parameter_bumps, [k_bumps[0], k_bumps[1], nu_bump, theta_bump])
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-common-noise-full-recalibration-bergomi-2f-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "two_factor_bergomi_parameters_with_full_residual_lsv_recalibration",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives))
+        self.assertTrue(all(x >= 0.0 for x in risk.standard_errors))
+        self.assertAlmostEqual(risk.price.value, plan.evaluate().value, delta=2e-13)
+
+        scenarios = [
+            (dict(mean_reversions=[0.8-k_bumps[0], 2.1]), dict(mean_reversions=[0.8+k_bumps[0], 2.1]), k_bumps[0]),
+            (dict(mean_reversions=[0.8, 2.1-k_bumps[1]]), dict(mean_reversions=[0.8, 2.1+k_bumps[1]]), k_bumps[1]),
+            (dict(vol_of_vol=0.3-nu_bump), dict(vol_of_vol=0.3+nu_bump), nu_bump),
+            (dict(mixing_weight=0.35-theta_bump), dict(mixing_weight=0.35+theta_bump), theta_bump),
+        ]
+        finite_differences = []
+        for down_kwargs, up_kwargs, bump in scenarios:
+            down = compile_lsv(
+                request,
+                two_factor=True,
+                worker_threads=1,
+                **(common | down_kwargs),
+            ).evaluate()
+            up = compile_lsv(
+                request,
+                two_factor=True,
+                worker_threads=1,
+                **(common | up_kwargs),
+            ).evaluate()
+            finite_differences.append((up.value-down.value)/(2.0*bump))
+        for actual, expected in zip(risk.derivatives, finite_differences):
+            self.assertAlmostEqual(actual, expected, delta=3e-10)
+
+        parallel = compile_lsv(request, two_factor=True, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_bergomi_two_factor_parameter_risk(
+            mean_reversion_bumps=k_bumps,
+            vol_of_vol_bump=nu_bump,
+            mixing_weight_bump=theta_bump,
+        )
+        self.assertEqual(parallel_risk.derivatives, risk.derivatives)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        no_trace = compile_lsv(
+            request,
+            two_factor=True,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_bergomi_two_factor_parameter_risk(
+            mean_reversion_bumps=k_bumps,
+            vol_of_vol_bump=nu_bump,
+            mixing_weight_bump=theta_bump,
+        )
+        self.assertTrue(all(math.isfinite(x) for x in no_trace.derivatives))
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(request, **common).evaluate_lsv_bergomi_two_factor_parameter_risk(
+                mean_reversion_bumps=k_bumps,
+                vol_of_vol_bump=nu_bump,
+                mixing_weight_bump=theta_bump,
+            )
+        with self.assertRaises(rp.PricingError):
+            plan.evaluate_lsv_bergomi_two_factor_parameter_risk(
+                mean_reversion_bumps=k_bumps,
+                vol_of_vol_bump=nu_bump,
+                mixing_weight_bump=0.4,
+            )
+        with self.assertRaises((rp.ValidationError, ValueError)):
+            plan.evaluate_lsv_bergomi_two_factor_parameter_risk(
+                mean_reversion_bumps=[k_bumps[0]],
+                vol_of_vol_bump=nu_bump,
+                mixing_weight_bump=theta_bump,
+            )
+
+    def test_residual_lsv_two_factor_correlation_risk_uses_selective_recalibration(self):
+        request = make_lsv_request(points=16)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        spot_bumps = [0.02, 0.02]
+        factor_bump = 0.02
+        dividend_bumps = [0.02, 0.02]
+        plan = compile_lsv(request, two_factor=True, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_bergomi_two_factor_correlation_risk(
+            spot_volatility_correlation_bumps=spot_bumps,
+            factor_correlation_bump=factor_bump,
+            dividend_volatility_correlation_bumps=dividend_bumps,
+        )
+
+        self.assertEqual(
+            risk.parameter_labels,
+            [
+                "spot_volatility_correlation[0]",
+                "spot_volatility_correlation[1]",
+                "volatility_factor_correlation",
+                "dividend_volatility_correlation[0]",
+                "dividend_volatility_correlation[1]",
+            ],
+        )
+        self.assertEqual(
+            risk.correlation_bumps,
+            [spot_bumps[0], spot_bumps[1], factor_bump, dividend_bumps[0], dividend_bumps[1]],
+        )
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-common-noise-bergomi-2f-correlation-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "two_factor_bergomi_correlations_with_selective_residual_lsv_recalibration",
+        )
+        self.assertTrue(all(math.isfinite(x) for x in risk.derivatives))
+        self.assertTrue(all(x >= 0.0 for x in risk.standard_errors))
+        self.assertAlmostEqual(risk.price.value, plan.evaluate().value, delta=2e-13)
+
+        scenarios = [
+            (
+                dict(spot_correlations=[-0.4-spot_bumps[0], -0.2]),
+                dict(spot_correlations=[-0.4+spot_bumps[0], -0.2]),
+                spot_bumps[0],
+                True,
+            ),
+            (
+                dict(spot_correlations=[-0.4, -0.2-spot_bumps[1]]),
+                dict(spot_correlations=[-0.4, -0.2+spot_bumps[1]]),
+                spot_bumps[1],
+                True,
+            ),
+            (
+                dict(factor_correlation=0.3-factor_bump),
+                dict(factor_correlation=0.3+factor_bump),
+                factor_bump,
+                True,
+            ),
+            (
+                dict(dividend_volatility_correlations=[0.15-dividend_bumps[0], -0.1]),
+                dict(dividend_volatility_correlations=[0.15+dividend_bumps[0], -0.1]),
+                dividend_bumps[0],
+                False,
+            ),
+            (
+                dict(dividend_volatility_correlations=[0.15, -0.1-dividend_bumps[1]]),
+                dict(dividend_volatility_correlations=[0.15, -0.1+dividend_bumps[1]]),
+                dividend_bumps[1],
+                False,
+            ),
+        ]
+        finite_differences = []
+        for down_kwargs, up_kwargs, bump, recalibrates in scenarios:
+            down = compile_lsv(
+                request,
+                two_factor=True,
+                worker_threads=1,
+                **(common | down_kwargs),
+            )
+            up = compile_lsv(
+                request,
+                two_factor=True,
+                worker_threads=1,
+                **(common | up_kwargs),
+            )
+            if not recalibrates:
+                self.assertEqual(down.lsv_squared_leverage, plan.lsv_squared_leverage)
+                self.assertEqual(up.lsv_squared_leverage, plan.lsv_squared_leverage)
+            finite_differences.append(
+                (up.evaluate().value-down.evaluate().value)/(2.0*bump)
+            )
+        for actual, expected in zip(risk.derivatives, finite_differences):
+            self.assertAlmostEqual(actual, expected, delta=3e-10)
+
+        parallel = compile_lsv(request, two_factor=True, worker_threads=3, **common)
+        parallel_risk = parallel.evaluate_lsv_bergomi_two_factor_correlation_risk(
+            spot_volatility_correlation_bumps=spot_bumps,
+            factor_correlation_bump=factor_bump,
+            dividend_volatility_correlation_bumps=dividend_bumps,
+        )
+        self.assertEqual(parallel_risk.derivatives, risk.derivatives)
+        self.assertEqual(parallel_risk.standard_errors, risk.standard_errors)
+
+        no_trace = compile_lsv(
+            request,
+            two_factor=True,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_bergomi_two_factor_correlation_risk(
+            spot_volatility_correlation_bumps=spot_bumps,
+            factor_correlation_bump=factor_bump,
+            dividend_volatility_correlation_bumps=dividend_bumps,
+        )
+        self.assertTrue(all(math.isfinite(x) for x in no_trace.derivatives))
+
+        with self.assertRaises(rp.PricingError):
+            compile_lsv(request, **common).evaluate_lsv_bergomi_two_factor_correlation_risk(
+                spot_volatility_correlation_bumps=spot_bumps,
+                factor_correlation_bump=factor_bump,
+                dividend_volatility_correlation_bumps=dividend_bumps,
+            )
+        with self.assertRaises((rp.ValidationError, ValueError)):
+            plan.evaluate_lsv_bergomi_two_factor_correlation_risk(
+                spot_volatility_correlation_bumps=[spot_bumps[0]],
+                factor_correlation_bump=factor_bump,
+                dividend_volatility_correlation_bumps=dividend_bumps,
+            )
+
     def test_two_factor_residual_lsv_is_explicit(self):
         p = compile_lsv(two_factor=True)
         result = p.evaluate()
