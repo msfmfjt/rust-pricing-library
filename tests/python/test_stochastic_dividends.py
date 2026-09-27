@@ -29,9 +29,13 @@ def make_lsv_request(
     points=64,
     local_variances=None,
     spot=100.0,
+    discount_factors=(1.0, 0.95),
+    repo_spread_factors=(1.0, 0.98),
 ):
     data = json.loads(Path("fixtures/v1/pricing_request.golden.json").read_text())
     data["market"]["spot"] = spot
+    data["market"]["discount_curve"]["discount_factors"] = list(discount_factors)
+    data["market"]["dividend_curve"]["discount_factors"] = list(repo_spread_factors)
     data["model"] = {"type": "local_volatility", "local_variance_grid": {
         "time_nodes": [0.0, 0.5, 1.0],
         "log_forward_moneyness_nodes": [-0.5, 0.0, 0.5],
@@ -305,6 +309,159 @@ class StochasticDividendTest(unittest.TestCase):
         # therefore does not require the particle calibration reverse trace.
         no_trace_spot = compile_lsv(retain_reverse_trace=False).evaluate_lsv_spot_risk()
         self.assertTrue(math.isfinite(no_trace_spot.delta))
+
+    def test_residual_lsv_market_risk_matches_full_recompile(self):
+        request = make_lsv_request(points=16)
+        common = dict(
+            particle_count=64,
+            reduction_block_size=16,
+        )
+        plan = compile_lsv(request, worker_threads=1, **common)
+        risk = plan.evaluate_lsv_market_risk()
+        spot_risk = plan.evaluate_lsv_spot_risk()
+
+        self.assertEqual(risk.delta, spot_risk.delta)
+        self.assertEqual(risk.delta_standard_error, spot_risk.delta_standard_error)
+        self.assertEqual(risk.cash_times, [0.5, 1.4])
+        self.assertEqual(risk.discount_times, [0.0, 1.0])
+        self.assertEqual(risk.repo_spread_times, [0.0, 1.0])
+        self.assertEqual(
+            risk.method,
+            "buehler-residual-lsv-scale-invariant-market-reverse-v1",
+        )
+        self.assertEqual(
+            risk.coordinate,
+            "spot_cash_and_log_df_curves_with_residual_lsv_reanchoring",
+        )
+        self.assertAlmostEqual(risk.discount_log_df_adjoints[0], 0.0, delta=1e-14)
+        self.assertAlmostEqual(risk.repo_spread_log_df_adjoints[0], 0.0, delta=1e-14)
+        self.assertAlmostEqual(
+            risk.discount_node_dv01[1],
+            -1e-4 * risk.discount_log_df_adjoints[1],
+            delta=1e-14,
+        )
+        self.assertAlmostEqual(
+            risk.repo_spread_node_dv01[1],
+            -1e-4 * risk.repo_spread_log_df_adjoints[1],
+            delta=1e-14,
+        )
+
+        # Cash amounts only change funded residual equity and the affine physical
+        # reconstruction. The relative LSV calibration is re-anchored, not refit
+        # to a different shape.
+        cash_bump = 1e-4
+        for index in range(2):
+            down_dividends = [(0.5, 6.0), (1.4, 3.0)]
+            up_dividends = list(down_dividends)
+            down_dividends[index] = (
+                down_dividends[index][0],
+                down_dividends[index][1] - cash_bump,
+            )
+            up_dividends[index] = (
+                up_dividends[index][0],
+                up_dividends[index][1] + cash_bump,
+            )
+            down = compile_lsv(
+                make_lsv_request(points=16, dividends=tuple(down_dividends)),
+                worker_threads=1,
+                **common,
+            )
+            up = compile_lsv(
+                make_lsv_request(points=16, dividends=tuple(up_dividends)),
+                worker_threads=1,
+                **common,
+            )
+            self.assertTrue(
+                all(
+                    abs(a - b) <= 3e-13
+                    for a, b in zip(plan.lsv_squared_leverage, down.lsv_squared_leverage)
+                )
+            )
+            self.assertTrue(
+                all(
+                    abs(a - b) <= 3e-13
+                    for a, b in zip(plan.lsv_squared_leverage, up.lsv_squared_leverage)
+                )
+            )
+            fd = (up.evaluate().value - down.evaluate().value) / (2.0 * cash_bump)
+            self.assertAlmostEqual(risk.cash_mean_adjoints[index], fd, delta=3e-8)
+
+        # Curve risk is raw dPrice/dlogDF. Full recompiles change carry, reserve
+        # funding and payment discount while preserving relative leverage values.
+        log_df_bump = 1e-5
+        for field, base_df, actual in [
+            ("discount", 0.95, risk.discount_log_df_adjoints[1]),
+            ("repo", 0.98, risk.repo_spread_log_df_adjoints[1]),
+        ]:
+            down_df = base_df * math.exp(-log_df_bump)
+            up_df = base_df * math.exp(log_df_bump)
+            kwargs_down = {}
+            kwargs_up = {}
+            if field == "discount":
+                kwargs_down["discount_factors"] = (1.0, down_df)
+                kwargs_up["discount_factors"] = (1.0, up_df)
+            else:
+                kwargs_down["repo_spread_factors"] = (1.0, down_df)
+                kwargs_up["repo_spread_factors"] = (1.0, up_df)
+            down = compile_lsv(
+                make_lsv_request(points=16, **kwargs_down),
+                worker_threads=1,
+                **common,
+            )
+            up = compile_lsv(
+                make_lsv_request(points=16, **kwargs_up),
+                worker_threads=1,
+                **common,
+            )
+            self.assertTrue(
+                all(
+                    abs(a - b) <= 4e-13
+                    for a, b in zip(plan.lsv_squared_leverage, down.lsv_squared_leverage)
+                )
+            )
+            self.assertTrue(
+                all(
+                    abs(a - b) <= 4e-13
+                    for a, b in zip(plan.lsv_squared_leverage, up.lsv_squared_leverage)
+                )
+            )
+            fd = (up.evaluate().value - down.evaluate().value) / (2.0 * log_df_bump)
+            self.assertAlmostEqual(actual, fd, delta=5e-8)
+
+        parallel = compile_lsv(request, worker_threads=3, **common).evaluate_lsv_market_risk()
+        self.assertEqual(parallel.delta, risk.delta)
+        self.assertEqual(parallel.cash_mean_adjoints, risk.cash_mean_adjoints)
+        self.assertEqual(parallel.discount_log_df_adjoints, risk.discount_log_df_adjoints)
+        self.assertEqual(parallel.repo_spread_log_df_adjoints, risk.repo_spread_log_df_adjoints)
+        self.assertEqual(parallel.cash_mean_standard_errors, risk.cash_mean_standard_errors)
+        self.assertEqual(
+            parallel.discount_log_df_standard_errors,
+            risk.discount_log_df_standard_errors,
+        )
+        self.assertEqual(
+            parallel.repo_spread_log_df_standard_errors,
+            risk.repo_spread_log_df_standard_errors,
+        )
+
+        no_trace = compile_lsv(
+            request,
+            worker_threads=2,
+            retain_reverse_trace=False,
+            **common,
+        ).evaluate_lsv_market_risk()
+        self.assertTrue(math.isfinite(no_trace.delta))
+
+        two_factor = compile_lsv(
+            request,
+            two_factor=True,
+            worker_threads=2,
+            **common,
+        ).evaluate_lsv_market_risk()
+        self.assertTrue(math.isfinite(two_factor.delta))
+        self.assertEqual(len(two_factor.cash_mean_adjoints), 2)
+
+        with self.assertRaises(rp.PricingError):
+            compile_plan().evaluate_lsv_market_risk()
 
     def test_residual_lsv_spot_reverse_matches_full_recompile_fd(self):
         h = 1.0e-3
