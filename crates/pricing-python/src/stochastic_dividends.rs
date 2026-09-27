@@ -1,4 +1,6 @@
-use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
+use super::{
+    PyPricingRequest, PyValidationIssue, PyVegaKtResult, pricing_exception, validation_exception,
+};
 use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
 use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
@@ -330,6 +332,11 @@ impl PyStochasticDividendPlan {
     ) -> PyResult<PyStochasticDividendLocalVarianceRisk> {
         py.detach(|| self.inner.evaluate_local_variance_risk())
             .map(|inner| PyStochasticDividendLocalVarianceRisk { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_vega_kt(&self, py: Python<'_>) -> PyResult<PyVegaKtResult> {
+        py.detach(|| self.inner.evaluate_vega_kt())
+            .map(|inner| PyVegaKtResult { inner })
             .map_err(pricing_exception)
     }
     /// Exactly one absolute or relative Spot bump is required. A half/base/double
