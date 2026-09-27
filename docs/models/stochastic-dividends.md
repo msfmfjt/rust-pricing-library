@@ -741,10 +741,13 @@ scenarios reuse the calibrated leverage surface exactly. Both derivatives use
 central bumps and paired MC/RQMC sampling errors; all scalar and joint
 correlation-domain checks still apply. The 1F/2F-specific Bergomi
 parameter/correlation risk methods continue to reject rough plans explicitly.
-The [rough residual-LSV correlation validation](../../design/validation/stochastic-dividend-rough-lsv-correlation-risk.md)
+The [rough residual-LSV price and risk validation](../../design/validation/stochastic-dividend-rough-lsv-correlation-risk.md)
 records MC/RQMC recompile checks, worker replay, the zero-vol-of-vol limit and
 independent paired-SE reconstruction for European calls, delayed-payment
 Asian calls and smoothed discrete Barriers with pre/post-cash observations.
+An independent conditional Black integral also checks price and Spot Delta
+when both rough vol-of-vol and dividend mean reversion are zero, with a flat
+residual local-variance target and a stochastic dividend after expiry.
 These fixed-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

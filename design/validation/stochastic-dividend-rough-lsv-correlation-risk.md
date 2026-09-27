@@ -1,4 +1,4 @@
-# Rough residual-LSV correlation risk validation
+# Rough residual-LSV price and risk validation
 
 The public `evaluate_lsv_rough_bergomi_correlation_risk` contract has two
 different calibration dependencies: equity/volatility correlation requires
@@ -40,6 +40,52 @@ check verifies runtime exports against the explicit type-stub contract,
 including the rough LSV factory and both rough risk result classes. CI checks
 the static stub contract before Rust compilation, so missing method/property
 registrations are reported without waiting for wheel builds.
+
+## Independent exact-limit price and Delta
+
+The fourth public Rust test closes a gap left by full-recompile comparisons:
+it checks price and physical-Spot Delta against an independent conditional
+Black integral, without using the production path scheme or payoff compiler.
+At eta=0 with a flat residual local variance of 0.04, calibrated squared
+leverage must equal 0.04 within 2e-14. With dividend mean reversion zero,
+the terminal physical stock is exactly a sum of two correlated lognormals,
+on either time grid. This is an exact limiting law, not a general rough-LSV
+continuous-time accuracy claim.
+
+The market and price reference are inherited from the
+[original stochastic-dividend validation](stochastic-dividends.md): Spot and
+strike 100, maturity 1, discount 0.95, carry factor 0.98, cash mean 25 at 1.4,
+dividend volatility 0.45 and equity/dividend correlation -0.35. Let
+`g = 0.98/0.95`, `A = (100 - 25/g^1.4)*g` and `B = 25*g/g^1.4`.
+Conditioning on dividend normal `z` leaves a Black call with forward
+`F(z) = A*exp(-0.5*(0.2*rho)^2 + 0.2*rho*z)`, effective strike
+`100 - B*exp(-0.5*0.45^2 + 0.45*z)` and conditional volatility
+`0.2*sqrt(1-rho^2)`. Its Spot derivative is `g*F(z)/A*Phi(d1)`;
+for a nonpositive effective strike, replace `Phi(d1)` by 1. Both quantities
+are integrated against the standard Gaussian density and discounted by 0.95.
+
+The Python wheel test evaluates this formula using only NumPy/math, including
+the analytic conditional Delta rather than a finite pricing bump:
+
+| Gaussian order | Price | Delta |
+| --- | ---: | ---: |
+| 96 | 7.6532761822344435 | 0.5922534643462815 |
+| 128 | 7.65327618882065 | 0.5922534629738484 |
+
+Both order gaps must be below 2e-7. Rust retains the existing adaptive-integral
+price 7.653276188575835 and uses the order-128 Delta above. Acceptance is
+`abs(price-reference) <= 6*SE + 0.002` and
+`abs(delta-reference) <= 6*SE + 0.00002`, with price SE below 0.02 and Delta SE
+below 0.005 to prevent an excessively noisy estimate from passing.
+
+The six Rust cases combine maximum steps 0.5/0.25 with
+`(H, particles, calibration seed)` equal to `(0.01,32,42)`, `(0.1,64,1973)` and
+`(0.5,128,617)`. All use 2,048 RQMC points, eight scrambles, valuation seed 612,
+antithetic sampling and Brownian bridging. The Python test covers H=0.1/0.5,
+steps 0.5/0.25, 64 calibration particles with seed 42, and four scrambles with
+valuation seed 91. Both check actual grid size, the one-year simulation horizon,
+path counts, ordinary-price identity and execution without a calibration
+reverse trace. No tolerance, seed or reference in earlier tests is changed.
 
 ## Independent sampling-error reconstruction
 
@@ -97,7 +143,8 @@ public correlation tests and retains `stochastic-dividend-rough-lsv.log`.
 
 ## Interpretation and remaining validation
 
-These are finite-particle, fixed-grid implementation checks. The paired
+Except for the exact eta=0/kappa=0 limiting-law check above, these are
+finite-particle, fixed-grid implementation checks. The paired
 sampling errors condition on calibration and exclude calibration, time-grid,
 smoothing and model errors. The independent reconstruction verifies the paired
 SE aggregation for price and the four rough parameter/correlation risks at the
