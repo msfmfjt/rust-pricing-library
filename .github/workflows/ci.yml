@@ -45,6 +45,8 @@ jobs:
             cargo test --locked --release -p pricing --lib lsv_uncertainty_tests -- --nocapture
             cargo test --locked --release -p pricing --test stochastic_dividend_rough_lsv -- --nocapture
           } 2>&1 | tee stochastic-dividend-rough-lsv.log
+      - name: Check conditional rough residual-LSV refinement
+        run: cargo test --locked --release -p pricing --lib lsv_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-refinement.log
       - name: Retain risk and refinement evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,6 +57,7 @@ jobs:
             stochastic-dividend-hw-risk.log
             stochastic-dividend-refinement.log
             stochastic-dividend-rough-lsv.log
+            stochastic-dividend-rough-lsv-refinement.log
           retention-days: 14
           if-no-files-found: warn
 

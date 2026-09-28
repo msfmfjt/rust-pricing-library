@@ -748,6 +748,11 @@ Asian calls and smoothed discrete Barriers with pre/post-cash observations.
 An independent conditional Black integral also checks price and Spot Delta
 when both rough vol-of-vol and dividend mean reversion are zero, with a flat
 residual local-variance target and a stochastic dividend after expiry.
+A separate [conditional refinement panel](../../design/validation/stochastic-dividend-rough-lsv-refinement.md)
+uses coupled Brownian integrals to measure European price/Delta changes under
+time-grid refinement with a fixed calibrated surface and nonzero eta/mean
+reversion. It does not include recalibration on each grid or calibration-particle
+uncertainty.
 These fixed-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

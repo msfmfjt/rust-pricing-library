@@ -13,6 +13,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/lsv_refinement_tests.rs',
+    'design/validation/stochastic-dividend-rough-lsv-refinement.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_uncertainty_tests.rs',
     'crates/pricing/tests/stochastic_dividend_rough_lsv.rs',
     'design/validation/stochastic-dividend-rough-lsv-correlation-risk.md',

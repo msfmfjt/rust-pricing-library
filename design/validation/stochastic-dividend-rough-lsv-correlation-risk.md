@@ -153,6 +153,11 @@ and random-number generators; it does not certify continuous-time Greek
 convergence, pricing-scheme accuracy or SEs for other risk APIs and products.
 Broad rough-dividend exotic accuracy remains outside this fixed-grid panel.
 
+The separate [conditional refinement panel](stochastic-dividend-rough-lsv-refinement.md)
+couples coarse/fine rough Brownian integrals and measures European price/Delta
+grid gaps while holding one calibrated leverage surface fixed. Calibration
+grid/particle convergence remains outside that panel.
+
 Stochastic rates remain unsupported for rough residual-LSV dividends. The
 constant-residual-volatility Hull-White conditional cash-claim formula cannot
 be reused for state-dependent rough/LSV volatility; that extension requires a
