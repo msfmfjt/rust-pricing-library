@@ -13,6 +13,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/lsv_barrier_smoothing_tests.rs',
+    'design/validation/stochastic-dividend-rough-lsv-barrier-smoothing.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_path_refinement_tests.rs',
     'design/validation/stochastic-dividend-rough-lsv-path-refinement.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_calibration_refinement_tests.rs',
@@ -294,6 +296,10 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 }
 
 REQUIRED_CI_SNIPPETS = {
+    "name: Rough dividend Barrier smoothing / ${{ matrix.os }}",
+    "cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture",
+    "name: rough-dividend-barrier-smoothing-${{ matrix.os }}",
+    "path: stochastic-dividend-rough-lsv-barrier-smoothing.log",
     "python scripts/check_local_vol_reference_fixture.py",
     "python scripts/check_path_dependence_reference_fixture.py",
     "python scripts/check_early_exercise_reference_fixture.py",
@@ -347,8 +353,8 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 4,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 9,
-    "retention-days: 14": 7,
+    "actions/upload-artifact@v4": 10,
+    "retention-days: 14": 8,
 }
 
 REQUIRED_README_SNIPPETS = {

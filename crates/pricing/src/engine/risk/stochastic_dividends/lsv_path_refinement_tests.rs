@@ -7,9 +7,9 @@ use super::*;
 use crate::{JsonLimits, parse_request_json};
 use serde_json::{Value, json};
 
-const EXPIRY: f64 = 364.0 / 365.0;
-const FIXING: f64 = 182.0 / 365.0;
-const PAYMENT: f64 = 456.0 / 365.0;
+pub(super) const EXPIRY: f64 = 364.0 / 365.0;
+pub(super) const FIXING: f64 = 182.0 / 365.0;
+pub(super) const PAYMENT: f64 = 456.0 / 365.0;
 const WIDTH: f64 = 8.0;
 const LEVELS: [usize; 4] = [16, 32, 64, 128];
 const LABELS: [&str; 4] = [
@@ -20,12 +20,12 @@ const LABELS: [&str; 4] = [
 ];
 
 #[derive(Clone, Copy)]
-enum Contract {
+pub(super) enum Contract {
     Asian,
     Barrier,
 }
 
-fn request_value(contract: Contract) -> Value {
+pub(super) fn request_value(contract: Contract) -> Value {
     let mut v = payload();
     v["model"]["local_variance_grid"]["time_nodes"] = json!([0.0, FIXING, EXPIRY]);
     v["market"]["discrete_dividends"][0]["ex_time"] = json!(FIXING);
@@ -52,7 +52,7 @@ fn request_value(contract: Contract) -> Value {
     v
 }
 
-fn compile(v: &Value, h: f64, eta: f64, kappa: f64) -> StochasticDividendPricingPlan {
+pub(super) fn compile(v: &Value, h: f64, eta: f64, kappa: f64) -> StochasticDividendPricingPlan {
     let request = parse_request_json(&serde_json::to_vec(v).unwrap(), JsonLimits::DEFAULT).unwrap();
     let plan = StochasticDividendPricingPlan::compile_rough_bergomi_lsv(
         &request,
@@ -70,7 +70,7 @@ fn compile(v: &Value, h: f64, eta: f64, kappa: f64) -> StochasticDividendPricing
     plan
 }
 
-fn paths(
+pub(super) fn paths(
     base: &StochasticDividendPricingPlan,
     h: f64,
     eta: f64,

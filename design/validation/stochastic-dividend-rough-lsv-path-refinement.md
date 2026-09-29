@@ -125,6 +125,11 @@ their ratios remain in the log; the initial run is not reported as a pass.
 
 ## Limits
 
+The separate [smoothing-width panel](stochastic-dividend-rough-lsv-barrier-smoothing.md)
+compares smoothed and hard prices on the same grid and surface, adjacent-width
+Deltas, and diagnostic finite bumps of hard prices. It does not turn this
+fixed-width time-grid panel into a hard-Barrier Delta convergence claim.
+
 This tests the stated fixed-observation Asian and smoothed discrete Barrier
 contracts conditional on one finite-particle calibration. It does not bound
 continuous-time bias, smoothing bias, particle-calibration uncertainty or
