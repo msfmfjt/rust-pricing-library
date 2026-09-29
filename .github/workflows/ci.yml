@@ -49,6 +49,8 @@ jobs:
         run: cargo test --locked --release -p pricing --lib lsv_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-refinement.log
       - name: Check rough residual-LSV recalibration and particles
         run: cargo test --locked --release -p pricing --lib lsv_calibration_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-calibration-refinement.log
+      - name: Check rough residual-LSV Asian and Barrier refinement
+        run: cargo test --locked --release -p pricing --lib lsv_path_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-path-refinement.log
       - name: Retain risk and refinement evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,6 +63,7 @@ jobs:
             stochastic-dividend-rough-lsv.log
             stochastic-dividend-rough-lsv-refinement.log
             stochastic-dividend-rough-lsv-calibration-refinement.log
+            stochastic-dividend-rough-lsv-path-refinement.log
           retention-days: 14
           if-no-files-found: warn
 

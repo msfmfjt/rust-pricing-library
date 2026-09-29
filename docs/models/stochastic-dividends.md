@@ -758,6 +758,10 @@ rebuilds the surfaces across grids, counts and seeds, reporting both the SE
 across independent calibration/valuation replicates and the conditional
 valuation contribution. This validation does not change public API uncertainty
 fields or establish a general continuous-time error bound.
+The [Asian/Barrier refinement panel](../../design/validation/stochastic-dividend-rough-lsv-path-refinement.md)
+checks conditional price/Spot Delta differences with fixed observation dates,
+known Asian fixings, delayed payment and both sides of cash jumps. It holds
+Barrier smoothing fixed and does not bound smoothing or calibration bias.
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

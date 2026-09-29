@@ -15,6 +15,8 @@ mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;
 #[cfg(test)]
+mod lsv_path_refinement_tests;
+#[cfg(test)]
 mod lsv_refinement_tests;
 mod lsv_rough_correlations;
 mod lsv_rough_parameters;

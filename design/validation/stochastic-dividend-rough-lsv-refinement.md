@@ -119,5 +119,7 @@ and exclude calibration, smoothing and model uncertainty. Recalibrating on
 each grid changes that surface and must be studied separately before claiming
 end-to-end calibrated-model convergence. The separate replication panel checks
 specified finite grid/count differences without claiming general convergence.
-Asian/Barrier refinement, nonuniform
-grids and RQMC coupling are not covered by this first panel.
+The [Asian/Barrier panel](stochastic-dividend-rough-lsv-path-refinement.md)
+extends conditional price/Delta refinement to fixed contractual observation
+dates and fixed Barrier smoothing. General nonuniform grids and RQMC coupling
+are not covered by these panels.
