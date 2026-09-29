@@ -753,7 +753,12 @@ uses coupled Brownian integrals to measure European price/Delta changes under
 time-grid refinement with a fixed calibrated surface and nonzero eta/mean
 reversion. It does not include recalibration on each grid or calibration-particle
 uncertainty.
-These fixed-grid checks distinguish implementation and uncertainty aggregation
+The [recalibration and particle panel](../../design/validation/stochastic-dividend-rough-lsv-calibration-refinement.md)
+rebuilds the surfaces across grids, counts and seeds, reporting both the SE
+across independent calibration/valuation replicates and the conditional
+valuation contribution. This validation does not change public API uncertainty
+fields or establish a general continuous-time error bound.
+These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.
 American exercise, continuous barriers, proportional cash mixtures, stochastic

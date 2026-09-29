@@ -2,8 +2,9 @@
 
 This panel extends [price and risk validation](stochastic-dividend-rough-lsv-correlation-risk.md)
 to time-grid sensitivity with nonzero rough vol-of-vol and dividend mean
-reversion. It conditions on one calibrated leverage surface. Recalibration
-on each grid and calibration-particle convergence remain separate tasks.
+reversion. It conditions on one calibrated leverage surface. The separate
+[recalibration and particle panel](stochastic-dividend-rough-lsv-calibration-refinement.md)
+recompiles each grid/count and measures variability across calibration seeds.
 
 ## Common Brownian construction
 
@@ -116,5 +117,7 @@ Delta. A small last-level gap does not prove convergence order or bound the
 remaining bias. Results concern the fixed, finite-particle calibrated surface
 and exclude calibration, smoothing and model uncertainty. Recalibrating on
 each grid changes that surface and must be studied separately before claiming
-end-to-end calibrated-model convergence. Asian/Barrier refinement, nonuniform
+end-to-end calibrated-model convergence. The separate replication panel checks
+specified finite grid/count differences without claiming general convergence.
+Asian/Barrier refinement, nonuniform
 grids and RQMC coupling are not covered by this first panel.

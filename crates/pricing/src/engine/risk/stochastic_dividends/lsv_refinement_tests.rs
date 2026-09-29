@@ -33,7 +33,7 @@ fn cross_kernel(h: f64, offset: usize) -> f64 {
     2.0 * h * sum / (3.0 * n as f64 * p)
 }
 
-struct Coupling {
+pub(super) struct Coupling {
     block: usize,
     // Coarse independent residual normal in the basis of fine interleaved
     // normals plus one new normal. Coefficients are scale independent.
@@ -41,7 +41,7 @@ struct Coupling {
 }
 
 impl Coupling {
-    fn new(h: f64, block: usize) -> Self {
+    pub(super) fn new(h: f64, block: usize) -> Self {
         assert!(h > 0.0 && h <= 0.5 && block.is_power_of_two());
         let mut residual = vec![0.0; 4 * block + 1];
         if h == 0.5 || block == 1 {
@@ -73,7 +73,7 @@ impl Coupling {
         Self { block, residual }
     }
 
-    fn coarsen(&self, fine: &[f64], extra: &[f64]) -> Vec<f64> {
+    pub(super) fn coarsen(&self, fine: &[f64], extra: &[f64]) -> Vec<f64> {
         assert_eq!(fine.len(), 4 * self.block * extra.len());
         let mut coarse = Vec::with_capacity(4 * extra.len());
         for (cell, &independent) in fine.chunks_exact(4 * self.block).zip(extra) {
@@ -200,7 +200,7 @@ fn rough_grid_coupling_preserves_marginal_and_cross_covariances() {
     }
 }
 
-fn payload() -> Value {
+pub(super) fn payload() -> Value {
     let mut v: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../fixtures/v1/pricing_request.golden.json"
@@ -221,6 +221,15 @@ fn payload() -> Value {
 }
 
 fn calibrated(h: f64) -> StochasticDividendPricingPlan {
+    calibrated_with(h, 16, 512, 42)
+}
+
+pub(super) fn calibrated_with(
+    h: f64,
+    steps: usize,
+    particles: usize,
+    seed: u64,
+) -> StochasticDividendPricingPlan {
     let request = parse_request_json(
         &serde_json::to_vec(&payload()).unwrap(),
         JsonLimits::DEFAULT,
@@ -231,8 +240,8 @@ fn calibrated(h: f64) -> StochasticDividendPricingPlan {
         BuehlerDividendModel::new(0.7, 0.6, 0.35, SD).unwrap(),
         RoughBergomi::new(h, 0.6, SV).unwrap(),
         DV,
-        LsvParticleConfig::new(512, 42, 0.35, 5.0, false).unwrap(),
-        1.0 / 16.0,
+        LsvParticleConfig::new(particles, seed, 0.35, 5.0, false).unwrap(),
+        1.0 / steps as f64,
         ExecutionPolicy::new(1, Some(32)).unwrap(),
     )
     .unwrap()
@@ -254,13 +263,13 @@ fn path_estimates(path: &StochasticDividendPathPlan, z: &[f64]) -> [f64; 2] {
     ]
 }
 
-fn antithetic_estimates(path: &StochasticDividendPathPlan, z: &[f64]) -> [f64; 2] {
+pub(super) fn antithetic_estimates(path: &StochasticDividendPathPlan, z: &[f64]) -> [f64; 2] {
     let a = path_estimates(path, z);
     let b = path_estimates(path, &z.iter().map(|v| -v).collect::<Vec<_>>());
     std::array::from_fn(|j| 0.5 * (a[j] + b[j]))
 }
 
-fn mean_se(values: &[f64]) -> (f64, f64) {
+pub(super) fn mean_se(values: &[f64]) -> (f64, f64) {
     let mean = values.iter().sum::<f64>() / values.len() as f64;
     let variance = values.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
         / ((values.len() - 1) * values.len()) as f64;

@@ -5,6 +5,8 @@ mod aad;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
+#[cfg(test)]
+mod lsv_calibration_refinement_tests;
 mod lsv_correlations;
 mod lsv_correlations_2f;
 mod lsv_dividend_model;
