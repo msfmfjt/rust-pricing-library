@@ -72,6 +72,10 @@ Spot bumps 0.5 and 0.25, and the paired difference from the width-0.5 Delta.
 These are finite-bump diagnostics, not unbiased hard Delta references.
 Neither agreement nor a small reported SE removes finite-bump bias, so
 these diagnostics do not act as a hard-Delta accuracy gate.
+The separate [hard two-date reference](stochastic-dividend-hard-barrier-reference.md)
+uses analytic Gaussian moments to supply hard price/Delta in the zero-eta,
+zero-kappa, flat-variance limit. It does not extend the finite-bump diagnostics
+here to general nonzero-eta hard-Delta accuracy.
 
 ## Numerical gates and execution
 

@@ -766,6 +766,11 @@ The [Barrier smoothing-width panel](../../design/validation/stochastic-dividend-
 then fixes the surface and grid while comparing five widths against hard
 prices and adjacent-width Deltas. Hard-price finite bumps are diagnostic;
 they do not provide an exact unsmoothed Delta reference.
+The [hard two-date Barrier reference](../../design/validation/stochastic-dividend-hard-barrier-reference.md)
+provides independent price and analytic Spot Delta when eta and dividend mean
+reversion are zero and the target variance is flat. Gaussian integration
+retains both moving monitoring boundaries. This validates a limiting case;
+the public API still rejects unsmoothed Barrier Spot risk.
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

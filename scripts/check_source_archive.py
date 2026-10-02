@@ -13,6 +13,11 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/tests/stochastic_dividend_barrier_reference.rs',
+    'tests/python/rough_dividend_barrier_reference.py',
+    'tests/python/test_rough_dividend_barrier_reference.py',
+    'fixtures/stochastic-dividends/rough-barrier-reference.json',
+    'design/validation/stochastic-dividend-hard-barrier-reference.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_barrier_smoothing_tests.rs',
     'design/validation/stochastic-dividend-rough-lsv-barrier-smoothing.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_path_refinement_tests.rs',
@@ -299,7 +304,9 @@ REQUIRED_CI_SNIPPETS = {
     "name: Rough dividend Barrier smoothing / ${{ matrix.os }}",
     "cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture",
     "name: rough-dividend-barrier-smoothing-${{ matrix.os }}",
-    "path: stochastic-dividend-rough-lsv-barrier-smoothing.log",
+    "            stochastic-dividend-rough-lsv-barrier-smoothing.log",
+    "            stochastic-dividend-hard-barrier-reference.log",
+    "cargo test --locked --release -p pricing --test stochastic_dividend_barrier_reference -- --include-ignored --nocapture",
     "python scripts/check_local_vol_reference_fixture.py",
     "python scripts/check_path_dependence_reference_fixture.py",
     "python scripts/check_early_exercise_reference_fixture.py",

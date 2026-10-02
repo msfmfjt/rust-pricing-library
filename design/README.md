@@ -50,6 +50,10 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [hard two-date Barrier reference](validation/stochastic-dividend-hard-barrier-reference.md)
+checks stochastic-dividend price and Spot Delta in an exact lognormal limit
+using independent Gaussian integration, including both monitoring boundaries.
+
 The [Gamma validation protocol](validation/stochastic-dividend-gamma.md) covers
 common-noise Delta bumps and their uncertainty.
 
