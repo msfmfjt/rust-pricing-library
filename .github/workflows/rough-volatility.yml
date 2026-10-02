@@ -7,6 +7,7 @@ on:
       - 'crates/**'
       - 'fixtures/rough-volatility/**'
       - 'scripts/check_rough_volatility_*.py'
+      - 'scripts/test_rough_volatility_refinement.py'
       - 'tests/python/test_rough_volatility_families.py'
       - 'examples/python/rough_volatility_families.py'
       - 'rust_pricing.pyi'
@@ -33,6 +34,8 @@ jobs:
         run: |
           python scripts/check_rough_volatility_reference.py
           python scripts/check_rough_volatility_prices.py
+          python scripts/check_rough_volatility_refinement.py
+          python -m unittest discover -s scripts -p 'test_rough_volatility_refinement.py'
   rust:
     strategy:
       fail-fast: false
@@ -49,6 +52,10 @@ jobs:
         run: cargo test --locked -p pricing-numerics
       - name: Check family and estimator contracts
         run: cargo test --locked -p pricing --test rough_volatility_families --test rough_volatility_pricing_reference
+      - name: Check fast time-grid coupling contracts
+        run: cargo test --locked -p pricing --test rough_volatility_refinement
+      - name: Check minimal time-grid coupling contracts
+        run: cargo test --locked --no-default-features -p pricing --test rough_volatility_refinement
       - name: Check minimal family and estimator contracts
         run: cargo test --locked --no-default-features -p pricing --test rough_volatility_families --test rough_volatility_pricing_reference
       - name: Check release contracts and nondegenerate finite-grid prices
@@ -65,5 +72,34 @@ jobs:
         with:
           name: rough-volatility-${{ matrix.os }}
           path: rough-volatility.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  refinement:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check coupled finite-grid refinement in release
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test rough_volatility_refinement -- --include-ignored --nocapture
+          } 2>&1 | tee rough-volatility-refinement.log
+      - name: Retain refinement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rough-volatility-refinement-${{ matrix.os }}
+          path: rough-volatility-refinement.log
           retention-days: 14
           if-no-files-found: warn
