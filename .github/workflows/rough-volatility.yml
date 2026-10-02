@@ -1,0 +1,65 @@
+name: Rough volatility
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'fixtures/rough-volatility/**'
+      - 'scripts/check_rough_volatility_*.py'
+      - 'tests/python/test_rough_volatility_families.py'
+      - 'examples/python/rough_volatility_families.py'
+      - 'rust_pricing.pyi'
+      - '.github/workflows/rough-volatility.yml'
+permissions:
+  contents: read
+concurrency:
+  group: rough-volatility-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  references:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install independent numerical-reference dependencies
+        run: python -m pip install 'numpy>=2,<3' 'scipy>=1.14,<2'
+      - name: Check retained references without regeneration
+        run: |
+          python scripts/check_rough_volatility_reference.py
+          python scripts/check_rough_volatility_prices.py
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check numerical utilities
+        run: cargo test --locked -p pricing-numerics
+      - name: Check family and estimator contracts
+        run: cargo test --locked -p pricing --test rough_volatility_families --test rough_volatility_pricing_reference
+      - name: Check minimal family and estimator contracts
+        run: cargo test --locked --no-default-features -p pricing --test rough_volatility_families --test rough_volatility_pricing_reference
+      - name: Check release contracts and nondegenerate finite-grid prices
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test rough_volatility_families --test rough_volatility_pricing_reference -- --include-ignored --nocapture
+          } 2>&1 | tee rough-volatility.log
+      - name: Retain numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rough-volatility-${{ matrix.os }}
+          path: rough-volatility.log
+          retention-days: 14
+          if-no-files-found: warn
