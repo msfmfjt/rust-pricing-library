@@ -56,6 +56,11 @@ diagnostic and calculation-specification pages.
 | Dividend IV coordinates | [Escrowed calibration coordinate](../models/hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration) | [Hull–White LSV](../../examples/python/hull_white_lsv.py) |
 | Local-variance risk and VegaKT | [Local Volatility calculation specifications](../models/local-vol-vegakt-calculation-specifications.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
 
+The experimental [six-family rough-volatility adapter](../models/rough-volatility-families.md)
+has separate price-only Rust and Python entry points. Its source and tests are
+provided, but executable validation is pending; it is not a production support
+claim.
+
 Greeks, smoothing policies and supported products depend on the selected plan.
 Use the corresponding calculation specification before combining product and model
 features. Experimental model adapters have separate entry points and limitations.

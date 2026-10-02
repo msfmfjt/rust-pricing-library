@@ -50,3 +50,16 @@ by the paper.
 - [Longstaff and Schwartz, *Valuing American Options by Simulation: A Simple Least-Squares Approach*](https://doi.org/10.1093/rfs/14.1.113), *Review of Financial Studies* 14 (2001), 113–147. Least-squares Monte Carlo (LSM) for early exercise.
 - [Giles and Glasserman, *Smoking Adjoints: Fast Evaluation of Greeks in Monte Carlo Calculations*](https://people.maths.ox.ac.uk/gilesm/files/NA-05-15.pdf), *Risk* 19 (2006), 88–92. Reverse/adjoint pathwise differentiation for Monte Carlo Greeks.
 - Golub and Van Loan, *Matrix Computations*, 4th ed., Johns Hopkins University Press (2013), chapters 5.2–5.4. Householder QR and QR with column pivoting used for the LSM regression.
+
+## Additional experimental rough-volatility families
+
+The [six-family model contract](models/rough-volatility-families.md) specifies
+which subfamily and numerical method is actually implemented, and what remains
+unverified. Model papers do not validate this implementation.
+
+- El Euch, O. and Rosenbaum, M. (2016), [The characteristic function of rough Heston models](https://arxiv.org/abs/1609.02108).
+- Abi Jaber, E. (2018/2019), [Lifting the Heston model](https://arxiv.org/abs/1810.04868).
+- Gatheral, J., Jusselin, P. and Rosenbaum, M. (2020), [The quadratic rough Heston model and the joint S&P 500/VIX smile calibration problem](https://arxiv.org/abs/2001.01789).
+- Bourgey, F., De Marco, S. and Gobet, E. (2022), [Weak approximations and VIX option price expansions in forward variance curve models](https://arxiv.org/abs/2202.10413).
+- Fukasawa, M. and Gatheral, J. (2021), [A rough SABR formula](https://arxiv.org/abs/2105.05359).
+- Gatheral, J., Jaisson, T. and Rosenbaum, M. (2014), [Volatility is rough](https://arxiv.org/abs/1410.3394).

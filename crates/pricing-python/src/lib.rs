@@ -11,6 +11,7 @@ mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
 mod multi_asset_rough;
+mod rough_volatility;
 mod stochastic_dividend_hull_white;
 mod stochastic_dividends;
 mod stochastic_volatility;
@@ -1270,6 +1271,12 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
         )?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLsvCorrelationRisk>()?;
     module.add_class::<stochastic_volatility::PyStochasticVolatilityPlan>()?;
+    module.add_class::<rough_volatility::PyForwardVarianceCurve>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityModel>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityPath>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityPathPlan>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityPlan>()?;
+
     module.add_class::<hull_white::PyHullWhitePrice>()?;
     module.add_class::<hull_white::PyHullWhiteAadRisk>()?;
     module.add_class::<PyWidthLadderDifference>()?;

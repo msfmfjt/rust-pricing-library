@@ -15,6 +15,8 @@ Published sources are collected in the [bibliography](../../references.md).
 | Bergomi volatility factors | [Two-factor factor contracts](../bergomi-two-factor-lsv.md) | [Two-factor Bergomi](../../../examples/python/multi_asset_bergomi_two_factor.py) |
 | Rough Bergomi volatility | [Rough Bergomi contracts](../rough-bergomi.md) | [Rough Bergomi](../../../examples/python/rough_bergomi.py) |
 
+| Additional rough families (experimental; price-only) | [Heston, Lifted, Quadratic, Mixed, SABR and RFSV](../rough-volatility-families.md) | [Six-model example](../../../examples/python/rough_volatility_families.py) |
+
 ## Rates and carry
 
 | Component | Detailed reference | Example |
