@@ -1,4 +1,5 @@
 name: Rough volatility
+
 on:
   workflow_dispatch: {}
   pull_request:
@@ -10,11 +11,14 @@ on:
       - 'examples/python/rough_volatility_families.py'
       - 'rust_pricing.pyi'
       - '.github/workflows/rough-volatility.yml'
+
 permissions:
   contents: read
+
 concurrency:
   group: rough-volatility-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   references:
     runs-on: ubuntu-24.04
