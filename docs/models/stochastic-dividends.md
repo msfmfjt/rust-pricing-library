@@ -771,6 +771,11 @@ provides independent price and analytic Spot Delta when eta and dividend mean
 reversion are zero and the target variance is flat. Gaussian integration
 retains both moving monitoring boundaries. This validates a limiting case;
 the public API still rejects unsmoothed Barrier Spot risk.
+The [conditional hard Barrier reference](../../design/validation/stochastic-dividend-conditional-barrier-reference.md)
+adds independent hard price and analytic Spot Delta for nonzero rough vol-of-vol
+and dividend mean reversion on a two-step grid with a frozen nonflat leverage
+surface. It validates that discrete law, not continuous-time accuracy or
+general monitoring schedules.
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

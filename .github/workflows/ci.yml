@@ -82,7 +82,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check fixed-grid Barrier smoothing widths
         run: cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-barrier-smoothing.log
-      - name: Check independent hard Barrier reference
+      - name: Check exact-limit and conditional hard Barrier references
         run: cargo test --locked --release -p pricing --test stochastic_dividend_barrier_reference -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-hard-barrier-reference.log
       - name: Retain Barrier smoothing evidence
         if: always()

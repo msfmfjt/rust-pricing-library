@@ -50,6 +50,10 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [conditional hard Barrier reference](validation/stochastic-dividend-conditional-barrier-reference.md)
+adds independent price and Spot Delta for two-step rough LSV with nonzero
+vol-of-vol, dividend mean reversion, and a nonflat frozen leverage surface.
+
 The [hard two-date Barrier reference](validation/stochastic-dividend-hard-barrier-reference.md)
 checks stochastic-dividend price and Spot Delta in an exact lognormal limit
 using independent Gaussian integration, including both monitoring boundaries.

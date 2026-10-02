@@ -1,4 +1,5 @@
-//! Independent hard two-date Barrier reference in the exact lognormal limit.
+//! Independent hard two-date Barrier references: exact lognormal limit and
+//! nonzero-eta/kappa two-step rough LSV with a frozen calibrated surface.
 //! The reference Delta includes moving monitoring boundaries. Smoothed public
 //! Deltas are compared to it; unsupported hard pathwise risk stays rejected.
 
@@ -16,6 +17,18 @@ fn reference() -> Value {
 }
 
 fn plan(h: f64, steps: usize, seed: u64, width: Option<f64>, points: u64, scrambles: u32) -> Plan {
+    configured_plan([h, 0.0, 0.0], steps, seed, width, points, scrambles)
+}
+
+fn configured_plan(
+    model: [f64; 3],
+    steps: usize,
+    seed: u64,
+    width: Option<f64>,
+    points: u64,
+    scrambles: u32,
+) -> Plan {
+    let [h, eta, kappa] = model;
     let r = reference();
     let f = |key: &str| r[key].as_f64().unwrap();
     let mut v: Value = serde_json::from_str(include_str!(
@@ -42,6 +55,10 @@ fn plan(h: f64, steps: usize, seed: u64, width: Option<f64>, points: u64, scramb
         "time_nodes":[0.0, f("fixing_time"), f("expiry_time")],
         "log_forward_moneyness_nodes":[-0.5, 0.0, 0.5], "shape":[3,3],
         "values":vec![f("residual_variance");9], "floor":1e-8, "cap":4.0}});
+    if eta != 0.0 {
+        v["model"]["local_variance_grid"]["values"] =
+            conditional_reference()["target_variances"].clone();
+    }
     v["engine"] = json!({"type":"randomized_quasi_monte_carlo",
         "points_per_scramble":points, "scramble_count":scrambles, "master_scramble_seed":seed,
         "variance_reduction":{"antithetic":true,"brownian_bridge":true}});
@@ -53,13 +70,13 @@ fn plan(h: f64, steps: usize, seed: u64, width: Option<f64>, points: u64, scramb
     let plan = Plan::compile_rough_bergomi_lsv(
         &request,
         BuehlerDividendModel::new(
-            0.0,
+            kappa,
             0.6,
             f("dividend_volatility"),
             f("equity_dividend_correlation"),
         )
         .unwrap(),
-        RoughBergomi::new(h, 0.0, -0.4).unwrap(),
+        RoughBergomi::new(h, eta, -0.4).unwrap(),
         0.15,
         LsvParticleConfig::new(64, 42, 0.35, 5.0, false).unwrap(),
         f("expiry_time") / steps as f64,
@@ -69,12 +86,14 @@ fn plan(h: f64, steps: usize, seed: u64, width: Option<f64>, points: u64, scramb
     assert_eq!(plan.time_nodes().len(), steps + 1);
     assert_eq!(plan.time_nodes()[steps / 2], f("fixing_time"));
     assert_eq!(plan.time_nodes()[steps], f("expiry_time"));
-    assert!(
-        plan.lsv_squared_leverage()
-            .unwrap()
-            .iter()
-            .all(|x| (*x - f("residual_variance")).abs() < 2e-14)
-    );
+    if eta == 0.0 {
+        assert!(
+            plan.lsv_squared_leverage()
+                .unwrap()
+                .iter()
+                .all(|x| (*x - f("residual_variance")).abs() < 2e-14)
+        );
+    }
     plan
 }
 
@@ -138,6 +157,106 @@ fn rough_lsv_barrier_matches_independent_hard_reference_in_exact_limit() {
                     );
                     if (width.is_none() || width == Some(0.5)) && !(bound < 0.01 && se < 0.002) {
                         failures.push(format!("H={h}, steps={steps}, seed={seed}, width={width:?}, {quantity}: difference={}, SE={se}, bound={bound}", value - expected));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+fn conditional_reference() -> Value {
+    serde_json::from_str(include_str!(
+        "../../../fixtures/stochastic-dividends/rough-conditional-barrier-reference.json"
+    ))
+    .unwrap()
+}
+
+fn conditional_plan(
+    case: &Value,
+    seed: u64,
+    width: Option<f64>,
+    points: u64,
+    scrambles: u32,
+) -> Plan {
+    assert_eq!(case["equity_linkage"], json!(0.6));
+    assert_eq!(case["equity_volatility_correlation"], json!(-0.4));
+    assert_eq!(case["dividend_volatility_correlation"], json!(0.15));
+    let model = ["hurst", "eta", "kappa"].map(|key| case[key].as_f64().unwrap());
+    let plan = configured_plan(model, 2, seed, width, points, scrambles);
+    let retained = case["squared_leverage"].as_array().unwrap();
+    assert_eq!(plan.lsv_squared_leverage().unwrap().len(), retained.len());
+    for (&actual, expected) in plan.lsv_squared_leverage().unwrap().iter().zip(retained) {
+        assert!((actual - expected.as_f64().unwrap()).abs() < 2e-13);
+    }
+    assert_eq!(
+        json!(plan.lsv_log_moneyness_nodes().unwrap()),
+        case["log_nodes"]
+    );
+    plan
+}
+
+#[test]
+fn conditional_barrier_calibration_inputs_and_risk_contract() {
+    let reference = conditional_reference();
+    assert_eq!(
+        reference["market_contract_fixture"],
+        json!("rough-barrier-reference.json")
+    );
+    assert_eq!(
+        reference["calibration"],
+        json!({"particles":64, "seed":42,
+        "bandwidth":0.35, "minimum_effective_sample_size":5.0})
+    );
+    for case in reference["cases"].as_array().unwrap() {
+        let hard = conditional_plan(case, 193, None, 64, 4);
+        let price = hard.evaluate().unwrap();
+        assert!(hard.evaluate_lsv_spot_risk().is_err());
+        assert_eq!(hard.evaluate().unwrap(), price);
+        let smooth = conditional_plan(case, 193, Some(0.5), 64, 4);
+        assert_eq!(smooth.lsv_squared_leverage(), hard.lsv_squared_leverage());
+        assert!(smooth.evaluate_lsv_spot_risk().unwrap().delta > 0.0);
+    }
+}
+
+#[test]
+#[ignore = "release-mode nonzero-eta/kappa conditional hard Barrier reference"]
+fn rough_lsv_barrier_matches_conditional_hard_reference() {
+    let reference = conditional_reference();
+    let tolerance = reference["quadrature_agreement_tolerance"]
+        .as_f64()
+        .unwrap();
+    let mut failures = Vec::new();
+    for case in reference["cases"].as_array().unwrap() {
+        for seed in [193, 877] {
+            for width in [None, Some(1.0), Some(0.5)] {
+                let plan = conditional_plan(case, seed, width, 65536, 32);
+                let (estimate, risk) = if width.is_some() {
+                    let risk = plan.evaluate_lsv_spot_risk().unwrap();
+                    (risk.price, Some((risk.delta, risk.delta_standard_error)))
+                } else {
+                    (plan.evaluate().unwrap(), None)
+                };
+                assert_eq!(estimate.independent_sampling_units, 32);
+                assert_eq!(estimate.evaluated_paths, 4_194_304);
+                for (quantity, value, se) in
+                    std::iter::once(("price", estimate.value, estimate.standard_error))
+                        .chain(risk.map(|(value, se)| ("delta", value, se)))
+                {
+                    let expected = case[quantity].as_f64().unwrap();
+                    let bound = (value - expected).abs() + 4.0 * se + tolerance;
+                    assert!(value.is_finite() && se.is_finite() && se > 0.0);
+                    println!(
+                        "{}",
+                        json!({"scope":"two_step_frozen_surface_nonzero_eta_kappa_hard_reference",
+                        "hurst":case["hurst"], "eta":case["eta"], "kappa":case["kappa"],
+                        "steps":2, "seed":seed, "smoothing_half_width":width,
+                        "quantity":quantity, "value":value, "scramble_se":se, "hard_reference":expected,
+                        "abs_difference_plus_4se":bound, "quadrature_agreement_tolerance":tolerance,
+                        "points_per_scramble":65536, "scrambles":32,"antithetic":true})
+                    );
+                    if (width.is_none() || width == Some(0.5)) && !(bound < 0.01 && se < 0.002) {
+                        failures.push(format!("H={}, seed={seed}, width={width:?}, {quantity}: bound={bound}, SE={se}",case["hurst"]));
                     }
                 }
             }

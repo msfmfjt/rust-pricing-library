@@ -13,6 +13,10 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'tests/python/rough_dividend_conditional_barrier.py',
+    'tests/python/test_rough_dividend_conditional_barrier.py',
+    'fixtures/stochastic-dividends/rough-conditional-barrier-reference.json',
+    'design/validation/stochastic-dividend-conditional-barrier-reference.md',
     'crates/pricing/tests/stochastic_dividend_barrier_reference.rs',
     'tests/python/rough_dividend_barrier_reference.py',
     'tests/python/test_rough_dividend_barrier_reference.py',

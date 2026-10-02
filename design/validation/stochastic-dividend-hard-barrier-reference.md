@@ -144,3 +144,7 @@ This adds validation, not hard-Barrier risk support. Public unsmoothed
 pathwise Delta remains rejected. Agreement is limited to this two-date,
 zero-eta/zero-kappa, flat-target case; it does not bound hard Delta bias for
 nonzero rough vol-of-vol, other monitoring schedules or continuous barriers.
+
+The separate [conditional reference](stochastic-dividend-conditional-barrier-reference.md)
+extends the check to nonzero eta/kappa and a nonflat frozen surface on a
+two-step grid. That discrete-law check does not assert continuous-time accuracy.
