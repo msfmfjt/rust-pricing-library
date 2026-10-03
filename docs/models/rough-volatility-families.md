@@ -238,6 +238,11 @@ covariance and floating-point factorization. Asset evolution remains discretized
 
 ## Sampling, complexity and reproducibility
 
+Rough Heston and Quadratic rough Heston reuse each left-node diffusion
+coefficient within a path. This [performance-only cache](../../design/validation/rough-diffusion-cache.md)
+preserves the hybrid schemes and summation order; it does not remove time-grid
+or truncation bias.
+
 The new plans reuse Philox, scrambled Sobol, antithetic pairs and deterministic
 block reduction. Their coordinate layout is separate from existing engines.
 Only actual Brownian blocks receive Brownian-bridge transformation; hybrid

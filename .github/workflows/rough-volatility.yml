@@ -8,6 +8,7 @@ on:
       - 'fixtures/rough-volatility/**'
       - 'scripts/check_rough_volatility_*.py'
       - 'scripts/test_rough_volatility_refinement.py'
+      - 'scripts/*rough_diffusion_benchmark*.py'
       - 'tests/python/test_rough_volatility_families.py'
       - 'examples/python/rough_volatility_families.py'
       - 'rust_pricing.pyi'
@@ -36,6 +37,7 @@ jobs:
           python scripts/check_rough_volatility_prices.py
           python scripts/check_rough_volatility_refinement.py
           python -m unittest discover -s scripts -p 'test_rough_volatility_refinement.py'
+          python -m unittest discover -s scripts -p 'test_rough_diffusion_benchmark.py'
   rust:
     strategy:
       fail-fast: false
@@ -50,6 +52,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check numerical utilities
         run: cargo test --locked -p pricing-numerics
+      - name: Check cached diffusion arithmetic against original recurrences
+        run: |
+          cargo test --locked -p pricing --lib diffusion_cache
+          cargo test --locked --no-default-features -p pricing --lib diffusion_cache
+          cargo test --locked --release -p pricing --lib diffusion_cache
       - name: Check family and estimator contracts
         run: cargo test --locked -p pricing --test rough_volatility_families --test rough_volatility_pricing_reference
       - name: Check fast time-grid coupling contracts

@@ -50,6 +50,9 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [rough diffusion-cache record](validation/rough-diffusion-cache.md) isolates
+arithmetic-preserving path acceleration from numerical-scheme changes.
+
 The [Gamma validation protocol](validation/stochastic-dividend-gamma.md) covers
 common-noise Delta bumps and their uncertainty.
 

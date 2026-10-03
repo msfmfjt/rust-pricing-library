@@ -13,6 +13,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/processes/rough_volatility/cache_tests.rs',
+    'crates/pricing/examples/benchmark_rough_diffusion_cache.rs',
+    'scripts/compare_rough_diffusion_benchmarks.py',
+    'scripts/test_rough_diffusion_benchmark.py',
+    'design/validation/rough-diffusion-cache.md',
+
     '.github/workflows/heston-iv-holdout.yml',
     'crates/pricing/tests/heston_iv_holdout.rs',
     'tests/python/test_heston_iv_holdout.py',
