@@ -255,6 +255,10 @@ class StochasticDividendPlan:
     Constructors take price-only requests. Rough plans support basic/H-eta AAD,
     paired Delta-bump Gamma, and raw correlation AAD in the instantaneous SPD
     interior (pivots > 1e-10). Only the 1F/2F-specific risk method rejects rough.
+    Continuous Barriers require an absorbing historical hit or monitoring that
+    ended strictly before valuation. These resolved contracts use ordinary
+    vanilla/fixed-cash price and risk methods without smoothing. Live continuous
+    monitoring remains unsupported; the hard Barrier Spot method stays discrete.
     """
     @staticmethod
     def compile_bs(

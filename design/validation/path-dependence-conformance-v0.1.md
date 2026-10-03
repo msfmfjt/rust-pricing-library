@@ -104,10 +104,40 @@ sides of the current barrier, fixed-history risks and live-bridge replay.
 An inactive notional of 1e18 confirms that the fixed rebate is not lost by
 subtracting large vanilla amounts.
 The [stochastic-dividend binding controls](../../tests/python/test_rough_dividend_hard_barrier.py)
-continue to require an explicit error for continuous LSV contracts, even when
-the shared request accepts their historical state.
+require an explicit error for live continuous LSV monitoring. Resolved contracts
+are supported by the adapter extension below.
 
 Resolved history bypasses unused bridge-domain checks and reports zero current
 bridge/indicator counts. Future price evolution still obeys the model's domain
 checks. This extension does not implement a continuous stochastic-dividend
 LSV bridge or infer any historical hit from market data.
+
+## Resolved continuous stochastic-dividend adapters
+
+The deterministic-rate BS, 1F/2F Bergomi, rough Bergomi and residual-LSV
+factories accept continuous contracts with an absorbing historical hit, or a
+monitoring end strictly before valuation. The shared graph removes irrelevant
+future hit predicates when the continuous history is already hit. The payoff
+then reduces to vanilla or fixed cash and needs no stochastic-dividend bridge.
+Other LSV/Hull–White adapters retain their previous rejection.
+
+The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/resolved_barrier_tests.rs)
+cover all seven factories, both directions/sides/styles, past-hit and ended-unhit
+windows, delayed payment and current Spot/barrier equality. Price/Delta and
+sampling errors match an independently compiled European vanilla with its
+payment-discount adjustment, or exact fixed rebate. Rough-LSV Spot, curve and
+Local-variance sensitivities agree with full recompilation bumps at fixed
+history, including recalibration of the Local-variance target. Fixed rebates
+have zero Spot/Local-variance/cash-mean/repo risk and the analytic payment
+discount sensitivity. RQMC uses scramble errors and replays across worker counts;
+notional 1e18 and a width 200 smoother leave the fixed rebate intact.
+
+The [Python binding controls](../../tests/python/test_rough_dividend_hard_barrier.py)
+cover H=0.1/0.3, request round trips, vanilla/rebate limits, two Spot bump sizes,
+worker replay, all three residual-LSV factories, and risk-method boundaries.
+The three-OS Barrier CI job retains the resolved-contract test output.
+
+Monitoring ending on valuation with unhit history still rejects, as does future
+live monitoring or a smoothing-width ladder. The dedicated hard survival-risk
+method remains discrete. These controls certify resolved-payoff integration,
+not a continuous stochastic-dividend crossing approximation or its accuracy.

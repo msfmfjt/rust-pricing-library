@@ -130,10 +130,13 @@ endpoint or dividend-jump hit. Historical state remains in the request rather
 than a new diagnostics variant. Existing bridge formulas and their ABI/policy
 identities are unchanged, and history participates in request/plan identity.
 
-The stochastic-dividend LSV/Hull–White adapters still reject continuous Barrier
-contracts, including resolved ones; they have no continuous bridge integration.
-The dedicated rough stochastic-dividend hard Spot-risk API supports discrete
-history only. Shared-contract acceptance does not imply adapter support.
+The deterministic-rate stochastic-dividend factories accept resolved continuous
+contracts through the ordinary vanilla/fixed-cash payoff graph. Their residual-LSV
+Spot risk uses `evaluate_lsv_spot_risk()` without smoothing; fixed cash retains
+payment-discount risk. Live continuous monitoring still rejects. See
+[adapter scope](../models/stochastic-dividends.md#resolved-continuous-monitoring).
+Other LSV/Hull–White adapters still reject all continuous contracts. The dedicated
+rough stochastic-dividend hard Spot-risk API supports discrete history only.
 
 ## Errors
 

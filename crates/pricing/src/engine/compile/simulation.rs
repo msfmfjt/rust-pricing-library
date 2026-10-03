@@ -32,12 +32,34 @@ impl SimulationPlan {
         request: &PricingRequest,
         execution_policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
+        Self::compile_hybrid_base_with_resolved_barrier(request, execution_policy, false)
+    }
+
+    /// Deterministic-rate stochastic dividends can reuse the payoff graph when
+    /// continuous monitoring has already resolved. No future bridge law is
+    /// needed for an absorbing past hit or a strictly expired monitoring window.
+    pub(crate) fn compile_stochastic_dividend_base(
+        request: &PricingRequest,
+        execution_policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let resolved = matches!(request.product(), ProductSpec::Barrier(b)
+            if b.historical_hit() == Some(true)
+                || b.monitoring_dates().last().is_some_and(|d| *d < request.valuation_date()));
+        Self::compile_hybrid_base_with_resolved_barrier(request, execution_policy, resolved)
+    }
+
+    fn compile_hybrid_base_with_resolved_barrier(
+        request: &PricingRequest,
+        execution_policy: ExecutionPolicy,
+        allow_resolved_barrier: bool,
+    ) -> Result<Self, MonteCarloError> {
         if matches!(request.product(), ProductSpec::AmericanVanilla(_)) {
             return Err(MonteCarloError::UnsupportedModel {
                 model: "early exercise in LSV/Hull-White adapters",
             });
         }
         if matches!(request.product(), ProductSpec::Barrier(b) if b.monitoring() == BarrierMonitoring::Continuous)
+            && !allow_resolved_barrier
         {
             return Err(MonteCarloError::UnsupportedModel {
                 model: "continuous Barrier in LSV/Hull-White adapters",

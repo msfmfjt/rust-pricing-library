@@ -86,6 +86,8 @@ jobs:
         run: cargo test --locked --release -p pricing --test stochastic_dividend_barrier_reference -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-hard-barrier-reference.log
       - name: Check production hard Barrier Spot risk controls
         run: cargo test --locked --release -p pricing --lib lsv_hard_barrier -- --nocapture 2>&1 | tee stochastic-dividend-hard-barrier-risk.log
+      - name: Check resolved continuous stochastic-dividend contracts
+        run: cargo test --locked --release -p pricing --lib resolved_barrier_tests -- --nocapture 2>&1 | tee stochastic-dividend-resolved-barrier.log
       - name: Retain Barrier smoothing evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -95,6 +97,7 @@ jobs:
             stochastic-dividend-rough-lsv-barrier-smoothing.log
             stochastic-dividend-hard-barrier-reference.log
             stochastic-dividend-hard-barrier-risk.log
+            stochastic-dividend-resolved-barrier.log
           retention-days: 14
           if-no-files-found: warn
 

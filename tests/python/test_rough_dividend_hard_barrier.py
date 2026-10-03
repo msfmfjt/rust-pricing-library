@@ -16,12 +16,12 @@ TARGET = json.loads((Path(__file__).resolve().parents[2] /
 
 
 def request(case, *, spot=100., points=64, scrambles=4, engine=None, risk=None,
-            product=None, monitoring_dates=None, historical_hit=None):
+            product=None, monitoring_dates=None, historical_hit=None, monitoring='discrete'):
     c, base = case['contract'], BASES[case['base_case']]
     return rp.PricingRequest(
         '2026-09-04', product or rp.Product.barrier(
             1, 2, '2027-09-03', c['strike'], c['barrier'], c['notional'],
-            c['side'], c['direction'], c['style'], 'discrete',
+            c['side'], c['direction'], c['style'], monitoring,
             monitoring_dates or base['monitoring_dates'], '2027-12-04', rebate=c['rebate'], historical_hit=historical_hit),
         rp.Market.equity(2, 1, spot,
             rp.DiscountCurve(10, [0., 1.], [1., MARKET['annual_discount']]),
@@ -176,10 +176,100 @@ class HardBarrierSpotRisk(unittest.TestCase):
             payload = json.loads(request(case, monitoring_dates=dates, historical_hit=hit).to_json())
             payload['product']['monitoring']['type'] = 'continuous'
             continuous = rp.PricingRequest.from_json(json.dumps(payload))
-            # Shared BS/Local Volatility plans support continuous history;
-            # the stochastic-dividend LSV adapter still has no continuous bridge.
-            with self.assertRaisesRegex(rp.PricingError, 'continuous Barrier'):
-                compile_plan(case, continuous)
+            # Resolved history needs no bridge; live monitoring still rejects.
+            if hit:
+                compile_plan(case, continuous).evaluate_lsv_spot_risk()
+            else:
+                with self.assertRaisesRegex(rp.PricingError, 'continuous Barrier'):
+                    compile_plan(case, continuous)
+
+    def test_resolved_continuous_history_prices_delta_and_replay(self):
+        discount = MARKET['annual_discount']**MARKET['payment_time']
+        delay_discount = MARKET['annual_discount']**(MARKET['payment_time']-MARKET['expiry_time'])
+        for case in CFG['cases']:
+            c = case['contract']
+            for hit in (False, True):
+                dates = (['2026-09-03', '2026-09-04', '2027-03-05', '2027-09-03']
+                         if hit else ['2026-09-03'])
+                with self.subTest(case=case['id'], hit=hit):
+                    kwargs = dict(spot=c['barrier'], monitoring='continuous',
+                                  monitoring_dates=dates, historical_hit=hit)
+                    typed = request(case, **kwargs)
+                    restored = rp.PricingRequest.from_json(typed.to_json())
+                    self.assertEqual(typed.fingerprint, restored.fingerprint)
+                    plan = compile_plan(case, restored)
+                    risk = plan.evaluate_lsv_spot_risk()
+                    self.assertEqual(risk.price.value, plan.evaluate().value)
+                    self.assertEqual(risk.price.standard_error, plan.evaluate().standard_error)
+                    self.assertEqual(risk.price.plan_fingerprint, plan.plan_fingerprint)
+                    self.assertEqual(risk.price.independent_sampling_units, 4)
+                    self.assertEqual(risk.price.evaluated_paths, 512)
+                    if hit == (c['style'] == 'knock_in'):
+                        vanilla = rp.Product.european_vanilla(1, 2, '2027-09-03',
+                            c['strike'], c['notional'], c['side'])
+                        control = compile_plan(case, request(case, spot=c['barrier'], product=vanilla))
+                        self.assertEqual(plan.time_nodes, control.time_nodes)
+                        expected = control.evaluate_lsv_spot_risk()
+                        for actual, target in [(risk.price.value, expected.price.value),
+                                               (risk.price.standard_error, expected.price.standard_error),
+                                               (risk.delta, expected.delta),
+                                               (risk.delta_standard_error, expected.delta_standard_error)]:
+                            self.assertAlmostEqual(actual, delay_discount*target, delta=5e-13)
+                    else:
+                        self.assertAlmostEqual(risk.price.value, c['rebate']*discount, delta=2e-14)
+                        self.assertEqual((risk.price.standard_error, risk.delta, risk.delta_standard_error), (0., 0., 0.))
+                    for bump in (1e-3, 5e-4):
+                        up = compile_plan(case, request(case, **(kwargs | dict(spot=c['barrier']+bump))))
+                        down = compile_plan(case, request(case, **(kwargs | dict(spot=c['barrier']-bump))))
+                        self.assertAlmostEqual(risk.delta,
+                            (up.evaluate().value-down.evaluate().value)/(2*bump), delta=2e-7)
+                    replay = compile_plan(case, restored, worker_threads=3).evaluate_lsv_spot_risk()
+                    self.assertEqual(snapshot(risk, with_fingerprint=False), snapshot(replay, with_fingerprint=False))
+                    with self.assertRaisesRegex(rp.PricingError, 'discrete'):
+                        plan.evaluate_lsv_hard_barrier_spot_risk()
+
+    def test_continuous_monitoring_boundary_for_all_residual_lsv_factories(self):
+        case = CFG['cases'][0]
+        for variant in ({}, {'two_factor': True}, {'rough': True}):
+            def compile_request(req):
+                return compile_lsv(req, **variant, particle_count=64, maximum_step=MARKET['expiry_time']/8,
+                                   worker_threads=1, retain_reverse_trace=True)
+            for end in ('2026-09-04', '2027-09-03'):
+                with self.assertRaisesRegex(rp.PricingError, 'continuous Barrier'):
+                    compile_request(request(case, monitoring='continuous',
+                        monitoring_dates=['2026-09-03', end], historical_hit=False))
+            for hit in (False, True):
+                req = request(case, monitoring='continuous', monitoring_dates=['2026-09-03'], historical_hit=hit)
+                plan = compile_request(req)
+                risk = plan.evaluate_lsv_spot_risk()
+                self.assertEqual(plan.evaluate().value, risk.price.value)
+                market = plan.evaluate_lsv_market_risk()
+                self.assertEqual(risk.delta, market.delta)
+                # Every residual-LSV factory uses the same resolved payoff seeds.
+                variance = plan.evaluate_local_variance_risk()
+                self.assertEqual(risk.price.value, variance.price.value)
+
+    def test_resolved_continuous_rebate_gamma_and_model_risks_are_zero(self):
+        case = CFG['cases'][0]
+        req = request(case, monitoring='continuous', monitoring_dates=['2026-09-03'],
+                      historical_hit=case['contract']['style'] != 'knock_in')
+        plan = compile_plan(case, req, retain_reverse_trace=True)
+        price = plan.evaluate()
+        gamma = plan.evaluate_lsv_gamma(gamma_relative_bump=.01)
+        self.assertEqual((gamma.delta, gamma.gamma, gamma.standard_error), (0., 0., 0.))
+        self.assertEqual(gamma.gamma_estimates, [0., 0., 0.])
+        self.assertEqual(gamma.price.value, price.value)
+        for risk in (
+            plan.evaluate_lsv_rough_bergomi_parameter_risk(hurst_bump=.001, vol_of_vol_bump=.001),
+            plan.evaluate_lsv_rough_bergomi_correlation_risk(
+                equity_volatility_correlation_bump=.001, dividend_volatility_correlation_bump=.001),
+            plan.evaluate_lsv_dividend_model_risk(dividend_mean_reversion_bump=.001,
+                equity_linkage_bump=.001, dividend_volatility_bump=.001,
+                equity_dividend_correlation_bump=.001),
+        ):
+            self.assertEqual(risk.price.value, price.value)
+            self.assertTrue(all(value == 0. for value in risk.derivatives))
+            self.assertTrue(all(value == 0. for value in risk.standard_errors))
 
     def test_historical_state_is_fixed_under_bumps_and_worker_replay(self):
         discount = MARKET['annual_discount']**MARKET['payment_time']

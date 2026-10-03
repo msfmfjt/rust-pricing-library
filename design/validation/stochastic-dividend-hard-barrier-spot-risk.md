@@ -73,8 +73,10 @@ valuation; supplying it without such a date is rejected. It does not include
 today's observation and is never inferred from current Spot. The shared
 BS/Local Volatility continuous bridge now accepts historical state under the
 [continuous history contract](../../docs/library/path-dependence-diagnostics.md#historical-barrier-state).
-The stochastic-dividend LSV adapter still rejects all continuous Barrier
-contracts; this dedicated risk method remains discrete.
+The deterministic-rate stochastic-dividend LSV adapter also supports
+[resolved continuous history](../../docs/models/stochastic-dividends.md#resolved-continuous-monitoring)
+through its ordinary Spot-risk method. Live continuous monitoring still rejects;
+this dedicated risk method remains discrete.
 
 The shared payoff starts from this fixed state and excludes past observation
 inputs. The state stays fixed under all market bumps. With historical `true`,
@@ -207,7 +209,7 @@ Fifteen fast hard-risk unit tests cover:
 Additional shared graph and wire tests check history initialization, hard and
 smoothed payoff parity, no past observation requests, optional-field omission,
 v1/v2/v3 parsing, fingerprint distinction and missing/unexpected history validation. Shared
-continuous-history tests preserve the LSV adapter rejection. Hard-risk tests freeze history across two Spot bump sizes,
+continuous-history tests preserve rejection of live LSV monitoring. Hard-risk tests freeze history across two Spot bump sizes,
 including a currently monitored equality when already hit, and compare
 resolved contracts with vanilla/fixed cash.
 

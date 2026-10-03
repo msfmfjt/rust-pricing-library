@@ -292,6 +292,13 @@ impl BarrierSpec {
         for date in self
             .monitoring_dates()
             .iter()
+            // A continuous past hit is absorbing. Do not retain today's or
+            // future observations in a graph used by a resolved hybrid adapter.
+            // In particular, the continuous runtime omits time-zero observations.
+            .filter(|_| {
+                self.monitoring() != crate::product::BarrierMonitoring::Continuous
+                    || self.historical_hit() != Some(true)
+            })
             .filter(|date| valuation_date.is_none_or(|valuation| **date >= valuation))
         {
             let spot = builder.push(SourceOpcode::TerminalSpot {

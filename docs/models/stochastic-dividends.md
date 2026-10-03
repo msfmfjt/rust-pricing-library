@@ -14,7 +14,9 @@ Existing entry points retain deterministic cash semantics and numerical results.
 
 The component uses the existing single-asset contractual payoff graphs, including
 European calls/puts, digital, Asian, discrete lookback and discrete barriers.
-American exercise and continuous barriers are rejected by the shared compiler.
+American exercise and live continuous barriers are rejected. Continuous contracts
+whose monitoring is resolved by historical state are supported at deterministic
+rates; see [resolved continuous monitoring](#resolved-continuous-monitoring).
 Greeks in the request are rejected rather than silently computed under fixed
 cash. First-order risk is requested explicitly through `evaluate_aad`; see below. Public price accuracy tests in this
 change cover European calls and the discrete-barrier dividend jump; the new
@@ -209,7 +211,7 @@ are finite-algorithm checks, not a continuous-time convergence certificate.
 The plain Bergomi factories do not themselves perform calibration. Hull-White,
 residual-equity LSV and rough Bergomi use the dedicated entry points described
 below. Multi-asset stochastic dividends, dividend-derivative calibration,
-American exercise and continuous barriers remain unsupported here.
+American exercise and live continuous barriers remain unsupported here.
 
 ## Residual-equity LSV coupling
 
@@ -369,10 +371,40 @@ hit history also makes today's equality harmless. Otherwise, at monitored
 initial Spot equal to the barrier the risk method rejects the undefined Delta;
 the ordinary price API remains available. Continuous historical monitoring
 is supported by the [shared BS/Local Volatility plans](../library/path-dependence-diagnostics.md#historical-barrier-state),
-but stochastic-dividend LSV still rejects continuous Barrier contracts.
-The original `evaluate_lsv_spot_risk()` still requires smoothing for Barrier
+Resolved continuous contracts are also supported by the deterministic-rate
+stochastic-dividend factories as described below.
+The original `evaluate_lsv_spot_risk()` still requires smoothing for discrete Barrier
 payoffs; the new method does not add other hard-payoff Greeks or request-level
 Delta dispatch.
+
+### Resolved continuous monitoring
+
+All deterministic-rate `StochasticDividendPlan` factories (BS, 1F/2F Bergomi,
+rough Bergomi and the three residual-LSV variants) accept continuous Barriers
+when `historical_hit=True`, or when the final monitoring date is strictly before
+valuation. The historical state is required whenever any declared monitoring
+date is past and summarizes the entire past continuous interval.
+
+For a past hit, knock-in pays the terminal vanilla payoff and knock-out pays
+the fixed rebate. If monitoring ended unhit, these branches are reversed.
+Both use the contractual payment date; the rebate is independent of notional.
+Today's Spot is not observed again, even at barrier equality. History remains
+fixed under all market and model bumps. Unused future hit predicates are omitted
+from the compiled payoff graph.
+
+Use `evaluate()` for price, `evaluate_lsv_spot_risk()` for residual-LSV Delta,
+and the existing dedicated smooth-payoff risk methods for other sensitivities.
+No indicator smoothing is required for this resolved payoff. Fixed cash has
+zero Spot and Local-variance risk but retains payment-discount curve risk.
+Model validation and reverse-trace requirements remain in force. The dedicated
+`evaluate_lsv_hard_barrier_spot_risk()` remains a discrete-monitoring API.
+
+Unhit history with monitoring ending today or later still rejects; no continuous
+stochastic-dividend bridge is implemented. Other LSV/Hull–White adapters retain
+their continuous-contract rejection. See the
+[validation controls](../../design/validation/path-dependence-conformance-v0.1.md#resolved-continuous-stochastic-dividend-adapters).
+
+### Residual-LSV Gamma and other sensitivities
 
 Residual-LSV Spot Gamma is available through `evaluate_lsv_gamma()`.
 It uses the same half/base/double Spot-bump ladder as the non-LSV Gamma API, but
@@ -560,7 +592,8 @@ at each curve pillar, holding the other curve fixed. The legacy market field
 Discontinuous payoffs require explicit payoff smoothing before AAD. The risk is
 then of the smoothed price, with the smoothing width fixed. Constructors retain
 their price-only request contract; request risk flags are not silently ignored.
-Existing American and continuous-barrier restrictions remain.
+Existing American and live continuous-barrier restrictions remain. Resolved
+continuous history uses the ordinary vanilla/fixed-cash payoff adjoints.
 
 MC standard errors use independent antithetic pair averages when enabled; RQMC
 uses scramble averages, never individual Sobol points as independent samples.
@@ -824,7 +857,7 @@ price/Delta for discrete up/down knock-in/out calls and puts, including
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.
-American exercise, continuous barriers, proportional cash mixtures, stochastic
+American exercise, live continuous barriers, proportional cash mixtures, stochastic
 rates and multiple assets are not added by these rough-dividend factories.
 
 History evaluation and compiled storage are O(N^2); a new explicit limit of 4096

@@ -27,6 +27,8 @@ mod lsv_rough_correlations;
 mod lsv_rough_parameters;
 #[cfg(test)]
 mod lsv_uncertainty_tests;
+#[cfg(test)]
+mod resolved_barrier_tests;
 pub use aad::StochasticDividendAadRisk;
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
@@ -147,8 +149,8 @@ impl StochasticDividendPricingPlan {
         if expiry <= 0.0 {
             return Err(invalid("positive_horizon").into());
         }
-        // This also rejects American exercise and continuously monitored barriers.
-        let base = SimulationPlan::compile_hybrid_base(request, policy)?;
+        // Continuous contracts require an already-resolved monitoring history.
+        let base = SimulationPlan::compile_stochastic_dividend_base(request, policy)?;
         let market = request.market().equity().forward();
         let mut times = base.hybrid_observation_times().to_vec();
         times.push(expiry);
@@ -231,7 +233,7 @@ impl StochasticDividendPricingPlan {
         if expiry <= 0.0 {
             return Err(invalid("positive_horizon").into());
         }
-        let base = SimulationPlan::compile_hybrid_base(request, policy)?;
+        let base = SimulationPlan::compile_stochastic_dividend_base(request, policy)?;
         let market = request.market().equity().forward();
 
         // Start from the established LSV grid so every contractual and target
