@@ -8,9 +8,9 @@ requirement for discontinuous payoffs.
 
 ## Contract and estimator
 
-Supported contracts are discrete up-and-in/out calls without rebates, with
+Supported contracts are discrete up/down knock-in/out calls and puts without rebates, with
 all monitoring dates strictly after valuation. Payment may follow expiry;
-cash means beyond expiry remain funded. Put/down barriers, rebates, historical
+cash means beyond expiry remain funded. Rebates, historical
 or initial observations, smoothing requests, non-rough models, and degenerate
 conditional equity laws are rejected. Continuous monitoring remains rejected
 by the shared compiler. Other Greeks and Python/request-level dispatch are
@@ -32,17 +32,19 @@ contractual observations and cash-event ordering are retained.
 
 Given the first two normal coordinates, next equity is lognormal. The
 symmetric dividend update makes next Y affine in next f. At each monitored
-node, requiring pre-cash stock to remain below the up barrier therefore gives
-one upper equity cutoff. Sample the truncated normal and multiply by its
+node, requiring pre-cash stock below an Up barrier gives an upper equity
+cutoff; requiring post-cash stock above a Down barrier gives a lower cutoff.
+Sample the truncated normal and multiply by its
 survival probability. Differentiate both the probability weight and the
 inverse-normal transport, carrying f/Y Spot tangents into subsequent leverage
 lookups. The final equity innovation is integrated analytically, including
 the exercise and monitoring boundaries. The terminal free-equity coordinate
 remains reserved but unused.
 
-The knock-out estimator is the survival-weighted call. Knock-in is a coupled
-vanilla call minus that knock-out. Terminal intrinsic value uses post-cash
-stock; monitoring includes pre-cash stock. The result includes contractual
+The knock-out estimator is the survival-weighted vanilla payoff. Knock-in is
+a coupled vanilla payoff minus that knock-out. Terminal intrinsic value uses
+post-cash stock; monitoring checks the pre/post-cash maximum for Up and
+minimum for Down. The result includes contractual
 notional and the discount factor to the payment date.
 
 The [independent Python reference](stochastic-dividend-survival-barrier-reference.md)
@@ -66,7 +68,7 @@ sampling unit, preserving their covariance. `evaluated_paths` counts signed
 input samples, not the two coupled legs separately.
 
 The method label is
-`buehler-rough-residual-lsv-hard-up-call-survival-spot-v1`. The returned price
+`buehler-rough-residual-lsv-hard-barrier-survival-spot-v2`. The returned price
 fingerprint hashes the compiled plan fingerprint with this method label,
 distinguishing the conditional estimator and coordinate order from ordinary
 hard-indicator valuation. Repeated calls do not mutate the plan or change
@@ -76,7 +78,7 @@ ordinary price/Spot-risk behavior. The result's uncertainty scope remains
 Normal transport uses complementary tails near probability one. It does not
 clamp quantiles or floor positive survival probabilities. Impossible survival
 (a nonpositive upper equity cutoff) contributes exactly zero knock-out value
-and tangent. An unrepresentable quantile, nonpositive/nonfinite evolution,
+and tangent. A nonpositive Down cutoff imposes no restriction. An unrepresentable quantile, nonpositive/nonfinite evolution,
 underflowed survival weight or invalid conditional scale returns an error.
 The existing normal CDF/quantile approximations are used; this is a floating-
 point estimator, not certified tail arithmetic. No fallback to smoothed or
@@ -84,22 +86,24 @@ finite-bump risk is performed.
 
 ## Validation
 
-Five fast unit tests cover:
+Six fast unit tests cover:
 
 - Per-sample analytic Delta against two full-recalibration Spot bumps, at
-  H=0.1/0.3/0.5, with and without terminal monitoring (2e-6 absolute tolerance).
+  H=0.1/0.3/0.5, with and without terminal monitoring, for all eight
+  direction/side/style combinations (2e-6 absolute tolerance).
 - MC means and standard errors against explicit sampling-unit reductions,
   both with and without antithetics, plus identical results with 1/2 workers.
-- Rejection of puts, down barriers, rebates, initial observations, Asian
+- Rejection of rebates, initial observations, Asian
   contracts and singular conditioning correlations.
 - Knock-in/out parity and notional scaling on common inputs with delayed
-  payment, including both price and Delta.
+  payment, including both price and Delta for Up/Down and Call/Put.
 - Complementary-tail transport when the ordinary CDF rounds to one, and
   errors for unrepresentable quantiles and nonfinite normals.
+- Nonpositive cutoffs: impossible Up survival versus unrestricted Down survival.
 
 A public integration control checks replay, counts, uncertainty scope,
 fingerprint separation, smoothing rejection and unchanged ordinary valuation.
-The numerical integration panel checks seven independent references at seeds
+The original Up Call numerical panel checks seven independent references at seeds
 193/877: one exact zero-eta/kappa limit, H=0.1/0.3 two-step quadrature, and four
 4/8-step survival cases with 2/4 observations. Each uses 16 scrambles of
 16,384 points with antithetics and Brownian bridge (524,288 signed samples).
@@ -126,10 +130,11 @@ cargo test --locked --release -p pricing --test stochastic_dividend_barrier_refe
 ```
 
 The full Barrier integration suite includes the earlier smoothed comparisons
-as regression controls. Its four numerical panels emit 100 JSON rows: 72
-earlier reference comparisons and 28 production hard-risk comparisons. The
+as regression controls. Its five numerical panels emit 148 JSON rows: 72
+earlier reference comparisons, 28 Up Call production comparisons and 48
+[direction/side extension comparisons](stochastic-dividend-hard-barrier-styles.md). The
 three-OS Barrier CI job retains these in the existing reference log and runs
-the five fast controls in `stochastic-dividend-hard-barrier-risk.log`.
+the six fast controls in `stochastic-dividend-hard-barrier-risk.log`.
 
 This validates the stated discrete laws and Spot convention conditional on
 finite-particle calibration. It does not certify continuous-time accuracy,

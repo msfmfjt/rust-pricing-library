@@ -28,9 +28,10 @@ fn configured_plan(
     points: u64,
     scrambles: u32,
 ) -> Plan {
-    build_plan(model, steps, seed, width, points, scrambles, None)
+    build_plan(model, steps, seed, width, points, scrambles, None, None)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_plan(
     model: [f64; 3],
     steps: usize,
@@ -39,6 +40,7 @@ fn build_plan(
     points: u64,
     scrambles: u32,
     dates: Option<&[&str]>,
+    contract: Option<&Value>,
 ) -> Plan {
     let [h, eta, kappa] = model;
     let r = reference();
@@ -65,6 +67,14 @@ fn build_plan(
         "monitoring_dates":["2027-03-05", "2027-09-03"], "payment_date":"2027-12-04"});
     if let Some(dates) = dates {
         v["product"]["monitoring_dates"] = json!(dates);
+    }
+    if let Some(contract) = contract {
+        for key in ["side", "direction", "style"] {
+            v["product"][key] = json!({"type":contract[key]});
+        }
+        for key in ["strike", "barrier"] {
+            v["product"][key] = contract[key].clone();
+        }
     }
     v["model"] = json!({"type":"local_volatility", "local_variance_grid":{
         "time_nodes":[0.0, f("fixing_time"), f("expiry_time")],
@@ -310,6 +320,7 @@ fn survival_plan(case: &Value, seed: u64, width: Option<f64>, points: u64, scram
         points,
         scrambles,
         Some(&dates),
+        None,
     );
     assert_eq!(json!(p.time_nodes()), case["times"]);
     assert_eq!(
@@ -435,6 +446,85 @@ fn production_hard_barrier_spot_matches_independent_references() {
                 if !(bound < budget && se < 0.003) {
                     failures.push(format!(
                         "{name} seed={seed} {quantity}: bound={bound}, SE={se}"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "release-mode production hard Barrier directions and option sides"]
+fn production_hard_barrier_directions_and_sides_match_independent_references() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/stochastic-dividends/rough-barrier-styles-reference.json"
+    ))
+    .unwrap();
+    let source = survival_reference();
+    let acceptance = &fixture["acceptance"];
+    let mut failures = Vec::new();
+    for case in fixture["cases"].as_array().unwrap() {
+        let base = source["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == case["base_case"])
+            .unwrap();
+        let dates = base["monitoring_dates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d.as_str().unwrap())
+            .collect::<Vec<_>>();
+        for seed in [193, 877] {
+            let plan = build_plan(
+                [base["hurst"].as_f64().unwrap(), 0.6, 0.7],
+                8,
+                seed,
+                None,
+                16384,
+                16,
+                Some(&dates),
+                Some(&case["contract"]),
+            );
+            assert_eq!(json!(plan.time_nodes()), base["times"]);
+            for (actual, expected) in plan
+                .lsv_squared_leverage()
+                .unwrap()
+                .iter()
+                .zip(base["squared_leverage"].as_array().unwrap())
+            {
+                assert!((actual - expected.as_f64().unwrap()).abs() < 2e-13);
+            }
+            let risk = plan.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+            for (quantity, value, se) in [
+                ("price", risk.price.value, risk.price.standard_error),
+                ("delta", risk.delta, risk.delta_standard_error),
+            ] {
+                let expected = case[quantity].as_f64().unwrap();
+                let reference_se = case[format!("{quantity}_se")].as_f64().unwrap();
+                let combined = se.hypot(reference_se);
+                let bound = (value - expected).abs() + 4.0 * combined;
+                let limit = acceptance[format!("{quantity}_bound")].as_f64().unwrap();
+                let se_limit = acceptance[format!("valuation_{quantity}_se")]
+                    .as_f64()
+                    .unwrap();
+                let reference_limit = acceptance[format!("reference_{quantity}_se")]
+                    .as_f64()
+                    .unwrap();
+                println!(
+                    "{}",
+                    json!({"scope":"production_hard_barrier_directions_and_sides",
+                    "case":case["id"],"seed":seed,"contract":case["contract"],"quantity":quantity,
+                    "value":value,"scramble_se":se,"reference":expected,"reference_se":reference_se,
+                    "combined_se":combined,"abs_difference_plus_4se":bound,"limit":limit,
+                    "points_per_scramble":16384,"scrambles":16,"antithetic":true,"brownian_bridge":true})
+                );
+                if !(bound < limit && se < se_limit && reference_se < reference_limit) {
+                    failures.push(format!(
+                        "{} seed={seed} {quantity}: bound={bound}, SE={se}",
+                        case["id"]
                     ));
                 }
             }

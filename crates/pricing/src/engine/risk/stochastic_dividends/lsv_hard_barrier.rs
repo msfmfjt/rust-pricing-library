@@ -1,4 +1,4 @@
-//! Sequential survival conditioning for hard discrete up-Barrier call Spot risk.
+//! Sequential survival conditioning for hard discrete Barrier Spot risk.
 use super::*;
 use crate::models::BuehlerDividendState;
 use crate::product::{BarrierDirection, BarrierMonitoring, BarrierStyle, OptionSide};
@@ -7,7 +7,7 @@ use pricing_numerics::{NeumaierSum, standard_normal_cdf as cdf, standard_normal_
 #[cfg(test)]
 mod tests;
 
-pub(super) const METHOD: &str = "buehler-rough-residual-lsv-hard-up-call-survival-spot-v1";
+pub(super) const METHOD: &str = "buehler-rough-residual-lsv-hard-barrier-survival-spot-v2";
 
 pub(super) struct HardBarrierPlan {
     pub fingerprint: Fingerprint,
@@ -25,7 +25,7 @@ pub(super) struct HardBarrierPlan {
 
 impl StochasticDividendPricingPlan {
     /// Hard-payoff physical-Spot Delta by survival conditioning. Supports rough
-    /// residual LSV, discrete up-and-in/out calls, future monitoring and no
+    /// residual LSV, discrete up/down knock-in/out calls/puts, future monitoring and no
     /// rebate or smoothing. Requires positive conditional equity variance.
     /// Leverage is re-anchored under Spot; calibration uncertainty and time-grid
     /// bias are excluded from the reported MC/RQMC standard errors.
@@ -38,7 +38,7 @@ impl StochasticDividendPricingPlan {
 
 fn unsupported() -> MonteCarloError {
     MonteCarloError::UnsupportedRiskForModel {
-        model: "hard Barrier Spot risk requires rough residual LSV, an unsmoothed discrete up call, future monitoring, no rebate, and positive conditional equity variance",
+        model: "hard Barrier Spot risk requires rough residual LSV, an unsmoothed discrete Barrier call/put, future monitoring, no rebate, and positive conditional equity variance",
     }
 }
 
@@ -53,9 +53,7 @@ impl HardBarrierPlan {
             return Err(unsupported());
         };
         let barrier = plan.barrier.as_ref().ok_or_else(unsupported)?;
-        if barrier.side() != OptionSide::Call
-            || barrier.direction() != BarrierDirection::Up
-            || barrier.monitoring() != BarrierMonitoring::Discrete
+        if barrier.monitoring() != BarrierMonitoring::Discrete
             || barrier.rebate().is_some()
             || plan.base.payoff_smoothing.is_some()
         {
@@ -209,55 +207,88 @@ impl HardBarrierPlan {
             }
             let [a, b, c] = plan.path.nodes()[i + 1].coefficients();
             let growth = self.growth[i + 1];
-            let pre_b = b + self.cash[i + 1];
-            let qpre = a + pre_b * link;
-            let upper = (barrier.barrier().get() - pre_b * u - c) / qpre;
-            let dupper = -pre_b * du / qpre - upper * growth / qpre;
+            // Cash is positive: an up hit checks the pre-cash maximum, while
+            // a down hit checks the post-cash minimum at the same observation.
+            let up = barrier.direction() == BarrierDirection::Up;
+            let monitor_b = b + if up { self.cash[i + 1] } else { 0.0 };
+            let monitor_q = a + monitor_b * link;
+            let boundary = (barrier.barrier().get() - monitor_b * u - c) / monitor_q;
+            let dboundary = -monitor_b * du / monitor_q - boundary * growth / monitor_q;
             let monitored = knockout && self.monitors[i + 1];
-            if monitored && upper <= 0.0 {
+            if monitored && up && boundary <= 0.0 {
                 return Ok([0.0, 0.0]);
             }
             if i + 2 == plan.path.times().len() {
                 let q = a + b * link;
                 let constant = b * u + c - barrier.strike().get();
                 let dconstant = b * du;
-                let lower = -constant / q;
-                let dlower = -dconstant / q - lower * growth / q;
-                if monitored && upper <= lower.max(0.0) {
+                let exercise = -constant / q;
+                let dexercise = -dconstant / q - exercise * growth / q;
+                let call = barrier.side() == OptionSide::Call;
+                let mut lower = (0.0, 0.0);
+                let mut upper = (f64::INFINITY, 0.0);
+                if call {
+                    if exercise > 0.0 {
+                        lower = (exercise, dexercise);
+                    }
+                } else {
+                    upper = (exercise, dexercise);
+                }
+                if monitored {
+                    if up && boundary < upper.0 {
+                        upper = (boundary, dboundary);
+                    }
+                    if !up && boundary > lower.0 {
+                        lower = (boundary, dboundary);
+                    }
+                }
+                if upper.0 <= lower.0 {
                     return Ok([0.0, 0.0]);
                 }
                 let mean = (mu + 0.5 * s * s).exp();
                 if !mean.is_finite() || mean <= 0.0 {
                     return Err(invalid("hard_barrier_terminal_mean").into());
                 }
-                let tail = |cut: f64, dcut: f64| {
-                    let (z, dz) = if cut > 0.0 {
+                // Call uses upper lognormal tails; Put uses lower tails to
+                // avoid subtracting a nearly complete moment for OTM Puts.
+                let tail = |(cut, dcut): (f64, f64)| {
+                    let (z, dz) = if cut > 0.0 && cut.is_finite() {
                         let z = (mu - cut.ln()) / s;
                         (z, (dmu - dcut / cut - z * ds) / s)
-                    } else {
+                    } else if cut <= 0.0 {
                         (f64::INFINITY, 0.0)
+                    } else {
+                        (f64::NEG_INFINITY, 0.0)
                     };
-                    let prob = cdf(z);
-                    let moment = mean * cdf(z + s);
-                    let dmoment = mean * ((dmu + s * ds) * cdf(z + s) + pdf(z + s) * (dz + ds));
+                    let sign = if call { 1.0 } else { -1.0 };
+                    let prob = cdf(sign * z);
+                    let moment = mean * cdf(sign * (z + s));
+                    let dmoment = mean
+                        * ((dmu + s * ds) * cdf(sign * (z + s)) + sign * pdf(z + s) * (dz + ds));
                     [
-                        q * moment + constant * prob,
-                        growth * moment + q * dmoment + dconstant * prob + constant * pdf(z) * dz,
+                        sign * (q * moment + constant * prob),
+                        sign * (growth * moment + q * dmoment + dconstant * prob)
+                            + constant * pdf(z) * dz,
                     ]
                 };
-                let mut value = tail(lower, dlower);
-                if monitored {
-                    let beyond = tail(upper, dupper);
-                    value[0] -= beyond[0];
-                    value[1] -= beyond[1];
-                }
+                let (first, second) = if call {
+                    (tail(lower), tail(upper))
+                } else {
+                    (tail(upper), tail(lower))
+                };
+                let value = [first[0] - second[0], first[1] - second[1]];
                 return Ok([weight * value[0], dweight * value[0] + weight * value[1]]);
             }
             let mut equity = z[4 * i + 3];
             let mut dequity = 0.0;
-            if monitored {
-                let cutoff = (upper.ln() - mu) / s;
-                let dcutoff = (dupper / upper - dmu - cutoff * ds) / s;
+            if monitored && boundary > 0.0 {
+                // Down survival Z>cut is upper truncation of the reflected
+                // normal -Z. A nonpositive down boundary imposes no restriction.
+                let sign = if up { 1.0 } else { -1.0 };
+                equity *= sign;
+                let raw_cutoff = (boundary.ln() - mu) / s;
+                let cutoff = sign * raw_cutoff;
+                let dcutoff = sign * (dboundary / boundary - dmu - raw_cutoff * ds) / s;
                 let probability = cdf(cutoff);
                 let dprobability = pdf(cutoff) * dcutoff;
                 let uniform = cdf(equity);
@@ -270,7 +301,8 @@ impl HardBarrierPlan {
                     inverse_standard_normal(cdf(-equity) + uniform * cdf(-cutoff)).map(|v| -v)
                 }
                 .map_err(|_| invalid("hard_barrier_survival_quantile"))?;
-                dequity = uniform * dprobability / pdf(equity);
+                dequity = sign * uniform * dprobability / pdf(equity);
+                equity *= sign;
                 dweight = dweight * probability + weight * dprobability;
                 weight *= probability;
             }

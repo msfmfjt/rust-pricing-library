@@ -52,7 +52,7 @@ documents the public API migration.
 
 The [hard Barrier Spot-risk method](validation/stochastic-dividend-hard-barrier-spot-risk.md)
 adds production survival-conditioned price and Delta for discrete rough-LSV
-up-and-in/out calls, with independent-reference and sampling-error controls.
+up/down knock-in/out calls and puts, with independent-reference and sampling-error controls.
 
 The [hard Barrier refinement panel](validation/stochastic-dividend-hard-barrier-refinement.md)
 checks price and analytic Spot Delta on 16/32/64/128-step grids while keeping

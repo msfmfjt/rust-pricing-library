@@ -149,5 +149,5 @@ Calibration uncertainty, continuous-time bias, other barrier styles, general
 nonuniform coupling and other Greeks remain outside this panel. The public
 pathwise Spot-risk method still rejects unsmoothed Barriers. The dedicated
 [hard Barrier Spot-risk method](stochastic-dividend-hard-barrier-spot-risk.md)
-subsequently adds production survival conditioning for up-and-in/out calls,
+subsequently adds production survival conditioning for up/down knock-in/out calls and puts,
 with its own contract, numerical-error policy and independent-reference checks.

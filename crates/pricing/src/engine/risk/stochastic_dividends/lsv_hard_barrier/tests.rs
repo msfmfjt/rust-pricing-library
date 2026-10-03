@@ -39,31 +39,43 @@ fn normals(steps: usize, pattern: usize) -> Vec<f64> {
 
 #[test]
 fn conditioned_tangents_match_reanchored_spot_bumps() {
-    for h in [0.1, 0.3, 0.5] {
-        for terminal_monitor in [false, true] {
-            let mut v = payload();
-            if !terminal_monitor {
-                v["product"]["monitoring_dates"] = json!(["2027-03-05"]);
-            }
-            let base = compile(&v, h, [-0.25, -0.4, 0.15]);
-            let spot = v["market"]["spot"].as_f64().unwrap();
-            for bump in [0.001, 0.0005] {
-                v["market"]["spot"] = json!(spot - bump);
-                let down = compile(&v, h, [-0.25, -0.4, 0.15]);
-                v["market"]["spot"] = json!(spot + bump);
-                let up = compile(&v, h, [-0.25, -0.4, 0.15]);
-                v["market"]["spot"] = json!(spot);
-                for pattern in 0..8 {
-                    let z = normals(base.path.times().len() - 1, pattern);
-                    let eval = |p: &StochasticDividendPricingPlan| {
-                        HardBarrierPlan::compile(p).unwrap().sample(p, &z).unwrap()
-                    };
-                    let actual = eval(&base)[1];
-                    let expected = (eval(&up)[0] - eval(&down)[0]) / (2.0 * bump);
-                    assert!(
-                        (actual - expected).abs() < 2e-6,
-                        "H={h}, terminal={terminal_monitor}, pattern={pattern}: {actual} != {expected}"
-                    );
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_in", "knock_out"] {
+                for h in [0.1, 0.3, 0.5] {
+                    for terminal_monitor in [false, true] {
+                        let mut v = payload();
+                        v["product"]["side"] = json!({"type":side});
+                        v["product"]["direction"] = json!({"type":direction});
+                        v["product"]["style"] = json!({"type":style});
+                        v["product"]["barrier"] =
+                            json!(if direction == "up" { 105.0 } else { 95.0 });
+                        v["product"]["strike"] = json!(100.0);
+                        if !terminal_monitor {
+                            v["product"]["monitoring_dates"] = json!(["2027-03-05"]);
+                        }
+                        let base = compile(&v, h, [-0.25, -0.4, 0.15]);
+                        let spot = v["market"]["spot"].as_f64().unwrap();
+                        for bump in [0.001, 0.0005] {
+                            v["market"]["spot"] = json!(spot - bump);
+                            let down = compile(&v, h, [-0.25, -0.4, 0.15]);
+                            v["market"]["spot"] = json!(spot + bump);
+                            let up = compile(&v, h, [-0.25, -0.4, 0.15]);
+                            v["market"]["spot"] = json!(spot);
+                            for pattern in 0..8 {
+                                let z = normals(base.path.times().len() - 1, pattern);
+                                let eval = |p: &StochasticDividendPricingPlan| {
+                                    HardBarrierPlan::compile(p).unwrap().sample(p, &z).unwrap()
+                                };
+                                let actual = eval(&base)[1];
+                                let expected = (eval(&up)[0] - eval(&down)[0]) / (2.0 * bump);
+                                assert!(
+                                    (actual - expected).abs() < 2e-6,
+                                    "H={h}, terminal={terminal_monitor}, pattern={pattern}: {actual} != {expected}"
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -129,13 +141,9 @@ fn pseudo_mc_errors_use_antithetic_units_and_replay_across_workers() {
 
 #[test]
 fn scope_rejects_unsupported_contracts_and_singular_conditioning() {
-    for (field, value) in [
-        ("side", json!({"type":"put"})),
-        ("direction", json!({"type":"down"})),
-        ("rebate", json!(1.0)),
-    ] {
+    {
         let mut v = payload();
-        v["product"][field] = value;
+        v["product"]["rebate"] = json!(1.0);
         assert!(
             compile(&v, 0.1, [-0.25, -0.4, 0.15])
                 .evaluate_lsv_hard_barrier_spot_risk()
@@ -166,48 +174,85 @@ fn scope_rejects_unsupported_contracts_and_singular_conditioning() {
 
 #[test]
 fn knock_in_out_parity_and_notional_include_delayed_discount() {
-    let v = payload();
-    let ki = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
-    let mut ko_value = v.clone();
-    ko_value["product"]["style"] = json!({"type":"knock_out"});
-    let ko = compile(&ko_value, 0.3, [-0.25, -0.4, 0.15]);
-    let mut scaled_value = ko_value;
-    scaled_value["product"]["notional"] = json!(3.0);
-    let scaled = compile(&scaled_value, 0.3, [-0.25, -0.4, 0.15]);
-    let context = HardBarrierPlan::compile(&ki).unwrap();
-    let out_context = HardBarrierPlan::compile(&ko).unwrap();
-    let mut vanilla_context = HardBarrierPlan::compile(&ko).unwrap();
-    vanilla_context.monitors.fill(false);
-    for pattern in 0..8 {
-        let z = normals(ki.path.times().len() - 1, pattern);
-        let a = context.sample(&ki, &z).unwrap();
-        let b = out_context.sample(&ko, &z).unwrap();
-        let c = vanilla_context.sample(&ko, &z).unwrap();
-        let d = HardBarrierPlan::compile(&scaled)
-            .unwrap()
-            .sample(&scaled, &z)
-            .unwrap();
-        for j in 0..2 {
-            assert!((a[j] + b[j] - c[j]).abs() < 2e-13);
-            assert!((3.0 * b[j] - d[j]).abs() < 2e-13);
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            let mut v = payload();
+            v["product"]["side"] = json!({"type":side});
+            v["product"]["direction"] = json!({"type":direction});
+            v["product"]["barrier"] = json!(if direction == "up" { 105.0 } else { 95.0 });
+            v["product"]["strike"] = json!(100.0);
+            let ki = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
+            let mut ko_value = v.clone();
+            ko_value["product"]["style"] = json!({"type":"knock_out"});
+            let ko = compile(&ko_value, 0.3, [-0.25, -0.4, 0.15]);
+            let mut scaled_value = ko_value;
+            scaled_value["product"]["notional"] = json!(3.0);
+            let scaled = compile(&scaled_value, 0.3, [-0.25, -0.4, 0.15]);
+            let context = HardBarrierPlan::compile(&ki).unwrap();
+            let out_context = HardBarrierPlan::compile(&ko).unwrap();
+            let mut vanilla_context = HardBarrierPlan::compile(&ko).unwrap();
+            vanilla_context.monitors.fill(false);
+            for pattern in 0..8 {
+                let z = normals(ki.path.times().len() - 1, pattern);
+                let a = context.sample(&ki, &z).unwrap();
+                let b = out_context.sample(&ko, &z).unwrap();
+                let c = vanilla_context.sample(&ko, &z).unwrap();
+                let d = HardBarrierPlan::compile(&scaled)
+                    .unwrap()
+                    .sample(&scaled, &z)
+                    .unwrap();
+                for j in 0..2 {
+                    assert!((a[j] + b[j] - c[j]).abs() < 2e-13);
+                    assert!((3.0 * b[j] - d[j]).abs() < 2e-13);
+                }
+            }
         }
     }
 }
 
 #[test]
 fn tail_transport_preserves_open_quantiles_and_rejects_numerical_failure() {
-    let mut v = payload();
-    v["product"]["barrier"] = json!(1e8);
-    let base = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
-    let context = HardBarrierPlan::compile(&base).unwrap();
-    let mut z = vec![0.0; base.path.random_dimension() as usize];
-    // The monitored free normal has Phi(z)==1 in f64. Complementary tails
-    // still yield an interior conditional quantile.
-    let monitored = context.monitors.iter().position(|m| *m).unwrap();
-    z[4 * (monitored - 1) + 3] = 10.0;
-    assert!(context.sample(&base, &z).is_ok());
-    z[4 * (monitored - 1) + 3] = -40.0;
-    assert!(context.sample(&base, &z).is_err());
-    z[0] = f64::NAN;
-    assert!(context.sample(&base, &z).is_err());
+    for (direction, barrier, sign) in [("up", 1e8, 1.0), ("down", 20.0, -1.0)] {
+        let mut v = payload();
+        v["product"]["direction"] = json!({"type":direction});
+        v["product"]["barrier"] = json!(barrier);
+        let base = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+        let context = HardBarrierPlan::compile(&base).unwrap();
+        let mut z = vec![0.0; base.path.random_dimension() as usize];
+        // The monitored free normal has Phi(sign*z)==1 in f64. Complementary tails
+        // still yield an interior conditional quantile.
+        let monitored = context.monitors.iter().position(|m| *m).unwrap();
+        z[4 * (monitored - 1) + 3] = sign * 10.0;
+        assert!(context.sample(&base, &z).is_ok());
+        z[4 * (monitored - 1) + 3] = sign * (-40.0);
+        assert!(context.sample(&base, &z).is_err());
+        z[0] = f64::NAN;
+        assert!(context.sample(&base, &z).is_err());
+    }
+}
+
+#[test]
+fn nonpositive_boundaries_mean_impossible_up_and_unrestricted_down_survival() {
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            let mut v = payload();
+            v["product"]["direction"] = json!({"type":direction});
+            v["product"]["side"] = json!({"type":side});
+            v["product"]["style"] = json!({"type":"knock_out"});
+            v["product"]["barrier"] = json!(1.0);
+            v["product"]["strike"] = json!(100.0);
+            let base = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+            let context = HardBarrierPlan::compile(&base).unwrap();
+            let mut vanilla = HardBarrierPlan::compile(&base).unwrap();
+            vanilla.monitors.fill(false);
+            let z = vec![0.0; base.path.random_dimension() as usize];
+            let result = context.sample(&base, &z).unwrap();
+            let expected = if direction == "up" {
+                [0.0, 0.0]
+            } else {
+                vanilla.sample(&base, &z).unwrap()
+            };
+            assert_eq!(result, expected);
+        }
+    }
 }

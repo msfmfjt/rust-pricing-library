@@ -116,6 +116,8 @@ jobs:
         run: python tests/python/rough_dividend_survival_reference.py 2>&1 | tee stochastic-dividend-survival-reference.log
       - name: Check fixed-surface hard Barrier refinement
         run: python tests/python/rough_dividend_hard_refinement.py 2>&1 | tee stochastic-dividend-hard-refinement.log
+      - name: Regenerate independent Barrier directions and option sides
+        run: python tests/python/rough_dividend_barrier_styles.py 2>&1 | tee stochastic-dividend-barrier-styles-reference.log
       - name: Retain independent reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -124,6 +126,7 @@ jobs:
           path: |
             stochastic-dividend-survival-reference.log
             stochastic-dividend-hard-refinement.log
+            stochastic-dividend-barrier-styles-reference.log
           retention-days: 14
           if-no-files-found: warn
 

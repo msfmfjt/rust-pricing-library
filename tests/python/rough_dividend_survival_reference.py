@@ -1,7 +1,7 @@
 """Independent hard Barrier price/Delta by sequential survival conditioning.
 
 NumPy evolves a frozen rough-LSV discrete law. Each monitored equity normal
-is sampled below its hard barrier; the changing probability and inverse-CDF
+is sampled within its survival region; the changing probability and inverse-CDF
 transport are differentiated analytically. The final equity normal is
 integrated exactly. No production path, payoff, risk or RNG calls are used.
 """
@@ -35,8 +35,12 @@ def hybrid_weights(times, h):
     return weights, residual, variance
 
 
-def path_values(case, market, normals, uniforms, *, spot=None):
+def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
+                side="call", style="knock_in"):
     """Per-path price/analytic Delta; normals have shape (paths, steps, 3)."""
+    if direction not in ('up', 'down') or side not in ('call', 'put') or style not in ('knock_in', 'knock_out'):
+        raise ValueError('invalid Barrier direction, side or style')
+    up, call = direction == 'up', side == 'call'
     spot = market['spot'] if spot is None else spot
     times = np.asarray(case['times'])
     dt = np.diff(times)
@@ -98,49 +102,67 @@ def path_values(case, market, normals, uniforms, *, spot=None):
             du = half * (half * dy + (1 - half) * alpha * df) * noise
             a, b, c, cash = coefficients(times[i + 1])
             g = growth ** times[i + 1]
-            qpre = a + (b + cash) * link
-            upper = (market['barrier'] - (b + cash) * u - c) / qpre
-            dupper = -(b + cash) * du / qpre - upper * g / qpre
+            monitored_b = b + cash if up else b
+            monitored_q = a + monitored_b * link
+            boundary = (market['barrier'] - monitored_b * u - c) / monitored_q
+            dboundary = -monitored_b * du / monitored_q - boundary * g / monitored_q
 
             if i == steps - 1:
                 q = a + b * link
                 constant, dconstant = b * u + c - market['strike'], b * du
-                lower = -constant / q
-                dlower = -dconstant / q - lower * g / q
+                exercise = -constant / q
+                dexercise = -dconstant / q - exercise * g / q
+                lo, dlo = np.zeros(n), np.zeros(n)
+                hi, dhi = np.full(n, np.inf), np.zeros(n)
+                if call:
+                    lo = np.maximum(exercise, 0.)
+                    dlo = np.where(exercise > 0, dexercise, 0.)
+                else:
+                    hi, dhi = exercise, dexercise
+                if knockout and i + 1 in monitors:
+                    if up:
+                        dhi = np.where(boundary < hi, dboundary, dhi)
+                        hi = np.minimum(hi, boundary)
+                    else:
+                        dlo = np.where(boundary > lo, dboundary, dlo)
+                        lo = np.maximum(lo, boundary)
                 mean = np.exp(mu + s * s / 2)
                 dmean = mean * (dmu + s * ds)
 
                 def tail(cut, dcut):
-                    positive = cut > 0
-                    z, dz = np.full(n, np.inf), np.zeros(n)
-                    z[positive] = (mu[positive] - np.log(cut[positive])) / s[positive]
-                    dz[positive] = (dmu[positive] - dcut[positive] / cut[positive] - z[positive] * ds[positive]) / s[positive]
-                    probability, dprobability = cdf(z), density(z) * dz
-                    moment = mean * cdf(z + s)
-                    dmoment = dmean * cdf(z + s) + mean * density(z + s) * (dz + ds)
-                    return q * moment + constant * probability, g * moment + q * dmoment + dconstant * probability + constant * dprobability
+                    finite = (cut > 0) & np.isfinite(cut)
+                    z, dz = np.where(cut <= 0, np.inf, -np.inf), np.zeros(n)
+                    z[finite] = (mu[finite] - np.log(cut[finite])) / s[finite]
+                    dz[finite] = (dmu[finite] - dcut[finite] / cut[finite] - z[finite] * ds[finite]) / s[finite]
+                    sign = 1. if call else -1.
+                    probability = cdf(sign * z)
+                    dprobability = sign * density(z) * dz
+                    moment = mean * cdf(sign * (z + s))
+                    dmoment = dmean * cdf(sign * (z + s)) + sign * mean * density(z + s) * (dz + ds)
+                    return (sign * (q * moment + constant * probability),
+                            sign * (g * moment + q * dmoment + dconstant * probability + constant * dprobability))
 
-                value, tangent = tail(lower, dlower)
-                if knockout and i + 1 in monitors:
-                    beyond, dbeyond = tail(upper, dupper)
-                    valid = upper > np.maximum(lower, 0)
-                    value, tangent = np.where(valid, value - beyond, 0), np.where(valid, tangent - dbeyond, 0)
+                first, last = (tail(lo, dlo), tail(hi, dhi)) if call else (tail(hi, dhi), tail(lo, dlo))
+                value = np.where(hi > lo, first[0] - last[0], 0.)
+                tangent = np.where(hi > lo, first[1] - last[1], 0.)
                 return np.stack((survival * value, dsurvival * value + survival * tangent), axis=1)
 
             z = inverse_cdf(uniforms[:, i])
             dz = np.zeros(n)
             if knockout and i + 1 in monitors:
-                positive = upper > 0
+                positive = boundary > 0
                 cutoff, dcutoff = np.full(n, -np.inf), np.zeros(n)
-                cutoff[positive] = (np.log(upper[positive]) - mu[positive]) / s[positive]
-                dcutoff[positive] = (dupper[positive] / upper[positive] - dmu[positive] - cutoff[positive] * ds[positive]) / s[positive]
-                probability, dprobability = cdf(cutoff), density(cutoff) * dcutoff
+                cutoff[positive] = (np.log(boundary[positive]) - mu[positive]) / s[positive]
+                dcutoff[positive] = (dboundary[positive] / boundary[positive] - dmu[positive] - cutoff[positive] * ds[positive]) / s[positive]
+                sign = 1. if up else -1.
+                probability, dprobability = cdf(sign * cutoff), sign * density(cutoff) * dcutoff
                 active = probability > 0
-                p = uniforms[:, i] * probability
+                uniform = uniforms[:, i] if up else 1 - uniforms[:, i]
+                p = uniform * probability
                 # Zero numerical survival is an absorbing zero-weight path.
                 # Positive probabilities are never floored or clipped.
-                z[active] = inverse_cdf(p[active])
-                dz[active] = uniforms[active, i] * dprobability[active] / density(z[active])
+                z[active] = sign * inverse_cdf(p[active])
+                dz[active] = sign * uniform[active] * dprobability[active] / density(z[active])
                 dsurvival = dsurvival * probability + survival * dprobability
                 survival *= probability
             f = np.exp(mu + s * z)
@@ -148,7 +170,9 @@ def path_values(case, market, normals, uniforms, *, spot=None):
             y, dy = u + link * f, du + link * df
         raise AssertionError('missing terminal step')
 
-    return (leg(False) - leg(True)) * market['annual_discount'] ** market['payment_time']
+    ko = leg(True)
+    value = leg(False) - ko if style == 'knock_in' else ko
+    return value * market['annual_discount'] ** market['payment_time']
 
 
 def batch_means(case, market, *, seed=20261003, batches=32, pairs=8192):

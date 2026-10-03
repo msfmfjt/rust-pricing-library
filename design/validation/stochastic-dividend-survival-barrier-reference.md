@@ -171,7 +171,7 @@ The [hard Barrier refinement panel](stochastic-dividend-hard-barrier-refinement.
 subsequently holds each eight-step surface and four observation dates fixed
 while comparing 16/32/64 steps against a finite 128-step reference.
 The dedicated [hard Barrier Spot-risk method](stochastic-dividend-hard-barrier-spot-risk.md)
-subsequently adds production survival conditioning for up-and-in/out calls.
+subsequently adds production survival conditioning for up/down knock-in/out calls and puts.
 The original pathwise method still rejects unsmoothed Barriers. Continuous-time
 accuracy, calibration uncertainty and different barrier styles remain separate
 work; this panel validates the specified frozen
