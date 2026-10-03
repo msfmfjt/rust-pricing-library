@@ -114,3 +114,8 @@ The executable [Python example](../../examples/python/heston_fourier_greeks.py)
 includes both rough and lifted models. See the
 [validation protocol](../../design/validation/rough-heston-fourier-greeks.md)
 for the independent references, exact scope and numerical evidence.
+
+## Related parameter risk
+
+[Fixed-kernel scalar parameter sensitivities](heston-parameter-risk.md) are
+available separately from Forward Delta/Gamma and are not calibrated market risk.

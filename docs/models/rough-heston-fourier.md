@@ -163,3 +163,8 @@ numerically expensive calls. No new runtime dependency is added to the wheel.
 `price_and_greeks` adds [Forward Delta and Gamma](rough-heston-fourier-greeks.md)
 without changing the existing `price` method. These are not physical-Spot,
 recalibrated, or model-parameter Greeks.
+
+## Related parameter risk
+
+[Fixed-kernel scalar parameter sensitivities](heston-parameter-risk.md) are
+available separately from Forward Delta/Gamma and are not calibrated market risk.

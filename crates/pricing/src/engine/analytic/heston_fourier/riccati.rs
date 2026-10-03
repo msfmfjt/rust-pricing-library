@@ -104,7 +104,31 @@ impl RiccatiPlan {
     pub(super) fn control_variance(&self) -> f64 {
         self.parameters.initial_variance() * self.maturity
     }
+    pub(super) fn maturity(&self) -> f64 {
+        self.maturity
+    }
+    pub(super) fn parameter_work(&self) -> u64 {
+        let per_node = match &self.kernel {
+            Kernel::Power { .. } => (self.steps as u64).pow(2),
+            Kernel::Lift { weights, .. } => self.steps as u64 * weights.len() as u64,
+        };
+        // One primal and five tangent directions; guard before allocations.
+        6 * per_node
+    }
     pub(super) fn log_transform(&self, z: C) -> Result<C, FourierError> {
+        self.solve::<false>(z).map(|(value, _)| value)
+    }
+    pub(super) fn log_transform_derivatives(&self, z: C) -> Result<(C, [C; 5]), FourierError> {
+        if self.maturity > 0.0 && self.control_variance() <= 0.0 {
+            return Err(FourierError::InvalidInput(
+                "parameter risk requires positive initial/control variance at positive maturity",
+            ));
+        }
+        self.solve::<true>(z)
+    }
+    // Preserve the primal operation order. The const-false instantiation performs
+    // no tangent allocations or arithmetic; both routes use the same root.
+    fn solve<const RISK: bool>(&self, z: C) -> Result<(C, [C; 5]), FourierError> {
         if !z.is_finite() || !(0.0..=1.0).contains(&z.re) || z.im.abs() > 1e6 {
             return Err(FourierError::InvalidInput(
                 "exponent: 0<=real<=1, |imag|<=1e6, finite",
@@ -116,7 +140,7 @@ impl RiccatiPlan {
             || z == C::ONE
             || (p.initial_variance() == 0.0 && p.mean_reversion() * p.long_run_variance() == 0.0)
         {
-            return Ok(C::ZERO);
+            return Ok((C::ZERO, [C::ZERO; 5]));
         }
         let c = (z * z - z) * 0.5;
         let b = z * (p.correlation() * p.vol_of_vol()) - C::new(p.mean_reversion(), 0.0);
@@ -133,6 +157,15 @@ impl RiccatiPlan {
         let mut factors = match &self.kernel {
             Kernel::Lift { weights, .. } => vec![C::ZERO; weights.len()],
             _ => Vec::new(),
+        };
+        let mut dpsi = [C::ZERO; 5];
+        let mut df = [C::ZERO; 5];
+        let mut dexponent = [C::ZERO; 5];
+        let mut dhistory = if RISK { vec![df] } else { Vec::new() };
+        let mut dfactors = if RISK {
+            vec![df; factors.len()]
+        } else {
+            Vec::new()
         };
         for n in 1..=self.steps {
             let (past, end) = match &self.kernel {
@@ -189,6 +222,89 @@ impl RiccatiPlan {
                     "Riccati residual/non-finite; refine grid",
                 ));
             }
+            if RISK {
+                // Kernel is held fixed: no Hurst or lift-weight/rate derivative.
+                let mut dpast = [C::ZERO; 5];
+                match &self.kernel {
+                    Kernel::Power { interior, .. } => {
+                        for j in 1..n {
+                            for (q, value) in dpast.iter_mut().enumerate() {
+                                *value = *value + dhistory[j][q] * interior[n - j];
+                            }
+                        }
+                    }
+                    Kernel::Lift {
+                        weights,
+                        decay,
+                        left,
+                        ..
+                    } => {
+                        for k in 0..weights.len() {
+                            for (q, value) in dpast.iter_mut().enumerate() {
+                                *value = *value
+                                    + (dfactors[k][q] * decay[k] + df[q] * left[k]) * weights[k];
+                            }
+                        }
+                    }
+                }
+                let explicit = [
+                    C::ZERO,
+                    -root,
+                    C::ZERO,
+                    z * p.correlation() * root + root * root * p.vol_of_vol(),
+                    z * p.vol_of_vol() * root,
+                ];
+                let slope = b + root * (2.0 * a);
+                let denominator = C::ONE - slope * end;
+                if !denominator.is_finite()
+                    || denominator.abs() <= 64.0 * f64::EPSILON * (1.0 + (slope * end).abs())
+                {
+                    return Err(FourierError::NumericalFailure("singular Riccati tangent"));
+                }
+                let mut next_dpsi = [C::ZERO; 5];
+                let mut next_df = [C::ZERO; 5];
+                for q in 0..5 {
+                    next_dpsi[q] = (dpast[q] + explicit[q] * end) / denominator;
+                    next_df[q] = explicit[q] + slope * next_dpsi[q];
+                    let residual = next_dpsi[q] - dpast[q] - next_df[q] * end;
+                    if !next_df[q].is_finite()
+                        || !next_dpsi[q].is_finite()
+                        || residual.abs() > 1e-9 * (1.0 + next_dpsi[q].abs() + dpast[q].abs())
+                    {
+                        return Err(FourierError::NumericalFailure(
+                            "Riccati tangent residual/non-finite",
+                        ));
+                    }
+                    let direct_v0 = if q == 0 { f + next_f } else { C::ZERO };
+                    let immigration = match q {
+                        1 => p.long_run_variance(),
+                        2 => p.mean_reversion(),
+                        _ => 0.0,
+                    };
+                    dexponent[q] = dexponent[q]
+                        + ((df[q] + next_df[q]) * p.initial_variance()
+                            + (dpsi[q] + next_dpsi[q])
+                                * (p.mean_reversion() * p.long_run_variance())
+                            + direct_v0
+                            + (psi + root) * immigration)
+                            * (0.5 * dt);
+                }
+                if let Kernel::Lift {
+                    decay, left, right, ..
+                } = &self.kernel
+                {
+                    for k in 0..dfactors.len() {
+                        for q in 0..5 {
+                            dfactors[k][q] =
+                                dfactors[k][q] * decay[k] + df[q] * left[k] + next_df[q] * right[k];
+                        }
+                    }
+                } else {
+                    dhistory.push(next_df);
+                }
+                dpsi = next_dpsi;
+                df = next_df;
+            }
             if let Kernel::Lift {
                 decay, left, right, ..
             } = &self.kernel
@@ -215,7 +331,12 @@ impl RiccatiPlan {
                 "transform moment-strip check; refine grid",
             ));
         }
-        Ok(exponent)
+        if RISK && dexponent.iter().any(|x| !x.is_finite()) {
+            return Err(FourierError::NumericalFailure(
+                "non-finite log-transform derivative",
+            ));
+        }
+        Ok((exponent, dexponent))
     }
 }
 
