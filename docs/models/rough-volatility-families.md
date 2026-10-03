@@ -2,13 +2,15 @@
 
 [Model index](README.md) · [Components](components/README.md) ·
 [Python example](../../examples/python/rough_volatility_families.py) ·
-[Validation status](../../design/validation/rough-volatility-families.md)
+[Validation status](../../design/validation/rough-volatility-families.md) ·
+[Finite-grid refinement](../../design/validation/rough-volatility-refinement.md)
 
 **Experimental, price-only extension.** Six families have compiled Rust/Python
 implementations with executable boundary, sampling and finite-grid reference
 tests. These are not accepted production models: the tested two-step prices
-do not establish continuous-time accuracy, general parameter-range robustness
-or lift-kernel approximation accuracy. The linked validation record separates
+and finite 64/128-step comparisons do not establish continuous-time accuracy
+or general parameter-range robustness. Positive-lag lift-kernel checks are not
+option-price error bounds. The linked validation records separate
 local evidence, CI gates and remaining acceptance work.
 
 ## API and support boundary
@@ -104,6 +106,15 @@ approximation parameters, **not a tolerance certificate**. Finite factor counts
 can be inadequate, particularly near `H=1/2`; kernel, price and Greek errors need
 separate study over the intended time range. Exactly `H=1/2` uses the single
 `w=1, x=0` factor. A finite lift is Markovian and is not mathematically rough.
+
+For a refinement experiment, factor count and geometric ratio must be considered
+together: keeping the ratio fixed does not shrink the log-bin width. A
+[test-only sequence](../../design/validation/rough-volatility-refinement.md)
+uses `r_n = exp(3/sqrt(n))`, so the log-bin width shrinks while both tails expand.
+The retained check samples five positive lags between `1/128` and `1` year;
+it is neither a tolerance-certified production factory nor a price-error bound.
+Time-grid refinement holds the lift fixed at 20 factors and ratio 2.5. Do not
+interpret finite-factor and finite-time errors as interchangeable.
 
 ## Quadratic rough Heston
 

@@ -128,6 +128,11 @@ REQUIRED_FILES = {
     "crates/pricing-python/src/rough_volatility.rs",
     "crates/pricing/tests/rough_volatility_families.rs",
     "crates/pricing/tests/rough_volatility_pricing_reference.rs",
+    "crates/pricing/tests/rough_volatility_refinement.rs",
+    "scripts/check_rough_volatility_refinement.py",
+    "scripts/test_rough_volatility_refinement.py",
+    "fixtures/rough-volatility/refinement.json",
+    "design/validation/rough-volatility-refinement.md",
     "tests/python/test_rough_volatility_families.py",
     "examples/python/rough_volatility_families.py",
     "scripts/check_rough_volatility_reference.py",
@@ -820,6 +825,7 @@ def main() -> int:
         check_cargo_manifests(package, archive)
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
+        check_rough_refinement_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1011,6 +1017,22 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                 f"{archive}: CI workflow must contain {snippet!r} "
                 f"{expected_count} times, found {actual_count}"
             )
+
+
+def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/rough-volatility.yml")
+    required = (
+        "python scripts/check_rough_volatility_refinement.py",
+        "python -m unittest discover -s scripts -p 'test_rough_volatility_refinement.py'",
+        "cargo test --locked -p pricing --test rough_volatility_refinement",
+        "cargo test --locked --no-default-features -p pricing --test rough_volatility_refinement",
+        "cargo test --locked --release -p pricing --test rough_volatility_refinement -- --include-ignored --nocapture",
+        "name: rough-volatility-refinement-${{ matrix.os }}",
+        "path: rough-volatility-refinement.log",
+    )
+    missing = [snippet for snippet in required if snippet not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: rough refinement workflow is missing gates: {missing}")
 
 
 def check_wheel_smoke_gate(package: tarfile.TarFile, archive: str) -> None:

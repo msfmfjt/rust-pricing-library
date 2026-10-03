@@ -67,3 +67,13 @@ units per scramble for all 36 comparisons. Numerical budgets and scope are in
 the [validation record](../../design/validation/rough-volatility-families.md).
 A separate public-primal reconstruction checks sampling-error aggregation; it
 shares the path simulator and is not an independent model-price reference.
+
+## Pairwise refinement references
+
+`refinement.json` stores six newest-cell Gaussian coupling cases, cross-checked
+by endpoint-weighted and Gauss-Jacobi integration, and 12 geometric lift kernels
+on five strictly positive lags. `scripts/check_rough_volatility_refinement.py`
+checks retained values without regeneration; only `--write` replaces them.
+The [protocol](../../design/validation/rough-volatility-refinement.md) describes
+the original failed ratio sequence and the revised shrinking-bin sequence.
+These references are not continuous-time option prices or price-bias bounds.
