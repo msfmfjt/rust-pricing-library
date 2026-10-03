@@ -1,8 +1,10 @@
 //! Experimental European forward prices for continuous-time rough/lifted Heston.
 //! See docs/models/rough-heston-fourier.md for definitions, references and limits.
 
+mod greeks;
 mod riccati;
 use crate::rough_volatility::RoughVolatilityModel;
+pub use greeks::HestonFourierGreeks;
 use pricing_numerics::{Complex64 as C, NeumaierSum, standard_normal_cdf};
 use riccati::RiccatiPlan;
 use std::{error::Error, fmt};

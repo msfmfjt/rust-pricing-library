@@ -96,6 +96,11 @@ impl RiccatiPlan {
             steps: n,
         })
     }
+    pub(super) fn is_zero_variance(&self) -> bool {
+        self.maturity == 0.0
+            || (self.parameters.initial_variance() == 0.0
+                && self.parameters.mean_reversion() * self.parameters.long_run_variance() == 0.0)
+    }
     pub(super) fn control_variance(&self) -> f64 {
         self.parameters.initial_variance() * self.maturity
     }

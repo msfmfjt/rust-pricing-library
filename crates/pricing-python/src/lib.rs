@@ -1279,6 +1279,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<rough_volatility::PyRoughVolatilityPlan>()?;
     module.add_class::<heston_fourier::PyHestonFourierPlan>()?;
     module.add_class::<heston_fourier::PyHestonFourierPrice>()?;
+    module.add_class::<heston_fourier::PyHestonFourierGreeks>()?;
 
     module.add_class::<hull_white::PyHullWhitePrice>()?;
     module.add_class::<hull_white::PyHullWhiteAadRisk>()?;

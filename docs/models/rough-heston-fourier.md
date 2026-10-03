@@ -157,3 +157,9 @@ See [the runnable example](../../examples/python/heston_fourier.py).
 Invalid inputs map to `ValidationError`; unsupported model/numerical failures
 map to `PricingError`. The compiled plan releases the Python GIL during
 numerically expensive calls. No new runtime dependency is added to the wheel.
+
+## Fixed-model forward sensitivities
+
+`price_and_greeks` adds [Forward Delta and Gamma](rough-heston-fourier-greeks.md)
+without changing the existing `price` method. These are not physical-Spot,
+recalibrated, or model-parameter Greeks.
