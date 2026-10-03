@@ -13,6 +13,20 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing-numerics/src/complex.rs',
+    'crates/pricing/src/engine/analytic/heston_fourier/mod.rs',
+    'crates/pricing/src/engine/analytic/heston_fourier/riccati.rs',
+    'crates/pricing-python/src/heston_fourier.rs',
+    'crates/pricing/tests/heston_fourier.rs',
+    'fixtures/rough-volatility/fourier.json',
+    'scripts/check_heston_fourier.py',
+    'scripts/test_heston_fourier_reference.py',
+    'tests/python/test_heston_fourier.py',
+    'examples/python/heston_fourier.py',
+    'docs/models/rough-heston-fourier.md',
+    'design/validation/rough-heston-fourier.md',
+    '.github/workflows/heston-fourier.yml',
+
     'crates/pricing/tests/stochastic_dividend_rough_lsv.rs',
     'design/validation/stochastic-dividend-rough-lsv-correlation-risk.md',
     'tests/python/hw_dividend_risk_reference.py',
@@ -833,6 +847,7 @@ def main() -> int:
         check_ci_workflow(package, archive)
         check_rough_refinement_workflow(package, archive)
         check_lifted_factor_workflow(package, archive)
+        check_heston_fourier_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1040,6 +1055,27 @@ def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> N
     missing = [snippet for snippet in required if snippet not in workflow]
     if missing:
         raise SystemExit(f"{archive}: rough refinement workflow is missing gates: {missing}")
+
+
+def check_heston_fourier_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-fourier.yml")
+    required = (
+        'python scripts/check_heston_fourier.py',
+        "python -m unittest discover -s scripts -p 'test_heston_fourier_reference.py'",
+        'cargo test --locked -p pricing --test heston_fourier',
+        'cargo test --locked --no-default-features -p pricing --test heston_fourier',
+        'cargo test --locked --release -p pricing --test heston_fourier -- --include-ignored --nocapture',
+        'os: [ubuntu-24.04, macos-15, windows-2025]',
+        'name: heston-fourier-${{ matrix.os }}',
+        'path: heston-fourier.log',
+        'if-no-files-found: error',
+    )
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston Fourier evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_fourier.py"' not in smoke:
+        raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
 
 
 def check_lifted_factor_workflow(package: tarfile.TarFile, archive: str) -> None:

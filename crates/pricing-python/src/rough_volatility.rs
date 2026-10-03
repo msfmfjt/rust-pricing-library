@@ -54,7 +54,7 @@ impl PyForwardVarianceCurve {
 #[pyclass(frozen, name = "RoughVolatilityModel", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityModel {
-    inner: RoughVolatilityModel,
+    pub(super) inner: RoughVolatilityModel,
 }
 #[pymethods]
 impl PyRoughVolatilityModel {
