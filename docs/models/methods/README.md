@@ -4,6 +4,12 @@ These pages organize the numerical methods independently of the model
 component that consumes them. The detailed calculation specifications remain
 authoritative for the exact implementation policy and tolerances.
 
+## Deterministic Fourier pricing
+
+[Rough/Lifted Heston Riccati and Fourier integration](../heston-fourier.md)
+provides an experimental continuous-time European route with explicit numerical
+grids and separate time/mesh/cutoff diagnostics.
+
 ## Monte Carlo and quasi-Monte Carlo
 
 | Method | Detailed reference | Main use |

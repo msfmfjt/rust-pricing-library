@@ -117,6 +117,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -993,6 +994,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        'FourierRefinement',
+        'HestonFourierPlan',
+
         "ForwardVarianceCurve",
         "RoughVolatilityModel",
         "RoughVolatilityPath",
@@ -1242,6 +1246,23 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('FourierRefinement', 'base_price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('FourierRefinement', 'time_refined_price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('FourierRefinement', 'quadrature_refined_price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('FourierRefinement', 'extended_cutoff_price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('FourierRefinement', 'time_change'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('FourierRefinement', 'quadrature_change'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('FourierRefinement', 'cutoff_change'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'compile'): {'positional': ['model', 'maturity'], 'positional_defaults': {}, 'keyword_only': ['time_steps', 'integration_intervals', 'cutoff'], 'required_keyword_only': [], 'keyword_only_defaults': {'time_steps': 512, 'integration_intervals': 512, 'cutoff': 128.0}},
+        ('HestonFourierPlan', 'transform'): {'positional': ['self', 'damping', 'frequency'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'price'): {'positional': ['self', 'forward', 'strike'], 'positional_defaults': {}, 'keyword_only': ['discount', 'is_call'], 'required_keyword_only': [], 'keyword_only_defaults': {'discount': 1.0, 'is_call': True}},
+        ('HestonFourierPlan', 'refinement'): {'positional': ['self', 'forward', 'strike'], 'positional_defaults': {}, 'keyword_only': ['discount', 'is_call'], 'required_keyword_only': [], 'keyword_only_defaults': {'discount': 1.0, 'is_call': True}},
+        ('HestonFourierPlan', 'maturity'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'time_steps'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'integration_intervals'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'cutoff'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'plan_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
         ('ForwardVarianceCurve', 'constant'): {'positional': ['variance'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('ForwardVarianceCurve', 'piecewise_linear'): {'positional': ['times', 'values'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('ForwardVarianceCurve', 'exponential'): {'positional': ['initial', 'growth'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2057,6 +2078,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'FourierRefinement': {'time_refined_price', 'quadrature_change', 'time_change', 'quadrature_refined_price', 'base_price', 'extended_cutoff_price', 'cutoff_change'},
+        'HestonFourierPlan': {'integration_intervals', 'price', 'compile', 'time_steps', 'cutoff', 'plan_fingerprint', 'transform', 'refinement', 'maturity'},
+
         'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
@@ -2629,6 +2653,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('HestonFourierPlan', 'compile'),
+
         ('ForwardVarianceCurve', 'constant'),
         ('ForwardVarianceCurve', 'piecewise_linear'),
         ('ForwardVarianceCurve', 'exponential'),
@@ -2697,6 +2723,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('FourierRefinement', 'base_price'),
+        ('FourierRefinement', 'time_refined_price'),
+        ('FourierRefinement', 'quadrature_refined_price'),
+        ('FourierRefinement', 'extended_cutoff_price'),
+        ('FourierRefinement', 'time_change'),
+        ('FourierRefinement', 'quadrature_change'),
+        ('FourierRefinement', 'cutoff_change'),
+        ('HestonFourierPlan', 'maturity'),
+        ('HestonFourierPlan', 'time_steps'),
+        ('HestonFourierPlan', 'integration_intervals'),
+        ('HestonFourierPlan', 'cutoff'),
+        ('HestonFourierPlan', 'plan_fingerprint'),
+
         ('RoughVolatilityModel', 'name'),
         ('RoughVolatilityPath', 'forwards'),
         ('RoughVolatilityPath', 'variances'),

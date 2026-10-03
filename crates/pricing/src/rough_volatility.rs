@@ -10,3 +10,7 @@ pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,
     RoughSabr, RoughVolatilityModel,
 };
+
+pub use crate::engine::analytic::heston_fourier::{
+    FourierConfig, FourierError, FourierRefinement, HestonFourierPlan,
+};
