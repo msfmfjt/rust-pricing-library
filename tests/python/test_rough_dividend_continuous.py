@@ -138,6 +138,64 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         self.assertEqual(fixed.delta_standard_errors,[0.,0.,0.])
         self.assertEqual(fixed.bump_difference_standard_errors,[0.,0.])
 
+    def test_gamma_bump_risk_against_independent_numpy(self):
+        gates=FIXTURE['gamma_bump_acceptance']
+        sampling=FIXTURE['gamma_production_sampling']
+        for case in FIXTURE['cases']:
+            with self.subTest(case=case['id']):
+                plan=compile_plan(case,make_request(case,points=sampling['points_per_scramble'],scrambles=sampling['scramble_count']))
+                risk=plan.evaluate_gamma_bump_risk(spot_absolute_bump=2.)
+                means=np.asarray(case['gamma_bump_batch_means'])
+                errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+                actual=np.array(risk.gamma_estimates+risk.bump_differences)
+                se=np.array(risk.gamma_standard_errors+risk.bump_difference_standard_errors)
+                bounds=np.abs(actual-means.mean(axis=0))+4*np.hypot(errors,se)
+                self.assertLess(max(bounds[:3]),gates['gamma_difference_plus_4se'])
+                self.assertLess(max(bounds[3:]),gates['gap_difference_plus_4se'])
+                self.assertLess(max(se[:3]),gates['production_gamma_se'])
+                self.assertLess(max(errors[:3]),gates['reference_gamma_se'])
+                self.assertEqual(risk.spot_bumps,[1.,2.,4.])
+                self.assertEqual(risk.gamma,risk.gamma_estimates[1])
+                self.assertEqual(risk.standard_error,risk.gamma_standard_errors[1])
+                self.assertEqual(risk.payoff_evaluations,7*risk.price.evaluated_paths)
+                self.assertEqual(risk.price.plan_fingerprint,plan.plan_fingerprint)
+                self.assertEqual(risk.price.scheme,plan.scheme)
+                self.assertIn('continuous-bridge-crn-price-gamma-v1',risk.method)
+                self.assertEqual(risk.uncertainty_scope,'sampling_only_fixed_calibration_grid_bridge_and_bump')
+
+    def test_gamma_bump_api_preserves_spot_risk_and_replays(self):
+        case=FIXTURE['cases'][0]
+        plan=compile_plan(case)
+        delta=plan.evaluate_spot_bump_risk(spot_absolute_bump=2.)
+        risk=plan.evaluate_gamma_bump_risk(spot_absolute_bump=2.)
+        self.assertEqual((risk.price.value,risk.price.standard_error),(delta.price.value,delta.price.standard_error))
+        self.assertEqual((risk.delta,risk.delta_standard_error),(delta.delta,delta.standard_error))
+        self.assertNotEqual(risk.risk_fingerprint,delta.risk_fingerprint)
+        relative=plan.evaluate_gamma_bump_risk(spot_relative_bump=.02)
+        self.assertEqual(risk.gamma_estimates,relative.gamma_estimates)
+        self.assertNotEqual(risk.risk_fingerprint,relative.risk_fingerprint)
+        self.assertNotEqual(risk.risk_fingerprint,plan.evaluate_gamma_bump_risk(spot_absolute_bump=1.).risk_fingerprint)
+        with self.assertRaises(AttributeError):
+            risk.gamma=0.
+        detached=risk.gamma_estimates
+        detached[0]=999.
+        self.assertNotEqual(risk.gamma_estimates[0],999.)
+        parallel=compile_plan(case,worker_threads=3).evaluate_gamma_bump_risk(spot_absolute_bump=2.)
+        self.assertEqual(risk.gamma_estimates,parallel.gamma_estimates)
+        self.assertEqual(risk.gamma_standard_errors,parallel.gamma_standard_errors)
+        self.assertEqual(risk.bump_difference_standard_errors,parallel.bump_difference_standard_errors)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _: plan.evaluate_gamma_bump_risk(spot_absolute_bump=2.).gamma,range(2))),[risk.gamma]*2)
+        for kwargs in ({},{'spot_absolute_bump':1.,'spot_relative_bump':.01},
+                       *({'spot_absolute_bump':h} for h in [0.,-1.,float('nan'),float('inf'),1e-300,45.,50.])):
+            with self.subTest(kwargs=kwargs),self.assertRaises((rp.ValidationError,rp.PricingError)):
+                plan.evaluate_gamma_bump_risk(**kwargs)
+        rebated=case|dict(contract=case['contract']|dict(notional=1e18,rebate=7.))
+        fixed=compile_plan(rebated,make_request(rebated,history=True,dates=['2026-09-03'])).evaluate_gamma_bump_risk(spot_absolute_bump=2.)
+        self.assertEqual(fixed.gamma_estimates,[0.,0.,0.])
+        self.assertEqual(fixed.gamma_standard_errors,[0.,0.,0.])
+        self.assertEqual(fixed.bump_difference_standard_errors,[0.,0.])
+
     def test_history_and_monitoring_end_do_not_infer_past_hits(self):
         case = FIXTURE['cases'][0]
         past=['2026-09-03']

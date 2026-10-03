@@ -1,7 +1,8 @@
 use super::*;
 use pricing::core::PositiveF64;
 use pricing::stochastic_dividends::{
-    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierSpotRisk,
+    StochasticDividendContinuousBarrierGammaRisk, StochasticDividendContinuousBarrierPlan,
+    StochasticDividendContinuousBarrierSpotRisk,
 };
 
 /// Rough-LSV continuous Barrier approximation. Uses left-frozen
@@ -88,19 +89,22 @@ impl PyStochasticDividendContinuousBarrierPlan {
         spot_absolute_bump: Option<f64>,
         spot_relative_bump: Option<f64>,
     ) -> PyResult<PyStochasticDividendContinuousBarrierSpotRisk> {
-        let bump = match (spot_absolute_bump, spot_relative_bump) {
-            (Some(h), None) => PositiveF64::new(h, "spot_absolute_bump").map(SpotBump::Absolute),
-            (None, Some(h)) => PositiveF64::new(h, "spot_relative_bump").map(SpotBump::Relative),
-            _ => {
-                return Err(invalid(
-                    py,
-                    "specify exactly one continuous Barrier Spot bump",
-                ));
-            }
-        }
-        .map_err(|e| invalid(py, e))?;
+        let bump = spot_bump(py, spot_absolute_bump, spot_relative_bump)?;
         py.detach(|| self.inner.evaluate_spot_bump_risk(bump))
             .map(|inner| PyStochasticDividendContinuousBarrierSpotRisk { inner })
+            .map_err(pricing_exception)
+    }
+    /// Paired second price differences, with half/base/double Gamma diagnostics.
+    #[pyo3(signature=(*, spot_absolute_bump=None, spot_relative_bump=None))]
+    fn evaluate_gamma_bump_risk(
+        &self,
+        py: Python<'_>,
+        spot_absolute_bump: Option<f64>,
+        spot_relative_bump: Option<f64>,
+    ) -> PyResult<PyStochasticDividendContinuousBarrierGammaRisk> {
+        let bump = spot_bump(py, spot_absolute_bump, spot_relative_bump)?;
+        py.detach(|| self.inner.evaluate_gamma_bump_risk(bump))
+            .map(|inner| PyStochasticDividendContinuousBarrierGammaRisk { inner })
             .map_err(pricing_exception)
     }
     #[getter]
@@ -194,6 +198,100 @@ impl PyStochasticDividendContinuousBarrierSpotRisk {
     #[getter]
     fn delta(&self) -> f64 {
         self.inner.delta()
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        self.inner.uncertainty_scope()
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+fn spot_bump(
+    py: Python<'_>,
+    spot_absolute_bump: Option<f64>,
+    spot_relative_bump: Option<f64>,
+) -> PyResult<SpotBump> {
+    match (spot_absolute_bump, spot_relative_bump) {
+        (Some(h), None) => PositiveF64::new(h, "spot_absolute_bump").map(SpotBump::Absolute),
+        (None, Some(h)) => PositiveF64::new(h, "spot_relative_bump").map(SpotBump::Relative),
+        _ => {
+            return Err(invalid(
+                py,
+                "specify exactly one continuous Barrier Spot bump",
+            ));
+        }
+    }
+    .map_err(|e| invalid(py, e))
+}
+
+/// Finite-bump Gamma of the bridge approximation, with paired sampling errors.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendContinuousBarrierGammaRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendContinuousBarrierGammaRisk {
+    inner: StochasticDividendContinuousBarrierGammaRisk,
+}
+#[pymethods]
+impl PyStochasticDividendContinuousBarrierGammaRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn spot(&self) -> f64 {
+        self.inner.spot
+    }
+    #[getter]
+    fn spot_bumps(&self) -> Vec<f64> {
+        self.inner.spot_bumps.to_vec()
+    }
+    #[getter]
+    fn gamma_estimates(&self) -> Vec<f64> {
+        self.inner.gamma_estimates.to_vec()
+    }
+    #[getter]
+    fn gamma_standard_errors(&self) -> Vec<f64> {
+        self.inner.gamma_standard_errors.to_vec()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<f64> {
+        self.inner.bump_differences.to_vec()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<f64> {
+        self.inner.bump_difference_standard_errors.to_vec()
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.inner.gamma()
     }
     #[getter]
     fn standard_error(&self) -> f64 {

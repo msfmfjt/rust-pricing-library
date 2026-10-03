@@ -322,52 +322,7 @@ fn flat_no_cash_gbm_limit_matches_independent_terminal_quadrature() {
                 "scramble_count":8,"master_scramble_seed":193,
                 "variance_reduction":{"antithetic":true,"brownian_bridge":true}});
             let plan = compile(&v, 0.0).unwrap();
-            let variance = 0.04 * EXPIRY;
-            let drift = (0.98_f64 / 0.95).ln() * EXPIRY - 0.5 * variance;
-            let level = plan.barrier.barrier().get();
-            let z_barrier = ((level / 100.0).ln() - drift) / variance.sqrt();
-            let z_strike = -drift / variance.sqrt();
-            let density = |z: f64| (-0.5 * z * z).exp() / (2.0 * std::f64::consts::PI).sqrt();
-            let integrand = |z: f64| {
-                let terminal = 100.0 * (drift + variance.sqrt() * z).exp();
-                let safe = if direction == "up" {
-                    terminal < level
-                } else {
-                    terminal > level
-                };
-                let survival = if safe {
-                    -(-2.0 * (level / 100.0).ln() * (level / terminal).ln() / variance).exp_m1()
-                } else {
-                    0.0
-                };
-                let signed = if side == "call" {
-                    terminal - 100.0
-                } else {
-                    100.0 - terminal
-                };
-                density(z) * (2.0 * signed.max(0.0) * survival + 7.0 * (1.0 - survival))
-            };
-            let mut breaks = [-10.0, z_barrier, z_strike, 10.0];
-            breaks.sort_by(f64::total_cmp);
-            let mut expected = 0.0;
-            for w in breaks.windows(2) {
-                let n = 4096;
-                let dz = (w[1] - w[0]) / n as f64;
-                let sum = (0..=n)
-                    .map(|i| {
-                        let weight = if i == 0 || i == n {
-                            1.0
-                        } else if i % 2 == 0 {
-                            2.0
-                        } else {
-                            4.0
-                        };
-                        weight * integrand(w[0] + i as f64 * dz)
-                    })
-                    .sum::<f64>();
-                expected += dz * sum / 3.0;
-            }
-            expected *= 0.95_f64.powf(PAYMENT);
+            let expected = gbm_reference(100.0, direction, side, "knock_out");
             let r = plan.evaluate().unwrap();
             assert!(
                 (r.value - expected).abs() < 5.0 * r.standard_error + 0.002,
@@ -378,4 +333,60 @@ fn flat_no_cash_gbm_limit_matches_independent_terminal_quadrature() {
             assert!(r.standard_error < 0.015);
         }
     }
+}
+
+// Independent one-dimensional Gaussian quadrature, with strike/barrier breaks.
+pub(super) fn gbm_reference(spot: f64, direction: &str, side: &str, style: &str) -> f64 {
+    let variance = 0.04 * EXPIRY;
+    let drift = (0.98_f64 / 0.95).ln() * EXPIRY - 0.5 * variance;
+    let level: f64 = if direction == "up" { 130.0 } else { 70.0 };
+    let z_barrier = ((level / spot).ln() - drift) / variance.sqrt();
+    let z_strike = ((100.0 / spot).ln() - drift) / variance.sqrt();
+    let density = |z: f64| (-0.5 * z * z).exp() / (2.0 * std::f64::consts::PI).sqrt();
+    let integrand = |z: f64| {
+        let terminal = spot * (drift + variance.sqrt() * z).exp();
+        let safe = if direction == "up" {
+            terminal < level
+        } else {
+            terminal > level
+        };
+        let survival = if safe {
+            -(-2.0 * (level / spot).ln() * (level / terminal).ln() / variance).exp_m1()
+        } else {
+            0.0
+        };
+        let survival = if style == "knock_out" {
+            survival
+        } else {
+            1.0 - survival
+        };
+        let signed = if side == "call" {
+            terminal - 100.0
+        } else {
+            100.0 - terminal
+        };
+        density(z) * (2.0 * signed.max(0.0) * survival + 7.0 * (1.0 - survival))
+    };
+    let mut breaks = [-10.0, z_barrier, z_strike, 10.0];
+    breaks.sort_by(f64::total_cmp);
+    let mut expected = 0.0;
+    for w in breaks.windows(2) {
+        let n = 4096;
+        let dz = (w[1] - w[0]) / n as f64;
+        let sum = (0..=n)
+            .map(|i| {
+                let weight = if i == 0 || i == n {
+                    1.0
+                } else if i % 2 == 0 {
+                    2.0
+                } else {
+                    4.0
+                };
+                weight * integrand(w[0] + i as f64 * dz)
+            })
+            .sum::<f64>();
+        expected += dz * sum / 3.0;
+    }
+    expected *= 0.95_f64.powf(PAYMENT);
+    expected
 }

@@ -17,7 +17,8 @@ use pyo3::prelude::*;
 
 mod continuous_barrier;
 pub use continuous_barrier::{
-    PyStochasticDividendContinuousBarrierPlan, PyStochasticDividendContinuousBarrierSpotRisk,
+    PyStochasticDividendContinuousBarrierGammaRisk, PyStochasticDividendContinuousBarrierPlan,
+    PyStochasticDividendContinuousBarrierSpotRisk,
 };
 
 fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {

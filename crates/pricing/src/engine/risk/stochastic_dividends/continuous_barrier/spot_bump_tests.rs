@@ -25,6 +25,15 @@ fn continuous_spot_bumps_match_recalibrated_prices_for_all_contract_styles() {
                 let r = plan
                     .evaluate_spot_bump_risk(SpotBump::absolute(1.0).unwrap())
                     .unwrap();
+                let gamma = plan
+                    .evaluate_gamma_bump_risk(SpotBump::absolute(1.0).unwrap())
+                    .unwrap();
+                assert_eq!(gamma.price, r.price);
+                assert_eq!(gamma.delta, r.delta());
+                assert_eq!(gamma.delta_standard_error, r.standard_error());
+                assert_ne!(gamma.risk_fingerprint, r.risk_fingerprint);
+                assert_eq!(gamma.gamma(), gamma.gamma_estimates[1]);
+                assert_eq!(gamma.standard_error(), gamma.gamma_standard_errors[1]);
                 assert_eq!(r.price, plan.evaluate().unwrap());
                 assert_eq!(r.spot_bumps, [0.5, 1.0, 2.0]);
                 assert_eq!(r.payoff_evaluations, 7 * r.price.evaluated_paths);
@@ -41,6 +50,11 @@ fn continuous_spot_bumps_match_recalibrated_prices_for_all_contract_styles() {
                             < 2e-11,
                         "{direction} {side} {style} h={h}"
                     );
+                    let expected_gamma = ((up.evaluate().unwrap().value - r.price.value)
+                        + (down.evaluate().unwrap().value - r.price.value))
+                        / h
+                        / h;
+                    assert!((gamma.gamma_estimates[j] - expected_gamma).abs() < 3e-11);
                     for bumped in [&up, &down] {
                         for (a, b) in plan
                             .lsv_squared_leverage()
@@ -77,12 +91,21 @@ fn continuous_spot_bump_errors_use_paired_units_and_scramble_means() {
             let r = plan
                 .evaluate_spot_bump_risk(SpotBump::absolute(1.0).unwrap())
                 .unwrap();
+            let gamma = plan
+                .evaluate_gamma_bump_risk(SpotBump::absolute(1.0).unwrap())
+                .unwrap();
             let mut parallel = plan.clone();
             parallel.inner.policy = ExecutionPolicy::new(3, Some(32)).unwrap();
             assert_eq!(
                 r,
                 parallel
                     .evaluate_spot_bump_risk(SpotBump::absolute(1.0).unwrap())
+                    .unwrap()
+            );
+            assert_eq!(
+                gamma,
+                parallel
+                    .evaluate_gamma_bump_risk(SpotBump::absolute(1.0).unwrap())
                     .unwrap()
             );
             let mut scenarios = Vec::new();
@@ -96,6 +119,12 @@ fn continuous_spot_bump_errors_use_paired_units_and_scramble_means() {
             // aggregate their *paired* differences through the scalar sampler.
             let sample = |z: Vec<f64>, vr: VarianceReduction| {
                 let bridge = plan.inner.bridge(vr).unwrap();
+                let center = plan
+                    .inner
+                    .sample(z.clone(), bridge.as_ref(), antithetic, &|z| {
+                        plan.path_payoff(z)
+                    })
+                    .unwrap();
                 let values = scenarios
                     .iter()
                     .map(|s| {
@@ -106,10 +135,17 @@ fn continuous_spot_bump_errors_use_paired_units_and_scramble_means() {
                             .unwrap()
                     })
                     .collect::<Vec<_>>();
-                let mut row = [0.0; 5];
+                let mut row = [0.0; 10];
                 for j in 0..3 {
                     row[j] = (values[2 * j + 1] - values[2 * j]) / (2.0 * r.spot_bumps[j]);
                 }
+                for j in 0..3 {
+                    row[5 + j] = ((values[2 * j + 1] - center) + (values[2 * j] - center))
+                        / r.spot_bumps[j]
+                        / r.spot_bumps[j];
+                }
+                row[8] = row[5] - row[6];
+                row[9] = row[6] - row[7];
                 row[3] = row[0] - row[1];
                 row[4] = row[1] - row[2];
                 row
@@ -137,7 +173,7 @@ fn continuous_spot_bump_errors_use_paired_units_and_scramble_means() {
                     let q = RqmcPlan::compile(c, dimension).unwrap();
                     (0..c.scramble_count().get())
                         .map(|s| {
-                            let mut mean = [0.0; 5];
+                            let mut mean = [0.0; 10];
                             for p in 0..c.points_per_scramble().get() {
                                 let z = (0..dimension)
                                     .map(|d| {
@@ -146,7 +182,7 @@ fn continuous_spot_bump_errors_use_paired_units_and_scramble_means() {
                                     })
                                     .collect();
                                 let row = sample(z, c.variance_reduction());
-                                for j in 0..5 {
+                                for j in 0..10 {
                                     mean[j] += row[j] / c.points_per_scramble().get() as f64;
                                 }
                             }
@@ -160,13 +196,17 @@ fn continuous_spot_bump_errors_use_paired_units_and_scramble_means() {
                 .delta_estimates
                 .into_iter()
                 .chain(r.bump_differences)
+                .chain(gamma.gamma_estimates)
+                .chain(gamma.bump_differences)
                 .collect::<Vec<_>>();
             let errors = r
                 .delta_standard_errors
                 .into_iter()
                 .chain(r.bump_difference_standard_errors)
+                .chain(gamma.gamma_standard_errors)
+                .chain(gamma.bump_difference_standard_errors)
                 .collect::<Vec<_>>();
-            for j in 0..5 {
+            for j in 0..10 {
                 let mean = rows.iter().map(|r| r[j]).sum::<f64>() / rows.len() as f64;
                 let se = (rows.iter().map(|r| (r[j] - mean).powi(2)).sum::<f64>()
                     / (rows.len() * (rows.len() - 1)) as f64)
@@ -190,6 +230,17 @@ fn continuous_spot_bumps_preserve_history_and_recheck_current_endpoint() {
     let r = plan
         .evaluate_spot_bump_risk(SpotBump::absolute(1.0).unwrap())
         .unwrap();
+    let gamma = plan
+        .evaluate_gamma_bump_risk(SpotBump::absolute(1.0).unwrap())
+        .unwrap();
+    assert_eq!(gamma.gamma_estimates, [0.0; 3]);
+    assert_eq!(gamma.gamma_standard_errors, [0.0; 3]);
+    assert_eq!(gamma.bump_difference_standard_errors, [0.0; 2]);
+    let relative = plan
+        .evaluate_gamma_bump_risk(SpotBump::relative(0.01).unwrap())
+        .unwrap();
+    assert_eq!(relative.gamma_estimates, gamma.gamma_estimates);
+    assert_ne!(relative.risk_fingerprint, gamma.risk_fingerprint);
     assert_eq!(r.delta_estimates, [0.0; 3]);
     assert_eq!(r.delta_standard_errors, [0.0; 3]);
     assert_eq!(r.bump_difference_standard_errors, [0.0; 2]);
@@ -202,10 +253,14 @@ fn continuous_spot_bumps_preserve_history_and_recheck_current_endpoint() {
     let r = live
         .evaluate_spot_bump_risk(SpotBump::absolute(1.0).unwrap())
         .unwrap();
+    let gamma = live
+        .evaluate_gamma_bump_risk(SpotBump::absolute(1.0).unwrap())
+        .unwrap();
     for (j, h) in r.spot_bumps.into_iter().enumerate() {
         v["market"]["spot"] = json!(100.0 - h);
         let down = compile(&v, 0.6).unwrap().evaluate().unwrap();
         assert!((r.delta_estimates[j] - (r.price.value - down.value) / (2.0 * h)).abs() < 1e-11);
+        assert!((gamma.gamma_estimates[j] - (down.value - r.price.value) / h / h).abs() < 1e-11);
     }
     // Ended-unhit history selects vanilla; current barrier equality has no say.
     v["market"]["spot"] = json!(100.0);
@@ -224,8 +279,55 @@ fn continuous_spot_bumps_preserve_history_and_recheck_current_endpoint() {
     // Validate the entire ladder before sampling, including resolved contracts.
     for h in [f64::MIN_POSITIVE, f64::MAX, 50.0, 45.0] {
         assert!(
+            plan.evaluate_gamma_bump_risk(SpotBump::absolute(h).unwrap())
+                .is_err()
+        );
+        assert!(
             plan.evaluate_spot_bump_risk(SpotBump::absolute(h).unwrap())
                 .is_err()
         );
+    }
+}
+
+#[test]
+fn continuous_price_gamma_matches_independent_gbm_quadrature() {
+    use super::tests::gbm_reference;
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_out", "knock_in"] {
+                let mut v = payload();
+                v["market"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("discrete_dividends");
+                v["model"]["local_variance_grid"]["values"] = json!(vec![0.04; 9]);
+                v["product"]["strike"] = json!(100.0);
+                v["product"]["barrier"] = json!(if direction == "up" { 130.0 } else { 70.0 });
+                v["product"]["direction"] = json!({"type":direction});
+                v["product"]["side"] = json!({"type":side});
+                v["product"]["style"] = json!({"type":style});
+                v["engine"] = rqmc();
+                v["engine"]["points_per_scramble"] = json!(8192);
+                v["engine"]["scramble_count"] = json!(8);
+                let plan = compile(&v, 0.0).unwrap();
+                let r = plan
+                    .evaluate_gamma_bump_risk(SpotBump::absolute(2.0).unwrap())
+                    .unwrap();
+                let center = gbm_reference(100.0, direction, side, style);
+                for (j, h) in r.spot_bumps.into_iter().enumerate() {
+                    let up = gbm_reference(100.0 + h, direction, side, style);
+                    let down = gbm_reference(100.0 - h, direction, side, style);
+                    let expected = ((up - center) + (down - center)) / h / h;
+                    assert!(
+                        (r.gamma_estimates[j] - expected).abs()
+                            < 5.0 * r.gamma_standard_errors[j] + 0.0003,
+                        "{direction} {side} {style} h={h}: {} +/- {} vs {expected}",
+                        r.gamma_estimates[j],
+                        r.gamma_standard_errors[j]
+                    );
+                    assert!(r.gamma_standard_errors[j] < 0.004);
+                }
+            }
+        }
     }
 }

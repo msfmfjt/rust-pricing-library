@@ -9,7 +9,9 @@ use crate::product::{
 };
 
 mod spot_bump;
-pub use spot_bump::StochasticDividendContinuousBarrierSpotRisk;
+pub use spot_bump::{
+    StochasticDividendContinuousBarrierGammaRisk, StochasticDividendContinuousBarrierSpotRisk,
+};
 
 const SCHEME: &str = "buehler-rough-residual-lsv-continuous-physical-log-bridge-approx-v1";
 
@@ -18,7 +20,7 @@ const SCHEME: &str = "buehler-rough-residual-lsv-continuous-physical-log-bridge-
 ///
 /// The interval variance is the instantaneous physical log-Spot variance frozen
 /// at the left post-cash node. Cash jumps are checked separately. Spot risk is
-/// an explicit finite-bump estimate; discrete graph adjoints are never used.
+/// an explicit finite-bump Delta/Gamma estimate; discrete graph adjoints are never used.
 /// Sampling errors exclude calibration uncertainty and all discretization bias.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendContinuousBarrierPlan {

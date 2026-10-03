@@ -246,7 +246,7 @@ class StochasticDividendContinuousBarrierPlan:
     """Opt-in frozen-variance physical log-Spot bridge approximation.
 
     Includes stochastic-reserve variance/correlation and separate cash jumps.
-    Explicit finite-bump Spot risk; no generic Greek flags or smoothing.
+    Explicit finite-bump Spot Delta/Gamma; no generic Greek flags or smoothing.
     Sampling error excludes calibration/time-grid/bridge/bump bias;
     grid refinement is required for the intended contract and market parameters.
     """
@@ -260,6 +260,15 @@ class StochasticDividendContinuousBarrierPlan:
         history stay fixed; residual equity and physical Spot are re-anchored.
         Endpoint/jump branches are re-evaluated, including initial equality.
         This is a finite-bump approximation, not an exact derivative guarantee.
+        """
+        ...
+    def evaluate_gamma_bump_risk(self, *, spot_absolute_bump: float | None = None, spot_relative_bump: float | None = None) -> StochasticDividendContinuousBarrierGammaRisk:
+        """Paired three-price Gamma on a half/base/double Spot-bump ladder.
+
+        Reuses seven payoffs, including the base-bump central price Delta.
+        The same funding, history, branch and uncertainty rules as Spot-bump
+        Delta apply. Small bumps can amplify sampling noise and cancellation;
+        neither extrapolation nor an exact derivative is provided.
         """
         ...
     @property
@@ -303,6 +312,45 @@ class StochasticDividendContinuousBarrierSpotRisk:
     def delta_estimates(self) -> list[float]: ...
     @property
     def delta_standard_errors(self) -> list[float]: ...
+    @property
+    def bump_differences(self) -> list[float]: ...
+    @property
+    def bump_difference_standard_errors(self) -> list[float]: ...
+    @property
+    def payoff_evaluations(self) -> int: ...
+    @property
+    def risk_fingerprint(self) -> str: ...
+    @property
+    def method(self) -> str: ...
+    @property
+    def uncertainty_scope(self) -> str: ...
+
+
+class StochasticDividendContinuousBarrierGammaRisk:
+    """Three-price finite-bump Gamma of the continuous bridge approximation.
+
+    gamma/standard_error select the base bump; delta is a central finite-price
+    difference at that bump. Gamma gaps are paired diagnostics, not error bounds.
+    Errors condition on calibration, grid, bridge and bump; no extrapolation.
+    """
+    @property
+    def price(self) -> StochasticDividendPrice: ...
+    @property
+    def spot(self) -> float: ...
+    @property
+    def spot_bumps(self) -> list[float]: ...
+    @property
+    def delta(self) -> float: ...
+    @property
+    def delta_standard_error(self) -> float: ...
+    @property
+    def gamma(self) -> float: ...
+    @property
+    def standard_error(self) -> float: ...
+    @property
+    def gamma_estimates(self) -> list[float]: ...
+    @property
+    def gamma_standard_errors(self) -> list[float]: ...
     @property
     def bump_differences(self) -> list[float]: ...
     @property

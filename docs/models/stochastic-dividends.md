@@ -437,6 +437,16 @@ bump gaps bound its error. All six shifted Spots must remain funded. Sampling
 SE excludes calibration, time-grid, bridge and bump bias. See the
 [finite-bump contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#finite-bump-spot-risk).
 
+`evaluate_gamma_bump_risk` uses the same absolute/relative bump arguments and
+seven physical payoffs to return a three-price Gamma ladder and paired errors.
+`gamma` selects the base bump; `delta` is the central price difference at that
+bump. The dedicated Gamma result also reports adjacent Gamma gaps and their
+paired errors. Endpoint/jump branch changes and initial equality are included;
+small bumps can increase noise and cancellation. No exact second derivative,
+extrapolation or bump-error bound is implied. See the
+[Gamma contract and independent checks](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#finite-bump-gamma).
+
+
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
 

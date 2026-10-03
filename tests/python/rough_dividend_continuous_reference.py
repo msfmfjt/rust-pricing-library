@@ -120,6 +120,27 @@ def spot_bump_means(base, market, contract, *, bump=1., seed=20261005, batches=3
     return np.asarray(means)
 
 
+def gamma_bump_means(base, market, contract, *, bump=2., seed=20261006, batches=32, pairs=8192):
+    """Independent three-price second differences, paired before batch reduction."""
+    rng = np.random.Generator(np.random.PCG64(seed))
+    means = []
+    for _ in range(batches):
+        z = rng.standard_normal((pairs, len(base['times'])-1, 4))
+        center = (path_values(base, market, z, **contract)[:,0]
+                  +path_values(base, market, -z, **contract)[:,0])/2
+        columns = []
+        for h in [bump/2, bump, 2*bump]:
+            scenarios = []
+            for spot in [market['spot']-h, market['spot']+h]:
+                shifted = market | dict(spot=spot)
+                scenarios.append((path_values(base, shifted, z, **contract)[:,0]
+                                  +path_values(base, shifted, -z, **contract)[:,0])/2)
+            columns.append((scenarios[1]+scenarios[0]-2*center)/(h*h))
+        columns.extend([columns[0]-columns[1], columns[1]-columns[2]])
+        means.append(np.stack(columns,axis=1).mean(axis=0))
+    return np.asarray(means)
+
+
 def refinement_means(base, market, contract, coarse_steps, *, seed=20261004, batches=16, pairs=2048):
     """Coupled coarse/fine Brownian increments and exact newest-cell integrals."""
     fine = refine_case(base, 2*coarse_steps)
@@ -155,6 +176,14 @@ def verify_fixture():
         assert np.max(errors[:3]) < fixture['spot_bump_acceptance']['reference_delta_se']
         print(json.dumps(dict(scope='finite_bump_continuous_bridge_spot_risk', case=case['id'],
             spot_bumps=[.5,1.,2.], estimates=means.mean(axis=0).tolist(), standard_errors=errors.tolist())), flush=True)
+    for case in fixture['cases']:
+        means = gamma_bump_means(bases[case['base_case']], market | case['market'],
+                                case['contract'], **fixture['gamma_bump_sampling'])
+        np.testing.assert_allclose(means, case['gamma_bump_batch_means'], rtol=0, atol=1e-9)
+        errors = means.std(axis=0, ddof=1)/math.sqrt(len(means))
+        assert np.max(errors[:3]) < fixture['gamma_bump_acceptance']['reference_gamma_se']
+        print(json.dumps(dict(scope='finite_bump_continuous_bridge_gamma', case=case['id'],
+            spot_bumps=[1.,2.,4.], estimates=means.mean(axis=0).tolist(), standard_errors=errors.tolist())), flush=True)
     for case in fixture['refinement']:
         source = next(c for c in fixture['cases'] if c['id'] == case['case'])
         means = refinement_means(bases[source['base_case']], market | source['market'], source['contract'],

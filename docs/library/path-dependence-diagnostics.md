@@ -139,7 +139,7 @@ Other LSV/Hull–White adapters still reject all continuous contracts. The dedic
 rough stochastic-dividend hard Spot-risk API supports discrete history only.
 The separate `StochasticDividendContinuousBarrierPlan` offers an explicit,
 rough-LSV bridge approximation for live monitoring, with explicit finite-bump
-Spot risk and paired bump diagnostics; see its
+Spot Delta/Gamma and paired bump diagnostics; see its
 [scope and validation](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md).
 Its price result does not expose the shared BS/Local Volatility bridge diagnostics.
 

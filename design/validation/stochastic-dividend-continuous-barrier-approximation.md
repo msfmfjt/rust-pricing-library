@@ -10,7 +10,7 @@ continues to reject live continuous monitoring.
 The result uses `StochasticDividendPrice` and scheme
 `buehler-rough-residual-lsv-continuous-physical-log-bridge-approx-v1`.
 The scheme participates in the plan fingerprint. The plan exposes calibration
-inputs, price evaluation and explicit finite-bump Spot risk. Generic risk flags, payoff
+inputs, price evaluation and explicit finite-bump Spot Delta/Gamma risk. Generic risk flags, payoff
 smoothing and smoothing-width ladders reject before calibration.
 
 ## Finite-grid definition
@@ -116,6 +116,40 @@ time-grid/bridge bias and finite-bump bias. Gaps are diagnostics, not bounds on
 exact Delta error or a certificate that a selected bump is sufficiently small.
 The uncertainty scope is `sampling_only_fixed_calibration_grid_bridge_and_bump`.
 
+## Finite-bump Gamma
+
+`evaluate_gamma_bump_risk(SpotBump)` in Rust and
+`evaluate_gamma_bump_risk(spot_absolute_bump=... | spot_relative_bump=...)` in
+Python use the same six shifted Spots and base price. For every shared path,
+Gamma(h) is `(P(S+h)-2*P(S)+P(S-h))/h²`, for h/2, h and 2h. Production subtracts
+the center price before adding the two changes and divides by h twice. This
+preserves exact fixed-rebate cancellation and avoids forming h² explicitly.
+There are seven payoff evaluations per state path, including the base price;
+there are no additional random coordinates, calibration runs or reverse passes.
+
+The immutable `StochasticDividendContinuousBarrierGammaRisk` result exposes
+`price`, `spot`, `spot_bumps`, `gamma_estimates`, `gamma_standard_errors`,
+`bump_differences` and `bump_difference_standard_errors`. The gaps are
+Gamma(h/2)-Gamma(h) and Gamma(h)-Gamma(2h). `gamma` and `standard_error` select
+the base bump. `delta` and `delta_standard_error` report the paired central
+**price** difference at that same base bump, matching `evaluate_spot_bump_risk`.
+They are not a pathwise/AAD Delta. Gamma and all its gaps are formed on paired
+samples before MC reduction or RQMC scramble-mean aggregation.
+
+The method is `buehler-rough-residual-lsv-continuous-bridge-crn-price-gamma-v1`.
+Its separate `risk_fingerprint` includes the method, base plan, bump convention
+and ladder. The existing price and Spot-Delta method/fingerprints stay unchanged.
+Its `uncertainty_scope` is `sampling_only_fixed_calibration_grid_bridge_and_bump`.
+
+The same funding, frozen-history and re-anchoring rules as Spot-bump Delta apply.
+Initial equality and endpoint/cash-jump branch changes are included in the
+finite price difference; an exact second derivative need not exist. Smaller
+bumps may amplify sampling noise and floating-point cancellation. Gamma gaps
+are diagnostics rather than a bound on derivative error. No zero-bump limit,
+Richardson extrapolation, bump-size recommendation or precision guarantee is
+implied. In particular, the MC/RQMC SE excludes finite-bump, time-grid, bridge
+and calibration error. Generic Gamma request flags still reject.
+
 ## Validation
 
 The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs)
@@ -161,7 +195,13 @@ recompiled/recalibrated shifted prices. MC and RQMC errors are independently
 reconstructed with and without antithetic paths. They also cover worker replay,
 absorbing fixed cash at notional 1e18, initial equality, ended-unhit history,
 absolute/relative fingerprints and unfunded/unrepresentable bump rejection.
-Python checks immutable/detached results, concurrent calls and argument errors.
+Both Delta and Gamma controls cover these scenarios, including paired errors
+for each second price difference and adjacent Gamma gap. Python checks
+immutable/detached results, concurrent calls and argument errors. An additional
+no-cash, flat-variance, eta-zero control compares all eight continuous contract
+variants against independent one-dimensional Gaussian quadrature. For Gamma
+at absolute bumps 1/2/4, it uses eight RQMC scrambles of 8,192 points, an error
+gate of five sampling SEs plus 0.0003, and SE below 0.004.
 
 The same independent NumPy implementation supplies a separate Spot-bump panel
 for all four reference cases, using 32 batches of 8,192 antithetic pairs, seed
@@ -172,6 +212,13 @@ points. For each Delta, absolute difference plus four combined SEs must be below
 Delta SEs must be below 0.004. These validate finite-bump risk of the finite-grid
 bridge algorithm, not a continuous-time derivative.
 
+An independent NumPy Gamma panel uses 32 batches of 8,192 antithetic pairs,
+seed 20261006, and absolute bumps 1/2/4 for the same four stochastic-dividend
+cases. Production uses 16 RQMC scrambles of 32,768 points. Every Gamma and
+adjacent Gamma gap must have absolute difference plus four combined SEs below
+0.02; reference and production Gamma SEs must be below 0.003. These are
+finite-algorithm checks, not accuracy claims about zero-bump Gamma.
+
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract
 include the new API, tests and [example](../../examples/python/rough_dividend_continuous_barrier.py).
@@ -180,8 +227,8 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. The explicit finite-bump Spot method does not yet
-provide Gamma, Vega or other model/market risk. Independent fine-path studies, calibration-aware refinement
+are not valid substitutes. Vega and other model/market risk remain unsupported
+by this continuous wrapper. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.
