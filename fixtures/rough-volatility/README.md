@@ -94,3 +94,23 @@ python -m unittest discover -s scripts -p 'test_lifted_heston_factors.py'
 The [protocol](../../design/validation/lifted-heston-factor-prices.md) distinguishes
 factor-price comparisons from continuous-time accuracy. Regeneration uses the
 explicit `--write` option and requires review; CI only verifies retained values.
+
+## Continuous-time Heston Fourier references
+
+`fourier.json` stores twelve fractional log transforms from a 70-digit power
+series (orders 120 and 180), eight Markov transform rows cross-checked against
+independent adaptive ODEs, and twelve vanilla prices from P1/P2 inversion.
+Heston uses its closed characteristic function; finite lifts use an independent
+ODE. Price inversion is independent of the production half-moment/Simpson
+method. Cutoffs 200/300 are compared before retaining a reference. These
+reference calculations never import the production extension.
+
+```shell
+python scripts/check_heston_fourier.py
+python -m unittest discover -s scripts -p 'test_heston_fourier_reference.py'
+```
+
+Only the explicit `--generate` flag writes the fixture. The default CI command
+checks without writing. See the [protocol](../../design/validation/rough-heston-fourier.md)
+for fixed tolerance/count inputs, the original MC precision failures, and the
+distinction between continuous-time Fourier and finite-step MC laws.

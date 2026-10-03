@@ -40,8 +40,8 @@ coverage executed specifically for this extension is narrower and is listed in
 the validation record. American exercise, continuous Barriers, smoothing-width
 ladders and all requested Greeks are rejected by the extension or shared graph.
 
-This increment does **not** implement characteristic-function/Fourier pricing,
-model calibration, VIX contracts, SSR calculations, AAD/Greeks, leverage-function
+This MC adapter does **not** implement Fourier pricing (a separate
+[forward-only API](rough-heston-fourier.md) does), model calibration, VIX contracts, SSR calculations, AAD/Greeks, leverage-function
 calibration, stochastic rates, stochastic dividends or multi-asset composition.
 A model's support elsewhere in the library does not imply that combination is
 available through this adapter. In particular, using the existing
@@ -72,7 +72,8 @@ Gaussian with the corresponding Brownian increment; older cells use averaged
 kernel weights. The limit `H=1/2` is the full-truncation Euler Heston recursion.
 
 El Euch and Rosenbaum derive the characteristic function through a fractional
-Riccati equation [1]. That separate pricing method is not part of this increment.
+Riccati equation [1]. A separate [Fourier forward API](rough-heston-fourier.md)
+now provides that calculation without changing this MC discretization.
 
 ## Lifted Heston
 
@@ -268,3 +269,10 @@ the worker count changes; numerical equality does not mean identical metadata.
 4. Bourgey, F., De Marco, S. and Gobet, E. (2022), [Weak approximations and VIX option price expansions in forward variance curve models](https://arxiv.org/abs/2202.10413).
 5. Fukasawa, M. and Gatheral, J. (2021), [A rough SABR formula](https://arxiv.org/abs/2105.05359).
 6. Gatheral, J., Jaisson, T. and Rosenbaum, M. (2014), [Volatility is rough](https://arxiv.org/abs/1410.3394).
+
+## Separate Fourier calculation
+
+Rough Heston and Lifted Heston additionally expose an experimental
+[continuous-time-model Fourier forward pricer](rough-heston-fourier.md).
+It uses a separate positive-forward vanilla contract, not the MC pricing
+request or its cash-dividend adapter. Other families remain MC-only here.

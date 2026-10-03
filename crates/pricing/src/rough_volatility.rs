@@ -10,3 +10,8 @@ pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,
     RoughSabr, RoughVolatilityModel,
 };
+
+pub use crate::engine::analytic::heston_fourier::{
+    FourierError, HestonFourierConfig, HestonFourierPlan, HestonFourierPrice,
+};
+pub use pricing_numerics::Complex64;

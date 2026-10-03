@@ -117,6 +117,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -993,6 +994,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "HestonFourierPlan",
+        "HestonFourierPrice",
         "ForwardVarianceCurve",
         "RoughVolatilityModel",
         "RoughVolatilityPath",
@@ -1242,6 +1245,17 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('HestonFourierPlan', 'compile'): {'positional': ['model', 'maturity'], 'positional_defaults': {}, 'keyword_only': ['time_steps', 'integration_intervals', 'cutoff'], 'required_keyword_only': [], 'keyword_only_defaults': {'time_steps': 512, 'integration_intervals': 512, 'cutoff': 128.0}},
+        ('HestonFourierPlan', 'price'): {'positional': ['self', 'forward', 'strike', 'discount'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'log_transform'): {'positional': ['self', 'real', 'imag'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'characteristic_function'): {'positional': ['self', 'frequency'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'time_steps'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'integration_intervals'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'cutoff'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPrice', 'call'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPrice', 'put'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPrice', 'quadrature_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPrice', 'tail_indicator'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('ForwardVarianceCurve', 'constant'): {'positional': ['variance'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('ForwardVarianceCurve', 'piecewise_linear'): {'positional': ['times', 'values'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('ForwardVarianceCurve', 'exponential'): {'positional': ['initial', 'growth'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2057,6 +2071,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'HestonFourierPlan': {'compile','price','log_transform','characteristic_function','time_steps','integration_intervals','cutoff'},
+        'HestonFourierPrice': {'call','put','quadrature_difference','tail_indicator'},
         'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
@@ -2629,6 +2645,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('HestonFourierPlan', 'compile'),
         ('ForwardVarianceCurve', 'constant'),
         ('ForwardVarianceCurve', 'piecewise_linear'),
         ('ForwardVarianceCurve', 'exponential'),
@@ -2697,6 +2714,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('HestonFourierPlan', 'time_steps'),
+        ('HestonFourierPlan', 'integration_intervals'),
+        ('HestonFourierPlan', 'cutoff'),
+        ('HestonFourierPrice', 'call'),
+        ('HestonFourierPrice', 'put'),
+        ('HestonFourierPrice', 'quadrature_difference'),
+        ('HestonFourierPrice', 'tail_indicator'),
         ('RoughVolatilityModel', 'name'),
         ('RoughVolatilityPath', 'forwards'),
         ('RoughVolatilityPath', 'variances'),
