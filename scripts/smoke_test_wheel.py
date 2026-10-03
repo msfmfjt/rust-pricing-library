@@ -116,6 +116,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -992,6 +993,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "ForwardVarianceCurve",
+        "RoughVolatilityModel",
+        "RoughVolatilityPath",
+        "RoughVolatilityPathPlan",
+        "RoughVolatilityPlan",
         "StochasticDividendHullWhitePlan",
         "StochasticDividendPlan",
         "StochasticDividendPrice",
@@ -1236,6 +1242,37 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('ForwardVarianceCurve', 'constant'): {'positional': ['variance'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('ForwardVarianceCurve', 'piecewise_linear'): {'positional': ['times', 'values'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('ForwardVarianceCurve', 'exponential'): {'positional': ['initial', 'growth'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('ForwardVarianceCurve', 'value'): {'positional': ['self', 'time'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityModel', 'rough_heston'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['hurst', 'initial_variance', 'mean_reversion', 'long_run_variance', 'vol_of_vol', 'correlation'], 'required_keyword_only': ['hurst', 'initial_variance', 'mean_reversion', 'long_run_variance', 'vol_of_vol', 'correlation'], 'keyword_only_defaults': {}},
+        ('RoughVolatilityModel', 'lifted_heston'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['initial_variance', 'mean_reversion', 'long_run_variance', 'vol_of_vol', 'correlation', 'weights', 'rates'], 'required_keyword_only': ['initial_variance', 'mean_reversion', 'long_run_variance', 'vol_of_vol', 'correlation', 'weights', 'rates'], 'keyword_only_defaults': {}},
+        ('RoughVolatilityModel', 'lifted_heston_from_rough'): {'positional': ['rough_heston'], 'positional_defaults': {}, 'keyword_only': ['factors', 'ratio'], 'required_keyword_only': [], 'keyword_only_defaults': {'factors': 20, 'ratio': 2.5}},
+        ('RoughVolatilityModel', 'quadratic_rough_heston'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['hurst', 'initial_state', 'mean_reversion', 'vol_of_vol', 'quadratic', 'shift', 'variance_floor'], 'required_keyword_only': ['hurst', 'initial_state', 'mean_reversion', 'vol_of_vol', 'quadratic', 'shift', 'variance_floor'], 'keyword_only_defaults': {}},
+        ('RoughVolatilityModel', 'mixed_rough_bergomi'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['hurst', 'correlation', 'weights', 'vol_of_vols', 'forward_variance'], 'required_keyword_only': ['hurst', 'correlation', 'weights', 'vol_of_vols', 'forward_variance'], 'keyword_only_defaults': {}},
+        ('RoughVolatilityModel', 'rough_sabr'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'beta', 'forward_variance'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'beta', 'forward_variance'], 'keyword_only_defaults': {}},
+        ('RoughVolatilityModel', 'rfsv'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['hurst', 'mean_reversion', 'vol_of_log_vol', 'mean_log_vol', 'initial_log_vol'], 'required_keyword_only': ['hurst', 'mean_reversion', 'vol_of_log_vol', 'mean_log_vol'], 'keyword_only_defaults': {'initial_log_vol': None}},
+        ('RoughVolatilityModel', 'name'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPath', 'forwards'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPath', 'variances'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPath', 'latent_states'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPath', 'negative_variance_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPath', 'absorbed_forward_steps'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'compile'): {'positional': ['model', 'time_nodes'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'evolve_path'): {'positional': ['self', 'initial_forward', 'normals'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'pseudo_shocks'): {'positional': ['self', 'seed', 'path'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'time_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'random_dimension'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'scheme'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'plan_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'compile'): {'positional': ['request', 'model'], 'positional_defaults': {}, 'keyword_only': ['maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
+        ('RoughVolatilityPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'time_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'random_dimension'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'plan_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'risky_spot'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'path_plan'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ("StochasticDividendHullWhitePlan", "compile_bs"): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'rate_mean_reversion', 'rate_volatility_times', 'rate_volatilities', 'equity_rate_correlation', 'dividend_rate_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'rate_mean_reversion', 'rate_volatility_times', 'rate_volatilities', 'equity_rate_correlation', 'dividend_rate_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ("StochasticDividendHullWhitePlan", "evaluate"): {"positional": ["self"], "positional_defaults": {}, "keyword_only": [], "required_keyword_only": [], "keyword_only_defaults": {}},
         ("StochasticDividendHullWhitePlan", "evaluate_aad"): {"positional": ["self"], "positional_defaults": {}, "keyword_only": [], "required_keyword_only": [], "keyword_only_defaults": {}},
@@ -2020,6 +2057,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
+        'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
+        'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
+        'RoughVolatilityPathPlan': {'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
+        'RoughVolatilityPlan': {'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -2587,6 +2629,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('ForwardVarianceCurve', 'constant'),
+        ('ForwardVarianceCurve', 'piecewise_linear'),
+        ('ForwardVarianceCurve', 'exponential'),
+        ('RoughVolatilityModel', 'rough_heston'),
+        ('RoughVolatilityModel', 'lifted_heston'),
+        ('RoughVolatilityModel', 'lifted_heston_from_rough'),
+        ('RoughVolatilityModel', 'quadratic_rough_heston'),
+        ('RoughVolatilityModel', 'mixed_rough_bergomi'),
+        ('RoughVolatilityModel', 'rough_sabr'),
+        ('RoughVolatilityModel', 'rfsv'),
+        ('RoughVolatilityPathPlan', 'compile'),
+        ('RoughVolatilityPlan', 'compile'),
         ("StochasticDividendHullWhitePlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bergomi"),
@@ -2643,6 +2697,21 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('RoughVolatilityModel', 'name'),
+        ('RoughVolatilityPath', 'forwards'),
+        ('RoughVolatilityPath', 'variances'),
+        ('RoughVolatilityPath', 'latent_states'),
+        ('RoughVolatilityPath', 'negative_variance_nodes'),
+        ('RoughVolatilityPath', 'absorbed_forward_steps'),
+        ('RoughVolatilityPathPlan', 'time_nodes'),
+        ('RoughVolatilityPathPlan', 'random_dimension'),
+        ('RoughVolatilityPathPlan', 'scheme'),
+        ('RoughVolatilityPathPlan', 'plan_fingerprint'),
+        ('RoughVolatilityPlan', 'time_nodes'),
+        ('RoughVolatilityPlan', 'random_dimension'),
+        ('RoughVolatilityPlan', 'plan_fingerprint'),
+        ('RoughVolatilityPlan', 'risky_spot'),
+        ('RoughVolatilityPlan', 'path_plan'),
         ('StochasticDividendLsvRoughBergomiRisk', 'price'),
         ('StochasticDividendLsvRoughBergomiRisk', 'parameter_labels'),
         ('StochasticDividendLsvRoughBergomiRisk', 'derivatives'),

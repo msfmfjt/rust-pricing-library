@@ -20,3 +20,6 @@ pub use reduction::{
 pub const fn foundation_role() -> &'static str {
     "core"
 }
+
+mod fractional;
+pub use fractional::{fractional_ou_correlation, gamma_half_to_two};

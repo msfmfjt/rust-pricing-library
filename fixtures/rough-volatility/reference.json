@@ -1,0 +1,222 @@
+{
+  "version": 1,
+  "rfsv_correlations": [
+    {
+      "hurst": 0.001,
+      "lag": 0.01,
+      "correlation": 0.008027357252526554
+    },
+    {
+      "hurst": 0.001,
+      "lag": 0.1,
+      "correlation": 0.0034802526814445957
+    },
+    {
+      "hurst": 0.001,
+      "lag": 1.0,
+      "correlation": -9.884056658716267e-05
+    },
+    {
+      "hurst": 0.001,
+      "lag": 3.0,
+      "correlation": -0.0002324398857121587
+    },
+    {
+      "hurst": 0.001,
+      "lag": 10.0,
+      "correlation": -2.166139349761696e-05
+    },
+    {
+      "hurst": 0.01,
+      "lag": 0.01,
+      "correlation": 0.07770540812802337
+    },
+    {
+      "hurst": 0.01,
+      "lag": 0.1,
+      "correlation": 0.03454654866522454
+    },
+    {
+      "hurst": 0.01,
+      "lag": 1.0,
+      "correlation": -0.0008094481216706574
+    },
+    {
+      "hurst": 0.01,
+      "lag": 3.0,
+      "correlation": -0.002318724152969405
+    },
+    {
+      "hurst": 0.01,
+      "lag": 10.0,
+      "correlation": -0.0002236311763515712
+    },
+    {
+      "hurst": 0.1,
+      "lag": 0.01,
+      "correlation": 0.5664453348491868
+    },
+    {
+      "hurst": 0.1,
+      "lag": 0.1,
+      "correlation": 0.31520818177113924
+    },
+    {
+      "hurst": 0.1,
+      "lag": 1.0,
+      "correlation": 0.009745221530685104
+    },
+    {
+      "hurst": 0.1,
+      "lag": 3.0,
+      "correlation": -0.021650799813072264
+    },
+    {
+      "hurst": 0.1,
+      "lag": 10.0,
+      "correlation": -0.002936858825766448
+    },
+    {
+      "hurst": 0.3,
+      "lag": 0.01,
+      "correlation": 0.9294331372236101
+    },
+    {
+      "hurst": 0.3,
+      "lag": 0.1,
+      "correlation": 0.7232039427670115
+    },
+    {
+      "hurst": 0.3,
+      "lag": 1.0,
+      "correlation": 0.13818097373113222
+    },
+    {
+      "hurst": 0.3,
+      "lag": 3.0,
+      "correlation": -0.033405534270714944
+    },
+    {
+      "hurst": 0.3,
+      "lag": 10.0,
+      "correlation": -0.011105409519745943
+    },
+    {
+      "hurst": 0.49,
+      "lag": 0.01,
+      "correlation": 0.9889933554417992
+    },
+    {
+      "hurst": 0.49,
+      "lag": 0.1,
+      "correlation": 0.8992367763227902
+    },
+    {
+      "hurst": 0.49,
+      "lag": 1.0,
+      "correlation": 0.3549909159834316
+    },
+    {
+      "hurst": 0.49,
+      "lag": 3.0,
+      "correlation": 0.042413034797489174
+    },
+    {
+      "hurst": 0.49,
+      "lag": 10.0,
+      "correlation": -0.0018879701811746552
+    },
+    {
+      "hurst": 0.5,
+      "lag": 0.01,
+      "correlation": 0.9900498337491681
+    },
+    {
+      "hurst": 0.5,
+      "lag": 0.1,
+      "correlation": 0.9048374180359595
+    },
+    {
+      "hurst": 0.5,
+      "lag": 1.0,
+      "correlation": 0.36787944117144233
+    },
+    {
+      "hurst": 0.5,
+      "lag": 3.0,
+      "correlation": 0.049787068367863944
+    },
+    {
+      "hurst": 0.5,
+      "lag": 10.0,
+      "correlation": 4.5399929762484854e-05
+    }
+  ],
+  "heston_one_step": [
+    {
+      "hurst": 0.01,
+      "dt": 0.25,
+      "initial_variance": 0.04,
+      "mean_reversion": 1.2,
+      "long_run_variance": 0.07,
+      "vol_of_vol": 0.3,
+      "correlation": -0.6,
+      "normals": [
+        0.2,
+        -0.4,
+        0.7
+      ],
+      "raw_variance": 0.1925333147721076,
+      "forward": 101.51130646157189
+    },
+    {
+      "hurst": 0.1,
+      "dt": 0.25,
+      "initial_variance": 0.04,
+      "mean_reversion": 1.2,
+      "long_run_variance": 0.07,
+      "vol_of_vol": 0.3,
+      "correlation": -0.6,
+      "normals": [
+        0.2,
+        -0.4,
+        0.7
+      ],
+      "raw_variance": 0.06841633025840278,
+      "forward": 101.51130646157189
+    },
+    {
+      "hurst": 0.3,
+      "dt": 0.25,
+      "initial_variance": 0.04,
+      "mean_reversion": 1.2,
+      "long_run_variance": 0.07,
+      "vol_of_vol": 0.3,
+      "correlation": -0.6,
+      "normals": [
+        0.2,
+        -0.4,
+        0.7
+      ],
+      "raw_variance": 0.041731479390191575,
+      "forward": 101.51130646157189
+    },
+    {
+      "hurst": 0.5,
+      "dt": 0.25,
+      "initial_variance": 0.04,
+      "mean_reversion": 1.2,
+      "long_run_variance": 0.07,
+      "vol_of_vol": 0.3,
+      "correlation": -0.6,
+      "normals": [
+        0.2,
+        -0.4,
+        0.7
+      ],
+      "raw_variance": 0.0358,
+      "forward": 101.51130646157189
+    }
+  ],
+  "black_call": 9.279145944253367
+}
