@@ -17,6 +17,8 @@ European calls/puts, digital, Asian, discrete lookback and discrete barriers.
 American exercise and live continuous barriers are rejected. Continuous contracts
 whose monitoring is resolved by historical state are supported at deterministic
 rates; see [resolved continuous monitoring](#resolved-continuous-monitoring).
+Live rough-LSV monitoring has a separate, explicit
+[price approximation](#continuous-barrier-price-approximation).
 Greeks in the request are rejected rather than silently computed under fixed
 cash. First-order risk is requested explicitly through `evaluate_aad`; see below. Public price accuracy tests in this
 change cover European calls and the discrete-barrier dividend jump; the new
@@ -403,6 +405,27 @@ Unhit history with monitoring ending today or later still rejects; no continuous
 stochastic-dividend bridge is implemented. Other LSV/Hull–White adapters retain
 their continuous-contract rejection. See the
 [validation controls](../../design/validation/path-dependence-conformance-v0.1.md#resolved-continuous-stochastic-dividend-adapters).
+
+### Continuous Barrier price approximation
+
+Rust and Python `StochasticDividendContinuousBarrierPlan.compile_rough_bergomi_lsv`
+accept live continuous Up/Down Call/Put knock-in/out contracts at deterministic
+rates. This is an opt-in price approximation with a separate plan type and
+fingerprint. It freezes the physical log-Spot variance over each interval,
+including both residual-equity and stochastic-reserve loadings and their
+correlation. Diffusion arrives at pre-cash stock; both sides of every monitored
+cash jump are checked separately. Historical state and delayed fixed rebates
+follow the same contract rules as resolved monitoring.
+
+Call `evaluate()` to obtain `StochasticDividendPrice`. The scheme ends in
+`continuous-physical-log-bridge-approx-v1`. No Greek methods are exposed, and
+request risk flags or smoothing are rejected. The bridge is not the exact
+crossing law of the nonlinear rough model. Sampling error excludes calibration
+and grid/bridge bias; refine the grid for the intended parameters. See the
+[derivation, reference comparisons and limitations](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md)
+and [Python example](../../examples/python/rough_dividend_continuous_barrier.py).
+Existing `StochasticDividendPlan` factories retain their live-monitoring
+rejection and discrete-risk behavior.
 
 ### Residual-LSV Gamma and other sensitivities
 

@@ -13,6 +13,14 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs',
+    'crates/pricing-python/src/stochastic_dividends/continuous_barrier.rs',
+    'tests/python/rough_dividend_continuous_reference.py',
+    'tests/python/test_rough_dividend_continuous.py',
+    'fixtures/stochastic-dividends/rough-continuous-barrier-reference.json',
+    'examples/python/rough_dividend_continuous_barrier.py',
+    'design/validation/stochastic-dividend-continuous-barrier-approximation.md',
     'tests/python/test_rough_dividend_hard_barrier.py',
     'examples/python/rough_dividend_hard_barrier.py',
     'tests/python/rough_dividend_barrier_styles.py',
@@ -335,6 +343,10 @@ REQUIRED_CI_SNIPPETS = {
     '            stochastic-dividend-hard-barrier-risk.log',
     'cargo test --locked --release -p pricing --lib resolved_barrier_tests -- --nocapture',
     '            stochastic-dividend-resolved-barrier.log',
+    'cargo test --locked --release -p pricing --lib stochastic_dividends::continuous_barrier -- --nocapture',
+    '            stochastic-dividend-continuous-barrier.log',
+    'python tests/python/rough_dividend_continuous_reference.py',
+    '            stochastic-dividend-continuous-reference.log',
     'name: Independent hard Barrier references and refinement / Linux',
     'python tests/python/rough_dividend_survival_reference.py',
     'name: rough-dividend-survival-reference-linux',
@@ -441,6 +453,7 @@ REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 
 REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     'subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)',
+    'subprocess.run([str(python), "examples/python/rough_dividend_continuous_barrier.py"], check=True)',
     "('StochasticDividendPlan', 'evaluate_lsv_hard_barrier_spot_risk')",
     "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",
     "verify_wheel_text_members(member_bytes)",

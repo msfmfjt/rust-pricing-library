@@ -88,6 +88,8 @@ jobs:
         run: cargo test --locked --release -p pricing --lib lsv_hard_barrier -- --nocapture 2>&1 | tee stochastic-dividend-hard-barrier-risk.log
       - name: Check resolved continuous stochastic-dividend contracts
         run: cargo test --locked --release -p pricing --lib resolved_barrier_tests -- --nocapture 2>&1 | tee stochastic-dividend-resolved-barrier.log
+      - name: Check continuous stochastic-dividend bridge approximation
+        run: cargo test --locked --release -p pricing --lib stochastic_dividends::continuous_barrier -- --nocapture 2>&1 | tee stochastic-dividend-continuous-barrier.log
       - name: Retain Barrier smoothing evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -98,6 +100,7 @@ jobs:
             stochastic-dividend-hard-barrier-reference.log
             stochastic-dividend-hard-barrier-risk.log
             stochastic-dividend-resolved-barrier.log
+            stochastic-dividend-continuous-barrier.log
           retention-days: 14
           if-no-files-found: warn
 
@@ -123,6 +126,10 @@ jobs:
         run: python tests/python/rough_dividend_barrier_styles.py 2>&1 | tee stochastic-dividend-barrier-styles-reference.log
       - name: Regenerate independent fixed cash rebate references
         run: python tests/python/rough_dividend_barrier_styles.py rough-barrier-rebates-reference.json 2>&1 | tee stochastic-dividend-barrier-rebates-reference.log
+      - name: Regenerate continuous bridge approximation and refinement references
+        env:
+          OPENBLAS_NUM_THREADS: 1
+        run: python tests/python/rough_dividend_continuous_reference.py 2>&1 | tee stochastic-dividend-continuous-reference.log
       - name: Retain independent reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -133,6 +140,7 @@ jobs:
             stochastic-dividend-hard-refinement.log
             stochastic-dividend-barrier-styles-reference.log
             stochastic-dividend-barrier-rebates-reference.log
+            stochastic-dividend-continuous-reference.log
           retention-days: 14
           if-no-files-found: warn
 

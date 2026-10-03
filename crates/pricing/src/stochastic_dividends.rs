@@ -11,7 +11,8 @@ pub use crate::engine::processes::stochastic_dividends::{
     StochasticDividendNode, StochasticDividendPathPlan,
 };
 pub use crate::engine::risk::stochastic_dividends::{
-    StochasticDividendAadRisk, StochasticDividendGammaRisk, StochasticDividendLocalVarianceRisk,
+    StochasticDividendAadRisk, StochasticDividendContinuousBarrierPlan,
+    StochasticDividendGammaRisk, StochasticDividendLocalVarianceRisk,
     StochasticDividendLsvBergomi2FactorCorrelationRisk, StochasticDividendLsvBergomi2FactorRisk,
     StochasticDividendLsvBergomiRisk, StochasticDividendLsvCorrelationRisk,
     StochasticDividendLsvDividendModelRisk, StochasticDividendLsvMarketRisk,

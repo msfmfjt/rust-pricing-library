@@ -137,6 +137,10 @@ payment-discount risk. Live continuous monitoring still rejects. See
 [adapter scope](../models/stochastic-dividends.md#resolved-continuous-monitoring).
 Other LSV/Hull–White adapters still reject all continuous contracts. The dedicated
 rough stochastic-dividend hard Spot-risk API supports discrete history only.
+The separate `StochasticDividendContinuousBarrierPlan` offers an explicit,
+price-only rough-LSV bridge approximation for live monitoring; see its
+[scope and validation](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md).
+Its price result does not expose the shared BS/Local Volatility bridge diagnostics.
 
 ## Errors
 

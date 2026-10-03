@@ -124,6 +124,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/local_correlation_lsv_hw.py"], check=True)
     subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_dividend_continuous_barrier.py"], check=True)
     subprocess.run(
         [
             str(python),
@@ -995,6 +996,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_top_level_names = {
         "StochasticDividendHullWhitePlan",
         "StochasticDividendPlan",
+        "StochasticDividendContinuousBarrierPlan",
         "StochasticDividendPrice",
         "StochasticDividendAadRisk",
         "StochasticDividendGammaRisk",
@@ -1246,6 +1248,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('StochasticDividendPlan', 'compile_bs'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_bergomi'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_rough_bergomi_lsv'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'maximum_step', 'worker_threads', 'reduction_block_size', 'retain_reverse_trace'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None, 'retain_reverse_trace': False}},
+        ('StochasticDividendContinuousBarrierPlan', 'compile_rough_bergomi_lsv'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_rough_bergomi'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['hurst', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_bergomi_two_factor'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlations', 'maximum_step', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['mean_reversions', 'vol_of_vol', 'mixing_weight', 'spot_correlations', 'factor_correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlations', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
         ('StochasticDividendPlan', 'compile_bergomi_lsv'): {'positional': ['request'], 'positional_defaults': {}, 'keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'maximum_step', 'worker_threads', 'reduction_block_size', 'retain_reverse_trace'], 'required_keyword_only': ['mean_reversion', 'vol_of_vol', 'correlation', 'dividend_mean_reversion', 'equity_linkage', 'dividend_volatility', 'equity_dividend_correlation', 'dividend_volatility_correlation', 'particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'maximum_step', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None, 'retain_reverse_trace': False}},
@@ -1253,6 +1256,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('StochasticDividendPlan', 'evaluate_lsv_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['gamma_absolute_bump', 'gamma_relative_bump'], 'required_keyword_only': [], 'keyword_only_defaults': {'gamma_absolute_bump': None, 'gamma_relative_bump': None}},
         ('StochasticDividendPlan', 'evaluate_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['gamma_absolute_bump', 'gamma_relative_bump'], 'required_keyword_only': [], 'keyword_only_defaults': {'gamma_absolute_bump': None, 'gamma_relative_bump': None}},
         ('StochasticDividendPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('StochasticDividendContinuousBarrierPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_local_variance_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_lsv_spot_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_lsv_hard_barrier_spot_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2022,6 +2026,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'StochasticDividendContinuousBarrierPlan': {'lsv_squared_leverage', 'random_factor_count', 'compile_rough_bergomi_lsv', 'plan_fingerprint', 'lsv_initial_residual_equity', 'lsv_time_nodes', 'risky_spot', 'time_nodes', 'lsv_log_moneyness_nodes', 'scheme', 'evaluate'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -2589,6 +2594,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('StochasticDividendContinuousBarrierPlan', "compile_rough_bergomi_lsv"),
         ("StochasticDividendHullWhitePlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bergomi"),
@@ -2645,6 +2651,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('StochasticDividendContinuousBarrierPlan', 'plan_fingerprint'),
+        ('StochasticDividendContinuousBarrierPlan', 'time_nodes'),
+        ('StochasticDividendContinuousBarrierPlan', 'random_factor_count'),
+        ('StochasticDividendContinuousBarrierPlan', 'risky_spot'),
+        ('StochasticDividendContinuousBarrierPlan', 'scheme'),
+        ('StochasticDividendContinuousBarrierPlan', 'lsv_time_nodes'),
+        ('StochasticDividendContinuousBarrierPlan', 'lsv_log_moneyness_nodes'),
+        ('StochasticDividendContinuousBarrierPlan', 'lsv_squared_leverage'),
+        ('StochasticDividendContinuousBarrierPlan', 'lsv_initial_residual_equity'),
         ('StochasticDividendLsvRoughBergomiRisk', 'price'),
         ('StochasticDividendLsvRoughBergomiRisk', 'parameter_labels'),
         ('StochasticDividendLsvRoughBergomiRisk', 'derivatives'),

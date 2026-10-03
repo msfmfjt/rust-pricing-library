@@ -15,6 +15,9 @@ use pricing::stochastic_dividends::{
 };
 use pyo3::prelude::*;
 
+mod continuous_barrier;
+pub use continuous_barrier::PyStochasticDividendContinuousBarrierPlan;
+
 fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
     validation_exception(
         py,

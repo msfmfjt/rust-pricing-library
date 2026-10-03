@@ -50,6 +50,11 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
+adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump
+checks, independent NumPy comparisons and coupled fixed-surface refinement.
+It does not claim an exact nonlinear crossing law or continuous Barrier Greeks.
+
 The [hard Barrier Spot-risk method](validation/stochastic-dividend-hard-barrier-spot-risk.md)
 adds production survival-conditioned price and Delta for discrete rough-LSV
 up/down knock-in/out calls and puts, including
