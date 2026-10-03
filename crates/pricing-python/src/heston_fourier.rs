@@ -2,7 +2,8 @@
 use super::rough_volatility::PyRoughVolatilityModel;
 use super::{PyValidationIssue, pricing_exception, validation_exception};
 use pricing::rough_volatility::{
-    Complex64, FourierError, HestonFourierConfig, HestonFourierPlan, HestonFourierPrice,
+    Complex64, FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierPlan,
+    HestonFourierPrice,
 };
 use pyo3::prelude::*;
 
@@ -43,6 +44,49 @@ impl PyHestonFourierPrice {
         self.inner.tail_indicator
     }
 }
+/// Frozen forward-only Greeks; the model, maturity, strike and discount stay fixed.
+#[pyclass(frozen, name = "HestonFourierGreeks", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHestonFourierGreeks {
+    inner: HestonFourierGreeks,
+}
+#[pymethods]
+impl PyHestonFourierGreeks {
+    #[getter]
+    fn price(&self) -> PyHestonFourierPrice {
+        PyHestonFourierPrice {
+            inner: self.inner.price,
+        }
+    }
+    #[getter]
+    fn call_forward_delta(&self) -> f64 {
+        self.inner.call_forward_delta
+    }
+    #[getter]
+    fn put_forward_delta(&self) -> f64 {
+        self.inner.put_forward_delta
+    }
+    #[getter]
+    fn forward_gamma(&self) -> f64 {
+        self.inner.forward_gamma
+    }
+    #[getter]
+    fn delta_quadrature_difference(&self) -> f64 {
+        self.inner.delta_quadrature_difference
+    }
+    #[getter]
+    fn gamma_quadrature_difference(&self) -> f64 {
+        self.inner.gamma_quadrature_difference
+    }
+    #[getter]
+    fn delta_tail_indicator(&self) -> f64 {
+        self.inner.delta_tail_indicator
+    }
+    #[getter]
+    fn gamma_tail_indicator(&self) -> f64 {
+        self.inner.gamma_tail_indicator
+    }
+}
 #[pyclass(frozen, name = "HestonFourierPlan", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierPlan {
@@ -76,6 +120,17 @@ impl PyHestonFourierPlan {
     ) -> PyResult<PyHestonFourierPrice> {
         py.detach(|| self.inner.price(forward, strike, discount))
             .map(|inner| PyHestonFourierPrice { inner })
+            .map_err(|e| failure(py, e))
+    }
+    fn price_and_greeks(
+        &self,
+        py: Python<'_>,
+        forward: f64,
+        strike: f64,
+        discount: f64,
+    ) -> PyResult<PyHestonFourierGreeks> {
+        py.detach(|| self.inner.price_and_greeks(forward, strike, discount))
+            .map(|inner| PyHestonFourierGreeks { inner })
             .map_err(|e| failure(py, e))
     }
     fn log_transform(&self, py: Python<'_>, real: f64, imag: f64) -> PyResult<(f64, f64)> {

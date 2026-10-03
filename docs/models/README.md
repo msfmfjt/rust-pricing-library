@@ -33,6 +33,7 @@ and path-treatment methods independently of the model that uses them.
 | --- | --- |
 | Monte Carlo and RQMC | Philox streams, antithetic sampling, Sobol' sequences and uncertainty |
 | Fourier pricing | [Rough/Lifted Heston forward transforms, Riccati integration and European inversion](rough-heston-fourier.md) |
+| Fourier forward risk | [Fixed-model Forward Delta/Gamma and diagnostic limits](rough-heston-fourier-greeks.md) |
 | Calibration | Particle calibration, leverage fitting and surface interpolation |
 | Early exercise | Least-squares Monte Carlo, regression QR and fixed-policy valuation |
 | Differentiation and risk | AAD, finite-difference validation and VegaKT |
