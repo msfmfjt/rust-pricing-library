@@ -12,7 +12,7 @@ The result uses `StochasticDividendPrice` and scheme
 The scheme participates in the plan fingerprint. The plan exposes calibration
 inputs, price evaluation, finite-bump Spot Delta/Gamma and recalibrated parallel
 residual Local-volatility risk, reporting projection with joint covariance, and
-parallel retained-quote IV risk. Generic risk flags, payoff
+parallel/selected retained-quote IV risk. Generic risk flags, payoff
 smoothing and smoothing-width ladders reject before calibration.
 
 ## Finite-grid definition
@@ -415,8 +415,8 @@ quantity by 0.01. MC uses independent paths or antithetic pairs; RQMC uses
 scramble means. The work count is six recalibrations and seven scenario paths
 per base path, excluding calibration particles. On a nonflat smile the result
 differs from shifting sqrt(Local variance); the reporting projection is also a
-separate convention. This is a finite parallel quote bump, not quote-bucket risk
-or the full VegaKT operator.
+separate convention. Selected quote bumps use the bucket API below; neither
+finite-bump API supplies the full VegaKT operator.
 
 The method is
 `buehler-rough-residual-lsv-continuous-bridge-parallel-market-iv-recalibrated-crn-v1`.
@@ -437,6 +437,66 @@ against one-dimensional Gaussian barrier quadrature at all three bump sizes
 for four knockout styles. Python uses a separate NumPy natural-spline solve
 and Dupire formula, plus source/target mismatch, coverage, calendar and repair
 rejection, fixed-cash history, worker/concurrent replay and detached arrays.
+
+## Recalibrated selected quote-IV buckets
+
+Rust `evaluate_bucketed_market_iv_risk(h, &[4, 0])` and Python
+`evaluate_bucketed_market_iv_risk(implied_volatility_bump=h, quote_indices=[4, 0])`
+move each selected retained quote separately. `quote_indices` must be nonempty,
+unique and in range; each is `maturity_index * quote_log_moneyness_nodes.len() +
+strike_index`. Results retain the requested order. Indices refer to the retained
+quote grid, which may differ from both original and refined variance grids.
+A quote maturity beyond expiry can still contribute through time interpolation
+and the Dupire time derivative; it is not silently dropped.
+
+For each quote, the method rebuilds the source at six shifts `±h/2, ±h, ±2h`,
+recomputes Dupire on the original target axes, refines variance onto the same
+execution grid and fully recalibrates leverage with the fixed calibration seed.
+Every shifted quote surface and original/refined target validates before any
+scenario calibration begins. Nonpositive or unrepresentable quote changes,
+sampled arbitrage and floor/cap repairs reject the entire request. The source
+interpolation, strict provenance and coordinate contract above remain in force.
+
+`StochasticDividendContinuousBarrierBucketedMarketIvRisk` returns `price`,
+`quote_indices`, `quote_maturity_nodes`, `quote_log_moneyness_nodes`, original
+`implied_volatilities`, `interpolation` and `implied_volatility_bumps`. Rows of
+`vega_estimates` and `vega_standard_errors` correspond to the selected quotes;
+columns are the half/base/double ladder. `bump_differences` and
+`bump_difference_standard_errors` contain the paired half-minus-base and
+base-minus-double gaps. `sum_vega_estimates`, `sum_vega_standard_errors`,
+`sum_bump_differences` and `sum_bump_difference_standard_errors` aggregate only
+selected quotes. Estimates are currency per unit absolute residual-forward IV;
+multiply both estimates and errors by 0.01 for per-vol-point reporting.
+
+Sums and gaps are computed on shared observations before MC/RQMC reduction,
+so sum errors include cross-quote covariance. MC units are paths or antithetic
+pairs; RQMC units are scramble means. Do not add marginal standard errors.
+The finite sum of individually bumped quotes need not equal the simultaneous
+parallel bump, even when all quotes are selected. Small-bump convergence is a
+diagnostic, not a guaranteed zero-bump derivative at nonsmooth branches.
+For N selected quotes there are 6N full recalibrations and
+`(6N+1)*price.evaluated_paths` scenario paths/payoffs, excluding calibration
+particles. No full covariance matrix or reporting-basis projection is produced.
+
+The method tag is
+`buehler-rough-residual-lsv-continuous-bridge-bucketed-market-iv-recalibrated-crn-v1`.
+Its fingerprint hashes the source-bound plan, ordered quote indices and bump
+ladder. The uncertainty scope is
+`pricing_only_fixed_calibration_seed_grid_bridge_and_quote_interpolation`.
+Errors condition on the calibration and exclude calibration noise, interpolation,
+grid, bridge and finite-bump bias. The API does not provide physical-Spot quote
+conversion, a constrained smile refit or the full VegaKT operator.
+
+Controls compare all eight Barrier styles with separately compiled scenarios
+using an independent closed natural-cubic/Dupire calculation. Independent path
+or scramble observations reconstruct each bucket, sum and gap error with and
+without antithetics. They cover beyond-expiry quote influence, selection order,
+single-bucket identities, worker replay, invalid selections/bumps, strict caps,
+missing provenance, fixed-cash histories and small-bump sum/parallel convergence.
+Python checks four stochastic reference cases with a separate NumPy cubic solve,
+plus detached/frozen arrays, concurrent replay and argument errors. Calibration
+and pricing remain the shared Rust implementation in these scenario comparisons;
+these tests do not establish independent calibration or continuous-time accuracy.
 
 ## Validation
 
@@ -589,11 +649,10 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. Quote-by-quote IV buckets, the full VegaKT operator,
-physical-Spot quote conversion/refitting and other model/market risks remain
-unsupported by this continuous wrapper. Parallel retained-quote rebuilding is
-supported under the interpolation contract above; the reporting projection is a
-separate convention. Independent fine-path studies, calibration-aware refinement
+are not valid substitutes. The full VegaKT operator, physical-Spot quote conversion/refitting and other model/market risks remain
+unsupported by this continuous wrapper. Parallel and selected retained-quote
+rebuilding are supported under the interpolation contract above; the reporting
+projection is a separate convention. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.

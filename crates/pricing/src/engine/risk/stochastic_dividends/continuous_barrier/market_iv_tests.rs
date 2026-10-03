@@ -3,8 +3,8 @@ use super::*;
 use crate::market::MarketIvSurface;
 use serde_json::{Value, json};
 
-const QUOTES: [f64; 6] = [0.22, 0.20, 0.21, 0.24, 0.22, 0.23];
-fn surface(shift: f64) -> MarketIvSurface {
+pub(super) const QUOTES: [f64; 6] = [0.22, 0.20, 0.21, 0.24, 0.22, 0.23];
+pub(super) fn surface(shift: f64) -> MarketIvSurface {
     MarketIvSurface::new(
         vec![0.25, 1.25],
         vec![-0.75, 0.0, 0.75],
@@ -12,7 +12,7 @@ fn surface(shift: f64) -> MarketIvSurface {
     )
     .unwrap()
 }
-fn quote_payload() -> Value {
+pub(super) fn quote_payload() -> Value {
     let mut v = payload();
     let plain = compile(&v, 0.6).unwrap();
     let original = plain.original_local_variance_target().unwrap();
@@ -29,10 +29,10 @@ fn quote_payload() -> Value {
 }
 // Independent closed natural-cubic construction for two time rows and three
 // equally spaced quote strikes. No production surface/derivative call is used.
-fn independent_variance(t: f64, x: f64, shift: f64) -> f64 {
+fn independent_variance(t: f64, x: f64, quotes: &[f64; 6]) -> f64 {
     let spline = |row: usize| {
         let time = [0.25, 1.25][row];
-        let w: [f64; 3] = std::array::from_fn(|j| time * (QUOTES[3 * row + j] + shift).powi(2));
+        let w: [f64; 3] = std::array::from_fn(|j| time * quotes[3 * row + j].powi(2));
         let seconds = [
             0.0,
             1.5 * (w[0] - 2.0 * w[1] + w[2]) / 0.75_f64.powi(2),
@@ -64,6 +64,9 @@ fn independent_variance(t: f64, x: f64, shift: f64) -> f64 {
     (hi[0] - lo[0]) / density
 }
 fn bumped(v: &Value, shift: f64) -> Value {
+    independent_quote_payload(v, &QUOTES.map(|sigma| sigma + shift))
+}
+pub(super) fn independent_quote_payload(v: &Value, quotes: &[f64; 6]) -> Value {
     let mut v = v.clone();
     let grid = &v["model"]["local_variance_grid"];
     let times = grid["time_nodes"].as_array().unwrap();
@@ -80,7 +83,7 @@ fn bumped(v: &Value, shift: f64) -> Value {
                         t
                     },
                     x.as_f64().unwrap(),
-                    shift,
+                    quotes,
                 )
             })
         })

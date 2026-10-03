@@ -1,4 +1,4 @@
-"""Finite parallel IV risk for a continuous rough-LSV stochastic-dividend Barrier."""
+"""Finite parallel and selected quote IV risk for a continuous rough-LSV stochastic-dividend Barrier."""
 import rust_pricing as rp
 
 expiry = 364 / 365
@@ -40,3 +40,18 @@ print('Bump gaps / paired SE:', risk.bump_differences, risk.bump_difference_stan
 print('Interpolation:', risk.interpolation)
 print('Recalibrations / scenario paths:', risk.recalibration_count, risk.scenario_evaluated_paths)
 print('Sampling errors condition on the calibration seed and exclude grid/bridge/bump bias.')
+
+# Maturity-major indices refer to the retained quote grid (2 x 3), not the
+# original local-variance grid (3 x 3) or the refined execution grid.
+buckets = plan.evaluate_bucketed_market_iv_risk(
+    implied_volatility_bump=.01, quote_indices=[4, 0])
+print('Selected quote indices:', buckets.quote_indices)
+print('Quote Vega ladders / paired SE:', buckets.vega_estimates, buckets.vega_standard_errors)
+print('Selected sum / paired SE:', buckets.sum_vega_estimates, buckets.sum_vega_standard_errors)
+print('Selected sum gaps / paired SE:', buckets.sum_bump_differences,
+      buckets.sum_bump_difference_standard_errors)
+print('Bucket recalibrations / scenario paths:', buckets.recalibration_count,
+      buckets.scenario_evaluated_paths)
+# Sums pair observations before reduction, retaining cross-quote covariance.
+# Multiply estimates and errors by .01 for per-vol-point reporting. Finite
+# individual quote bumps need not sum to the simultaneous parallel bump.

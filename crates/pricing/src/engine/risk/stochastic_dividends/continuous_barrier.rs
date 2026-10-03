@@ -10,7 +10,9 @@ use crate::product::{
 
 mod bucketed_local_volatility;
 pub use bucketed_local_volatility::StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk;
+mod bucketed_market_iv;
 mod local_volatility;
+pub use bucketed_market_iv::StochasticDividendContinuousBarrierBucketedMarketIvRisk;
 mod market_iv;
 pub use market_iv::StochasticDividendContinuousBarrierMarketIvRisk;
 mod reporting_iv;
@@ -283,3 +285,6 @@ mod reporting_iv_tests;
 
 #[cfg(test)]
 mod market_iv_tests;
+
+#[cfg(test)]
+mod bucketed_market_iv_tests;

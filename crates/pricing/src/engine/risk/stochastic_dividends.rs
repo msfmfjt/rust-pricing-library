@@ -33,6 +33,7 @@ mod resolved_barrier_tests;
 pub use aad::StochasticDividendAadRisk;
 pub use continuous_barrier::{
     StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierBucketedMarketIvRisk,
     StochasticDividendContinuousBarrierGammaRisk,
     StochasticDividendContinuousBarrierLocalVolatilityRisk,
     StochasticDividendContinuousBarrierMarketIvRisk, StochasticDividendContinuousBarrierPlan,

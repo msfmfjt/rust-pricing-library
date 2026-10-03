@@ -3,6 +3,7 @@ use crate::market_iv::PyMarketIvSurface;
 use pricing::core::PositiveF64;
 use pricing::stochastic_dividends::{
     StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierBucketedMarketIvRisk,
     StochasticDividendContinuousBarrierGammaRisk,
     StochasticDividendContinuousBarrierLocalVolatilityRisk,
     StochasticDividendContinuousBarrierMarketIvRisk, StochasticDividendContinuousBarrierPlan,
@@ -149,6 +150,21 @@ impl PyStochasticDividendContinuousBarrierPlan {
                 .evaluate_parallel_local_volatility_risk(local_volatility_bump)
         })
         .map(|inner| PyStochasticDividendContinuousBarrierLocalVolatilityRisk { inner })
+        .map_err(pricing_exception)
+    }
+    /// Selected retained residual-forward IV quotes, recalibrated independently.
+    #[pyo3(signature=(*, implied_volatility_bump, quote_indices))]
+    fn evaluate_bucketed_market_iv_risk(
+        &self,
+        py: Python<'_>,
+        implied_volatility_bump: f64,
+        quote_indices: Vec<usize>,
+    ) -> PyResult<PyStochasticDividendContinuousBarrierBucketedMarketIvRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_bucketed_market_iv_risk(implied_volatility_bump, &quote_indices)
+        })
+        .map(|inner| PyStochasticDividendContinuousBarrierBucketedMarketIvRisk { inner })
         .map_err(pricing_exception)
     }
     /// Selected original residual Local-volatility nodes, recalibrated independently.
@@ -825,5 +841,121 @@ impl PyStochasticDividendContinuousBarrierMarketIvRisk {
     #[getter]
     fn risk_fingerprint(&self) -> String {
         self.inner.risk_fingerprint.to_string()
+    }
+}
+
+/// Selected retained quote-IV risks with paired sum errors.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendContinuousBarrierBucketedMarketIvRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendContinuousBarrierBucketedMarketIvRisk {
+    inner: StochasticDividendContinuousBarrierBucketedMarketIvRisk,
+}
+#[pymethods]
+impl PyStochasticDividendContinuousBarrierBucketedMarketIvRisk {
+    #[getter]
+    fn implied_volatilities(&self) -> Vec<f64> {
+        self.inner.implied_volatilities.clone()
+    }
+    #[getter]
+    fn interpolation(&self) -> &'static str {
+        self.inner.interpolation()
+    }
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn scenario_evaluated_paths(&self) -> u128 {
+        self.inner.scenario_evaluated_paths
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn recalibration_count(&self) -> usize {
+        self.inner.recalibration_count
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn quote_indices(&self) -> Vec<usize> {
+        self.inner.quote_indices.to_vec()
+    }
+    #[getter]
+    fn quote_maturity_nodes(&self) -> Vec<f64> {
+        self.inner.quote_maturity_nodes.to_vec()
+    }
+    #[getter]
+    fn quote_log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.quote_log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn implied_volatility_bumps(&self) -> Vec<f64> {
+        self.inner.implied_volatility_bumps.to_vec()
+    }
+    #[getter]
+    fn sum_vega_estimates(&self) -> Vec<f64> {
+        self.inner.sum_vega_estimates.to_vec()
+    }
+    #[getter]
+    fn sum_vega_standard_errors(&self) -> Vec<f64> {
+        self.inner.sum_vega_standard_errors.to_vec()
+    }
+    #[getter]
+    fn sum_bump_differences(&self) -> Vec<f64> {
+        self.inner.sum_bump_differences.to_vec()
+    }
+    #[getter]
+    fn sum_bump_difference_standard_errors(&self) -> Vec<f64> {
+        self.inner.sum_bump_difference_standard_errors.to_vec()
+    }
+    #[getter]
+    fn vega_estimates(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .vega_estimates
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn vega_standard_errors(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .vega_standard_errors
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .bump_differences
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .bump_difference_standard_errors
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        self.inner.uncertainty_scope()
     }
 }

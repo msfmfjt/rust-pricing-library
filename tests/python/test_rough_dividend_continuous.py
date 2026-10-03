@@ -423,6 +423,85 @@ class ContinuousBarrierApproximation(unittest.TestCase):
                 self.assertEqual(r.interpolation,'natural-cubic-w-linear-time-v1')
                 self.assertEqual(r.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_and_quote_interpolation')
 
+    def test_bucketed_market_iv_against_independent_numpy_dupire(self):
+        source=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,QUOTE_IV)
+        for case in FIXTURE['cases']:
+            with self.subTest(case=case['id']):
+                req=iv_request(case,source);data=json.loads(req.to_json())
+                plan=compile_plan(case,req,market_iv_surface=source)
+                r=plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=.01,quote_indices=[4,0,5])
+                self.assertEqual(r.quote_indices,[4,0,5])
+                self.assertEqual(r.quote_maturity_nodes,QUOTE_TIMES)
+                self.assertEqual(r.quote_log_moneyness_nodes,QUOTE_X)
+                self.assertEqual(r.implied_volatilities,QUOTE_IV)
+                self.assertEqual(r.price.value,plan.evaluate().value)
+                self.assertEqual(r.price.plan_fingerprint,plan.plan_fingerprint)
+                self.assertEqual(r.implied_volatility_bumps,[.005,.01,.02])
+                self.assertEqual(r.recalibration_count,18)
+                self.assertEqual(r.scenario_evaluated_paths,19*r.price.evaluated_paths)
+                self.assertEqual(r.payoff_evaluations,r.scenario_evaluated_paths)
+                self.assertEqual(r.interpolation,source.interpolation)
+                self.assertEqual(r.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_and_quote_interpolation')
+                for b,quote in enumerate(r.quote_indices):
+                    for j,h in enumerate(r.implied_volatility_bumps):
+                        prices=[]
+                        for shift in [-h,h]:
+                            quotes=np.asarray(QUOTE_IV).copy();quotes[quote]+=shift
+                            data['model']['local_variance_grid']['values']=independent_quote_target(quotes)
+                            prices.append(compile_plan(case,rp.PricingRequest.from_json(json.dumps(data))).evaluate().value)
+                        self.assertAlmostEqual(r.vega_estimates[b][j],(prices[1]-prices[0])/(2*h),delta=2e-9)
+                np.testing.assert_allclose(r.sum_vega_estimates,np.sum(r.vega_estimates,axis=0),rtol=0,atol=1e-12)
+                np.testing.assert_allclose(r.sum_bump_differences,np.sum(r.bump_differences,axis=0),rtol=0,atol=1e-12)
+
+    def test_bucketed_market_iv_replay_selection_history_and_validation(self):
+        source=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,QUOTE_IV)
+        case=FIXTURE['cases'][0];req=iv_request(case,source)
+        plan=compile_plan(case,req,market_iv_surface=source)
+        kwargs=dict(implied_volatility_bump=.01,quote_indices=[4,0])
+        r=plan.evaluate_bucketed_market_iv_risk(**kwargs)
+        worker=compile_plan(case,req,market_iv_surface=source,worker_threads=3).evaluate_bucketed_market_iv_risk(**kwargs)
+        names=['vega_estimates','vega_standard_errors','bump_differences','bump_difference_standard_errors',
+               'sum_vega_estimates','sum_vega_standard_errors','sum_bump_differences','sum_bump_difference_standard_errors','risk_fingerprint']
+        # A separately compiled worker policy changes plan/risk identity, while
+        # fixed logical reduction blocks preserve the numerical results.
+        for name in names[:-1]:self.assertEqual(getattr(r,name),getattr(worker,name))
+        self.assertNotEqual(r.price.plan_fingerprint,worker.price.plan_fingerprint)
+        self.assertNotEqual(r.risk_fingerprint,worker.risk_fingerprint)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(lambda _:plan.evaluate_bucketed_market_iv_risk(**kwargs),range(2)))
+        for result in results:
+            for name in names:self.assertEqual(getattr(r,name),getattr(result,name))
+        with self.assertRaises(AttributeError):r.quote_indices=[]
+        detached=r.vega_estimates;detached[0][0]=999.;self.assertNotEqual(r.vega_estimates[0][0],999.)
+        detached=r.quote_indices;detached.reverse();self.assertEqual(r.quote_indices,[4,0])
+        detached=r.implied_volatilities;detached[0]=999.;self.assertEqual(r.implied_volatilities,QUOTE_IV)
+        reverse=plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=.01,quote_indices=[0,4])
+        self.assertEqual(r.vega_estimates,reverse.vega_estimates[::-1])
+        self.assertEqual(r.vega_standard_errors,reverse.vega_standard_errors[::-1])
+        self.assertNotEqual(r.risk_fingerprint,reverse.risk_fingerprint)
+        for h,indices in [(.005,[4,0]),(.01,[4])]:
+            self.assertNotEqual(r.risk_fingerprint,plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=h,quote_indices=indices).risk_fingerprint)
+        for indices in [[],[6],[0,0]]:
+            with self.assertRaises(rp.PricingError):plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=.01,quote_indices=indices)
+        for h in [0.,-.01,.2,1e-300,float('nan'),float('inf')]:
+            with self.assertRaises(rp.PricingError):plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=h,quote_indices=[4])
+        with self.assertRaises(OverflowError):plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=.01,quote_indices=[-1])
+        with self.assertRaises(TypeError):plan.evaluate_bucketed_market_iv_risk(.01,[4])
+        with self.assertRaises(TypeError):plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=.01)
+        with self.assertRaises(rp.PricingError):compile_plan(case,req).evaluate_bucketed_market_iv_risk(**kwargs)
+        data=json.loads(req.to_json());data['product'].update(style=dict(type='knock_out'),historical_hit=True,
+            monitoring_dates=['2026-09-03','2027-09-03'],notional=1e18,rebate=7.)
+        fixed=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)),market_iv_surface=source).evaluate_bucketed_market_iv_risk(**kwargs)
+        for name in ['vega_estimates','vega_standard_errors']:self.assertEqual(getattr(fixed,name),[[0.]*3]*2)
+        for name in ['bump_differences','bump_difference_standard_errors']:self.assertEqual(getattr(fixed,name),[[0.]*2]*2)
+        for name in ['sum_vega_estimates','sum_vega_standard_errors']:self.assertEqual(getattr(fixed,name),[0.]*3)
+        for name in ['sum_bump_differences','sum_bump_difference_standard_errors']:self.assertEqual(getattr(fixed,name),[0.]*2)
+        flat=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,[.2]*6)
+        data=json.loads(iv_request(case,flat).to_json());data['model']['local_variance_grid']['cap']=.05
+        capped=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)),market_iv_surface=flat)
+        capped.evaluate_bucketed_market_iv_risk(implied_volatility_bump=.005,quote_indices=[4,0])
+        with self.assertRaises(rp.PricingError):capped.evaluate_bucketed_market_iv_risk(**kwargs)
+
     def test_market_iv_api_replay_history_and_validation(self):
         source=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,QUOTE_IV)
         self.assertEqual(source.maturity_nodes,QUOTE_TIMES);self.assertEqual(source.log_moneyness_nodes,QUOTE_X)

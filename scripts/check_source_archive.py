@@ -13,6 +13,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/bucketed_market_iv.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/bucketed_market_iv_tests.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/market_iv.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/market_iv_tests.rs',
     'crates/pricing-python/src/market_iv.rs',

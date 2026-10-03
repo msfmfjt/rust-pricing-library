@@ -1,4 +1,4 @@
-//! Parallel bumps of retained residual-forward IV quotes, Dupire rebuild and
+//! Parallel/selected bumps of retained residual-forward IV quotes, Dupire rebuild and
 //! complete finite-particle LSV recalibration with common random numbers.
 use super::sampling::BumpStatistics;
 use super::*;
@@ -113,47 +113,12 @@ impl StochasticDividendContinuousBarrierPlan {
             .market_iv_surface
             .as_ref()
             .ok_or_else(|| invalid("continuous_market_iv_source_not_retained"))?;
-        let target = self.original_local_variance_target()?;
         let bumps = [
             0.5 * implied_volatility_bump,
             implied_volatility_bump,
             2.0 * implied_volatility_bump,
         ];
-        let mut targets = Vec::with_capacity(6);
-        for &h in &bumps {
-            if !h.is_finite() || h <= 0.0 || !(2.0 * h).is_finite() {
-                return Err(invalid("continuous_market_iv_bump").into());
-            }
-            for shift in [-h, h] {
-                let quotes = surface
-                    .implied_volatilities()
-                    .iter()
-                    .map(|&sigma| {
-                        let bumped = sigma + shift;
-                        if !bumped.is_finite()
-                            || bumped <= 0.0
-                            || bumped == sigma
-                            || bumped * bumped == sigma * sigma
-                        {
-                            return Err(invalid("continuous_market_iv_shifted_quote"));
-                        }
-                        Ok(bumped)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let shifted = MarketIvSurface::new(
-                    surface.maturity_nodes().to_vec(),
-                    surface.log_moneyness_nodes().to_vec(),
-                    quotes,
-                )?;
-                targets.push(shifted.local_variance_grid(
-                    target.time_nodes().to_vec(),
-                    target.log_moneyness_nodes().to_vec(),
-                    target.floor(),
-                    target.cap(),
-                )?);
-            }
-        }
-        let scenarios = self.recalibrated_target_scenarios(&targets)?;
+        let scenarios = self.market_iv_scenarios_for_quotes(&bumps, &[None])?;
         let BumpStatistics {
             values,
             errors,
@@ -191,5 +156,62 @@ impl StochasticDividendContinuousBarrierPlan {
             risk_fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
             method: METHOD,
         })
+    }
+
+    /// None shifts all quotes; Some(i) shifts just retained quote i. Callers
+    /// validate selections. Build every original target before any calibration.
+    pub(super) fn market_iv_scenarios_for_quotes(
+        &self,
+        bumps: &[f64; 3],
+        selections: &[Option<usize>],
+    ) -> Result<Vec<StochasticDividendPathPlan>, MonteCarloError> {
+        let surface = self
+            .market_iv_surface
+            .as_ref()
+            .ok_or_else(|| invalid("continuous_market_iv_source_not_retained"))?;
+        let target = self.original_local_variance_target()?;
+        for &h in bumps {
+            if !h.is_finite() || h <= 0.0 || !(2.0 * h).is_finite() {
+                return Err(invalid("continuous_market_iv_bump").into());
+            }
+        }
+        let mut targets = Vec::with_capacity(6 * selections.len());
+        for &selection in selections {
+            for &h in bumps {
+                for shift in [-h, h] {
+                    let quotes = surface
+                        .implied_volatilities()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &sigma)| {
+                            if selection.is_some_and(|selected| selected != i) {
+                                return Ok(sigma);
+                            }
+                            let bumped = sigma + shift;
+                            if !bumped.is_finite()
+                                || bumped <= 0.0
+                                || bumped == sigma
+                                || bumped * bumped == sigma * sigma
+                            {
+                                return Err(invalid("continuous_market_iv_shifted_quote"));
+                            }
+                            Ok(bumped)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let shifted = MarketIvSurface::new(
+                        surface.maturity_nodes().to_vec(),
+                        surface.log_moneyness_nodes().to_vec(),
+                        quotes,
+                    )?;
+                    targets.push(shifted.local_variance_grid(
+                        target.time_nodes().to_vec(),
+                        target.log_moneyness_nodes().to_vec(),
+                        target.floor(),
+                        target.cap(),
+                    )?);
+                }
+            }
+        }
+        self.recalibrated_target_scenarios(&targets)
     }
 }

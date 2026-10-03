@@ -78,20 +78,7 @@ impl StochasticDividendContinuousBarrierPlan {
             errors,
             units,
             paths,
-        } = self.bump_statistics(node_width + 5, |z, bridge, antithetic, out| {
-            let (nodes, sums) = out.split_at_mut(node_width);
-            self.local_volatility_sample(&scenarios, &bumps, z, bridge, antithetic, nodes)?;
-            for (j, sum) in sums.iter_mut().enumerate() {
-                *sum = nodes[1..]
-                    .as_chunks::<5>()
-                    .0
-                    .iter()
-                    .map(|row| row[j])
-                    .collect::<pricing_numerics::NeumaierSum>()
-                    .total();
-            }
-            Ok(())
-        })?;
+        } = self.bucketed_volatility_statistics(&scenarios, &bumps)?;
         let triples = |v: &[f64]| {
             (0..count)
                 .map(|b| [v[1 + 5 * b], v[2 + 5 * b], v[3 + 5 * b]])
@@ -139,5 +126,28 @@ impl StochasticDividendContinuousBarrierPlan {
                 method: METHOD,
             },
         )
+    }
+
+    /// Pair selected-bucket sums before reduction so errors retain covariance.
+    pub(super) fn bucketed_volatility_statistics(
+        &self,
+        scenarios: &[StochasticDividendPathPlan],
+        bumps: &[f64; 3],
+    ) -> Result<BumpStatistics, MonteCarloError> {
+        let node_width = 1 + 5 * (scenarios.len() / 6);
+        self.bump_statistics(node_width + 5, |z, bridge, antithetic, out| {
+            let (nodes, sums) = out.split_at_mut(node_width);
+            self.local_volatility_sample(scenarios, bumps, z, bridge, antithetic, nodes)?;
+            for (j, sum) in sums.iter_mut().enumerate() {
+                *sum = nodes[1..]
+                    .as_chunks::<5>()
+                    .0
+                    .iter()
+                    .map(|row| row[j])
+                    .collect::<pricing_numerics::NeumaierSum>()
+                    .total();
+            }
+            Ok(())
+        })
     }
 }

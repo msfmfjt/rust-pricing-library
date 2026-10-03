@@ -502,6 +502,17 @@ quote conversion and SSVI refitting are outside this contract. See the
 [quote-IV contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-parallel-quote-iv-risk)
 and [example](../../examples/python/rough_dividend_market_iv.py).
 
+Selected quote-IV risks use
+`evaluate_bucketed_market_iv_risk(implied_volatility_bump=..., quote_indices=[4, 0])`.
+Indices identify the retained quote grid in maturity-major order and preserve the
+requested selection order. Each quote gets six rebuilt/recalibrated scenarios;
+results include three Vegas, two gaps, selected sums and paired errors including
+cross-quote covariance. Raw units are currency per absolute residual-forward IV;
+multiply estimates/errors by .01 for per-vol-point reporting. Finite individual
+bumps need not sum to the simultaneous parallel bump. See the
+[bucket contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-selected-quote-iv-buckets)
+for selection validation, costs and conditional uncertainty.
+
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
 
