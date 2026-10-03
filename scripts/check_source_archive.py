@@ -13,6 +13,16 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    '.github/workflows/heston-iv-holdout.yml',
+    'crates/pricing/tests/heston_iv_holdout.rs',
+    'tests/python/test_heston_iv_holdout.py',
+    'examples/python/heston_iv_holdout.py',
+    'fixtures/rough-volatility/iv-holdout.json',
+    'scripts/check_heston_iv_holdout.py',
+    'scripts/test_heston_iv_holdout_protocol.py',
+    'docs/models/heston-iv-holdout.md',
+    'design/validation/heston-iv-holdout.md',
+
     '.github/workflows/heston-iv-refinement.yml',
     'crates/pricing/src/engine/analytic/heston_fourier/iv_refinement.rs',
     'crates/pricing-python/src/heston_iv_refinement.rs',
@@ -923,6 +933,7 @@ def main() -> int:
         check_heston_calibration_workflow(package, archive)
         check_heston_iv_calibration_workflow(package, archive)
         check_heston_iv_refinement_workflow(package, archive)
+        check_heston_iv_holdout_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1154,9 +1165,31 @@ def check_heston_parameter_risk_workflow(package: tarfile.TarFile, archive: str)
 
 
 
+
+def check_heston_iv_holdout_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-iv-holdout.yml")
+    required = (
+        "python -m pip install 'numpy>=2,<3' 'scipy>=1.14,<2' 'mpmath>=1.3,<2'",
+        "python scripts/check_heston_iv_holdout.py",
+        "python -m unittest discover -s scripts -p 'test_heston_iv_holdout_protocol.py'",
+        "cargo test --locked -p pricing --test heston_iv_holdout",
+        "cargo test --locked --no-default-features -p pricing --test heston_iv_holdout",
+        "cargo test --locked --release -p pricing --test heston_iv_holdout -- --include-ignored --nocapture",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "name: heston-iv-holdout-${{ matrix.os }}", "path: heston-iv-holdout.log",
+        "if-no-files-found: error", "contents: read", "set -o pipefail",
+    )
+    missing = [item for item in required if item not in workflow]
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_iv_holdout.py"' not in smoke:
+        missing.append("registered holdout example")
+    if missing:
+        raise SystemExit(f"{archive}: IV holdout evidence gates missing: {missing}")
+
 def check_heston_iv_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:
     workflow = read_text(package, ".github/workflows/heston-iv-refinement.yml")
     required = (
+        "python -m pip install 'numpy>=2,<3' 'scipy>=1.14,<2' 'mpmath>=1.3,<2'",
         "cargo test --locked -p pricing --test heston_iv_refinement",
         "cargo test --locked --no-default-features -p pricing --test heston_iv_refinement",
         "cargo test --locked --release -p pricing --test heston_iv_refinement -- --include-ignored --nocapture",

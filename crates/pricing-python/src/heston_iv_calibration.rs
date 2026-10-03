@@ -255,6 +255,22 @@ impl PyHestonIvCalibrationProblem {
             .map(|inner| super::heston_iv_refinement::PyHestonIvGridValidation { inner })
             .map_err(|e| super::heston_iv_refinement::refinement_failure(py, e))
     }
+    fn validate_holdout(
+        &self,
+        py: Python<'_>,
+        parameters: Vec<f64>,
+        quotes: Vec<Py<PyHestonIvCalibrationQuote>>,
+        policy: &super::heston_iv_refinement::PyHestonIvRefinementOptions,
+    ) -> PyResult<super::heston_iv_refinement::PyHestonIvGridValidation> {
+        if quotes.is_empty() || quotes.len() > 4096 {
+            return Err(invalid(py, "need 1..=4096 holdout IV quotes"));
+        }
+        let quotes: Vec<_> = quotes.iter().map(|q| q.borrow(py).inner).collect();
+        let policy = policy.inner;
+        py.detach(|| self.inner.validate_holdout(&parameters, &quotes, policy))
+            .map(|inner| super::heston_iv_refinement::PyHestonIvGridValidation { inner })
+            .map_err(|e| super::heston_iv_refinement::refinement_failure(py, e))
+    }
     #[pyo3(signature=(policy,*,max_iterations=100,max_evaluations=150,residual_tolerance=1e-6,gradient_tolerance=1e-10,step_tolerance=1e-12))]
     fn calibrate_refined(
         &self,

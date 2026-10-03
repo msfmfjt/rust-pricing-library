@@ -65,7 +65,7 @@ class RefinementProtocolTests(unittest.TestCase):
         workflow=(ROOT/'.github/workflows/heston-iv-refinement.yml').read_text()
         smoke=(ROOT/'scripts/smoke_test_wheel.py').read_text()
         workflow_check(workflow,smoke)
-        for token in ['--include-ignored --nocapture','--no-default-features','check_heston_iv_calibration.py',
+        for token in ['mpmath>=1.3,<2', '--include-ignored --nocapture','--no-default-features','check_heston_iv_calibration.py',
                       'test_heston_iv_refinement_protocol.py','os: [ubuntu-24.04, macos-15, windows-2025]',
                       'name: heston-iv-refinement-${{ matrix.os }}','path: heston-iv-refinement.log',
                       'if-no-files-found: error','contents: read','set -o pipefail']:
