@@ -119,6 +119,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -998,6 +999,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "HestonFourierPlan",
         "HestonFourierPrice",
         "HestonFourierGreeks",
+        "HestonParameterSensitivities",
+        "HestonFourierParameterRisk",
+        "HestonFourierParameterRiskPlan",
+
         "ForwardVarianceCurve",
         "RoughVolatilityModel",
         "RoughVolatilityPath",
@@ -1247,6 +1252,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('HestonParameterSensitivities', 'initial_variance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonParameterSensitivities', 'mean_reversion'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonParameterSensitivities', 'long_run_variance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonParameterSensitivities', 'vol_of_vol'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonParameterSensitivities', 'correlation'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierParameterRisk', 'sensitivities'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierParameterRisk', 'quadrature_differences'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierParameterRisk', 'tail_indicators'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierPlan', 'parameter_risk_plan'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierParameterRiskPlan', 'price'): {'positional': ['self', 'forward', 'strike', 'discount'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierParameterRiskPlan', 'log_transform_derivatives'): {'positional': ['self', 'real', 'imag'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonFourierPlan', 'compile'): {'positional': ['model', 'maturity'], 'positional_defaults': {}, 'keyword_only': ['time_steps', 'integration_intervals', 'cutoff'], 'required_keyword_only': [], 'keyword_only_defaults': {'time_steps': 512, 'integration_intervals': 512, 'cutoff': 128.0}},
         ('HestonFourierPlan', 'price'): {'positional': ['self', 'forward', 'strike', 'discount'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonFourierPlan', 'price_and_greeks'): {'positional': ['self', 'forward', 'strike', 'discount'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2084,7 +2101,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
-        'HestonFourierPlan': {'compile','price','price_and_greeks','log_transform','characteristic_function','time_steps','integration_intervals','cutoff'},
+        'HestonParameterSensitivities': {'initial_variance', 'mean_reversion', 'vol_of_vol', 'long_run_variance', 'correlation'},
+        'HestonFourierParameterRisk': {'tail_indicators', 'price', 'sensitivities', 'quadrature_differences'},
+        'HestonFourierParameterRiskPlan': {'price', 'log_transform_derivatives'},
+        'HestonFourierPlan': {'compile','price','price_and_greeks','parameter_risk_plan','log_transform','characteristic_function','time_steps','integration_intervals','cutoff'},
         'HestonFourierPrice': {'call','put','quadrature_difference','tail_indicator'},
         'HestonFourierGreeks': {'price','call_forward_delta','put_forward_delta','forward_gamma','delta_quadrature_difference','gamma_quadrature_difference','delta_tail_indicator','gamma_tail_indicator'},
         'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
@@ -2732,6 +2752,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('HestonFourierPlan', 'integration_intervals'),
         ('HestonFourierPlan', 'cutoff'),
         ('HestonFourierPrice', 'call'),
+        ('HestonParameterSensitivities', 'initial_variance'),
+        ('HestonParameterSensitivities', 'mean_reversion'),
+        ('HestonParameterSensitivities', 'long_run_variance'),
+        ('HestonParameterSensitivities', 'vol_of_vol'),
+        ('HestonParameterSensitivities', 'correlation'),
+        ('HestonFourierParameterRisk', 'price'),
+        ('HestonFourierParameterRisk', 'sensitivities'),
+        ('HestonFourierParameterRisk', 'quadrature_differences'),
+        ('HestonFourierParameterRisk', 'tail_indicators'),
         ('HestonFourierGreeks', 'price'),
         ('HestonFourierGreeks', 'call_forward_delta'),
         ('HestonFourierGreeks', 'put_forward_delta'),

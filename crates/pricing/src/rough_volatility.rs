@@ -13,6 +13,8 @@ pub use crate::models::{
 };
 
 pub use crate::engine::analytic::heston_fourier::{
-    FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierPlan, HestonFourierPrice,
+    FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierParameterRisk,
+    HestonFourierParameterRiskPlan, HestonFourierPlan, HestonFourierPrice,
+    HestonParameterSensitivities,
 };
 pub use pricing_numerics::Complex64;

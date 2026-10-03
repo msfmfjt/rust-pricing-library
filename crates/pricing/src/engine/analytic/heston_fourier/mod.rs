@@ -2,9 +2,13 @@
 //! See docs/models/rough-heston-fourier.md for definitions, references and limits.
 
 mod greeks;
+mod parameter_risk;
 mod riccati;
 use crate::rough_volatility::RoughVolatilityModel;
 pub use greeks::HestonFourierGreeks;
+pub use parameter_risk::{
+    HestonFourierParameterRisk, HestonFourierParameterRiskPlan, HestonParameterSensitivities,
+};
 use pricing_numerics::{Complex64 as C, NeumaierSum, standard_normal_cdf};
 use riccati::RiccatiPlan;
 use std::{error::Error, fmt};
