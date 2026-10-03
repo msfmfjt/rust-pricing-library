@@ -117,6 +117,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
@@ -1001,6 +1002,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "RoughFamilyLsvPlan", "RoughVolatilityDelta",
         "HestonIvRefinementOptions",
         "HestonIvGridValidation",
         "HestonIvRefinementStage",
@@ -1357,6 +1359,23 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('RoughVolatilityPathPlan', 'reverse_initial_forward'): {'positional': ['self', 'initial_forward', 'normals', 'state_seeds'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'compile'): {'positional': ['target_request', 'model'], 'positional_defaults': {}, 'keyword_only': ['particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
+        ('RoughFamilyLsvPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_local_variance_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'plan_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'time_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'log_moneyness_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'squared_leverage'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'extrapolated_moment_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'minimum_effective_samples'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'delta_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
         ('HestonIvRefinementOptions', 'fit_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonIvRefinementOptions', 'grid_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonIvRefinementOptions', 'max_stages'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2320,6 +2339,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'RoughFamilyLsvPlan': {'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
+
         'HestonIvRefinementOptions': {'grid_tolerance', 'create', 'fit_tolerance', 'max_stages'},
         'HestonIvGridValidation': {'grid_stable', 'fit_tolerance', 'accepted', 'iv_residuals', 'max_abs_iv_residual', 'iv_differences', 'max_abs_iv_difference', 'grid_names', 'grid_tolerance', 'fit_within_tolerance', 'plan_compilations', 'configurations', 'model_implied_volatilities'},
         'HestonIvRefinementStage': {'validation', 'calibration', 'initial_parameters'},
@@ -2347,8 +2369,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
-        'RoughVolatilityPathPlan': {'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
-        'RoughVolatilityPlan': {'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
+        'RoughVolatilityPathPlan': {'reverse_initial_forward', 'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
+        'RoughVolatilityPlan': {'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -2916,6 +2938,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('RoughFamilyLsvPlan', 'compile'),
+
         ("HestonIvRefinementOptions", "create"),
         ("HestonCalibrationSsviSurface", "power_law"),
         ("HestonCalibrationSsviSurface", "heston_like"),
@@ -2994,6 +3018,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('RoughFamilyLsvPlan', 'plan_fingerprint'),
+        ('RoughFamilyLsvPlan', 'time_nodes'),
+        ('RoughFamilyLsvPlan', 'log_moneyness_nodes'),
+        ('RoughFamilyLsvPlan', 'squared_leverage'),
+        ('RoughFamilyLsvPlan', 'extrapolated_moment_nodes'),
+        ('RoughFamilyLsvPlan', 'minimum_effective_samples'),
+        ('RoughVolatilityDelta', 'price'),
+        ('RoughVolatilityDelta', 'delta'),
+        ('RoughVolatilityDelta', 'delta_standard_error'),
+        ('RoughVolatilityDelta', 'method'),
+        ('RoughVolatilityDelta', 'coordinate'),
+
         ('HestonIvRefinementOptions', 'fit_tolerance'),
         ('HestonIvRefinementOptions', 'grid_tolerance'),
         ('HestonIvRefinementOptions', 'max_stages'),

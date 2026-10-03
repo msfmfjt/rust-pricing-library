@@ -398,3 +398,105 @@ impl PyLsvLocalVarianceRisk {
         "relative_dupire_variance_nodes_in_f"
     }
 }
+
+#[pyclass(frozen, name = "RoughFamilyLsvPlan", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvPlan {
+    inner: pricing::rough_volatility::RoughFamilyLsvPricingPlan,
+}
+
+#[pymethods]
+impl PyRoughFamilyLsvPlan {
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(target_request, model, *, particle_count,
+        calibration_seed, log_bandwidth, minimum_effective_samples, retain_reverse_trace,
+        worker_threads, reduction_block_size=None))]
+    fn compile(
+        py: Python<'_>,
+        target_request: &PyPricingRequest,
+        model: &super::rough_volatility::PyRoughVolatilityModel,
+        particle_count: usize,
+        calibration_seed: u64,
+        log_bandwidth: f64,
+        minimum_effective_samples: f64,
+        retain_reverse_trace: bool,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<Self> {
+        let issue = |message: String| {
+            validation_exception(
+                py,
+                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
+            )
+        };
+        let model = model.inner.clone();
+        let particles = LsvParticleConfig::new(
+            particle_count,
+            calibration_seed,
+            log_bandwidth,
+            minimum_effective_samples,
+            retain_reverse_trace,
+        )
+        .map_err(|e| issue(e.to_string()))?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| issue(e.to_string()))?;
+        let request = target_request.inner.clone();
+        py.detach(|| {
+            pricing::rough_volatility::RoughFamilyLsvPricingPlan::compile(
+                &request, model, particles, policy,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(pricing_exception)
+    }
+    fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
+        py.detach(|| self.inner.evaluate())
+            .map(|inner| PyLsvPrice { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_local_variance_risk(&self, py: Python<'_>) -> PyResult<PyLsvLocalVarianceRisk> {
+        py.detach(|| self.inner.evaluate_local_variance_risk())
+            .map(|inner| PyLsvLocalVarianceRisk { inner })
+            .map_err(pricing_exception)
+    }
+    #[getter]
+    fn plan_fingerprint(&self) -> String {
+        self.inner.plan_fingerprint().to_string()
+    }
+    #[getter]
+    fn time_nodes(&self) -> Vec<f64> {
+        self.inner.calibration().surface().times().to_vec()
+    }
+    #[getter]
+    fn log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.calibration().surface().log_nodes().to_vec()
+    }
+    #[getter]
+    fn squared_leverage(&self) -> Vec<f64> {
+        self.inner
+            .calibration()
+            .surface()
+            .squared_leverage()
+            .to_vec()
+    }
+    /// Per-time count of moment nodes using a supported neighbouring estimate.
+    #[getter]
+    fn extrapolated_moment_nodes(&self) -> Vec<usize> {
+        self.inner
+            .calibration()
+            .diagnostics()
+            .iter()
+            .map(|r| r.extrapolated_nodes)
+            .collect()
+    }
+    #[getter]
+    fn minimum_effective_samples(&self) -> Vec<f64> {
+        self.inner
+            .calibration()
+            .diagnostics()
+            .iter()
+            .map(|r| r.minimum_effective_samples)
+            .collect()
+    }
+}

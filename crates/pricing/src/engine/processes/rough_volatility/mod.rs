@@ -2,7 +2,12 @@
 //! isolated from the existing rough Bergomi/HW and stochastic-dividend engines.
 
 mod kernel;
+pub(in crate::engine) mod lsv;
+mod reverse;
 mod rfsv;
+
+pub use lsv::{RoughFamilyLsvAdjoints, RoughFamilyLsvPath, RoughFamilyLsvPlan};
+pub use reverse::RoughVolatilityRecordedPath;
 
 #[cfg(test)]
 mod cache_tests;
@@ -28,6 +33,16 @@ pub struct RoughVolatilityPath {
     pub latent_states: Vec<f64>,
     pub negative_variance_nodes: u64,
     pub absorbed_forward_steps: u64,
+}
+
+/// The variance history has no asset-level or leverage dependence at fixed shocks.
+/// Keep it separate from asset evolution so calibration never simulates and
+/// discards an unrelated unlevered asset path (which could under/overflow).
+#[derive(Clone, Debug)]
+pub(in crate::engine) struct VarianceHistory {
+    pub(in crate::engine) variances: Vec<f64>,
+    latent_states: Vec<f64>,
+    negative_variance_nodes: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -188,30 +203,58 @@ impl RoughVolatilityPathPlan {
         if !signed && (initial_forward < 0.0 || (initial_forward == 0.0 && !absorbing)) {
             return Err(invalid("rough_initial_forward"));
         }
+        let history = self.variance_history(normals)?;
+        let beta = match &self.model {
+            RoughVolatilityModel::RoughSabr(m) => m.beta,
+            _ => 1.0,
+        };
+        self.asset_path(
+            initial_forward,
+            history.variances,
+            history.latent_states,
+            normals,
+            beta,
+            history.negative_variance_nodes,
+        )
+    }
+
+    pub(in crate::engine) fn variance_history(
+        &self,
+        normals: &[f64],
+    ) -> Result<VarianceHistory, HullWhiteError> {
+        if normals.len() != self.random_dimension() as usize
+            || normals.iter().any(|z| !z.is_finite())
+        {
+            return Err(invalid("rough_normal_shape_or_value"));
+        }
         match (&self.model, &self.driver) {
             (RoughVolatilityModel::RoughHeston(m), CompiledDriver::Power(k)) => {
-                self.heston_path(m, k, initial_forward, normals)
+                self.heston_variance(m, k, normals)
             }
             (RoughVolatilityModel::LiftedHeston(m), CompiledDriver::Lift) => {
-                self.lifted_path(m, initial_forward, normals)
+                self.lifted_variance(m, normals)
             }
             (RoughVolatilityModel::QuadraticRoughHeston(m), CompiledDriver::Power(k)) => {
-                self.quadratic_path(m, k, initial_forward, normals)
+                self.quadratic_variance(m, k, normals)
             }
             (RoughVolatilityModel::MixedRoughBergomi(m), CompiledDriver::Power(k)) => {
-                self.mixed_path(m, k, initial_forward, normals)
+                self.mixed_variance(m, k, normals)
             }
             (RoughVolatilityModel::RoughSabr(m), CompiledDriver::Power(k)) => {
-                self.sabr_path(m, k, initial_forward, normals)
+                self.sabr_variance(m, k, normals)
             }
             (RoughVolatilityModel::Rfsv(m), CompiledDriver::Rfsv(g)) => {
                 let n = self.times.len() - 1;
-                let latent = g.log_volatilities(m, &normals[n..])?;
-                let variance = latent
+                let latent_states = g.log_volatilities(m, &normals[n..])?;
+                let variances = latent_states
                     .iter()
                     .map(|x| positive_exponential(2.0 * x))
                     .collect::<Result<Vec<_>, _>>()?;
-                self.asset_path(initial_forward, variance, latent, normals, 1.0, 0)
+                Ok(VarianceHistory {
+                    variances,
+                    latent_states,
+                    negative_variance_nodes: 0,
+                })
             }
             _ => Err(invalid("rough_compiled_driver_mismatch")),
         }
@@ -244,13 +287,12 @@ impl RoughVolatilityPathPlan {
         }
         (increments, near)
     }
-    fn heston_path(
+    fn heston_variance(
         &self,
         m: &RoughHeston,
         k: &PowerKernel,
-        initial: f64,
         normals: &[f64],
-    ) -> Result<RoughVolatilityPath, HullWhiteError> {
+    ) -> Result<VarianceHistory, HullWhiteError> {
         let (dw, near) = self.innovations(k, m.correlation, normals, false);
         let mut variance = vec![m.initial_variance];
         let mut raw = vec![m.initial_variance];
@@ -284,14 +326,17 @@ impl RoughVolatilityPathPlan {
                 diffusion.push(k.fractional_scale * m.vol_of_vol * variance[i].sqrt());
             }
         }
-        self.asset_path(initial, variance, raw, normals, 1.0, negative)
+        Ok(VarianceHistory {
+            variances: variance,
+            latent_states: raw,
+            negative_variance_nodes: negative,
+        })
     }
-    fn lifted_path(
+    fn lifted_variance(
         &self,
         m: &LiftedHeston,
-        initial: f64,
         normals: &[f64],
-    ) -> Result<RoughVolatilityPath, HullWhiteError> {
+    ) -> Result<VarianceHistory, HullWhiteError> {
         let h = &m.heston;
         let n = self.times.len() - 1;
         let mut factors = vec![0.0; m.weights.len()];
@@ -320,15 +365,18 @@ impl RoughVolatilityPathPlan {
             raw.push(value);
             variance.push(value.max(0.0));
         }
-        self.asset_path(initial, variance, raw, normals, 1.0, negative)
+        Ok(VarianceHistory {
+            variances: variance,
+            latent_states: raw,
+            negative_variance_nodes: negative,
+        })
     }
-    fn quadratic_path(
+    fn quadratic_variance(
         &self,
         m: &QuadraticRoughHeston,
         k: &PowerKernel,
-        initial: f64,
         normals: &[f64],
-    ) -> Result<RoughVolatilityPath, HullWhiteError> {
+    ) -> Result<VarianceHistory, HullWhiteError> {
         let (dw, near) = self.innovations(k, 1.0, normals, true);
         let variance_at = |z: f64| {
             if m.quadratic == 0.0 {
@@ -363,15 +411,18 @@ impl RoughVolatilityPathPlan {
                 );
             }
         }
-        self.asset_path(initial, variance, latent, normals, 1.0, 0)
+        Ok(VarianceHistory {
+            variances: variance,
+            latent_states: latent,
+            negative_variance_nodes: 0,
+        })
     }
-    fn mixed_path(
+    fn mixed_variance(
         &self,
         m: &MixedRoughBergomi,
         k: &PowerKernel,
-        initial: f64,
         normals: &[f64],
-    ) -> Result<RoughVolatilityPath, HullWhiteError> {
+    ) -> Result<VarianceHistory, HullWhiteError> {
         let (dw, near) = self.innovations(k, m.correlation, normals, false);
         let mut latent = vec![0.0];
         let mut variance = vec![m.forward_variance.value(0.0)?];
@@ -398,15 +449,18 @@ impl RoughVolatilityPathPlan {
             }
             variance.push(value);
         }
-        self.asset_path(initial, variance, latent, normals, 1.0, 0)
+        Ok(VarianceHistory {
+            variances: variance,
+            latent_states: latent,
+            negative_variance_nodes: 0,
+        })
     }
-    fn sabr_path(
+    fn sabr_variance(
         &self,
         m: &RoughSabr,
         k: &PowerKernel,
-        initial: f64,
         normals: &[f64],
-    ) -> Result<RoughVolatilityPath, HullWhiteError> {
+    ) -> Result<VarianceHistory, HullWhiteError> {
         let (dw, near) = self.innovations(k, m.correlation, normals, false);
         let mut latent = vec![0.0];
         let mut variance = vec![m.forward_variance.value(0.0)?];
@@ -423,7 +477,11 @@ impl RoughVolatilityPathPlan {
             latent.push(x);
             variance.push(finite_nonnegative(value)?);
         }
-        self.asset_path(initial, variance, latent, normals, m.beta, 0)
+        Ok(VarianceHistory {
+            variances: variance,
+            latent_states: latent,
+            negative_variance_nodes: 0,
+        })
     }
     fn asset_path(
         &self,

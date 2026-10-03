@@ -1,12 +1,16 @@
 //! Additional rough model families, finite-grid paths and deterministic-rate
 //! MC/RQMC pricing, plus separate fixed-model Fourier forward, scalar and Hurst sensitivities.
-//! This additive API does not add stable JSON model tags or claim AAD,
-//! or LSV/HW composition. Separate experimental Heston price calibration is available.
+//! Explicit fixed-model MC Spot Delta and particle LSV local-variance-node
+//! discrete adjoints are available. This does not add stable JSON tags, market
+//! IV VegaKT, Gamma, stochastic-parameter AAD or Hull-White composition.
 
 pub use crate::engine::processes::rough_volatility::{
-    RoughVolatilityPath, RoughVolatilityPathPlan,
+    RoughFamilyLsvAdjoints, RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughVolatilityPath,
+    RoughVolatilityPathPlan, RoughVolatilityRecordedPath,
 };
-pub use crate::engine::risk::rough_volatility::{RoughVolatilityPrice, RoughVolatilityPricingPlan};
+pub use crate::engine::risk::rough_volatility::{
+    RoughVolatilityDelta, RoughVolatilityPrice, RoughVolatilityPricingPlan,
+};
 pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,
     RoughSabr, RoughVolatilityModel,
@@ -31,3 +35,10 @@ pub use crate::engine::analytic::heston_fourier::{
     HestonIvCalibrationResult, HestonIvGridValidation, HestonIvRefinementOptions,
     HestonIvRefinementResult, HestonIvRefinementStage,
 };
+
+/// Particle LSV in the normalized funded-forward coordinate. Fixed model
+/// parameters; the local-variance-node VJP includes discrete recalibration.
+pub use crate::engine::calibration::lsv::{
+    CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
+};
+pub use crate::engine::risk::lsv::RoughFamilyLsvPricingPlan;
