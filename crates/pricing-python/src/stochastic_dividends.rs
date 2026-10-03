@@ -402,6 +402,18 @@ impl PyStochasticDividendPlan {
             .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
             .map_err(pricing_exception)
     }
+    /// Hard discrete rough-LSV Barrier price and physical-Spot Delta, including
+    /// fixed cash rebates at payment. Requires strictly future observations, no
+    /// payoff smoothing and positive conditional equity variance. Sampling
+    /// errors exclude calibration uncertainty and time-grid bias.
+    fn evaluate_lsv_hard_barrier_spot_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyStochasticDividendLsvSpotRisk> {
+        py.detach(|| self.inner.evaluate_lsv_hard_barrier_spot_risk())
+            .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_lsv_market_risk(
         &self,
         py: Python<'_>,

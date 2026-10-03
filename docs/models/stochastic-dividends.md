@@ -343,10 +343,11 @@ recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
 
 For rough residual LSV, hard-payoff Barrier Spot risk is available through
-`evaluate_lsv_hard_barrier_spot_risk()`. This separate Rust method supports
+`evaluate_lsv_hard_barrier_spot_risk()` in Rust and Python. This method supports
 discrete up/down knock-in/out calls and puts with future monitoring, optional
 fixed cash rebates and no payoff smoothing. A rebate pays when the vanilla
-branch is inactive, without notional scaling, at the contractual payment date. It conditions on survival at every monitoring date and integrates
+branch is inactive, without notional scaling, at the contractual payment date.
+It conditions on survival at every monitoring date and integrates
 the final equity innovation, differentiating the survival weights and
 conditional paths analytically. It returns `StochasticDividendLsvSpotRisk`
 with a distinct method label and price fingerprint. Its standard errors use
@@ -355,6 +356,9 @@ and time-grid bias. Positive conditional equity variance is required;
 unsupported contracts and unrepresentable numerical transports return errors.
 See the [contract and validation](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md)
 and [rebate controls](../../design/validation/stochastic-dividend-hard-barrier-rebates.md).
+The [Python example](../../examples/python/rough_dividend_hard_barrier.py) uses a
+price-only request and `retain_reverse_trace=False`; the result uses the
+existing immutable `StochasticDividendLsvSpotRisk` type.
 The original `evaluate_lsv_spot_risk()` still requires smoothing for Barrier
 payoffs; the new method does not add other hard-payoff Greeks or request-level
 Delta dispatch.

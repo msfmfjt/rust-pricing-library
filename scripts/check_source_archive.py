@@ -13,6 +13,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'tests/python/test_rough_dividend_hard_barrier.py',
+    'examples/python/rough_dividend_hard_barrier.py',
     'tests/python/rough_dividend_barrier_styles.py',
     'tests/python/test_rough_dividend_barrier_styles.py',
     'fixtures/stochastic-dividends/rough-barrier-styles-reference.json',
@@ -435,6 +437,8 @@ REQUIRED_README_SNIPPETS = {
 REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 
 REQUIRED_WHEEL_SMOKE_SNIPPETS = {
+    'subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)',
+    "('StochasticDividendPlan', 'evaluate_lsv_hard_barrier_spot_risk')",
     "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",
     "verify_wheel_text_members(member_bytes)",
     "verify_wheel_archive_members(archive.infolist())",

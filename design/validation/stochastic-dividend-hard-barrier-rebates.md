@@ -92,5 +92,6 @@ rows in `stochastic-dividend-barrier-rebates-reference.log`. Its reference job
 allows 30 minutes for the expanded panel. Three-OS Barrier integration emits
 212 comparison rows across six numerical panels. Source archives require the
 fixture, documentation and regeneration command. Historical hit states,
-continuous monitoring, other hard-payoff Greeks and Python/request-level
-risk dispatch remain outside this method.
+continuous monitoring, other hard-payoff Greeks and automatic request-level
+risk dispatch remain outside this method. Python exposes the dedicated
+method; see the [API contract](stochastic-dividend-hard-barrier-spot-risk.md#python-api).

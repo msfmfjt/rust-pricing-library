@@ -2,7 +2,8 @@
 
 `StochasticDividendPricingPlan::evaluate_lsv_hard_barrier_spot_risk()` returns
 hard-payoff price, physical-Spot Delta and their sampling errors for rough
-residual-equity LSV. It is a separate opt-in Rust method on a price-only plan.
+residual-equity LSV. It is a separate opt-in method on a price-only plan,
+available in Rust and on Python `StochasticDividendPlan`.
 The existing pathwise `evaluate_lsv_spot_risk()` retains its smoothing
 requirement for discontinuous payoffs.
 
@@ -13,7 +14,7 @@ all monitoring dates strictly after valuation. Payment may follow expiry;
 cash means beyond expiry remain funded. Historical
 or initial observations, smoothing requests, non-rough models, and degenerate
 conditional equity laws are rejected. Continuous monitoring remains rejected
-by the shared compiler. Other Greeks and Python/request-level dispatch are
+by the shared compiler. Other Greeks and automatic request-level dispatch are
 not added by this method.
 
 The conditioning requires `abs(rho_DV)<1` and
@@ -80,12 +81,51 @@ ordinary price/Spot-risk behavior. The result's uncertainty scope remains
 
 Normal transport uses complementary tails near probability one. It does not
 clamp quantiles or floor positive survival probabilities. Impossible survival
-(a nonpositive upper equity cutoff) contributes exactly zero knock-out value
-and tangent. A nonpositive Down cutoff imposes no restriction. An unrepresentable quantile, nonpositive/nonfinite evolution,
+(a nonpositive upper equity cutoff) contributes exactly zero surviving vanilla
+payoff and tangent; a knock-out rebate remains payable. A nonpositive Down cutoff imposes no restriction. An unrepresentable quantile, nonpositive/nonfinite evolution,
 underflowed survival weight or invalid conditional scale returns an error.
 The existing normal CDF/quantile approximations are used; this is a floating-
 point estimator, not certified tail arithmetic. No fallback to smoothed or
 finite-bump risk is performed.
+
+## Python API
+
+Compile a price-only request with
+`StochasticDividendPlan.compile_rough_bergomi_lsv(...)`, then call the dedicated
+method. The [runnable example](../../examples/python/rough_dividend_hard_barrier.py)
+builds a Down-and-Out Put with delayed payment and a fixed cash rebate:
+
+```python
+risk = plan.evaluate_lsv_hard_barrier_spot_risk()
+print(risk.price.value, risk.price.standard_error)
+print(risk.delta, risk.delta_standard_error)
+```
+
+The method releases the GIL while Rust evaluates and returns the existing
+immutable `StochasticDividendLsvSpotRisk`/`StochasticDividendPrice` types.
+`retain_reverse_trace=False` is sufficient. The returned price is the
+conditional hard estimator, with its own fingerprint; it need not equal the
+ordinary hard-indicator `plan.evaluate()` estimate sample for sample.
+`risk.uncertainty_scope` is `pricing_sampling_only_scale_invariant_calibration`,
+and `risk.price.uncertainty_scope` is `pricing_conditional_on_calibration`.
+Both exclude calibration uncertainty and time-grid bias.
+
+Unsupported compiled plans raise `PricingError`. Generic Delta request flags
+continue to use existing validation: an unsmoothed Barrier with `delta=True`
+is rejected by request validation, and stochastic-dividend factories do not
+accept automatic Delta dispatch even when smoothing is present. The dedicated
+method accepts neither a smoothing argument nor a fallback estimator.
+
+[Python binding controls](../../tests/python/test_rough_dividend_hard_barrier.py)
+cover two retained independent references with the original numerical budgets,
+all sixteen rebate contract/Hurst combinations against recompiled Spot bumps,
+MC/RQMC counts, immutable metadata, numerical worker replay and concurrent
+calls on a shared plan. Execution policy remains part of the fingerprint;
+recompiling with another worker count preserves numerical results, not the
+fingerprint. Scope tests cover smoothing, initial monitoring, vanilla products,
+non-rough LSV and singular conditional equity laws; ordinary APIs retain their
+behavior. The wheel smoke contract checks the method name and signature,
+discovers the new tests and runs the example. Source archives require both.
 
 ## Validation
 

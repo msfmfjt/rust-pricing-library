@@ -116,5 +116,5 @@ fixture, documentation and CI regeneration command.
 
 Fixed cash rebates have a [separate panel](stochastic-dividend-hard-barrier-rebates.md).
 Continuous monitoring, initial/historical hit states, other Greeks,
-Python/request-level dispatch, calibration uncertainty and continuous-time
+automatic request-level dispatch, calibration uncertainty and continuous-time
 accuracy remain separate work.
