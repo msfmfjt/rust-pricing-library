@@ -290,13 +290,15 @@ class StochasticDividendContinuousBarrierPlan:
         Units are per absolute residual Local volatility, not quoted market IV.
         """
         ...
-    def evaluate_reporting_iv_projection(self, *, local_volatility_bump: float, relative_density_threshold: float) -> StochasticDividendContinuousBarrierReportingIvRisk:
+    def evaluate_reporting_iv_projection(self, *, local_volatility_bump: float, relative_density_threshold: float, full_covariance: bool = False) -> StochasticDividendContinuousBarrierReportingIvRisk:
         """Map all finite Local-volatility node risks onto the model's reporting-IV basis.
 
         The retained basis must cover every positive original target maturity.
         Density domains and basis stay fixed. Six recalibrations per original node.
         This is the existing residual-LSV reporting map, not quoted-IV bump Vega
         or the complete VegaKT operator. Errors include paired node covariance.
+        full_covariance also reports joint covariance of estimated means in
+        covariance_labels order, without extra paths or recalibrations.
         """
         ...
     @property
@@ -2399,7 +2401,15 @@ class StochasticDividendContinuousBarrierReportingIvRisk:
     multiply estimates/errors by 0.01 for volatility-point reporting. Residual
     includes time zero, excluded nodes and density-weight normalization.
     Sampling errors exclude calibration uncertainty and grid/bridge/bump/map bias.
+    Optional estimator_covariance is the covariance of estimated means (sample
+    covariance divided by independent unit count), in covariance_labels order.
+    It covers price, each bucket's three risks and two gaps, then pre-projection,
+    projected sum and residual triples. RQMC uses scramble means as units.
     """
+    @property
+    def estimator_covariance(self) -> list[list[float]] | None: ...
+    @property
+    def covariance_labels(self) -> list[str]: ...
     @property
     def price(self) -> StochasticDividendPrice: ...
     @property

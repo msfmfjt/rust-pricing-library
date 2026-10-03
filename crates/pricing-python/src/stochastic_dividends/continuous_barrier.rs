@@ -140,16 +140,26 @@ impl PyStochasticDividendContinuousBarrierPlan {
         .map_err(pricing_exception)
     }
     /// Reporting-only map of all recalibrated Local-volatility node risks.
-    #[pyo3(signature=(*, local_volatility_bump, relative_density_threshold))]
+    #[pyo3(signature=(*, local_volatility_bump, relative_density_threshold, full_covariance=false))]
     fn evaluate_reporting_iv_projection(
         &self,
         py: Python<'_>,
         local_volatility_bump: f64,
         relative_density_threshold: f64,
+        full_covariance: bool,
     ) -> PyResult<PyStochasticDividendContinuousBarrierReportingIvRisk> {
         py.detach(|| {
-            self.inner
-                .evaluate_reporting_iv_projection(local_volatility_bump, relative_density_threshold)
+            if full_covariance {
+                self.inner.evaluate_reporting_iv_projection_with_covariance(
+                    local_volatility_bump,
+                    relative_density_threshold,
+                )
+            } else {
+                self.inner.evaluate_reporting_iv_projection(
+                    local_volatility_bump,
+                    relative_density_threshold,
+                )
+            }
         })
         .map(|inner| PyStochasticDividendContinuousBarrierReportingIvRisk { inner })
         .map_err(pricing_exception)
@@ -554,6 +564,14 @@ pub struct PyStochasticDividendContinuousBarrierReportingIvRisk {
 }
 #[pymethods]
 impl PyStochasticDividendContinuousBarrierReportingIvRisk {
+    #[getter]
+    fn estimator_covariance(&self) -> Option<Vec<Vec<f64>>> {
+        self.inner.estimator_covariance.clone()
+    }
+    #[getter]
+    fn covariance_labels(&self) -> Vec<String> {
+        self.inner.covariance_labels()
+    }
     #[getter]
     fn price(&self) -> PyStochasticDividendPrice {
         PyStochasticDividendPrice {

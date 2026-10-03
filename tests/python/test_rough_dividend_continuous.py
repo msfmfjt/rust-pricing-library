@@ -388,6 +388,69 @@ class ContinuousBarrierApproximation(unittest.TestCase):
                 self.assertEqual(r.projection_policy,'local_vega_density_reporting_iv_projection_v1')
                 self.assertEqual(r.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_bump_and_projection')
 
+    def test_reporting_iv_joint_estimator_covariance(self):
+        case=FIXTURE['cases'][0]
+        kwargs=dict(local_volatility_bump=.01,relative_density_threshold=1e-8)
+        labels=['price']
+        for b in range(4):
+            labels.extend(f'bucket_estimates[{b}][{j}]' for j in range(3))
+            labels.extend(f'bump_differences[{b}][{j}]' for j in range(2))
+        for name in ('pre_projection_estimates','projected_sum_estimates','residual_estimates'):
+            labels.extend(f'{name}[{j}]' for j in range(3))
+        for qmc in (False,True):
+            for antithetic in (False,True):
+                with self.subTest(qmc=qmc,antithetic=antithetic):
+                    data=json.loads(reporting_request(case,points=16).to_json())
+                    if not qmc:
+                        data['engine']=dict(type='pseudo_monte_carlo',independent_sampling_units=64,master_seed=193)
+                    data['engine']['variance_reduction']=dict(antithetic=antithetic,brownian_bridge=True)
+                    req=rp.PricingRequest.from_json(json.dumps(data))
+                    plan=compile_plan(case,req,reduction_block_size=8)
+                    plain=plan.evaluate_reporting_iv_projection(**kwargs)
+                    r=plan.evaluate_reporting_iv_projection(**kwargs,full_covariance=True)
+                    self.assertIsNone(plain.estimator_covariance)
+                    self.assertEqual(r.covariance_labels,labels)
+                    self.assertEqual(plain.covariance_labels,labels)
+                    for name in ('bucket_estimates','bucket_standard_errors','bump_differences',
+                                 'bump_difference_standard_errors','pre_projection_estimates',
+                                 'pre_projection_standard_errors','projected_sum_estimates',
+                                 'projected_sum_standard_errors','residual_estimates','residual_standard_errors',
+                                 'payoff_evaluations','recalibration_count'):
+                        self.assertEqual(getattr(r,name),getattr(plain,name))
+                    self.assertEqual((r.price.value,r.price.standard_error),(plain.price.value,plain.price.standard_error))
+                    self.assertNotEqual(r.risk_fingerprint,plain.risk_fingerprint)
+                    covariance=np.asarray(r.estimator_covariance)
+                    errors=np.r_[r.price.standard_error,np.c_[r.bucket_standard_errors,r.bump_difference_standard_errors].ravel(),
+                                 r.pre_projection_standard_errors,r.projected_sum_standard_errors,r.residual_standard_errors]
+                    self.assertEqual(covariance.shape,(30,30))
+                    np.testing.assert_array_equal(covariance,covariance.T)
+                    np.testing.assert_allclose(covariance.diagonal(),errors**2,rtol=2e-14,atol=1e-15)
+                    self.assertGreaterEqual(np.linalg.eigvalsh(covariance).min(),-1e-12*max(1.,np.trace(covariance)))
+                    # Reconstruct sums/gaps/residual errors from their component
+                    # covariance, including negative cross-covariances.
+                    for j in range(3):
+                        w=np.zeros(30);w[1+j:21:5]=1.
+                        self.assertAlmostEqual(float(w@covariance@w),r.projected_sum_standard_errors[j]**2,delta=1e-10)
+                        w=np.zeros(30);w[21+j]=1.;w[24+j]=-1.
+                        self.assertAlmostEqual(float(w@covariance@w),r.residual_standard_errors[j]**2,delta=1e-10)
+                    for b in range(4):
+                        for j in range(2):
+                            w=np.zeros(30);w[1+5*b+j]=1.;w[2+5*b+j]=-1.
+                            self.assertAlmostEqual(float(w@covariance@w),r.bump_difference_standard_errors[b][j]**2,delta=1e-10)
+                    worker=compile_plan(case,req,reduction_block_size=8,worker_threads=3).evaluate_reporting_iv_projection(**kwargs,full_covariance=True)
+                    self.assertEqual(r.estimator_covariance,worker.estimator_covariance)
+                    with self.assertRaises(AttributeError):r.estimator_covariance=[]
+                    detached=r.estimator_covariance;detached[0][0]=999.
+                    self.assertNotEqual(r.estimator_covariance[0][0],999.)
+                    detached=r.covariance_labels;detached[0]='changed'
+                    self.assertEqual(r.covariance_labels[0],'price')
+                    with ThreadPoolExecutor(max_workers=2) as pool:
+                        replay=list(pool.map(lambda _:plan.evaluate_reporting_iv_projection(**kwargs,full_covariance=True).estimator_covariance,range(2)))
+                    self.assertEqual(replay,[r.estimator_covariance]*2)
+        rebated=case|dict(contract=case['contract']|dict(notional=1e18,rebate=7.))
+        fixed=compile_plan(rebated,reporting_request(rebated,points=16,history=True,dates=['2026-09-03'])).evaluate_reporting_iv_projection(**kwargs,full_covariance=True)
+        self.assertEqual(fixed.estimator_covariance,[[0.]*30]*30)
+
     def test_reporting_iv_api_history_replay_and_validation(self):
         case=FIXTURE['cases'][0];req=reporting_request(case,points=16)
         plan=compile_plan(case,req);kwargs=dict(local_volatility_bump=.01,relative_density_threshold=.9)

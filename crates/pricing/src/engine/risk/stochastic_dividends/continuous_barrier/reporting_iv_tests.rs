@@ -127,13 +127,22 @@ fn reporting_iv_errors_project_paired_mc_units_and_rqmc_scrambles() {
             v["engine"]["variance_reduction"] =
                 json!({"antithetic":antithetic,"brownian_bridge":true});
             let plan = compile(&v, 0.6).unwrap();
-            let r = plan.evaluate_reporting_iv_projection(0.01, 1e-8).unwrap();
+            let plain = plan.evaluate_reporting_iv_projection(0.01, 1e-8).unwrap();
+            assert!(plain.estimator_covariance.is_none());
+            let r = plan
+                .evaluate_reporting_iv_projection_with_covariance(0.01, 1e-8)
+                .unwrap();
+            assert_eq!(result_columns(&r), result_columns(&plain));
+            assert_eq!(r.price, plain.price);
+            assert_eq!(r.recalibration_count, plain.recalibration_count);
+            assert_eq!(r.payoff_evaluations, plain.payoff_evaluations);
+            assert_ne!(r.risk_fingerprint, plain.risk_fingerprint);
             let mut parallel = plan.clone();
             parallel.inner.policy = ExecutionPolicy::new(3, Some(32)).unwrap();
             assert_eq!(
                 r,
                 parallel
-                    .evaluate_reporting_iv_projection(0.01, 1e-8)
+                    .evaluate_reporting_iv_projection_with_covariance(0.01, 1e-8)
                     .unwrap()
             );
             let mut scenarios = Vec::new();
@@ -164,7 +173,13 @@ fn reporting_iv_errors_project_paired_mc_units_and_rqmc_scrambles() {
                         })
                     })
                     .collect::<Vec<_>>();
-                project(&nodes, 1e-8)
+                let price = plan
+                    .inner
+                    .sample(z, bridge.as_ref(), antithetic, &|z| plan.path_payoff(z))
+                    .unwrap();
+                std::iter::once(price)
+                    .chain(project(&nodes, 1e-8))
+                    .collect::<Vec<_>>()
             };
             let dim = plan.inner.path.random_dimension();
             let rows = match plan.inner.engine {
@@ -191,7 +206,7 @@ fn reporting_iv_errors_project_paired_mc_units_and_rqmc_scrambles() {
                     let q = RqmcPlan::compile(c, dim).unwrap();
                     (0..c.scramble_count().get())
                         .map(|s| {
-                            let mut mean = vec![0.0; 29];
+                            let mut mean = vec![0.0; 30];
                             for p in 0..c.points_per_scramble().get() {
                                 let row = sample(
                                     (0..dim)
@@ -202,7 +217,7 @@ fn reporting_iv_errors_project_paired_mc_units_and_rqmc_scrambles() {
                                         .collect(),
                                     c.variance_reduction(),
                                 );
-                                for j in 0..29 {
+                                for j in 0..30 {
                                     mean[j] += row[j] / c.points_per_scramble().get() as f64;
                                 }
                             }
@@ -211,9 +226,56 @@ fn reporting_iv_errors_project_paired_mc_units_and_rqmc_scrambles() {
                         .collect::<Vec<_>>()
                 }
             };
-            let (values, errors) = result_columns(&r);
+            let (mut values, mut errors) = result_columns(&r);
+            values.insert(0, r.price.value);
+            errors.insert(0, r.price.standard_error);
+            let covariance = r.estimator_covariance.as_ref().unwrap();
+            let labels = r.covariance_labels();
+            assert_eq!(labels.len(), 30);
+            assert_eq!(labels[0], "price");
+            assert_eq!(labels[7], "bucket_estimates[1][1]");
+            assert_eq!(labels[29], "residual_estimates[2]");
+            let means = (0..30)
+                .map(|j| rows.iter().map(|row| row[j]).sum::<f64>() / rows.len() as f64)
+                .collect::<Vec<_>>();
+            for i in 0..30 {
+                for j in 0..30 {
+                    let expected = rows
+                        .iter()
+                        .map(|row| (row[i] - means[i]) * (row[j] - means[j]))
+                        .sum::<f64>()
+                        / (rows.len() * (rows.len() - 1)) as f64;
+                    assert!(
+                        (covariance[i][j] - expected).abs() < 2e-9 * (1.0 + expected.abs()),
+                        "qmc={qmc} antithetic={antithetic} ({i},{j}): {} vs {expected}",
+                        covariance[i][j]
+                    );
+                    assert_eq!(covariance[i][j], covariance[j][i]);
+                }
+                assert!(
+                    (covariance[i][i] - errors[i].powi(2)).abs() < 2e-12 * (1.0 + covariance[i][i])
+                );
+            }
+            // A mixed price/risk hedge must include price covariance and
+            // covariance across buckets, bump sizes and aggregate components.
+            let weights = (0..30).map(|i| (i % 7) as f64 - 3.0).collect::<Vec<_>>();
+            let mixed = rows
+                .iter()
+                .map(|row| row.iter().zip(&weights).map(|(v, w)| v * w).sum::<f64>())
+                .collect::<Vec<_>>();
+            let mixed_mean = mixed.iter().sum::<f64>() / mixed.len() as f64;
+            let direct_variance = mixed.iter().map(|v| (v - mixed_mean).powi(2)).sum::<f64>()
+                / (mixed.len() * (mixed.len() - 1)) as f64;
+            let matrix_variance = (0..30)
+                .map(|i| {
+                    (0..30)
+                        .map(|j| weights[i] * covariance[i][j] * weights[j])
+                        .sum::<f64>()
+                })
+                .sum::<f64>();
+            assert!((direct_variance - matrix_variance).abs() < 2e-9 * (1.0 + direct_variance));
             assert_eq!(r.price.independent_sampling_units, rows.len() as u64);
-            for j in 0..29 {
+            for j in 0..30 {
                 let mean = rows.iter().map(|r| r[j]).sum::<f64>() / rows.len() as f64;
                 let se = (rows.iter().map(|r| (r[j] - mean).powi(2)).sum::<f64>()
                     / (rows.len() * (rows.len() - 1)) as f64)
@@ -238,6 +300,18 @@ fn reporting_iv_rejects_invalid_inputs_and_preserves_fixed_history() {
     v["product"]["notional"] = json!(1e18);
     let plan = compile(&v, 0.6).unwrap();
     let r = plan.evaluate_reporting_iv_projection(0.01, 0.9).unwrap();
+    let joint = plan
+        .evaluate_reporting_iv_projection_with_covariance(0.01, 0.9)
+        .unwrap();
+    assert!(
+        joint
+            .estimator_covariance
+            .as_ref()
+            .unwrap()
+            .iter()
+            .flatten()
+            .all(|v| v.to_bits() == 0.0_f64.to_bits())
+    );
     assert_eq!(r.price.value, 7.0 * plan.inner.base.discount());
     let (values, errors) = result_columns(&r);
     assert!(values.iter().chain(&errors).all(|v| *v == 0.0));

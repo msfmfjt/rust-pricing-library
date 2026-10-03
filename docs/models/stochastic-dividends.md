@@ -473,7 +473,14 @@ match the parallel API. See the
 applies the existing residual-LSV density/basis reporting map to all finite node
 risks. It requires a retained reporting-IV basis covering every positive original
 target maturity and an explicit density threshold. It reports paired bucket,
-sum and residual errors, with density-domain diagnostics. The residual includes
+sum and residual errors, with density-domain diagnostics. Python's optional
+`full_covariance=True` (Rust: `evaluate_reporting_iv_projection_with_covariance`)
+also returns `estimator_covariance` in `covariance_labels` order: price, each bucket's
+three risks and two gaps, then original sum, projected sum and residual triples.
+This is covariance of estimated means; use `w^T C w` for a weighted combination's
+sampling variance. It uses the same paths/calibrations and has the same conditional
+uncertainty scope. The matrix is optional because storage grows quadratically in
+report width. The residual includes
 density normalization as well as time-zero and excluded-node risk. This is a
 reporting convention, not quoted-IV rebootstrap risk or the complete VegaKT
 operator. See the

@@ -1,6 +1,6 @@
 //! Reporting-only projection of recalibrated finite Local-volatility node risks.
 //! This does not bump quoted IVs or differentiate a surface/Dupire calibration.
-use super::sampling::BumpStatistics;
+use super::sampling::{BumpStatistics, JointBumpStatistics};
 use super::*;
 use crate::engine::plan::simulation::ReportingIvSurface;
 use crate::risk::{
@@ -48,8 +48,30 @@ pub struct StochasticDividendContinuousBarrierReportingIvRisk {
     pub recalibration_count: usize,
     pub risk_fingerprint: Fingerprint,
     pub method: &'static str,
+    /// Optional covariance of estimated means in `covariance_labels()` order.
+    /// Includes price, every bucket/ladder/gap and the three aggregate triples.
+    /// Covariance uses paired MC units or RQMC scramble means, divided by their
+    /// count. It excludes calibration uncertainty and discretization bias.
+    pub estimator_covariance: Option<Vec<Vec<f64>>>,
 }
 impl StochasticDividendContinuousBarrierReportingIvRisk {
+    /// Matrix coordinates, also available when covariance was not requested.
+    #[must_use]
+    pub fn covariance_labels(&self) -> Vec<String> {
+        let mut labels = vec!["price".to_owned()];
+        for b in 0..self.bucket_estimates.len() {
+            labels.extend((0..3).map(|j| format!("bucket_estimates[{b}][{j}]")));
+            labels.extend((0..2).map(|j| format!("bump_differences[{b}][{j}]")));
+        }
+        for name in [
+            "pre_projection_estimates",
+            "projected_sum_estimates",
+            "residual_estimates",
+        ] {
+            labels.extend((0..3).map(|j| format!("{name}[{j}]")));
+        }
+        labels
+    }
     #[must_use]
     pub const fn projection_policy(&self) -> &'static str {
         POLICY
@@ -77,6 +99,26 @@ impl StochasticDividendContinuousBarrierPlan {
         local_volatility_bump: f64,
         relative_density_threshold: f64,
     ) -> Result<StochasticDividendContinuousBarrierReportingIvRisk, MonteCarloError> {
+        self.reporting_iv_projection(local_volatility_bump, relative_density_threshold, false)
+    }
+
+    /// Opt in to joint covariance of price, buckets, ladder gaps and aggregates.
+    /// Uses the same paths and calibrations as `evaluate_reporting_iv_projection`;
+    /// the returned matrix describes sampling uncertainty of the estimated means.
+    pub fn evaluate_reporting_iv_projection_with_covariance(
+        &self,
+        local_volatility_bump: f64,
+        relative_density_threshold: f64,
+    ) -> Result<StochasticDividendContinuousBarrierReportingIvRisk, MonteCarloError> {
+        self.reporting_iv_projection(local_volatility_bump, relative_density_threshold, true)
+    }
+
+    fn reporting_iv_projection(
+        &self,
+        local_volatility_bump: f64,
+        relative_density_threshold: f64,
+        full_covariance: bool,
+    ) -> Result<StochasticDividendContinuousBarrierReportingIvRisk, MonteCarloError> {
         // Validate the entire map before any scenario calibration or valuation.
         let projection = self.reporting_projection(relative_density_threshold)?;
         let bumps = [
@@ -89,17 +131,27 @@ impl StochasticDividendContinuousBarrierPlan {
         let scenarios = self.local_volatility_scenarios_for_nodes(&bumps, &selections)?;
         let bucket_count = projection.basis.bucket_count();
         let aggregate_offset = 1 + 5 * bucket_count;
-        let BumpStatistics {
-            values,
-            errors,
-            units,
-            paths,
-        } = self.bump_statistics(aggregate_offset + 9, |z, bridge, antithetic, out| {
-            let mut nodes = vec![0.0; 1 + 5 * node_count];
-            self.local_volatility_sample(&scenarios, &bumps, z, bridge, antithetic, &mut nodes)?;
-            projection.apply(&nodes, out);
-            Ok(())
-        })?;
+        let JointBumpStatistics {
+            marginal:
+                BumpStatistics {
+                    values,
+                    errors,
+                    units,
+                    paths,
+                },
+            covariance: estimator_covariance,
+        } = self.bump_statistics_with_covariance(
+            aggregate_offset + 9,
+            full_covariance,
+            |z, bridge, antithetic, out| {
+                let mut nodes = vec![0.0; 1 + 5 * node_count];
+                self.local_volatility_sample(
+                    &scenarios, &bumps, z, bridge, antithetic, &mut nodes,
+                )?;
+                projection.apply(&nodes, out);
+                Ok(())
+            },
+        )?;
         let triples = |v: &[f64]| {
             (0..bucket_count)
                 .map(|b| [v[1 + 5 * b], v[2 + 5 * b], v[3 + 5 * b]])
@@ -121,6 +173,11 @@ impl StochasticDividendContinuousBarrierPlan {
         for h in bumps {
             hash.update(&h.to_bits().to_le_bytes());
         }
+        // Preserve the original default fingerprint; opt-in uncertainty output
+        // has an explicit versioned contract in its own fingerprint.
+        if full_covariance {
+            hash.update(b"joint_estimator_covariance_v1");
+        }
         let recalibration_count = scenarios.len();
         let scenario_evaluated_paths = (recalibration_count as u128 + 1) * paths;
         Ok(StochasticDividendContinuousBarrierReportingIvRisk {
@@ -132,6 +189,7 @@ impl StochasticDividendContinuousBarrierPlan {
                 plan_fingerprint: self.plan_fingerprint(),
                 scheme: SCHEME,
             },
+            estimator_covariance,
             local_volatility_bumps: bumps,
             reporting_maturity_nodes: projection.basis.maturity_nodes().to_vec(),
             reporting_log_moneyness_nodes: projection.basis.log_moneyness_nodes().to_vec(),

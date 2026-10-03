@@ -305,8 +305,38 @@ this scaling does not turn them into an actual quoted-IV bump P&L.
 Each original node observation is transformed before MC reduction or RQMC
 scramble aggregation. Errors for buckets, their sum, the pre-projection sum and
 the residual therefore include cross-node covariance. Marginal node standard
-errors cannot be projected independently. The API exposes paired standard
-errors, not a full bucket covariance matrix or price/bucket covariance report.
+errors cannot be projected independently.
+
+Optional joint estimator covariance is available through Rust
+`evaluate_reporting_iv_projection_with_covariance(h, threshold)` or Python
+`evaluate_reporting_iv_projection(..., full_covariance=True)`. The default returns
+`estimator_covariance=None`; the opt-in returns a symmetric `(5B+10)` square matrix
+for B reporting buckets. `covariance_labels` identifies its exact row/column order:
+price; then each bucket's three half/base/double risks and two adjacent gaps;
+then the pre-projection, projected-sum and residual triples. Labels use the
+corresponding result field and zero-based indices, e.g. `bucket_estimates[1][1]`.
+The label list is also available without requesting the matrix.
+
+The matrix is **covariance of the estimated means**, not raw sample covariance:
+`C[i,j] = sum_u ((X[u,i]-mean[i])*(X[u,j]-mean[j])) / (U*(U-1))`.
+MC observations are individual paths, or paired antithetic averages when enabled;
+RQMC observations are whole scramble means, never individual Sobol points.
+Diagonal entries equal squared reported standard errors up to floating-point
+rounding. For fixed weights w on these coordinates, the combined estimate has
+sampling variance `w^T C w`. Price/risk, cross-bucket, cross-bump and aggregate
+covariances are included. To use volatility-point coordinates, multiply risk
+rows/columns by 0.01 each; leave the price coordinate unscaled. Gaps and sums make
+this matrix singular by construction, so consumers must not assume it is invertible.
+
+MC accumulates centered cross-moments per fixed reduction block and merges them
+in a deterministic tree, without retaining path observations. RQMC uses a centered
+two-pass product of its retained scramble means. The opt-in adds no calibration
+or payoff evaluations and leaves all existing estimates/errors unchanged. It adds
+quadratic storage/work in report width: MC retains a triangular matrix per logical
+reduction block; RQMC computes the matrix only after within-scramble reductions.
+Worker-count and concurrent-call replay are covered. The matrix carries the same
+conditional uncertainty scope as the existing errors; it does not include
+calibration uncertainty or grid/bridge/bump/map bias.
 `positive_target_time_nodes`, `target_log_moneyness_nodes`, active-domain start/end
 indices, excluded probability masses and the threshold identify the density
 filter. Excluded masses use the shared finite-grid hat quadrature, not exact
@@ -321,12 +351,24 @@ and existing risk APIs retain their numerical ordering and fingerprints.
 The method tag is
 `buehler-rough-residual-lsv-continuous-bridge-reporting-iv-projection-crn-v1`.
 Its fingerprint includes the base plan (including the retained basis), map
-policy, Local-volatility ladder and density threshold. The uncertainty scope is
+policy, Local-volatility ladder and density threshold. Requesting the covariance
+matrix additionally hashes `joint_estimator_covariance_v1`; default fingerprints
+remain unchanged. The uncertainty scope is
 `pricing_only_fixed_calibration_seed_grid_bridge_bump_and_projection`.
 Calibration sampling uncertainty, model error, and grid/bridge/bump/reporting-map
 bias are excluded. Generic Vega/VegaKT request flags still reject.
 
 ## Validation
+
+Joint-covariance controls reconstruct every matrix entry independently from
+separately recompiled scenario prices and the hand-specified reporting map,
+including base-price cross-covariances. MC/RQMC with and without antithetics are
+covered; mixed price/risk weights reproduce directly sampled portfolio variance.
+An offset control checks centered accumulation at 1e12, deterministic block/worker
+replay and evaluation-error propagation. Python checks matrix coordinates,
+diagonals, symmetry, positive semidefiniteness within rounding, reconstruction of
+sum/gap/residual errors, detached nested arrays, concurrent replay and zero
+covariance for resolved fixed-cash history.
 
 The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs)
 cover both stochastic loadings and correlation signs, singular variance limits,

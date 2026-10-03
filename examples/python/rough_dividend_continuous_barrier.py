@@ -1,4 +1,5 @@
 """Opt-in continuous rough-LSV Barrier approximation with paired finite-bump Spot risk."""
+import math
 import rust_pricing as rp
 
 expiry = 364/365
@@ -65,9 +66,20 @@ print('Paired node SEs:', buckets.vega_standard_errors)
 print('Selected-node sum / SE:', buckets.sum_vega_estimates, buckets.sum_vega_standard_errors)
 print('Sums include cross-node covariance; finite node bumps need not sum to the parallel bump.')
 
-reporting = plan.evaluate_reporting_iv_projection(local_volatility_bump=.01, relative_density_threshold=.9)
+reporting = plan.evaluate_reporting_iv_projection(local_volatility_bump=.01, relative_density_threshold=.9, full_covariance=True)
 print('Reporting-IV bucket ladders:', reporting.bucket_estimates)
 print('Paired projected bucket SEs:', reporting.bucket_standard_errors)
 print('Pre-projection / projected sum / residual:', reporting.pre_projection_estimates,
       reporting.projected_sum_estimates, reporting.residual_estimates)
 print('This density/basis reporting map is not quoted-IV rebootstrap risk or the full VegaKT operator.')
+
+# Example: sampling error of the difference of two base-bump reporting buckets.
+labels = reporting.covariance_labels
+covariance = reporting.estimator_covariance
+assert covariance is not None
+left = labels.index('bucket_estimates[0][1]')
+right = labels.index('bucket_estimates[2][1]')
+variance = covariance[left][left] + covariance[right][right] - 2 * covariance[left][right]
+print('Bucket spread estimate / SE:', reporting.bucket_estimates[0][1] - reporting.bucket_estimates[2][1],
+      math.sqrt(max(0.0, variance)))
+# Variance is of the estimate already: do not divide by sampling units again.
