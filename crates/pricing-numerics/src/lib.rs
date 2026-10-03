@@ -20,3 +20,11 @@ pub use reduction::{
 pub const fn foundation_role() -> &'static str {
     "core"
 }
+
+mod fractional;
+pub use fractional::{digamma_half_to_two, fractional_ou_correlation, gamma_half_to_two};
+
+mod complex;
+pub use complex::Complex64;
+
+pub mod least_squares;

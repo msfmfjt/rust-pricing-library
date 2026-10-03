@@ -24,6 +24,105 @@ REQUIRED_FILES = {
     'design/adr/0027-american-dual.md',
     'design/validation/american-dual.md',
     'design/validation/american-dual-release-gates.json',
+    'crates/pricing/src/engine/processes/rough_volatility/cache_tests.rs',
+    'crates/pricing/examples/benchmark_rough_diffusion_cache.rs',
+    'scripts/compare_rough_diffusion_benchmarks.py',
+    'scripts/test_rough_diffusion_benchmark.py',
+    'design/validation/rough-diffusion-cache.md',
+
+    '.github/workflows/heston-iv-holdout.yml',
+    'crates/pricing/tests/heston_iv_holdout.rs',
+    'tests/python/test_heston_iv_holdout.py',
+    'examples/python/heston_iv_holdout.py',
+    'fixtures/rough-volatility/iv-holdout.json',
+    'scripts/check_heston_iv_holdout.py',
+    'scripts/test_heston_iv_holdout_protocol.py',
+    'docs/models/heston-iv-holdout.md',
+    'design/validation/heston-iv-holdout.md',
+
+    '.github/workflows/heston-iv-refinement.yml',
+    'crates/pricing/src/engine/analytic/heston_fourier/iv_refinement.rs',
+    'crates/pricing-python/src/heston_iv_refinement.rs',
+    'crates/pricing/tests/heston_iv_refinement.rs',
+    'tests/python/test_heston_iv_refinement.py',
+    'examples/python/heston_iv_refinement.py',
+    'fixtures/rough-volatility/iv-refinement.json',
+    'scripts/test_heston_iv_refinement_protocol.py',
+    'docs/models/heston-iv-refinement.md',
+    'design/validation/heston-iv-refinement.md',
+
+    '.github/workflows/heston-iv-calibration.yml',
+    'crates/pricing/src/engine/analytic/heston_fourier/iv_calibration.rs',
+    'crates/pricing-python/src/heston_iv_calibration.rs',
+    'crates/pricing/tests/heston_iv_calibration.rs',
+    'examples/python/heston_iv_calibration.py',
+    'tests/python/test_heston_iv_calibration.py',
+    'fixtures/rough-volatility/iv-calibration.json',
+    'scripts/check_heston_iv_calibration.py',
+    'scripts/test_heston_iv_calibration_reference.py',
+    'docs/models/heston-iv-calibration.md',
+    'design/validation/heston-iv-calibration.md',
+
+    'crates/pricing-numerics/src/least_squares.rs',
+    'crates/pricing/src/engine/analytic/heston_fourier/calibration.rs',
+    'crates/pricing-python/src/heston_calibration.rs',
+    'crates/pricing/tests/heston_calibration.rs',
+    'fixtures/rough-volatility/calibration.json',
+    'scripts/check_heston_calibration_protocol.py',
+    'scripts/test_heston_calibration_protocol.py',
+    'scripts/compare_heston_calibration_solvers.py',
+    'examples/python/heston_calibration.py',
+    'tests/python/test_heston_calibration.py',
+    'docs/models/heston-calibration.md',
+    'design/validation/heston-calibration.md',
+    '.github/workflows/heston-calibration.yml',
+
+    'crates/pricing/src/engine/analytic/heston_fourier/hurst_risk.rs',
+    'crates/pricing/tests/heston_hurst_risk.rs',
+    'fixtures/rough-volatility/hurst-risk.json',
+    'scripts/check_heston_hurst_risk.py',
+    'scripts/test_heston_hurst_risk_reference.py',
+    'tests/python/test_heston_hurst_risk.py',
+    'examples/python/heston_hurst_risk.py',
+    'docs/models/heston-hurst-risk.md',
+    'design/validation/heston-hurst-risk.md',
+    '.github/workflows/heston-hurst-risk.yml',
+
+    'crates/pricing/src/engine/analytic/heston_fourier/parameter_risk.rs',
+    'crates/pricing/tests/heston_parameter_risk.rs',
+    'fixtures/rough-volatility/parameter-risk.json',
+    'scripts/check_heston_parameter_risk.py',
+    'scripts/test_heston_parameter_risk_reference.py',
+    'tests/python/test_heston_parameter_risk.py',
+    'examples/python/heston_parameter_risk.py',
+    'docs/models/heston-parameter-risk.md',
+    'design/validation/heston-parameter-risk.md',
+    '.github/workflows/heston-parameter-risk.yml',
+    'crates/pricing/src/engine/analytic/heston_fourier/greeks.rs',
+    'crates/pricing/tests/heston_fourier_greeks.rs',
+    'fixtures/rough-volatility/fourier-greeks.json',
+    'scripts/check_heston_fourier_greeks.py',
+    'scripts/test_heston_fourier_greeks_reference.py',
+    'examples/python/heston_fourier_greeks.py',
+    'docs/models/rough-heston-fourier-greeks.md',
+    'design/validation/rough-heston-fourier-greeks.md',
+    '.github/workflows/heston-fourier-greeks.yml',
+    'tests/python/test_heston_fourier_greeks.py',
+
+    'crates/pricing-numerics/src/complex.rs',
+    'crates/pricing/src/engine/analytic/heston_fourier/mod.rs',
+    'crates/pricing/src/engine/analytic/heston_fourier/riccati.rs',
+    'crates/pricing-python/src/heston_fourier.rs',
+    'crates/pricing/tests/heston_fourier.rs',
+    'fixtures/rough-volatility/fourier.json',
+    'scripts/check_heston_fourier.py',
+    'scripts/test_heston_fourier_reference.py',
+    'tests/python/test_heston_fourier.py',
+    'examples/python/heston_fourier.py',
+    'docs/models/rough-heston-fourier.md',
+    'design/validation/rough-heston-fourier.md',
+    '.github/workflows/heston-fourier.yml',
+
     'crates/pricing/tests/stochastic_dividend_rough_lsv.rs',
     'design/validation/stochastic-dividend-rough-lsv-correlation-risk.md',
     'tests/python/hw_dividend_risk_reference.py',
@@ -128,6 +227,38 @@ REQUIRED_FILES = {
     'docs/models/stochastic-dividends.md',
     'design/adr/0013-stochastic-cash-dividends.md',
     'design/validation/stochastic-dividends.md',
+
+    "crates/pricing-numerics/src/fractional.rs",
+    "crates/pricing/src/models/rough_volatility.rs",
+    "crates/pricing/src/engine/processes/rough_volatility/mod.rs",
+    "crates/pricing/src/engine/processes/rough_volatility/kernel.rs",
+    "crates/pricing/src/engine/processes/rough_volatility/rfsv.rs",
+    "crates/pricing/src/engine/risk/rough_volatility.rs",
+    "crates/pricing/src/rough_volatility.rs",
+    "crates/pricing-python/src/rough_volatility.rs",
+    "crates/pricing/tests/rough_volatility_families.rs",
+    "crates/pricing/tests/rough_volatility_pricing_reference.rs",
+    "crates/pricing/tests/lifted_heston_factor_prices.rs",
+    "scripts/check_lifted_heston_factors.py",
+    "scripts/test_lifted_heston_factors.py",
+    "fixtures/rough-volatility/lifted-factor-prices.json",
+    "design/validation/lifted-heston-factor-prices.md",
+    ".github/workflows/lifted-heston-factors.yml",
+    "crates/pricing/tests/rough_volatility_refinement.rs",
+    "scripts/check_rough_volatility_refinement.py",
+    "scripts/test_rough_volatility_refinement.py",
+    "fixtures/rough-volatility/refinement.json",
+    "design/validation/rough-volatility-refinement.md",
+    "tests/python/test_rough_volatility_families.py",
+    "examples/python/rough_volatility_families.py",
+    "scripts/check_rough_volatility_reference.py",
+    "scripts/check_rough_volatility_prices.py",
+    "fixtures/rough-volatility/two-step-prices.json",
+    "fixtures/rough-volatility/reference.json",
+    "fixtures/rough-volatility/README.md",
+    "docs/models/rough-volatility-families.md",
+    "design/validation/rough-volatility-families.md",
+    ".github/workflows/rough-volatility.yml",
 
     "crates/pricing/src/stochastic_volatility.rs",
     "crates/pricing/src/engine/risk/stochastic_volatility.rs",
@@ -810,6 +941,16 @@ def main() -> int:
         check_cargo_manifests(package, archive)
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
+        check_rough_refinement_workflow(package, archive)
+        check_lifted_factor_workflow(package, archive)
+        check_heston_fourier_workflow(package, archive)
+        check_heston_fourier_greeks_workflow(package, archive)
+        check_heston_parameter_risk_workflow(package, archive)
+        check_heston_hurst_risk_workflow(package, archive)
+        check_heston_calibration_workflow(package, archive)
+        check_heston_iv_calibration_workflow(package, archive)
+        check_heston_iv_refinement_workflow(package, archive)
+        check_heston_iv_holdout_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1001,6 +1142,191 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                 f"{archive}: CI workflow must contain {snippet!r} "
                 f"{expected_count} times, found {actual_count}"
             )
+
+
+def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/rough-volatility.yml")
+    required = (
+        "python scripts/check_rough_volatility_refinement.py",
+        "python -m unittest discover -s scripts -p 'test_rough_volatility_refinement.py'",
+        "cargo test --locked -p pricing --test rough_volatility_refinement",
+        "cargo test --locked --no-default-features -p pricing --test rough_volatility_refinement",
+        "cargo test --locked --release -p pricing --test rough_volatility_refinement -- --include-ignored --nocapture",
+        "name: rough-volatility-refinement-${{ matrix.os }}",
+        "path: rough-volatility-refinement.log",
+    )
+    missing = [snippet for snippet in required if snippet not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: rough refinement workflow is missing gates: {missing}")
+
+
+def check_heston_parameter_risk_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-parameter-risk.yml")
+    required = (
+        'python scripts/check_heston_parameter_risk.py',
+        "python -m unittest discover -s scripts -p 'test_heston_parameter_risk_reference.py'",
+        'cargo test --locked -p pricing --test heston_parameter_risk',
+        'cargo test --locked --no-default-features -p pricing --test heston_parameter_risk',
+        'cargo test --locked --release -p pricing --test heston_parameter_risk -- --include-ignored --nocapture',
+        'os: [ubuntu-24.04, macos-15, windows-2025]',
+        'name: heston-parameter-risk-${{ matrix.os }}',
+        'path: heston-parameter-risk.log',
+        'if-no-files-found: error',
+    )
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston parameter risk evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_parameter_risk.py"' not in smoke:
+        raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
+
+
+
+
+def check_heston_iv_holdout_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-iv-holdout.yml")
+    required = (
+        "python -m pip install 'numpy>=2,<3' 'scipy>=1.14,<2' 'mpmath>=1.3,<2'",
+        "python scripts/check_heston_iv_holdout.py",
+        "python -m unittest discover -s scripts -p 'test_heston_iv_holdout_protocol.py'",
+        "cargo test --locked -p pricing --test heston_iv_holdout",
+        "cargo test --locked --no-default-features -p pricing --test heston_iv_holdout",
+        "cargo test --locked --release -p pricing --test heston_iv_holdout -- --include-ignored --nocapture",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "name: heston-iv-holdout-${{ matrix.os }}", "path: heston-iv-holdout.log",
+        "if-no-files-found: error", "contents: read", "set -o pipefail",
+    )
+    missing = [item for item in required if item not in workflow]
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_iv_holdout.py"' not in smoke:
+        missing.append("registered holdout example")
+    if missing:
+        raise SystemExit(f"{archive}: IV holdout evidence gates missing: {missing}")
+
+def check_heston_iv_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-iv-refinement.yml")
+    required = (
+        "python -m pip install 'numpy>=2,<3' 'scipy>=1.14,<2' 'mpmath>=1.3,<2'",
+        "cargo test --locked -p pricing --test heston_iv_refinement",
+        "cargo test --locked --no-default-features -p pricing --test heston_iv_refinement",
+        "cargo test --locked --release -p pricing --test heston_iv_refinement -- --include-ignored --nocapture",
+        "python scripts/check_heston_iv_calibration.py",
+        "python -m unittest discover -s scripts -p 'test_heston_iv_refinement_protocol.py'",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "name: heston-iv-refinement-${{ matrix.os }}",
+        "path: heston-iv-refinement.log", "if-no-files-found: error",
+        "contents: read", "set -o pipefail",
+    )
+    missing = [item for item in required if item not in workflow]
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_iv_refinement.py"' not in smoke:
+        missing.append("registered refinement example")
+    if missing:
+        raise SystemExit(f"{archive}: IV refinement evidence gates missing: {missing}")
+
+
+def check_heston_iv_calibration_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-iv-calibration.yml")
+    required = ('cargo test --locked -p pricing --lib black_', 'cargo test --locked -p pricing --test heston_iv_calibration', 'cargo test --locked --no-default-features -p pricing --test heston_iv_calibration', 'cargo test --locked --release -p pricing --test heston_iv_calibration -- --include-ignored --nocapture', 'python scripts/check_heston_iv_calibration.py', "python -m unittest discover -s scripts -p 'test_heston_iv_calibration_reference.py'", 'os: [ubuntu-24.04, macos-15, windows-2025]', 'name: heston-iv-calibration-${{ matrix.os }}', 'path: heston-iv-calibration.log', 'if-no-files-found: error')
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston IV calibration evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_iv_calibration.py"' not in smoke:
+        raise SystemExit(f"{archive}: IV calibration example missing from wheel smoke tests")
+
+def check_heston_calibration_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-calibration.yml")
+    required = ('cargo test --locked -p pricing-numerics', 'cargo test --locked -p pricing --test heston_calibration', 'cargo test --locked --no-default-features -p pricing --test heston_calibration', 'cargo test --locked --release -p pricing --test heston_calibration -- --include-ignored --nocapture', 'python scripts/check_heston_fourier.py', 'python scripts/check_heston_calibration_protocol.py', "python -m unittest discover -s scripts -p 'test_heston_calibration_protocol.py'", 'python scripts/compare_heston_calibration_solvers.py', 'os: [ubuntu-24.04, macos-15, windows-2025]', 'name: heston-calibration-${{ matrix.os }}', 'path: heston-calibration.log', 'if-no-files-found: error', 'name: heston-calibration-solvers', 'path: heston-calibration-solvers.log')
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston calibration evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_calibration.py"' not in smoke:
+        raise SystemExit(f"{archive}: calibration example missing from wheel smoke tests")
+
+
+def check_heston_hurst_risk_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-hurst-risk.yml")
+    required = (
+        'cargo test --locked -p pricing --lib hurst',
+        'cargo test --locked -p pricing-numerics',
+        'python scripts/check_heston_hurst_risk.py',
+        "python -m unittest discover -s scripts -p 'test_heston_hurst_risk_reference.py'",
+        'cargo test --locked -p pricing --test heston_hurst_risk',
+        'cargo test --locked --no-default-features -p pricing --test heston_hurst_risk',
+        'cargo test --locked --release -p pricing --test heston_hurst_risk -- --include-ignored --nocapture',
+        'os: [ubuntu-24.04, macos-15, windows-2025]',
+        'name: heston-hurst-risk-${{ matrix.os }}',
+        'path: heston-hurst-risk.log',
+        'if-no-files-found: error',
+    )
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston Hurst risk evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_hurst_risk.py"' not in smoke:
+        raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
+
+
+def check_heston_fourier_greeks_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-fourier-greeks.yml")
+    required = (
+        'python scripts/check_heston_fourier_greeks.py',
+        "python -m unittest discover -s scripts -p 'test_heston_fourier_greeks_reference.py'",
+        'cargo test --locked -p pricing --test heston_fourier_greeks',
+        'cargo test --locked --no-default-features -p pricing --test heston_fourier_greeks',
+        'cargo test --locked --release -p pricing --test heston_fourier_greeks -- --include-ignored --nocapture',
+        'os: [ubuntu-24.04, macos-15, windows-2025]',
+        'name: heston-fourier-greeks-${{ matrix.os }}',
+        'path: heston-fourier-greeks.log',
+        'if-no-files-found: error',
+    )
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston Fourier Greeks evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_fourier_greeks.py"' not in smoke:
+        raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
+
+
+def check_heston_fourier_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-fourier.yml")
+    required = (
+        'python scripts/check_heston_fourier.py',
+        "python -m unittest discover -s scripts -p 'test_heston_fourier_reference.py'",
+        'cargo test --locked -p pricing --test heston_fourier',
+        'cargo test --locked --no-default-features -p pricing --test heston_fourier',
+        'cargo test --locked --release -p pricing --test heston_fourier -- --include-ignored --nocapture',
+        'os: [ubuntu-24.04, macos-15, windows-2025]',
+        'name: heston-fourier-${{ matrix.os }}',
+        'path: heston-fourier.log',
+        'if-no-files-found: error',
+    )
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston Fourier evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_fourier.py"' not in smoke:
+        raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
+
+
+def check_lifted_factor_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/lifted-heston-factors.yml")
+    required = (
+        "python scripts/check_lifted_heston_factors.py",
+        "python -m unittest discover -s scripts -p 'test_lifted_heston_factors.py'",
+        "cargo test --locked -p pricing --test lifted_heston_factor_prices",
+        "cargo test --locked --no-default-features -p pricing --test lifted_heston_factor_prices",
+        "cargo test --locked --release -p pricing --test lifted_heston_factor_prices -- --include-ignored --nocapture",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "name: lifted-heston-factor-prices-${{ matrix.os }}",
+        "path: lifted-heston-factor-prices.log",
+        "if-no-files-found: error",
+    )
+    missing = [snippet for snippet in required if snippet not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: lifted factor workflow is missing gates: {missing}")
 
 
 def check_wheel_smoke_gate(package: tarfile.TarFile, archive: str) -> None:

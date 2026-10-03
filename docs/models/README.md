@@ -16,7 +16,7 @@ surface, correlation or cash-flow component.
 
 | Component family | Main topics |
 | --- | --- |
-| Equity dynamics | Black–Scholes/Black-76, Local Volatility, LSV, Bergomi and rough Bergomi |
+| Equity dynamics | Black–Scholes/Black-76, Local Volatility, LSV, Bergomi, rough Bergomi and [six additional experimental rough families](rough-volatility-families.md) |
 | Rate dynamics | Hull–White short-rate model and integrated-rate simulation |
 | Volatility surfaces | SVI/SSVI/eSSVI, Dupire local variance and market-IV coordinates |
 | Multi-asset and correlation | Basket state, PSD correlations and Particle Local Correlation |
@@ -32,6 +32,8 @@ and path-treatment methods independently of the model that uses them.
 | Method family | Main topics |
 | --- | --- |
 | Monte Carlo and RQMC | Philox streams, antithetic sampling, Sobol' sequences and uncertainty |
+| Fourier pricing | [Rough/Lifted Heston forward transforms, Riccati integration and European inversion](rough-heston-fourier.md) |
+| Fourier forward risk | [Fixed-model Forward Delta/Gamma and diagnostic limits](rough-heston-fourier-greeks.md) |
 | Calibration | Particle calibration, leverage fitting and surface interpolation |
 | Early exercise | Least-squares Monte Carlo, regression QR and fixed-policy valuation |
 | Differentiation and risk | AAD, finite-difference validation and VegaKT |
@@ -59,3 +61,13 @@ payoff contracts rather than model components.
 
 - [Stochastic cash dividends with Hull–White](stochastic-dividends-hull-white.md):
   correlated discounted-cash forecasts, constant residual volatility and explicit basic AAD.
+
+## Experimental Heston price calibration
+
+The [multi-expiry price-calibration API](heston-calibration.md) fits selected
+Rough/Lifted Heston parameters using analytic Fourier Jacobians. Fit status is
+separate from solver termination; this is not an IV or general six-family fitter.
+
+- [Heston IV grid validation and staged recalibration](heston-iv-refinement.md)
+
+- [Heston IV disjoint holdout validation](heston-iv-holdout.md)

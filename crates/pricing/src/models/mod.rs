@@ -9,6 +9,7 @@ pub mod hull_white;
 pub mod hull_white_dividends;
 pub(crate) mod rates;
 mod rough_bergomi;
+pub(crate) mod rough_volatility;
 mod spec;
 pub mod stochastic_dividends;
 mod volatility_inputs;
@@ -40,4 +41,9 @@ pub const fn market_foundation() -> &'static str {
 
 pub use stochastic_dividends::{
     BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,
+};
+
+pub use rough_volatility::{
+    ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,
+    RoughSabr, RoughVolatilityModel,
 };

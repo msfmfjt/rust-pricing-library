@@ -1,0 +1,71 @@
+name: Heston Fourier forward Greeks
+
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'fixtures/rough-volatility/fourier-greeks.json'
+      - 'scripts/*heston_fourier*.py'
+      - 'scripts/smoke_test_wheel.py'
+      - 'scripts/check_source_archive.py'
+      - 'tests/python/test_heston_fourier_greeks.py'
+      - 'examples/python/heston_fourier_greeks.py'
+      - 'docs/models/rough-heston-fourier-greeks.md'
+      - 'design/validation/rough-heston-fourier-greeks.md'
+      - 'rust_pricing.pyi'
+      - '.github/workflows/heston-fourier-greeks.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: heston-fourier-greeks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  references:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'numpy>=2,<3' 'scipy>=1.14,<2' 'mpmath>=1.3,<2'
+      - name: Independently verify retained derivatives and evidence gates
+        run: |
+          python scripts/check_heston_fourier_greeks.py
+          python -m unittest discover -s scripts -p 'test_heston_fourier_greeks_reference.py'
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check forward derivative contracts
+        run: cargo test --locked -p pricing --test heston_fourier_greeks
+      - name: Check minimal build
+        run: cargo test --locked --no-default-features -p pricing --test heston_fourier_greeks
+      - name: Check independent references and refinement in release
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test heston_fourier_greeks -- --include-ignored --nocapture
+          } 2>&1 | tee heston-fourier-greeks.log
+      - name: Retain numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heston-fourier-greeks-${{ matrix.os }}
+          path: heston-fourier-greeks.log
+          retention-days: 14
+          if-no-files-found: error
