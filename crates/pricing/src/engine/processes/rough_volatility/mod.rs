@@ -4,6 +4,9 @@
 mod kernel;
 mod rfsv;
 
+#[cfg(test)]
+mod cache_tests;
+
 use crate::Fingerprint;
 use crate::mc::{Philox4x32, RandomCoordinate, RandomDomain};
 use crate::models::rough_volatility::invalid;
@@ -251,6 +254,11 @@ impl RoughVolatilityPathPlan {
         let (dw, near) = self.innovations(k, m.correlation, normals, false);
         let mut variance = vec![m.initial_variance];
         let mut raw = vec![m.initial_variance];
+        // Each left-node coefficient is reused by every later history sum.
+        // Retain the original multiplication order, including the sqrt rounding.
+        // The final node is never a diffusion input, so do not compute its coefficient.
+        let mut diffusion = Vec::with_capacity(self.times.len() - 1);
+        diffusion.push(k.fractional_scale * m.vol_of_vol * m.initial_variance.sqrt());
         let mut negative = 0;
         for i in 1..self.times.len() {
             let mut sum = pricing_numerics::NeumaierSum::new();
@@ -266,12 +274,15 @@ impl RoughVolatilityPathPlan {
                 } else {
                     k.weights[i][j] * dw[j]
                 };
-                sum.add(k.fractional_scale * m.vol_of_vol * variance[j].sqrt() * innovation);
+                sum.add(diffusion[j] * innovation);
             }
             let value = finite_value(sum.total())?;
             negative += u64::from(value < 0.0);
             raw.push(value);
             variance.push(value.max(0.0));
+            if i + 1 < self.times.len() {
+                diffusion.push(k.fractional_scale * m.vol_of_vol * variance[i].sqrt());
+            }
         }
         self.asset_path(initial, variance, raw, normals, 1.0, negative)
     }
@@ -328,6 +339,9 @@ impl RoughVolatilityPathPlan {
         };
         let mut latent = vec![m.initial_state];
         let mut variance = vec![variance_at(m.initial_state)?];
+        // Use the same parenthesization as the former inner-loop expression.
+        let mut diffusion = Vec::with_capacity(self.times.len() - 1);
+        diffusion.push(m.mean_reversion * m.vol_of_vol * variance[0].sqrt() * k.fractional_scale);
         for i in 1..self.times.len() {
             let mut sum = pricing_numerics::NeumaierSum::new();
             sum.add(m.initial_state);
@@ -338,17 +352,16 @@ impl RoughVolatilityPathPlan {
                 } else {
                     k.weights[i][j] * dw[j]
                 };
-                sum.add(
-                    m.mean_reversion
-                        * m.vol_of_vol
-                        * variance[j].sqrt()
-                        * k.fractional_scale
-                        * innovation,
-                );
+                sum.add(diffusion[j] * innovation);
             }
             let z = finite_value(sum.total())?;
             latent.push(z);
             variance.push(variance_at(z)?);
+            if i + 1 < self.times.len() {
+                diffusion.push(
+                    m.mean_reversion * m.vol_of_vol * variance[i].sqrt() * k.fractional_scale,
+                );
+            }
         }
         self.asset_path(initial, variance, latent, normals, 1.0, 0)
     }
