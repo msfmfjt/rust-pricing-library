@@ -271,6 +271,20 @@ impl PyRoughVolatilityPathPlan {
             .map(|inner| PyRoughVolatilityPath { inner })
             .map_err(pricing_exception)
     }
+    fn reverse_initial_forward(
+        &self,
+        py: Python<'_>,
+        initial_forward: f64,
+        normals: Vec<f64>,
+        state_seeds: Vec<f64>,
+    ) -> PyResult<f64> {
+        py.detach(|| {
+            self.inner
+                .evolve_recorded_path(initial_forward, &normals)?
+                .reverse_initial_forward(&state_seeds)
+        })
+        .map_err(pricing_exception)
+    }
     fn pseudo_shocks(&self, py: Python<'_>, seed: u64, path: u64) -> Vec<f64> {
         py.detach(|| {
             self.inner
@@ -337,6 +351,11 @@ impl PyRoughVolatilityPlan {
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
     }
+    fn evaluate_delta(&self, py: Python<'_>) -> PyResult<PyRoughVolatilityDelta> {
+        py.detach(|| self.inner.evaluate_delta())
+            .map(|inner| PyRoughVolatilityDelta { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn risky_spot(&self) -> f64 {
         self.inner.risky_spot()
@@ -346,5 +365,36 @@ impl PyRoughVolatilityPlan {
         PyRoughVolatilityPathPlan {
             inner: self.inner.path_plan().clone(),
         }
+    }
+}
+
+#[pyclass(frozen, name = "RoughVolatilityDelta", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughVolatilityDelta {
+    inner: pricing::rough_volatility::RoughVolatilityDelta,
+}
+#[pymethods]
+impl PyRoughVolatilityDelta {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "physical_spot_fixed_model_fixed_cash_dividends"
     }
 }

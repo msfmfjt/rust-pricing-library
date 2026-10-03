@@ -25,8 +25,10 @@ use crate::{Fingerprint, MonteCarloError, PricingRequest, SimulationPlan};
 mod capability_tests;
 mod evaluation;
 mod models;
+mod rough_families;
 use evaluation::{Evaluation, PriceOnly, Recalibrated};
 use models::{CalibratedModel, LeveragePathModel, PathModel};
+pub use rough_families::RoughFamilyLsvPricingPlan;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LsvPrice {
@@ -319,13 +321,14 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
     ) -> Result<Vec<f64>, MonteCarloError> {
         if let Some(bridge) = bridge {
             let n = self.path_plan.times().len() - 1;
-            let mut out = Vec::with_capacity(shocks.len());
-            for block in shocks.chunks_exact(n) {
-                out.extend(
-                    bridge
-                        .apply_one_factor(block)
-                        .map_err(|e| MonteCarloError::LocalVol(e.into()))?,
-                );
+            let mut out = shocks;
+            // Existing adapters retain their layout. New rough families bridge
+            // only genuine Brownian blocks, never hybrid residuals/fOU levels.
+            for block in out[..self.calibration.brownian_block_count() * n].chunks_exact_mut(n) {
+                let transformed = bridge
+                    .apply_one_factor(block)
+                    .map_err(|e| MonteCarloError::LocalVol(e.into()))?;
+                block.copy_from_slice(&transformed);
             }
             Ok(out)
         } else {
@@ -377,7 +380,8 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
             }
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
                 let dimension = u32::try_from(
-                    C::RANDOM_BLOCKS * (self.path_plan.times().len() - 1),
+                    self.calibration
+                        .random_dimension(self.path_plan.times().len() - 1),
                 )
                 .map_err(|_| LsvError::InvalidInput {
                     field: "random_dimension",

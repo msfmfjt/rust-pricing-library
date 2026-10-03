@@ -40,7 +40,16 @@ pub(in crate::engine) fn compile_local_vol_runtime(
     let mut required_times = grid.time_nodes().to_vec();
     required_times.extend_from_slice(event_times);
     let time_grid = if let Some(dividends) = market_forward.discrete_dividends() {
-        LocalVolTimeGrid::compile_with_dividends(required_times, dividends, maximum_step)?
+        // Future dividends still enter the escrowed market transform, but
+        // are not simulation events after the contract's expiry.
+        required_times.extend(
+            dividends
+                .events()
+                .iter()
+                .filter(|event| event.ex_time() <= expiry_time)
+                .map(|event| event.ex_time()),
+        );
+        LocalVolTimeGrid::compile(required_times, maximum_step)?
     } else {
         LocalVolTimeGrid::compile(required_times, maximum_step)?
     };
@@ -67,7 +76,9 @@ pub(in crate::engine) fn compile_local_vol_runtime(
     let plan = LocalVolLogEulerPlan::new(time_grid, forwards)?;
     let dividend_schedule = dividends
         .as_ref()
-        .map(|dividends| LocalVolDividendCheckpointSchedule::compile(plan.time_grid(), dividends))
+        .map(|dividends| {
+            LocalVolDividendCheckpointSchedule::compile_through_horizon(plan.time_grid(), dividends)
+        })
         .transpose()?;
     let vega_kt = vega_kt
         .map(|config| {

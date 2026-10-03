@@ -2,6 +2,9 @@
 //! Models carry their own volatility levels; the BlackScholes request is an
 //! explicit carrier for market, payoff, dates and sampling settings only.
 
+mod delta;
+pub use delta::RoughVolatilityDelta;
+
 use crate::core::DayCountConvention;
 use crate::engine::processes::rough_volatility::RoughVolatilityPathPlan;
 use crate::hull_white::HullWhitePrice;
@@ -44,6 +47,8 @@ pub struct RoughVolatilityPricingPlan {
     initial_forward: f64,
     risky_spot: f64,
     fingerprint: Fingerprint,
+    dividends: HullWhiteDividendPlan,
+    risk_supported: bool,
 }
 impl RoughVolatilityPricingPlan {
     /// Additive extension API. A price-only BlackScholes request supplies the
@@ -153,6 +158,9 @@ impl RoughVolatilityPricingPlan {
             policy,
             initial_forward,
             risky_spot: dividend_plan.risky_spot(),
+            dividends: dividend_plan,
+            risk_supported: request.product().supports_pathwise_risk()
+                || risk.payoff_smoothing().is_some(),
             fingerprint,
         })
     }

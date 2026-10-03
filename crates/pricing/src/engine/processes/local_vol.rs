@@ -262,6 +262,27 @@ impl LocalVolDividendCheckpointSchedule {
         })
     }
 
+    /// Preserve future cash reserves in the full transform, but record only
+    /// dividend events reached by a finite-horizon pricing path. Public `compile`
+    /// retains its strict all-event coverage contract for existing callers.
+    pub(crate) fn compile_through_horizon(
+        time_grid: &LocalVolTimeGrid,
+        dividends: &AffineDividendTransform,
+    ) -> Result<Self, LocalVolError> {
+        let horizon = *time_grid.nodes().last().expect("validated nonempty grid");
+        let checkpoints = dividends
+            .event_timeline()?
+            .iter()
+            .copied()
+            .filter(|entry| entry.ex_time() <= horizon)
+            .map(|entry| dividend_checkpoint(time_grid, entry))
+            .collect::<Result<Box<[_]>, _>>()?;
+        Ok(Self {
+            checkpoints,
+            event_order: DIVIDEND_EVENT_ORDER,
+        })
+    }
+
     #[must_use]
     pub fn checkpoints(&self) -> &[LocalVolDividendCheckpoint] {
         &self.checkpoints
