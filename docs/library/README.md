@@ -56,6 +56,7 @@ diagnostic and calculation-specification pages.
 | Stochastic cash dividends and first-order risk | [Buehler model and support limits](../models/stochastic-dividends.md) | [Stochastic dividends](../../examples/python/stochastic_dividends.py) |
 | Dividend IV coordinates | [Escrowed calibration coordinate](../models/hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration) | [Hull–White LSV](../../examples/python/hull_white_lsv.py) |
 | Local-variance risk and VegaKT | [Local Volatility calculation specifications](../models/local-vol-vegakt-calculation-specifications.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
+| Bass-LV through the common request API | [Bass-LV coordinate and risk contract](../models/bass-local-volatility.md#common-request-and-physical-spot-payoffs) | [Bass request with dividends and VegaKT](../../examples/python/bass_lv_request.py) |
 
 The experimental [six-family rough-volatility adapter](../models/rough-volatility-families.md)
 has separate price-only Rust and Python entry points. Its source and tests are

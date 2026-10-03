@@ -17,6 +17,9 @@ use crate::{Diagnostics, Estimate, EstimatorKind, MonteCarloError, PricingReques
 
 impl SimulationPlan {
     pub fn execute(&self) -> Result<MonteCarloPrice, MonteCarloError> {
+        if let Some(bass) = &self.bass {
+            return bass.execute(self);
+        }
         if let Some(early_exercise) = &self.early_exercise {
             return self.execute_early_exercise(early_exercise);
         }
