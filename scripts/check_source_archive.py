@@ -13,6 +13,10 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'tests/python/rough_dividend_survival_reference.py',
+    'tests/python/test_rough_dividend_survival_reference.py',
+    'fixtures/stochastic-dividends/rough-survival-barrier-reference.json',
+    'design/validation/stochastic-dividend-survival-barrier-reference.md',
     'tests/python/rough_dividend_conditional_barrier.py',
     'tests/python/test_rough_dividend_conditional_barrier.py',
     'fixtures/stochastic-dividends/rough-conditional-barrier-reference.json',
@@ -305,6 +309,10 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 }
 
 REQUIRED_CI_SNIPPETS = {
+    'name: Independent multi-step Barrier reference / Linux',
+    'python tests/python/rough_dividend_survival_reference.py',
+    'name: rough-dividend-survival-reference-linux',
+    'path: stochastic-dividend-survival-reference.log',
     "name: Rough dividend Barrier smoothing / ${{ matrix.os }}",
     "cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture",
     "name: rough-dividend-barrier-smoothing-${{ matrix.os }}",
@@ -361,11 +369,11 @@ REQUIRED_CI_SNIPPETS = {
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 4,
+    'python-version: "3.12"': 5,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 10,
-    "retention-days: 14": 8,
+    "actions/upload-artifact@v4": 11,
+    "retention-days: 14": 9,
 }
 
 REQUIRED_README_SNIPPETS = {

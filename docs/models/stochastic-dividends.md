@@ -776,6 +776,10 @@ adds independent hard price and analytic Spot Delta for nonzero rough vol-of-vol
 and dividend mean reversion on a two-step grid with a frozen nonflat leverage
 surface. It validates that discrete law, not continuous-time accuracy or
 general monitoring schedules.
+The [multi-step survival reference](../../design/validation/stochastic-dividend-survival-barrier-reference.md)
+then checks 4/8-step grids and 2/4 observation dates using an independent hard
+price/Delta estimator. Its comparison gates include both reference batch error
+and production scramble error; it is conditional on retained calibrations.
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

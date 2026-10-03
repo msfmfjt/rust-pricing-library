@@ -50,6 +50,10 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [multi-step survival reference](validation/stochastic-dividend-survival-barrier-reference.md)
+checks hard Barrier price and Spot Delta on 4/8-step grids with 2/4 monitoring
+dates, including independent reference sampling uncertainty.
+
 The [conditional hard Barrier reference](validation/stochastic-dividend-conditional-barrier-reference.md)
 adds independent price and Spot Delta for two-step rough LSV with nonzero
 vol-of-vol, dividend mean reversion, and a nonflat frozen leverage surface.

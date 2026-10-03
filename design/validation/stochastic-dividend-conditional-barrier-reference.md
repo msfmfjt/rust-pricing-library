@@ -138,14 +138,14 @@ python -m unittest discover -s tests/python -p 'test_rough_dividend_*barrier*.py
 cargo test --locked --release -p pricing --test stochastic_dividend_barrier_reference -- --include-ignored --nocapture
 ```
 
-The existing three-OS Barrier CI step runs both references and retains 48 rows
+These two references contribute 48 rows to the three-OS Barrier CI step
 (28 exact-limit and 20 nonzero-eta/kappa rows) in
 `stochastic-dividend-hard-barrier-reference.log`. The Python wheel smoke suite
 discovers the new NumPy-only controls. Source archives require both new Python
 files, the new fixture and this document.
 
-Public unsmoothed Barrier Spot risk remains rejected. Extending independent
-hard-price/Delta validation to more evolution steps, finer grids and other
-monitoring schedules remains open. This panel establishes a nonzero-eta/kappa
-finite-grid check and does not remove the time-discretization or calibration
-limitations of the existing rough-LSV validation programme.
+The [survival-conditioned reference](stochastic-dividend-survival-barrier-reference.md)
+extends independent checks to 4/8 steps and 2/4 observations with explicit
+reference sampling uncertainty. Public unsmoothed Barrier Spot risk remains
+rejected. Finer-grid convergence and broader monitoring schedules remain open;
+neither panel removes calibration or continuous-time accuracy limitations.
