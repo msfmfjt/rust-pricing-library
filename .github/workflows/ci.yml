@@ -96,9 +96,9 @@ jobs:
           if-no-files-found: warn
 
   rough-dividend-survival-reference:
-    name: Independent multi-step Barrier reference / Linux
+    name: Independent hard Barrier references and refinement / Linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
@@ -111,12 +111,16 @@ jobs:
         run: python -m pip install "numpy>=2.0,<3.0"
       - name: Regenerate retained independent reference batches
         run: python tests/python/rough_dividend_survival_reference.py 2>&1 | tee stochastic-dividend-survival-reference.log
+      - name: Check fixed-surface hard Barrier refinement
+        run: python tests/python/rough_dividend_hard_refinement.py 2>&1 | tee stochastic-dividend-hard-refinement.log
       - name: Retain independent reference evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rough-dividend-survival-reference-linux
-          path: stochastic-dividend-survival-reference.log
+          path: |
+            stochastic-dividend-survival-reference.log
+            stochastic-dividend-hard-refinement.log
           retention-days: 14
           if-no-files-found: warn
 

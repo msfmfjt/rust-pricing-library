@@ -50,6 +50,10 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [hard Barrier refinement panel](validation/stochastic-dividend-hard-barrier-refinement.md)
+checks price and analytic Spot Delta on 16/32/64/128-step grids while keeping
+the calibrated surface and four observation dates fixed.
+
 The [multi-step survival reference](validation/stochastic-dividend-survival-barrier-reference.md)
 checks hard Barrier price and Spot Delta on 4/8-step grids with 2/4 monitoring
 dates, including independent reference sampling uncertainty.

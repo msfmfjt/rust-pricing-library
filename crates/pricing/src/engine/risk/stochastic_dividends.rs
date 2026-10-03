@@ -13,6 +13,8 @@ mod lsv_correlations;
 mod lsv_correlations_2f;
 mod lsv_dividend_model;
 mod lsv_gamma;
+#[cfg(test)]
+mod lsv_hard_refinement_tests;
 mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;

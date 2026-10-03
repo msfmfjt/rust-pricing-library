@@ -167,7 +167,10 @@ The independent Python regeneration job retains its eight price/Delta rows
 in `stochastic-dividend-survival-reference.log`. Source archives require the
 implementation, controls, fixture, documentation and CI regeneration step.
 
-Public unsmoothed Barrier Spot risk remains rejected. Finer-grid convergence,
+The [hard Barrier refinement panel](stochastic-dividend-hard-barrier-refinement.md)
+subsequently holds each eight-step surface and four observation dates fixed
+while comparing 16/32/64 steps against a finite 128-step reference.
+Public unsmoothed Barrier Spot risk remains rejected. Continuous-time accuracy,
 calibration uncertainty, different barrier styles and a production hard-risk
 estimator remain separate work; this panel validates the specified frozen
 finite-grid laws and the public smoothed Delta against their hard references.

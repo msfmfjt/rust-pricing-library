@@ -780,6 +780,11 @@ The [multi-step survival reference](../../design/validation/stochastic-dividend-
 then checks 4/8-step grids and 2/4 observation dates using an independent hard
 price/Delta estimator. Its comparison gates include both reference batch error
 and production scramble error; it is conditional on retained calibrations.
+The [hard Barrier refinement panel](../../design/validation/stochastic-dividend-hard-barrier-refinement.md)
+keeps each eight-step calibration and four observation dates fixed while
+comparing independent hard price/Delta at 16/32/64 steps against 128 steps.
+Its paired-error gates isolate finite-grid evolution sensitivity; they do not
+provide a continuous-time error bound or enable public unsmoothed Spot risk.
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

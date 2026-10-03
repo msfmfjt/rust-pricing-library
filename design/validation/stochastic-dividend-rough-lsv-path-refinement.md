@@ -129,6 +129,9 @@ The separate [smoothing-width panel](stochastic-dividend-rough-lsv-barrier-smoot
 compares smoothed and hard prices on the same grid and surface, adjacent-width
 Deltas, and diagnostic finite bumps of hard prices. It does not turn this
 fixed-width time-grid panel into a hard-Barrier Delta convergence claim.
+The [independent hard Barrier panel](stochastic-dividend-hard-barrier-refinement.md)
+separately checks fixed-surface 16/32/64-versus-128-step price/Delta differences
+with four fixed monitoring dates and no smoothing.
 
 This tests the stated fixed-observation Asian and smoothed discrete Barrier
 contracts conditional on one finite-particle calibration. It does not bound

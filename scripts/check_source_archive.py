@@ -13,6 +13,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'tests/python/rough_dividend_hard_refinement.py',
+    'tests/python/test_rough_dividend_hard_refinement.py',
+    'fixtures/stochastic-dividends/rough-hard-barrier-refinement.json',
+    'fixtures/stochastic-dividends/rough-hard-barrier-paths.json',
+    'crates/pricing/src/engine/risk/stochastic_dividends/lsv_hard_refinement_tests.rs',
+    'design/validation/stochastic-dividend-hard-barrier-refinement.md',
     'tests/python/rough_dividend_survival_reference.py',
     'tests/python/test_rough_dividend_survival_reference.py',
     'fixtures/stochastic-dividends/rough-survival-barrier-reference.json',
@@ -309,10 +315,12 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 }
 
 REQUIRED_CI_SNIPPETS = {
-    'name: Independent multi-step Barrier reference / Linux',
+    'name: Independent hard Barrier references and refinement / Linux',
     'python tests/python/rough_dividend_survival_reference.py',
     'name: rough-dividend-survival-reference-linux',
-    'path: stochastic-dividend-survival-reference.log',
+    '            stochastic-dividend-survival-reference.log',
+    '            stochastic-dividend-hard-refinement.log',
+    'python tests/python/rough_dividend_hard_refinement.py',
     "name: Rough dividend Barrier smoothing / ${{ matrix.os }}",
     "cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture",
     "name: rough-dividend-barrier-smoothing-${{ matrix.os }}",
