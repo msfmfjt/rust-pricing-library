@@ -171,3 +171,6 @@ HW stochastic-dividend basic AAD: [decision](adr/0023-stochastic-dividend-hull-w
 - [Coupled multistep prices and sampled-lag lift-kernel refinement](validation/rough-volatility-refinement.md)
 
 - [Heston IV grid-refinement validation](validation/heston-iv-refinement.md)
+
+Bass local volatility: [decision](adr/0027-bass-local-volatility.md),
+[validation protocol](validation/bass-local-volatility.md).

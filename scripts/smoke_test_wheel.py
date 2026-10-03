@@ -961,6 +961,129 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
     }
 
 
+# Explicit Bass public contract, independent of the stub being checked.
+BASS_STUB_API = {
+    "BassMarginal": {
+        "methods": {"__init__", "call_price", "cdf", "quantile"},
+        "staticmethods": {"from_essvi", "lognormal"},
+        "properties": {"expiry", "mean", "probabilities", "spots", "variance"},
+    },
+    "BassLvConfig": {
+        "methods": {"__init__"},
+        "properties": {
+            "cdf_tolerance",
+            "grid_points",
+            "grid_width",
+            "max_iterations",
+            "tail_tolerance",
+        },
+    },
+    "BassSurfaceDiagnostics": {
+        "properties": {
+            "lower_tail_probability",
+            "max_call_price_error",
+            "mean_scale",
+            "retained_nodes",
+            "retained_probability",
+            "unscaled_mean",
+            "upper_tail_probability",
+        },
+    },
+    "BassMarginalProjection": {
+        "properties": {"diagnostics", "marginal"},
+    },
+    "BassCalibrationDiagnostics": {
+        "properties": {
+            "boundary_tail_probability",
+            "brownian_max",
+            "brownian_min",
+            "cdf_residual",
+            "end_time",
+            "grid_spacing",
+            "iterations",
+            "marginal_cdf_error",
+            "start_time",
+        },
+    },
+    "BassEstimate": {
+        "properties": {"paths", "price", "seed", "standard_error"},
+    },
+    "BassLvModel": {
+        "methods": {"compile_mapping_risk", "compile_simulation", "local_volatility", "mapping"},
+        "staticmethods": {"calibrate"},
+        "properties": {"diagnostics", "initial_brownian_state", "initial_spot_error", "spot"},
+    },
+    "BassSimulationPlan": {
+        "methods": {"path_from_normals", "price_asian", "price_european", "sample_paths"},
+        "properties": {"normal_count", "observation_times", "time_nodes"},
+    },
+    "BassMarketIvModel": {
+        "methods": {"bumped", "compile_vega_kt"},
+        "staticmethods": {"calibrate"},
+        "properties": {
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "model",
+            "projection_diagnostics",
+        },
+    },
+    "BassVegaKtScenarioDiagnostics": {
+        "properties": {"calibration", "initial_spot_error", "projection", "quote_index", "shift"},
+    },
+    "BassVegaKtRisk": {
+        "properties": {
+            "bucket_sum",
+            "bucket_sum_standard_error",
+            "bump_size",
+            "estimate",
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "method",
+            "parallel_sensitivity",
+            "parallel_standard_error",
+            "sensitivities",
+            "standard_errors",
+            "standard_errors_per_vol_point",
+            "vega_per_vol_point",
+        },
+    },
+    "BassVegaKtRiskPlan": {
+        "methods": {"price_asian", "price_european"},
+        "properties": {
+            "bump_size",
+            "diagnostics",
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "simulation",
+        },
+    },
+    "BassMappingBump": {
+        "methods": {"__init__"},
+        "properties": {"center", "interval", "left", "right"},
+    },
+    "BassMappingRisk": {
+        "properties": {"estimate", "sensitivities", "standard_errors"},
+    },
+    "BassDeterministicMappingRisk": {
+        "properties": {"price", "sensitivities"},
+    },
+    "BassMappingRiskPlan": {
+        "methods": {
+            "bumped_simulation",
+            "bumped_vanilla_call",
+            "path_sensitivities",
+            "price_asian",
+            "price_european",
+            "vanilla_call",
+        },
+        "properties": {"bumps", "simulation"},
+    },
+}
+
+
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
@@ -1147,6 +1270,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "result_json_schema",
         "version",
     }
+    expected_top_level_names.update(BASS_STUB_API)
     missing_top_level_names = sorted(expected_top_level_names.difference(top_level_names))
     if missing_top_level_names:
         raise RuntimeError(
@@ -2924,6 +3048,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "entries",
         },
     }
+    expected_class_members.update({
+        name: set().union(*parts.values()) for name, parts in BASS_STUB_API.items()
+    })
+    expected_class_members["Model"].add("bass_local_volatility")
+    expected_class_members["PricingPlan"].update({
+        "bass_calibration_diagnostics", "bass_projection_diagnostics",
+        "bass_vega_scenario_diagnostics",
+    })
     unexpected_classes = sorted(set(class_members).difference(expected_class_members))
     if unexpected_classes:
         raise RuntimeError(f"wheel type stub has unexpected classes: {unexpected_classes}")
@@ -3960,6 +4092,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("WidthLadderResult", "entries"),
         ("WidthLadderResult", "primary"),
     }
+    expected_static_methods.update(
+        (name, method) for name, parts in BASS_STUB_API.items()
+        for method in parts.get("staticmethods", set())
+    )
+    expected_static_methods.add(("Model", "bass_local_volatility"))
+    expected_properties.update(
+        (name, method) for name, parts in BASS_STUB_API.items()
+        for method in parts.get("properties", set())
+    )
+    expected_properties.update(("PricingPlan", method) for method in {
+        "bass_calibration_diagnostics", "bass_projection_diagnostics",
+        "bass_vega_scenario_diagnostics",
+    })
     for class_name, method_name in sorted(expected_static_methods):
         decorators = decorator_names(class_methods[class_name][method_name])
         if "staticmethod" not in decorators:

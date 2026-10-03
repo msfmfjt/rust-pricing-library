@@ -179,6 +179,110 @@
     },
     "model": {
       "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "parameters"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "bass_local_volatility"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "maturity_nodes",
+                "log_forward_moneyness_nodes",
+                "implied_volatilities",
+                "projection_nodes",
+                "grid_points",
+                "grid_width",
+                "max_iterations",
+                "cdf_tolerance",
+                "tail_tolerance",
+                "projection_tail_tolerance",
+                "projection_mean_tolerance",
+                "iv_bump"
+              ],
+              "properties": {
+                "maturity_nodes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "log_forward_moneyness_nodes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "implied_volatilities": {
+                  "type": "array",
+                  "minItems": 4,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "projection_nodes": {
+                  "type": "array",
+                  "minItems": 33,
+                  "maxItems": 100001,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "grid_points": {
+                  "type": "integer",
+                  "minimum": 101,
+                  "maximum": 8001
+                },
+                "grid_width": {
+                  "type": "number",
+                  "minimum": 4,
+                  "maximum": 20
+                },
+                "max_iterations": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                },
+                "cdf_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.001
+                },
+                "tail_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.001
+                },
+                "projection_tail_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.01
+                },
+                "projection_mean_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.01
+                },
+                "iv_bump": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        },
         {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"type": "string", "const": "black_scholes"}, "volatility": {"type": "number", "minimum": 0}}},
         {"type": "object", "additionalProperties": false, "required": ["type", "volatility"], "properties": {"type": {"type": "string", "const": "black_76"}, "volatility": {"type": "number", "minimum": 0}}},
         {"type": "object", "additionalProperties": false, "required": ["type", "local_variance_grid"], "properties": {"type": {"type": "string", "const": "local_volatility"}, "local_variance_grid": {"$ref": "#/$defs/local_variance_grid"}, "reporting_iv_basis": {"$ref": "#/$defs/reporting_iv_basis"}}}
