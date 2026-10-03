@@ -2453,6 +2453,420 @@ mod tests {
     }
 
     #[test]
+    fn continuous_history_unhit_preserves_future_bridge_including_dividend_jumps() {
+        let past = "2026-09-03".parse().unwrap();
+        for model in [
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).unwrap()),
+            constant_local_vol_model(),
+        ] {
+            for direction in [BarrierDirection::Up, BarrierDirection::Down] {
+                for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
+                    for smooth in [false, true] {
+                        let risk = if smooth {
+                            all_risks()
+                                .with_payoff_smoothing(PayoffSmoothing::compact_c2(2.0).unwrap())
+                        } else {
+                            all_risks()
+                        };
+                        for engine in [
+                            EngineConfig::PseudoMonteCarlo(
+                                PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true))
+                                    .unwrap(),
+                            ),
+                            EngineConfig::RandomizedQuasiMonteCarlo(
+                                RqmcConfig::new(32, 4, 29, VarianceReduction::new(true, true))
+                                    .unwrap(),
+                            ),
+                        ] {
+                            let base = with_model(
+                                &continuous_barrier_conformance_request(
+                                    direction,
+                                    style,
+                                    Some(7.0),
+                                    engine,
+                                    risk.clone(),
+                                ),
+                                model.clone(),
+                            );
+                            let ProductSpec::Barrier(b) = base.product() else {
+                                panic!()
+                            };
+                            let mut dates = vec![past];
+                            dates.extend_from_slice(b.monitoring_dates());
+                            let historical = BarrierSpec::new(
+                                b.underlying(),
+                                b.currency(),
+                                b.expiry(),
+                                b.strike().get(),
+                                b.barrier().get(),
+                                b.notional().get(),
+                                b.side(),
+                                b.direction(),
+                                b.style(),
+                                b.monitoring(),
+                                dates,
+                                Some(7.0),
+                                b.payment_date(),
+                            )
+                            .unwrap()
+                            .with_historical_hit(false);
+                            let historical = PricingRequest::new(
+                                base.valuation_date(),
+                                ProductSpec::Barrier(historical),
+                                base.market().clone(),
+                                model.clone(),
+                                engine,
+                                risk.clone(),
+                            )
+                            .unwrap();
+                            let a = SimulationPlan::compile(&base, policy(1)).unwrap();
+                            let b = SimulationPlan::compile(&historical, policy(1)).unwrap();
+                            assert_eq!(a.observation_times, b.observation_times);
+                            assert_ne!(a.plan_fingerprint, b.plan_fingerprint);
+                            let (a, b) = (a.execute().unwrap(), b.execute().unwrap());
+                            assert_eq!(a.pricing_result.value, b.pricing_result.value);
+                            assert_eq!(a.pricing_result.risks, b.pricing_result.risks);
+                            assert_eq!(a.diagnostics.barrier_bridge, b.diagnostics.barrier_bridge);
+                            assert_eq!(
+                                a.diagnostics.payoff_smoothing,
+                                b.diagnostics.payoff_smoothing
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn continuous_history_resolved_contracts_match_vanilla_and_exact_rebate_risks() {
+        let past = "2026-09-03".parse().unwrap();
+        let expiry = "2027-09-04".parse().unwrap();
+        let payment = "2027-12-04".parse().unwrap();
+        let base = barrier_zero_vol_request_with_monitoring(100.0, BarrierMonitoring::Continuous);
+        let engine = EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(64, 4, 29, VarianceReduction::new(true, true)).unwrap(),
+        );
+        for model in [
+            ModelSpec::BlackScholes(BlackScholesSpec::new(0.2).unwrap()),
+            constant_local_vol_model(),
+        ] {
+            for side in [OptionSide::Call, OptionSide::Put] {
+                // One unknown fixing is exactly vanilla, with the same delayed payment.
+                let vanilla = ProductSpec::ArithmeticAsian(
+                    ArithmeticAsianSpec::new(
+                        UnderlyingId::new(1),
+                        CurrencyId::new(1),
+                        100.0,
+                        2.0,
+                        side,
+                        vec![AsianObservation::unknown(expiry, 1.0).unwrap()],
+                        payment,
+                    )
+                    .unwrap(),
+                );
+                let vanilla_request = PricingRequest::new(
+                    base.valuation_date(),
+                    vanilla,
+                    base.market().clone(),
+                    model.clone(),
+                    engine,
+                    all_risks(),
+                )
+                .unwrap();
+                let expected = SimulationPlan::compile(&vanilla_request, policy(1))
+                    .unwrap()
+                    .execute()
+                    .unwrap();
+                for direction in [BarrierDirection::Up, BarrierDirection::Down] {
+                    for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
+                        for (hit, future) in [(false, false), (true, false), (true, true)] {
+                            // Even a width outside the bridge log domain is irrelevant once
+                            // history resolves the payoff. Existing live-bridge checks remain.
+                            for width in [None, Some(2.0), Some(120.0)] {
+                                let risk = width.map_or_else(all_risks, |h| {
+                                    all_risks().with_payoff_smoothing(
+                                        PayoffSmoothing::compact_c2(h).unwrap(),
+                                    )
+                                });
+                                let product = BarrierSpec::new(
+                                    UnderlyingId::new(1),
+                                    CurrencyId::new(1),
+                                    expiry,
+                                    100.0,
+                                    100.0,
+                                    2.0,
+                                    side,
+                                    direction,
+                                    style,
+                                    BarrierMonitoring::Continuous,
+                                    if future {
+                                        vec![past, expiry]
+                                    } else {
+                                        vec![past]
+                                    },
+                                    Some(7.0),
+                                    payment,
+                                )
+                                .unwrap()
+                                .with_historical_hit(hit);
+                                let request = PricingRequest::new(
+                                    base.valuation_date(),
+                                    ProductSpec::Barrier(product),
+                                    base.market().clone(),
+                                    model.clone(),
+                                    engine,
+                                    risk,
+                                )
+                                .unwrap();
+                                let plan = SimulationPlan::compile(&request, policy(1)).unwrap();
+                                let result = plan.execute().unwrap();
+                                let active = (style == BarrierStyle::KnockIn) == hit;
+                                let expected_price = if active {
+                                    expected.pricing_result.value.value().get()
+                                } else {
+                                    plan.discount * 7.0
+                                };
+                                assert!(
+                                    (result.pricing_result.value.value().get() - expected_price)
+                                        .abs()
+                                        < 1e-12
+                                );
+                                if !active {
+                                    assert_eq!(
+                                        result.pricing_result.value.standard_error().get(),
+                                        0.0
+                                    );
+                                }
+                                for (actual, reference) in [
+                                    (
+                                        &result.pricing_result.risks.delta,
+                                        &expected.pricing_result.risks.delta,
+                                    ),
+                                    (
+                                        &result.pricing_result.risks.gamma,
+                                        &expected.pricing_result.risks.gamma,
+                                    ),
+                                    (
+                                        &result.pricing_result.risks.vega,
+                                        &expected.pricing_result.risks.vega,
+                                    ),
+                                ] {
+                                    let actual = actual.as_ref().unwrap().raw();
+                                    let value = if active {
+                                        reference.as_ref().unwrap().raw().value().get()
+                                    } else {
+                                        0.0
+                                    };
+                                    assert!((actual.value().get() - value).abs() < 1e-10);
+                                    if !active {
+                                        assert_eq!(actual.standard_error().get(), 0.0);
+                                    }
+                                }
+                                let diag = result.diagnostics.barrier_bridge.unwrap();
+                                assert_eq!(
+                                    [
+                                        diag.endpoint_hit_fraction,
+                                        diag.dividend_jump_hit_fraction,
+                                        diag.mean_conditional_bridge_hit_weight,
+                                        diag.mean_interval_count
+                                    ],
+                                    [0.0; 4]
+                                );
+                                if let Some(smoothing) = result.diagnostics.payoff_smoothing {
+                                    assert_eq!(
+                                        (smoothing.endpoint_count, smoothing.dividend_jump_count),
+                                        (0, 0)
+                                    );
+                                }
+                                let parallel = SimulationPlan::compile(&request, policy(3))
+                                    .unwrap()
+                                    .execute()
+                                    .unwrap();
+                                assert_eq!(
+                                    result.pricing_result.value,
+                                    parallel.pricing_result.value
+                                );
+                                assert_eq!(
+                                    result.pricing_result.risks,
+                                    parallel.pricing_result.risks
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn continuous_history_preserves_local_vol_vega_kt_vanilla_and_zero_limits() {
+        let expiry = "2027-09-04".parse().unwrap();
+        let past = "2026-09-03".parse().unwrap();
+        let risk = RiskRequest::new(
+            false,
+            None,
+            true,
+            Some(
+                VegaKtConfig::new(
+                    vec!["2027-03-05".parse().unwrap(), expiry],
+                    vec![-1.0, 0.0, 1.0],
+                    1e-8,
+                    false,
+                )
+                .unwrap(),
+            ),
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .unwrap();
+        let base = continuous_barrier_local_vol_request(
+            constant_local_vol_model_with_reporting_basis(),
+            vec![expiry],
+            risk.clone(),
+        );
+        let engine = EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true)).unwrap(),
+        );
+        let vanilla = ProductSpec::ArithmeticAsian(
+            ArithmeticAsianSpec::new(
+                UnderlyingId::new(1),
+                CurrencyId::new(1),
+                100.0,
+                2.0,
+                OptionSide::Call,
+                vec![AsianObservation::unknown(expiry, 1.0).unwrap()],
+                expiry,
+            )
+            .unwrap(),
+        );
+        let reference = PricingRequest::new(
+            base.valuation_date(),
+            vanilla,
+            base.market().clone(),
+            base.model().clone(),
+            engine,
+            risk.clone(),
+        )
+        .unwrap();
+        let reference = SimulationPlan::compile(&reference, policy(1))
+            .unwrap()
+            .execute()
+            .unwrap();
+        let buckets = reference
+            .pricing_result
+            .risks
+            .vega_kt
+            .as_ref()
+            .unwrap()
+            .raw_buckets();
+        assert!(buckets.iter().any(|b| b.get().abs() > 0.0));
+        for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
+            for hit in [false, true] {
+                let product = BarrierSpec::new(
+                    UnderlyingId::new(1),
+                    CurrencyId::new(1),
+                    expiry,
+                    100.0,
+                    100.0,
+                    2.0,
+                    OptionSide::Call,
+                    BarrierDirection::Up,
+                    style,
+                    BarrierMonitoring::Continuous,
+                    if hit { vec![past, expiry] } else { vec![past] },
+                    Some(7.0),
+                    expiry,
+                )
+                .unwrap()
+                .with_historical_hit(hit);
+                let request = PricingRequest::new(
+                    base.valuation_date(),
+                    ProductSpec::Barrier(product),
+                    base.market().clone(),
+                    base.model().clone(),
+                    engine,
+                    risk.clone(),
+                )
+                .unwrap();
+                let actual = SimulationPlan::compile(&request, policy(1))
+                    .unwrap()
+                    .execute()
+                    .unwrap();
+                let actual = actual.pricing_result.risks.vega_kt.unwrap();
+                for (a, b) in actual.raw_buckets().iter().zip(buckets) {
+                    let expected = if (style == BarrierStyle::KnockIn) == hit {
+                        b.get()
+                    } else {
+                        0.0
+                    };
+                    assert!((a.get() - expected).abs() < 1e-12);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn continuous_history_keeps_valuation_endpoint_only_when_monitoring_is_live() {
+        let base = barrier_zero_vol_request_with_monitoring(100.0, BarrierMonitoring::Continuous);
+        let ProductSpec::Barrier(b) = base.product() else {
+            panic!()
+        };
+        for model in [base.model().clone(), constant_local_vol_model()] {
+            for direction in [BarrierDirection::Up, BarrierDirection::Down] {
+                for end in ["2026-09-03", "2026-09-04"] {
+                    let mut dates = vec!["2026-03-04".parse().unwrap()];
+                    dates.push(end.parse().unwrap());
+                    let product = BarrierSpec::new(
+                        b.underlying(),
+                        b.currency(),
+                        b.expiry(),
+                        100.0,
+                        100.0,
+                        2.0,
+                        OptionSide::Call,
+                        direction,
+                        BarrierStyle::KnockOut,
+                        BarrierMonitoring::Continuous,
+                        dates,
+                        Some(7.0),
+                        b.payment_date(),
+                    )
+                    .unwrap()
+                    .with_historical_hit(false);
+                    let request = PricingRequest::new(
+                        base.valuation_date(),
+                        ProductSpec::Barrier(product),
+                        base.market().clone(),
+                        model.clone(),
+                        EngineConfig::PseudoMonteCarlo(
+                            PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true))
+                                .unwrap(),
+                        ),
+                        all_risks(),
+                    )
+                    .unwrap();
+                    let plan = SimulationPlan::compile(&request, policy(1)).unwrap();
+                    let result = plan.execute().unwrap();
+                    let diag = result.diagnostics.barrier_bridge.unwrap();
+                    assert_eq!(diag.mean_interval_count, 0.0);
+                    assert_eq!(
+                        diag.endpoint_hit_fraction,
+                        if end == "2026-09-04" { 1.0 } else { 0.0 }
+                    );
+                    if end == "2026-09-04" {
+                        assert_eq!(
+                            result.pricing_result.value.value().get(),
+                            plan.discount * 7.0
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn continuous_barrier_zero_variance_has_deterministic_bridge_limits() {
         let live = SimulationPlan::compile(
             &barrier_zero_vol_request_with_monitoring(120.0, BarrierMonitoring::Continuous),

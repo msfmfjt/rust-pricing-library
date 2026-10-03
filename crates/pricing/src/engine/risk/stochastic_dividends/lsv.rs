@@ -5,6 +5,7 @@
 //! calibration VJP then maps those seeds back to the requested residual-equity
 //! Local-variance grid. Calibration randomness is fixed by its explicit seed.
 
+use super::lsv_hard_barrier::HardBarrierPlan;
 use super::*;
 use crate::VegaKtResult;
 use crate::engine::processes::stochastic_dividends::reverse::ReverseContext;
@@ -147,6 +148,13 @@ impl StochasticDividendPricingPlan {
     /// Spot-independent, and the exact finite-algorithm Delta is the Buehler
     /// reconstruction-coefficient reverse.
     pub fn evaluate_lsv_spot_risk(&self) -> Result<StochasticDividendLsvSpotRisk, MonteCarloError> {
+        self.lsv_spot_risk(None)
+    }
+
+    pub(super) fn lsv_spot_risk(
+        &self,
+        hard: Option<&HardBarrierPlan>,
+    ) -> Result<StochasticDividendLsvSpotRisk, MonteCarloError> {
         if self.lsv.is_none() || !self.path.is_lsv() {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "LSV Spot risk requires a stochastic-dividend residual LSV plan",
@@ -161,7 +169,7 @@ impl StochasticDividendPricingPlan {
         if surface.initial_f().to_bits() != self.path.risky_spot().to_bits() {
             return Err(invalid("lsv_spot_anchor").into());
         }
-        if !self.risk_supported {
+        if hard.is_none() && !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend LSV discontinuous payoff requires explicit smoothing",
             });
@@ -186,6 +194,7 @@ impl StochasticDividendPricingPlan {
                         })
                         .collect();
                     self.sample_lsv_spot_risk(
+                        hard,
                         &context,
                         z,
                         bridge.as_ref(),
@@ -212,6 +221,7 @@ impl StochasticDividendPricingPlan {
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         self.sample_lsv_spot_risk(
+                            hard,
                             &context,
                             z,
                             bridge.as_ref(),
@@ -255,17 +265,18 @@ impl StochasticDividendPricingPlan {
                 standard_error,
                 independent_sampling_units: units,
                 evaluated_paths: paths,
-                plan_fingerprint: self.fingerprint,
+                plan_fingerprint: hard.map_or(self.fingerprint, |h| h.fingerprint),
                 scheme: self.scheme(),
             },
             delta,
             delta_standard_error,
-            method: SPOT_METHOD,
+            method: hard.map_or(SPOT_METHOD, |_| lsv_hard_barrier::METHOD),
         })
     }
 
     fn sample_lsv_spot_risk(
         &self,
+        hard: Option<&HardBarrierPlan>,
         context: &ReverseContext,
         mut z: Vec<f64>,
         bridge: Option<&BrownianBridgePlan>,
@@ -300,6 +311,12 @@ impl StochasticDividendPricingPlan {
             &[1.0][..]
         } {
             let shocks = z.iter().map(|v| sign * v).collect::<Vec<_>>();
+            if let Some(hard) = hard {
+                let value = hard.sample(self, &shocks)?;
+                out[0] += value[0];
+                out[1] += value[1];
+                continue;
+            }
             let states = self.path.evolve_path(&shocks)?;
             let spots = self
                 .path

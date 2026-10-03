@@ -1,0 +1,21 @@
+{
+  "scope": "eta_zero_kappa_zero_flat_variance_two_date_hard_up_in_call",
+  "spot": 100.0,
+  "strike": 80.0,
+  "barrier": 105.0,
+  "fixing_time": 0.4986301369863014,
+  "expiry_time": 0.9972602739726028,
+  "payment_time": 1.2493150684931507,
+  "annual_discount": 0.95,
+  "annual_carry": 0.98,
+  "cash_means": [5.0, 3.0, 12.0],
+  "cash_times": [0.4986301369863014, 0.9972602739726028, 1.4],
+  "residual_variance": 0.04,
+  "dividend_volatility": 0.35,
+  "equity_dividend_correlation": -0.25,
+  "price": 11.636503795605742,
+  "delta": 0.9573395571545552,
+  "dividend_quadrature_order": 96,
+  "bivariate_cdf_quadrature_order": 64,
+  "quadrature_agreement_tolerance": 2e-8
+}

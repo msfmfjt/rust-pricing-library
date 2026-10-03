@@ -27,6 +27,20 @@ use crate::mc::{
 };
 use crate::product::{BarrierDirection, BarrierStyle, CompactC2Smoothing, OptionSide};
 
+impl ContinuousBarrierRuntime {
+    /// A past hit is absorbing. If monitoring ended before valuation, the
+    /// declared history determines survival without observing today's Spot.
+    pub(in crate::engine) fn resolved_survival(&self) -> Option<f64> {
+        if self.historical_hit == Some(true) {
+            Some(0.0)
+        } else if self.monitoring_end_time < 0.0 {
+            Some(1.0)
+        } else {
+            None
+        }
+    }
+}
+
 impl ExactContinuousBarrierBridgeEvaluation {
     pub(in crate::engine) fn survival(&self) -> f64 {
         if self.endpoint_touched || self.dividend_jump_touched {
@@ -150,6 +164,7 @@ impl SmoothedBarrierHitFactor {
 impl ContinuousBarrierBridgeEvaluation {
     pub(in crate::engine) fn survival(&self) -> f64 {
         match self {
+            Self::Resolved { survival } => *survival,
             Self::Exact(evaluation) => evaluation.survival(),
             Self::Smoothed { path, .. } => path.survival(),
         }
@@ -157,6 +172,7 @@ impl ContinuousBarrierBridgeEvaluation {
 
     pub(in crate::engine) fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
         match self {
+            Self::Resolved { .. } => BarrierPathDiagnosticValues::default(),
             Self::Exact(evaluation) => evaluation.diagnostic_values(),
             Self::Smoothed { path, .. } => path.diagnostic_values(),
         }
@@ -184,6 +200,7 @@ impl ExactLocalVolContinuousBarrierBridgeEvaluation {
 impl LocalVolContinuousBarrierBridgeEvaluation {
     pub(in crate::engine) fn survival(&self) -> f64 {
         match self {
+            Self::Resolved { survival } => *survival,
             Self::Exact(evaluation) => evaluation.survival(),
             Self::Smoothed { path, .. } => path.survival(),
         }
@@ -191,6 +208,7 @@ impl LocalVolContinuousBarrierBridgeEvaluation {
 
     pub(in crate::engine) fn diagnostic_values(&self) -> BarrierPathDiagnosticValues {
         match self {
+            Self::Resolved { .. } => BarrierPathDiagnosticValues::default(),
             Self::Exact(evaluation) => evaluation.diagnostic_values(),
             Self::Smoothed { path, .. } => path.diagnostic_values(),
         }
@@ -323,6 +341,20 @@ pub(in crate::engine) fn continuous_barrier_payoff_terms(
     terminal: f64,
     survival: f64,
 ) -> ContinuousBarrierPayoffTerms {
+    if let Some(fixed_survival) = barrier.resolved_survival() {
+        let active = match barrier.style {
+            BarrierStyle::KnockOut => fixed_survival == 1.0,
+            BarrierStyle::KnockIn => fixed_survival == 0.0,
+        };
+        if !active {
+            // Avoid cancellation against the irrelevant vanilla payoff.
+            return ContinuousBarrierPayoffTerms {
+                value: barrier.rebate,
+                terminal_derivative: 0.0,
+                survival_derivative: 0.0,
+            };
+        }
+    }
     let (signed_intrinsic, terminal_sign) = match barrier.side {
         OptionSide::Call => (terminal - barrier.strike, 1.0),
         OptionSide::Put => (barrier.strike - terminal, -1.0),
@@ -333,6 +365,13 @@ pub(in crate::engine) fn continuous_barrier_payoff_terms(
     } else {
         0.0
     };
+    if barrier.resolved_survival().is_some() {
+        return ContinuousBarrierPayoffTerms {
+            value: vanilla,
+            terminal_derivative: vanilla_derivative,
+            survival_derivative: 0.0,
+        };
+    }
     match barrier.style {
         BarrierStyle::KnockOut => ContinuousBarrierPayoffTerms {
             value: barrier.rebate + survival * (vanilla - barrier.rebate),

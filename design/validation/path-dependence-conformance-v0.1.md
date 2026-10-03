@@ -77,3 +77,67 @@ The candidate work does not change the accepted European Black-Scholes or
 Local Volatility/VegaKT conformance decisions. Their existing fixtures and
 reports remain mandatory regression evidence while the open Path Dependence
 items are completed.
+
+## Continuous historical state extension
+
+The optional `historical_hit` contract now supports shared Black–Scholes and
+Local Volatility continuous plans as well as discrete monitoring. This extends
+previously rejected requests; the existing live-bridge formulas, sampling law,
+smoothing policy and historical reference fixtures are unchanged. See the
+[history contract](../../docs/library/path-dependence-diagnostics.md#historical-barrier-state).
+
+The [Rust plan controls](../../crates/pricing/src/engine/plan/tests.rs) cover:
+
+- Unhit historical state reproduces future-only price, Delta/Gamma/Vega,
+  uncertainty and diagnostics exactly under MC/RQMC, up/down, in/out,
+  exact/smoothed payoffs, BS/Local Volatility and affine cash/proportional jumps.
+- Absorbing hits and monitoring that ended before valuation reduce to a
+  one-fixing vanilla control or exact fixed cash, with delayed payment,
+  call/put, notional=2/rebate=7, current boundary equality and worker replay.
+- Resolved Local Volatility VegaKT buckets match vanilla or zero.
+- Monitoring that ends on valuation still checks the current endpoint;
+  monitoring ending earlier never inserts today's Spot.
+
+The [Python facade controls](../../tests/python/test_smoke.py) verify typed
+construction, request/result JSON round trips, metadata, Spot levels on both
+sides of the current barrier, fixed-history risks and live-bridge replay.
+An inactive notional of 1e18 confirms that the fixed rebate is not lost by
+subtracting large vanilla amounts.
+The [stochastic-dividend binding controls](../../tests/python/test_rough_dividend_hard_barrier.py)
+require an explicit error for live continuous LSV monitoring. Resolved contracts
+are supported by the adapter extension below.
+
+Resolved history bypasses unused bridge-domain checks and reports zero current
+bridge/indicator counts. Future price evolution still obeys the model's domain
+checks. This extension does not implement a continuous stochastic-dividend
+LSV bridge or infer any historical hit from market data.
+
+## Resolved continuous stochastic-dividend adapters
+
+The deterministic-rate BS, 1F/2F Bergomi, rough Bergomi and residual-LSV
+factories accept continuous contracts with an absorbing historical hit, or a
+monitoring end strictly before valuation. The shared graph removes irrelevant
+future hit predicates when the continuous history is already hit. The payoff
+then reduces to vanilla or fixed cash and needs no stochastic-dividend bridge.
+Other LSV/Hull–White adapters retain their previous rejection.
+
+The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/resolved_barrier_tests.rs)
+cover all seven factories, both directions/sides/styles, past-hit and ended-unhit
+windows, delayed payment and current Spot/barrier equality. Price/Delta and
+sampling errors match an independently compiled European vanilla with its
+payment-discount adjustment, or exact fixed rebate. Rough-LSV Spot, curve and
+Local-variance sensitivities agree with full recompilation bumps at fixed
+history, including recalibration of the Local-variance target. Fixed rebates
+have zero Spot/Local-variance/cash-mean/repo risk and the analytic payment
+discount sensitivity. RQMC uses scramble errors and replays across worker counts;
+notional 1e18 and a width 200 smoother leave the fixed rebate intact.
+
+The [Python binding controls](../../tests/python/test_rough_dividend_hard_barrier.py)
+cover H=0.1/0.3, request round trips, vanilla/rebate limits, two Spot bump sizes,
+worker replay, all three residual-LSV factories, and risk-method boundaries.
+The three-OS Barrier CI job retains the resolved-contract test output.
+
+Monitoring ending on valuation with unhit history still rejects, as does future
+live monitoring or a smoothing-width ladder. The dedicated hard survival-risk
+method remains discrete. These controls certify resolved-payoff integration,
+not a continuous stochastic-dividend crossing approximation or its accuracy.

@@ -188,6 +188,18 @@ impl StochasticDividendPricingPlan {
     }
 
     fn lsv_spot_scenario(&self, shifted_spot: PositiveF64) -> Result<Scenario, MonteCarloError> {
+        let path = self.lsv_spot_path(shifted_spot)?;
+        let market = self.market.with_spot(shifted_spot)?;
+        let reverse = ReverseContext::new(&path, &market, self.payment_time)?;
+        Ok(Scenario { path, reverse })
+    }
+
+    // Re-anchor physical Spot and initial residual equity without changing the
+    // scale-invariant normalized f/Y dynamics or calibrated leverage values.
+    pub(super) fn lsv_spot_path(
+        &self,
+        shifted_spot: PositiveF64,
+    ) -> Result<StochasticDividendPathPlan, MonteCarloError> {
         let lsv = self
             .lsv
             .as_ref()
@@ -241,8 +253,7 @@ impl StochasticDividendPricingPlan {
         if path.random_dimension() != self.path.random_dimension() {
             return Err(invalid("lsv_gamma_random_dimension").into());
         }
-        let reverse = ReverseContext::new(&path, &market, self.payment_time)?;
-        Ok(Scenario { path, reverse })
+        Ok(path)
     }
 
     #[allow(clippy::too_many_arguments)]

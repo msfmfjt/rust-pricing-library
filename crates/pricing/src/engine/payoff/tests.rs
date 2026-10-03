@@ -380,6 +380,79 @@ mod tests {
     }
 
     #[test]
+    fn barrier_history_is_constant_and_past_observations_are_not_requested() {
+        let past = "2026-09-03".parse().unwrap();
+        let valuation = "2026-09-04".parse().unwrap();
+        let expiry = "2027-09-04".parse().unwrap();
+        for hit in [false, true] {
+            for future in [false, true] {
+                for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
+                    let spec = BarrierSpec::new(
+                        UnderlyingId::new(4),
+                        CurrencyId::new(1),
+                        expiry,
+                        100.0,
+                        120.0,
+                        2.0,
+                        OptionSide::Call,
+                        BarrierDirection::Up,
+                        style,
+                        BarrierMonitoring::Discrete,
+                        if future {
+                            vec![past, expiry]
+                        } else {
+                            vec![past]
+                        },
+                        Some(7.0),
+                        expiry,
+                    )
+                    .unwrap();
+                    assert!(matches!(
+                        spec.source_graph_at(valuation),
+                        Err(GraphError::InvalidBarrierHistory)
+                    ));
+                    let spec = spec.with_historical_hit(hit);
+                    assert!(matches!(
+                        spec.source_graph_at(past),
+                        Err(GraphError::InvalidBarrierHistory)
+                    ));
+                    assert!(matches!(
+                        spec.source_graph(),
+                        Err(GraphError::BarrierHistoryRequiresValuationDate)
+                    ));
+                    for smoothing in [None, Some(CompactC2Smoothing::new(0.5).unwrap())] {
+                        let graph = if let Some(smoothing) = smoothing {
+                            spec.smoothed_source_graph_at(valuation, smoothing).unwrap()
+                        } else {
+                            spec.source_graph_at(valuation).unwrap()
+                        };
+                        let tape = graph.compile(GraphLimitPolicy::DEFAULT).unwrap();
+                        assert!(
+                            tape.terminal_observations()
+                                .iter()
+                                .all(|(_, date)| *date >= valuation)
+                        );
+                        for terminal in [110.0, 130.0] {
+                            let active = (style == BarrierStyle::KnockIn)
+                                == (hit || (future && terminal > 120.0));
+                            let expected = if active {
+                                2.0 * (terminal - 100.0)
+                            } else {
+                                7.0
+                            };
+                            assert_eq!(
+                                tape.evaluate(|_, date| (date == expiry).then_some(terminal))
+                                    .unwrap(),
+                                vec![expected]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn barrier_hit_state_is_monotone_inclusive_and_limit_checked() {
         let product = BarrierSpec::new(
             UnderlyingId::new(4),

@@ -14,7 +14,11 @@ Existing entry points retain deterministic cash semantics and numerical results.
 
 The component uses the existing single-asset contractual payoff graphs, including
 European calls/puts, digital, Asian, discrete lookback and discrete barriers.
-American exercise and continuous barriers are rejected by the shared compiler.
+American exercise and live continuous barriers are rejected. Continuous contracts
+whose monitoring is resolved by historical state are supported at deterministic
+rates; see [resolved continuous monitoring](#resolved-continuous-monitoring).
+Live rough-LSV monitoring has a separate, explicit
+[price approximation](#continuous-barrier-price-approximation).
 Greeks in the request are rejected rather than silently computed under fixed
 cash. First-order risk is requested explicitly through `evaluate_aad`; see below. Public price accuracy tests in this
 change cover European calls and the discrete-barrier dividend jump; the new
@@ -209,7 +213,7 @@ are finite-algorithm checks, not a continuous-time convergence certificate.
 The plain Bergomi factories do not themselves perform calibration. Hull-White,
 residual-equity LSV and rough Bergomi use the dedicated entry points described
 below. Multi-asset stochastic dividends, dividend-derivative calibration,
-American exercise and continuous barriers remain unsupported here.
+American exercise and live continuous barriers remain unsupported here.
 
 ## Residual-equity LSV coupling
 
@@ -341,6 +345,186 @@ means. Unlike Local-variance/VegaKT risk, this Spot calculation does not need
 Validation compares the analytic Delta with a full up/down recompile: the
 recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
+
+For rough residual LSV, hard-payoff Barrier Spot risk is available through
+`evaluate_lsv_hard_barrier_spot_risk()` in Rust and Python. This method supports
+discrete up/down knock-in/out calls and puts with explicit past hit state, optional
+fixed cash rebates and no payoff smoothing. A rebate pays when the vanilla
+branch is inactive, without notional scaling, at the contractual payment date.
+It conditions on survival at every monitoring date and integrates
+the final equity innovation, differentiating the survival weights and
+conditional paths analytically. It returns `StochasticDividendLsvSpotRisk`
+with a distinct method label and price fingerprint. Its standard errors use
+MC antithetic units or RQMC scramble means and exclude calibration uncertainty
+and time-grid bias. Positive conditional equity variance is required;
+unsupported contracts and unrepresentable numerical transports return errors.
+See the [contract and validation](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md)
+and [rebate controls](../../design/validation/stochastic-dividend-hard-barrier-rebates.md).
+The [Python example](../../examples/python/rough_dividend_hard_barrier.py) uses a
+price-only request and `retain_reverse_trace=False`; the result uses the
+existing immutable `StochasticDividendLsvSpotRisk` type.
+If valuation is monitored, an initial hit makes knock-in vanilla and knock-out
+fixed cash. Use `Product.barrier(..., historical_hit=True/False)` in Python or
+`BarrierSpec::with_historical_hit` in Rust whenever a declared monitoring date
+is before valuation. The state summarizes only past discrete observations;
+it remains fixed under market bumps. Past dates are omitted from simulated
+observations. Without past dates, supplying history is rejected. An already
+hit history also makes today's equality harmless. Otherwise, at monitored
+initial Spot equal to the barrier the risk method rejects the undefined Delta;
+the ordinary price API remains available. Continuous historical monitoring
+is supported by the [shared BS/Local Volatility plans](../library/path-dependence-diagnostics.md#historical-barrier-state),
+Resolved continuous contracts are also supported by the deterministic-rate
+stochastic-dividend factories as described below.
+The original `evaluate_lsv_spot_risk()` still requires smoothing for discrete Barrier
+payoffs; the new method does not add other hard-payoff Greeks or request-level
+Delta dispatch.
+
+### Resolved continuous monitoring
+
+All deterministic-rate `StochasticDividendPlan` factories (BS, 1F/2F Bergomi,
+rough Bergomi and the three residual-LSV variants) accept continuous Barriers
+when `historical_hit=True`, or when the final monitoring date is strictly before
+valuation. The historical state is required whenever any declared monitoring
+date is past and summarizes the entire past continuous interval.
+
+For a past hit, knock-in pays the terminal vanilla payoff and knock-out pays
+the fixed rebate. If monitoring ended unhit, these branches are reversed.
+Both use the contractual payment date; the rebate is independent of notional.
+Today's Spot is not observed again, even at barrier equality. History remains
+fixed under all market and model bumps. Unused future hit predicates are omitted
+from the compiled payoff graph.
+
+Use `evaluate()` for price, `evaluate_lsv_spot_risk()` for residual-LSV Delta,
+and the existing dedicated smooth-payoff risk methods for other sensitivities.
+No indicator smoothing is required for this resolved payoff. Fixed cash has
+zero Spot and Local-variance risk but retains payment-discount curve risk.
+Model validation and reverse-trace requirements remain in force. The dedicated
+`evaluate_lsv_hard_barrier_spot_risk()` remains a discrete-monitoring API.
+
+Unhit history with monitoring ending today or later still rejects; no continuous
+stochastic-dividend bridge is implemented. Other LSV/Hull–White adapters retain
+their continuous-contract rejection. See the
+[validation controls](../../design/validation/path-dependence-conformance-v0.1.md#resolved-continuous-stochastic-dividend-adapters).
+
+### Continuous Barrier price approximation
+
+Rust and Python `StochasticDividendContinuousBarrierPlan.compile_rough_bergomi_lsv`
+accept live continuous Up/Down Call/Put knock-in/out contracts at deterministic
+rates. This is an opt-in price approximation with a separate plan type and
+fingerprint. It freezes the physical log-Spot variance over each interval,
+including both residual-equity and stochastic-reserve loadings and their
+correlation. Diffusion arrives at pre-cash stock; both sides of every monitored
+cash jump are checked separately. Historical state and delayed fixed rebates
+follow the same contract rules as resolved monitoring.
+
+Call `evaluate()` to obtain `StochasticDividendPrice`. The scheme ends in
+`continuous-physical-log-bridge-approx-v1`. Generic Greek request flags and
+payoff smoothing are rejected. The bridge is not the exact
+crossing law of the nonlinear rough model. Sampling error excludes calibration
+and grid/bridge bias; refine the grid for the intended parameters. See the
+[derivation, reference comparisons and limitations](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md)
+and [Python example](../../examples/python/rough_dividend_continuous_barrier.py).
+
+The explicit `evaluate_spot_bump_risk` method adds common-random-number central
+price differences with a half/base/double Spot-bump ladder. Python requires
+exactly one `spot_absolute_bump` or `spot_relative_bump`; Rust accepts `SpotBump`.
+The result reports each estimate and paired SE, adjacent bump differences and
+their paired SEs. It re-anchors residual equity without changing calibrated
+leverage values and re-evaluates all continuous endpoint/cash branches. History
+stays fixed. This is finite-bump risk of the bridge approximation, including at
+initial barrier equality; it does not assert that an exact Delta exists or that
+bump gaps bound its error. All six shifted Spots must remain funded. Sampling
+SE excludes calibration, time-grid, bridge and bump bias. See the
+[finite-bump contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#finite-bump-spot-risk).
+
+`evaluate_gamma_bump_risk` uses the same absolute/relative bump arguments and
+seven physical payoffs to return a three-price Gamma ladder and paired errors.
+`gamma` selects the base bump; `delta` is the central price difference at that
+bump. The dedicated Gamma result also reports adjacent Gamma gaps and their
+paired errors. Endpoint/jump branch changes and initial equality are included;
+small bumps can increase noise and cancellation. No exact second derivative,
+extrapolation or bump-error bound is implied. See the
+[Gamma contract and independent checks](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#finite-bump-gamma).
+
+`evaluate_parallel_local_volatility_risk(local_volatility_bump=...)` computes a
+parallel shift of every original residual target sqrt(variance) node, with a
+half/base/double absolute-volatility bump ladder. Every scenario refines the
+shifted original target, repeats particle calibration with the same seed/config,
+and re-evolves its pricing path with common valuation shocks. The result gives
+paired estimates/errors per unit absolute volatility and per vol point (0.01),
+plus paired bump gaps. Shifted nodes must remain positive and within the original
+variance floor/cap; there is no clipping. This is residual Local-volatility risk,
+not quoted market-IV Vega or VegaKT. See the
+[recalibration contract and validation scope](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-parallel-local-volatility-risk).
+
+
+`evaluate_bucketed_local_volatility_risk(local_volatility_bump=..., node_indices=...)`
+shifts selected original nodes individually with full recalibration. Indices are
+unique, nonempty and row-major (`time_index * x_count + x_index`); output rows
+retain the requested order. Each node has a half/base/double ladder and paired
+errors/gaps. The result includes original-grid coordinates and selected-node
+sums with covariance-aware sampling errors. A sum of finite node risks need not
+equal the finite parallel shift. Cost is six recalibrations per selected node;
+all shifted targets validate before calibration. Units and uncertainty scope
+match the parallel API. See the
+[bucket contract and validation](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-bucketed-local-volatility-risk).
+
+`evaluate_reporting_iv_projection(local_volatility_bump=..., relative_density_threshold=...)`
+applies the existing residual-LSV density/basis reporting map to all finite node
+risks. It requires a retained reporting-IV basis covering every positive original
+target maturity and an explicit density threshold. It reports paired bucket,
+sum and residual errors, with density-domain diagnostics. Python's optional
+`full_covariance=True` (Rust: `evaluate_reporting_iv_projection_with_covariance`)
+also returns `estimator_covariance` in `covariance_labels` order: price, each bucket's
+three risks and two gaps, then original sum, projected sum and residual triples.
+This is covariance of estimated means; use `w^T C w` for a weighted combination's
+sampling variance. It uses the same paths/calibrations and has the same conditional
+uncertainty scope. The matrix is optional because storage grows quadratically in
+report width. The residual includes
+density normalization as well as time-zero and excluded-node risk. This is a
+reporting convention, not quoted-IV rebootstrap risk or the complete VegaKT
+operator. See the
+[projection contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#reporting-iv-projection-of-finite-node-risks).
+
+Parallel quote-IV risk is available with an explicit `MarketIvSurface`. Build
+its strict Local Volatility model, use that model in the price request and pass
+`market_iv_surface=source` at compilation (Rust: bind once using
+`with_market_iv_surface`). The source must exactly reproduce the original
+variance grid without repairs. `evaluate_parallel_market_iv_risk(implied_volatility_bump=...)`
+shifts all source IV inputs on a half/base/double ladder, rebuilds original-grid
+Dupire variance and fully recalibrates each scenario before paired valuation.
+It returns raw/per-vol-point Vega, paired errors/gaps and quote metadata. The
+source is retained separately from the serialized request and participates in
+the plan fingerprint; `supports_market_iv_risk` identifies availability.
+These are funded residual-forward IV inputs, with natural-cubic total-variance
+interpolation in log moneyness and linear time interpolation. Physical-stock
+quote conversion and SSVI refitting are outside this contract. See the
+[quote-IV contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-parallel-quote-iv-risk)
+and [example](../../examples/python/rough_dividend_market_iv.py).
+
+Selected quote-IV risks use
+`evaluate_bucketed_market_iv_risk(implied_volatility_bump=..., quote_indices=[4, 0])`.
+Indices identify the retained quote grid in maturity-major order and preserve the
+requested selection order. Each quote gets six rebuilt/recalibrated scenarios;
+results include three Vegas, two gaps, selected sums and paired errors including
+cross-quote covariance. Raw units are currency per absolute residual-forward IV;
+multiply estimates/errors by .01 for per-vol-point reporting. Finite individual
+bumps need not sum to the simultaneous parallel bump. See the
+[bucket contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-selected-quote-iv-buckets)
+for selection validation, costs and conditional uncertainty. The
+[independent quote-IV panels](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#independent-quote-iv-valuation-panels)
+validate four H/direction/side cases with NumPy Dupire reconstruction and path
+valuation, covering parallel risks, three quote buckets and paired sums. Their
+96 leverage surfaces come from separate Rust calibrations; the comparison is
+conditional on those inputs and excludes calibration uncertainty. The
+[independent particle-calibration controls](../../design/validation/stochastic-dividend-rough-lsv-independent-calibration.md)
+add NumPy reconstruction of those 96 leverage surfaces and checks of moment,
+effective-sample-size and fallback decisions on shared Gaussian inputs.
+
+Existing `StochasticDividendPlan` factories retain their live-monitoring
+rejection and discrete-risk behavior.
+
+### Residual-LSV Gamma and other sensitivities
 
 Residual-LSV Spot Gamma is available through `evaluate_lsv_gamma()`.
 It uses the same half/base/double Spot-bump ladder as the non-LSV Gamma API, but
@@ -528,7 +712,8 @@ at each curve pillar, holding the other curve fixed. The legacy market field
 Discontinuous payoffs require explicit payoff smoothing before AAD. The risk is
 then of the smoothed price, with the smoothing width fixed. Constructors retain
 their price-only request contract; request risk flags are not silently ignored.
-Existing American and continuous-barrier restrictions remain.
+Existing American and live continuous-barrier restrictions remain. Resolved
+continuous history uses the ordinary vanilla/fixed-cash payoff adjoints.
 
 MC standard errors use independent antithetic pair averages when enabled; RQMC
 uses scramble averages, never individual Sobol points as independent samples.
@@ -741,13 +926,58 @@ scenarios reuse the calibrated leverage surface exactly. Both derivatives use
 central bumps and paired MC/RQMC sampling errors; all scalar and joint
 correlation-domain checks still apply. The 1F/2F-specific Bergomi
 parameter/correlation risk methods continue to reject rough plans explicitly.
-The [rough residual-LSV correlation validation](../../design/validation/stochastic-dividend-rough-lsv-correlation-risk.md)
+The [rough residual-LSV price and risk validation](../../design/validation/stochastic-dividend-rough-lsv-correlation-risk.md)
 records MC/RQMC recompile checks, worker replay, the zero-vol-of-vol limit and
-the boundary between implementation checks and continuous-time accuracy.
-Shared payoff graphs can still price discrete path-dependent contracts, but the
-new acceptance tests cover terminal calls and cash-event/path construction, not
-broad rough-dividend exotic accuracy.
-American exercise, continuous barriers, proportional cash mixtures, stochastic
+independent paired-SE reconstruction for European calls, delayed-payment
+Asian calls and smoothed discrete Barriers with pre/post-cash observations.
+An independent conditional Black integral also checks price and Spot Delta
+when both rough vol-of-vol and dividend mean reversion are zero, with a flat
+residual local-variance target and a stochastic dividend after expiry.
+A separate [conditional refinement panel](../../design/validation/stochastic-dividend-rough-lsv-refinement.md)
+uses coupled Brownian integrals to measure European price/Delta changes under
+time-grid refinement with a fixed calibrated surface and nonzero eta/mean
+reversion. It does not include recalibration on each grid or calibration-particle
+uncertainty.
+The [recalibration and particle panel](../../design/validation/stochastic-dividend-rough-lsv-calibration-refinement.md)
+rebuilds the surfaces across grids, counts and seeds, reporting both the SE
+across independent calibration/valuation replicates and the conditional
+valuation contribution. This validation does not change public API uncertainty
+fields or establish a general continuous-time error bound.
+The [Asian/Barrier refinement panel](../../design/validation/stochastic-dividend-rough-lsv-path-refinement.md)
+checks conditional price/Spot Delta differences with fixed observation dates,
+known Asian fixings, delayed payment and both sides of cash jumps. It holds
+Barrier smoothing fixed and does not bound smoothing or calibration bias.
+The [Barrier smoothing-width panel](../../design/validation/stochastic-dividend-rough-lsv-barrier-smoothing.md)
+then fixes the surface and grid while comparing five widths against hard
+prices and adjacent-width Deltas. Hard-price finite bumps are diagnostic;
+they do not provide an exact unsmoothed Delta reference.
+The [hard two-date Barrier reference](../../design/validation/stochastic-dividend-hard-barrier-reference.md)
+provides independent price and analytic Spot Delta when eta and dividend mean
+reversion are zero and the target variance is flat. Gaussian integration
+retains both moving monitoring boundaries. This validates a limiting case;
+the original pathwise Spot-risk method still rejects unsmoothed Barriers.
+The [conditional hard Barrier reference](../../design/validation/stochastic-dividend-conditional-barrier-reference.md)
+adds independent hard price and analytic Spot Delta for nonzero rough vol-of-vol
+and dividend mean reversion on a two-step grid with a frozen nonflat leverage
+surface. It validates that discrete law, not continuous-time accuracy or
+general monitoring schedules.
+The [multi-step survival reference](../../design/validation/stochastic-dividend-survival-barrier-reference.md)
+then checks 4/8-step grids and 2/4 observation dates using an independent hard
+price/Delta estimator. Its comparison gates include both reference batch error
+and production scramble error; it is conditional on retained calibrations.
+The [hard Barrier refinement panel](../../design/validation/stochastic-dividend-hard-barrier-refinement.md)
+keeps each eight-step calibration and four observation dates fixed while
+comparing independent hard price/Delta at 16/32/64 steps against 128 steps.
+Its paired-error gates isolate finite-grid evolution sensitivity; they do not
+provide a continuous-time error bound or enable public unsmoothed Spot risk.
+The dedicated [hard Barrier Spot-risk method](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md)
+uses these independent references to validate production survival-conditioned
+price/Delta for discrete up/down knock-in/out calls and puts, including
+[fixed cash rebates](../../design/validation/stochastic-dividend-hard-barrier-rebates.md).
+These finite-grid checks distinguish implementation and uncertainty aggregation
+from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
+remains outside this validation panel.
+American exercise, live continuous barriers, proportional cash mixtures, stochastic
 rates and multiple assets are not added by these rough-dividend factories.
 
 History evaluation and compiled storage are O(N^2); a new explicit limit of 4096

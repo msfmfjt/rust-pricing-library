@@ -415,7 +415,7 @@ EXPECTED_REQUIRED_PROPERTIES = {
 EXPECTED_OPTIONAL_PROPERTIES = {
     "pricing_request": {
         ("$defs", "product", "oneOf", 1): ["payment_date"],
-        ("$defs", "product", "oneOf", 2): ["rebate"],
+        ("$defs", "product", "oneOf", 2): ["rebate", "historical_hit"],
         ("$defs", "product", "oneOf", 4): ["historical_extremum"],
         ("$defs", "market"): ["discrete_dividends"],
         ("$defs", "model", "oneOf", 2): ["reporting_iv_basis"],

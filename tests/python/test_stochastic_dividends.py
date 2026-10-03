@@ -181,7 +181,7 @@ def compile_plan(request=None, **kwargs):
     )
 
 
-def conditional_black(order):
+def conditional_black_price_delta(order):
     # kappa=0: S_T=A*f_T+B*Y_T. Condition on dividend normal, then use
     # a univariate lognormal formula for residual equity. No library pricing,
     # forward, state transition or random number helpers are used here.
@@ -191,18 +191,27 @@ def conditional_black(order):
     sigma, nu, rho = 0.2, 0.45, -0.35
     root = sigma*math.sqrt(1-rho*rho)
     cdf = lambda x: 0.5*math.erfc(-x/math.sqrt(2))
-    total = 0.0
+    total = delta = 0.0
     for z, weight in zip(nodes*math.sqrt(2), weights/math.sqrt(math.pi)):
         y = math.exp(-0.5*nu*nu+nu*z)
         forward = a*math.exp(-0.5*(sigma*rho)**2+sigma*rho*z)
         strike = 100-b*y
         if strike <= 0:
             call = forward-strike
+            forward_delta = 1.0
         else:
             d1 = math.log(forward/strike)/root+0.5*root
             call = forward*cdf(d1)-strike*cdf(d1-root)
+            forward_delta = cdf(d1)
         total += weight*call
-    return 0.95*total
+        # Only A depends on Spot: dA/dS0 = growth. Differentiate the
+        # conditional Black expectation analytically, without a pricing bump.
+        delta += weight*growth*(forward/a)*forward_delta
+    return 0.95*total, 0.95*delta
+
+
+def conditional_black(order):
+    return conditional_black_price_delta(order)[0]
 
 
 class StochasticDividendTest(unittest.TestCase):
@@ -796,6 +805,35 @@ class StochasticDividendTest(unittest.TestCase):
                 **{k: v for k, v in common.items() if k != "rough"},
                 rough=True,
             ).evaluate_local_variance_risk()
+
+    def test_rough_residual_lsv_zero_eta_matches_independent_price_and_delta(self):
+        price, delta = conditional_black_price_delta(128)
+        for actual, expected in zip(conditional_black_price_delta(96), (price, delta)):
+            self.assertAlmostEqual(actual, expected, delta=2e-7)
+        self.assertAlmostEqual(price, 7.653276188575835, delta=2e-7)
+        request = make_lsv_request(dividends=((1.4, 25.0),), points=2048)
+        for hurst, step in [(0.1, 0.5), (0.5, 0.25)]:
+            with self.subTest(hurst=hurst, maximum_step=step):
+                plan = compile_lsv(
+                    request, rough=True, hurst=hurst, vol_of_vol=0.0,
+                    dividend_mean_reversion=0.0, equity_linkage=0.6,
+                    dividend_volatility=0.45, equity_dividend_correlation=-0.35,
+                    maximum_step=step, particle_count=64, retain_reverse_trace=False,
+                    worker_threads=1,
+                )
+                self.assertTrue(all(abs(x-0.04) < 2e-14 for x in plan.lsv_squared_leverage))
+                result = plan.evaluate_lsv_spot_risk()
+                self.assertEqual(result.price.value, plan.evaluate().value)
+                self.assertEqual(plan.time_nodes[-1], 1.0)
+                self.assertEqual(len(plan.time_nodes), int(1.0/step)+1)
+                self.assertEqual(result.price.independent_sampling_units, 4)
+                self.assertEqual(result.price.evaluated_paths, 16384)
+                self.assertLess(result.price.standard_error, 0.02)
+                self.assertLess(result.delta_standard_error, 0.005)
+                self.assertAlmostEqual(result.price.value, price,
+                                       delta=6*result.price.standard_error+0.002)
+                self.assertAlmostEqual(result.delta, delta,
+                                       delta=6*result.delta_standard_error+0.00002)
 
     def test_rough_residual_lsv_correlation_risk_uses_selective_recalibration(self):
         request = make_lsv_request(points=16)
