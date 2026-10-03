@@ -13,6 +13,11 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/tests/rough_lsv_calibration_reference.rs',
+    'tests/python/rough_lsv_calibration_reference.py',
+    'tests/python/test_rough_lsv_calibration_reference.py',
+    'fixtures/stochastic-dividends/rough-lsv-calibration-reference.json',
+    'design/validation/stochastic-dividend-rough-lsv-independent-calibration.md',
     'tests/python/rough_dividend_market_iv_reference.py',
     'fixtures/stochastic-dividends/rough-continuous-market-iv-reference.json',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/bucketed_market_iv.rs',
@@ -355,6 +360,10 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 }
 
 REQUIRED_CI_SNIPPETS = {
+    'cargo test --locked --release -p pricing --test rough_lsv_calibration_reference -- --nocapture',
+    '            stochastic-dividend-independent-calibration.log',
+    'python tests/python/test_rough_lsv_calibration_reference.py',
+    '            stochastic-dividend-independent-calibration-numpy.log',
     'python tests/python/rough_dividend_market_iv_reference.py',
     '            stochastic-dividend-market-iv-reference.log',
     'python tests/python/rough_dividend_barrier_styles.py',

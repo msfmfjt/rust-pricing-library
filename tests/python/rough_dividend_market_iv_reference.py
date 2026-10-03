@@ -3,7 +3,9 @@
 Default verification needs only NumPy and committed calibration inputs, never
 rust_pricing. --build explicitly captures leverage via separate price-plan
 compilations; calibration itself is not an independent implementation. Neither
-mode calls a production risk estimator to generate expected values.
+mode calls a production risk estimator to generate expected values. The
+separate rough_lsv_calibration_reference independently reconstructs these
+retained calibration inputs using shared Gaussian observations.
 """
 import argparse
 import json

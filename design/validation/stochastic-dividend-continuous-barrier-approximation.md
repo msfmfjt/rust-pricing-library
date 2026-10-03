@@ -685,9 +685,11 @@ identified Rust wheel and writes newly captured calibration inputs and NumPy
 batches to OUTPUT. Reproducing the committed inputs uses the 6b778f7 wheel;
 LABEL records that provenance. The verification command does not call this mode.
 This validates quote/Dupire rebuilding and valuation **conditional on retained
-calibration inputs**. Particle calibration is still the Rust implementation;
-calibration uncertainty, zero-bump derivatives and continuous-time accuracy
-remain outside this comparison.
+calibration inputs**. The separate [independent calibration controls](stochastic-dividend-rough-lsv-independent-calibration.md)
+now reconstruct all 96 retained leverage surfaces with NumPy using the same
+Gaussian inputs, including kernel moments and fallback rules. Calibration
+sampling uncertainty, zero-bump derivatives and continuous-time accuracy
+remain outside these comparisons.
 
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract

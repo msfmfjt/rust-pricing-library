@@ -90,6 +90,8 @@ jobs:
         run: cargo test --locked --release -p pricing --lib resolved_barrier_tests -- --nocapture 2>&1 | tee stochastic-dividend-resolved-barrier.log
       - name: Check continuous stochastic-dividend bridge approximation
         run: cargo test --locked --release -p pricing --lib stochastic_dividends::continuous_barrier -- --nocapture 2>&1 | tee stochastic-dividend-continuous-barrier.log
+      - name: Check independent rough particle calibration
+        run: cargo test --locked --release -p pricing --test rough_lsv_calibration_reference -- --nocapture 2>&1 | tee stochastic-dividend-independent-calibration.log
       - name: Retain Barrier smoothing evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -101,6 +103,7 @@ jobs:
             stochastic-dividend-hard-barrier-risk.log
             stochastic-dividend-resolved-barrier.log
             stochastic-dividend-continuous-barrier.log
+            stochastic-dividend-independent-calibration.log
           retention-days: 14
           if-no-files-found: warn
 
@@ -134,6 +137,10 @@ jobs:
         env:
           OPENBLAS_NUM_THREADS: 1
         run: python tests/python/rough_dividend_market_iv_reference.py 2>&1 | tee stochastic-dividend-market-iv-reference.log
+      - name: Recompute independent rough particle calibration
+        env:
+          OPENBLAS_NUM_THREADS: 1
+        run: python tests/python/test_rough_lsv_calibration_reference.py 2>&1 | tee stochastic-dividend-independent-calibration-numpy.log
       - name: Retain independent reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -146,6 +153,7 @@ jobs:
             stochastic-dividend-barrier-rebates-reference.log
             stochastic-dividend-continuous-reference.log
             stochastic-dividend-market-iv-reference.log
+            stochastic-dividend-independent-calibration-numpy.log
           retention-days: 14
           if-no-files-found: warn
 

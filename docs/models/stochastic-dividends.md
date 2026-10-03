@@ -516,7 +516,10 @@ for selection validation, costs and conditional uncertainty. The
 validate four H/direction/side cases with NumPy Dupire reconstruction and path
 valuation, covering parallel risks, three quote buckets and paired sums. Their
 96 leverage surfaces come from separate Rust calibrations; the comparison is
-conditional on those inputs and excludes calibration uncertainty.
+conditional on those inputs and excludes calibration uncertainty. The
+[independent particle-calibration controls](../../design/validation/stochastic-dividend-rough-lsv-independent-calibration.md)
+add NumPy reconstruction of those 96 leverage surfaces and checks of moment,
+effective-sample-size and fallback decisions on shared Gaussian inputs.
 
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
