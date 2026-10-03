@@ -641,6 +641,54 @@ separate recompilation. These checks establish agreement of the finite algorithm
 and stated reporting convention; they do not validate market-IV hedge risk or
 the full VegaKT operator.
 
+### Independent quote-IV valuation panels
+
+The [quote-IV fixture](../../fixtures/stochastic-dividends/rough-continuous-market-iv-reference.json)
+adds 20 panels for H=0.1/0.3 Up-out Call and Down-out Put contracts: four parallel
+quote shifts, twelve selected-quote ladders and four paired selected sums. Quote
+indices `[4, 1, 5]` cover two maturities, the ATM and right wing, and opposing
+sensitivities. The final quote maturity 1.25 is beyond option expiry and affects
+the Dupire time derivative. Every ladder uses absolute IV bumps 0.005/0.01/0.02
+and retains all three Vegas plus the two adjacent gaps.
+
+The [NumPy reference](../../tests/python/rough_dividend_market_iv_reference.py)
+solves the natural-cubic total-variance system directly and evaluates analytic
+space/time derivatives for Dupire. It captures 96 scenario leverage surfaces by
+separately compiling these independent original-grid targets with the pre-bucket
+6b778f7 wheel. No production risk result supplies an expected value. Python tests
+recompile all 96 targets against those calibration inputs, with squared-leverage
+tolerance 2e-13. Analytic strike-flat controls additionally check the time-zero
+copy, the right derivative at the first quote knot and constant-IV time tails.
+
+The reference independently re-evolves f/Y, rough volatility and physical stock,
+and values the bridge payoff using the existing NumPy path implementation.
+It uses PCG64 seed 20261010 with 32 batches of 8,192 antithetic pairs. The same
+batch/path identities are used across selected quotes; selected sums aggregate
+paired batch observations, retaining cross-quote covariance. Production uses
+16 RQMC scrambles of 32,768 points. For every node, parallel, sum and gap result,
+`abs(production-reference) + 4*hypot(production_SE,reference_SE)` must be below
+2.0 currency units per absolute IV (0.02 per vol point). Both SEs must be below
+0.35 in these raw units. Gates are shared across all panels, including gaps.
+
+Default reference verification imports no Rust bindings and never rewrites
+fixtures. The Linux NumPy-only CI job reconstructs Dupire values and regenerates
+all 20 retained panels, with batch-mean tolerance 1e-9; its log is archived.
+Wheel tests run the production comparisons on supported wheel platforms.
+Regenerate the reference from the repository root with NumPy installed:
+
+```sh
+OPENBLAS_NUM_THREADS=1 python tests/python/rough_dividend_market_iv_reference.py
+```
+
+The optional `--build OUTPUT --calibration-source LABEL` mode requires the
+identified Rust wheel and writes newly captured calibration inputs and NumPy
+batches to OUTPUT. Reproducing the committed inputs uses the 6b778f7 wheel;
+LABEL records that provenance. The verification command does not call this mode.
+This validates quote/Dupire rebuilding and valuation **conditional on retained
+calibration inputs**. Particle calibration is still the Rust implementation;
+calibration uncertainty, zero-bump derivatives and continuous-time accuracy
+remain outside this comparison.
+
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract
 include the new API, tests and [example](../../examples/python/rough_dividend_continuous_barrier.py).
@@ -649,10 +697,12 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. The full VegaKT operator, physical-Spot quote conversion/refitting and other model/market risks remain
+are not valid substitutes. The full VegaKT operator, physical-Spot quote
+conversion/refitting and other model/market risks remain
 unsupported by this continuous wrapper. Parallel and selected retained-quote
 rebuilding are supported under the interpolation contract above; the reporting
-projection is a separate convention. Independent fine-path studies, calibration-aware refinement
+projection is a separate convention. Independent fine-path studies,
+calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.

@@ -13,6 +13,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'tests/python/rough_dividend_market_iv_reference.py',
+    'fixtures/stochastic-dividends/rough-continuous-market-iv-reference.json',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/bucketed_market_iv.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/bucketed_market_iv_tests.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/market_iv.rs',
@@ -353,6 +355,8 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 }
 
 REQUIRED_CI_SNIPPETS = {
+    'python tests/python/rough_dividend_market_iv_reference.py',
+    '            stochastic-dividend-market-iv-reference.log',
     'python tests/python/rough_dividend_barrier_styles.py',
     'python tests/python/rough_dividend_barrier_styles.py rough-barrier-rebates-reference.json',
     '            stochastic-dividend-barrier-rebates-reference.log',

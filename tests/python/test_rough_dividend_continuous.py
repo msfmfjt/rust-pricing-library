@@ -9,6 +9,7 @@ import rust_pricing as rp
 
 from test_rough_dividend_hard_barrier import CFG, request
 from rough_dividend_continuous_reference import DIRECTORY, inputs, path_values
+from rough_dividend_market_iv_reference import dupire_target
 
 FIXTURE = json.loads((DIRECTORY/'rough-continuous-barrier-reference.json').read_text())
 BASES, MARKET = inputs()
@@ -45,7 +46,7 @@ QUOTE_TIMES=[.25,1.25]
 QUOTE_X=[-.75,0.,.75]
 QUOTE_IV=[.22,.20,.21,.24,.22,.23]
 
-def iv_request(case, surface):
+def iv_request(case, surface, *, points=32, scrambles=4):
     c,m=case['contract'],MARKET|case['market']
     return rp.PricingRequest('2026-09-04',
         rp.Product.barrier(1,2,'2027-09-03',m['strike'],m['barrier'],c['notional'],
@@ -55,31 +56,12 @@ def iv_request(case, surface):
             rp.DiscountCurve(11,[0.,1.],[1.,m['annual_carry']]),
             discrete_dividends=[rp.DividendEvent.fixed_cash(i+1,t,q) for i,(t,q) in enumerate(zip(m['cash_times'],m['cash_means']))]),
         surface.local_volatility_model([0.,m['fixing_time'],m['expiry_time']],[-.5,0.,.5]),
-        rp.Engine.randomized_quasi_monte_carlo(32,193,scramble_count=4,antithetic=True,brownian_bridge=True),
+        rp.Engine.randomized_quasi_monte_carlo(points,193,scramble_count=scrambles,antithetic=True,brownian_bridge=True),
         rp.RiskRequest())
 
 def independent_quote_target(quotes):
-    # Solve the natural cubic system directly; do not use the Rust coefficient
-    # map, surface queries or finite-difference Dupire derivatives.
-    times=np.asarray(QUOTE_TIMES);xs=np.asarray(QUOTE_X);q=np.asarray(quotes).reshape(2,3)
-    h=np.diff(xs);matrix=np.eye(3)
-    matrix[1]=[h[0],2*(h[0]+h[1]),h[1]]
-    w=times[:,None]*q*q;rhs=np.zeros_like(w)
-    rhs[:,1]=6*(np.diff(w,axis=1)[:,1]/h[1]-np.diff(w,axis=1)[:,0]/h[0])
-    second=np.linalg.solve(matrix,rhs.T).T
-    values=[]
-    for t in [MARKET['fixing_time'],MARKET['fixing_time'],MARKET['expiry_time']]:
-        for x in [-.5,0.,.5]:
-            i=min(np.searchsorted(xs,x,side='right')-1,1)
-            b=(x-xs[i])/h[i];a=1-b
-            v=a*w[:,i]+b*w[:,i+1]+((a**3-a)*second[:,i]+(b**3-b)*second[:,i+1])*h[i]**2/6
-            dx=(w[:,i+1]-w[:,i])/h[i]+((1-3*a*a)*second[:,i]+(3*b*b-1)*second[:,i+1])*h[i]/6
-            dxx=a*second[:,i]+b*second[:,i+1]
-            wt=(v[1]-v[0])/(times[1]-times[0]);b=(t-times[0])/(times[1]-times[0])
-            v,dx,dxx=[(1-b)*y[0]+b*y[1] for y in (v,dx,dxx)]
-            density=(1-x*dx/(2*v))**2-dx*dx/4*(1/v+.25)+dxx/2
-            values.append(wt/density)
-    return values
+    return dupire_target(QUOTE_TIMES,QUOTE_X,quotes,
+                         [0.,MARKET['fixing_time'],MARKET['expiry_time']],[-.5,0.,.5])
 
 
 class ContinuousBarrierApproximation(unittest.TestCase):
@@ -391,6 +373,64 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         self.assertEqual(fixed.sum_vega_estimates,[0.]*3)
         self.assertEqual(fixed.sum_vega_standard_errors,[0.]*3)
         self.assertEqual(fixed.sum_bump_difference_standard_errors,[0.]*2)
+
+    def test_independent_quote_dupire_time_boundaries(self):
+        # Strike-flat slices have density factor one: the Dupire variance is
+        # the linear total-variance slope, with constant-IV time tails.
+        target_times=[0.,.1,.25,.5,1.25,1.5]
+        expected=np.repeat([.04,.04,.1025,.1025,.09,.09],3)
+        values=dupire_target([.25,1.25],[-.75,0.,.75],[.2]*3+[.3]*3,target_times,[-.5,0.,.5])
+        np.testing.assert_allclose(values,expected,rtol=0,atol=2e-16)
+
+    def test_market_iv_risks_against_independent_numpy_paths(self):
+        fixture=json.loads((DIRECTORY/'rough-continuous-market-iv-reference.json').read_text())
+        quotes,target=fixture['quotes'],fixture['target']
+        gates,sampling=fixture['acceptance'],fixture['production_sampling']
+        source=rp.MarketIvSurface(quotes['maturity_nodes'],quotes['log_moneyness_nodes'],quotes['implied_volatilities'])
+        self.assertEqual(source.interpolation,fixture['interpolation'])
+        h=fixture['sampling']['bump']
+
+        def compare(estimates,errors,batches):
+            means=np.asarray(batches)
+            expected=means.mean(axis=0)
+            reference_se=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+            bounds=np.abs(np.asarray(estimates)-expected)+4*np.hypot(errors,reference_se)
+            self.assertLess(max(bounds),gates['difference_plus_4se'],msg=f'bounds={bounds}')
+            self.assertLess(max(errors),gates['production_se'])
+            self.assertLess(max(reference_se),gates['reference_se'])
+
+        for case in fixture['cases']:
+            with self.subTest(case=case['id']):
+                req=iv_request(case,source,points=sampling['points_per_scramble'],scrambles=sampling['scramble_count'])
+                data=json.loads(req.to_json());grid=data['model']['local_variance_grid']
+                self.assertEqual(grid['time_nodes'],target['time_nodes'])
+                self.assertEqual(grid['log_forward_moneyness_nodes'],target['log_moneyness_nodes'])
+                # Independently reconstructed targets were calibrated with the
+                # pre-bucket 6b778f7 wheel. Recompile every retained input here.
+                for panel in case['panels']:
+                    for scenario in panel['scenarios']:
+                        grid['values']=scenario['target_variances']
+                        external=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)))
+                        np.testing.assert_allclose(external.lsv_squared_leverage,scenario['squared_leverage'],rtol=0,atol=2e-13)
+                plan=compile_plan(case,req,market_iv_surface=source)
+                parallel=plan.evaluate_parallel_market_iv_risk(implied_volatility_bump=h)
+                bucketed=plan.evaluate_bucketed_market_iv_risk(implied_volatility_bump=h,quote_indices=fixture['quote_indices'])
+                self.assertEqual(bucketed.quote_indices,[p['quote_index'] for p in case['panels'][1:]])
+                self.assertIsNone(case['panels'][0]['quote_index'])
+                compare(parallel.vega_estimates+parallel.bump_differences,
+                        parallel.vega_standard_errors+parallel.bump_difference_standard_errors,case['panels'][0]['batch_means'])
+                for b,panel in enumerate(case['panels'][1:]):
+                    with self.subTest(quote_index=panel['quote_index']):
+                        compare(bucketed.vega_estimates[b]+bucketed.bump_differences[b],
+                                bucketed.vega_standard_errors[b]+bucketed.bump_difference_standard_errors[b],panel['batch_means'])
+                compare(bucketed.sum_vega_estimates+bucketed.sum_bump_differences,
+                        bucketed.sum_vega_standard_errors+bucketed.sum_bump_difference_standard_errors,case['sum_batch_means'])
+                self.assertEqual(bucketed.implied_volatility_bumps,[h/2,h,2*h])
+                self.assertEqual(bucketed.quote_maturity_nodes,quotes['maturity_nodes'])
+                self.assertEqual(bucketed.quote_log_moneyness_nodes,quotes['log_moneyness_nodes'])
+                self.assertEqual(bucketed.price.independent_sampling_units,sampling['scramble_count'])
+                self.assertEqual(bucketed.recalibration_count,6*len(fixture['quote_indices']))
+                self.assertEqual(bucketed.scenario_evaluated_paths,(bucketed.recalibration_count+1)*bucketed.price.evaluated_paths)
 
     def test_market_iv_rebuild_against_independent_numpy_dupire(self):
         source=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,QUOTE_IV)

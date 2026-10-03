@@ -130,6 +130,10 @@ jobs:
         env:
           OPENBLAS_NUM_THREADS: 1
         run: python tests/python/rough_dividend_continuous_reference.py 2>&1 | tee stochastic-dividend-continuous-reference.log
+      - name: Regenerate independent continuous quote-IV references
+        env:
+          OPENBLAS_NUM_THREADS: 1
+        run: python tests/python/rough_dividend_market_iv_reference.py 2>&1 | tee stochastic-dividend-market-iv-reference.log
       - name: Retain independent reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -141,6 +145,7 @@ jobs:
             stochastic-dividend-barrier-styles-reference.log
             stochastic-dividend-barrier-rebates-reference.log
             stochastic-dividend-continuous-reference.log
+            stochastic-dividend-market-iv-reference.log
           retention-days: 14
           if-no-files-found: warn
 

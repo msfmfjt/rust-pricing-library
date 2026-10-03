@@ -511,7 +511,12 @@ cross-quote covariance. Raw units are currency per absolute residual-forward IV;
 multiply estimates/errors by .01 for per-vol-point reporting. Finite individual
 bumps need not sum to the simultaneous parallel bump. See the
 [bucket contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-selected-quote-iv-buckets)
-for selection validation, costs and conditional uncertainty.
+for selection validation, costs and conditional uncertainty. The
+[independent quote-IV panels](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#independent-quote-iv-valuation-panels)
+validate four H/direction/side cases with NumPy Dupire reconstruction and path
+valuation, covering parallel risks, three quote buckets and paired sums. Their
+96 leverage surfaces come from separate Rust calibrations; the comparison is
+conditional on those inputs and excludes calibration uncertainty.
 
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
