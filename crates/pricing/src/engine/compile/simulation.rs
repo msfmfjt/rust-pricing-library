@@ -175,6 +175,7 @@ impl SimulationPlan {
         let discount = discount_evaluation.discount;
         let spot = market_forward.spot().get();
         let (volatility, total_variance, local_volatility) = match request.model() {
+            ModelSpec::BassLocalVolatility(_) => (0.0, 0.0, None),
             ModelSpec::BlackScholes(model) => {
                 let volatility = model.volatility().get();
                 (volatility, volatility * volatility * time, None)
@@ -438,7 +439,18 @@ impl SimulationPlan {
                     _ => (0, 0),
                 },
             };
+        let bass =
+            crate::engine::bass_lv::request::BassRuntime::compile(request, &observation_times)?;
+        let plan_fingerprint = if bass.is_some() {
+            let mut h = blake3::Hasher::new();
+            h.update(plan_fingerprint.as_bytes());
+            h.update(b"bass-normalized-affine-central-crn-v1");
+            Fingerprint::from_bytes(*h.finalize().as_bytes())
+        } else {
+            plan_fingerprint
+        };
         Ok(Self {
+            bass,
             valuation_date: request.valuation_date(),
             expiry: product.expiry(),
             underlying: product.underlying(),

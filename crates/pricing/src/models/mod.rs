@@ -2,6 +2,8 @@
 
 #![forbid(unsafe_code)]
 
+pub(crate) mod bass_lv;
+pub use bass_lv::BassLvSpec;
 mod bergomi;
 mod bergomi_dynamics;
 mod bergomi_two_factor;

@@ -71,6 +71,7 @@ pub(in crate::engine) const SMOOTHED_BARRIER_BRIDGE_ABI: &str =
 /// Immutable one-expiry plan for the European Black-Scholes MC/RQMC slice.
 #[derive(Clone, Debug)]
 pub struct SimulationPlan {
+    pub(in crate::engine) bass: Option<crate::engine::bass_lv::request::BassRuntime>,
     pub(in crate::engine) valuation_date: Date,
     pub(in crate::engine) expiry: Date,
     pub(in crate::engine) underlying: UnderlyingId,

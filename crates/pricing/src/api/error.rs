@@ -238,6 +238,7 @@ impl Error for ResultBuildError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MonteCarloError {
+    Bass(crate::bass_lv::BassError),
     UnsupportedEngine,
     UnsupportedModel {
         model: &'static str,
@@ -393,6 +394,7 @@ impl From<TryExecutionError<MonteCarloError>> for MonteCarloError {
 impl fmt::Display for MonteCarloError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Bass(error) => error.fmt(formatter),
             Self::UnsupportedEngine => {
                 write!(
                     formatter,
@@ -470,6 +472,7 @@ impl fmt::Display for MonteCarloError {
 impl Error for MonteCarloError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            Self::Bass(error) => Some(error),
             Self::Market(error) => Some(error),
             Self::LocalVol(error) => Some(error),
             Self::Lsv(error) => Some(error),
@@ -487,5 +490,11 @@ impl Error for MonteCarloError {
             Self::Lsm(error) => Some(error),
             _ => None,
         }
+    }
+}
+
+impl From<crate::bass_lv::BassError> for MonteCarloError {
+    fn from(error: crate::bass_lv::BassError) -> Self {
+        Self::Bass(error)
     }
 }

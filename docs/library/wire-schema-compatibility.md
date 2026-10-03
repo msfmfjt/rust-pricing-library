@@ -14,6 +14,15 @@ regression matrix resource limit needed to reproduce the LSM configuration
 fingerprint. The field is required for American products and forbidden for all
 other products.
 
+The current v3 model union also includes experimental `bass_local_volatility`
+with explicit market-IV quote axes, projection/calibration settings and IV
+bump size. This is an additive v3 extension; older v3 readers without this
+model tag cannot consume Bass requests. v1/v2 reject the tag before migration.
+Existing model payloads, historical schemas and golden outputs are unchanged.
+Bass result JSON uses the shared price/risk/replay contract; detailed
+calibration diagnostics remain on the compiled plan. See the
+[Bass specification](../models/bass-local-volatility.md).
+
 The result block preserves execution counts and variances, numerical and risk
 method diagnostics, random-stream checksums, and complete LSM training and
 valuation state. The LSM state includes its policy fingerprint, exercise dates,

@@ -578,6 +578,45 @@ pub struct PyModel {
 
 #[pymethods]
 impl PyModel {
+    /// IVs refer to log(K_f/F_f) in normalized residual equity (mean one).
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(maturity_nodes,log_forward_moneyness_nodes,implied_volatilities,projection_nodes,*,config=None,tail_probability_tolerance=1e-7,relative_mean_tolerance=1e-4,iv_bump=1e-4))]
+    fn bass_local_volatility(
+        py: Python<'_>,
+        maturity_nodes: Vec<f64>,
+        log_forward_moneyness_nodes: Vec<f64>,
+        implied_volatilities: Vec<f64>,
+        projection_nodes: Vec<f64>,
+        config: Option<PyRef<'_, crate::bass_lv::PyBassLvConfig>>,
+        tail_probability_tolerance: f64,
+        relative_mean_tolerance: f64,
+        iv_bump: f64,
+    ) -> PyResult<Self> {
+        let config = config.map(|c| c.config()).unwrap_or_default();
+        py.detach(|| {
+            let surface = pricing::market::MarketIvSurface::new(
+                maturity_nodes,
+                log_forward_moneyness_nodes,
+                implied_volatilities,
+            )
+            .map_err(|e| pricing::bass_lv::BassError::InvalidInput(e.to_string()))?;
+            pricing::models::BassLvSpec::new(
+                surface,
+                projection_nodes,
+                config,
+                pricing::bass_lv::BassSurfaceProjectionConfig {
+                    tail_probability_tolerance,
+                    relative_mean_tolerance,
+                },
+                iv_bump,
+            )
+        })
+        .map(|spec| Self {
+            inner: ModelSpec::BassLocalVolatility(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_bass_target", "/model/parameters", error))
+    }
     /// Build a constant-volatility Black--Scholes model.
     #[staticmethod]
     fn black_scholes(py: Python<'_>, volatility: f64) -> PyResult<Self> {
