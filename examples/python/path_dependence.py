@@ -1,4 +1,4 @@
-"""Exact and explicitly smoothed Digital valuation with a width ladder."""
+"""Digital smoothing and continuous Barrier pricing with declared hit history."""
 
 # %% Market and contract
 import numpy as np
@@ -74,3 +74,22 @@ for entry in ladder.entries:
         "adjacent price difference:",
         None if difference is None else difference.price,
     )
+
+
+# %% Continuous Barrier history in the shared Black–Scholes plan
+# This state summarizes the whole past monitoring interval, not just endpoints.
+for historical_hit in (False, True):
+    barrier = rp.Product.barrier(
+        1, 2, "2027-09-04", 100.0, 120.0, 2.0, "call", "up", "knock_out",
+        "continuous", ["2026-09-03", "2027-09-04"], "2027-09-04",
+        rebate=7.0, historical_hit=historical_hit,
+    )
+    request = rp.PricingRequest(
+        "2026-09-04", barrier, market, model, engine,
+        rp.RiskRequest(delta=True, gamma_relative_bump=0.01, vega=True),
+    )
+    result = rp.PricingPlan.compile(request, worker_threads=2).evaluate()
+    print("historical hit:", historical_hit, "price:", result.value, "delta:", result.delta_raw)
+    if historical_hit:
+        assert abs(result.value - 7.0 * 0.95) < 1e-12
+        assert (result.delta_raw, result.gamma_raw, result.vega_raw) == (0.0, 0.0, 0.0)

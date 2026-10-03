@@ -200,21 +200,21 @@ impl ArithmeticAsianSpec {
 
 impl BarrierSpec {
     pub fn source_graph(&self) -> Result<SourceGraph, GraphError> {
-        self.build_source_graph(None, &BTreeSet::new())
+        self.build_source_graph(None, None, &BTreeSet::new())
     }
 
     pub fn source_graph_with_dividend_jumps(
         &self,
         jump_dates: &[Date],
     ) -> Result<SourceGraph, GraphError> {
-        self.build_source_graph(None, &jump_dates.iter().copied().collect())
+        self.build_source_graph(None, None, &jump_dates.iter().copied().collect())
     }
 
     pub fn smoothed_source_graph(
         &self,
         smoothing: CompactC2Smoothing,
     ) -> Result<SourceGraph, GraphError> {
-        self.build_source_graph(Some(smoothing), &BTreeSet::new())
+        self.build_source_graph(None, Some(smoothing), &BTreeSet::new())
     }
 
     pub fn smoothed_source_graph_with_dividend_jumps(
@@ -222,14 +222,40 @@ impl BarrierSpec {
         smoothing: CompactC2Smoothing,
         jump_dates: &[Date],
     ) -> Result<SourceGraph, GraphError> {
-        self.build_source_graph(Some(smoothing), &jump_dates.iter().copied().collect())
+        self.build_source_graph(None, Some(smoothing), &jump_dates.iter().copied().collect())
+    }
+
+    /// Compile with fixed historical state and only current/future observations.
+    pub fn source_graph_at(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(Some(valuation_date), None, &BTreeSet::new())
+    }
+
+    pub fn smoothed_source_graph_at(
+        &self,
+        valuation_date: Date,
+        smoothing: CompactC2Smoothing,
+    ) -> Result<SourceGraph, GraphError> {
+        self.build_source_graph(Some(valuation_date), Some(smoothing), &BTreeSet::new())
     }
 
     pub(in crate::engine) fn build_source_graph(
         &self,
+        valuation_date: Option<Date>,
         smoothing: Option<CompactC2Smoothing>,
         jump_dates: &BTreeSet<Date>,
     ) -> Result<SourceGraph, GraphError> {
+        if self.historical_hit().is_some() && valuation_date.is_none() {
+            return Err(GraphError::BarrierHistoryRequiresValuationDate);
+        }
+        if let Some(valuation_date) = valuation_date {
+            let has_past = self
+                .monitoring_dates()
+                .iter()
+                .any(|date| *date < valuation_date);
+            if has_past != self.historical_hit().is_some() {
+                return Err(GraphError::InvalidBarrierHistory);
+            }
+        }
         let mut builder = SourceGraphBuilder::new();
         let strike = builder.literal(self.strike().get())?;
         let terminal = builder.push(SourceOpcode::TerminalSpot {
@@ -258,8 +284,23 @@ impl BarrierSpec {
         })?;
 
         let barrier = builder.literal(self.barrier().get())?;
-        let mut hit = zero;
-        for date in self.monitoring_dates() {
+        let mut hit = if self.historical_hit() == Some(true) {
+            builder.literal(1.0)?
+        } else {
+            zero
+        };
+        for date in self
+            .monitoring_dates()
+            .iter()
+            // A continuous past hit is absorbing. Do not retain today's or
+            // future observations in a graph used by a resolved hybrid adapter.
+            // In particular, the continuous runtime omits time-zero observations.
+            .filter(|_| {
+                self.monitoring() != crate::product::BarrierMonitoring::Continuous
+                    || self.historical_hit() != Some(true)
+            })
+            .filter(|date| valuation_date.is_none_or(|valuation| **date >= valuation))
+        {
             let spot = builder.push(SourceOpcode::TerminalSpot {
                 underlying: self.underlying(),
                 observation_date: *date,
@@ -421,7 +462,7 @@ impl ProductSpec {
             Self::EuropeanVanilla(spec) => spec.source_graph(),
             Self::AmericanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
-            Self::Barrier(spec) => spec.source_graph(),
+            Self::Barrier(spec) => spec.source_graph_at(valuation_date),
             Self::ArithmeticAsian(spec) => spec.source_graph(),
             Self::FixedLookback(spec) => spec.source_graph(valuation_date),
         }

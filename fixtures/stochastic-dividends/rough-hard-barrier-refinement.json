@@ -1,0 +1,9 @@
+{
+  "scope": "fixed_surface_hard_barrier_refinement",
+  "source_fixture": "rough-survival-barrier-reference.json",
+  "case_ids": ["h01_n8_four", "h03_n8_four"],
+  "levels": [16, 32, 64, 128],
+  "valuation_seeds": [193, 877],
+  "sampling": {"rng": "numpy.random.PCG64", "batches": 32, "antithetic_pairs_per_batch": 8192},
+  "acceptance": {"comparison_steps": 64, "price_bound": 0.05, "delta_bound": 0.01, "price_se": 0.01, "delta_se": 0.002}
+}

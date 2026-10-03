@@ -3,7 +3,10 @@ use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Range;
 
-use pricing_numerics::{CenteredMoment, NeumaierSum, reduce_moments, reduce_sums};
+use pricing_numerics::{
+    CenteredCovariance, CenteredMoment, NeumaierSum, reduce_covariances, reduce_moments,
+    reduce_sums,
+};
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
@@ -159,6 +162,12 @@ impl<E: Error + 'static> Error for TryExecutionError<E> {
     }
 }
 
+/// Marginal statistics and optional upper-triangular centered cross-moments.
+pub(crate) struct VectorStatistics {
+    pub components: Vec<DeterministicStatistics>,
+    pub covariances: Option<Vec<Vec<CenteredCovariance>>>,
+}
+
 /// Executes fixed logical blocks on a calculation-owned Rayon pool.
 pub struct DeterministicExecutor {
     policy: ExecutionPolicy,
@@ -271,6 +280,28 @@ impl DeterministicExecutor {
         F: Fn(u64, &mut [f64]) -> Result<(), E> + Sync + Send,
         E: Send,
     {
+        self.try_map_reduce_statistics_vector_with_covariance(
+            sampling_units,
+            components,
+            false,
+            evaluate,
+        )
+        .map(|s| s.components)
+    }
+
+    /// Optional centered cross-moments use the same logical blocks as marginals.
+    /// Only the upper triangle is accumulated; no path observations are retained.
+    pub(crate) fn try_map_reduce_statistics_vector_with_covariance<F, E>(
+        &self,
+        sampling_units: u64,
+        components: usize,
+        full_covariance: bool,
+        evaluate: F,
+    ) -> Result<VectorStatistics, TryExecutionError<E>>
+    where
+        F: Fn(u64, &mut [f64]) -> Result<(), E> + Sync + Send,
+        E: Send,
+    {
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
         let results = self.pool.install(|| {
@@ -278,6 +309,11 @@ impl DeterministicExecutor {
                 .into_par_iter()
                 .map(|block| {
                     let mut statistics = vec![DeterministicStatistics::default(); components];
+                    let mut covariances = full_covariance.then(|| {
+                        (0..components)
+                            .map(|i| vec![CenteredCovariance::new(); components - i])
+                            .collect::<Vec<_>>()
+                    });
                     let mut values = vec![0.0; components];
                     for sampling_unit in block {
                         values.fill(0.0);
@@ -291,18 +327,48 @@ impl DeterministicExecutor {
                             statistic.sum.add(value);
                             statistic.moments.add(value);
                         }
+                        if let Some(rows) = &mut covariances {
+                            for (i, row) in rows.iter_mut().enumerate() {
+                                for (c, &y) in row.iter_mut().zip(&values[i..]) {
+                                    c.add(values[i], y);
+                                }
+                            }
+                        }
                     }
-                    Ok(statistics)
+                    Ok(VectorStatistics {
+                        components: statistics,
+                        covariances,
+                    })
                 })
                 .collect::<Vec<Result<_, TryExecutionError<E>>>>()
         });
         let results = results.into_iter().collect::<Result<Vec<_>, _>>()?;
-        Ok((0..components)
+        let covariances = full_covariance.then(|| {
+            (0..components)
+                .map(|i| {
+                    (0..components - i)
+                        .map(|j| {
+                            reduce_covariances(
+                                results
+                                    .iter()
+                                    .map(|r| r.covariances.as_ref().expect("enabled")[i][j])
+                                    .collect(),
+                            )
+                        })
+                        .collect()
+                })
+                .collect()
+        });
+        let components = (0..components)
             .map(|i| DeterministicStatistics {
-                sum: reduce_sums(results.iter().map(|r| r[i].sum).collect()),
-                moments: reduce_moments(results.iter().map(|r| r[i].moments).collect()),
+                sum: reduce_sums(results.iter().map(|r| r.components[i].sum).collect()),
+                moments: reduce_moments(results.iter().map(|r| r.components[i].moments).collect()),
             })
-            .collect())
+            .collect();
+        Ok(VectorStatistics {
+            components,
+            covariances,
+        })
     }
 
     /// Reduces several pathwise quantities together while preserving the same
@@ -629,5 +695,67 @@ mod tests {
             .expect("execution");
         assert_eq!(statistics[0].sum().total(), (0_u64..19).sum::<u64>() as f64);
         assert_eq!(statistics[1].sum().total(), 38.0);
+    }
+}
+
+#[cfg(test)]
+mod covariance_tests {
+    use super::*;
+    use std::convert::Infallible;
+
+    #[test]
+    fn centered_vector_covariance_survives_offsets_and_replays_fixed_blocks() {
+        let sample = |i: u64, out: &mut [f64]| -> Result<(), Infallible> {
+            let x = (i % 5) as f64;
+            out[0] = 1e12 + x;
+            out[1] = -1e12 - 3.0 * x;
+            out[2] = 7.0;
+            Ok(())
+        };
+        let executor = |workers| {
+            DeterministicExecutor::new(ExecutionPolicy::new(workers, Some(5)).unwrap()).unwrap()
+        };
+        let plain = executor(1)
+            .try_map_reduce_statistics_vector(35, 3, sample)
+            .unwrap();
+        let single = executor(1)
+            .try_map_reduce_statistics_vector_with_covariance(35, 3, true, sample)
+            .unwrap();
+        let parallel = executor(3)
+            .try_map_reduce_statistics_vector_with_covariance(35, 3, true, sample)
+            .unwrap();
+        assert_eq!(single.components, plain);
+        assert_eq!(single.components, parallel.components);
+        assert_eq!(single.covariances, parallel.covariances);
+        let c = single.covariances.unwrap();
+        let variance = 70.0 / 34.0;
+        assert_eq!(c[0][0].sample_covariance(), Some(variance));
+        assert_eq!(c[0][1].sample_covariance(), Some(-210.0 / 34.0));
+        assert_eq!(c[1][0].sample_covariance(), Some(630.0 / 34.0));
+        for v in [c[0][2], c[1][1], c[2][0]] {
+            assert_eq!(v.sample_covariance(), Some(0.0));
+        }
+        let empty = executor(2)
+            .try_map_reduce_statistics_vector_with_covariance(0, 3, true, sample)
+            .unwrap();
+        assert!(
+            empty
+                .covariances
+                .unwrap()
+                .iter()
+                .flatten()
+                .all(|c| c.sample_covariance().is_none())
+        );
+        let error =
+            executor(3).try_map_reduce_statistics_vector_with_covariance(35, 3, true, |i, _| {
+                if i == 6 || i == 11 { Err(i) } else { Ok(()) }
+            });
+        assert!(matches!(
+            error,
+            Err(TryExecutionError::Evaluation {
+                sampling_unit: 6,
+                source: 6
+            })
+        ));
     }
 }

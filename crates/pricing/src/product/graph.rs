@@ -279,6 +279,8 @@ impl SourceGraphBuilder {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum GraphError {
+    BarrierHistoryRequiresValuationDate,
+    InvalidBarrierHistory,
     NodeIdExhausted,
     NonFiniteLiteral {
         bits: u64,
@@ -348,6 +350,14 @@ pub enum GraphError {
 impl fmt::Display for GraphError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::BarrierHistoryRequiresValuationDate => write!(
+                formatter,
+                "Barrier historical_hit requires a valuation date for payoff compilation"
+            ),
+            Self::InvalidBarrierHistory => write!(
+                formatter,
+                "Barrier history requires an explicit hit state exactly when past observations exist"
+            ),
             Self::NodeIdExhausted => write!(formatter, "Source NodeId capacity is exhausted"),
             Self::NonFiniteLiteral { bits } => {
                 write!(formatter, "payoff literal is non-finite: 0x{bits:016x}")

@@ -1,4 +1,4 @@
-//! Public rough residual-LSV correlation risk, including the pseudo-MC path.
+//! Public rough residual-LSV correlation risk and independent exact-limit checks.
 
 use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
 use pricing::models::RoughBergomi;
@@ -6,7 +6,7 @@ use pricing::stochastic_dividends::{BuehlerDividendModel, StochasticDividendPric
 use pricing::{JsonLimits, PricingRequest, parse_request_json};
 use serde_json::{Value, json};
 
-fn request(rqmc: bool, antithetic: bool, bridge: bool) -> PricingRequest {
+fn payload(rqmc: bool, antithetic: bool, bridge: bool) -> Value {
     let mut value: Value = serde_json::from_str(include_str!(
         "../../../fixtures/v1/pricing_request.golden.json"
     ))
@@ -29,6 +29,11 @@ fn request(rqmc: bool, antithetic: bool, bridge: bool) -> PricingRequest {
     };
     value["engine"]["variance_reduction"] =
         json!({"antithetic": antithetic, "brownian_bridge": bridge});
+    value
+}
+
+fn request(rqmc: bool, antithetic: bool, bridge: bool) -> PricingRequest {
+    let value = payload(rqmc, antithetic, bridge);
     parse_request_json(&serde_json::to_vec(&value).unwrap(), JsonLimits::DEFAULT).unwrap()
 }
 
@@ -141,4 +146,76 @@ fn rough_lsv_correlation_bumps_require_scalar_and_joint_domains() {
         base.evaluate_lsv_rough_bergomi_correlation_risk(0.02, 0.84)
             .is_err()
     );
+}
+
+#[test]
+fn rough_lsv_zero_eta_price_and_delta_match_independent_conditional_black() {
+    // eta=0 and a flat target imply constant squared leverage, independent of
+    // calibration particles. kappa=0 then makes terminal stock a sum of two
+    // correlated lognormals. These references integrate out the dividend
+    // normal with conditional Black, not a production path or pricing helper.
+    // The Python wheel test recomputes both references at orders 96 and 128.
+    const PRICE: f64 = 7.653276188575835;
+    const DELTA: f64 = 0.5922534629738484;
+    let mut value = payload(true, true, true);
+    value["market"]["discrete_dividends"] = json!([
+        {"event_id": 1, "ex_time": 1.4, "quote": {"type": "fixed_cash", "amount": 25.0}}
+    ]);
+    value["engine"]["points_per_scramble"] = json!(2048);
+    value["engine"]["scramble_count"] = json!(8);
+    value["engine"]["master_scramble_seed"] = json!(612);
+    let request =
+        parse_request_json(&serde_json::to_vec(&value).unwrap(), JsonLimits::DEFAULT).unwrap();
+    for (hurst, particles, seed) in [(0.01, 32, 42), (0.1, 64, 1973), (0.5, 128, 617)] {
+        for step in [0.5, 0.25] {
+            let plan = Plan::compile_rough_bergomi_lsv(
+                &request,
+                BuehlerDividendModel::new(0.0, 0.6, 0.45, -0.35).unwrap(),
+                RoughBergomi::new(hurst, 0.0, -0.4).unwrap(),
+                0.15,
+                LsvParticleConfig::new(particles, seed, 0.35, 5.0, false).unwrap(),
+                step,
+                ExecutionPolicy::new(1, Some(64)).unwrap(),
+            )
+            .unwrap();
+            assert!(
+                plan.lsv_squared_leverage()
+                    .unwrap()
+                    .iter()
+                    .all(|x| (x - 0.04).abs() < 2e-14)
+            );
+            assert_eq!(*plan.time_nodes().last().unwrap(), 1.0);
+            assert_eq!(plan.time_nodes().len(), (1.0 / step) as usize + 1);
+            let result = plan.evaluate_lsv_spot_risk().unwrap();
+            assert_eq!(result.price, plan.evaluate().unwrap());
+            assert_eq!(result.price.independent_sampling_units, 8);
+            assert_eq!(result.price.evaluated_paths, 32768);
+            assert!(result.price.standard_error < 0.02);
+            assert!(result.delta_standard_error < 0.005);
+            for (label, actual, expected, se, budget) in [
+                (
+                    "price",
+                    result.price.value,
+                    PRICE,
+                    result.price.standard_error,
+                    0.002,
+                ),
+                (
+                    "delta",
+                    result.delta,
+                    DELTA,
+                    result.delta_standard_error,
+                    0.00002,
+                ),
+            ] {
+                println!(
+                    "eta=0, H={hurst}, step={step}, {label}: {actual:.12}, reference={expected:.12}, SE={se:.6e}"
+                );
+                assert!(
+                    (actual - expected).abs() <= 6.0 * se + budget,
+                    "H={hurst}, step={step}, {label}: {actual} != {expected}, SE={se}"
+                );
+            }
+        }
+    }
 }
