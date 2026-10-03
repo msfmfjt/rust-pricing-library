@@ -243,15 +243,25 @@ class StochasticDividendHullWhitePlan:
 
 
 class StochasticDividendContinuousBarrierPlan:
-    """Opt-in, price-only frozen-variance physical log-Spot bridge approximation.
+    """Opt-in frozen-variance physical log-Spot bridge approximation.
 
     Includes stochastic-reserve variance/correlation and separate cash jumps.
-    No Greeks or smoothing. Sampling error excludes calibration/time-grid bias;
+    Explicit finite-bump Spot risk; no generic Greek flags or smoothing.
+    Sampling error excludes calibration/time-grid/bridge/bump bias;
     grid refinement is required for the intended contract and market parameters.
     """
     @staticmethod
     def compile_rough_bergomi_lsv(request: PricingRequest, *, hurst: float, vol_of_vol: float, correlation: float, dividend_mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float, dividend_volatility_correlation: float, particle_count: int, calibration_seed: int, log_bandwidth: float, minimum_effective_samples: float, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> StochasticDividendContinuousBarrierPlan: ...
     def evaluate(self) -> StochasticDividendPrice: ...
+    def evaluate_spot_bump_risk(self, *, spot_absolute_bump: float | None = None, spot_relative_bump: float | None = None) -> StochasticDividendContinuousBarrierSpotRisk:
+        """Paired central price differences for half/base/double Spot bumps.
+
+        Exactly one bump is required. Calibrated leverage values and past hit
+        history stay fixed; residual equity and physical Spot are re-anchored.
+        Endpoint/jump branches are re-evaluated, including initial equality.
+        This is a finite-bump approximation, not an exact derivative guarantee.
+        """
+        ...
     @property
     def plan_fingerprint(self) -> str: ...
     @property
@@ -270,6 +280,41 @@ class StochasticDividendContinuousBarrierPlan:
     def lsv_squared_leverage(self) -> list[float]: ...
     @property
     def lsv_initial_residual_equity(self) -> float: ...
+
+
+class StochasticDividendContinuousBarrierSpotRisk:
+    """Finite-bump Delta ladder of the continuous bridge approximation.
+
+    delta/standard_error select the base bump. All errors are paired sampling
+    errors conditional on calibration, grid, bridge and bump; bump gaps are
+    diagnostics, not bounds on derivative error. No extrapolation is performed.
+    """
+    @property
+    def price(self) -> StochasticDividendPrice: ...
+    @property
+    def spot(self) -> float: ...
+    @property
+    def spot_bumps(self) -> list[float]: ...
+    @property
+    def delta(self) -> float: ...
+    @property
+    def standard_error(self) -> float: ...
+    @property
+    def delta_estimates(self) -> list[float]: ...
+    @property
+    def delta_standard_errors(self) -> list[float]: ...
+    @property
+    def bump_differences(self) -> list[float]: ...
+    @property
+    def bump_difference_standard_errors(self) -> list[float]: ...
+    @property
+    def payoff_evaluations(self) -> int: ...
+    @property
+    def risk_fingerprint(self) -> str: ...
+    @property
+    def method(self) -> str: ...
+    @property
+    def uncertainty_scope(self) -> str: ...
 
 
 class StochasticDividendPlan:

@@ -418,12 +418,25 @@ cash jump are checked separately. Historical state and delayed fixed rebates
 follow the same contract rules as resolved monitoring.
 
 Call `evaluate()` to obtain `StochasticDividendPrice`. The scheme ends in
-`continuous-physical-log-bridge-approx-v1`. No Greek methods are exposed, and
-request risk flags or smoothing are rejected. The bridge is not the exact
+`continuous-physical-log-bridge-approx-v1`. Generic Greek request flags and
+payoff smoothing are rejected. The bridge is not the exact
 crossing law of the nonlinear rough model. Sampling error excludes calibration
 and grid/bridge bias; refine the grid for the intended parameters. See the
 [derivation, reference comparisons and limitations](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md)
 and [Python example](../../examples/python/rough_dividend_continuous_barrier.py).
+
+The explicit `evaluate_spot_bump_risk` method adds common-random-number central
+price differences with a half/base/double Spot-bump ladder. Python requires
+exactly one `spot_absolute_bump` or `spot_relative_bump`; Rust accepts `SpotBump`.
+The result reports each estimate and paired SE, adjacent bump differences and
+their paired SEs. It re-anchors residual equity without changing calibrated
+leverage values and re-evaluates all continuous endpoint/cash branches. History
+stays fixed. This is finite-bump risk of the bridge approximation, including at
+initial barrier equality; it does not assert that an exact Delta exists or that
+bump gaps bound its error. All six shifted Spots must remain funded. Sampling
+SE excludes calibration, time-grid, bridge and bump bias. See the
+[finite-bump contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#finite-bump-spot-risk).
+
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
 

@@ -31,7 +31,9 @@ mod lsv_uncertainty_tests;
 #[cfg(test)]
 mod resolved_barrier_tests;
 pub use aad::StochasticDividendAadRisk;
-pub use continuous_barrier::StochasticDividendContinuousBarrierPlan;
+pub use continuous_barrier::{
+    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierSpotRisk,
+};
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
 pub use lsv_correlations::StochasticDividendLsvCorrelationRisk;

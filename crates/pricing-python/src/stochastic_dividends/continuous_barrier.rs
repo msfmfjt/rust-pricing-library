@@ -1,7 +1,10 @@
 use super::*;
-use pricing::stochastic_dividends::StochasticDividendContinuousBarrierPlan;
+use pricing::core::PositiveF64;
+use pricing::stochastic_dividends::{
+    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierSpotRisk,
+};
 
-/// Price-only rough-LSV continuous Barrier approximation. Uses left-frozen
+/// Rough-LSV continuous Barrier approximation. Uses left-frozen
 /// physical log-Spot variance, stochastic reserve and separate cash jumps.
 /// Sampling errors exclude calibration uncertainty and time-grid bias.
 #[pyclass(
@@ -77,6 +80,29 @@ impl PyStochasticDividendContinuousBarrierPlan {
             .map(|inner| PyStochasticDividendPrice { inner })
             .map_err(pricing_exception)
     }
+    /// Finite central price differences on a half/base/double Spot-bump ladder.
+    #[pyo3(signature=(*, spot_absolute_bump=None, spot_relative_bump=None))]
+    fn evaluate_spot_bump_risk(
+        &self,
+        py: Python<'_>,
+        spot_absolute_bump: Option<f64>,
+        spot_relative_bump: Option<f64>,
+    ) -> PyResult<PyStochasticDividendContinuousBarrierSpotRisk> {
+        let bump = match (spot_absolute_bump, spot_relative_bump) {
+            (Some(h), None) => PositiveF64::new(h, "spot_absolute_bump").map(SpotBump::Absolute),
+            (None, Some(h)) => PositiveF64::new(h, "spot_relative_bump").map(SpotBump::Relative),
+            _ => {
+                return Err(invalid(
+                    py,
+                    "specify exactly one continuous Barrier Spot bump",
+                ));
+            }
+        }
+        .map_err(|e| invalid(py, e))?;
+        py.detach(|| self.inner.evaluate_spot_bump_risk(bump))
+            .map(|inner| PyStochasticDividendContinuousBarrierSpotRisk { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
@@ -112,5 +138,73 @@ impl PyStochasticDividendContinuousBarrierPlan {
     #[getter]
     fn lsv_initial_residual_equity(&self) -> f64 {
         self.inner.lsv_initial_residual_equity()
+    }
+}
+
+/// Finite-bump Spot risk of the bridge approximation, with paired sampling errors.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendContinuousBarrierSpotRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendContinuousBarrierSpotRisk {
+    inner: StochasticDividendContinuousBarrierSpotRisk,
+}
+#[pymethods]
+impl PyStochasticDividendContinuousBarrierSpotRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn spot(&self) -> f64 {
+        self.inner.spot
+    }
+    #[getter]
+    fn spot_bumps(&self) -> Vec<f64> {
+        self.inner.spot_bumps.to_vec()
+    }
+    #[getter]
+    fn delta_estimates(&self) -> Vec<f64> {
+        self.inner.delta_estimates.to_vec()
+    }
+    #[getter]
+    fn delta_standard_errors(&self) -> Vec<f64> {
+        self.inner.delta_standard_errors.to_vec()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<f64> {
+        self.inner.bump_differences.to_vec()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<f64> {
+        self.inner.bump_difference_standard_errors.to_vec()
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta()
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        self.inner.uncertainty_scope()
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
     }
 }

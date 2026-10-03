@@ -82,6 +82,62 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         with self.assertRaises(rp.PricingError):
             compile_plan(case,make_request(case,monitoring='discrete'))
 
+    def test_spot_bump_risk_against_independent_numpy(self):
+        gates=FIXTURE['spot_bump_acceptance']
+        for case in FIXTURE['cases']:
+            with self.subTest(case=case['id']):
+                plan=compile_plan(case,make_request(case,points=8192,scrambles=16))
+                risk=plan.evaluate_spot_bump_risk(spot_absolute_bump=1.)
+                means=np.asarray(case['spot_bump_batch_means'])
+                reference=means.mean(axis=0)
+                errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+                actual=np.array(risk.delta_estimates+risk.bump_differences)
+                se=np.array(risk.delta_standard_errors+risk.bump_difference_standard_errors)
+                bounds=np.abs(actual-reference)+4*np.hypot(errors,se)
+                self.assertLess(max(bounds[:3]),gates['delta_difference_plus_4se'])
+                self.assertLess(max(bounds[3:]),gates['gap_difference_plus_4se'])
+                self.assertLess(max(se[:3]),gates['production_delta_se'])
+                self.assertLess(max(errors[:3]),gates['reference_delta_se'])
+                self.assertEqual(risk.spot_bumps,[.5,1.,2.])
+                self.assertEqual(risk.delta,risk.delta_estimates[1])
+                self.assertEqual(risk.standard_error,risk.delta_standard_errors[1])
+                self.assertEqual(risk.payoff_evaluations,7*risk.price.evaluated_paths)
+                self.assertEqual(risk.price.plan_fingerprint,plan.plan_fingerprint)
+                self.assertEqual(risk.price.scheme,plan.scheme)
+                self.assertEqual(risk.price.value,plan.evaluate().value)
+                self.assertIn('continuous-bridge-crn-spot-bump-v1',risk.method)
+                self.assertEqual(risk.uncertainty_scope,'sampling_only_fixed_calibration_grid_bridge_and_bump')
+
+    def test_spot_bump_api_replay_immutability_and_validation(self):
+        case=FIXTURE['cases'][0]
+        plan=compile_plan(case)
+        risk=plan.evaluate_spot_bump_risk(spot_absolute_bump=1.)
+        relative=plan.evaluate_spot_bump_risk(spot_relative_bump=.01)
+        self.assertEqual(risk.delta_estimates,relative.delta_estimates)
+        self.assertNotEqual(risk.risk_fingerprint,relative.risk_fingerprint)
+        self.assertNotEqual(risk.risk_fingerprint,plan.evaluate_spot_bump_risk(spot_absolute_bump=2.).risk_fingerprint)
+        with self.assertRaises(AttributeError):
+            risk.delta=0.
+        detached=risk.delta_estimates
+        detached[0]=999.
+        self.assertNotEqual(risk.delta_estimates[0],999.)
+        parallel=compile_plan(case,worker_threads=3).evaluate_spot_bump_risk(spot_absolute_bump=1.)
+        self.assertEqual(risk.delta_estimates,parallel.delta_estimates)
+        self.assertEqual(risk.delta_standard_errors,parallel.delta_standard_errors)
+        self.assertEqual(risk.bump_difference_standard_errors,parallel.bump_difference_standard_errors)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _: plan.evaluate_spot_bump_risk(spot_absolute_bump=1.).delta,range(2))),[risk.delta]*2)
+        for kwargs in ({},{'spot_absolute_bump':1.,'spot_relative_bump':.01},
+                       *({'spot_absolute_bump':h} for h in [0.,-1.,float('nan'),float('inf'),1e-300,45.,50.])):
+            with self.subTest(kwargs=kwargs),self.assertRaises((rp.ValidationError,rp.PricingError)):
+                plan.evaluate_spot_bump_risk(**kwargs)
+        # Frozen past hit pays fixed cash and has exactly zero Spot-bump risk.
+        rebated=case|dict(contract=case['contract']|dict(notional=1e18,rebate=7.))
+        fixed=compile_plan(rebated,make_request(rebated,history=True,dates=['2026-09-03'])).evaluate_spot_bump_risk(spot_absolute_bump=1.)
+        self.assertEqual(fixed.delta_estimates,[0.,0.,0.])
+        self.assertEqual(fixed.delta_standard_errors,[0.,0.,0.])
+        self.assertEqual(fixed.bump_difference_standard_errors,[0.,0.])
+
     def test_history_and_monitoring_end_do_not_infer_past_hits(self):
         case = FIXTURE['cases'][0]
         past=['2026-09-03']

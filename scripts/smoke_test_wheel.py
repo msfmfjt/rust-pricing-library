@@ -997,6 +997,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "StochasticDividendHullWhitePlan",
         "StochasticDividendPlan",
         "StochasticDividendContinuousBarrierPlan",
+        "StochasticDividendContinuousBarrierSpotRisk",
         "StochasticDividendPrice",
         "StochasticDividendAadRisk",
         "StochasticDividendGammaRisk",
@@ -1256,6 +1257,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('StochasticDividendPlan', 'evaluate_lsv_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['gamma_absolute_bump', 'gamma_relative_bump'], 'required_keyword_only': [], 'keyword_only_defaults': {'gamma_absolute_bump': None, 'gamma_relative_bump': None}},
         ('StochasticDividendPlan', 'evaluate_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['gamma_absolute_bump', 'gamma_relative_bump'], 'required_keyword_only': [], 'keyword_only_defaults': {'gamma_absolute_bump': None, 'gamma_relative_bump': None}},
         ('StochasticDividendPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('StochasticDividendContinuousBarrierPlan', 'evaluate_spot_bump_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['spot_absolute_bump', 'spot_relative_bump'], 'required_keyword_only': [], 'keyword_only_defaults': {'spot_absolute_bump': None, 'spot_relative_bump': None}},
         ('StochasticDividendContinuousBarrierPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_local_variance_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('StochasticDividendPlan', 'evaluate_lsv_spot_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2026,7 +2028,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
-        'StochasticDividendContinuousBarrierPlan': {'lsv_squared_leverage', 'random_factor_count', 'compile_rough_bergomi_lsv', 'plan_fingerprint', 'lsv_initial_residual_equity', 'lsv_time_nodes', 'risky_spot', 'time_nodes', 'lsv_log_moneyness_nodes', 'scheme', 'evaluate'},
+        'StochasticDividendContinuousBarrierSpotRisk': {'method', 'spot', 'standard_error', 'uncertainty_scope', 'delta_standard_errors', 'bump_differences', 'bump_difference_standard_errors', 'spot_bumps', 'payoff_evaluations', 'delta_estimates', 'risk_fingerprint', 'delta', 'price'},
+        'StochasticDividendContinuousBarrierPlan': {'lsv_squared_leverage', 'random_factor_count', 'compile_rough_bergomi_lsv', 'plan_fingerprint', 'lsv_initial_residual_equity', 'lsv_time_nodes', 'risky_spot', 'time_nodes', 'lsv_log_moneyness_nodes', 'scheme', 'evaluate', 'evaluate_spot_bump_risk'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -2651,6 +2654,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('StochasticDividendContinuousBarrierSpotRisk', 'price'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'spot'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'spot_bumps'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'delta'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'standard_error'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'delta_estimates'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'delta_standard_errors'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'bump_differences'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'bump_difference_standard_errors'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'payoff_evaluations'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'risk_fingerprint'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'method'),
+        ('StochasticDividendContinuousBarrierSpotRisk', 'uncertainty_scope'),
         ('StochasticDividendContinuousBarrierPlan', 'plan_fingerprint'),
         ('StochasticDividendContinuousBarrierPlan', 'time_nodes'),
         ('StochasticDividendContinuousBarrierPlan', 'random_factor_count'),

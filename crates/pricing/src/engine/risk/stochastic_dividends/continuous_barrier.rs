@@ -1,4 +1,4 @@
-//! Price-only continuous monitoring by a left-frozen physical log-Spot bridge.
+//! Continuous monitoring by a left-frozen physical log-Spot bridge.
 //! This is a time-discretization approximation, not the conditional crossing
 //! law of the nonlinear f/Y split or of the rough Volterra process.
 use super::*;
@@ -8,14 +8,17 @@ use crate::product::{
     BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, OptionSide, ProductSpec,
 };
 
+mod spot_bump;
+pub use spot_bump::StochasticDividendContinuousBarrierSpotRisk;
+
 const SCHEME: &str = "buehler-rough-residual-lsv-continuous-physical-log-bridge-approx-v1";
 
 /// Opt-in price approximation for a continuously monitored rough residual-LSV
 /// Barrier with stochastic cash dividends and deterministic rates.
 ///
 /// The interval variance is the instantaneous physical log-Spot variance frozen
-/// at the left post-cash node. Cash jumps are checked separately. No Greeks are
-/// exposed: the discrete graph adjoints do not differentiate this estimator.
+/// at the left post-cash node. Cash jumps are checked separately. Spot risk is
+/// an explicit finite-bump estimate; discrete graph adjoints are never used.
 /// Sampling errors exclude calibration uncertainty and all discretization bias.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendContinuousBarrierPlan {
@@ -149,6 +152,7 @@ impl StochasticDividendContinuousBarrierPlan {
 
     fn log_survival(
         &self,
+        path: &StochasticDividendPathPlan,
         states: &[BuehlerDividendState],
         spots: &[(f64, Option<f64>)],
         volatilities: &[f64],
@@ -166,7 +170,6 @@ impl StochasticDividendContinuousBarrierPlan {
             BarrierDirection::Up => BarrierBridgeDirection::Up,
             BarrierDirection::Down => BarrierBridgeDirection::Down,
         };
-        let path = &self.inner.path;
         let model = path.model();
         let mut log_survival = 0.0;
         for i in 0..end {
@@ -201,15 +204,22 @@ impl StochasticDividendContinuousBarrierPlan {
             .inner
             .path
             .evolve_rough_path_with_volatilities(shocks)?;
-        let spots = self
-            .inner
-            .path
+        self.payoff_from_trace(&self.inner.path, &states, &volatilities)
+    }
+
+    fn payoff_from_trace(
+        &self,
+        path: &StochasticDividendPathPlan,
+        states: &[BuehlerDividendState],
+        volatilities: &[f64],
+    ) -> Result<f64, MonteCarloError> {
+        let spots = path
             .nodes()
             .iter()
-            .zip(&states)
+            .zip(states)
             .map(|(node, state)| node.spots(*state))
             .collect::<Result<Vec<_>, _>>()?;
-        let log_survival = self.log_survival(&states, &spots, &volatilities)?;
+        let log_survival = self.log_survival(path, states, &spots, volatilities)?;
         let survival = log_survival.exp();
         // Keep small knock-in probabilities when exp(log_survival) rounds to 1.
         let hit = -log_survival.exp_m1();
@@ -240,3 +250,6 @@ fn physical_log_variance(equity: f64, dividend: f64, rho: f64) -> f64 {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod spot_bump_tests;

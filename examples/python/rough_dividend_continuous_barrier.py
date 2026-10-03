@@ -1,4 +1,4 @@
-"""Opt-in continuous rough-LSV Barrier price approximation; no Greeks."""
+"""Opt-in continuous rough-LSV Barrier approximation with paired finite-bump Spot risk."""
 import rust_pricing as rp
 
 expiry = 364/365
@@ -32,3 +32,12 @@ print('Fingerprint:', price.plan_fingerprint)
 print('Uses physical log-Spot variance including the stochastic dividend reserve.')
 print('Past monitoring is explicitly unhit; diffusion and cash jumps are monitored from valuation.')
 print('Sampling SE excludes calibration uncertainty and time-grid bias. Refine maximum_step before use.')
+
+risk = plan.evaluate_spot_bump_risk(spot_absolute_bump=1.)
+print('Spot bumps:', risk.spot_bumps)
+print('Finite-bump Deltas:', risk.delta_estimates)
+print('Paired sampling SEs:', risk.delta_standard_errors)
+print('Adjacent bump differences:', risk.bump_differences)
+print('Paired gap SEs:', risk.bump_difference_standard_errors)
+print('Risk method:', risk.method)
+print('Finite bumps include endpoint/jump branch changes; gaps are diagnostics, not error bounds.')

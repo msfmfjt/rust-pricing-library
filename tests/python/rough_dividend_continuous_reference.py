@@ -101,6 +101,25 @@ def batch_means(base, market, contract, *, seed=20261003, batches=32, pairs=8192
     return np.asarray(means)
 
 
+def spot_bump_means(base, market, contract, *, bump=1., seed=20261005, batches=32, pairs=8192):
+    """Finite central price differences on paired PCG64 paths, no production risk."""
+    rng = np.random.Generator(np.random.PCG64(seed))
+    means = []
+    for _ in range(batches):
+        z = rng.standard_normal((pairs, len(base['times'])-1, 4))
+        columns = []
+        for h in [bump/2, bump, 2*bump]:
+            scenarios = []
+            for spot in [market['spot']-h, market['spot']+h]:
+                shifted = market | dict(spot=spot)
+                scenarios.append((path_values(base, shifted, z, **contract)[:,0]
+                                  +path_values(base, shifted, -z, **contract)[:,0])/2)
+            columns.append((scenarios[1]-scenarios[0])/(2*h))
+        columns.extend([columns[0]-columns[1], columns[1]-columns[2]])
+        means.append(np.stack(columns,axis=1).mean(axis=0))
+    return np.asarray(means)
+
+
 def refinement_means(base, market, contract, coarse_steps, *, seed=20261004, batches=16, pairs=2048):
     """Coupled coarse/fine Brownian increments and exact newest-cell integrals."""
     fine = refine_case(base, 2*coarse_steps)
@@ -128,6 +147,14 @@ def verify_fixture():
         assert se[0] < fixture['acceptance']['reference_price_se']
         print(json.dumps(dict(scope=fixture['scope'], case=case['id'], price=float(means[:, 0].mean()),
                               standard_error=float(se[0]))), flush=True)
+    for case in fixture['cases']:
+        means = spot_bump_means(bases[case['base_case']], market | case['market'],
+                               case['contract'], **fixture['spot_bump_sampling'])
+        np.testing.assert_allclose(means, case['spot_bump_batch_means'], rtol=0, atol=1e-9)
+        errors = means.std(axis=0, ddof=1)/math.sqrt(len(means))
+        assert np.max(errors[:3]) < fixture['spot_bump_acceptance']['reference_delta_se']
+        print(json.dumps(dict(scope='finite_bump_continuous_bridge_spot_risk', case=case['id'],
+            spot_bumps=[.5,1.,2.], estimates=means.mean(axis=0).tolist(), standard_errors=errors.tolist())), flush=True)
     for case in fixture['refinement']:
         source = next(c for c in fixture['cases'] if c['id'] == case['case'])
         means = refinement_means(bases[source['base_case']], market | source['market'], source['contract'],

@@ -5,7 +5,7 @@ use crate::engine::risk::stochastic_dividends::lsv_path_refinement_tests::{
 use crate::{JsonLimits, parse_request_json};
 use serde_json::{Value, json};
 
-fn payload() -> Value {
+pub(super) fn payload() -> Value {
     let mut v = request_value(Contract::Barrier);
     v["risk"]
         .as_object_mut()
@@ -17,7 +17,7 @@ fn payload() -> Value {
     v["product"]["rebate"] = json!(7.0);
     v
 }
-fn compile(
+pub(super) fn compile(
     v: &Value,
     eta: f64,
 ) -> Result<StochasticDividendContinuousBarrierPlan, MonteCarloError> {
@@ -180,7 +180,7 @@ fn jumps_and_monitoring_end_are_observed_separately() {
         // A later crossing is outside the contractual window.
         spots[end + 1] = (hit, Some(hit));
         assert!(
-            plan.log_survival(&states, &spots, &volatility)
+            plan.log_survival(&plan.inner.path, &states, &spots, &volatility)
                 .unwrap()
                 .is_finite()
         );
@@ -190,13 +190,15 @@ fn jumps_and_monitoring_end_are_observed_separately() {
             (hit, Some(safe))
         };
         assert_eq!(
-            plan.log_survival(&states, &spots, &volatility).unwrap(),
+            plan.log_survival(&plan.inner.path, &states, &spots, &volatility)
+                .unwrap(),
             f64::NEG_INFINITY
         );
         spots[end] = (safe, Some(safe));
         spots[0].0 = 100.0;
         assert_eq!(
-            plan.log_survival(&states, &spots, &volatility).unwrap(),
+            plan.log_survival(&plan.inner.path, &states, &spots, &volatility)
+                .unwrap(),
             f64::NEG_INFINITY
         );
     }

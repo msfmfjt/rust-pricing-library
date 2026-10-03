@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = {
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/spot_bump.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/spot_bump_tests.rs',
     'crates/pricing-python/src/stochastic_dividends/continuous_barrier.rs',
     'tests/python/rough_dividend_continuous_reference.py',
     'tests/python/test_rough_dividend_continuous.py',

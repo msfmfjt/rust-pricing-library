@@ -1,7 +1,7 @@
 # Continuous stochastic-dividend Barrier price approximation
 
 The Rust and Python `StochasticDividendContinuousBarrierPlan` provides an
-explicit, price-only rough residual-LSV approximation for a continuously
+explicit rough residual-LSV approximation for a continuously
 monitored Up/Down, Call/Put, knock-in/out Barrier. Compile with
 `compile_rough_bergomi_lsv`, a Local Volatility target in funded residual-equity
 coordinates and a price-only request. The existing `StochasticDividendPlan`
@@ -10,7 +10,7 @@ continues to reject live continuous monitoring.
 The result uses `StochasticDividendPrice` and scheme
 `buehler-rough-residual-lsv-continuous-physical-log-bridge-approx-v1`.
 The scheme participates in the plan fingerprint. The plan exposes calibration
-inputs and price evaluation, but no Greek methods. Generic risk flags, payoff
+inputs, price evaluation and explicit finite-bump Spot risk. Generic risk flags, payoff
 smoothing and smoothing-width ladders reject before calibration.
 
 ## Finite-grid definition
@@ -74,6 +74,48 @@ The optional volatility trace records the same causal sigma during evolution;
 it neither replays the quadratic rough history nor reads next-node variance.
 Legacy pricing uses the same evolution and sampling order as before.
 
+## Finite-bump Spot risk
+
+`evaluate_spot_bump_risk(SpotBump)` in Rust and
+`evaluate_spot_bump_risk(spot_absolute_bump=... | spot_relative_bump=...)` in
+Python evaluate central price differences at half/base/double bump sizes.
+Exactly one strictly positive, finite bump is required. The returned immutable
+`StochasticDividendContinuousBarrierSpotRisk` exposes:
+
+- `price`, the same base price and sampling error as `evaluate()`;
+- `spot_bumps`, three absolute bumps in half/base/double order;
+- `delta_estimates` and `delta_standard_errors`, paired at each bump;
+- `delta` and `standard_error`, selecting the base bump;
+- `bump_differences`, Delta(h/2)-Delta(h) and Delta(h)-Delta(2h), and their paired
+  `bump_difference_standard_errors`;
+- `payoff_evaluations`, seven times the base evaluated-path count;
+- `risk_fingerprint`, including the base plan, method, requested absolute/relative
+  convention and actual bump ladder.
+
+The method tag is
+`buehler-rough-residual-lsv-continuous-bridge-crn-spot-bump-v1`.
+Each scenario re-anchors funded residual equity and the leverage surface's
+initial residual level. Calibrated leverage **values** and log-moneyness nodes
+stay fixed, as implied by the existing scale-invariant residual-LSV calibration.
+Normalized f/Y states and causal step volatilities can therefore be shared.
+Physical stock, physical log variance, survival weights, pre/post-cash hit
+branches and terminal intrinsic are all recomputed for each scenario. Past hit
+history remains fixed. Cash means, curves, model inputs, target and grid stay
+fixed. There is no reverse tape or discrete-payoff adjoint in this method.
+
+All six Spot scenarios must be representable and leave positive funded residual
+equity, even for resolved contracts. Invalid ladders reject before sampling;
+there is no clamp or one-sided fallback. Current Spot/barrier equality is allowed:
+the result describes a finite price change across that boundary, not a guarantee
+that a derivative exists there. No zero-bump limit or extrapolation is taken.
+
+Sampling units pair both Spot scenarios and antithetic paths; RQMC then uses
+independent scramble means. Adjacent bump gaps also use paired observations,
+not independent-error propagation. Their errors exclude calibration uncertainty,
+time-grid/bridge bias and finite-bump bias. Gaps are diagnostics, not bounds on
+exact Delta error or a certificate that a selected bump is sufficiently small.
+The uncertainty scope is `sampling_only_fixed_calibration_grid_bridge_and_bump`.
+
 ## Validation
 
 The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs)
@@ -114,15 +156,32 @@ sampled path. These checks measure finite-algorithm agreement and observed
 grid changes. They do not bound distance to the true continuous-time price,
 prove monotone convergence, or cover recalibration/particle error across grids.
 
+Spot-risk controls compare all eight contract styles against separately
+recompiled/recalibrated shifted prices. MC and RQMC errors are independently
+reconstructed with and without antithetic paths. They also cover worker replay,
+absorbing fixed cash at notional 1e18, initial equality, ended-unhit history,
+absolute/relative fingerprints and unfunded/unrepresentable bump rejection.
+Python checks immutable/detached results, concurrent calls and argument errors.
+
+The same independent NumPy implementation supplies a separate Spot-bump panel
+for all four reference cases, using 32 batches of 8,192 antithetic pairs, seed
+20261005, and absolute bumps 0.5/1/2. It independently reconstructs and evolves
+all six shifted markets. Production comparisons use 16 RQMC scrambles of 8,192
+points. For each Delta, absolute difference plus four combined SEs must be below
+0.03; for each adjacent gap the gate is 0.015. Both reference and production
+Delta SEs must be below 0.004. These validate finite-bump risk of the finite-grid
+bridge algorithm, not a continuous-time derivative.
+
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract
 include the new API, tests and [example](../../examples/python/rough_dividend_continuous_barrier.py).
 
 ## Remaining work
 
-Continuous Barrier sensitivities require differentiating the bridge estimator
-and its discontinuous endpoint/jump branches; discrete graph adjoints are not
-valid substitutes. Independent fine-path studies, calibration-aware refinement
+Zero-bump continuous Barrier sensitivities require treating the bridge
+estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
+are not valid substitutes. The explicit finite-bump Spot method does not yet
+provide Gamma, Vega or other model/market risk. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
-claiming broad continuous-time accuracy. This price API is an explicit
+claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.
