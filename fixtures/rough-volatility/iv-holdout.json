@@ -1,0 +1,452 @@
+{
+  "version": 1,
+  "parent_sha256": "e61d8d6f1fc40484ca708ffd59b9ccbbe2127cf0f1a4b010ba2397db59a01f7c",
+  "protocol": {
+    "time_steps": 128,
+    "integration_intervals": 512,
+    "cutoff": 128.0,
+    "max_iterations": 60,
+    "max_evaluations": 100,
+    "residual_tolerance": 2e-06,
+    "interpolation_fit_tolerance": 0.0005,
+    "extrapolation_fit_tolerance": 0.005,
+    "grid_tolerance": 2.5e-05,
+    "max_stages": 1,
+    "independent_price_agreement": 2e-07,
+    "retained_iv_tolerance": 2e-08,
+    "legendre_orders": [
+      160,
+      240
+    ],
+    "cutoffs": [
+      192.0,
+      256.0
+    ]
+  },
+  "starts": [
+    [
+      0.05,
+      0.9,
+      0.05,
+      0.23,
+      -0.5,
+      0.15
+    ],
+    [
+      0.035,
+      0.5,
+      0.07,
+      0.14,
+      -0.75,
+      0.07
+    ]
+  ],
+  "bounds": [
+    [
+      0.01,
+      0.1,
+      0.04
+    ],
+    [
+      0.1,
+      2.0,
+      0.7
+    ],
+    [
+      0.015,
+      0.12,
+      0.05
+    ],
+    [
+      0.03,
+      0.4,
+      0.2
+    ],
+    [
+      -0.95,
+      -0.05,
+      0.5
+    ],
+    [
+      0.02,
+      0.49,
+      0.2
+    ]
+  ],
+  "parameters": [
+    0.04,
+    0.7,
+    0.055,
+    0.18,
+    -0.65
+  ],
+  "lift_weights": [
+    0.2,
+    0.4,
+    0.5
+  ],
+  "lift_rates": [
+    0.1,
+    1.0,
+    8.0
+  ],
+  "forward": 100.0,
+  "discount": 0.97,
+  "rows": [
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 0.25,
+      "strike": 90.0,
+      "target_volatility": 0.21521968372250394
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 0.25,
+      "strike": 110.0,
+      "target_volatility": 0.18815366587806184
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 0.5,
+      "strike": 90.0,
+      "target_volatility": 0.21535097074437035
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 0.5,
+      "strike": 110.0,
+      "target_volatility": 0.19007735514999788
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 0.75,
+      "strike": 90.0,
+      "target_volatility": 0.21552586058920592
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 0.75,
+      "strike": 110.0,
+      "target_volatility": 0.19193255166129666
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 90.0,
+      "target_volatility": 0.2157385901611982
+    },
+    {
+      "family": "heston",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 110.0,
+      "target_volatility": 0.19369090075888978
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 0.25,
+      "strike": 90.0,
+      "target_volatility": 0.21317543215152243
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 0.25,
+      "strike": 110.0,
+      "target_volatility": 0.19005029310207164
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 0.5,
+      "strike": 90.0,
+      "target_volatility": 0.2118167967936158
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 0.5,
+      "strike": 110.0,
+      "target_volatility": 0.1930575609759974
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 0.75,
+      "strike": 90.0,
+      "target_volatility": 0.21122193478382048
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 0.75,
+      "strike": 110.0,
+      "target_volatility": 0.1951165258248871
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 90.0,
+      "target_volatility": 0.21095183299413092
+    },
+    {
+      "family": "lift",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 110.0,
+      "target_volatility": 0.19668780294983168
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.4,
+      "strike": 87.5,
+      "target_volatility": 0.21947220518704003
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.4,
+      "strike": 95.0,
+      "target_volatility": 0.20725490088547552
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.4,
+      "strike": 105.0,
+      "target_volatility": 0.1935586378070415
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.4,
+      "strike": 112.5,
+      "target_volatility": 0.1855908519798138
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.6,
+      "strike": 87.5,
+      "target_volatility": 0.2157207247452245
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.6,
+      "strike": 95.0,
+      "target_volatility": 0.20587176373603314
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.6,
+      "strike": 105.0,
+      "target_volatility": 0.1947185120696016
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.6,
+      "strike": 112.5,
+      "target_volatility": 0.18795729090526683
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 87.5,
+      "target_volatility": 0.21197499831021896
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 95.0,
+      "target_volatility": 0.2044895732716948
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 105.0,
+      "target_volatility": 0.19590890271413486
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.0,
+      "strike": 112.5,
+      "target_volatility": 0.19051327415857774
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.25,
+      "strike": 87.5,
+      "target_volatility": 0.21062006868904318
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.25,
+      "strike": 95.0,
+      "target_volatility": 0.20398846947577803
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.25,
+      "strike": 105.0,
+      "target_volatility": 0.19634830837838813
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.25,
+      "strike": 112.5,
+      "target_volatility": 0.1914850258167661
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.25,
+      "strike": 92.5,
+      "target_volatility": 0.21427066636167344
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.25,
+      "strike": 107.5,
+      "target_volatility": 0.1884111979827764
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.75,
+      "strike": 92.5,
+      "target_volatility": 0.20801828745178222
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 0.75,
+      "strike": 107.5,
+      "target_volatility": 0.19309816751908218
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.5,
+      "strike": 92.5,
+      "target_volatility": 0.20554098028101384
+    },
+    {
+      "family": "ssvi",
+      "region": "interpolation",
+      "maturity": 1.5,
+      "strike": 107.5,
+      "target_volatility": 0.19512045250187565
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.125,
+      "strike": 85.0,
+      "target_volatility": 0.2435274110283222
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.125,
+      "strike": 100.0,
+      "target_volatility": 0.2
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.125,
+      "strike": 115.0,
+      "target_volatility": 0.17559070130659338
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 2.0,
+      "strike": 85.0,
+      "target_volatility": 0.21005930072569245
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 2.0,
+      "strike": 100.0,
+      "target_volatility": 0.2
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 2.0,
+      "strike": 115.0,
+      "target_volatility": 0.19208545727959392
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.25,
+      "strike": 80.0,
+      "target_volatility": 0.2421416532519792
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.25,
+      "strike": 120.0,
+      "target_volatility": 0.176578526185774
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.75,
+      "strike": 80.0,
+      "target_volatility": 0.22376037972034934
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 0.75,
+      "strike": 120.0,
+      "target_volatility": 0.18413493153471316
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 1.5,
+      "strike": 80.0,
+      "target_volatility": 0.2163525506886825
+    },
+    {
+      "family": "ssvi",
+      "region": "extrapolation",
+      "maturity": 1.5,
+      "strike": 120.0,
+      "target_volatility": 0.1883631957760029
+    }
+  ],
+  "row_counts": {
+    "heston": 8,
+    "lift": 8,
+    "ssvi": 34
+  }
+}

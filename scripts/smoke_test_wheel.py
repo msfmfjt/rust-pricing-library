@@ -124,6 +124,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/heston_calibration.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_iv_calibration.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_iv_refinement.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_iv_holdout.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -1282,6 +1283,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('HestonIvRefinementResult', 'validation_plan_compilations'): 'int',
         ('HestonIvRefinementOptions', 'create'): 'HestonIvRefinementOptions',
         ('HestonIvCalibrationProblem', 'validate_grid'): 'HestonIvGridValidation',
+        ('HestonIvCalibrationProblem', 'validate_holdout'): 'HestonIvGridValidation',
         ('HestonIvCalibrationProblem', 'calibrate_refined'): 'HestonIvRefinementResult',
 
         ("HestonCalibrationSsviSurface", "power_law"): "HestonCalibrationSsviSurface",
@@ -1381,6 +1383,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('HestonIvRefinementResult', 'validation_plan_compilations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonIvRefinementOptions', 'create'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['fit_tolerance', 'grid_tolerance', 'max_stages'], 'required_keyword_only': [], 'keyword_only_defaults': {'fit_tolerance': 0.0005, 'grid_tolerance': 0.0001, 'max_stages': 2}},
         ('HestonIvCalibrationProblem', 'validate_grid'): {'positional': ['self', 'parameters', 'policy'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvCalibrationProblem', 'validate_holdout'): {'positional': ['self', 'parameters', 'quotes', 'policy'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonIvCalibrationProblem', 'calibrate_refined'): {'positional': ['self', 'policy'], 'positional_defaults': {}, 'keyword_only': ['max_iterations', 'max_evaluations', 'residual_tolerance', 'gradient_tolerance', 'step_tolerance'], 'required_keyword_only': [], 'keyword_only_defaults': {'max_iterations': 100, 'max_evaluations': 150, 'residual_tolerance': 1e-06, 'gradient_tolerance': 1e-10, 'step_tolerance': 1e-12}},
 
         ("HestonCalibrationSsviSurface", "power_law"): {'positional': ['theta_times', 'theta_values', 'terminal_theta_slope', 'rho', 'eta', 'gamma'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2331,7 +2334,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'HestonCalibrationResult': {'termination', 'model', 'projected_gradient_norm', 'accepted_objectives', 'objective', 'iterations', 'parameters', 'evaluations', 'active_bounds', 'invalid_evaluations', 'fit_achieved', 'evaluation', 'parameter_names', 'rejected_evaluations'},
         'HestonIvCalibrationResult': {'termination', 'model', 'projected_gradient_norm', 'accepted_objectives', 'objective', 'iterations', 'parameters', 'evaluations', 'active_bounds', 'invalid_evaluations', 'fit_achieved', 'evaluation', 'parameter_names', 'rejected_evaluations'},
         'HestonCalibrationProblem': {'maturity_count', 'calibrate', 'initial_parameters', 'compile', 'parameter_names', 'evaluate'},
-        'HestonIvCalibrationProblem': {'validate_grid', 'calibrate_refined', 'maturity_count', 'calibrate', 'initial_parameters', 'compile', 'parameter_names', 'evaluate'},
+        'HestonIvCalibrationProblem': {'validate_holdout', 'validate_grid', 'calibrate_refined', 'maturity_count', 'calibrate', 'initial_parameters', 'compile', 'parameter_names', 'evaluate'},
 
         'HestonFourierHurstRisk': {'price','hurst_sensitivity','quadrature_difference','tail_indicator'},
         'HestonFourierHurstRiskPlan': {'price','log_transform_derivative'},

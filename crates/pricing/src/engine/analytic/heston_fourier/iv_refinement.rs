@@ -104,74 +104,46 @@ impl HestonIvCalibrationProblem {
     ) -> Result<HestonIvGridValidation, HestonCalibrationError> {
         policy.validate()?;
         let model = self.price_problem.model_at(parameters)?;
-        let configs = probe_grids(self.fourier_config())?;
-        let cost: u128 = configs.iter().map(|&c| work(&model, c)).sum();
-        if cost * self.maturity_count() as u128 > 1_000_000_000_000
-            || configs.iter().any(|&c| work(&model, c) > 8_000_000_000)
-        {
+        validate_quote_grid(&model, &self.quotes, self.fourier_config(), policy)
+    }
+
+    /// Evaluate disjoint holdout IV sites at frozen parameters on the same five
+    /// grids as validate_grid. NEVER calibrates, chooses parameters, or changes
+    /// the original problem. max_stages is ignored for this single validation.
+    ///
+    /// Reject overlap with fitting sites and duplicate holdout sites, comparing
+    /// (T, log(K/F)) within 64*EPSILON*max(1,abs(a),abs(b)) per coordinate.
+    /// Changing side, currency scale, discount, target or iv_scale does not create
+    /// a new site. The caller must freeze this panel before inspecting its output;
+    /// disjointness alone does not establish statistical independence or prevent
+    /// selection leakage outside this problem.
+    pub fn validate_holdout(
+        &self,
+        parameters: &[f64],
+        quotes: &[HestonIvCalibrationQuote],
+        policy: HestonIvRefinementOptions,
+    ) -> Result<HestonIvGridValidation, HestonCalibrationError> {
+        policy.validate()?;
+        if quotes.is_empty() || quotes.len() > 4096 {
             return Err(HestonCalibrationError::InvalidInput(
-                "IV validation work limit",
+                "need 1..=4096 holdout IV quotes",
             ));
         }
-        let mut ivs = vec![[0.; 5]; self.quotes.len()];
-        // Preserve the original order, including duplicate strikes and repeated maturities.
-        let mut groups: Vec<(f64, Vec<usize>)> = Vec::new();
-        for (i, q) in self.quotes.iter().enumerate() {
-            if let Some((_, indices)) = groups.iter_mut().find(|(t, _)| *t == q.maturity) {
-                indices.push(i);
-            } else {
-                groups.push((q.maturity, vec![i]));
+        let model = self.price_problem.model_at(parameters)?;
+        for (i, q) in quotes.iter().enumerate() {
+            q.to_price_quote()?;
+            if self.quotes.iter().any(|train| same_iv_site(q, train)) {
+                return Err(HestonCalibrationError::InvalidInput(
+                    "holdout IV site overlaps a fitting site",
+                ));
+            }
+            if quotes[..i].iter().any(|previous| same_iv_site(q, previous)) {
+                return Err(HestonCalibrationError::InvalidInput(
+                    "duplicate holdout IV site",
+                ));
             }
         }
-        for (column, &config) in configs.iter().enumerate() {
-            for (t, indices) in &groups {
-                let plan = HestonFourierPlan::compile(model.clone(), *t, config)?;
-                for &i in indices {
-                    let q = self.quotes[i];
-                    let p = plan.price(q.forward, q.strike, q.discount)?;
-                    let price = if q.is_call { p.call } else { p.put };
-                    let b = BlackCoordinates::new(
-                        q.forward, q.strike, q.discount, q.maturity, q.is_call,
-                    )?;
-                    ivs[i][column] = b.invert(price)?.0;
-                }
-            }
-        }
-        let residuals: Vec<[f64; 5]> = ivs
-            .iter()
-            .zip(&self.quotes)
-            .map(|(row, q)| row.map(|v| v - q.target_volatility))
-            .collect();
-        let differences: Vec<[f64; 4]> = ivs
-            .iter()
-            .map(|row| std::array::from_fn(|i| row[i + 1] - row[0]))
-            .collect();
-        let max_residual = residuals
-            .iter()
-            .flatten()
-            .map(|v| v.abs())
-            .fold(0., f64::max);
-        let max_difference = differences
-            .iter()
-            .flatten()
-            .map(|v| v.abs())
-            .fold(0., f64::max);
-        let fit = max_residual <= policy.fit_tolerance;
-        let stable = max_difference <= policy.grid_tolerance;
-        Ok(HestonIvGridValidation {
-            configurations: configs,
-            model_implied_volatilities: ivs,
-            iv_residuals: residuals,
-            iv_differences: differences,
-            fit_tolerance: policy.fit_tolerance,
-            grid_tolerance: policy.grid_tolerance,
-            max_abs_iv_residual: max_residual,
-            max_abs_iv_difference: max_difference,
-            fit_within_tolerance: fit,
-            grid_stable: stable,
-            accepted: fit && stable,
-            plan_compilations: 5 * groups.len(),
-        })
+        validate_quote_grid(&model, quotes, self.fourier_config(), policy)
     }
 
     /// Calibrate, freeze parameters, check all probes, and if necessary warm-start
@@ -263,4 +235,105 @@ impl HestonIvCalibrationProblem {
         }
         Ok(out)
     }
+}
+
+/// Evaluate arbitrary already-validated quotes, without building an optimizer or Jacobian.
+fn validate_quote_grid(
+    model: &RoughVolatilityModel,
+    quotes: &[HestonIvCalibrationQuote],
+    fourier: HestonFourierConfig,
+    policy: HestonIvRefinementOptions,
+) -> Result<HestonIvGridValidation, HestonCalibrationError> {
+    let mut maturities = Vec::new();
+    for q in quotes {
+        if !maturities.contains(&q.maturity) {
+            maturities.push(q.maturity);
+        }
+    }
+    let maturity_count = maturities.len();
+    if maturity_count > 64 {
+        return Err(HestonCalibrationError::InvalidInput(
+            "at most 64 holdout maturities",
+        ));
+    }
+    let configs = probe_grids(fourier)?;
+    let cost: u128 = configs.iter().map(|&c| work(model, c)).sum();
+    if cost * maturity_count as u128 > 1_000_000_000_000
+        || configs.iter().any(|&c| work(model, c) > 8_000_000_000)
+    {
+        return Err(HestonCalibrationError::InvalidInput(
+            "IV validation work limit",
+        ));
+    }
+    let mut ivs = vec![[0.; 5]; quotes.len()];
+    // Preserve the original order, including duplicate strikes and repeated maturities.
+    let mut groups: Vec<(f64, Vec<usize>)> = Vec::new();
+    for (i, q) in quotes.iter().enumerate() {
+        if let Some((_, indices)) = groups.iter_mut().find(|(t, _)| *t == q.maturity) {
+            indices.push(i);
+        } else {
+            groups.push((q.maturity, vec![i]));
+        }
+    }
+    for (column, &config) in configs.iter().enumerate() {
+        for (t, indices) in &groups {
+            let plan = HestonFourierPlan::compile(model.clone(), *t, config)?;
+            for &i in indices {
+                let q = quotes[i];
+                let p = plan.price(q.forward, q.strike, q.discount)?;
+                let price = if q.is_call { p.call } else { p.put };
+                let b =
+                    BlackCoordinates::new(q.forward, q.strike, q.discount, q.maturity, q.is_call)?;
+                ivs[i][column] = b.invert(price)?.0;
+            }
+        }
+    }
+    let residuals: Vec<[f64; 5]> = ivs
+        .iter()
+        .zip(quotes)
+        .map(|(row, q)| row.map(|v| v - q.target_volatility))
+        .collect();
+    let differences: Vec<[f64; 4]> = ivs
+        .iter()
+        .map(|row| std::array::from_fn(|i| row[i + 1] - row[0]))
+        .collect();
+    let max_residual = residuals
+        .iter()
+        .flatten()
+        .map(|v| v.abs())
+        .fold(0., f64::max);
+    let max_difference = differences
+        .iter()
+        .flatten()
+        .map(|v| v.abs())
+        .fold(0., f64::max);
+    let fit = max_residual <= policy.fit_tolerance;
+    let stable = max_difference <= policy.grid_tolerance;
+    Ok(HestonIvGridValidation {
+        configurations: configs,
+        model_implied_volatilities: ivs,
+        iv_residuals: residuals,
+        iv_differences: differences,
+        fit_tolerance: policy.fit_tolerance,
+        grid_tolerance: policy.grid_tolerance,
+        max_abs_iv_residual: max_residual,
+        max_abs_iv_difference: max_difference,
+        fit_within_tolerance: fit,
+        grid_stable: stable,
+        accepted: fit && stable,
+        plan_compilations: 5 * groups.len(),
+    })
+}
+
+// An IV site is (maturity, log(K/F)), independent of discount, units, side,
+// target and residual scale. Conservative roundoff-sized exclusion, not clustering.
+fn same_iv_site(a: &HestonIvCalibrationQuote, b: &HestonIvCalibrationQuote) -> bool {
+    fn near(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 64. * f64::EPSILON * a.abs().max(b.abs()).max(1.)
+    }
+    near(a.maturity, b.maturity)
+        && near(
+            a.strike.ln() - a.forward.ln(),
+            b.strike.ln() - b.forward.ln(),
+        )
 }

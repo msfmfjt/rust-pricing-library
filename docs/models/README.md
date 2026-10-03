@@ -69,3 +69,5 @@ Rough/Lifted Heston parameters using analytic Fourier Jacobians. Fit status is
 separate from solver termination; this is not an IV or general six-family fitter.
 
 - [Heston IV grid validation and staged recalibration](heston-iv-refinement.md)
+
+- [Heston IV disjoint holdout validation](heston-iv-holdout.md)
