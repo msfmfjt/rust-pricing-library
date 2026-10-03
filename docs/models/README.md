@@ -31,6 +31,7 @@ and path-treatment methods independently of the model that uses them.
 
 | Method family | Main topics |
 | --- | --- |
+| Deterministic Fourier | [Rough/Lifted Heston Riccati integration and European pricing](heston-fourier.md) |
 | Monte Carlo and RQMC | Philox streams, antithetic sampling, Sobol' sequences and uncertainty |
 | Calibration | Particle calibration, leverage fitting and surface interpolation |
 | Early exercise | Least-squares Monte Carlo, regression QR and fixed-policy valuation |

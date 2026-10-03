@@ -63,3 +63,7 @@ unverified. Model papers do not validate this implementation.
 - Bourgey, F., De Marco, S. and Gobet, E. (2022), [Weak approximations and VIX option price expansions in forward variance curve models](https://arxiv.org/abs/2202.10413).
 - Fukasawa, M. and Gatheral, J. (2021), [A rough SABR formula](https://arxiv.org/abs/2105.05359).
 - Gatheral, J., Jaisson, T. and Rosenbaum, M. (2014), [Volatility is rough](https://arxiv.org/abs/1410.3394).
+
+The [Heston Fourier calculation route](models/heston-fourier.md) also uses
+Abi Jaber, Larsson and Pulido, [Affine Volterra processes](https://arxiv.org/abs/1708.08796),
+and Lewis, [A Simple Option Formula for General Jump-Diffusion and Other Exponential Levy Processes](https://doi.org/10.2139/ssrn.282110).

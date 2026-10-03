@@ -1,0 +1,337 @@
+{
+  "parameters": {
+    "initial_variance": 0.04,
+    "mean_reversion": 0.7,
+    "long_run_variance": 0.055,
+    "vol_of_vol": 0.18,
+    "correlation": -0.65
+  },
+  "lifted": {
+    "weights": [
+      0.6,
+      1.1,
+      0.8
+    ],
+    "rates": [
+      0.2,
+      1.5,
+      12.0
+    ]
+  },
+  "transforms": [
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "damping": 0.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "damping": 1.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "damping": 0.0,
+      "frequency": 1.0,
+      "real": 0.9769736664341816,
+      "imag": -0.02051098433128607
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "damping": 0.5,
+      "frequency": 0.75,
+      "real": 0.9826322257736799,
+      "imag": 0.0005836380310234573
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "damping": 0.5,
+      "frequency": 3.0,
+      "real": 0.8229748522596099,
+      "imag": 0.021467481672022462
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "damping": 0.5,
+      "frequency": 5.0,
+      "real": 0.598190356006756,
+      "imag": 0.06675635634591663
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "damping": 0.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "damping": 1.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "damping": 0.0,
+      "frequency": 1.0,
+      "real": 0.9762575224187683,
+      "imag": -0.0206501273077435
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "damping": 0.5,
+      "frequency": 0.75,
+      "real": 0.982364759546033,
+      "imag": 0.0007303047048052993
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "damping": 0.5,
+      "frequency": 3.0,
+      "real": 0.8225265137412524,
+      "imag": 0.026161055206710936
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "damping": 0.5,
+      "frequency": 5.0,
+      "real": 0.6021298758431115,
+      "imag": 0.07878569365768992
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 0.1,
+      "damping": 0.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 0.1,
+      "damping": 1.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 0.1,
+      "damping": 0.0,
+      "frequency": 1.0,
+      "real": 0.9978788083312908,
+      "imag": -0.0020390249559585362
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 0.1,
+      "damping": 0.5,
+      "frequency": 0.75,
+      "real": 0.9983247005736318,
+      "imag": 2.3066144875114742e-05
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 0.1,
+      "damping": 0.5,
+      "frequency": 3.0,
+      "real": 0.981173573722906,
+      "imag": 0.001025198848183617
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 0.1,
+      "damping": 0.5,
+      "frequency": 5.0,
+      "real": 0.9498333598793884,
+      "imag": 0.004456913251309364
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 0.1,
+      "damping": 0.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 0.1,
+      "damping": 1.0,
+      "frequency": 0.0,
+      "real": 1.0,
+      "imag": 0.0
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 0.1,
+      "damping": 0.0,
+      "frequency": 1.0,
+      "real": 0.9979315868151833,
+      "imag": -0.0020211177647804354
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 0.1,
+      "damping": 0.5,
+      "frequency": 0.75,
+      "real": 0.9983468415821475,
+      "imag": 1.293684554214418e-05
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 0.1,
+      "damping": 0.5,
+      "frequency": 3.0,
+      "real": 0.9813654810085288,
+      "imag": 0.0005779341330179462
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 0.1,
+      "damping": 0.5,
+      "frequency": 5.0,
+      "real": 0.9500729845889412,
+      "imag": 0.00253580033321703
+    }
+  ],
+  "prices": [
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 80.0,
+      "discount": 0.97,
+      "call": 21.115989094436355
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "call": 7.885761443936434
+    },
+    {
+      "family": "classical",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 120.0,
+      "discount": 0.97,
+      "call": 1.6718848501159704
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 80.0,
+      "discount": 0.97,
+      "call": 21.214612701671026
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "call": 7.875444817889297
+    },
+    {
+      "family": "lifted",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 120.0,
+      "discount": 0.97,
+      "call": 1.5908862981337852
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 80.0,
+      "discount": 0.97,
+      "call": 21.206245543349766,
+      "reference_time_change": 1.9805401763051123e-07,
+      "reference_inversion_change": 3.552713678800501e-15
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "call": 7.876369530751362,
+      "reference_time_change": -2.0723246212384083e-06,
+      "reference_inversion_change": 5.329070518200751e-15
+    },
+    {
+      "family": "rough_0.1",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 120.0,
+      "discount": 0.97,
+      "call": 1.5977518976993448,
+      "reference_time_change": -6.699395678211317e-06,
+      "reference_inversion_change": 5.995204332975845e-15
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 80.0,
+      "discount": 0.97,
+      "call": 21.1656670743952,
+      "reference_time_change": 5.962586868690778e-08,
+      "reference_inversion_change": -3.552713678800501e-15
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "call": 7.881147951561119,
+      "reference_time_change": -2.723025822604086e-07,
+      "reference_inversion_change": -1.7763568394002505e-15
+    },
+    {
+      "family": "rough_0.3",
+      "maturity": 1.0,
+      "forward": 100.0,
+      "strike": 120.0,
+      "discount": 0.97,
+      "call": 1.631878854691514,
+      "reference_time_change": -1.1004937603420473e-06,
+      "reference_inversion_change": -2.4424906541753444e-15
+    }
+  ],
+  "protocol": {
+    "transform_tolerance": 3e-06,
+    "price_tolerance": 0.003,
+    "time_steps": 1024,
+    "integration_intervals": 1024,
+    "cutoff": 160.0,
+    "rough_reference_steps": [
+      2048,
+      4096
+    ],
+    "rough_reference_grid_change_cap": 0.0001
+  }
+}

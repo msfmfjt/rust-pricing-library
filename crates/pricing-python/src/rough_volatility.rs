@@ -348,3 +348,129 @@ impl PyRoughVolatilityPlan {
         }
     }
 }
+
+#[pyclass(frozen, name = "FourierRefinement", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyFourierRefinement {
+    inner: pricing::rough_volatility::FourierRefinement,
+}
+#[pymethods]
+impl PyFourierRefinement {
+    #[getter]
+    fn base_price(&self) -> f64 {
+        self.inner.base_price
+    }
+    #[getter]
+    fn time_refined_price(&self) -> f64 {
+        self.inner.time_refined_price
+    }
+    #[getter]
+    fn quadrature_refined_price(&self) -> f64 {
+        self.inner.quadrature_refined_price
+    }
+    #[getter]
+    fn extended_cutoff_price(&self) -> f64 {
+        self.inner.extended_cutoff_price
+    }
+    #[getter]
+    fn time_change(&self) -> f64 {
+        self.inner.time_change()
+    }
+    #[getter]
+    fn quadrature_change(&self) -> f64 {
+        self.inner.quadrature_change()
+    }
+    #[getter]
+    fn cutoff_change(&self) -> f64 {
+        self.inner.cutoff_change()
+    }
+}
+
+#[pyclass(frozen, name = "HestonFourierPlan", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHestonFourierPlan {
+    inner: pricing::rough_volatility::HestonFourierPlan,
+}
+#[pymethods]
+impl PyHestonFourierPlan {
+    #[staticmethod]
+    #[pyo3(signature=(model, maturity, *, time_steps=512, integration_intervals=512, cutoff=128.0))]
+    fn compile(
+        py: Python<'_>,
+        model: &PyRoughVolatilityModel,
+        maturity: f64,
+        time_steps: usize,
+        integration_intervals: usize,
+        cutoff: f64,
+    ) -> PyResult<Self> {
+        let model = model.inner.clone();
+        let config = pricing::rough_volatility::FourierConfig {
+            time_steps,
+            integration_intervals,
+            cutoff,
+        };
+        py.detach(|| pricing::rough_volatility::HestonFourierPlan::compile(model, maturity, config))
+            .map(|inner| Self { inner })
+            .map_err(|e| invalid(py, e))
+    }
+    fn transform(&self, py: Python<'_>, damping: f64, frequency: f64) -> PyResult<(f64, f64)> {
+        py.detach(|| self.inner.transform(damping, frequency))
+            .map(|z| (z.re, z.im))
+            .map_err(pricing_exception)
+    }
+    #[pyo3(signature=(forward, strike, *, discount=1.0, is_call=true))]
+    fn price(
+        &self,
+        py: Python<'_>,
+        forward: f64,
+        strike: f64,
+        discount: f64,
+        is_call: bool,
+    ) -> PyResult<f64> {
+        let side = if is_call {
+            pricing::product::OptionSide::Call
+        } else {
+            pricing::product::OptionSide::Put
+        };
+        py.detach(|| self.inner.price(forward, strike, discount, side))
+            .map_err(pricing_exception)
+    }
+    #[pyo3(signature=(forward, strike, *, discount=1.0, is_call=true))]
+    fn refinement(
+        &self,
+        py: Python<'_>,
+        forward: f64,
+        strike: f64,
+        discount: f64,
+        is_call: bool,
+    ) -> PyResult<PyFourierRefinement> {
+        let side = if is_call {
+            pricing::product::OptionSide::Call
+        } else {
+            pricing::product::OptionSide::Put
+        };
+        py.detach(|| self.inner.refinement(forward, strike, discount, side))
+            .map(|inner| PyFourierRefinement { inner })
+            .map_err(pricing_exception)
+    }
+    #[getter]
+    fn maturity(&self) -> f64 {
+        self.inner.maturity()
+    }
+    #[getter]
+    fn time_steps(&self) -> usize {
+        self.inner.config().time_steps
+    }
+    #[getter]
+    fn integration_intervals(&self) -> usize {
+        self.inner.config().integration_intervals
+    }
+    #[getter]
+    fn cutoff(&self) -> f64 {
+        self.inner.config().cutoff
+    }
+    #[getter]
+    fn plan_fingerprint(&self) -> String {
+        self.inner.plan_fingerprint().to_string()
+    }
+}
