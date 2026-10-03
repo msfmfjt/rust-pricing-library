@@ -170,7 +170,9 @@ implementation, controls, fixture, documentation and CI regeneration step.
 The [hard Barrier refinement panel](stochastic-dividend-hard-barrier-refinement.md)
 subsequently holds each eight-step surface and four observation dates fixed
 while comparing 16/32/64 steps against a finite 128-step reference.
-Public unsmoothed Barrier Spot risk remains rejected. Continuous-time accuracy,
-calibration uncertainty, different barrier styles and a production hard-risk
-estimator remain separate work; this panel validates the specified frozen
+The dedicated [hard Barrier Spot-risk method](stochastic-dividend-hard-barrier-spot-risk.md)
+subsequently adds production survival conditioning for up-and-in/out calls.
+The original pathwise method still rejects unsmoothed Barriers. Continuous-time
+accuracy, calibration uncertainty and different barrier styles remain separate
+work; this panel validates the specified frozen
 finite-grid laws and the public smoothed Delta against their hard references.

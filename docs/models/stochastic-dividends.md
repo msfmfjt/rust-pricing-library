@@ -342,6 +342,21 @@ Validation compares the analytic Delta with a full up/down recompile: the
 recompiled plans have shifted residual-equity anchors and unchanged leverage
 values.
 
+For rough residual LSV, hard-payoff Barrier Spot risk is available through
+`evaluate_lsv_hard_barrier_spot_risk()`. This separate Rust method supports
+discrete up-and-in/out calls with future monitoring, no rebate and no payoff
+smoothing. It conditions on survival at every monitoring date and integrates
+the final equity innovation, differentiating the survival weights and
+conditional paths analytically. It returns `StochasticDividendLsvSpotRisk`
+with a distinct method label and price fingerprint. Its standard errors use
+MC antithetic units or RQMC scramble means and exclude calibration uncertainty
+and time-grid bias. Positive conditional equity variance is required;
+unsupported contracts and unrepresentable numerical transports return errors.
+See the [contract and validation](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md).
+The original `evaluate_lsv_spot_risk()` still requires smoothing for Barrier
+payoffs; the new method does not add other hard-payoff Greeks or request-level
+Delta dispatch.
+
 Residual-LSV Spot Gamma is available through `evaluate_lsv_gamma()`.
 It uses the same half/base/double Spot-bump ladder as the non-LSV Gamma API, but
 every shifted scenario rebuilds the Buehler physical-Spot coefficients and
@@ -770,7 +785,7 @@ The [hard two-date Barrier reference](../../design/validation/stochastic-dividen
 provides independent price and analytic Spot Delta when eta and dividend mean
 reversion are zero and the target variance is flat. Gaussian integration
 retains both moving monitoring boundaries. This validates a limiting case;
-the public API still rejects unsmoothed Barrier Spot risk.
+the original pathwise Spot-risk method still rejects unsmoothed Barriers.
 The [conditional hard Barrier reference](../../design/validation/stochastic-dividend-conditional-barrier-reference.md)
 adds independent hard price and analytic Spot Delta for nonzero rough vol-of-vol
 and dividend mean reversion on a two-step grid with a frozen nonflat leverage
@@ -785,6 +800,9 @@ keeps each eight-step calibration and four observation dates fixed while
 comparing independent hard price/Delta at 16/32/64 steps against 128 steps.
 Its paired-error gates isolate finite-grid evolution sensitivity; they do not
 provide a continuous-time error bound or enable public unsmoothed Spot risk.
+The dedicated [hard Barrier Spot-risk method](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md)
+uses these independent references to validate production survival-conditioned
+price/Delta for discrete up-and-in/out calls without rebates.
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.

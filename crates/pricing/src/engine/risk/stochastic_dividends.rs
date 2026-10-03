@@ -13,6 +13,7 @@ mod lsv_correlations;
 mod lsv_correlations_2f;
 mod lsv_dividend_model;
 mod lsv_gamma;
+mod lsv_hard_barrier;
 #[cfg(test)]
 mod lsv_hard_refinement_tests;
 mod lsv_market;
@@ -117,6 +118,7 @@ pub struct StochasticDividendPricingPlan {
     market: crate::market::EquityForward,
     payment_time: f64,
     risk_supported: bool,
+    barrier: Option<crate::product::BarrierSpec>,
     lsv: Option<StochasticDividendLsvCalibration>,
 }
 
@@ -193,6 +195,10 @@ impl StochasticDividendPricingPlan {
                 .year_fraction(request.valuation_date(), request.product().payment_date()),
             risk_supported: request.product().supports_pathwise_risk()
                 || request.risk().payoff_smoothing().is_some(),
+            barrier: match request.product() {
+                crate::product::ProductSpec::Barrier(spec) => Some(spec.clone()),
+                _ => None,
+            },
             lsv: None,
         })
     }
@@ -308,6 +314,10 @@ impl StochasticDividendPricingPlan {
                     .year_fraction(request.valuation_date(), request.product().payment_date()),
                 risk_supported: request.product().supports_pathwise_risk()
                     || request.risk().payoff_smoothing().is_some(),
+                barrier: match request.product() {
+                    crate::product::ProductSpec::Barrier(spec) => Some(spec.clone()),
+                    _ => None,
+                },
                 lsv: None,
             },
             original,

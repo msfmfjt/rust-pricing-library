@@ -146,6 +146,8 @@ files, the new fixture and this document.
 
 The [survival-conditioned reference](stochastic-dividend-survival-barrier-reference.md)
 extends independent checks to 4/8 steps and 2/4 observations with explicit
-reference sampling uncertainty. Public unsmoothed Barrier Spot risk remains
-rejected. Finer-grid convergence and broader monitoring schedules remain open;
-neither panel removes calibration or continuous-time accuracy limitations.
+reference sampling uncertainty. The dedicated
+[hard Barrier Spot-risk method](stochastic-dividend-hard-barrier-spot-risk.md)
+adds production survival conditioning for up-and-in/out calls; the original
+pathwise method still rejects unsmoothed Barriers. Neither reference panel
+removes calibration or continuous-time accuracy limitations.

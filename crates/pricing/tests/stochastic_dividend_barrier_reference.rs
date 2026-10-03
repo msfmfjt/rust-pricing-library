@@ -348,6 +348,102 @@ fn survival_reference_grids_and_contracts_are_retained() {
 }
 
 #[test]
+fn dedicated_hard_barrier_spot_method_is_replayable_and_distinct() {
+    let hard = plan(0.1, 4, 193, None, 64, 4);
+    let before = hard.evaluate().unwrap();
+    let risk = hard.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+    assert_eq!(risk, hard.evaluate_lsv_hard_barrier_spot_risk().unwrap());
+    assert_eq!(before, hard.evaluate().unwrap());
+    assert_ne!(risk.price.plan_fingerprint, before.plan_fingerprint);
+    assert_eq!(risk.price.independent_sampling_units, 4);
+    assert_eq!(risk.price.evaluated_paths, 512);
+    assert_eq!(
+        risk.price.uncertainty_scope(),
+        "pricing_conditional_on_calibration"
+    );
+    assert!(risk.delta > 0.0 && risk.delta_standard_error > 0.0);
+    assert!(risk.method.contains("survival"));
+    assert!(hard.evaluate_lsv_spot_risk().is_err());
+    assert!(
+        plan(0.1, 4, 193, Some(0.5), 64, 4)
+            .evaluate_lsv_hard_barrier_spot_risk()
+            .is_err()
+    );
+}
+
+#[test]
+#[ignore = "release-mode production hard Barrier survival Spot risk"]
+fn production_hard_barrier_spot_matches_independent_references() {
+    let exact = reference();
+    let conditional = conditional_reference();
+    let survival = survival_reference();
+    let mut failures = Vec::new();
+    for seed in [193, 877] {
+        let mut cases = vec![(
+            "exact".to_owned(),
+            plan(0.1, 4, seed, None, 16384, 16),
+            exact["price"].as_f64().unwrap(),
+            exact["delta"].as_f64().unwrap(),
+            [0.0, 0.0],
+        )];
+        for case in conditional["cases"].as_array().unwrap() {
+            cases.push((
+                format!("two_step_h{}", case["hurst"]),
+                conditional_plan(case, seed, None, 16384, 16),
+                case["price"].as_f64().unwrap(),
+                case["delta"].as_f64().unwrap(),
+                [0.0, 0.0],
+            ));
+        }
+        for case in survival["cases"].as_array().unwrap() {
+            cases.push((
+                case["id"].as_str().unwrap().to_owned(),
+                survival_plan(case, seed, None, 16384, 16),
+                case["price"].as_f64().unwrap(),
+                case["delta"].as_f64().unwrap(),
+                [
+                    case["price_se"].as_f64().unwrap(),
+                    case["delta_se"].as_f64().unwrap(),
+                ],
+            ));
+        }
+        for (name, plan, price, delta, reference_se) in cases {
+            let risk = plan.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+            for (j, (quantity, value, se, expected, budget)) in [
+                (
+                    "price",
+                    risk.price.value,
+                    risk.price.standard_error,
+                    price,
+                    0.03,
+                ),
+                ("delta", risk.delta, risk.delta_standard_error, delta, 0.015),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let combined = se.hypot(reference_se[j]);
+                let bound = (value - expected).abs() + 4.0 * combined;
+                println!(
+                    "{}",
+                    json!({"scope":"production_hard_barrier_survival_spot",
+                    "case":name,"seed":seed,"quantity":quantity,"value":value,"scramble_se":se,
+                    "reference":expected,"reference_se":reference_se[j],"combined_se":combined,
+                    "abs_difference_plus_4se":bound,"limit":budget,
+                    "points_per_scramble":16384,"scrambles":16,"antithetic":true,"brownian_bridge":true})
+                );
+                if !(bound < budget && se < 0.003) {
+                    failures.push(format!(
+                        "{name} seed={seed} {quantity}: bound={bound}, SE={se}"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 #[ignore = "release-mode multi-step independent survival-conditioned Barrier reference"]
 fn rough_lsv_barrier_matches_multistep_survival_reference() {
     let reference = survival_reference();

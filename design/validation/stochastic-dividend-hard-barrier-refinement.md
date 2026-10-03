@@ -147,5 +147,7 @@ the implementation, tests, fixtures, this document and the CI command.
 
 Calibration uncertainty, continuous-time bias, other barrier styles, general
 nonuniform coupling and other Greeks remain outside this panel. The public
-API still rejects unsmoothed Barrier Spot risk. A production hard-risk
-estimator and its API/error policy remain separate development work.
+pathwise Spot-risk method still rejects unsmoothed Barriers. The dedicated
+[hard Barrier Spot-risk method](stochastic-dividend-hard-barrier-spot-risk.md)
+subsequently adds production survival conditioning for up-and-in/out calls,
+with its own contract, numerical-error policy and independent-reference checks.

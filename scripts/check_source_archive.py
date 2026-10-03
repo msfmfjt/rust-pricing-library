@@ -13,6 +13,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/lsv_hard_barrier.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/lsv_hard_barrier/tests.rs',
+    'design/validation/stochastic-dividend-hard-barrier-spot-risk.md',
     'tests/python/rough_dividend_hard_refinement.py',
     'tests/python/test_rough_dividend_hard_refinement.py',
     'fixtures/stochastic-dividends/rough-hard-barrier-refinement.json',
@@ -315,6 +318,8 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 }
 
 REQUIRED_CI_SNIPPETS = {
+    'cargo test --locked --release -p pricing --lib lsv_hard_barrier -- --nocapture',
+    '            stochastic-dividend-hard-barrier-risk.log',
     'name: Independent hard Barrier references and refinement / Linux',
     'python tests/python/rough_dividend_survival_reference.py',
     'name: rough-dividend-survival-reference-linux',
