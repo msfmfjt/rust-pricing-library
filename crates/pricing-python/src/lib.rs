@@ -4,6 +4,10 @@
 
 mod builders;
 mod diagnostics;
+mod heston_calibration;
+mod heston_fourier;
+mod heston_iv_calibration;
+mod heston_iv_refinement;
 mod hull_white;
 mod local_correlation;
 mod lsv;
@@ -12,6 +16,7 @@ mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
 mod multi_asset_rough;
+mod rough_volatility;
 mod stochastic_dividend_hull_white;
 mod stochastic_dividends;
 mod stochastic_volatility;
@@ -1283,6 +1288,35 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
         )?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLsvCorrelationRisk>()?;
     module.add_class::<stochastic_volatility::PyStochasticVolatilityPlan>()?;
+    module.add_class::<rough_volatility::PyForwardVarianceCurve>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityModel>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityPath>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityPathPlan>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityPlan>()?;
+    module.add_class::<heston_fourier::PyHestonFourierPlan>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationQuote>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationVariable>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationEvaluation>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationResult>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationProblem>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvRefinementOptions>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvGridValidation>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvRefinementStage>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvRefinementResult>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationQuote>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationEvaluation>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationProblem>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationResult>()?;
+    module.add_class::<heston_iv_calibration::PyHestonCalibrationSsviSurface>()?;
+
+    module.add_class::<heston_fourier::PyHestonFourierPrice>()?;
+    module.add_class::<heston_fourier::PyHestonFourierGreeks>()?;
+    module.add_class::<heston_fourier::PyHestonParameterSensitivities>()?;
+    module.add_class::<heston_fourier::PyHestonFourierParameterRisk>()?;
+    module.add_class::<heston_fourier::PyHestonFourierParameterRiskPlan>()?;
+    module.add_class::<heston_fourier::PyHestonFourierHurstRisk>()?;
+    module.add_class::<heston_fourier::PyHestonFourierHurstRiskPlan>()?;
+
     module.add_class::<hull_white::PyHullWhitePrice>()?;
     module.add_class::<hull_white::PyHullWhiteAadRisk>()?;
     module.add_class::<PyWidthLadderDifference>()?;
