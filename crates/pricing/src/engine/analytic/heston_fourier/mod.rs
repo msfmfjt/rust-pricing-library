@@ -1,6 +1,12 @@
 //! Experimental European forward prices for continuous-time rough/lifted Heston.
 //! See docs/models/rough-heston-fourier.md for definitions, references and limits.
 
+mod calibration;
+pub use calibration::{
+    HestonCalibrationError, HestonCalibrationEvaluation, HestonCalibrationParameter,
+    HestonCalibrationProblem, HestonCalibrationQuote, HestonCalibrationResult,
+    HestonCalibrationVariable,
+};
 mod greeks;
 mod hurst_risk;
 pub use hurst_risk::{HestonFourierHurstRisk, HestonFourierHurstRiskPlan};
@@ -261,3 +267,9 @@ fn black_prices(f: f64, k: f64, d: f64, w: f64) -> (f64, f64) {
         (put + d * (f - k), put)
     }
 }
+
+mod iv_calibration;
+pub use iv_calibration::{
+    HestonIvCalibrationEvaluation, HestonIvCalibrationProblem, HestonIvCalibrationQuote,
+    HestonIvCalibrationResult,
+};

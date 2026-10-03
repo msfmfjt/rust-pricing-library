@@ -61,3 +61,9 @@ payoff contracts rather than model components.
 
 - [Stochastic cash dividends with Hull–White](stochastic-dividends-hull-white.md):
   correlated discounted-cash forecasts, constant residual volatility and explicit basic AAD.
+
+## Experimental Heston price calibration
+
+The [multi-expiry price-calibration API](heston-calibration.md) fits selected
+Rough/Lifted Heston parameters using analytic Fourier Jacobians. Fit status is
+separate from solver termination; this is not an IV or general six-family fitter.

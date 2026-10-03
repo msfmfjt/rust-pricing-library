@@ -1,0 +1,957 @@
+{
+  "version": 1,
+  "protocol": {
+    "time_steps": 128,
+    "integration_intervals": 512,
+    "cutoff": 128.0,
+    "fine_time_steps": 256,
+    "fine_integration_intervals": 1024,
+    "fine_cutoff": 256.0,
+    "max_iterations": 60,
+    "max_evaluations": 100,
+    "residual_tolerance": 2e-06,
+    "fine_iv_budget": 0.0005,
+    "ssvi_objective_ratio": 0.5,
+    "ssvi_max_iv_residual": 0.005,
+    "iv_reference_tolerance": 2e-08,
+    "black_price_tolerance": 2e-12,
+    "parameters": [
+      0.04,
+      0.7,
+      0.055,
+      0.18,
+      -0.65,
+      0.1
+    ],
+    "starts": [
+      [
+        0.05,
+        0.9,
+        0.05,
+        0.23,
+        -0.5,
+        0.15
+      ],
+      [
+        0.035,
+        0.5,
+        0.07,
+        0.14,
+        -0.75,
+        0.07
+      ]
+    ],
+    "bounds": [
+      [
+        0.01,
+        0.1,
+        0.04
+      ],
+      [
+        0.1,
+        2.0,
+        0.7
+      ],
+      [
+        0.015,
+        0.12,
+        0.05
+      ],
+      [
+        0.03,
+        0.4,
+        0.2
+      ],
+      [
+        -0.95,
+        -0.05,
+        0.5
+      ],
+      [
+        0.02,
+        0.49,
+        0.2
+      ]
+    ],
+    "lift_weights": [
+      0.2,
+      0.4,
+      0.5
+    ],
+    "lift_rates": [
+      0.1,
+      1.0,
+      8.0
+    ],
+    "synthetic_maturities": [
+      0.25,
+      0.75,
+      1.5
+    ],
+    "synthetic_strikes": [
+      85.0,
+      100.0,
+      115.0
+    ],
+    "ssvi_fit_theta_times": [
+      0.25,
+      0.75,
+      1.5
+    ],
+    "ssvi_fit_theta_values": [
+      0.01,
+      0.03,
+      0.06
+    ],
+    "ssvi_fit_terminal_slope": 0.04,
+    "ssvi_fit_rho": -0.5,
+    "ssvi_fit_eta": 0.35,
+    "ssvi_fit_gamma": 0.5
+  },
+  "parent_sha256": "8e47af65d9262c5a29f321199a0c2629b3e1a50a77c6bfc674a75dc5ba4db1ad",
+  "black": [
+    {
+      "maturity": 0.1,
+      "forward": 73.0,
+      "strike": 65.7,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 7.095654892798411,
+      "put": 0.014654892798412594,
+      "vega": 0.718891166591474
+    },
+    {
+      "maturity": 0.1,
+      "forward": 73.0,
+      "strike": 65.7,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 7.508904236287448,
+      "put": 0.4279042362874526,
+      "vega": 4.5688003249125
+    },
+    {
+      "maturity": 0.1,
+      "forward": 73.0,
+      "strike": 73.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 1.3398469922989005,
+      "put": 1.3398469922989005,
+      "vega": 8.930638598859598
+    },
+    {
+      "maturity": 0.1,
+      "forward": 73.0,
+      "strike": 73.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 2.678940567900344,
+      "put": 2.678940567900344,
+      "vega": 8.92310655057153
+    },
+    {
+      "maturity": 0.1,
+      "forward": 73.0,
+      "strike": 80.30000000000001,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 0.02916585608518347,
+      "put": 7.110165856085187,
+      "vega": 1.2441711650622238
+    },
+    {
+      "maturity": 0.1,
+      "forward": 73.0,
+      "strike": 80.30000000000001,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 0.5813959797120636,
+      "put": 7.662395979712088,
+      "vega": 5.649860698572817
+    },
+    {
+      "maturity": 0.1,
+      "forward": 100.0,
+      "strike": 90.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 9.720075195614262,
+      "put": 0.020075195614263637,
+      "vega": 0.9847824199883204
+    },
+    {
+      "maturity": 0.1,
+      "forward": 100.0,
+      "strike": 90.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 10.286170186695136,
+      "put": 0.586170186695139,
+      "vega": 6.258630582071916
+    },
+    {
+      "maturity": 0.1,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 1.835406838765625,
+      "put": 1.835406838765625,
+      "vega": 12.23375150528712
+    },
+    {
+      "maturity": 0.1,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 3.6697815998634895,
+      "put": 3.6697815998634895,
+      "vega": 12.223433630919905
+    },
+    {
+      "maturity": 0.1,
+      "forward": 100.0,
+      "strike": 110.00000000000001,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 0.03995322751394985,
+      "put": 9.739953227513972,
+      "vega": 1.7043440617290735
+    },
+    {
+      "maturity": 0.1,
+      "forward": 100.0,
+      "strike": 110.00000000000001,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 0.7964328489206366,
+      "put": 10.496432848920668,
+      "vega": 7.739535203524406
+    },
+    {
+      "maturity": 0.5,
+      "forward": 73.0,
+      "strike": 65.7,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 7.681654798314115,
+      "put": 0.6006547983141168,
+      "vega": 11.553992093274713
+    },
+    {
+      "maturity": 0.5,
+      "forward": 73.0,
+      "strike": 65.7,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 9.90620095775585,
+      "put": 2.825200957755856,
+      "vega": 16.657160849519236
+    },
+    {
+      "maturity": 0.5,
+      "forward": 73.0,
+      "strike": 73.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 2.9948659216687754,
+      "put": 2.9948659216687754,
+      "vega": 19.947061917391494
+    },
+    {
+      "maturity": 0.5,
+      "forward": 73.0,
+      "strike": 73.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 5.981322585190787,
+      "put": 5.981322585190787,
+      "vega": 19.86308750799429
+    },
+    {
+      "maturity": 0.5,
+      "forward": 73.0,
+      "strike": 80.30000000000001,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 0.7924664907761049,
+      "put": 7.8734664907761225,
+      "vega": 13.971258663013687
+    },
+    {
+      "maturity": 0.5,
+      "forward": 73.0,
+      "strike": 80.30000000000001,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 3.3604187083096675,
+      "put": 10.441418708309675,
+      "vega": 18.83250807043547
+    },
+    {
+      "maturity": 0.5,
+      "forward": 100.0,
+      "strike": 90.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 10.522814792211125,
+      "put": 0.822814792211118,
+      "vega": 15.827386429143443
+    },
+    {
+      "maturity": 0.5,
+      "forward": 100.0,
+      "strike": 90.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 13.570138298295689,
+      "put": 3.87013829829569,
+      "vega": 22.81802856098526
+    },
+    {
+      "maturity": 0.5,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 4.102556057080507,
+      "put": 4.102556057080507,
+      "vega": 27.32474235259109
+    },
+    {
+      "maturity": 0.5,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 8.193592582453132,
+      "put": 8.193592582453132,
+      "vega": 27.209708915060666
+    },
+    {
+      "maturity": 0.5,
+      "forward": 100.0,
+      "strike": 110.00000000000001,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 1.0855705353097334,
+      "put": 10.785570535309743,
+      "vega": 19.138710497279025
+    },
+    {
+      "maturity": 0.5,
+      "forward": 100.0,
+      "strike": 110.00000000000001,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 4.603313299054337,
+      "put": 14.30331329905435,
+      "vega": 25.79795626087051
+    },
+    {
+      "maturity": 2.0,
+      "forward": 73.0,
+      "strike": 65.7,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 9.90620095775585,
+      "put": 2.825200957755856,
+      "vega": 33.31432169903847
+    },
+    {
+      "maturity": 2.0,
+      "forward": 73.0,
+      "strike": 65.7,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 15.182635543014607,
+      "put": 8.101635543014611,
+      "vega": 35.931680483679926
+    },
+    {
+      "maturity": 2.0,
+      "forward": 73.0,
+      "strike": 73.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 5.981322585190787,
+      "put": 5.981322585190787,
+      "vega": 39.72617501598858
+    },
+    {
+      "maturity": 2.0,
+      "forward": 73.0,
+      "strike": 73.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 11.895794736771615,
+      "put": 11.895794736771615,
+      "vega": 39.061420454072426
+    },
+    {
+      "maturity": 2.0,
+      "forward": 73.0,
+      "strike": 80.30000000000001,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 3.3604187083096675,
+      "put": 10.441418708309675,
+      "vega": 37.66501614087094
+    },
+    {
+      "maturity": 2.0,
+      "forward": 73.0,
+      "strike": 80.30000000000001,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 9.258973877073851,
+      "put": 16.339973877073867,
+      "vega": 39.947135317072544
+    },
+    {
+      "maturity": 2.0,
+      "forward": 100.0,
+      "strike": 90.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 13.570138298295689,
+      "put": 3.87013829829569,
+      "vega": 45.63605712197052
+    },
+    {
+      "maturity": 2.0,
+      "forward": 100.0,
+      "strike": 90.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 20.798130880841935,
+      "put": 11.098130880841934,
+      "vega": 49.22148011463003
+    },
+    {
+      "maturity": 2.0,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 8.193592582453132,
+      "put": 8.193592582453132,
+      "vega": 54.41941783012133
+    },
+    {
+      "maturity": 2.0,
+      "forward": 100.0,
+      "strike": 100.0,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 16.295609228454268,
+      "put": 16.295609228454268,
+      "vega": 53.50879514256497
+    },
+    {
+      "maturity": 2.0,
+      "forward": 100.0,
+      "strike": 110.00000000000001,
+      "discount": 0.97,
+      "volatility": 0.15,
+      "call": 4.603313299054337,
+      "put": 14.30331329905435,
+      "vega": 51.59591252174102
+    },
+    {
+      "maturity": 2.0,
+      "forward": 100.0,
+      "strike": 110.00000000000001,
+      "discount": 0.97,
+      "volatility": 0.3,
+      "call": 12.683525859005275,
+      "put": 22.38352585900529,
+      "vega": 54.722103174071975
+    }
+  ],
+  "ssvi": {
+    "theta_times": [
+      0.25,
+      0.75,
+      1.5
+    ],
+    "theta_values": [
+      0.012,
+      0.035,
+      0.072
+    ],
+    "terminal_theta_slope": 0.048,
+    "rho": -0.5,
+    "eta": 0.35,
+    "gamma": 0.5,
+    "lambda_": 1.0
+  },
+  "ssvi_quotes": [
+    {
+      "kind": "power_law",
+      "maturity": 0.125,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.27265602319899573,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.125,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206645,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.125,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.18998057838308546,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.25,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.256691370432314,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.25,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206645,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.25,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.19342669362352286,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.5,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.24216156081855894,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.5,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21597713775075306,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.5,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.19561983271009273,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.75,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.2371298825593369,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.75,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21602468994692867,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 0.75,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.1987055768974748,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 1.0,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.2349103077425128,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 1.0,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21683694362489456,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 1.0,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.20153687532892578,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 1.5,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.23355906553072922,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 1.5,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206642,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 1.5,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.20638982077369,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 3.0,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.2288765644422722,
+      "is_call": false
+    },
+    {
+      "kind": "power_law",
+      "maturity": 3.0,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206645,
+      "is_call": true
+    },
+    {
+      "kind": "power_law",
+      "maturity": 3.0,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21012340746576577,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.125,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.2246785335315695,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.125,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206645,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.125,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21377312118972278,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.25,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.22466716228392164,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.25,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206645,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.25,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21378339852190476,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.5,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.22145498515899456,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.5,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21597713775075306,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.5,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21076591399779854,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.75,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.22148214612876285,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.75,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21602468994692867,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 0.75,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21083185201729754,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 1.0,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.222292741993647,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 1.0,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21683694362489456,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 1.0,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21164464699946656,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 1.5,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.22455534285455608,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 1.5,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206642,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 1.5,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21388457469329955,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 3.0,
+      "forward": 107.0,
+      "strike": 87.60419057934405,
+      "discount": 0.97,
+      "target_volatility": 0.22442557656267936,
+      "is_call": false
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 3.0,
+      "forward": 107.0,
+      "strike": 107.0,
+      "discount": 0.97,
+      "target_volatility": 0.21908902300206645,
+      "is_call": true
+    },
+    {
+      "kind": "heston_like",
+      "maturity": 3.0,
+      "forward": 107.0,
+      "strike": 130.69009512313818,
+      "discount": 0.97,
+      "target_volatility": 0.21400224867001635,
+      "is_call": true
+    }
+  ],
+  "markov_quotes": [
+    {
+      "family": "heston",
+      "maturity": 0.25,
+      "strike": 80,
+      "call": 19.499686098081664,
+      "target_volatility": 0.23021630931109466
+    },
+    {
+      "family": "heston",
+      "maturity": 0.25,
+      "strike": 100,
+      "call": 3.8883846981662415,
+      "target_volatility": 0.20104822723432383
+    },
+    {
+      "family": "heston",
+      "maturity": 0.25,
+      "strike": 120,
+      "call": 0.06916338637468666,
+      "target_volatility": 0.17753010348271325
+    },
+    {
+      "family": "heston",
+      "maturity": 1.0,
+      "strike": 80,
+      "call": 21.115989094436333,
+      "target_volatility": 0.22832760305132016
+    },
+    {
+      "family": "heston",
+      "maturity": 1.0,
+      "strike": 100,
+      "call": 7.885761443936442,
+      "target_volatility": 0.20413401033128978
+    },
+    {
+      "family": "heston",
+      "maturity": 1.0,
+      "strike": 120,
+      "call": 1.6718848501159902,
+      "target_volatility": 0.18472938909309414
+    },
+    {
+      "family": "lift",
+      "maturity": 0.25,
+      "strike": 80,
+      "call": 19.489698896503526,
+      "target_volatility": 0.226307818200257
+    },
+    {
+      "family": "lift",
+      "maturity": 0.25,
+      "strike": 100,
+      "call": 3.887854055519185,
+      "target_volatility": 0.20102076734105537
+    },
+    {
+      "family": "lift",
+      "maturity": 0.25,
+      "strike": 120,
+      "call": 0.07748683892238067,
+      "target_volatility": 0.18065379893496014
+    },
+    {
+      "family": "lift",
+      "maturity": 1.0,
+      "strike": 80,
+      "call": 20.926918848898186,
+      "target_volatility": 0.21929041234896526
+    },
+    {
+      "family": "lift",
+      "maturity": 1.0,
+      "strike": 100,
+      "call": 7.858978782515767,
+      "target_volatility": 0.20343830328959558
+    },
+    {
+      "family": "lift",
+      "maturity": 1.0,
+      "strike": 120,
+      "call": 1.8281984452031794,
+      "target_volatility": 0.19066626903657805
+    }
+  ]
+}

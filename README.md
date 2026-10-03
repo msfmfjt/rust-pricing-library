@@ -298,3 +298,6 @@ still require price-only request flags. See the
 and [Hull–White risk example](examples/python/stochastic_dividend_hull_white_risk.py).
 Cash inputs are Q means. Market-IV calibration, VegaKT, LSV and stochastic-volatility
 plus Hull–White composition are not available for these stochastic-dividend plans.
+
+Experimental [Heston IV calibration and SSVI targets](docs/models/heston-iv-calibration.md)
+provide a separate Black-IV objective with analytic Jacobians.

@@ -99,5 +99,6 @@ convention are part of this API's definition.
 See the [validation protocol](../../design/validation/heston-hurst-risk.md) and
 [executable example](../../examples/python/heston_hurst_risk.py). Independent
 nondegenerate references cover selected complex transforms, not a complete rough
-option-risk surface. Calibration, finite-lift kernel risk, broader stressed/short
+option-risk surface. A separate [price calibration API](heston-calibration.md)
+uses these tangents. Finite-lift kernel risk, broader stressed/short
 maturity/wing cases, total-error control and production admission remain separate.
