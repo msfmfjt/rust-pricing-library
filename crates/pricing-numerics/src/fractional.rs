@@ -29,6 +29,37 @@ pub fn gamma_half_to_two(x: f64) -> Option<f64> {
     Some((2.0 * std::f64::consts::PI).sqrt() * t.powf(z + 0.5) * (-t).exp() * sum)
 }
 
+/// Digamma on [1/2, 2]. Recurrence to x>=12 followed by the Bernoulli
+/// asymptotic expansion through x^-16 (NIST DLMF 5.5.2, 5.11.2).
+/// Invalid arguments return None; no reflection or pole handling is implied.
+#[must_use]
+pub fn digamma_half_to_two(mut x: f64) -> Option<f64> {
+    if !x.is_finite() || !(0.5..=2.0).contains(&x) {
+        return None;
+    }
+    let mut shift = crate::NeumaierSum::new();
+    while x < 12.0 {
+        shift.add(-1.0 / x);
+        x += 1.0;
+    }
+    let y = 1.0 / (x * x);
+    let coefficients = [
+        -1.0 / 12.0,
+        1.0 / 120.0,
+        -1.0 / 252.0,
+        1.0 / 240.0,
+        -1.0 / 132.0,
+        691.0 / 32760.0,
+        -1.0 / 12.0,
+        3617.0 / 8160.0,
+    ];
+    let mut series = 0.0;
+    for c in coefficients.iter().rev() {
+        series = (series + c) * y;
+    }
+    Some(shift.total() + x.ln() - 0.5 / x + series)
+}
+
 /// Normalized covariance of stationary fractional OU, at dimensionless lag
 /// z=kappa*|t|. Evaluates a nonoscillatory second-difference integral. Returns
 /// None on invalid input or failure of the adaptive quadrature; no covariance
@@ -189,6 +220,28 @@ fn adaptive_simpson(f: &impl Fn(f64) -> f64, a: f64, b: f64, tolerance: f64) -> 
 mod tests {
     use super::*;
 
+    #[test]
+    fn digamma_constants_recurrence_and_domain() {
+        let euler = 0.577_215_664_901_532_9;
+        for (x, expected) in [
+            (0.5, -euler - 2.0 * 2.0_f64.ln()),
+            (1.0, -euler),
+            (1.5, 2.0 - euler - 2.0 * 2.0_f64.ln()),
+            (2.0, 1.0 - euler),
+        ] {
+            assert!((digamma_half_to_two(x).unwrap() - expected).abs() < 3e-15);
+        }
+        for x in [0.51, 0.6, 0.75, 0.9] {
+            assert!(
+                (digamma_half_to_two(x + 1.0).unwrap() - digamma_half_to_two(x).unwrap() - 1.0 / x)
+                    .abs()
+                    < 3e-15
+            );
+        }
+        for x in [0.49, 2.01, f64::NAN, f64::INFINITY] {
+            assert_eq!(digamma_half_to_two(x), None);
+        }
+    }
     #[test]
     fn gamma_boundaries_and_recurrence() {
         assert_eq!(gamma_half_to_two(1.0), Some(1.0));

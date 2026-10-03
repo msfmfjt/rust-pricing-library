@@ -1,5 +1,5 @@
 //! Additional rough model families, finite-grid paths and deterministic-rate
-//! MC/RQMC pricing, plus separate fixed-model Fourier forward sensitivities.
+//! MC/RQMC pricing, plus separate fixed-model Fourier forward, scalar and Hurst sensitivities.
 //! This additive API does not add stable JSON model tags or claim AAD,
 //! calibration, or LSV/HW composition.
 
@@ -13,8 +13,8 @@ pub use crate::models::{
 };
 
 pub use crate::engine::analytic::heston_fourier::{
-    FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierParameterRisk,
-    HestonFourierParameterRiskPlan, HestonFourierPlan, HestonFourierPrice,
-    HestonParameterSensitivities,
+    FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierHurstRisk,
+    HestonFourierHurstRiskPlan, HestonFourierParameterRisk, HestonFourierParameterRiskPlan,
+    HestonFourierPlan, HestonFourierPrice, HestonParameterSensitivities,
 };
 pub use pricing_numerics::Complex64;

@@ -22,7 +22,7 @@ pub const fn foundation_role() -> &'static str {
 }
 
 mod fractional;
-pub use fractional::{fractional_ou_correlation, gamma_half_to_two};
+pub use fractional::{digamma_half_to_two, fractional_ou_correlation, gamma_half_to_two};
 
 mod complex;
 pub use complex::Complex64;

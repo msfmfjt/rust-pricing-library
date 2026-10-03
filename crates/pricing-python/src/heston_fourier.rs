@@ -2,9 +2,9 @@
 use super::rough_volatility::PyRoughVolatilityModel;
 use super::{PyValidationIssue, pricing_exception, validation_exception};
 use pricing::rough_volatility::{
-    Complex64, FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierParameterRisk,
-    HestonFourierParameterRiskPlan, HestonFourierPlan, HestonFourierPrice,
-    HestonParameterSensitivities,
+    Complex64, FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierHurstRisk,
+    HestonFourierHurstRiskPlan, HestonFourierParameterRisk, HestonFourierParameterRiskPlan,
+    HestonFourierPlan, HestonFourierPrice, HestonParameterSensitivities,
 };
 use pyo3::prelude::*;
 
@@ -121,6 +121,11 @@ impl PyHestonFourierPlan {
     ) -> PyResult<PyHestonFourierPrice> {
         py.detach(|| self.inner.price(forward, strike, discount))
             .map(|inner| PyHestonFourierPrice { inner })
+            .map_err(|e| failure(py, e))
+    }
+    fn hurst_risk_plan(&self, py: Python<'_>) -> PyResult<PyHestonFourierHurstRiskPlan> {
+        py.detach(|| self.inner.hurst_risk_plan())
+            .map(|inner| PyHestonFourierHurstRiskPlan { inner })
             .map_err(|e| failure(py, e))
     }
     fn parameter_risk_plan(&self, py: Python<'_>) -> PyResult<PyHestonFourierParameterRiskPlan> {
@@ -254,6 +259,65 @@ impl PyHestonFourierParameterRiskPlan {
                 .log_transform_derivatives(Complex64::new(real, imag))
         })
         .map(|v| v.iter().map(|z| (z.re, z.im)).collect())
+        .map_err(|e| failure(py, e))
+    }
+}
+
+#[pyclass(frozen, name = "HestonFourierHurstRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHestonFourierHurstRisk {
+    inner: HestonFourierHurstRisk,
+}
+#[pymethods]
+impl PyHestonFourierHurstRisk {
+    #[getter]
+    fn price(&self) -> PyHestonFourierPrice {
+        PyHestonFourierPrice {
+            inner: self.inner.price,
+        }
+    }
+    #[getter]
+    fn hurst_sensitivity(&self) -> f64 {
+        self.inner.hurst_sensitivity
+    }
+    #[getter]
+    fn quadrature_difference(&self) -> f64 {
+        self.inner.quadrature_difference
+    }
+    #[getter]
+    fn tail_indicator(&self) -> f64 {
+        self.inner.tail_indicator
+    }
+}
+#[pyclass(frozen, name = "HestonFourierHurstRiskPlan", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHestonFourierHurstRiskPlan {
+    inner: HestonFourierHurstRiskPlan,
+}
+#[pymethods]
+impl PyHestonFourierHurstRiskPlan {
+    fn price(
+        &self,
+        py: Python<'_>,
+        forward: f64,
+        strike: f64,
+        discount: f64,
+    ) -> PyResult<PyHestonFourierHurstRisk> {
+        py.detach(|| self.inner.price(forward, strike, discount))
+            .map(|inner| PyHestonFourierHurstRisk { inner })
+            .map_err(|e| failure(py, e))
+    }
+    fn log_transform_derivative(
+        &self,
+        py: Python<'_>,
+        real: f64,
+        imag: f64,
+    ) -> PyResult<(f64, f64)> {
+        py.detach(|| {
+            self.inner
+                .log_transform_derivative(Complex64::new(real, imag))
+        })
+        .map(|z| (z.re, z.im))
         .map_err(|e| failure(py, e))
     }
 }

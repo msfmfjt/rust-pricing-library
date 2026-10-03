@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/analytic/heston_fourier/hurst_risk.rs',
+    'crates/pricing/tests/heston_hurst_risk.rs',
+    'fixtures/rough-volatility/hurst-risk.json',
+    'scripts/check_heston_hurst_risk.py',
+    'scripts/test_heston_hurst_risk_reference.py',
+    'tests/python/test_heston_hurst_risk.py',
+    'examples/python/heston_hurst_risk.py',
+    'docs/models/heston-hurst-risk.md',
+    'design/validation/heston-hurst-risk.md',
+    '.github/workflows/heston-hurst-risk.yml',
+
     'crates/pricing/src/engine/analytic/heston_fourier/parameter_risk.rs',
     'crates/pricing/tests/heston_parameter_risk.rs',
     'fixtures/rough-volatility/parameter-risk.json',
@@ -871,6 +882,7 @@ def main() -> int:
         check_heston_fourier_workflow(package, archive)
         check_heston_fourier_greeks_workflow(package, archive)
         check_heston_parameter_risk_workflow(package, archive)
+        check_heston_hurst_risk_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1098,6 +1110,29 @@ def check_heston_parameter_risk_workflow(package: tarfile.TarFile, archive: str)
         raise SystemExit(f"{archive}: Heston parameter risk evidence gates missing: {missing}")
     smoke = read_text(package, "scripts/smoke_test_wheel.py")
     if '"examples/python/heston_parameter_risk.py"' not in smoke:
+        raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
+
+
+def check_heston_hurst_risk_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-hurst-risk.yml")
+    required = (
+        'cargo test --locked -p pricing --lib hurst',
+        'cargo test --locked -p pricing-numerics',
+        'python scripts/check_heston_hurst_risk.py',
+        "python -m unittest discover -s scripts -p 'test_heston_hurst_risk_reference.py'",
+        'cargo test --locked -p pricing --test heston_hurst_risk',
+        'cargo test --locked --no-default-features -p pricing --test heston_hurst_risk',
+        'cargo test --locked --release -p pricing --test heston_hurst_risk -- --include-ignored --nocapture',
+        'os: [ubuntu-24.04, macos-15, windows-2025]',
+        'name: heston-hurst-risk-${{ matrix.os }}',
+        'path: heston-hurst-risk.log',
+        'if-no-files-found: error',
+    )
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: Heston Hurst risk evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_hurst_risk.py"' not in smoke:
         raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
 
 
