@@ -558,3 +558,133 @@ fn initial_boundary_is_rejected_but_future_boundaries_remain_integrable() {
         }
     }
 }
+
+#[test]
+fn historical_unhit_preserves_future_law_and_fingerprint_records_state() {
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_in", "knock_out"] {
+                let mut v = payload();
+                v["product"]["direction"] = json!({"type":direction});
+                v["product"]["side"] = json!({"type":side});
+                v["product"]["style"] = json!({"type":style});
+                v["product"]["barrier"] = json!(if direction == "up" { 105.0 } else { 95.0 });
+                v["product"]["rebate"] = json!(7.0);
+                let future = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+                v["product"]["monitoring_dates"]
+                    .as_array_mut()
+                    .unwrap()
+                    .insert(0, json!("2026-09-03"));
+                v["product"]["historical_hit"] = json!(false);
+                let history = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+                assert_eq!(history.path.times(), future.path.times());
+                assert_eq!(
+                    history.evaluate().unwrap().value,
+                    future.evaluate().unwrap().value
+                );
+                let a = history.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+                let b = future.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+                assert_eq!(
+                    [
+                        a.price.value,
+                        a.price.standard_error,
+                        a.delta,
+                        a.delta_standard_error
+                    ],
+                    [
+                        b.price.value,
+                        b.price.standard_error,
+                        b.delta,
+                        b.delta_standard_error
+                    ]
+                );
+                assert_ne!(a.price.plan_fingerprint, b.price.plan_fingerprint);
+            }
+        }
+    }
+}
+
+#[test]
+fn historical_state_is_frozen_under_spot_bumps_including_current_boundary() {
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_in", "knock_out"] {
+                for hit in [false, true] {
+                    for future in [false, true] {
+                        let mut v = payload();
+                        v["product"]["direction"] = json!({"type":direction});
+                        v["product"]["side"] = json!({"type":side});
+                        v["product"]["style"] = json!({"type":style});
+                        v["product"]["barrier"] = json!(100.0);
+                        v["product"]["strike"] = json!(100.0);
+                        v["product"]["notional"] = json!(2.0);
+                        v["product"]["rebate"] = json!(7.0);
+                        v["product"]["historical_hit"] = json!(hit);
+                        v["product"]["monitoring_dates"] = if future {
+                            json!(["2026-09-03", "2026-09-04", "2027-03-05", "2027-09-03"])
+                        } else {
+                            json!(["2026-09-03"])
+                        };
+                        let base = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
+                        if future && !hit {
+                            assert!(
+                                base.evaluate_lsv_hard_barrier_spot_risk()
+                                    .unwrap_err()
+                                    .to_string()
+                                    .contains("initial monitoring boundary")
+                            );
+                            continue;
+                        }
+                        let ctx = HardBarrierPlan::compile(&base).unwrap();
+                        assert_eq!(ctx.initial_hit, hit);
+                        let risk = base.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+                        let active = (style == "knock_in") == hit;
+                        if !active {
+                            assert_eq!(
+                                [
+                                    risk.price.value,
+                                    risk.delta,
+                                    risk.price.standard_error,
+                                    risk.delta_standard_error
+                                ],
+                                [7.0 * base.base.discount, 0.0, 0.0, 0.0]
+                            );
+                            assert_eq!(base.evaluate().unwrap().value, risk.price.value);
+                        }
+                        // Independent contract transformation: an unmonitored KO leg is vanilla.
+                        let mut vanilla_request = v.clone();
+                        vanilla_request["product"]["style"] = json!({"type":"knock_out"});
+                        vanilla_request["product"]["historical_hit"] = json!(false);
+                        vanilla_request["product"]["monitoring_dates"] = json!(["2026-09-03"]);
+                        let vanilla = compile(&vanilla_request, 0.3, [-0.25, -0.4, 0.15]);
+                        let vanilla_ctx = HardBarrierPlan::compile(&vanilla).unwrap();
+                        assert_eq!(base.path.times(), vanilla.path.times());
+                        for bump in [0.001, 0.0005] {
+                            v["market"]["spot"] = json!(100.0 + bump);
+                            let up = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
+                            v["market"]["spot"] = json!(100.0 - bump);
+                            let down = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
+                            for pattern in 0..8 {
+                                let z = normals(base.path.times().len() - 1, pattern);
+                                let actual = ctx.sample(&base, &z).unwrap();
+                                if active {
+                                    assert_eq!(actual, vanilla_ctx.sample(&vanilla, &z).unwrap());
+                                }
+                                let fd = (HardBarrierPlan::compile(&up)
+                                    .unwrap()
+                                    .sample(&up, &z)
+                                    .unwrap()[0]
+                                    - HardBarrierPlan::compile(&down)
+                                        .unwrap()
+                                        .sample(&down, &z)
+                                        .unwrap()[0])
+                                    / (2.0 * bump);
+                                assert!((actual[1] - fd).abs() < 2e-6);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

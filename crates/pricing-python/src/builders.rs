@@ -401,7 +401,7 @@ impl PyProduct {
 
     /// Build a fixed-strike barrier call or put with an explicit monitoring mode.
     #[staticmethod]
-    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring, monitoring_dates, payment_date, *, rebate=None))]
+    #[pyo3(signature = (underlying_id, currency_id, expiry, strike, barrier, notional, side, direction, style, monitoring, monitoring_dates, payment_date, *, rebate=None, historical_hit=None))]
     #[allow(clippy::too_many_arguments)]
     fn barrier(
         py: Python<'_>,
@@ -418,6 +418,7 @@ impl PyProduct {
         monitoring_dates: &Bound<'_, PyAny>,
         payment_date: &Bound<'_, PyAny>,
         rebate: Option<f64>,
+        historical_hit: Option<bool>,
     ) -> PyResult<Self> {
         let expiry = date_from_python(py, expiry, "/product/expiry")?;
         let side = option_side(py, side)?;
@@ -443,7 +444,10 @@ impl PyProduct {
             payment_date,
         )
         .map(|spec| Self {
-            inner: ProductSpec::Barrier(spec),
+            inner: ProductSpec::Barrier(match historical_hit {
+                Some(hit) => spec.with_historical_hit(hit),
+                None => spec,
+            }),
         })
         .map_err(|error| domain_error(py, "invalid_barrier", "/product", error))
     }

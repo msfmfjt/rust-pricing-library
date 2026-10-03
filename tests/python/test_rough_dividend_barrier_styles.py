@@ -19,7 +19,7 @@ class BarrierStyles(unittest.TestCase):
         market = dict(market, dividend_volatility=0., equity_dividend_correlation=0.)
         x, w = np.polynomial.legendre.leggauss(256)
 
-        def quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate, monitors):
+        def quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate, monitors, historical_hit):
             growth = market['annual_carry'] / market['annual_discount']
             funded = spot-sum(q/growth**ex for q, ex in zip(market['cash_means'], market['cash_times']))
             a = funded*growth**t
@@ -38,7 +38,7 @@ class BarrierStyles(unittest.TestCase):
             for left, right in zip(splits[:-1], splits[1:]):
                 z = (left+right)/2 + (right-left)*x/2
                 stock = a*np.exp(mu+sd*z)+b
-                hit = np.zeros(len(z), dtype=bool)
+                hit = np.full(len(z), historical_hit, dtype=bool)
                 if 1 in monitors:
                     hit |= stock+cash >= barrier if up else stock <= barrier
                 if 0 in monitors:
@@ -49,17 +49,17 @@ class BarrierStyles(unittest.TestCase):
             return value*market['annual_discount']**market['payment_time']
 
         for notional, rebate in [(1., 0.), (2., 7.)]:
-            for strike, up, call, knock_in, monitors, barrier in product(
+            for strike, up, call, knock_in, monitors, barrier, historical_hit in product(
                     (1., 80., 110., 1000.), (True, False), (True, False), (True, False),
-                    ([1], [0], [0, 1]), (95., 105.)):
+                    ([], [1], [0], [0, 1]), (95., 105.), (False, True)):
                 with self.subTest(notional=notional, rebate=rebate, strike=strike, up=up,
-                                  call=call, knock_in=knock_in, monitors=monitors, barrier=barrier):
+                                  call=call, knock_in=knock_in, monitors=monitors, barrier=barrier, historical_hit=historical_hit):
                     actual = path_values(dict(case, monitoring_indices=monitors),
                         dict(market, barrier=barrier, strike=strike),
                         np.zeros((1,1,3)), np.full((1,1),.5),
                         direction='up' if up else 'down', side='call' if call else 'put',
-                        style='knock_in' if knock_in else 'knock_out', notional=notional, rebate=rebate)[0]
-                    price = lambda spot: quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate, monitors)
+                        style='knock_in' if knock_in else 'knock_out', notional=notional, rebate=rebate, historical_hit=historical_hit)[0]
+                    price = lambda spot: quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate, monitors, historical_hit)
                     spot, bump = market['spot'], .01
                     coarse = (price(spot+bump)-price(spot-bump))/(2*bump)
                     fine = (price(spot+bump/2)-price(spot-bump/2))/bump

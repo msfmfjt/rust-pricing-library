@@ -80,6 +80,7 @@ impl SimulationPlan {
                 .monitoring_dates()
                 .iter()
                 .copied()
+                .filter(|date| *date >= request.valuation_date())
                 .filter(|date| {
                     let time =
                         DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date);
@@ -95,14 +96,17 @@ impl SimulationPlan {
                 digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
             }
             (ProductSpec::Barrier(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) => {
-                barrier.smoothed_source_graph_with_dividend_jumps(
-                    CompactC2Smoothing::from_positive(half_width),
-                    &jump_dates,
+                barrier.build_source_graph(
+                    Some(request.valuation_date()),
+                    Some(CompactC2Smoothing::from_positive(half_width)),
+                    &jump_dates.iter().copied().collect(),
                 )?
             }
-            (ProductSpec::Barrier(barrier), None) => {
-                barrier.source_graph_with_dividend_jumps(&jump_dates)?
-            }
+            (ProductSpec::Barrier(barrier), None) => barrier.build_source_graph(
+                Some(request.valuation_date()),
+                None,
+                &jump_dates.iter().copied().collect(),
+            )?,
             _ => product.source_graph(request.valuation_date())?,
         };
         let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
@@ -432,7 +436,14 @@ impl SimulationPlan {
                 (None, _) => match product {
                     ProductSpec::Digital(_) => (1, 0),
                     ProductSpec::Barrier(barrier) => (
-                        u32::try_from(barrier.monitoring_dates().len()).unwrap_or(u32::MAX),
+                        u32::try_from(
+                            barrier
+                                .monitoring_dates()
+                                .iter()
+                                .filter(|date| **date >= request.valuation_date())
+                                .count(),
+                        )
+                        .unwrap_or(u32::MAX),
                         u32::try_from(jump_dates.len()).unwrap_or(u32::MAX),
                     ),
                     _ => (0, 0),

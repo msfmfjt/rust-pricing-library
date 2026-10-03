@@ -121,17 +121,29 @@ impl PricingRequest {
                 }
             }
         }
-        if let ProductSpec::Barrier(barrier) = &product
-            && let Some(monitoring_date) = barrier
+        if let ProductSpec::Barrier(barrier) = &product {
+            let past = barrier
                 .monitoring_dates()
                 .iter()
                 .copied()
-                .find(|date| *date < valuation_date)
-        {
-            return Err(RequestValidationError::BarrierPastMonitoringUnsupported {
-                monitoring_date,
-                valuation_date,
-            });
+                .find(|d| *d < valuation_date);
+            if let Some(monitoring_date) = past {
+                if barrier.historical_hit().is_none() {
+                    return Err(RequestValidationError::BarrierPastMonitoringUnsupported {
+                        monitoring_date,
+                        valuation_date,
+                    });
+                }
+            } else if barrier.historical_hit().is_some() {
+                return Err(
+                    RequestValidationError::BarrierHistoryWithoutPastMonitoring { valuation_date },
+                );
+            }
+            if barrier.historical_hit().is_some()
+                && barrier.monitoring() == crate::product::BarrierMonitoring::Continuous
+            {
+                return Err(RequestValidationError::BarrierHistoryRequiresDiscreteMonitoring);
+            }
         }
         if let ProductSpec::FixedLookback(lookback) = &product {
             let has_past_monitoring = lookback

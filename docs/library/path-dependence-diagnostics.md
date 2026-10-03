@@ -81,7 +81,11 @@ Fixed Lookback results retain:
 | `future_monitoring_count` | Number of declared monitoring dates on or after valuation |
 | `historical_extremum` | Required fixed running maximum or minimum when past monitoring exists |
 
-Known fixings and historical extrema are contractual state. They remain fixed
+Discrete Barrier `historical_hit` is required exactly when past monitoring
+exists and is stored in the request, rather than a new diagnostics variant.
+Smoothing indicator counts include only current/future monitoring dates.
+
+Known fixings, Barrier hit history and historical extrema are contractual state. They remain fixed
 under Spot, volatility, curve, and dividend bumps and carry zero market
 adjoint. Fully fixed products report exact zero market risks.
 
@@ -97,7 +101,8 @@ result. Important typed failures include:
   smoothing widths;
 - invalid observation ordering, duplicate dates, invalid Asian weights or
   fixing classifications, and invalid Lookback historical state;
-- past Barrier monitoring without an explicit supported state;
+- missing Barrier history for past dates, history without past dates, or
+  historical state on continuous monitoring;
 - non-positive or undefined transformed continuous barriers;
 - negative or non-finite bridge variance and non-finite bridge inputs;
 - an up-barrier smoothing width outside the positive transformed-barrier log

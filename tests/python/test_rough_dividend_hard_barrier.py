@@ -16,13 +16,13 @@ TARGET = json.loads((Path(__file__).resolve().parents[2] /
 
 
 def request(case, *, spot=100., points=64, scrambles=4, engine=None, risk=None,
-            product=None, monitoring_dates=None):
+            product=None, monitoring_dates=None, historical_hit=None):
     c, base = case['contract'], BASES[case['base_case']]
     return rp.PricingRequest(
         '2026-09-04', product or rp.Product.barrier(
             1, 2, '2027-09-03', c['strike'], c['barrier'], c['notional'],
             c['side'], c['direction'], c['style'], 'discrete',
-            monitoring_dates or base['monitoring_dates'], '2027-12-04', rebate=c['rebate']),
+            monitoring_dates or base['monitoring_dates'], '2027-12-04', rebate=c['rebate'], historical_hit=historical_hit),
         rp.Market.equity(2, 1, spot,
             rp.DiscountCurve(10, [0., 1.], [1., MARKET['annual_discount']]),
             rp.DiscountCurve(11, [0., 1.], [1., MARKET['annual_carry']]),
@@ -149,6 +149,88 @@ class HardBarrierSpotRisk(unittest.TestCase):
                                   fixed_risk.delta_standard_error), (0., 0., 0.))
         with self.assertRaises(rp.ValidationError):
             request(CFG['cases'][0], monitoring_dates=['2026-09-03', '2027-09-03'])
+
+    def test_historical_state_roundtrip_validation_and_future_law(self):
+        for case in CFG['cases']:
+            base = request(case)
+            self.assertNotIn('historical_hit', json.loads(base.to_json())['product'])
+            dates = ['2026-09-03'] + BASES[case['base_case']]['monitoring_dates']
+            typed = request(case, monitoring_dates=dates, historical_hit=False)
+            restored = rp.PricingRequest.from_json(typed.to_json())
+            self.assertIs(json.loads(restored.to_json())['product']['historical_hit'], False)
+            self.assertEqual(typed.fingerprint, restored.fingerprint)
+            self.assertNotEqual(base.fingerprint, restored.fingerprint)
+            future, historical = compile_plan(case, base), compile_plan(case, restored)
+            self.assertEqual(future.time_nodes, historical.time_nodes)
+            self.assertEqual(future.evaluate().value, historical.evaluate().value)
+            self.assertEqual(snapshot(future.evaluate_lsv_hard_barrier_spot_risk(), with_fingerprint=False),
+                snapshot(historical.evaluate_lsv_hard_barrier_spot_risk(), with_fingerprint=False))
+            self.assertNotEqual(typed.fingerprint,
+                request(case, monitoring_dates=dates, historical_hit=True).fingerprint)
+        case = CFG['cases'][0]
+        for hit in (False, True):
+            with self.assertRaisesRegex(rp.ValidationError, 'requires monitoring dates before'):
+                request(case, historical_hit=hit)
+            with self.assertRaisesRegex(rp.ValidationError, 'requires monitoring dates before'):
+                request(case, monitoring_dates=['2026-09-04'], historical_hit=hit)
+            payload = json.loads(request(case, monitoring_dates=dates, historical_hit=hit).to_json())
+            payload['product']['monitoring']['type'] = 'continuous'
+            with self.assertRaisesRegex(rp.ValidationError, 'only for discrete'):
+                rp.PricingRequest.from_json(json.dumps(payload))
+
+    def test_historical_state_is_fixed_under_bumps_and_worker_replay(self):
+        discount = MARKET['annual_discount']**MARKET['payment_time']
+        for case in CFG['cases']:
+            c = case['contract']
+            for hit, dates in [(False, ['2026-09-03']),
+                               (True, ['2026-09-03', '2026-09-04'] + BASES[case['base_case']]['monitoring_dates'])]:
+                # Quoted Spot lies exactly on the barrier. History alone is fixed;
+                # already-hit history also makes today's new observation irrelevant.
+                kwargs = dict(spot=c['barrier'], monitoring_dates=dates, historical_hit=hit)
+                req = request(case, **kwargs)
+                plan = compile_plan(case, req)
+                result = plan.evaluate_lsv_hard_barrier_spot_risk()
+                if (c['style'] == 'knock_in') != hit:
+                    self.assertAlmostEqual(result.price.value, discount*c['rebate'], delta=2e-14)
+                    self.assertEqual(plan.evaluate().value, result.price.value)
+                    self.assertEqual((result.price.standard_error, result.delta, result.delta_standard_error), (0., 0., 0.))
+                for bump in (1e-3, 5e-4):
+                    values = [compile_plan(case, request(case, **(kwargs | dict(spot=c['barrier']+shift))))
+                        .evaluate_lsv_hard_barrier_spot_risk().price.value for shift in (bump, -bump)]
+                    self.assertAlmostEqual(result.delta, (values[0]-values[1])/(2*bump), delta=2e-6)
+                parallel = compile_plan(case, req, worker_threads=3).evaluate_lsv_hard_barrier_spot_risk()
+                self.assertEqual(snapshot(result, with_fingerprint=False), snapshot(parallel, with_fingerprint=False))
+                if hit:
+                    with self.assertRaisesRegex(rp.PricingError, 'initial monitoring boundary'):
+                        unhit = compile_plan(case, request(case, **(kwargs | dict(historical_hit=False))))
+                        unhit.evaluate_lsv_hard_barrier_spot_risk()
+
+    def test_shared_bs_and_local_vol_history_prices_and_smoothed_delta(self):
+        for model in (rp.Model.black_scholes(.2),
+                      rp.Model.local_volatility_from_grid([0., MARKET['expiry_time']], [-.5, 0., .5], [.04]*6, 1e-8, 4.)):
+            for side in ('call', 'put'):
+                vanilla = rp.Product.european_vanilla(1, 2, '2027-09-03', 100., 2., side)
+                def shared(product, smoothing=None):
+                    return rp.PricingRequest('2026-09-04', product,
+                        rp.Market.equity(2, 1, 100.,
+                            rp.DiscountCurve(10, [0., 1.], [1., .95]),
+                            rp.DiscountCurve(11, [0., 1.], [1., .98])), model,
+                        rp.Engine.randomized_quasi_monte_carlo(64, 193, scramble_count=4, antithetic=True),
+                        rp.RiskRequest(delta=True, payoff_smoothing_half_width=smoothing))
+                expected = rp.PricingPlan.compile(shared(vanilla), worker_threads=1).evaluate()
+                for hit in (False, True):
+                    for style in ('knock_in', 'knock_out'):
+                        product = rp.Product.barrier(1, 2, '2027-09-03', 100., 100., 2., side,
+                            'up', style, 'discrete',
+                            ['2026-09-03', '2027-09-03'] if hit else ['2026-09-03'],
+                            '2027-09-03', rebate=7., historical_hit=hit)
+                        actual = rp.PricingPlan.compile(shared(product, .5), worker_threads=1).evaluate()
+                        if (style == 'knock_in') == hit:
+                            self.assertAlmostEqual(actual.value, expected.value, delta=2e-12)
+                            self.assertAlmostEqual(actual.delta_raw, expected.delta_raw, delta=2e-12)
+                        else:
+                            self.assertAlmostEqual(actual.value, 7*.95**MARKET['expiry_time'], delta=2e-14)
+                            self.assertEqual((actual.standard_error, actual.delta_raw), (0., 0.))
 
     def test_initial_hit_vanilla_matches_independent_parity_reference(self):
         for i in (0, 14):  # H=.1 Up Call and H=.3 Down Put, both knock-in.

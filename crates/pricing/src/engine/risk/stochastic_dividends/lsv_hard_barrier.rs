@@ -85,7 +85,7 @@ impl HardBarrierPlan {
         for &date in barrier.monitoring_dates() {
             let time = DayCountConvention::Act365F.year_fraction(plan.base.valuation_date, date);
             if time < 0.0 {
-                return Err(unsupported());
+                continue; // Past observations are summarized by the fixed historical state.
             }
             let i = times
                 .binary_search_by(|t| t.total_cmp(&time))
@@ -96,7 +96,9 @@ impl HardBarrierPlan {
         // The input Spot determines this observation; all cash ex-dates are
         // strictly future in the Buehler path contract. Differentiate only
         // within the current branch, never across its discontinuity.
-        let initial_hit = if monitors[0] {
+        let initial_hit = if barrier.historical_hit() == Some(true) {
+            true
+        } else if monitors[0] {
             let spot = plan.market.spot().get();
             let level = barrier.barrier().get();
             if spot == level {

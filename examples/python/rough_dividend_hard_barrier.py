@@ -5,7 +5,8 @@ expiry = 364/365
 request = rp.PricingRequest(
     '2026-09-04',
     rp.Product.barrier(1, 2, '2027-09-03', 100., 95., 2., 'put', 'down',
-        'knock_out', 'discrete', ['2026-09-04', '2027-03-05', '2027-09-03'], '2027-12-04', rebate=7.),
+        'knock_out', 'discrete', ['2026-09-03', '2026-09-04', '2027-03-05', '2027-09-03'],
+        '2027-12-04', rebate=7., historical_hit=False),
     rp.Market.equity(2, 1, 100., rp.DiscountCurve(10, [0., 1.], [1., .95]),
         rp.DiscountCurve(11, [0., 1.], [1., .98]),
         discrete_dividends=[rp.DividendEvent.fixed_cash(1, 182/365, 5.),
@@ -29,5 +30,6 @@ print(f'Price: {risk.price.value:.8g} (sampling SE {risk.price.standard_error:.3
 print(f'Spot Delta: {risk.delta:.8g} (sampling SE {risk.delta_standard_error:.3g})')
 print('Method:', risk.method)
 print('Price fingerprint:', risk.price.plan_fingerprint)
+print('Past monitoring: explicitly unhit; held fixed under Spot bumps.')
 print('Rebate: fixed cash 7 at payment on the inactive branch; not multiplied by notional 2.')
 print('Sampling errors exclude calibration uncertainty and time-grid bias.')

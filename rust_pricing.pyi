@@ -1305,6 +1305,7 @@ class Product:
         payment_date: DateLike,
         *,
         rebate: float | None = None,
+        historical_hit: bool | None = None,
     ) -> Product: ...
     @staticmethod
     def arithmetic_asian(

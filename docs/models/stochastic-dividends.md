@@ -344,7 +344,7 @@ values.
 
 For rough residual LSV, hard-payoff Barrier Spot risk is available through
 `evaluate_lsv_hard_barrier_spot_risk()` in Rust and Python. This method supports
-discrete up/down knock-in/out calls and puts with monitoring on/after valuation, optional
+discrete up/down knock-in/out calls and puts with explicit past hit state, optional
 fixed cash rebates and no payoff smoothing. A rebate pays when the vanilla
 branch is inactive, without notional scaling, at the contractual payment date.
 It conditions on survival at every monitoring date and integrates
@@ -360,9 +360,15 @@ The [Python example](../../examples/python/rough_dividend_hard_barrier.py) uses 
 price-only request and `retain_reverse_trace=False`; the result uses the
 existing immutable `StochasticDividendLsvSpotRisk` type.
 If valuation is monitored, an initial hit makes knock-in vanilla and knock-out
-fixed cash. At initial Spot equal to the barrier, the risk method rejects the
-undefined Delta; the ordinary price API remains available. Dates before
-valuation still require a historical state that this contract does not provide.
+fixed cash. Use `Product.barrier(..., historical_hit=True/False)` in Python or
+`BarrierSpec::with_historical_hit` in Rust whenever a declared monitoring date
+is before valuation. The state summarizes only past discrete observations;
+it remains fixed under market bumps. Past dates are omitted from simulated
+observations. Without past dates, supplying history is rejected. An already
+hit history also makes today's equality harmless. Otherwise, at monitored
+initial Spot equal to the barrier the risk method rejects the undefined Delta;
+the ordinary price API remains available. Continuous historical monitoring
+remains unsupported.
 The original `evaluate_lsv_spot_risk()` still requires smoothing for Barrier
 payoffs; the new method does not add other hard-payoff Greeks or request-level
 Delta dispatch.

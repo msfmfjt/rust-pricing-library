@@ -36,7 +36,7 @@ def hybrid_weights(times, h):
 
 
 def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
-                side="call", style="knock_in", notional=1., rebate=0.):
+                side="call", style="knock_in", notional=1., rebate=0., historical_hit=False):
     """Per-path price/analytic Delta; normals have shape (paths, steps, 3)."""
     if direction not in ('up', 'down') or side not in ('call', 'put') or style not in ('knock_in', 'knock_out'):
         raise ValueError('invalid Barrier direction, side or style')
@@ -65,9 +65,9 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
     drivers = dv @ weights.T
     drivers[:, 1:] += residual * normals[:, :, 2]
     monitors = set(case['monitoring_indices'])
-    if 0 in monitors and spot == market['barrier']:
+    if not historical_hit and 0 in monitors and spot == market['barrier']:
         raise ValueError('Spot Delta is undefined at the initial monitoring boundary')
-    initial_hit = 0 in monitors and (spot > market['barrier'] if up else spot < market['barrier'])
+    initial_hit = historical_hit or (0 in monitors and (spot > market['barrier'] if up else spot < market['barrier']))
 
     def coefficients(t):
         a, b, c, cash = funded * growth ** t, 0., 0., 0.

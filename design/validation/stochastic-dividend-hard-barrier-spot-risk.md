@@ -10,9 +10,9 @@ requirement for discontinuous payoffs.
 ## Contract and estimator
 
 Supported contracts are discrete up/down knock-in/out calls and puts with optional fixed cash rebates and
-all monitoring dates on or after valuation. Payment may follow expiry;
-cash means beyond expiry remain funded. Historical
-observations, smoothing requests, non-rough models, and degenerate
+explicit `historical_hit` when any monitoring date precedes valuation. Payment may follow expiry;
+cash means beyond expiry remain funded. Missing historical state,
+smoothing requests, non-rough models, and degenerate
 conditional equity laws are rejected. Continuous monitoring remains rejected
 by the shared compiler. Other Greeks and automatic request-level dispatch are
 not added by this method.
@@ -61,12 +61,37 @@ The fixed cash branches have zero Spot Delta and zero sampling error. They
 skip future path evolution, so irrelevant numerical overflows cannot prevent
 a deterministic payment.
 
-Delta is local to the current initial branch. When monitored initial Spot
+Delta is local to the current initial branch. When history has not already established a hit and monitored initial Spot
 equals the barrier, the dedicated risk method returns an explicit unsupported-
 risk error: there is no equity innovation at time zero over which to integrate
 this discontinuity. Ordinary inclusive-hit price evaluation remains available.
 A future-only contract with Spot equal to the barrier remains supported.
-This does not supply a historical hit state or admit dates before valuation.
+Past discrete observations are summarized by `historical_hit: bool`. `true`
+means at least one past declared observation hit; `false` explicitly means
+none hit. It is required exactly when a monitoring date is strictly before
+valuation; supplying it without such a date is rejected. It does not include
+today's observation and is never inferred from current Spot. Continuous
+monitoring with history is explicitly rejected until the bridge contract
+supports historical state.
+
+The shared payoff starts from this fixed state and excludes past observation
+inputs. The state stays fixed under all market bumps. With historical `true`,
+knock-in is vanilla and knock-out pays its rebate, including when today's Spot
+is exactly on the barrier. With historical `false`, today's declared
+observation and all future monitoring still apply. If all monitoring is past,
+knock-in/knock-out reduce to vanilla or fixed cash according to that state.
+The existing model/conditional-variance eligibility checks still apply.
+
+Rust retains `BarrierSpec::new` and adds `.with_historical_hit(hit)` plus the
+`historical_hit()` accessor. Direct payoff compilation with history uses
+`source_graph_at(valuation_date)` or `smoothed_source_graph_at(...)`;
+undated graph entry points reject historical state. `ProductSpec::source_graph`
+and pricing plan compilation already carry the valuation date.
+Python adds keyword-only `Product.barrier(..., historical_hit=True/False)`.
+The optional Boolean is supported by the shared v1/v2/v3 request DTO and
+schemas. Omission keeps legacy serialized requests and fingerprints unchanged;
+explicit false is retained, and changing history changes the request and plan
+fingerprints. No past fixing series or new result type is introduced.
 
 The [independent Python reference](stochastic-dividend-survival-barrier-reference.md)
 implements this law without calling the Rust transition, payoff, derivative,
@@ -144,16 +169,19 @@ non-rough LSV and singular conditional equity laws; ordinary APIs retain their
 behavior. The wheel smoke contract checks the method name and signature,
 discovers the new tests and runs the example. Source archives require both.
 Initial-monitoring binding controls check unchanged future estimates, fixed
-rebate branches, historical-date rejection and two independent vanilla limits.
+rebate branches, missing-history rejection and two independent vanilla limits.
+Historical-state binding controls cover true/false JSON round trips, invalid
+schedules/continuous mode, unchanged future-only estimates, Spot bumps at the
+current barrier, worker replay, and shared BS/Local Volatility prices and
+smoothed Delta.
 The vanilla references combine each retained knock-in/out batch before
 computing its SE, preserving covariance and subtracting one discounted rebate.
-The independent Gaussian payoff-quadrature control covers 384 combinations
-of direction, side, style, strike, rebate, barrier level and initial/final
-monitoring selection, using the original 8e-9 price/Delta tolerance.
+The independent Gaussian payoff-quadrature control covers direction, side, style, strike, rebate, barrier level, fixed historical
+hit state and empty/initial/final monitoring selections, using the original 8e-9 price/Delta tolerance.
 
 ## Validation
 
-Thirteen fast unit tests cover:
+Fifteen fast hard-risk unit tests cover:
 
 - Per-sample analytic Delta against two full-recalibration Spot bumps, at
   H=0.1/0.3/0.5, with and without terminal monitoring, for all eight
@@ -173,6 +201,13 @@ Thirteen fast unit tests cover:
 - Initial monitoring: absorbing hits, vanilla/fixed-cash limits with or without
   future observations, unchanged future estimates after an unhit observation,
   branch-preserving Spot bumps and rejection at the initial boundary.
+
+Additional shared graph and wire tests check history initialization, hard and
+smoothed payoff parity, no past observation requests, optional-field omission,
+v1/v2/v3 parsing, fingerprint distinction and missing/unexpected/continuous
+history validation. Hard-risk tests freeze history across two Spot bump sizes,
+including a currently monitored equality when already hit, and compare
+resolved contracts with vanilla/fixed cash.
 
 A public integration control checks replay, counts, uncertainty scope,
 fingerprint separation, smoothing rejection and unchanged ordinary valuation.
@@ -208,7 +243,7 @@ earlier reference comparisons, 28 Up Call production comparisons and 48
 [direction/side extension comparisons](stochastic-dividend-hard-barrier-styles.md),
 plus 64 [rebate comparisons](stochastic-dividend-hard-barrier-rebates.md). The
 three-OS Barrier CI job retains these in the existing reference log and runs
-the thirteen fast controls in `stochastic-dividend-hard-barrier-risk.log`.
+the fifteen fast controls in `stochastic-dividend-hard-barrier-risk.log`.
 
 This validates the stated discrete laws and Spot convention conditional on
 finite-particle calibration. It does not certify continuous-time accuracy,

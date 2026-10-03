@@ -116,6 +116,8 @@ these 48 comparisons and the later rebate extension. Source archives require the
 fixture, documentation and CI regeneration command.
 
 Fixed cash rebates have a [separate panel](stochastic-dividend-hard-barrier-rebates.md).
-Continuous monitoring, historical hit states, other Greeks,
+Historical discrete hit states are covered by the
+[shared contract extension](stochastic-dividend-hard-barrier-spot-risk.md).
+Continuous monitoring, other Greeks,
 automatic request-level dispatch, calibration uncertainty and continuous-time
 accuracy remain separate work.

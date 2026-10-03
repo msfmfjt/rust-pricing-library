@@ -51,6 +51,10 @@ pub enum RequestValidationError {
         monitoring_date: Date,
         valuation_date: Date,
     },
+    BarrierHistoryWithoutPastMonitoring {
+        valuation_date: Date,
+    },
+    BarrierHistoryRequiresDiscreteMonitoring,
     LookbackPastMonitoringRequiresHistoricalExtremum {
         valuation_date: Date,
     },
@@ -122,6 +126,14 @@ impl fmt::Display for RequestValidationError {
             } => write!(
                 formatter,
                 "Barrier monitoring date {monitoring_date} before valuation date {valuation_date} requires historical barrier state"
+            ),
+            Self::BarrierHistoryWithoutPastMonitoring { valuation_date } => write!(
+                formatter,
+                "Barrier historical_hit requires monitoring dates before valuation date {valuation_date}"
+            ),
+            Self::BarrierHistoryRequiresDiscreteMonitoring => write!(
+                formatter,
+                "Barrier historical_hit is supported only for discrete monitoring"
             ),
             Self::LookbackPastMonitoringRequiresHistoricalExtremum { valuation_date } => write!(
                 formatter,

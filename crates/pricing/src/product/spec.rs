@@ -93,6 +93,7 @@ pub struct BarrierSpec {
     style: BarrierStyle,
     monitoring: BarrierMonitoring,
     monitoring_dates: Box<[Date]>,
+    historical_hit: Option<bool>,
     rebate: Option<PositiveF64>,
     payment_date: Date,
 }
@@ -507,6 +508,7 @@ impl BarrierSpec {
             style,
             monitoring,
             monitoring_dates: monitoring_dates.into_boxed_slice(),
+            historical_hit: None,
             rebate: rebate
                 .map(|value| PositiveF64::new(value, "barrier_rebate"))
                 .transpose()?,
@@ -567,6 +569,19 @@ impl BarrierSpec {
     #[must_use]
     pub const fn monitoring_dates(&self) -> &[Date] {
         &self.monitoring_dates
+    }
+
+    #[must_use]
+    pub const fn historical_hit(&self) -> Option<bool> {
+        self.historical_hit
+    }
+
+    /// Fixed hit state over declared monitoring dates strictly before valuation.
+    /// Requests require this state exactly when discrete past monitoring exists.
+    #[must_use]
+    pub fn with_historical_hit(mut self, hit: bool) -> Self {
+        self.historical_hit = Some(hit);
+        self
     }
 
     #[must_use]

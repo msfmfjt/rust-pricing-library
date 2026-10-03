@@ -1898,9 +1898,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "payment_date",
             ],
             "positional_defaults": {},
-            "keyword_only": ["rebate"],
+            "keyword_only": ["rebate", "historical_hit"],
             "required_keyword_only": [],
-            "keyword_only_defaults": {"rebate": None},
+            "keyword_only_defaults": {"rebate": None, "historical_hit": None},
         },
         ("Product", "digital"): {
             "positional": [
