@@ -32,10 +32,10 @@ which pricing entry points accept each product family.
   conventions defined by their individual contracts.
 - Barrier products support up/down and in/out styles, with discrete or
   continuous monitoring. Continuous monitoring uses the documented bridge
-  treatment. Discrete contracts with monitoring before valuation require
-  explicit `historical_hit=True/False`, summarizing past observations only.
-  This state stays fixed under market bumps; continuous historical monitoring
-  is not yet supported.
+  treatment. Contracts with monitoring before valuation require explicit
+  `historical_hit=True/False`, held fixed under market bumps. Continuous history
+  is supported by the shared Black–Scholes/Local Volatility plans; see the
+  [history contract and adapter limits](../library/path-dependence-diagnostics.md#historical-barrier-state).
 - Arithmetic Asian products support explicitly scheduled observations,
   including partially fixed observations where allowed by the contract.
 - Fixed-strike Lookbacks use discrete observations and a historical extremum

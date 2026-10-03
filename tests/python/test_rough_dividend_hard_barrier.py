@@ -175,8 +175,11 @@ class HardBarrierSpotRisk(unittest.TestCase):
                 request(case, monitoring_dates=['2026-09-04'], historical_hit=hit)
             payload = json.loads(request(case, monitoring_dates=dates, historical_hit=hit).to_json())
             payload['product']['monitoring']['type'] = 'continuous'
-            with self.assertRaisesRegex(rp.ValidationError, 'only for discrete'):
-                rp.PricingRequest.from_json(json.dumps(payload))
+            continuous = rp.PricingRequest.from_json(json.dumps(payload))
+            # Shared BS/Local Volatility plans support continuous history;
+            # the stochastic-dividend LSV adapter still has no continuous bridge.
+            with self.assertRaisesRegex(rp.PricingError, 'continuous Barrier'):
+                compile_plan(case, continuous)
 
     def test_historical_state_is_fixed_under_bumps_and_worker_replay(self):
         discount = MARKET['annual_discount']**MARKET['payment_time']

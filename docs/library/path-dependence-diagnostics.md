@@ -81,13 +81,59 @@ Fixed Lookback results retain:
 | `future_monitoring_count` | Number of declared monitoring dates on or after valuation |
 | `historical_extremum` | Required fixed running maximum or minimum when past monitoring exists |
 
-Discrete Barrier `historical_hit` is required exactly when past monitoring
+Barrier `historical_hit` is required exactly when past monitoring
 exists and is stored in the request, rather than a new diagnostics variant.
-Smoothing indicator counts include only current/future monitoring dates.
+Discrete smoothing indicator counts include only current/future monitoring
+dates. Continuous counts describe the bridge work performed; see below.
 
 Known fixings, Barrier hit history and historical extrema are contractual state. They remain fixed
 under Spot, volatility, curve, and dividend bumps and carry zero market
 adjoint. Fully fixed products report exact zero market risks.
+
+## Historical Barrier state
+
+`BarrierSpec::with_historical_hit(bool)` and Python
+`Product.barrier(..., historical_hit=True/False)` accept fixed history for
+both discrete and continuous monitoring. An explicit state is required exactly
+when a declared monitoring date precedes valuation. Missing state and state
+without past dates are rejected. Omission retains the existing request JSON
+and fingerprints; explicit false is serialized and fingerprinted.
+
+For discrete monitoring the Boolean summarizes past declared observations.
+For continuous monitoring it summarizes the entire monitored interval before
+valuation, not just the listed endpoints. The caller supplies this state;
+current Spot cannot reconstruct past hits. The final declared monitoring date
+remains the monitoring end, which can precede expiry and valuation.
+
+The shared Black–Scholes and Local Volatility plans support continuous history:
+
+- A historical hit is absorbing: knock-in is vanilla and knock-out pays the
+  fixed rebate (or zero), including at a current Spot/barrier equality.
+- If monitoring ended strictly before valuation, the historical state alone
+  selects vanilla or fixed cash; current Spot is not a new observation.
+- If history is unhit and monitoring is still live, the existing continuous
+  bridge starts at valuation, including its initial endpoint. An end date
+  equal to valuation still observes today's Spot.
+
+All payoffs use the contractual payment discount. Rebates are fixed cash,
+not multiplied by notional. History is held fixed under Spot/volatility bumps
+and never differentiated or smoothed. Exact and compact-C2 calculations share
+these rules. Resolved contracts bypass bridge evaluation and its smoothing
+log-domain check; the existing model and market checks still apply. Fixed-cash
+payoffs have exact zero Delta/Gamma/Vega/VegaKT and sampling error. Vanilla
+branches retain their ordinary terminal sensitivities.
+
+Bridge hit fractions and interval counts describe calculations performed from
+valuation onward. A resolved historical contract has zero bridge counts and
+zero smoothing endpoint/jump counts; a past hit is not mislabeled as a current
+endpoint or dividend-jump hit. Historical state remains in the request rather
+than a new diagnostics variant. Existing bridge formulas and their ABI/policy
+identities are unchanged, and history participates in request/plan identity.
+
+The stochastic-dividend LSV/Hull–White adapters still reject continuous Barrier
+contracts, including resolved ones; they have no continuous bridge integration.
+The dedicated rough stochastic-dividend hard Spot-risk API supports discrete
+history only. Shared-contract acceptance does not imply adapter support.
 
 ## Errors
 
@@ -101,8 +147,7 @@ result. Important typed failures include:
   smoothing widths;
 - invalid observation ordering, duplicate dates, invalid Asian weights or
   fixing classifications, and invalid Lookback historical state;
-- missing Barrier history for past dates, history without past dates, or
-  historical state on continuous monitoring;
+- missing Barrier history for past dates or history without past dates;
 - non-positive or undefined transformed continuous barriers;
 - negative or non-finite bridge variance and non-finite bridge inputs;
 - an up-barrier smoothing width outside the positive transformed-barrier log

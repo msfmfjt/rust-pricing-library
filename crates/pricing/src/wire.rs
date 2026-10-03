@@ -5038,12 +5038,18 @@ mod tests {
                 );
             }
             value["product"]["monitoring"]["type"] = "continuous".into();
-            assert!(
-                parse(&value)
-                    .unwrap_err()
-                    .to_string()
-                    .contains("only for discrete")
-            );
+            let continuous = parse(&value).unwrap();
+            let ProductSpec::Barrier(spec) = continuous.product() else {
+                panic!()
+            };
+            assert_eq!(spec.historical_hit(), Some(hit));
+            assert_eq!(spec.monitoring(), BarrierMonitoring::Continuous);
+            let round_trip = parse_request_json(
+                request_to_json(&continuous).unwrap().as_bytes(),
+                JsonLimits::DEFAULT,
+            )
+            .unwrap();
+            assert_eq!(round_trip, continuous);
             value["product"]["monitoring"]["type"] = "discrete".into();
             value["product"]["monitoring_dates"][0] = "2027-03-04".into();
         }

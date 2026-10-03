@@ -139,11 +139,6 @@ impl PricingRequest {
                     RequestValidationError::BarrierHistoryWithoutPastMonitoring { valuation_date },
                 );
             }
-            if barrier.historical_hit().is_some()
-                && barrier.monitoring() == crate::product::BarrierMonitoring::Continuous
-            {
-                return Err(RequestValidationError::BarrierHistoryRequiresDiscreteMonitoring);
-            }
         }
         if let ProductSpec::FixedLookback(lookback) = &product {
             let has_past_monitoring = lookback

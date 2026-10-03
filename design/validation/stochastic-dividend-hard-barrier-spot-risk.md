@@ -70,9 +70,11 @@ Past discrete observations are summarized by `historical_hit: bool`. `true`
 means at least one past declared observation hit; `false` explicitly means
 none hit. It is required exactly when a monitoring date is strictly before
 valuation; supplying it without such a date is rejected. It does not include
-today's observation and is never inferred from current Spot. Continuous
-monitoring with history is explicitly rejected until the bridge contract
-supports historical state.
+today's observation and is never inferred from current Spot. The shared
+BS/Local Volatility continuous bridge now accepts historical state under the
+[continuous history contract](../../docs/library/path-dependence-diagnostics.md#historical-barrier-state).
+The stochastic-dividend LSV adapter still rejects all continuous Barrier
+contracts; this dedicated risk method remains discrete.
 
 The shared payoff starts from this fixed state and excludes past observation
 inputs. The state stays fixed under all market bumps. With historical `true`,
@@ -171,7 +173,7 @@ discovers the new tests and runs the example. Source archives require both.
 Initial-monitoring binding controls check unchanged future estimates, fixed
 rebate branches, missing-history rejection and two independent vanilla limits.
 Historical-state binding controls cover true/false JSON round trips, invalid
-schedules/continuous mode, unchanged future-only estimates, Spot bumps at the
+schedules/unsupported adapter mode, unchanged future-only estimates, Spot bumps at the
 current barrier, worker replay, and shared BS/Local Volatility prices and
 smoothed Delta.
 The vanilla references combine each retained knock-in/out batch before
@@ -204,8 +206,8 @@ Fifteen fast hard-risk unit tests cover:
 
 Additional shared graph and wire tests check history initialization, hard and
 smoothed payoff parity, no past observation requests, optional-field omission,
-v1/v2/v3 parsing, fingerprint distinction and missing/unexpected/continuous
-history validation. Hard-risk tests freeze history across two Spot bump sizes,
+v1/v2/v3 parsing, fingerprint distinction and missing/unexpected history validation. Shared
+continuous-history tests preserve the LSV adapter rejection. Hard-risk tests freeze history across two Spot bump sizes,
 including a currently monitored equality when already hit, and compare
 resolved contracts with vanilla/fixed cash.
 

@@ -9,9 +9,9 @@ use crate::product::graph::SourceGraphBuilder;
 use crate::product::graph::SourceNode;
 use crate::product::graph::SourceOpcode;
 use crate::product::{
-    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservationValue, BarrierDirection,
-    BarrierMonitoring, BarrierSpec, BarrierStyle, CompactC2Smoothing, DigitalPayout, DigitalSpec,
-    EuropeanVanillaSpec, FixedLookbackSpec, OptionSide, ProductSpec,
+    AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservationValue, BarrierDirection, BarrierSpec,
+    BarrierStyle, CompactC2Smoothing, DigitalPayout, DigitalSpec, EuropeanVanillaSpec,
+    FixedLookbackSpec, OptionSide, ProductSpec,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem;
@@ -252,10 +252,7 @@ impl BarrierSpec {
                 .monitoring_dates()
                 .iter()
                 .any(|date| *date < valuation_date);
-            if has_past != self.historical_hit().is_some()
-                || (self.historical_hit().is_some()
-                    && self.monitoring() != BarrierMonitoring::Discrete)
-            {
+            if has_past != self.historical_hit().is_some() {
                 return Err(GraphError::InvalidBarrierHistory);
             }
         }

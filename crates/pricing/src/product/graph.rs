@@ -356,7 +356,7 @@ impl fmt::Display for GraphError {
             ),
             Self::InvalidBarrierHistory => write!(
                 formatter,
-                "Barrier history requires discrete monitoring and an explicit hit state exactly when past observations exist"
+                "Barrier history requires an explicit hit state exactly when past observations exist"
             ),
             Self::NodeIdExhausted => write!(formatter, "Source NodeId capacity is exhausted"),
             Self::NonFiniteLiteral { bits } => {

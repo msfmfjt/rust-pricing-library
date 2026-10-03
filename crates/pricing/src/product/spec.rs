@@ -576,8 +576,9 @@ impl BarrierSpec {
         self.historical_hit
     }
 
-    /// Fixed hit state over declared monitoring dates strictly before valuation.
-    /// Requests require this state exactly when discrete past monitoring exists.
+    /// Fixed hit state before valuation: past declared discrete observations,
+    /// or the past continuous monitoring interval (not just its endpoints).
+    /// Required exactly when declared monitoring dates precede valuation.
     #[must_use]
     pub fn with_historical_hit(mut self, hit: bool) -> Self {
         self.historical_hit = Some(hit);

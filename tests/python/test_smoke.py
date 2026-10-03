@@ -524,6 +524,94 @@ class PricingFacadeSmokeTest(unittest.TestCase):
                 rust_pricing.RiskRequest(payoff_smoothing_width_ladder=[2.0, 1.0]),
             )
 
+    def test_native_continuous_barrier_history_resolves_prices_and_risks(self):
+        rp = rust_pricing
+        for model in (rp.Model.black_scholes(.2),
+                      rp.Model.local_volatility_from_grid([0., 1.], [-1., 1.], [.04]*4, 1e-8, 1.)):
+            for side in ('call', 'put'):
+                for spot in (99., 100., 101.):
+                    market = rp.Market.equity(2, 1, spot,
+                        rp.DiscountCurve(10, [0., 1.], [1., .95]),
+                        rp.DiscountCurve(11, [0., 1.], [1., .98]))
+                    def req(product, width=None):
+                        return rp.PricingRequest('2026-09-04', product, market, model,
+                            rp.Engine.randomized_quasi_monte_carlo(32, 29, scramble_count=4, antithetic=True),
+                            rp.RiskRequest(delta=True, gamma_relative_bump=.01, vega=True,
+                                payoff_smoothing_half_width=width))
+                    vanilla = rp.Product.arithmetic_asian(1, 2, 100., 2., side,
+                        [rp.AsianObservation.unknown('2027-09-04', 1.)], '2027-12-04')
+                    expected = rp.PricingPlan.compile(req(vanilla), worker_threads=1).evaluate()
+                    for direction in ('up', 'down'):
+                        for style in ('knock_in', 'knock_out'):
+                            for hit, dates in [(False, ['2026-09-03']),
+                                               (True, ['2026-09-03', '2027-09-04'])]:
+                                for width in (None, 120.):
+                                    # The current Spot may cross the barrier under a bump;
+                                    # resolved history must not be reclassified or smoothed.
+                                    active = (style == 'knock_in') == hit
+                                    # A large irrelevant vanilla amount must not cancel the rebate.
+                                    notional = 2. if active else 1e18
+                                    product = rp.Product.barrier(1, 2, '2027-09-04', 100., 100., notional, side,
+                                        direction, style, 'continuous', dates, '2027-12-04',
+                                        rebate=7., historical_hit=hit)
+                                    request = req(product, width)
+                                    restored = rp.PricingRequest.from_json(request.to_json())
+                                    self.assertEqual(request.fingerprint, restored.fingerprint)
+                                    self.assertIs(json.loads(restored.to_json())['product']['historical_hit'], hit)
+                                    actual = rp.PricingPlan.compile(restored, worker_threads=1).evaluate()
+                                    self.assertAlmostEqual(actual.value,
+                                        expected.value if active else 7*.95**(456/365), delta=1e-12)
+                                    for attr in ('delta_raw', 'gamma_raw', 'vega_raw'):
+                                        self.assertAlmostEqual(getattr(actual, attr),
+                                            getattr(expected, attr) if active else 0., delta=1e-10)
+                                    if not active:
+                                        self.assertEqual(actual.standard_error, 0.)
+                                        for greek in (actual.delta, actual.gamma, actual.vega):
+                                            self.assertEqual(greek.raw.standard_error, 0.)
+                                    diagnostics = actual.diagnostics
+                                    for attr in ('barrier_endpoint_hit_fraction', 'barrier_dividend_jump_hit_fraction',
+                                                 'barrier_mean_conditional_bridge_hit_weight', 'barrier_mean_interval_count'):
+                                        self.assertEqual(getattr(diagnostics, attr), 0.)
+                                    if width is not None:
+                                        self.assertEqual(diagnostics.payoff_smoothing_endpoint_count, 0)
+                                        self.assertEqual(diagnostics.payoff_smoothing_dividend_jump_count, 0)
+                                    # Diagnostics and zero-risk values also survive result serialization.
+                                    restored_result = rp.PricingResult.from_json(actual.to_json())
+                                    self.assertEqual(restored_result.value, actual.value)
+                                    self.assertEqual(restored_result.vega_raw, actual.vega_raw)
+
+    def test_native_continuous_unhit_history_preserves_live_bridge(self):
+        rp = rust_pricing
+        t = 182/365
+        market = rp.Market.equity(2, 1, 100.,
+            rp.DiscountCurve(10, [0., 1.], [1., .95]),
+            rp.DiscountCurve(11, [0., 1.], [1., .98]),
+            discrete_dividends=[rp.DividendEvent.fixed_cash_and_proportional(1, t, 15., .1)])
+        for model in (rp.Model.black_scholes(.2),
+                      rp.Model.local_volatility_from_grid([0., t, 1.], [-1., 1.], [.04]*6, 1e-8, 1.)):
+            for direction, level in (('up', 130.), ('down', 70.)):
+                for style in ('knock_in', 'knock_out'):
+                    for width in (None, 2.):
+                        requests = []
+                        for history in (None, False):
+                            dates = ['2027-09-04'] if history is None else ['2026-09-03', '2027-09-04']
+                            product = rp.Product.barrier(1, 2, '2027-09-04', 80., level, 2., 'call',
+                                direction, style, 'continuous', dates, '2027-12-04', rebate=7., historical_hit=history)
+                            requests.append(rp.PricingRequest('2026-09-04', product, market, model,
+                                rp.Engine.randomized_quasi_monte_carlo(32, 29, scramble_count=4, antithetic=True),
+                                rp.RiskRequest(delta=True, gamma_relative_bump=.01, vega=True,
+                                    payoff_smoothing_half_width=width)))
+                        self.assertNotEqual(requests[0].fingerprint, requests[1].fingerprint)
+                        baseline, historical = [rp.PricingPlan.compile(r, worker_threads=1).evaluate() for r in requests]
+                        for attr in ('value', 'standard_error', 'delta_raw', 'gamma_raw', 'vega_raw'):
+                            self.assertEqual(getattr(baseline, attr), getattr(historical, attr))
+                        for attr in ('barrier_endpoint_hit_fraction', 'barrier_dividend_jump_hit_fraction',
+                                     'barrier_mean_conditional_bridge_hit_weight', 'barrier_mean_interval_count'):
+                            self.assertEqual(getattr(baseline.diagnostics, attr), getattr(historical.diagnostics, attr))
+                        replay = rp.PricingPlan.compile(requests[1], worker_threads=3).evaluate()
+                        self.assertEqual(replay.value, historical.value)
+                        self.assertEqual(replay.delta_raw, historical.delta_raw)
+
     def test_native_barrier_product_evaluates_and_round_trips(self):
         discount = rust_pricing.DiscountCurve(10, [0.0, 1.0], [1.0, 0.95])
         dividend = rust_pricing.DiscountCurve(11, [0.0, 1.0], [1.0, 0.98])

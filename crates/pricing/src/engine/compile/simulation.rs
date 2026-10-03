@@ -241,6 +241,11 @@ impl SimulationPlan {
         if let (Some(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) =
             (continuous_barrier_spec, request.risk().payoff_smoothing())
             && barrier.direction() == BarrierDirection::Up
+            && barrier.historical_hit() != Some(true)
+            && barrier
+                .monitoring_dates()
+                .last()
+                .is_some_and(|date| *date >= request.valuation_date())
         {
             let invalid_coordinate = std::iter::once(AffineDividendCoordinate::identity())
                 .chain(observation_affine_coordinates.iter().copied())
@@ -303,6 +308,7 @@ impl SimulationPlan {
                 direction: barrier.direction(),
                 style: barrier.style(),
                 monitoring_end_time: monitoring_end,
+                historical_hit: barrier.historical_hit(),
                 bridge_observation_indices,
                 expiry_observation_index,
             }
@@ -398,6 +404,7 @@ impl SimulationPlan {
         };
         let (payoff_smoothing_endpoint_count, payoff_smoothing_dividend_jump_count) =
             match (&continuous_barrier, &local_volatility) {
+                (Some(barrier), _) if barrier.resolved_survival().is_some() => (0, 0),
                 (Some(barrier), Some(local_volatility)) => {
                     let node_count = local_volatility
                         .plan
