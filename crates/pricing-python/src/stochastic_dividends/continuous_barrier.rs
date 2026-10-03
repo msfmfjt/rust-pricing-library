@@ -1,8 +1,9 @@
 use super::*;
 use pricing::core::PositiveF64;
 use pricing::stochastic_dividends::{
-    StochasticDividendContinuousBarrierGammaRisk, StochasticDividendContinuousBarrierPlan,
-    StochasticDividendContinuousBarrierSpotRisk,
+    StochasticDividendContinuousBarrierGammaRisk,
+    StochasticDividendContinuousBarrierLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierSpotRisk,
 };
 
 /// Rough-LSV continuous Barrier approximation. Uses left-frozen
@@ -106,6 +107,20 @@ impl PyStochasticDividendContinuousBarrierPlan {
         py.detach(|| self.inner.evaluate_gamma_bump_risk(bump))
             .map(|inner| PyStochasticDividendContinuousBarrierGammaRisk { inner })
             .map_err(pricing_exception)
+    }
+    /// Parallel absolute shifts of original residual Local volatility, with full recalibration.
+    #[pyo3(signature=(*, local_volatility_bump))]
+    fn evaluate_parallel_local_volatility_risk(
+        &self,
+        py: Python<'_>,
+        local_volatility_bump: f64,
+    ) -> PyResult<PyStochasticDividendContinuousBarrierLocalVolatilityRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_parallel_local_volatility_risk(local_volatility_bump)
+        })
+        .map(|inner| PyStochasticDividendContinuousBarrierLocalVolatilityRisk { inner })
+        .map_err(pricing_exception)
     }
     #[getter]
     fn plan_fingerprint(&self) -> String {
@@ -296,6 +311,86 @@ impl PyStochasticDividendContinuousBarrierGammaRisk {
     #[getter]
     fn standard_error(&self) -> f64 {
         self.inner.standard_error()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        self.inner.uncertainty_scope()
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+/// Paired parallel residual Local-volatility risk, including particle recalibration.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendContinuousBarrierLocalVolatilityRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendContinuousBarrierLocalVolatilityRisk {
+    inner: StochasticDividendContinuousBarrierLocalVolatilityRisk,
+}
+#[pymethods]
+impl PyStochasticDividendContinuousBarrierLocalVolatilityRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn local_volatility_bumps(&self) -> Vec<f64> {
+        self.inner.local_volatility_bumps.to_vec()
+    }
+    #[getter]
+    fn vega_estimates(&self) -> Vec<f64> {
+        self.inner.vega_estimates.to_vec()
+    }
+    #[getter]
+    fn vega_standard_errors(&self) -> Vec<f64> {
+        self.inner.vega_standard_errors.to_vec()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<f64> {
+        self.inner.bump_differences.to_vec()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<f64> {
+        self.inner.bump_difference_standard_errors.to_vec()
+    }
+    #[getter]
+    fn scenario_evaluated_paths(&self) -> u128 {
+        self.inner.scenario_evaluated_paths
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn recalibration_count(&self) -> usize {
+        self.inner.recalibration_count
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn vega(&self) -> f64 {
+        self.inner.vega()
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error()
+    }
+    #[getter]
+    fn vega_per_vol_point(&self) -> f64 {
+        self.inner.vega_per_vol_point()
+    }
+    #[getter]
+    fn standard_error_per_vol_point(&self) -> f64 {
+        self.inner.standard_error_per_vol_point()
     }
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {

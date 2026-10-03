@@ -141,6 +141,38 @@ def gamma_bump_means(base, market, contract, *, bump=2., seed=20261006, batches=
     return np.asarray(means)
 
 
+def local_volatility_bump_means(base, market, contract, scenarios, *, bump=.01, seed=20261007, batches=32, pairs=8192):
+    """Independent valuation conditional on retained, separately recalibrated surfaces.
+
+    This does not independently implement the particle calibration algorithm.
+    Every scenario re-evolves f/Y with the same PCG64 normals and its own leverage.
+    """
+    rng=np.random.Generator(np.random.PCG64(seed))
+    means=[]
+    for _ in range(batches):
+        z=rng.standard_normal((pairs,len(base['times'])-1,4))
+        values=[]
+        for scenario in scenarios:
+            shifted=base | dict(squared_leverage=scenario['squared_leverage'])
+            values.append((path_values(shifted,market,z,**contract)[:,0]
+                           +path_values(shifted,market,-z,**contract)[:,0])/2)
+        columns=[(values[2*j+1]-values[2*j])/(2*h) for j,h in enumerate([bump/2,bump,2*bump])]
+        columns.extend([columns[0]-columns[1],columns[1]-columns[2]])
+        means.append(np.stack(columns,axis=1).mean(axis=0))
+    return np.asarray(means)
+
+
+def verify_local_volatility_fixture():
+    fixture=json.loads((DIRECTORY/'rough-continuous-local-vol-reference.json').read_text())
+    bases,market=inputs()
+    for case in fixture['cases']:
+        means=local_volatility_bump_means(bases[case['base_case']],market|case['market'],case['contract'],case['scenarios'],**fixture['sampling'])
+        np.testing.assert_allclose(means,case['batch_means'],rtol=0,atol=1e-9)
+        errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+        assert max(errors[:3])<fixture['acceptance']['reference_vega_se']
+        print(json.dumps(dict(scope=fixture['scope'],case=case['id'],estimates=means.mean(axis=0).tolist(),standard_errors=errors.tolist())),flush=True)
+
+
 def refinement_means(base, market, contract, coarse_steps, *, seed=20261004, batches=16, pairs=2048):
     """Coupled coarse/fine Brownian increments and exact newest-cell integrals."""
     fine = refine_case(base, 2*coarse_steps)
@@ -200,3 +232,4 @@ def verify_fixture():
 
 if __name__ == '__main__':
     verify_fixture()
+    verify_local_volatility_fixture()

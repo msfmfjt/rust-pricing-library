@@ -446,6 +446,18 @@ small bumps can increase noise and cancellation. No exact second derivative,
 extrapolation or bump-error bound is implied. See the
 [Gamma contract and independent checks](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#finite-bump-gamma).
 
+`evaluate_parallel_local_volatility_risk(local_volatility_bump=...)` computes a
+parallel shift of every original residual target sqrt(variance) node, with a
+half/base/double absolute-volatility bump ladder. Every scenario refines the
+shifted original target, repeats particle calibration with the same seed/config,
+and re-evolves its pricing path with common valuation shocks. The result gives
+paired estimates/errors per unit absolute volatility and per vol point (0.01),
+plus paired bump gaps. Shifted nodes must remain positive and within the original
+variance floor/cap; there is no clipping. This is residual Local-volatility risk,
+not quoted market-IV Vega or VegaKT. See the
+[recalibration contract and validation scope](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-parallel-local-volatility-risk).
+
+
 
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.

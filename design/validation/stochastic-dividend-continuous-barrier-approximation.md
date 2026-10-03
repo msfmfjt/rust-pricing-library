@@ -10,7 +10,8 @@ continues to reject live continuous monitoring.
 The result uses `StochasticDividendPrice` and scheme
 `buehler-rough-residual-lsv-continuous-physical-log-bridge-approx-v1`.
 The scheme participates in the plan fingerprint. The plan exposes calibration
-inputs, price evaluation and explicit finite-bump Spot Delta/Gamma risk. Generic risk flags, payoff
+inputs, price evaluation, finite-bump Spot Delta/Gamma and recalibrated parallel
+residual Local-volatility risk. Generic risk flags, payoff
 smoothing and smoothing-width ladders reject before calibration.
 
 ## Finite-grid definition
@@ -150,6 +151,53 @@ Richardson extrapolation, bump-size recommendation or precision guarantee is
 implied. In particular, the MC/RQMC SE excludes finite-bump, time-grid, bridge
 and calibration error. Generic Gamma request flags still reject.
 
+## Recalibrated parallel Local-volatility risk
+
+`evaluate_parallel_local_volatility_risk(local_volatility_bump)` in Rust and
+`evaluate_parallel_local_volatility_risk(local_volatility_bump=...)` in Python
+shift the square root of every **original** residual-equity target variance node:
+`v -> (sqrt(v) + shift)²`. The three absolute-volatility bump sizes are h/2, h and
+2h. For example h=0.01 is one volatility point; a 0.20 node becomes 0.19/0.21 at
+the base bump. This coordinate is parallel residual Local volatility, **not** a
+parallel shift of quoted market implied volatility or a VegaKT projection.
+
+Each of the six targets is shifted before variance interpolation onto the
+unchanged execution grid. Shifting sqrt(interpolated variance) would define a
+different perturbation for a non-flat grid. Every original target node must
+remain positive, representably shifted and within the original variance
+floor/cap. The entire ladder is validated before calibration. There is no clamp,
+one-sided fallback or implicit boundary repair, including for resolved payoffs.
+
+Each scenario reruns the finite-particle rough-LSV calibration with the original
+model, seed, particle count, bandwidth, minimum effective sample policy and
+trace setting. It then re-evolves f/Y and causal volatility with common valuation
+normals, recomputing bridge variance, survival, cash-jump branches and terminal
+payoff. Spot, cash means, dates, curves, model parameters, correlations and past
+hit state remain fixed. Unlike a Spot bump, the normalized state path cannot be
+reused across these changed volatility surfaces. Reverse traces are not required.
+
+`StochasticDividendContinuousBarrierLocalVolatilityRisk` returns the base `price`,
+`local_volatility_bumps`, `vega_estimates`, `vega_standard_errors`, adjacent
+`bump_differences` and `bump_difference_standard_errors`. `vega` and
+`standard_error` select the base bump and are **per unit absolute volatility**.
+`vega_per_vol_point` and `standard_error_per_vol_point` multiply those by 0.01;
+they convert the reporting unit, rather than compute a one-way bump P&L.
+
+`recalibration_count` is six. `scenario_evaluated_paths` and `payoff_evaluations`
+are seven times `price.evaluated_paths`, including the base valuation path and
+excluding calibration particle paths. The method is
+`buehler-rough-residual-lsv-continuous-bridge-parallel-local-vol-recalibrated-crn-v1`.
+The risk fingerprint includes the base plan, coordinate/method and bump ladder.
+MC errors pair scenario/antithetic observations; RQMC errors use independent
+scramble means. Bump gaps also use paired observations.
+
+The uncertainty scope is `pricing_only_fixed_calibration_seed_grid_bridge_and_bump`.
+It conditions on the common **calibration seed**, while the calibrated leverage
+values change with the target. It excludes calibration sampling uncertainty,
+finite-bump bias, grid/bridge error and model uncertainty. Calibration fallback
+branch changes remain part of the finite algorithm. Gaps are diagnostics, not
+bounds on exact Vega error. Generic Vega/VegaKT request flags still reject.
+
 ## Validation
 
 The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs)
@@ -219,6 +267,28 @@ adjacent Gamma gap must have absolute difference plus four combined SEs below
 0.02; reference and production Gamma SEs must be below 0.003. These are
 finite-algorithm checks, not accuracy claims about zero-bump Gamma.
 
+Parallel Local-volatility controls compare all eight contract styles against
+separately compiled/recalibrated original-target bumps, including exact leverage
+surface equality on the non-flat target. They reconstruct MC/RQMC paired errors,
+check worker replay and absorbing fixed cash, and reject nonfinite, unrepresentable,
+negative-volatility and floor/cap-crossing ladders. Four no-cash eta-zero GBM
+contracts match independent terminal Gaussian quadrature at volatility bumps
+0.005/0.01/0.02, with eight scrambles of 8,192 points, a 5 SE + 0.03 gate per unit
+volatility and SE below 1.0.
+
+A separate [Local-volatility fixture](../../fixtures/stochastic-dividends/rough-continuous-local-vol-reference.json)
+retains all six recalibrated surfaces for each of four H=0.1/0.3 Up-out Call and
+Down-out Put cases. Inputs come from separate full request compilation.
+The NumPy reference independently re-evolves and values each scenario with
+32 batches of 8,192 antithetic pairs, seed 20261007. It validates **valuation
+conditional on those calibration inputs**, not an independent particle calibration
+implementation. Python also recompiles each target to check the retained inputs.
+Production comparisons use 16 scrambles of 32,768 points. Per unit volatility,
+each Vega and adjacent gap must have absolute difference plus four combined SEs
+below 2.0; reference and production Vega SEs must be below 0.35. The former gate
+is 0.02 when expressed per vol point. None of these tests certifies market-IV
+Vega or a zero-bump derivative.
+
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract
 include the new API, tests and [example](../../examples/python/rough_dividend_continuous_barrier.py).
@@ -227,8 +297,8 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. Vega and other model/market risk remain unsupported
-by this continuous wrapper. Independent fine-path studies, calibration-aware refinement
+are not valid substitutes. Quoted market-IV Vega/VegaKT, bucketed target risk
+and other model/market risk remain unsupported by this continuous wrapper. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.

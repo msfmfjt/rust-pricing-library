@@ -337,7 +337,17 @@ fn flat_no_cash_gbm_limit_matches_independent_terminal_quadrature() {
 
 // Independent one-dimensional Gaussian quadrature, with strike/barrier breaks.
 pub(super) fn gbm_reference(spot: f64, direction: &str, side: &str, style: &str) -> f64 {
-    let variance = 0.04 * EXPIRY;
+    gbm_reference_with_volatility(spot, 0.2, direction, side, style)
+}
+
+pub(super) fn gbm_reference_with_volatility(
+    spot: f64,
+    sigma: f64,
+    direction: &str,
+    side: &str,
+    style: &str,
+) -> f64 {
+    let variance = sigma * sigma * EXPIRY;
     let drift = (0.98_f64 / 0.95).ln() * EXPIRY - 0.5 * variance;
     let level: f64 = if direction == "up" { 130.0 } else { 70.0 };
     let z_barrier = ((level / spot).ln() - drift) / variance.sqrt();

@@ -15,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = {
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/sampling.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/local_volatility.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/local_volatility_tests.rs',
+    'fixtures/stochastic-dividends/rough-continuous-local-vol-reference.json',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/spot_bump.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/spot_bump_tests.rs',
     'crates/pricing-python/src/stochastic_dividends/continuous_barrier.rs',

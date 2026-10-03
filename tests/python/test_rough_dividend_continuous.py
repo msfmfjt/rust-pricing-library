@@ -196,6 +196,77 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         self.assertEqual(fixed.gamma_standard_errors,[0.,0.,0.])
         self.assertEqual(fixed.bump_difference_standard_errors,[0.,0.])
 
+    def test_parallel_local_volatility_against_independent_valuation(self):
+        fixture=json.loads((DIRECTORY/'rough-continuous-local-vol-reference.json').read_text())
+        gates,sampling=fixture['acceptance'],fixture['production_sampling']
+        for case in fixture['cases']:
+            with self.subTest(case=case['id']):
+                req=make_request(case,points=sampling['points_per_scramble'],scrambles=sampling['scramble_count'])
+                plan=compile_plan(case,req)
+                result=plan.evaluate_parallel_local_volatility_risk(local_volatility_bump=fixture['sampling']['bump'])
+                # Retained scenario inputs come from separate request compilation;
+                # the NumPy oracle independently values those inputs only.
+                data=json.loads(req.to_json())
+                self.assertEqual(data['model']['local_variance_grid']['values'],case['original_target_variances'])
+                for scenario in case['scenarios']:
+                    data['model']['local_variance_grid']['values']=scenario['target_variances']
+                    external=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)))
+                    np.testing.assert_allclose(external.lsv_squared_leverage,scenario['squared_leverage'],rtol=0,atol=2e-13)
+                means=np.asarray(case['batch_means'])
+                errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+                actual=np.array(result.vega_estimates+result.bump_differences)
+                se=np.array(result.vega_standard_errors+result.bump_difference_standard_errors)
+                bounds=np.abs(actual-means.mean(axis=0))+4*np.hypot(errors,se)
+                self.assertLess(max(bounds[:3]),gates['vega_difference_plus_4se'])
+                self.assertLess(max(bounds[3:]),gates['gap_difference_plus_4se'])
+                self.assertLess(max(se[:3]),gates['production_vega_se'])
+                self.assertLess(max(errors[:3]),gates['reference_vega_se'])
+                self.assertEqual(result.local_volatility_bumps,[.005,.01,.02])
+                self.assertEqual(result.vega,result.vega_estimates[1])
+                self.assertEqual(result.standard_error,result.vega_standard_errors[1])
+                self.assertEqual(result.vega_per_vol_point,.01*result.vega)
+                self.assertEqual(result.standard_error_per_vol_point,.01*result.standard_error)
+                self.assertEqual(result.scenario_evaluated_paths,7*result.price.evaluated_paths)
+                self.assertEqual(result.payoff_evaluations,result.scenario_evaluated_paths)
+                self.assertEqual(result.recalibration_count,6)
+                self.assertEqual(result.price.plan_fingerprint,plan.plan_fingerprint)
+                self.assertIn('parallel-local-vol-recalibrated-crn-v1',result.method)
+                self.assertEqual(result.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_and_bump')
+
+    def test_parallel_local_volatility_api_replay_history_and_bounds(self):
+        case=FIXTURE['cases'][0]
+        plan=compile_plan(case)
+        original=plan.evaluate()
+        risk=plan.evaluate_parallel_local_volatility_risk(local_volatility_bump=.01)
+        self.assertEqual((risk.price.value,risk.price.standard_error),(original.value,original.standard_error))
+        self.assertEqual(plan.evaluate().value,original.value)
+        self.assertNotEqual(risk.risk_fingerprint,plan.evaluate_parallel_local_volatility_risk(local_volatility_bump=.005).risk_fingerprint)
+        with self.assertRaises(AttributeError):
+            risk.vega=0.
+        detached=risk.vega_estimates;detached[0]=999.
+        self.assertNotEqual(risk.vega_estimates[0],999.)
+        parallel=compile_plan(case,worker_threads=3).evaluate_parallel_local_volatility_risk(local_volatility_bump=.01)
+        self.assertEqual(risk.vega_estimates,parallel.vega_estimates)
+        self.assertEqual(risk.vega_standard_errors,parallel.vega_standard_errors)
+        self.assertEqual(risk.bump_difference_standard_errors,parallel.bump_difference_standard_errors)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _: plan.evaluate_parallel_local_volatility_risk(local_volatility_bump=.01).vega,range(2))),[risk.vega]*2)
+        with self.assertRaises(TypeError):
+            plan.evaluate_parallel_local_volatility_risk()
+        for h in [0.,-1.,float('nan'),float('inf'),1e-300,.2]:
+            with self.subTest(bump=h),self.assertRaises(rp.PricingError):
+                plan.evaluate_parallel_local_volatility_risk(local_volatility_bump=h)
+        for field,value in [('floor',.03),('cap',.06)]:
+            data=json.loads(make_request(case).to_json());data['model']['local_variance_grid'][field]=value
+            edge=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)))
+            with self.assertRaises(rp.PricingError):
+                edge.evaluate_parallel_local_volatility_risk(local_volatility_bump=.01)
+        rebated=case|dict(contract=case['contract']|dict(notional=1e18,rebate=7.))
+        fixed=compile_plan(rebated,make_request(rebated,history=True,dates=['2026-09-03'])).evaluate_parallel_local_volatility_risk(local_volatility_bump=.01)
+        self.assertEqual(fixed.vega_estimates,[0.,0.,0.])
+        self.assertEqual(fixed.vega_standard_errors,[0.,0.,0.])
+        self.assertEqual(fixed.bump_difference_standard_errors,[0.,0.])
+
     def test_history_and_monitoring_end_do_not_infer_past_hits(self):
         case = FIXTURE['cases'][0]
         past=['2026-09-03']

@@ -1255,6 +1255,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<stochastic_dividends::PyStochasticDividendContinuousBarrierPlan>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendContinuousBarrierSpotRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendContinuousBarrierGammaRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendContinuousBarrierLocalVolatilityRisk>()?;
     module.add_class::<stochastic_dividend_hull_white::PyStochasticDividendHullWhitePlan>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendPrice>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendAadRisk>()?;
