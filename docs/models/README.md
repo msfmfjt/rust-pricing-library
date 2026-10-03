@@ -67,3 +67,5 @@ payoff contracts rather than model components.
 The [multi-expiry price-calibration API](heston-calibration.md) fits selected
 Rough/Lifted Heston parameters using analytic Fourier Jacobians. Fit status is
 separate from solver termination; this is not an IV or general six-family fitter.
+
+- [Heston IV grid validation and staged recalibration](heston-iv-refinement.md)

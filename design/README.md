@@ -137,3 +137,5 @@ HW stochastic-dividend basic AAD: [decision](adr/0023-stochastic-dividend-hull-w
 
 - [Six-family definitions, boundary/API checks and two-step prices](validation/rough-volatility-families.md)
 - [Coupled multistep prices and sampled-lag lift-kernel refinement](validation/rough-volatility-refinement.md)
+
+- [Heston IV grid-refinement validation](validation/heston-iv-refinement.md)

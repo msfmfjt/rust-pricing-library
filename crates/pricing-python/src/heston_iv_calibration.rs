@@ -113,8 +113,8 @@ impl PyHestonIvCalibrationEvaluation {
 #[pyclass(frozen, name = "HestonIvCalibrationResult", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvCalibrationResult {
-    inner: HestonIvCalibrationResult,
-    names: Vec<String>,
+    pub(super) inner: HestonIvCalibrationResult,
+    pub(super) names: Vec<String>,
 }
 #[pymethods]
 impl PyHestonIvCalibrationResult {
@@ -190,7 +190,7 @@ impl PyHestonIvCalibrationResult {
 #[pyclass(frozen, name = "HestonIvCalibrationProblem", skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvCalibrationProblem {
-    inner: HestonIvCalibrationProblem,
+    pub(super) inner: HestonIvCalibrationProblem,
 }
 #[pymethods]
 impl PyHestonIvCalibrationProblem {
@@ -243,6 +243,47 @@ impl PyHestonIvCalibrationProblem {
                 pricing::rough_volatility::FourierError::InvalidInput(_) => invalid(py, e),
                 _ => pricing_exception(e),
             })
+    }
+    fn validate_grid(
+        &self,
+        py: Python<'_>,
+        parameters: Vec<f64>,
+        policy: &super::heston_iv_refinement::PyHestonIvRefinementOptions,
+    ) -> PyResult<super::heston_iv_refinement::PyHestonIvGridValidation> {
+        let policy = policy.inner;
+        py.detach(|| self.inner.validate_grid(&parameters, policy))
+            .map(|inner| super::heston_iv_refinement::PyHestonIvGridValidation { inner })
+            .map_err(|e| super::heston_iv_refinement::refinement_failure(py, e))
+    }
+    #[pyo3(signature=(policy,*,max_iterations=100,max_evaluations=150,residual_tolerance=1e-6,gradient_tolerance=1e-10,step_tolerance=1e-12))]
+    fn calibrate_refined(
+        &self,
+        policy: &super::heston_iv_refinement::PyHestonIvRefinementOptions,
+        max_iterations: usize,
+        max_evaluations: usize,
+        residual_tolerance: f64,
+        gradient_tolerance: f64,
+        step_tolerance: f64,
+    ) -> PyResult<super::heston_iv_refinement::PyHestonIvRefinementResult> {
+        let options = LeastSquaresOptions {
+            max_iterations,
+            max_evaluations,
+            residual_tolerance,
+            gradient_tolerance,
+            step_tolerance,
+            ..LeastSquaresOptions::default()
+        };
+        let policy = policy.inner;
+        Python::attach(|py| {
+            py.detach(|| self.inner.calibrate_refined(options, policy))
+                .map(
+                    |inner| super::heston_iv_refinement::PyHestonIvRefinementResult {
+                        inner,
+                        names: self.parameter_names(),
+                    },
+                )
+                .map_err(|e| super::heston_iv_refinement::refinement_failure(py, e))
+        })
     }
     #[pyo3(signature=(*,max_iterations=100,max_evaluations=150,residual_tolerance=1e-6,gradient_tolerance=1e-10,step_tolerance=1e-12))]
     fn calibrate(

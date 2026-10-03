@@ -7,6 +7,7 @@ mod diagnostics;
 mod heston_calibration;
 mod heston_fourier;
 mod heston_iv_calibration;
+mod heston_iv_refinement;
 mod hull_white;
 mod local_correlation;
 mod lsv;
@@ -1285,6 +1286,10 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<heston_calibration::PyHestonCalibrationEvaluation>()?;
     module.add_class::<heston_calibration::PyHestonCalibrationResult>()?;
     module.add_class::<heston_calibration::PyHestonCalibrationProblem>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvRefinementOptions>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvGridValidation>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvRefinementStage>()?;
+    module.add_class::<heston_iv_refinement::PyHestonIvRefinementResult>()?;
     module.add_class::<heston_iv_calibration::PyHestonIvCalibrationQuote>()?;
     module.add_class::<heston_iv_calibration::PyHestonIvCalibrationEvaluation>()?;
     module.add_class::<heston_iv_calibration::PyHestonIvCalibrationProblem>()?;
