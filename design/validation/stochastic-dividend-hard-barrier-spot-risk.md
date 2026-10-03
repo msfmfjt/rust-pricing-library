@@ -10,9 +10,9 @@ requirement for discontinuous payoffs.
 ## Contract and estimator
 
 Supported contracts are discrete up/down knock-in/out calls and puts with optional fixed cash rebates and
-all monitoring dates strictly after valuation. Payment may follow expiry;
+all monitoring dates on or after valuation. Payment may follow expiry;
 cash means beyond expiry remain funded. Historical
-or initial observations, smoothing requests, non-rough models, and degenerate
+observations, smoothing requests, non-rough models, and degenerate
 conditional equity laws are rejected. Continuous monitoring remains rejected
 by the shared compiler. Other Greeks and automatic request-level dispatch are
 not added by this method.
@@ -50,6 +50,23 @@ notional and the discount factor to the payment date. A fixed cash rebate
 pays on the inactive branch, independently of notional. Its probability
 and Spot tangent are combined with the payoff inside each sampling unit;
 see the [rebate derivation and controls](stochastic-dividend-hard-barrier-rebates.md).
+
+When valuation is a monitoring date, its observation is the supplied physical
+Spot. Buehler requires strictly future cash ex-dates, so no time-zero cash jump
+is introduced. An initial hit is absorbing: knock-in becomes vanilla and
+knock-out pays its fixed cash rebate (or zero). If the only observation is at
+valuation and is unhit, knock-out is vanilla and knock-in pays its rebate.
+Otherwise an unhit initial observation leaves future conditioning unchanged.
+The fixed cash branches have zero Spot Delta and zero sampling error. They
+skip future path evolution, so irrelevant numerical overflows cannot prevent
+a deterministic payment.
+
+Delta is local to the current initial branch. When monitored initial Spot
+equals the barrier, the dedicated risk method returns an explicit unsupported-
+risk error: there is no equity innovation at time zero over which to integrate
+this discontinuity. Ordinary inclusive-hit price evaluation remains available.
+A future-only contract with Spot equal to the barrier remains supported.
+This does not supply a historical hit state or admit dates before valuation.
 
 The [independent Python reference](stochastic-dividend-survival-barrier-reference.md)
 implements this law without calling the Rust transition, payoff, derivative,
@@ -122,14 +139,21 @@ all sixteen rebate contract/Hurst combinations against recompiled Spot bumps,
 MC/RQMC counts, immutable metadata, numerical worker replay and concurrent
 calls on a shared plan. Execution policy remains part of the fingerprint;
 recompiling with another worker count preserves numerical results, not the
-fingerprint. Scope tests cover smoothing, initial monitoring, vanilla products,
+fingerprint. Scope tests cover smoothing, the initial monitoring boundary, vanilla products,
 non-rough LSV and singular conditional equity laws; ordinary APIs retain their
 behavior. The wheel smoke contract checks the method name and signature,
 discovers the new tests and runs the example. Source archives require both.
+Initial-monitoring binding controls check unchanged future estimates, fixed
+rebate branches, historical-date rejection and two independent vanilla limits.
+The vanilla references combine each retained knock-in/out batch before
+computing its SE, preserving covariance and subtracting one discounted rebate.
+The independent Gaussian payoff-quadrature control covers 384 combinations
+of direction, side, style, strike, rebate, barrier level and initial/final
+monitoring selection, using the original 8e-9 price/Delta tolerance.
 
 ## Validation
 
-Nine fast unit tests cover:
+Thirteen fast unit tests cover:
 
 - Per-sample analytic Delta against two full-recalibration Spot bumps, at
   H=0.1/0.3/0.5, with and without terminal monitoring, for all eight
@@ -137,7 +161,7 @@ Nine fast unit tests cover:
   (2e-6 absolute tolerance).
 - MC means and standard errors against explicit sampling-unit reductions,
   both with and without antithetics, plus identical results with 1/2 workers.
-- Rejection of initial observations, Asian
+- Rejection of initial equality boundaries, Asian
   contracts and singular conditioning correlations.
 - Knock-in/out parity and notional scaling on common inputs with delayed
   payment, including both price and Delta for Up/Down and Call/Put.
@@ -146,6 +170,9 @@ Nine fast unit tests cover:
 - Nonpositive cutoffs: impossible Up survival versus unrestricted Down survival.
 - Fixed cash rebate parity and independence from notional, terminal/nonterminal
   monitoring, empty exercise intervals, and rare-hit complementary tails.
+- Initial monitoring: absorbing hits, vanilla/fixed-cash limits with or without
+  future observations, unchanged future estimates after an unhit observation,
+  branch-preserving Spot bumps and rejection at the initial boundary.
 
 A public integration control checks replay, counts, uncertainty scope,
 fingerprint separation, smoothing rejection and unchanged ordinary valuation.
@@ -181,7 +208,7 @@ earlier reference comparisons, 28 Up Call production comparisons and 48
 [direction/side extension comparisons](stochastic-dividend-hard-barrier-styles.md),
 plus 64 [rebate comparisons](stochastic-dividend-hard-barrier-rebates.md). The
 three-OS Barrier CI job retains these in the existing reference log and runs
-the nine fast controls in `stochastic-dividend-hard-barrier-risk.log`.
+the thirteen fast controls in `stochastic-dividend-hard-barrier-risk.log`.
 
 This validates the stated discrete laws and Spot convention conditional on
 finite-particle calibration. It does not certify continuous-time accuracy,

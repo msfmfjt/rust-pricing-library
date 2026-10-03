@@ -403,8 +403,9 @@ impl PyStochasticDividendPlan {
             .map_err(pricing_exception)
     }
     /// Hard discrete rough-LSV Barrier price and physical-Spot Delta, including
-    /// fixed cash rebates at payment. Requires strictly future observations, no
-    /// payoff smoothing and positive conditional equity variance. Sampling
+    /// fixed cash rebates at payment. Requires observations on/after valuation, no
+    /// payoff smoothing and positive conditional equity variance. If valuation
+    /// is monitored, Spot must differ from the barrier. Sampling
     /// errors exclude calibration uncertainty and time-grid bias.
     fn evaluate_lsv_hard_barrier_spot_risk(
         &self,

@@ -123,6 +123,58 @@ class HardBarrierSpotRisk(unittest.TestCase):
                 self.assertTrue(math.isfinite(se) and se > 0)
             self.assertEqual(snapshot(risk), snapshot(plan.evaluate_lsv_hard_barrier_spot_risk()))
 
+    def test_initial_monitoring_preserves_unhit_paths_and_fixed_rebates(self):
+        discount = MARKET['annual_discount']**MARKET['payment_time']
+        for case in CFG['cases']:
+            with self.subTest(case=case['id']):
+                dates = ['2026-09-04'] + BASES[case['base_case']]['monitoring_dates']
+                # Each retained contract is unhit at Spot=100.
+                future = compile_plan(case).evaluate_lsv_hard_barrier_spot_risk()
+                initial = compile_plan(case, request(case, monitoring_dates=dates))
+                risk = initial.evaluate_lsv_hard_barrier_spot_risk()
+                self.assertEqual(snapshot(risk, with_fingerprint=False),
+                                 snapshot(future, with_fingerprint=False))
+                self.assertNotEqual(risk.price.plan_fingerprint, future.price.plan_fingerprint)
+                c = case['contract']
+                # No remaining observation and unhit: knock-in pays the rebate.
+                # Already hit: knock-out pays the rebate despite future observations.
+                fixed = case if c['style'] == 'knock_in' else dict(case, contract=dict(c,
+                    barrier=95. if c['direction'] == 'up' else 105.))
+                fixed_dates = ['2026-09-04'] if c['style'] == 'knock_in' else dates
+                fixed_plan = compile_plan(fixed, request(fixed, monitoring_dates=fixed_dates))
+                fixed_risk = fixed_plan.evaluate_lsv_hard_barrier_spot_risk()
+                self.assertAlmostEqual(fixed_risk.price.value, discount*c['rebate'], delta=2e-14)
+                self.assertEqual(fixed_plan.evaluate().value, fixed_risk.price.value)
+                self.assertEqual((fixed_risk.price.standard_error, fixed_risk.delta,
+                                  fixed_risk.delta_standard_error), (0., 0., 0.))
+        with self.assertRaises(rp.ValidationError):
+            request(CFG['cases'][0], monitoring_dates=['2026-09-03', '2027-09-03'])
+
+    def test_initial_hit_vanilla_matches_independent_parity_reference(self):
+        for i in (0, 14):  # H=.1 Up Call and H=.3 Down Put, both knock-in.
+            ki, ko = CFG['cases'][i:i+2]
+            c = ki['contract']
+            initial_hit = dict(ki, contract=dict(c,
+                barrier=95. if c['direction'] == 'up' else 105.))
+            dates = ['2026-09-04'] + BASES[ki['base_case']]['monitoring_dates']
+            plan = compile_plan(initial_hit, request(initial_hit, points=16384,
+                scrambles=16, monitoring_dates=dates))
+            risk = plan.evaluate_lsv_hard_barrier_spot_risk()
+            # The retained KI/KO references use common inputs. Combine each
+            # batch before estimating uncertainty, including its covariance.
+            discount = MARKET['annual_discount']**MARKET['payment_time']
+            for j, q, value, se in [(0, 'price', risk.price.value, risk.price.standard_error),
+                                     (1, 'delta', risk.delta, risk.delta_standard_error)]:
+                batches = [a[j]+b[j]-(discount*c['rebate'] if j == 0 else 0.)
+                    for a, b in zip(ki['batch_means'], ko['batch_means'])]
+                expected = sum(batches)/len(batches)
+                reference_se = math.sqrt(sum((x-expected)**2 for x in batches)
+                    /(len(batches)*(len(batches)-1)))
+                self.assertLess(abs(value-expected)+4*math.hypot(se, reference_se),
+                                CFG['acceptance'][q+'_bound'])
+                self.assertLess(se, CFG['acceptance']['valuation_'+q+'_se'])
+                self.assertLess(reference_se, CFG['acceptance']['reference_'+q+'_se'])
+
     def test_scope_errors_preserve_existing_methods(self):
         case = CFG['cases'][0]
         hard = compile_plan(case)
@@ -134,7 +186,8 @@ class HardBarrierSpotRisk(unittest.TestCase):
         self.assertTrue(math.isfinite(ordinary.delta))
         vanilla = rp.Product.european_vanilla(1, 2, '2027-09-03', 80., 2., 'call')
         unsupported = [smooth, compile_plan(case, request(case, product=vanilla)),
-            compile_plan(case, request(case, monitoring_dates=['2026-09-04', '2027-09-03'])),
+            compile_plan(case, request(case, spot=case['contract']['barrier'],
+                monitoring_dates=['2026-09-04', '2027-09-03'])),
             compile_lsv(request(case), rough=False, particle_count=64, retain_reverse_trace=False),
             compile_plan(case, correlation=1., equity_dividend_correlation=0.,
                 dividend_volatility_correlation=0.)]

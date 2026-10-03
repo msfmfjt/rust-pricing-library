@@ -60,7 +60,7 @@ outside its scope: the surfaces are retained inputs.
 The [Python controls](../../tests/python/test_rough_dividend_barrier_styles.py) check:
 
 - All eight direction/side/style combinations in a deterministic-dividend,
-  single-monitor limit against direct Gaussian payoff quadrature split at the
+  initial/final-monitor limit against direct Gaussian payoff quadrature split at the
   Barrier and exercise boundaries. Price differences of this separate
   quadrature check Delta using Richardson extrapolation, within 8e-9. It uses no truncated-moment formulas.
 - Nonzero-eta/kappa per-sample analytic Delta against two common-input price
@@ -72,8 +72,9 @@ Production controls extend the full-recalibration Spot-bump checks to all
 eight combinations at H=0.1/0.3/0.5, with and without terminal monitoring.
 Knock-in/out parity and notional scaling cover all direction/side pairs.
 A further test distinguishes impossible Up survival from unrestricted Down
-survival when the equity cutoff is nonpositive. Historical/initial
-monitoring, smoothing and degenerate-conditioning rejection remain covered.
+survival when the equity cutoff is nonpositive. Historical monitoring, the
+initial equality boundary, smoothing and degenerate-conditioning rejection
+remain covered.
 
 ## Sampling and acceptance
 
@@ -115,6 +116,6 @@ these 48 comparisons and the later rebate extension. Source archives require the
 fixture, documentation and CI regeneration command.
 
 Fixed cash rebates have a [separate panel](stochastic-dividend-hard-barrier-rebates.md).
-Continuous monitoring, initial/historical hit states, other Greeks,
+Continuous monitoring, historical hit states, other Greeks,
 automatic request-level dispatch, calibration uncertainty and continuous-time
 accuracy remain separate work.

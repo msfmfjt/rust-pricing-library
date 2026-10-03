@@ -5,7 +5,7 @@ expiry = 364/365
 request = rp.PricingRequest(
     '2026-09-04',
     rp.Product.barrier(1, 2, '2027-09-03', 100., 95., 2., 'put', 'down',
-        'knock_out', 'discrete', ['2027-03-05', '2027-09-03'], '2027-12-04', rebate=7.),
+        'knock_out', 'discrete', ['2026-09-04', '2027-03-05', '2027-09-03'], '2027-12-04', rebate=7.),
     rp.Market.equity(2, 1, 100., rp.DiscountCurve(10, [0., 1.], [1., .95]),
         rp.DiscountCurve(11, [0., 1.], [1., .98]),
         discrete_dividends=[rp.DividendEvent.fixed_cash(1, 182/365, 5.),

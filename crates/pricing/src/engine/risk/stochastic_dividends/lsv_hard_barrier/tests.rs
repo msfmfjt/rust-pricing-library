@@ -158,6 +158,7 @@ fn pseudo_mc_errors_use_antithetic_units_and_replay_across_workers() {
 fn scope_rejects_unsupported_contracts_and_singular_conditioning() {
     let mut v = payload();
     v["product"]["monitoring_dates"] = json!(["2026-09-04", "2027-09-03"]);
+    v["product"]["barrier"] = v["market"]["spot"].clone();
     assert!(
         compile(&v, 0.1, [-0.25, -0.4, 0.15])
             .evaluate_lsv_hard_barrier_spot_risk()
@@ -365,4 +366,195 @@ fn rare_hit_rebate_uses_complementary_probability() {
         .unwrap();
     assert!(result[0] > 0.0 && result[0] < f64::EPSILON);
     assert!(result[1] > 0.0);
+}
+
+#[test]
+fn unhit_initial_observation_preserves_future_conditioning() {
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_in", "knock_out"] {
+                let mut v = payload();
+                v["product"]["direction"] = json!({"type":direction});
+                v["product"]["side"] = json!({"type":side});
+                v["product"]["style"] = json!({"type":style});
+                v["product"]["barrier"] = json!(if direction == "up" { 105.0 } else { 95.0 });
+                v["product"]["strike"] = json!(100.0);
+                v["product"]["notional"] = json!(2.0);
+                v["product"]["rebate"] = json!(7.0);
+                v["product"]["monitoring_dates"] = json!(["2027-03-05", "2027-09-03"]);
+                let future = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+                v["product"]["monitoring_dates"] =
+                    json!(["2026-09-04", "2027-03-05", "2027-09-03"]);
+                let initial = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+                assert_eq!(initial.path.times(), future.path.times());
+                let a = initial.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+                let b = future.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+                assert_eq!(
+                    [
+                        a.price.value,
+                        a.price.standard_error,
+                        a.delta,
+                        a.delta_standard_error
+                    ],
+                    [
+                        b.price.value,
+                        b.price.standard_error,
+                        b.delta,
+                        b.delta_standard_error
+                    ]
+                );
+                assert_ne!(a.price.plan_fingerprint, b.price.plan_fingerprint);
+            }
+        }
+    }
+}
+
+#[test]
+fn initial_monitoring_reduces_to_vanilla_or_fixed_cash() {
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_in", "knock_out"] {
+                for hit in [false, true] {
+                    for future in [false, true] {
+                        if !hit && future {
+                            continue;
+                        }
+                        for rebate in [None, Some(7.0)] {
+                            let mut v = payload();
+                            v["product"]["direction"] = json!({"type":direction});
+                            v["product"]["side"] = json!({"type":side});
+                            v["product"]["style"] = json!({"type":style});
+                            v["product"]["barrier"] = json!(if (direction == "up") == hit {
+                                95.0
+                            } else {
+                                105.0
+                            });
+                            v["product"]["strike"] = json!(100.0);
+                            v["product"]["notional"] = json!(2.0);
+                            if let Some(rebate) = rebate {
+                                v["product"]["rebate"] = json!(rebate);
+                            }
+                            v["product"]["monitoring_dates"] = if future {
+                                json!(["2026-09-04", "2027-03-05", "2027-09-03"])
+                            } else {
+                                json!(["2026-09-04"])
+                            };
+                            let p = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
+                            let context = HardBarrierPlan::compile(&p).unwrap();
+                            assert_eq!(context.initial_hit, hit);
+                            let active = (style == "knock_in") == hit;
+                            v["product"]["style"] = json!({"type":"knock_out"});
+                            let vanilla = compile(&v, 0.3, [-0.25, -0.4, 0.15]);
+                            let mut unrestricted = HardBarrierPlan::compile(&vanilla).unwrap();
+                            unrestricted.monitors.fill(false);
+                            unrestricted.initial_hit = false;
+                            for pattern in 0..8 {
+                                let z = normals(p.path.times().len() - 1, pattern);
+                                let value = context.sample(&p, &z).unwrap();
+                                let expected = if active {
+                                    unrestricted.sample(&vanilla, &z).unwrap()
+                                } else {
+                                    [p.base.discount * rebate.unwrap_or(0.0), 0.0]
+                                };
+                                assert_eq!(value, expected);
+                            }
+                            if !active {
+                                for z in [-40.0, 40.0] {
+                                    let normals = vec![z; p.path.random_dimension() as usize];
+                                    assert_eq!(
+                                        context.sample(&p, &normals).unwrap(),
+                                        [p.base.discount * rebate.unwrap_or(0.0), 0.0]
+                                    );
+                                }
+                                let risk = p.evaluate_lsv_hard_barrier_spot_risk().unwrap();
+                                assert_eq!(
+                                    risk.price.value,
+                                    p.base.discount * rebate.unwrap_or(0.0)
+                                );
+                                assert_eq!(
+                                    [
+                                        risk.price.standard_error,
+                                        risk.delta,
+                                        risk.delta_standard_error
+                                    ],
+                                    [0.0; 3]
+                                );
+                                assert_eq!(p.evaluate().unwrap().value, risk.price.value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn initial_monitoring_delta_matches_bumps_within_each_branch() {
+    for h in [0.1, 0.3] {
+        for direction in ["up", "down"] {
+            for side in ["call", "put"] {
+                for style in ["knock_in", "knock_out"] {
+                    for level in [95.0, 105.0] {
+                        let mut v = payload();
+                        v["product"]["direction"] = json!({"type":direction});
+                        v["product"]["side"] = json!({"type":side});
+                        v["product"]["style"] = json!({"type":style});
+                        v["product"]["barrier"] = json!(level);
+                        v["product"]["notional"] = json!(2.0);
+                        v["product"]["rebate"] = json!(7.0);
+                        v["product"]["monitoring_dates"] =
+                            json!(["2026-09-04", "2027-03-05", "2027-09-03"]);
+                        let base = compile(&v, h, [-0.25, -0.4, 0.15]);
+                        for bump in [0.001, 0.0005] {
+                            v["market"]["spot"] = json!(100.0 + bump);
+                            let up = compile(&v, h, [-0.25, -0.4, 0.15]);
+                            v["market"]["spot"] = json!(100.0 - bump);
+                            let down = compile(&v, h, [-0.25, -0.4, 0.15]);
+                            v["market"]["spot"] = json!(100.0);
+                            for pattern in 0..8 {
+                                let z = normals(base.path.times().len() - 1, pattern);
+                                let eval = |p: &StochasticDividendPricingPlan| {
+                                    HardBarrierPlan::compile(p).unwrap().sample(p, &z).unwrap()
+                                };
+                                let delta = eval(&base)[1];
+                                let fd = (eval(&up)[0] - eval(&down)[0]) / (2.0 * bump);
+                                assert!(
+                                    (delta - fd).abs() < 2e-6,
+                                    "{direction}/{side}/{style}, H={h}: {delta} != {fd}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn initial_boundary_is_rejected_but_future_boundaries_remain_integrable() {
+    for direction in ["up", "down"] {
+        for side in ["call", "put"] {
+            for style in ["knock_in", "knock_out"] {
+                let mut v = payload();
+                v["product"]["direction"] = json!({"type":direction});
+                v["product"]["side"] = json!({"type":side});
+                v["product"]["style"] = json!({"type":style});
+                v["product"]["barrier"] = json!(100.0);
+                let future = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+                assert!(future.evaluate_lsv_hard_barrier_spot_risk().is_ok());
+                v["product"]["monitoring_dates"] = json!(["2026-09-04", "2027-09-03"]);
+                let p = compile(&v, 0.1, [-0.25, -0.4, 0.15]);
+                assert!(
+                    p.evaluate_lsv_hard_barrier_spot_risk()
+                        .unwrap_err()
+                        .to_string()
+                        .contains("initial monitoring boundary")
+                );
+                // Ordinary inclusive-hit price evaluation remains available.
+                assert!(p.evaluate().is_ok());
+            }
+        }
+    }
 }

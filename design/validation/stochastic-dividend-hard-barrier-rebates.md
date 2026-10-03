@@ -47,7 +47,7 @@ antithetic sampling and worker replay.
 
 The independent NumPy code uses the same retained discrete law but no
 production paths, payoffs, derivatives or random generator. Direct Gaussian
-payoff quadrature in a deterministic-dividend single-monitor limit checks all
+payoff quadrature in a deterministic-dividend initial/final-monitor limit checks all
 eight contract variants, with (N,R)=(1,0)/(2,7) and strikes 1/80/110/1000.
 Richardson-extrapolated price bumps check Delta within 8e-9; the large strike
 range includes empty active exercise regions. Common-input nonzero-eta/kappa

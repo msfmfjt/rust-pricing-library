@@ -280,8 +280,10 @@ class StochasticDividendPlan:
     def evaluate_lsv_hard_barrier_spot_risk(self) -> StochasticDividendLsvSpotRisk:
         """Hard discrete rough-LSV Barrier price/Spot Delta with optional rebates.
 
-        Supports Up/Down, Call/Put and knock-in/out, strictly future monitoring,
-        no payoff smoothing and positive conditional equity variance. Fixed cash
+        Supports Up/Down, Call/Put and knock-in/out, monitoring on/after valuation,
+        no payoff smoothing and positive conditional equity variance. If valuation
+        is monitored, Spot must differ from the barrier; its Delta is undefined
+        at the initial monitoring boundary. Fixed cash
         rebates pay on the inactive branch at payment, independently of notional.
         Sampling errors exclude calibration uncertainty and time-grid bias.
         Unsupported plans raise PricingError. Reverse calibration trace is not

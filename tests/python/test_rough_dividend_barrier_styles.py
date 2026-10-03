@@ -1,5 +1,6 @@
 """Independent controls for hard Barrier directions, option sides and cash order."""
 import math
+from itertools import product
 import unittest
 
 import numpy as np
@@ -18,7 +19,7 @@ class BarrierStyles(unittest.TestCase):
         market = dict(market, dividend_volatility=0., equity_dividend_correlation=0.)
         x, w = np.polynomial.legendre.leggauss(256)
 
-        def quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate):
+        def quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate, monitors):
             growth = market['annual_carry'] / market['annual_discount']
             funded = spot-sum(q/growth**ex for q, ex in zip(market['cash_means'], market['cash_times']))
             a = funded*growth**t
@@ -37,28 +38,33 @@ class BarrierStyles(unittest.TestCase):
             for left, right in zip(splits[:-1], splits[1:]):
                 z = (left+right)/2 + (right-left)*x/2
                 stock = a*np.exp(mu+sd*z)+b
-                hit = stock+cash >= barrier if up else stock <= barrier
+                hit = np.zeros(len(z), dtype=bool)
+                if 1 in monitors:
+                    hit |= stock+cash >= barrier if up else stock <= barrier
+                if 0 in monitors:
+                    hit |= spot >= barrier if up else spot <= barrier
                 active = hit if knock_in else ~hit
                 payoff = notional*np.maximum(stock-strike if call else strike-stock, 0)*active + rebate*(~active)
                 value += (right-left)/2 * (w @ (payoff*np.exp(-z*z/2)/math.sqrt(2*math.pi)))
             return value*market['annual_discount']**market['payment_time']
 
         for notional, rebate in [(1., 0.), (2., 7.)]:
-            for strike in (1., 80., 110., 1000.):
-                for up in (True, False):
-                    for call in (True, False):
-                        for knock_in in (True, False):
-                            barrier = 105. if up else 95.
-                            actual = path_values(case, dict(market, barrier=barrier, strike=strike),
-                                np.zeros((1,1,3)), np.full((1,1),.5),
-                                direction='up' if up else 'down', side='call' if call else 'put',
-                                style='knock_in' if knock_in else 'knock_out', notional=notional, rebate=rebate)[0]
-                            price = lambda spot: quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate)
-                            spot, bump = market['spot'], .01
-                            coarse = (price(spot+bump)-price(spot-bump))/(2*bump)
-                            fine = (price(spot+bump/2)-price(spot-bump/2))/bump
-                            expected = [price(spot), (4*fine-coarse)/3]
-                            np.testing.assert_allclose(actual, expected, rtol=0, atol=8e-9)
+            for strike, up, call, knock_in, monitors, barrier in product(
+                    (1., 80., 110., 1000.), (True, False), (True, False), (True, False),
+                    ([1], [0], [0, 1]), (95., 105.)):
+                with self.subTest(notional=notional, rebate=rebate, strike=strike, up=up,
+                                  call=call, knock_in=knock_in, monitors=monitors, barrier=barrier):
+                    actual = path_values(dict(case, monitoring_indices=monitors),
+                        dict(market, barrier=barrier, strike=strike),
+                        np.zeros((1,1,3)), np.full((1,1),.5),
+                        direction='up' if up else 'down', side='call' if call else 'put',
+                        style='knock_in' if knock_in else 'knock_out', notional=notional, rebate=rebate)[0]
+                    price = lambda spot: quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate, monitors)
+                    spot, bump = market['spot'], .01
+                    coarse = (price(spot+bump)-price(spot-bump))/(2*bump)
+                    fine = (price(spot+bump/2)-price(spot-bump/2))/bump
+                    expected = [price(spot), (4*fine-coarse)/3]
+                    np.testing.assert_allclose(actual, expected, rtol=0, atol=8e-9)
 
     def test_analytic_tangents_for_every_contract_variant(self):
         cfg, bases, market = inputs("rough-barrier-rebates-reference.json")

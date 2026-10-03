@@ -12,6 +12,7 @@ pub(super) const METHOD: &str = "buehler-rough-residual-lsv-hard-barrier-surviva
 pub(super) struct HardBarrierPlan {
     pub fingerprint: Fingerprint,
     monitors: Vec<bool>,
+    initial_hit: bool,
     rows: Vec<usize>,
     growth: Vec<f64>,
     cash: Vec<f64>,
@@ -34,7 +35,8 @@ struct ConditionalLeg {
 impl StochasticDividendPricingPlan {
     /// Hard-payoff physical-Spot Delta by survival conditioning. Supports rough
     /// residual LSV, discrete up/down knock-in/out calls/puts with optional fixed
-    /// cash rebates at payment, future monitoring and no smoothing. Requires
+    /// cash rebates at payment, monitoring on/after valuation and no smoothing.
+    /// Spot must differ from the barrier when valuation is monitored. Requires
     /// positive conditional equity variance.
     /// Leverage is re-anchored under Spot; calibration uncertainty and time-grid
     /// bias are excluded from the reported MC/RQMC standard errors.
@@ -47,7 +49,7 @@ impl StochasticDividendPricingPlan {
 
 fn unsupported() -> MonteCarloError {
     MonteCarloError::UnsupportedRiskForModel {
-        model: "hard Barrier Spot risk requires rough residual LSV, an unsmoothed discrete Barrier call/put, future monitoring, and positive conditional equity variance",
+        model: "hard Barrier Spot risk requires rough residual LSV, an unsmoothed discrete Barrier call/put, monitoring on/after valuation, and positive conditional equity variance",
     }
 }
 
@@ -82,7 +84,7 @@ impl HardBarrierPlan {
         let mut monitors = vec![false; times.len()];
         for &date in barrier.monitoring_dates() {
             let time = DayCountConvention::Act365F.year_fraction(plan.base.valuation_date, date);
-            if time <= 0.0 {
+            if time < 0.0 {
                 return Err(unsupported());
             }
             let i = times
@@ -90,6 +92,25 @@ impl HardBarrierPlan {
                 .map_err(|_| invalid("hard_barrier_monitoring_time"))?;
             monitors[i] = true;
         }
+        // At valuation there is no random equity innovation to integrate.
+        // The input Spot determines this observation; all cash ex-dates are
+        // strictly future in the Buehler path contract. Differentiate only
+        // within the current branch, never across its discontinuity.
+        let initial_hit = if monitors[0] {
+            let spot = plan.market.spot().get();
+            let level = barrier.barrier().get();
+            if spot == level {
+                return Err(MonteCarloError::UnsupportedRiskForModel {
+                    model: "hard Barrier Spot Delta is undefined at an initial monitoring boundary (Spot equals barrier)",
+                });
+            }
+            match barrier.direction() {
+                BarrierDirection::Up => spot > level,
+                BarrierDirection::Down => spot < level,
+            }
+        } else {
+            false
+        };
         let surface = plan.path.lsv_surface().ok_or_else(unsupported)?;
         let rows = times
             .iter()
@@ -112,6 +133,7 @@ impl HardBarrierPlan {
         Ok(Self {
             fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
             monitors,
+            initial_hit,
             rows,
             growth,
             cash,
@@ -135,6 +157,19 @@ impl HardBarrierPlan {
         if z.len() != 4 * (times.len() - 1) || z.iter().any(|v| !v.is_finite()) {
             return Err(invalid("hard_barrier_normals").into());
         }
+        let barrier = plan.barrier.as_ref().expect("validated Barrier");
+        let knock_in = barrier.style() == BarrierStyle::KnockIn;
+        let fixed_cash = (self.initial_hit && !knock_in)
+            || (!self.initial_hit && knock_in && !self.monitors[1..].iter().any(|m| *m));
+        if fixed_cash {
+            // Once the inactive branch is certain, irrelevant future path
+            // overflows must not prevent payment of a deterministic rebate.
+            let value = plan.base.discount * barrier.rebate().map_or(0.0, |r| r.get());
+            if !value.is_finite() {
+                return Err(invalid("hard_barrier_sample").into());
+            }
+            return Ok([value, 0.0]);
+        }
         let h = self.factor.hurst();
         let mut increments = Vec::with_capacity(times.len() - 1);
         let mut loadings = vec![1.0];
@@ -157,8 +192,7 @@ impl HardBarrierPlan {
             increments.push(dw);
         }
         let ko = self.leg(plan, z, &loadings, true)?;
-        let barrier = plan.barrier.as_ref().expect("validated Barrier");
-        let (payoff, inactive) = if barrier.style() == BarrierStyle::KnockIn {
+        let (payoff, inactive) = if knock_in {
             let vanilla = self.leg(plan, z, &loadings, false)?;
             (
                 [
@@ -190,6 +224,14 @@ impl HardBarrierPlan {
         loadings: &[f64],
         knockout: bool,
     ) -> Result<ConditionalLeg, MonteCarloError> {
+        // A hit is absorbing: subsequent monitoring cannot revive knock-out
+        // payoff or alter the fixed cash rebate. Knock-in uses the vanilla leg.
+        if knockout && self.initial_hit {
+            return Ok(ConditionalLeg {
+                hit: [1.0, 0.0],
+                ..ConditionalLeg::default()
+            });
+        }
         let surface = plan.path.lsv_surface().expect("validated LSV");
         let barrier = plan.barrier.as_ref().expect("validated Barrier");
         let model = plan.path.model();

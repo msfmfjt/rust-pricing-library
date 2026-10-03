@@ -65,6 +65,9 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
     drivers = dv @ weights.T
     drivers[:, 1:] += residual * normals[:, :, 2]
     monitors = set(case['monitoring_indices'])
+    if 0 in monitors and spot == market['barrier']:
+        raise ValueError('Spot Delta is undefined at the initial monitoring boundary')
+    initial_hit = 0 in monitors and (spot > market['barrier'] if up else spot < market['barrier'])
 
     def coefficients(t):
         a, b, c, cash = funded * growth ** t, 0., 0., 0.
@@ -80,6 +83,9 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
         return a, b, c, cash
 
     def leg(knockout):
+        if knockout and initial_hit:
+            return (np.zeros((n, 2)), np.zeros((n, 2)),
+                    np.stack((np.ones(n), np.zeros(n)), axis=1))
         f, y = np.ones(n), np.ones(n)
         df, dy = np.zeros(n), np.zeros(n)
         survival, dsurvival = np.ones(n), np.zeros(n)
