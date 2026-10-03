@@ -4,6 +4,7 @@
 
 mod builders;
 mod diagnostics;
+mod dual;
 mod hull_white;
 mod local_correlation;
 mod lsv;
@@ -1225,6 +1226,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRiskRequest>()?;
     module.add_class::<PyPricingRequest>()?;
     module.add_class::<PyPricingPlan>()?;
+    module.add_class::<dual::PyAndersenBroadieConfig>()?;
+    module.add_class::<dual::PyAndersenBroadiePlan>()?;
+    module.add_class::<dual::PyAndersenBroadieResult>()?;
     module.add_class::<multi_asset::PyCorrelationSchedule>()?;
     module.add_class::<multi_asset::PyAutocallObservation>()?;
     module.add_class::<multi_asset::PyMultiAssetProduct>()?;

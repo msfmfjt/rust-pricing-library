@@ -206,6 +206,7 @@ jobs:
           cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture
           cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture
           cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture
+          cargo test --locked --release -p pricing --test american_dual -- --ignored --nocapture
 
       - name: Build Rust API docs
         run: cargo doc --locked --workspace --all-features --no-deps

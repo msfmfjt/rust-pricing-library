@@ -23,6 +23,9 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [0027: Andersen–Broadie bounds](adr/0027-american-dual.md), with
+  [validation evidence](validation/american-dual.md).
+
 | ADR | Decision |
 | --- | --- |
 | [0001](adr/0001-hull-white-equity-hybrid.md) | Equity/Hull–White hybrid |

@@ -111,6 +111,7 @@ def main() -> None:
     verify_runtime_symbols(python, stub_api, metadata["Version"])
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
+    subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
@@ -1056,6 +1057,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "OptionSide",
         "PricingError",
         "PricingPlan",
+        "AndersenBroadieConfig",
+        "AndersenBroadiePlan",
+        "AndersenBroadieResult",
         "PricingRequest",
         "PricingResult",
         "PricingWarning",
@@ -1796,6 +1800,20 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "required_keyword_only": ["worker_threads"],
             "keyword_only_defaults": {"reduction_block_size": None},
         },
+        ("AndersenBroadieConfig", "__init__"): {
+            "positional": ["self", "continuation_inner_paths", "exercise_inner_paths", "inner_seed"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("AndersenBroadiePlan", "compile"): {
+            "positional": ["request", "config"],
+            "positional_defaults": {},
+            "keyword_only": ["worker_threads", "reduction_block_size"],
+            "required_keyword_only": ["worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
         ("PricingRequest", "__init__"): {
             "positional": [
                 "self",
@@ -2387,6 +2405,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "local_volatility_from_standard_ssvi_power_law",
         },
         "PricingError": set(),
+        "AndersenBroadieConfig": {
+            "__init__", "__repr__", "continuation_inner_paths", "exercise_inner_paths", "inner_seed",
+        },
+        "AndersenBroadiePlan": {"__repr__", "compile", "evaluate", "plan_fingerprint"},
+        "AndersenBroadieResult": {
+            "__repr__", "lower_bound", "upper_bound", "duality_gap",
+            "price_confidence_interval_95", "policy_fingerprint", "plan_fingerprint",
+            "config", "outer_trajectories", "exercise_date_count",
+        },
         "PricingPlan": {
             "__repr__",
             "compile",
@@ -2587,6 +2614,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("AndersenBroadiePlan", "compile"),
         ("StochasticDividendHullWhitePlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bs"),
         ("StochasticDividendPlan", "compile_bergomi"),
@@ -2643,6 +2671,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("AndersenBroadieConfig", "continuation_inner_paths"),
+        ("AndersenBroadieConfig", "exercise_inner_paths"),
+        ("AndersenBroadieConfig", "inner_seed"),
+        ("AndersenBroadiePlan", "plan_fingerprint"),
+        ("AndersenBroadieResult", "lower_bound"),
+        ("AndersenBroadieResult", "upper_bound"),
+        ("AndersenBroadieResult", "duality_gap"),
+        ("AndersenBroadieResult", "price_confidence_interval_95"),
+        ("AndersenBroadieResult", "policy_fingerprint"),
+        ("AndersenBroadieResult", "plan_fingerprint"),
+        ("AndersenBroadieResult", "config"),
+        ("AndersenBroadieResult", "outer_trajectories"),
+        ("AndersenBroadieResult", "exercise_date_count"),
         ('StochasticDividendLsvRoughBergomiRisk', 'price'),
         ('StochasticDividendLsvRoughBergomiRisk', 'parameter_labels'),
         ('StochasticDividendLsvRoughBergomiRisk', 'derivatives'),

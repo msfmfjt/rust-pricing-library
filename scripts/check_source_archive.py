@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing-python/src/dual.rs',
+    'examples/python/american_dual.py',
+    'tests/python/test_american_dual.py',
+    'crates/pricing/src/dual.rs',
+    'crates/pricing/src/engine/risk/dual.rs',
+    'crates/pricing/examples/american_dual.rs',
+    'crates/pricing/tests/american_dual.rs',
+    'docs/library/american-dual.md',
+    'design/adr/0027-american-dual.md',
+    'design/validation/american-dual.md',
+    'design/validation/american-dual-release-gates.json',
     'crates/pricing/tests/stochastic_dividend_rough_lsv.rs',
     'design/validation/stochastic-dividend-rough-lsv-correlation-risk.md',
     'tests/python/hw_dividend_risk_reference.py',
