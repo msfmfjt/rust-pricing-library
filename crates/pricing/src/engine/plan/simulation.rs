@@ -142,6 +142,7 @@ pub(in crate::engine) struct ContinuousBarrierRuntime {
     pub(in crate::engine) direction: BarrierDirection,
     pub(in crate::engine) style: BarrierStyle,
     pub(in crate::engine) monitoring_end_time: f64,
+    pub(in crate::engine) historical_hit: Option<bool>,
     pub(in crate::engine) bridge_observation_indices: Box<[usize]>,
     pub(in crate::engine) expiry_observation_index: usize,
 }
@@ -191,6 +192,9 @@ pub(in crate::engine) struct SmoothedContinuousBarrierPath {
 
 #[derive(Clone, Debug)]
 pub(in crate::engine) enum ContinuousBarrierBridgeEvaluation {
+    Resolved {
+        survival: f64,
+    },
     Exact(ExactContinuousBarrierBridgeEvaluation),
     Smoothed {
         path: SmoothedContinuousBarrierPath,
@@ -216,6 +220,9 @@ pub(in crate::engine) struct ExactLocalVolContinuousBarrierBridgeEvaluation {
 
 #[derive(Clone, Debug)]
 pub(in crate::engine) enum LocalVolContinuousBarrierBridgeEvaluation {
+    Resolved {
+        survival: f64,
+    },
     Exact(ExactLocalVolContinuousBarrierBridgeEvaluation),
     Smoothed {
         path: SmoothedContinuousBarrierPath,

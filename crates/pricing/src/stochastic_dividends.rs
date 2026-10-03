@@ -11,12 +11,19 @@ pub use crate::engine::processes::stochastic_dividends::{
     StochasticDividendNode, StochasticDividendPathPlan,
 };
 pub use crate::engine::risk::stochastic_dividends::{
-    StochasticDividendAadRisk, StochasticDividendGammaRisk, StochasticDividendLocalVarianceRisk,
-    StochasticDividendLsvBergomi2FactorCorrelationRisk, StochasticDividendLsvBergomi2FactorRisk,
-    StochasticDividendLsvBergomiRisk, StochasticDividendLsvCorrelationRisk,
-    StochasticDividendLsvDividendModelRisk, StochasticDividendLsvMarketRisk,
-    StochasticDividendLsvRoughBergomiCorrelationRisk, StochasticDividendLsvRoughBergomiRisk,
-    StochasticDividendLsvSpotRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
+    StochasticDividendAadRisk, StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierBucketedMarketIvRisk,
+    StochasticDividendContinuousBarrierGammaRisk,
+    StochasticDividendContinuousBarrierLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierMarketIvRisk, StochasticDividendContinuousBarrierPlan,
+    StochasticDividendContinuousBarrierReportingIvRisk,
+    StochasticDividendContinuousBarrierSpotRisk, StochasticDividendGammaRisk,
+    StochasticDividendLocalVarianceRisk, StochasticDividendLsvBergomi2FactorCorrelationRisk,
+    StochasticDividendLsvBergomi2FactorRisk, StochasticDividendLsvBergomiRisk,
+    StochasticDividendLsvCorrelationRisk, StochasticDividendLsvDividendModelRisk,
+    StochasticDividendLsvMarketRisk, StochasticDividendLsvRoughBergomiCorrelationRisk,
+    StochasticDividendLsvRoughBergomiRisk, StochasticDividendLsvSpotRisk, StochasticDividendPrice,
+    StochasticDividendPricingPlan,
 };
 pub use crate::models::{
     BuehlerDividendModel, BuehlerDividendState, STOCHASTIC_DIVIDEND_SCHEME, StochasticDividendError,

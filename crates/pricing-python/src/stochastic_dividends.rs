@@ -15,6 +15,17 @@ use pricing::stochastic_dividends::{
 };
 use pyo3::prelude::*;
 
+mod continuous_barrier;
+pub use continuous_barrier::{
+    PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
+    PyStochasticDividendContinuousBarrierBucketedMarketIvRisk,
+    PyStochasticDividendContinuousBarrierGammaRisk,
+    PyStochasticDividendContinuousBarrierLocalVolatilityRisk,
+    PyStochasticDividendContinuousBarrierMarketIvRisk, PyStochasticDividendContinuousBarrierPlan,
+    PyStochasticDividendContinuousBarrierReportingIvRisk,
+    PyStochasticDividendContinuousBarrierSpotRisk,
+};
+
 fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
     validation_exception(
         py,
@@ -399,6 +410,19 @@ impl PyStochasticDividendPlan {
     }
     fn evaluate_lsv_spot_risk(&self, py: Python<'_>) -> PyResult<PyStochasticDividendLsvSpotRisk> {
         py.detach(|| self.inner.evaluate_lsv_spot_risk())
+            .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
+            .map_err(pricing_exception)
+    }
+    /// Hard discrete rough-LSV Barrier price and physical-Spot Delta, including
+    /// fixed cash rebates at payment. Requires observations on/after valuation, no
+    /// payoff smoothing and positive conditional equity variance. If valuation
+    /// is monitored, Spot must differ from the barrier. Sampling
+    /// errors exclude calibration uncertainty and time-grid bias.
+    fn evaluate_lsv_hard_barrier_spot_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyStochasticDividendLsvSpotRisk> {
+        py.detach(|| self.inner.evaluate_lsv_hard_barrier_spot_risk())
             .map(|inner| PyStochasticDividendLsvSpotRisk { inner })
             .map_err(pricing_exception)
     }

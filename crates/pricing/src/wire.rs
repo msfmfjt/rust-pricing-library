@@ -317,6 +317,8 @@ enum ProductV1 {
         monitoring_dates: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         rebate: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        historical_hit: Option<bool>,
         payment_date: String,
     },
     ArithmeticAsian {
@@ -746,6 +748,7 @@ impl From<&ProductSpec> for ProductV1 {
                     .map(ToString::to_string)
                     .collect(),
                 rebate: spec.rebate().map(|value| value.get()),
+                historical_hit: spec.historical_hit(),
                 payment_date: spec.payment_date().to_string(),
             },
             ProductSpec::ArithmeticAsian(spec) => Self::ArithmeticAsian {
@@ -1205,6 +1208,7 @@ impl TryFrom<RequestV3> for PricingRequest {
                 monitoring,
                 monitoring_dates,
                 rebate,
+                historical_hit,
                 payment_date,
             } => ProductSpec::Barrier(
                 BarrierSpec::new(
@@ -1240,6 +1244,10 @@ impl TryFrom<RequestV3> for PricingRequest {
                     rebate,
                     parse_date_at(&payment_date, "/product/payment_date")?,
                 )
+                .map(|spec| match historical_hit {
+                    Some(hit) => spec.with_historical_hit(hit),
+                    None => spec,
+                })
                 .map_err(|error| domain_at("/product", error))?,
             ),
             ProductV1::ArithmeticAsian {
@@ -5071,6 +5079,81 @@ mod tests {
     }
 
     #[test]
+    fn barrier_history_round_trips_and_validates_schedule_and_monitoring() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&request_to_json(&barrier_request()).unwrap()).unwrap();
+        value["product"]["monitoring"]["type"] = "discrete".into();
+        let parse = |v: &serde_json::Value| {
+            parse_request_json(&serde_json::to_vec(v).unwrap(), JsonLimits::DEFAULT)
+        };
+        let original = request_to_json(&parse(&value).unwrap()).unwrap();
+        assert!(!original.contains("historical_hit"));
+        let mut fingerprints = Vec::new();
+        for hit in [false, true] {
+            value["product"]["historical_hit"] = hit.into();
+            assert!(
+                parse(&value)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("requires monitoring dates before")
+            );
+            value["product"]["monitoring_dates"][0] = "2026-09-03".into();
+            let request = parse(&value).unwrap();
+            let json = request_to_json(&request).unwrap();
+            assert_eq!(
+                request,
+                parse_request_json(json.as_bytes(), JsonLimits::DEFAULT).unwrap()
+            );
+            let ProductSpec::Barrier(spec) = request.product() else {
+                panic!()
+            };
+            assert_eq!(spec.historical_hit(), Some(hit));
+            fingerprints.push(fingerprint_request(&request).unwrap());
+            for version in [1, 2, 3] {
+                value["schema_version"] = version.into();
+                let migrated = parse(&value).unwrap();
+                assert_eq!(migrated.product(), request.product());
+                assert!(
+                    request_to_json(&migrated)
+                        .unwrap()
+                        .contains(&format!("\"historical_hit\":{hit}"))
+                );
+            }
+            value["product"]["monitoring"]["type"] = "continuous".into();
+            let continuous = parse(&value).unwrap();
+            let ProductSpec::Barrier(spec) = continuous.product() else {
+                panic!()
+            };
+            assert_eq!(spec.historical_hit(), Some(hit));
+            assert_eq!(spec.monitoring(), BarrierMonitoring::Continuous);
+            let round_trip = parse_request_json(
+                request_to_json(&continuous).unwrap().as_bytes(),
+                JsonLimits::DEFAULT,
+            )
+            .unwrap();
+            assert_eq!(round_trip, continuous);
+            value["product"]["monitoring"]["type"] = "discrete".into();
+            value["product"]["monitoring_dates"][0] = "2027-03-04".into();
+        }
+        assert_ne!(fingerprints[0], fingerprints[1]);
+        value["product"]["monitoring_dates"][0] = "2026-09-03".into();
+        value["product"]
+            .as_object_mut()
+            .unwrap()
+            .remove("historical_hit");
+        assert!(
+            parse(&value)
+                .unwrap_err()
+                .to_string()
+                .contains("requires historical barrier state")
+        );
+        for invalid in [serde_json::json!(1), serde_json::json!("false")] {
+            value["product"]["historical_hit"] = invalid;
+            assert!(parse(&value).is_err());
+        }
+    }
+
+    #[test]
     fn request_json_round_trips_arithmetic_asian_product() {
         let request = asian_request();
 
@@ -5117,6 +5200,7 @@ mod tests {
             monitoring: BarrierMonitoringV1::Discrete,
             monitoring_dates: vec!["2027-09-04".to_owned()],
             rebate: None,
+            historical_hit: None,
             payment_date: "2027-09-04".to_owned(),
         };
         let lookback = ProductV1::FixedLookback {
@@ -5132,6 +5216,7 @@ mod tests {
         let barrier_json = serde_json::to_value(barrier).expect("Barrier JSON");
         let lookback_json = serde_json::to_value(lookback).expect("Lookback JSON");
         assert!(barrier_json.get("rebate").is_none());
+        assert!(barrier_json.get("historical_hit").is_none());
         assert!(lookback_json.get("historical_extremum").is_none());
     }
 

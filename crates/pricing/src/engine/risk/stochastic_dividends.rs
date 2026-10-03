@@ -2,19 +2,44 @@
 //! capability is implied by compilation. First-order risk is requested explicitly.
 
 mod aad;
+mod continuous_barrier;
 mod gamma;
 pub(crate) mod hull_white;
 mod lsv;
+#[cfg(test)]
+mod lsv_barrier_smoothing_tests;
+#[cfg(test)]
+mod lsv_calibration_refinement_tests;
 mod lsv_correlations;
 mod lsv_correlations_2f;
 mod lsv_dividend_model;
 mod lsv_gamma;
+mod lsv_hard_barrier;
+#[cfg(test)]
+mod lsv_hard_refinement_tests;
 mod lsv_market;
 mod lsv_parameters;
 mod lsv_parameters_2f;
+#[cfg(test)]
+mod lsv_path_refinement_tests;
+#[cfg(test)]
+mod lsv_refinement_tests;
 mod lsv_rough_correlations;
 mod lsv_rough_parameters;
+#[cfg(test)]
+mod lsv_uncertainty_tests;
+#[cfg(test)]
+mod resolved_barrier_tests;
 pub use aad::StochasticDividendAadRisk;
+pub use continuous_barrier::{
+    StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierBucketedMarketIvRisk,
+    StochasticDividendContinuousBarrierGammaRisk,
+    StochasticDividendContinuousBarrierLocalVolatilityRisk,
+    StochasticDividendContinuousBarrierMarketIvRisk, StochasticDividendContinuousBarrierPlan,
+    StochasticDividendContinuousBarrierReportingIvRisk,
+    StochasticDividendContinuousBarrierSpotRisk,
+};
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};
 pub use lsv_correlations::StochasticDividendLsvCorrelationRisk;
@@ -105,6 +130,7 @@ pub struct StochasticDividendPricingPlan {
     market: crate::market::EquityForward,
     payment_time: f64,
     risk_supported: bool,
+    barrier: Option<crate::product::BarrierSpec>,
     lsv: Option<StochasticDividendLsvCalibration>,
 }
 
@@ -133,8 +159,8 @@ impl StochasticDividendPricingPlan {
         if expiry <= 0.0 {
             return Err(invalid("positive_horizon").into());
         }
-        // This also rejects American exercise and continuously monitored barriers.
-        let base = SimulationPlan::compile_hybrid_base(request, policy)?;
+        // Continuous contracts require an already-resolved monitoring history.
+        let base = SimulationPlan::compile_stochastic_dividend_base(request, policy)?;
         let market = request.market().equity().forward();
         let mut times = base.hybrid_observation_times().to_vec();
         times.push(expiry);
@@ -181,6 +207,10 @@ impl StochasticDividendPricingPlan {
                 .year_fraction(request.valuation_date(), request.product().payment_date()),
             risk_supported: request.product().supports_pathwise_risk()
                 || request.risk().payoff_smoothing().is_some(),
+            barrier: match request.product() {
+                crate::product::ProductSpec::Barrier(spec) => Some(spec.clone()),
+                _ => None,
+            },
             lsv: None,
         })
     }
@@ -193,6 +223,7 @@ impl StochasticDividendPricingPlan {
         model: BuehlerDividendModel,
         maximum_step: f64,
         policy: ExecutionPolicy,
+        allow_continuous_barrier: bool,
     ) -> Result<(Self, LocalVarianceGrid, LocalVarianceGrid, LocalVolTimeGrid), MonteCarloError>
     {
         let risk = request.risk();
@@ -213,7 +244,13 @@ impl StochasticDividendPricingPlan {
         if expiry <= 0.0 {
             return Err(invalid("positive_horizon").into());
         }
-        let base = SimulationPlan::compile_hybrid_base(request, policy)?;
+        // Only the price-only continuous wrapper may opt into a live contract.
+        // It validates the product/risk request and supplies its own bridge payoff.
+        let base = if allow_continuous_barrier {
+            SimulationPlan::compile(request, policy)?
+        } else {
+            SimulationPlan::compile_stochastic_dividend_base(request, policy)?
+        };
         let market = request.market().equity().forward();
 
         // Start from the established LSV grid so every contractual and target
@@ -296,6 +333,10 @@ impl StochasticDividendPricingPlan {
                     .year_fraction(request.valuation_date(), request.product().payment_date()),
                 risk_supported: request.product().supports_pathwise_risk()
                     || request.risk().payoff_smoothing().is_some(),
+                barrier: match request.product() {
+                    crate::product::ProductSpec::Barrier(spec) => Some(spec.clone()),
+                    _ => None,
+                },
                 lsv: None,
             },
             original,
@@ -317,7 +358,7 @@ impl StochasticDividendPricingPlan {
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
         let (mut plan, original_target, target, grid) =
-            Self::compile_lsv_base(request, model, maximum_step, policy)?;
+            Self::compile_lsv_base(request, model, maximum_step, policy, false)?;
         let calibration = calibrate_bergomi_lsv_parallel(
             &target,
             factor,
@@ -350,7 +391,7 @@ impl StochasticDividendPricingPlan {
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
         let (mut plan, original_target, target, grid) =
-            Self::compile_lsv_base(request, model, maximum_step, policy)?;
+            Self::compile_lsv_base(request, model, maximum_step, policy, false)?;
         let calibration = calibrate_bergomi_lsv_parallel(
             &target,
             factor,
@@ -386,8 +427,36 @@ impl StochasticDividendPricingPlan {
         maximum_step: f64,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
-        let (mut plan, original_target, target, grid) =
-            Self::compile_lsv_base(request, model, maximum_step, policy)?;
+        Self::compile_rough_bergomi_lsv_impl(
+            request,
+            model,
+            factor,
+            dividend_volatility_correlation,
+            particles,
+            maximum_step,
+            policy,
+            false,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn compile_rough_bergomi_lsv_impl(
+        request: &PricingRequest,
+        model: BuehlerDividendModel,
+        factor: RoughBergomi,
+        dividend_volatility_correlation: f64,
+        particles: LsvParticleConfig,
+        maximum_step: f64,
+        policy: ExecutionPolicy,
+        allow_continuous_barrier: bool,
+    ) -> Result<Self, MonteCarloError> {
+        let (mut plan, original_target, target, grid) = Self::compile_lsv_base(
+            request,
+            model,
+            maximum_step,
+            policy,
+            allow_continuous_barrier,
+        )?;
         let calibration = calibrate_rough_bergomi_lsv_parallel(
             &target,
             factor,
@@ -489,6 +558,24 @@ impl StochasticDividendPricingPlan {
     }
 
     pub fn evaluate(&self) -> Result<StochasticDividendPrice, MonteCarloError> {
+        self.evaluate_with_path_payoff(|shocks| {
+            let states = self.path.evolve_path(shocks)?;
+            let spots = self
+                .path
+                .nodes()
+                .iter()
+                .zip(&states)
+                .map(|(node, state)| node.spots(*state))
+                .collect::<Result<Vec<_>, _>>()?;
+            // The shared payoff already discounts to contractual payment.
+            self.base.hybrid_spot_payoff(self.path.times(), &spots)
+        })
+    }
+
+    fn evaluate_with_path_payoff(
+        &self,
+        payoff: impl Fn(&[f64]) -> Result<f64, MonteCarloError> + Sync,
+    ) -> Result<StochasticDividendPrice, MonteCarloError> {
         let executor = DeterministicExecutor::new(self.policy)?;
         let dimension = self.path.random_dimension();
         let (statistics, units, paths) = match self.engine {
@@ -506,7 +593,12 @@ impl StochasticDividendPricingPlan {
                             ))
                         })
                         .collect();
-                    self.sample(z, bridge.as_ref(), config.variance_reduction().antithetic())
+                    self.sample(
+                        z,
+                        bridge.as_ref(),
+                        config.variance_reduction().antithetic(),
+                        &payoff,
+                    )
                 })?;
                 (stats, count, config.evaluated_paths())
             }
@@ -525,7 +617,12 @@ impl StochasticDividendPricingPlan {
                                 inverse_standard_normal(u).map_err(|_| invalid("rqmc_normal"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
-                        self.sample(z, bridge.as_ref(), config.variance_reduction().antithetic())
+                        self.sample(
+                            z,
+                            bridge.as_ref(),
+                            config.variance_reduction().antithetic(),
+                            &payoff,
+                        )
                     })?;
                     prices.push(stats.sum().total() / count as f64);
                 }
@@ -615,6 +712,7 @@ impl StochasticDividendPricingPlan {
         mut z: Vec<f64>,
         bridge: Option<&BrownianBridgePlan>,
         antithetic: bool,
+        payoff: &impl Fn(&[f64]) -> Result<f64, MonteCarloError>,
     ) -> Result<f64, MonteCarloError> {
         if let Some(bridge) = bridge {
             // Leading Sobol coordinates are all terminal normals. Apply
@@ -642,17 +740,7 @@ impl StochasticDividendPricingPlan {
             &[1.0][..]
         } {
             let shocks = z.iter().map(|v| sign * v).collect::<Vec<_>>();
-            let states = self.path.evolve_path(&shocks)?;
-            let spots = self
-                .path
-                .nodes()
-                .iter()
-                .zip(&states)
-                .map(|(node, state)| node.spots(*state))
-                .collect::<Result<Vec<_>, _>>()?;
-            // The shared payoff already includes the deterministic collateral
-            // discount to contractual payment. Do not discount a second time.
-            value += self.base.hybrid_spot_payoff(self.path.times(), &spots)?;
+            value += payoff(&shocks)?;
         }
         Ok(value / if antithetic { 2.0 } else { 1.0 })
     }

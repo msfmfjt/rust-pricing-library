@@ -32,12 +32,34 @@ impl SimulationPlan {
         request: &PricingRequest,
         execution_policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
+        Self::compile_hybrid_base_with_resolved_barrier(request, execution_policy, false)
+    }
+
+    /// Deterministic-rate stochastic dividends can reuse the payoff graph when
+    /// continuous monitoring has already resolved. No future bridge law is
+    /// needed for an absorbing past hit or a strictly expired monitoring window.
+    pub(crate) fn compile_stochastic_dividend_base(
+        request: &PricingRequest,
+        execution_policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        let resolved = matches!(request.product(), ProductSpec::Barrier(b)
+            if b.historical_hit() == Some(true)
+                || b.monitoring_dates().last().is_some_and(|d| *d < request.valuation_date()));
+        Self::compile_hybrid_base_with_resolved_barrier(request, execution_policy, resolved)
+    }
+
+    fn compile_hybrid_base_with_resolved_barrier(
+        request: &PricingRequest,
+        execution_policy: ExecutionPolicy,
+        allow_resolved_barrier: bool,
+    ) -> Result<Self, MonteCarloError> {
         if matches!(request.product(), ProductSpec::AmericanVanilla(_)) {
             return Err(MonteCarloError::UnsupportedModel {
                 model: "early exercise in LSV/Hull-White adapters",
             });
         }
         if matches!(request.product(), ProductSpec::Barrier(b) if b.monitoring() == BarrierMonitoring::Continuous)
+            && !allow_resolved_barrier
         {
             return Err(MonteCarloError::UnsupportedModel {
                 model: "continuous Barrier in LSV/Hull-White adapters",
@@ -80,6 +102,7 @@ impl SimulationPlan {
                 .monitoring_dates()
                 .iter()
                 .copied()
+                .filter(|date| *date >= request.valuation_date())
                 .filter(|date| {
                     let time =
                         DayCountConvention::Act365F.year_fraction(request.valuation_date(), *date);
@@ -95,14 +118,17 @@ impl SimulationPlan {
                 digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
             }
             (ProductSpec::Barrier(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) => {
-                barrier.smoothed_source_graph_with_dividend_jumps(
-                    CompactC2Smoothing::from_positive(half_width),
-                    &jump_dates,
+                barrier.build_source_graph(
+                    Some(request.valuation_date()),
+                    Some(CompactC2Smoothing::from_positive(half_width)),
+                    &jump_dates.iter().copied().collect(),
                 )?
             }
-            (ProductSpec::Barrier(barrier), None) => {
-                barrier.source_graph_with_dividend_jumps(&jump_dates)?
-            }
+            (ProductSpec::Barrier(barrier), None) => barrier.build_source_graph(
+                Some(request.valuation_date()),
+                None,
+                &jump_dates.iter().copied().collect(),
+            )?,
             _ => product.source_graph(request.valuation_date())?,
         };
         let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
@@ -238,6 +264,11 @@ impl SimulationPlan {
         if let (Some(barrier), Some(PayoffSmoothing::CompactC2 { half_width })) =
             (continuous_barrier_spec, request.risk().payoff_smoothing())
             && barrier.direction() == BarrierDirection::Up
+            && barrier.historical_hit() != Some(true)
+            && barrier
+                .monitoring_dates()
+                .last()
+                .is_some_and(|date| *date >= request.valuation_date())
         {
             let invalid_coordinate = std::iter::once(AffineDividendCoordinate::identity())
                 .chain(observation_affine_coordinates.iter().copied())
@@ -300,6 +331,7 @@ impl SimulationPlan {
                 direction: barrier.direction(),
                 style: barrier.style(),
                 monitoring_end_time: monitoring_end,
+                historical_hit: barrier.historical_hit(),
                 bridge_observation_indices,
                 expiry_observation_index,
             }
@@ -395,6 +427,7 @@ impl SimulationPlan {
         };
         let (payoff_smoothing_endpoint_count, payoff_smoothing_dividend_jump_count) =
             match (&continuous_barrier, &local_volatility) {
+                (Some(barrier), _) if barrier.resolved_survival().is_some() => (0, 0),
                 (Some(barrier), Some(local_volatility)) => {
                     let node_count = local_volatility
                         .plan
@@ -433,7 +466,14 @@ impl SimulationPlan {
                 (None, _) => match product {
                     ProductSpec::Digital(_) => (1, 0),
                     ProductSpec::Barrier(barrier) => (
-                        u32::try_from(barrier.monitoring_dates().len()).unwrap_or(u32::MAX),
+                        u32::try_from(
+                            barrier
+                                .monitoring_dates()
+                                .iter()
+                                .filter(|date| **date >= request.valuation_date())
+                                .count(),
+                        )
+                        .unwrap_or(u32::MAX),
                         u32::try_from(jump_dates.len()).unwrap_or(u32::MAX),
                     ),
                     _ => (0, 0),
