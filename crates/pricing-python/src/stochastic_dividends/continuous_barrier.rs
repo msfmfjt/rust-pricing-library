@@ -4,7 +4,8 @@ use pricing::stochastic_dividends::{
     StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
     StochasticDividendContinuousBarrierGammaRisk,
     StochasticDividendContinuousBarrierLocalVolatilityRisk,
-    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierSpotRisk,
+    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierReportingIvRisk,
+    StochasticDividendContinuousBarrierSpotRisk,
 };
 
 /// Rough-LSV continuous Barrier approximation. Uses left-frozen
@@ -136,6 +137,21 @@ impl PyStochasticDividendContinuousBarrierPlan {
                 .evaluate_bucketed_local_volatility_risk(local_volatility_bump, &node_indices)
         })
         .map(|inner| PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk { inner })
+        .map_err(pricing_exception)
+    }
+    /// Reporting-only map of all recalibrated Local-volatility node risks.
+    #[pyo3(signature=(*, local_volatility_bump, relative_density_threshold))]
+    fn evaluate_reporting_iv_projection(
+        &self,
+        py: Python<'_>,
+        local_volatility_bump: f64,
+        relative_density_threshold: f64,
+    ) -> PyResult<PyStochasticDividendContinuousBarrierReportingIvRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_reporting_iv_projection(local_volatility_bump, relative_density_threshold)
+        })
+        .map(|inner| PyStochasticDividendContinuousBarrierReportingIvRisk { inner })
         .map_err(pricing_exception)
     }
     #[getter]
@@ -519,6 +535,150 @@ impl PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk {
     #[getter]
     fn risk_fingerprint(&self) -> String {
         self.inner.risk_fingerprint.to_string()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        self.inner.uncertainty_scope()
+    }
+}
+
+/// Reporting-only IV basis projection, with paired sampling errors.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendContinuousBarrierReportingIvRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendContinuousBarrierReportingIvRisk {
+    inner: StochasticDividendContinuousBarrierReportingIvRisk,
+}
+#[pymethods]
+impl PyStochasticDividendContinuousBarrierReportingIvRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn local_volatility_bumps(&self) -> Vec<f64> {
+        self.inner.local_volatility_bumps.to_vec()
+    }
+    #[getter]
+    fn reporting_maturity_nodes(&self) -> Vec<f64> {
+        self.inner.reporting_maturity_nodes.to_vec()
+    }
+    #[getter]
+    fn reporting_log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.reporting_log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn reporting_implied_volatilities(&self) -> Vec<f64> {
+        self.inner.reporting_implied_volatilities.to_vec()
+    }
+    #[getter]
+    fn pre_projection_estimates(&self) -> Vec<f64> {
+        self.inner.pre_projection_estimates.to_vec()
+    }
+    #[getter]
+    fn pre_projection_standard_errors(&self) -> Vec<f64> {
+        self.inner.pre_projection_standard_errors.to_vec()
+    }
+    #[getter]
+    fn projected_sum_estimates(&self) -> Vec<f64> {
+        self.inner.projected_sum_estimates.to_vec()
+    }
+    #[getter]
+    fn projected_sum_standard_errors(&self) -> Vec<f64> {
+        self.inner.projected_sum_standard_errors.to_vec()
+    }
+    #[getter]
+    fn residual_estimates(&self) -> Vec<f64> {
+        self.inner.residual_estimates.to_vec()
+    }
+    #[getter]
+    fn residual_standard_errors(&self) -> Vec<f64> {
+        self.inner.residual_standard_errors.to_vec()
+    }
+    #[getter]
+    fn target_log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.target_log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn positive_target_time_nodes(&self) -> Vec<f64> {
+        self.inner.positive_target_time_nodes.to_vec()
+    }
+    #[getter]
+    fn excluded_probability_masses(&self) -> Vec<f64> {
+        self.inner.excluded_probability_masses.to_vec()
+    }
+    #[getter]
+    fn active_domain_start_indices(&self) -> Vec<usize> {
+        self.inner.active_domain_start_indices.to_vec()
+    }
+    #[getter]
+    fn active_domain_end_indices(&self) -> Vec<usize> {
+        self.inner.active_domain_end_indices.to_vec()
+    }
+    #[getter]
+    fn bucket_estimates(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .bucket_estimates
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn bucket_standard_errors(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .bucket_standard_errors
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .bump_differences
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<Vec<f64>> {
+        self.inner
+            .bump_difference_standard_errors
+            .iter()
+            .map(|row| row.to_vec())
+            .collect()
+    }
+    #[getter]
+    fn relative_density_threshold(&self) -> f64 {
+        self.inner.relative_density_threshold
+    }
+    #[getter]
+    fn scenario_evaluated_paths(&self) -> u128 {
+        self.inner.scenario_evaluated_paths
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn recalibration_count(&self) -> usize {
+        self.inner.recalibration_count
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+    #[getter]
+    fn projection_policy(&self) -> &'static str {
+        self.inner.projection_policy()
     }
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {

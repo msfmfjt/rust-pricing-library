@@ -11,6 +11,8 @@ use crate::product::{
 mod bucketed_local_volatility;
 pub use bucketed_local_volatility::StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk;
 mod local_volatility;
+mod reporting_iv;
+pub use reporting_iv::StochasticDividendContinuousBarrierReportingIvRisk;
 mod sampling;
 mod spot_bump;
 pub use local_volatility::StochasticDividendContinuousBarrierLocalVolatilityRisk;
@@ -32,6 +34,7 @@ pub struct StochasticDividendContinuousBarrierPlan {
     inner: StochasticDividendPricingPlan,
     barrier: BarrierSpec,
     monitoring_end: Option<usize>,
+    reporting_iv_basis: Option<crate::models::LocalVolatilityReportingBasis>,
 }
 
 impl StochasticDividendContinuousBarrierPlan {
@@ -100,6 +103,10 @@ impl StochasticDividendContinuousBarrierPlan {
             inner,
             barrier: barrier.clone(),
             monitoring_end,
+            reporting_iv_basis: match request.model() {
+                ModelSpec::LocalVolatility(model) => model.reporting_iv_basis().cloned(),
+                _ => None,
+            },
         })
     }
 
@@ -266,3 +273,6 @@ mod local_volatility_tests;
 
 #[cfg(test)]
 mod bucketed_local_volatility_tests;
+
+#[cfg(test)]
+mod reporting_iv_tests;

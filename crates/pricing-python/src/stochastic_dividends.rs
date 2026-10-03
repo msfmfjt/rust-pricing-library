@@ -20,7 +20,9 @@ pub use continuous_barrier::{
     PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
     PyStochasticDividendContinuousBarrierGammaRisk,
     PyStochasticDividendContinuousBarrierLocalVolatilityRisk,
-    PyStochasticDividendContinuousBarrierPlan, PyStochasticDividendContinuousBarrierSpotRisk,
+    PyStochasticDividendContinuousBarrierPlan,
+    PyStochasticDividendContinuousBarrierReportingIvRisk,
+    PyStochasticDividendContinuousBarrierSpotRisk,
 };
 
 fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {

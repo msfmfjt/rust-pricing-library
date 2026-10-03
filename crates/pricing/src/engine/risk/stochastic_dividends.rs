@@ -35,7 +35,8 @@ pub use continuous_barrier::{
     StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
     StochasticDividendContinuousBarrierGammaRisk,
     StochasticDividendContinuousBarrierLocalVolatilityRisk,
-    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierSpotRisk,
+    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierReportingIvRisk,
+    StochasticDividendContinuousBarrierSpotRisk,
 };
 pub use gamma::StochasticDividendGammaRisk;
 pub use lsv::{StochasticDividendLocalVarianceRisk, StochasticDividendLsvSpotRisk};

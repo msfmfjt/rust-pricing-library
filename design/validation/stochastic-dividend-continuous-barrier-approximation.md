@@ -247,6 +247,85 @@ The method is
 `buehler-rough-residual-lsv-continuous-bridge-bucketed-local-vol-recalibrated-crn-v1`.
 The fingerprint covers the base plan, method, ordered node selection and ladder.
 
+## Reporting-IV projection of finite node risks
+
+`evaluate_reporting_iv_projection(local_volatility_bump, relative_density_threshold)`
+in Rust, with the same keyword-only arguments in Python, connects the finite
+node risks to the existing residual-LSV **reporting map**. The model must retain
+an explicit `reporting_iv_basis`; the request remains price-only. There is no
+implicit basis or density threshold. The threshold must lie in (0,1], and the
+basis must cover every positive original target maturity. Invalid maps reject
+before scenario calibration or valuation. Different reporting time and
+log-moneyness grids are supported.
+
+This API deliberately has a separate result and policy:
+`StochasticDividendContinuousBarrierReportingIvRisk` and
+`local_vega_density_reporting_iv_projection_v1`. It is **not** a quoted-market-IV
+bump, a derivative through surface/Dupire calibration, or the complete
+Gamma-transition/equation-(3)-(11) VegaKT operator. It reproduces the
+`local_vega_density_from_node_adjoints` followed by
+`project_local_vega_nodes_to_reporting_iv` convention used by the existing
+residual-LSV reporting route. No first-order truncation rate for this continuous
+Barrier projection is claimed.
+
+For each original target node, all six finite Local-volatility scenarios are
+recalibrated and valued as above. Let `A[t,i,h]` denote that paired node-price
+difference. The deterministic reporting map is:
+
+1. Convert positive-time rows to density weights `A[t,i,h]/m_i`, using original
+   log-moneyness hat areas: half the adjacent interval at an edge, half the span
+   between adjacent neighbors in the interior.
+2. Compute call-density rows from the retained reporting total-variance surface,
+   at the **original target** times and log-moneyness nodes, with normalized
+   residual forward 1. Density ratios and the excluded-mass diagnostic are
+   invariant to this forward normalization. There is no physical-Spot smile
+   remapping. Use the contiguous qualifying domain containing the nearest
+   log-moneyness-to-zero node; the lower index breaks ties.
+3. Project active density weights through bilinear reporting-IV basis weights.
+   Maturities must be covered; spatial tails go to the nearest reporting edge.
+   Time-zero rows are not projected.
+4. Report the original node sum as `pre_projection_estimates`, the bucket sum as
+   `projected_sum_estimates`, and their difference as `residual_estimates`.
+
+The reporting basis, implied volatilities and active domains stay fixed across
+all bumps. In particular, the residual includes the change from **node risk to
+density weights**, as well as time-zero and excluded-node contributions. It need
+not vanish even when every positive-time node is active, and it is not an error
+bound or solely omitted-tail risk. An arbitrary reporting basis need not have
+produced the original target; this API neither checks that relationship nor
+rebuilds the target from the basis. The exact map above defines the output.
+
+Bucket rows follow `[reporting maturity][reporting log-moneyness]`; the three
+columns are half/base/double **Local-volatility** bumps. `bucket_estimates` and
+`bucket_standard_errors` expose each result. `bump_differences` and
+`bump_difference_standard_errors` have the two adjacent ladder gaps. Multiply
+values and errors by 0.01 for the existing volatility-point reporting convention;
+this scaling does not turn them into an actual quoted-IV bump P&L.
+
+Each original node observation is transformed before MC reduction or RQMC
+scramble aggregation. Errors for buckets, their sum, the pre-projection sum and
+the residual therefore include cross-node covariance. Marginal node standard
+errors cannot be projected independently. The API exposes paired standard
+errors, not a full bucket covariance matrix or price/bucket covariance report.
+`positive_target_time_nodes`, `target_log_moneyness_nodes`, active-domain start/end
+indices, excluded probability masses and the threshold identify the density
+filter. Excluded masses use the shared finite-grid hat quadrature, not exact
+tail integrals. The reporting grid and retained IV values are returned separately.
+
+All original nodes, including time zero, are evaluated. For N nodes the method
+performs 6N recalibrations and `(6N+1)*price.evaluated_paths` scenario paths/payoffs,
+excluding calibration particles. No previously returned risk object is reused:
+the shared observations are needed for valid transformed errors. The base price
+and existing risk APIs retain their numerical ordering and fingerprints.
+
+The method tag is
+`buehler-rough-residual-lsv-continuous-bridge-reporting-iv-projection-crn-v1`.
+Its fingerprint includes the base plan (including the retained basis), map
+policy, Local-volatility ladder and density threshold. The uncertainty scope is
+`pricing_only_fixed_calibration_seed_grid_bridge_bump_and_projection`.
+Calibration sampling uncertainty, model error, and grid/bridge/bump/reporting-map
+bias are excluded. Generic Vega/VegaKT request flags still reject.
+
 ## Validation
 
 The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs)
@@ -359,6 +438,27 @@ below 0.35 in both implementations. This validates valuation conditional on the
 retained recalibration inputs, not an independent particle calibration or a
 market-IV/zero-bump sensitivity.
 
+Reporting-projection controls use a separately specified density-hat/bilinear
+matrix on nonmatching time and spatial grids, with both full and restricted
+active domains. Separate full-request scenario prices reconstruct all bucket,
+sum, pre-projection, residual and gap errors for MC/RQMC, with and without
+antithetics. Controls cover worker replay, frozen fixed cash, missing/insufficient
+basis coverage, threshold/bump validation and fingerprints.
+
+The [reporting fixture](../../fixtures/stochastic-dividends/rough-continuous-reporting-iv-reference.json)
+retains all nine nodes' separately compiled 0598117 scenario inputs for the
+H=0.1 Up-out Call case. NumPy independently re-evolves and values all 54 scenarios,
+using 32 batches of 8,192 antithetic pairs, seed 20261009. An independent
+flat-IV density and hat/bilinear map supplies two projection panels, at thresholds
+1e-8 and 0.9. These include edge assignment on a narrower reporting grid and
+interpolation onto different reporting maturities. Production uses 16 scrambles
+of 32,768 points. Every bucket, gap, pre-projection, projected sum and residual
+must have absolute difference plus four combined SEs below 4.0 in raw reporting
+units, with reference/production SE below 0.7. Calibration inputs are checked by
+separate recompilation. These checks establish agreement of the finite algorithm
+and stated reporting convention; they do not validate market-IV hedge risk or
+the full VegaKT operator.
+
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract
 include the new API, tests and [example](../../examples/python/rough_dividend_continuous_barrier.py).
@@ -367,8 +467,9 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. Quoted market-IV Vega/VegaKT and other model/market risk remain unsupported
-by this continuous wrapper. Independent fine-path studies, calibration-aware refinement
+are not valid substitutes. Quoted market-IV bump/rebootstrap risk, the full VegaKT operator and other
+model/market risks remain unsupported by this continuous wrapper. The reporting
+projection above does not close these items. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.

@@ -192,6 +192,63 @@ def verify_bucketed_local_volatility_fixture():
         print(json.dumps(dict(scope=fixture['scope'],case=case['id'],node_indices=case['node_indices'],sum_estimates=summed.mean(axis=0).tolist(),sum_standard_errors=errors.tolist())),flush=True)
 
 
+def reporting_iv_weights(target_times, target_x, reporting_times, reporting_x, volatility, threshold):
+    """Independent flat-IV density, lumped hats and bilinear reporting map.
+
+    This reproduces the reporting convention only; it is not an IV/Dupire Jacobian.
+    """
+    x=np.asarray(target_x);areas=np.r_[np.diff(x)[0]/2,(x[2:]-x[:-2])/2,np.diff(x)[-1]/2]
+    weights=np.zeros((len(target_times)*len(x),len(reporting_times)*len(reporting_x)))
+    domains=[];excluded=[]
+    for ti,t in enumerate(target_times):
+        if t==0: continue
+        std=volatility*math.sqrt(t);d2=-x/std-std/2
+        density=np.exp(-d2*d2/2)/(math.sqrt(2*math.pi)*np.exp(x)*std)
+        qualifies=density/density.max()>=threshold
+        forward=int(np.argmin(np.abs(x)));assert qualifies[forward]
+        lo=hi=forward
+        while lo>0 and qualifies[lo-1]: lo-=1
+        while hi+1<len(x) and qualifies[hi+1]: hi+=1
+        domains.append([lo,hi])
+        excluded.append(float(sum(density[i]*math.exp(x[i])*areas[i] for i in range(len(x)) if not lo<=i<=hi)))
+        k=int(np.clip(np.searchsorted(reporting_times,t,side='right')-1,0,len(reporting_times)-2))
+        tw=(t-reporting_times[k])/(reporting_times[k+1]-reporting_times[k])
+        for i in range(lo,hi+1):
+            q=float(np.clip(x[i],reporting_x[0],reporting_x[-1]))
+            l=int(np.clip(np.searchsorted(reporting_x,q,side='right')-1,0,len(reporting_x)-2))
+            xw=(q-reporting_x[l])/(reporting_x[l+1]-reporting_x[l])
+            for rt,w in [(k,1-tw),(k+1,tw)]:
+                for rx,u in [(l,1-xw),(l+1,xw)]: weights[ti*len(x)+i,rt*len(reporting_x)+rx]+=w*u/areas[i]
+    return weights,domains,excluded
+
+
+def reporting_iv_projection_batches(node_batches, weights):
+    # [node,batch,half/base/double/gaps] -> [batch,reporting bucket,ladder/gaps].
+    nodes=np.asarray(node_batches)
+    buckets=np.einsum('ijk,ib->jbk',nodes[:,:,:3],weights)
+    gaps=np.stack([buckets[:,:,0]-buckets[:,:,1],buckets[:,:,1]-buckets[:,:,2]],axis=2)
+    columns=np.concatenate([buckets,gaps],axis=2)
+    pre=nodes[:,:,:3].sum(axis=0);projected=buckets.sum(axis=1)
+    return np.concatenate([columns.reshape(len(pre),-1),pre,projected,pre-projected],axis=1)
+
+
+def verify_reporting_iv_fixture():
+    fixture=json.loads((DIRECTORY/'rough-continuous-reporting-iv-reference.json').read_text())
+    bases,market=inputs();case=fixture['case'];base=bases[case['base_case']]
+    nodes=[]
+    for node in case['nodes']:
+        means=local_volatility_bump_means(base,market|case['market'],case['contract'],node['scenarios'],**fixture['sampling'])
+        np.testing.assert_allclose(means,node['batch_means'],rtol=0,atol=1e-9);nodes.append(means)
+    for panel in fixture['projections']:
+        weights,domains,excluded=reporting_iv_weights(**fixture['reporting'],threshold=panel['threshold'])
+        np.testing.assert_allclose(weights,panel['weights'],rtol=0,atol=1e-14)
+        assert domains==panel['active_domains']
+        np.testing.assert_allclose(excluded,panel['excluded_probability_masses'],rtol=0,atol=1e-14)
+        means=reporting_iv_projection_batches(nodes,weights)
+        np.testing.assert_allclose(means,panel['batch_means'],rtol=0,atol=1e-9)
+        print(json.dumps(dict(scope=fixture['scope'],threshold=panel['threshold'],estimates=means.mean(axis=0).tolist(),standard_errors=(means.std(axis=0,ddof=1)/math.sqrt(len(means))).tolist())),flush=True)
+
+
 def refinement_means(base, market, contract, coarse_steps, *, seed=20261004, batches=16, pairs=2048):
     """Coupled coarse/fine Brownian increments and exact newest-cell integrals."""
     fine = refine_case(base, 2*coarse_steps)
@@ -253,3 +310,4 @@ if __name__ == '__main__':
     verify_fixture()
     verify_local_volatility_fixture()
     verify_bucketed_local_volatility_fixture()
+    verify_reporting_iv_fixture()

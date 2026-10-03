@@ -34,6 +34,13 @@ def compile_plan(case, req=None, **changes):
         reduction_block_size=64) | changes))
 
 
+def reporting_request(case, **kwargs):
+    data=json.loads(make_request(case,**kwargs).to_json())
+    data['model']['reporting_iv_basis']=dict(maturity_nodes=[91/365,364/365],
+        log_forward_moneyness_nodes=[-.25,.25],shape=[2,2],implied_volatilities=[.2]*4)
+    return rp.PricingRequest.from_json(json.dumps(data))
+
+
 class ContinuousBarrierApproximation(unittest.TestCase):
     def test_independent_numpy_references_and_calibration_inputs(self):
         for case in FIXTURE['cases']:
@@ -343,6 +350,75 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         self.assertEqual(fixed.sum_vega_estimates,[0.]*3)
         self.assertEqual(fixed.sum_vega_standard_errors,[0.]*3)
         self.assertEqual(fixed.sum_bump_difference_standard_errors,[0.]*2)
+
+    def test_reporting_iv_projection_against_independent_numpy(self):
+        fixture=json.loads((DIRECTORY/'rough-continuous-reporting-iv-reference.json').read_text())
+        case=fixture['case'];gates=fixture['acceptance'];sampling=fixture['production_sampling']
+        req=reporting_request(case,points=sampling['points_per_scramble'],scrambles=sampling['scramble_count'])
+        plan=compile_plan(case,req)
+        # Separate request compiles establish retained recalibration inputs.
+        data=json.loads(req.to_json())
+        for node in case['nodes']:
+            for scenario in node['scenarios']:
+                data['model']['local_variance_grid']['values']=scenario['target_variances']
+                external=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)))
+                np.testing.assert_allclose(external.lsv_squared_leverage,scenario['squared_leverage'],rtol=0,atol=2e-13)
+        for panel in fixture['projections']:
+            with self.subTest(threshold=panel['threshold']):
+                r=plan.evaluate_reporting_iv_projection(local_volatility_bump=.01,relative_density_threshold=panel['threshold'])
+                actual=np.r_[np.c_[r.bucket_estimates,r.bump_differences].ravel(),r.pre_projection_estimates,r.projected_sum_estimates,r.residual_estimates]
+                se=np.r_[np.c_[r.bucket_standard_errors,r.bump_difference_standard_errors].ravel(),r.pre_projection_standard_errors,r.projected_sum_standard_errors,r.residual_standard_errors]
+                means=np.asarray(panel['batch_means']);errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+                bounds=np.abs(actual-means.mean(axis=0))+4*np.hypot(errors,se)
+                self.assertLess(max(bounds),gates['difference_plus_4se'])
+                self.assertLess(max(se),gates['production_se']);self.assertLess(max(errors),gates['reference_se'])
+                self.assertEqual(r.active_domain_start_indices,[d[0] for d in panel['active_domains']])
+                self.assertEqual(r.active_domain_end_indices,[d[1] for d in panel['active_domains']])
+                np.testing.assert_allclose(r.excluded_probability_masses,panel['excluded_probability_masses'],rtol=0,atol=1e-14)
+                self.assertEqual(r.reporting_maturity_nodes,[91/365,364/365])
+                self.assertEqual(r.reporting_log_moneyness_nodes,[-.25,.25])
+                self.assertEqual(r.reporting_implied_volatilities,[.2]*4)
+                self.assertEqual(r.positive_target_time_nodes,[182/365,364/365])
+                self.assertEqual(r.target_log_moneyness_nodes,[-.5,0.,.5])
+                self.assertEqual(r.local_volatility_bumps,[.005,.01,.02])
+                self.assertEqual(r.recalibration_count,54)
+                self.assertEqual(r.scenario_evaluated_paths,55*r.price.evaluated_paths)
+                self.assertEqual(r.payoff_evaluations,r.scenario_evaluated_paths)
+                np.testing.assert_allclose(np.asarray(r.projected_sum_estimates)+r.residual_estimates,r.pre_projection_estimates,rtol=0,atol=2e-12)
+                self.assertEqual(r.projection_policy,'local_vega_density_reporting_iv_projection_v1')
+                self.assertEqual(r.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_bump_and_projection')
+
+    def test_reporting_iv_api_history_replay_and_validation(self):
+        case=FIXTURE['cases'][0];req=reporting_request(case,points=16)
+        plan=compile_plan(case,req);kwargs=dict(local_volatility_bump=.01,relative_density_threshold=.9)
+        r=plan.evaluate_reporting_iv_projection(**kwargs)
+        p=plan.evaluate()
+        self.assertEqual((p.value,p.standard_error),(r.price.value,r.price.standard_error))
+        self.assertEqual(p.value,compile_plan(case,make_request(case,points=16)).evaluate().value)
+        worker=compile_plan(case,req,worker_threads=3).evaluate_reporting_iv_projection(**kwargs)
+        self.assertEqual(r.bucket_estimates,worker.bucket_estimates)
+        self.assertEqual(r.bucket_standard_errors,worker.bucket_standard_errors)
+        self.assertEqual(r.residual_standard_errors,worker.residual_standard_errors)
+        self.assertEqual(r.price.plan_fingerprint,plan.plan_fingerprint)
+        with self.assertRaises(AttributeError):r.relative_density_threshold=1.
+        a=r.bucket_estimates;a[0][0]=999.;self.assertNotEqual(r.bucket_estimates[0][0],999.)
+        a=r.active_domain_start_indices;a[0]=999;self.assertNotEqual(r.active_domain_start_indices[0],999)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _:plan.evaluate_reporting_iv_projection(**kwargs).residual_estimates,range(2))),[r.residual_estimates]*2)
+        for changes in [dict(local_volatility_bump=.005),dict(relative_density_threshold=1e-8)]:
+            self.assertNotEqual(r.risk_fingerprint,plan.evaluate_reporting_iv_projection(**(kwargs|changes)).risk_fingerprint)
+        with self.assertRaises(rp.PricingError):compile_plan(case).evaluate_reporting_iv_projection(**kwargs)
+        for t in [0.,-1.,1.01,float('nan'),float('inf')]:
+            with self.assertRaises(rp.PricingError):plan.evaluate_reporting_iv_projection(**(kwargs|dict(relative_density_threshold=t)))
+        for h in [0.,-1.,.2,1e-300,float('nan'),float('inf')]:
+            with self.assertRaises(rp.PricingError):plan.evaluate_reporting_iv_projection(**(kwargs|dict(local_volatility_bump=h)))
+        with self.assertRaises(TypeError):plan.evaluate_reporting_iv_projection(local_volatility_bump=.01)
+        bad=json.loads(req.to_json());bad['model']['reporting_iv_basis']['maturity_nodes']=[.75,1.]
+        with self.assertRaises(rp.PricingError):compile_plan(case,rp.PricingRequest.from_json(json.dumps(bad))).evaluate_reporting_iv_projection(**kwargs)
+        rebated=case|dict(contract=case['contract']|dict(notional=1e18,rebate=7.))
+        fixed=compile_plan(rebated,reporting_request(rebated,points=16,history=True,dates=['2026-09-03'])).evaluate_reporting_iv_projection(**kwargs)
+        self.assertEqual(fixed.bucket_estimates,[[0.]*3]*4)
+        self.assertEqual(fixed.residual_standard_errors,[0.]*3)
 
     def test_history_and_monitoring_end_do_not_infer_past_hits(self):
         case = FIXTURE['cases'][0]

@@ -13,8 +13,9 @@ request = rp.PricingRequest(
                             rp.DividendEvent.fixed_cash(2, expiry, 3.),
                             rp.DividendEvent.fixed_cash(3, 1.4, 12.)]),
     # This target is in funded residual-equity coordinates.
-    rp.Model.local_volatility_from_grid([0., 182/365, expiry], [-.5, 0., .5],
-        [.045, .04, .035, .05, .045, .04, .055, .05, .045], 1e-8, 4.),
+    rp.Model.local_volatility_from_grid_with_reporting_basis([0., 182/365, expiry], [-.5, 0., .5],
+        [.045, .04, .035, .05, .045, .04, .055, .05, .045], 1e-8, 4.,
+        [91/365, expiry], [-.25, .25], [.2]*4),
     rp.Engine.randomized_quasi_monte_carlo(1024, 193, scramble_count=8,
         antithetic=True, brownian_bridge=True),
     rp.RiskRequest())  # Price-only request; no smoothing or Greek flags.
@@ -63,3 +64,10 @@ print('Node risk ladders:', buckets.vega_estimates)
 print('Paired node SEs:', buckets.vega_standard_errors)
 print('Selected-node sum / SE:', buckets.sum_vega_estimates, buckets.sum_vega_standard_errors)
 print('Sums include cross-node covariance; finite node bumps need not sum to the parallel bump.')
+
+reporting = plan.evaluate_reporting_iv_projection(local_volatility_bump=.01, relative_density_threshold=.9)
+print('Reporting-IV bucket ladders:', reporting.bucket_estimates)
+print('Paired projected bucket SEs:', reporting.bucket_standard_errors)
+print('Pre-projection / projected sum / residual:', reporting.pre_projection_estimates,
+      reporting.projected_sum_estimates, reporting.residual_estimates)
+print('This density/basis reporting map is not quoted-IV rebootstrap risk or the full VegaKT operator.')

@@ -469,6 +469,16 @@ all shifted targets validate before calibration. Units and uncertainty scope
 match the parallel API. See the
 [bucket contract and validation](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-bucketed-local-volatility-risk).
 
+`evaluate_reporting_iv_projection(local_volatility_bump=..., relative_density_threshold=...)`
+applies the existing residual-LSV density/basis reporting map to all finite node
+risks. It requires a retained reporting-IV basis covering every positive original
+target maturity and an explicit density threshold. It reports paired bucket,
+sum and residual errors, with density-domain diagnostics. The residual includes
+density normalization as well as time-zero and excluded-node risk. This is a
+reporting convention, not quoted-IV rebootstrap risk or the complete VegaKT
+operator. See the
+[projection contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#reporting-iv-projection-of-finite-node-risks).
+
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
 
