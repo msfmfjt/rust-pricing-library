@@ -17,6 +17,7 @@ use pyo3::prelude::*;
 
 mod continuous_barrier;
 pub use continuous_barrier::{
+    PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
     PyStochasticDividendContinuousBarrierGammaRisk,
     PyStochasticDividendContinuousBarrierLocalVolatilityRisk,
     PyStochasticDividendContinuousBarrierPlan, PyStochasticDividendContinuousBarrierSpotRisk,

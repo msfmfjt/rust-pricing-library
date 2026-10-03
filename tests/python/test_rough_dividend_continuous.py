@@ -267,6 +267,83 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         self.assertEqual(fixed.vega_standard_errors,[0.,0.,0.])
         self.assertEqual(fixed.bump_difference_standard_errors,[0.,0.])
 
+    def test_bucketed_local_volatility_against_independent_numpy(self):
+        fixture=json.loads((DIRECTORY/'rough-continuous-bucketed-local-vol-reference.json').read_text())
+        gates=fixture['acceptance'];sampling=fixture['production_sampling']
+        for case in fixture['cases']:
+            with self.subTest(case=case['id']):
+                req=make_request(case,points=sampling['points_per_scramble'],scrambles=sampling['scramble_count'])
+                plan=compile_plan(case,req)
+                result=plan.evaluate_bucketed_local_volatility_risk(local_volatility_bump=fixture['sampling']['bump'],node_indices=case['node_indices'])
+                data=json.loads(req.to_json());grid=data['model']['local_variance_grid']
+                self.assertEqual(grid['values'],case['original_target_variances'])
+                self.assertEqual(result.time_nodes,grid['time_nodes'])
+                self.assertEqual(result.log_moneyness_nodes,grid['log_forward_moneyness_nodes'])
+                self.assertEqual(result.node_indices,case['node_indices'])
+                panels=[]
+                for i,node in enumerate(case['nodes']):
+                    for scenario in node['scenarios']:
+                        grid['values']=scenario['target_variances']
+                        external=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)))
+                        np.testing.assert_allclose(external.lsv_squared_leverage,scenario['squared_leverage'],rtol=0,atol=2e-13)
+                    panels.append((node['batch_means'],result.vega_estimates[i]+result.bump_differences[i],result.vega_standard_errors[i]+result.bump_difference_standard_errors[i]))
+                panels.append((case['sum_batch_means'],result.sum_vega_estimates+result.sum_bump_differences,result.sum_vega_standard_errors+result.sum_bump_difference_standard_errors))
+                for batches,actual,se in panels:
+                    means=np.asarray(batches);errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+                    bounds=np.abs(np.asarray(actual)-means.mean(axis=0))+4*np.hypot(errors,se)
+                    self.assertLess(max(bounds[:3]),gates['vega_difference_plus_4se'])
+                    self.assertLess(max(bounds[3:]),gates['gap_difference_plus_4se'])
+                    self.assertLess(max(se[:3]),gates['production_vega_se'])
+                    self.assertLess(max(errors[:3]),gates['reference_vega_se'])
+                self.assertEqual(result.recalibration_count,12)
+                self.assertEqual(result.scenario_evaluated_paths,13*result.price.evaluated_paths)
+                self.assertEqual(result.payoff_evaluations,result.scenario_evaluated_paths)
+                self.assertEqual(result.price.plan_fingerprint,plan.plan_fingerprint)
+                self.assertIn('bucketed-local-vol-recalibrated-crn-v1',result.method)
+                self.assertEqual(result.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_and_bump')
+
+    def test_bucketed_local_volatility_api_order_replay_and_validation(self):
+        case=FIXTURE['cases'][0];plan=compile_plan(case)
+        kwargs=dict(local_volatility_bump=.01,node_indices=[4,0])
+        risk=plan.evaluate_bucketed_local_volatility_risk(**kwargs)
+        base=plan.evaluate()
+        self.assertEqual((risk.price.value,risk.price.standard_error),(base.value,base.standard_error))
+        self.assertEqual(risk.local_volatility_bumps,[.005,.01,.02])
+        self.assertLess(len(risk.time_nodes),len(plan.time_nodes))
+        reverse=plan.evaluate_bucketed_local_volatility_risk(**(kwargs|dict(node_indices=[0,4])))
+        self.assertEqual(risk.vega_estimates,reverse.vega_estimates[::-1])
+        self.assertNotEqual(risk.risk_fingerprint,reverse.risk_fingerprint)
+        one=plan.evaluate_bucketed_local_volatility_risk(**(kwargs|dict(node_indices=[4])))
+        self.assertEqual(one.vega_estimates[0],risk.vega_estimates[0])
+        self.assertEqual(one.sum_vega_standard_errors,one.vega_standard_errors[0])
+        with self.assertRaises(AttributeError):
+            risk.node_indices=[0]
+        for name in ('node_indices','time_nodes','log_moneyness_nodes','sum_vega_estimates'):
+            detached=getattr(risk,name);detached[0]=999
+            self.assertNotEqual(getattr(risk,name)[0],999)
+        detached=risk.vega_estimates;detached[0][0]=999
+        self.assertNotEqual(risk.vega_estimates[0][0],999)
+        parallel=compile_plan(case,worker_threads=3).evaluate_bucketed_local_volatility_risk(**kwargs)
+        self.assertEqual(risk.vega_estimates,parallel.vega_estimates)
+        self.assertEqual(risk.vega_standard_errors,parallel.vega_standard_errors)
+        self.assertEqual(risk.sum_vega_standard_errors,parallel.sum_vega_standard_errors)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _: plan.evaluate_bucketed_local_volatility_risk(**kwargs).sum_vega_estimates,range(2))),[risk.sum_vega_estimates]*2)
+        for invalid in [[],[0,0],[9],[-1]]:
+            with self.subTest(nodes=invalid),self.assertRaises((rp.PricingError,OverflowError)):
+                plan.evaluate_bucketed_local_volatility_risk(**(kwargs|dict(node_indices=invalid)))
+        for h in [0.,-1.,float('nan'),float('inf'),1e-300,.2]:
+            with self.subTest(bump=h),self.assertRaises(rp.PricingError):
+                plan.evaluate_bucketed_local_volatility_risk(**(kwargs|dict(local_volatility_bump=h)))
+        with self.assertRaises(TypeError):
+            plan.evaluate_bucketed_local_volatility_risk(local_volatility_bump=.01)
+        rebated=case|dict(contract=case['contract']|dict(notional=1e18,rebate=7.))
+        fixed=compile_plan(rebated,make_request(rebated,history=True,dates=['2026-09-03'])).evaluate_bucketed_local_volatility_risk(**kwargs)
+        self.assertEqual(fixed.vega_estimates,[[0.]*3]*2)
+        self.assertEqual(fixed.sum_vega_estimates,[0.]*3)
+        self.assertEqual(fixed.sum_vega_standard_errors,[0.]*3)
+        self.assertEqual(fixed.sum_bump_difference_standard_errors,[0.]*2)
+
     def test_history_and_monitoring_end_do_not_infer_past_hits(self):
         case = FIXTURE['cases'][0]
         past=['2026-09-03']

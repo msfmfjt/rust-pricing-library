@@ -8,6 +8,8 @@ use crate::product::{
     BarrierDirection, BarrierMonitoring, BarrierSpec, BarrierStyle, OptionSide, ProductSpec,
 };
 
+mod bucketed_local_volatility;
+pub use bucketed_local_volatility::StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk;
 mod local_volatility;
 mod sampling;
 mod spot_bump;
@@ -261,3 +263,6 @@ mod spot_bump_tests;
 
 #[cfg(test)]
 mod local_volatility_tests;
+
+#[cfg(test)]
+mod bucketed_local_volatility_tests;

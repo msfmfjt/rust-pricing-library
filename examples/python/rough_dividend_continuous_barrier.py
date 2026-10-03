@@ -55,3 +55,11 @@ print('Recalibrated Local-volatility sensitivities:', local_vol.vega_estimates)
 print('Value / SE per vol point:', local_vol.vega_per_vol_point, local_vol.standard_error_per_vol_point)
 print('Local-volatility bump gaps / SEs:', local_vol.bump_differences, local_vol.bump_difference_standard_errors)
 print('Each scenario recalibrates the original target; this coordinate is not quoted market-IV Vega.')
+
+# Original grid has 3 time rows and 3 log-moneyness columns: select (1,1), then (0,0).
+buckets = plan.evaluate_bucketed_local_volatility_risk(local_volatility_bump=.01, node_indices=[4,0])
+print('Original target node indices:', buckets.node_indices)
+print('Node risk ladders:', buckets.vega_estimates)
+print('Paired node SEs:', buckets.vega_standard_errors)
+print('Selected-node sum / SE:', buckets.sum_vega_estimates, buckets.sum_vega_standard_errors)
+print('Sums include cross-node covariance; finite node bumps need not sum to the parallel bump.')

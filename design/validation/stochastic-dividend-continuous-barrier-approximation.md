@@ -198,6 +198,55 @@ finite-bump bias, grid/bridge error and model uncertainty. Calibration fallback
 branch changes remain part of the finite algorithm. Gaps are diagnostics, not
 bounds on exact Vega error. Generic Vega/VegaKT request flags still reject.
 
+## Recalibrated bucketed Local-volatility risk
+
+`evaluate_bucketed_local_volatility_risk(local_volatility_bump, node_indices)`
+in Rust and the same keyword-only arguments in Python shift selected original
+residual Local-volatility nodes **one at a time**. An index is zero-based and
+row-major: `time_index * log_moneyness_nodes.len() + x_index`. The nonempty list
+must contain unique, in-range indices. Output rows retain this selection order;
+there is no sorting or implicit choice of all nodes. For a 3 by 3 original grid,
+`node_indices=[4, 0]` selects the middle node followed by the first node. Use
+`list(range(9))` explicitly for all nine nodes. Time-zero nodes are included
+when selected; this API does not drop or project them into reporting-IV buckets.
+
+Each selected node receives the same h/2, h and 2h absolute-volatility ladder:
+`v_i -> (sqrt(v_i) +/- h)^2`, with all other original values unchanged. The full
+set of shifted targets validates before calibration, including positivity,
+representability and the original variance floor/cap for shifted values.
+Unselected values at a bound need no perturbation. Targets are then interpolated
+in variance and recalibrated exactly as in the parallel API. Model, calibration
+seed/configuration, valuation shocks, Spot, curves, cash, dates and history stay
+fixed. No reverse trace or discrete-payoff adjoint is used.
+
+The immutable `StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk`
+returns `price`, `node_indices`, original `time_nodes` and `log_moneyness_nodes`,
+and `local_volatility_bumps`. `vega_estimates` and `vega_standard_errors` have
+one row per selected node and three half/base/double columns. The corresponding
+`bump_differences` and `bump_difference_standard_errors` have two columns:
+Vega(h/2)-Vega(h) and Vega(h)-Vega(2h). All estimates are per unit absolute
+residual Local volatility; multiply values and errors by 0.01 for a vol point.
+These are finite node-price differences, not market-IV Vega or VegaKT.
+
+`sum_vega_estimates`, `sum_vega_standard_errors`, `sum_bump_differences` and
+`sum_bump_difference_standard_errors` report the selected-node sum, formed on
+paired observations before reduction. Sum errors include cross-node covariance;
+adding marginal variances would give a different uncertainty estimate. At finite
+bumps, the sum of individually shifted-node risks need not equal a simultaneous
+parallel shift, even when all nodes are selected. No forced reconciliation,
+zero-bump extrapolation or derivative-error bound is applied.
+
+For N selected nodes, `recalibration_count` is 6N. Both `scenario_evaluated_paths`
+and `payoff_evaluations` are `(6N+1)*price.evaluated_paths`, including the base
+valuation but excluding calibration particle paths. Memory retains these scenario
+surfaces, and execution cost grows with the number of selected nodes. MC uses
+paired independent sampling units and RQMC uses independent scramble means.
+The uncertainty scope is `pricing_only_fixed_calibration_seed_grid_bridge_and_bump`;
+calibration uncertainty, model error and grid/bridge/bump bias are excluded.
+The method is
+`buehler-rough-residual-lsv-continuous-bridge-bucketed-local-vol-recalibrated-crn-v1`.
+The fingerprint covers the base plan, method, ordered node selection and ladder.
+
 ## Validation
 
 The [Rust controls](../../crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs)
@@ -289,6 +338,27 @@ below 2.0; reference and production Vega SEs must be below 0.35. The former gate
 is 0.02 when expressed per vol point. None of these tests certifies market-IV
 Vega or a zero-bump derivative.
 
+Bucketed controls compare all eight contract styles against separately compiled
+single-node target shifts at time zero, an interior time and the terminal row,
+including exact recalibrated leverage equality. MC/RQMC controls independently
+reconstruct node, sum and gap errors with and without antithetic paths. Selection
+order, worker replay, fixed cash, original-versus-refined grid metadata,
+nonfinite/unrepresentable bumps, selected floor/cap boundaries and unselected
+boundary nodes are covered. Python additionally checks nested detached arrays,
+immutable results, concurrent evaluation and argument rejection.
+
+The [bucketed fixture](../../fixtures/stochastic-dividends/rough-continuous-bucketed-local-vol-reference.json)
+retains separately compiled inputs for nodes 4 and 0 in H=0.1 Up-out Call and
+Down-out Put cases. These inputs were produced with the parent d82bb42 wheel,
+before the bucket API existed. NumPy uses 32 batches of 8,192 antithetic pairs
+with seed 20261008, shared across nodes. Four node panels and two paired sum
+panels compare against production with 16 scrambles of 32,768 points. For each
+node/sum Vega and adjacent gap, absolute difference plus four combined SEs must
+be below 2.0 per unit volatility (0.02 per vol point); node/sum Vega SEs must be
+below 0.35 in both implementations. This validates valuation conditional on the
+retained recalibration inputs, not an independent particle calibration or a
+market-IV/zero-bump sensitivity.
+
 The three-OS Barrier job runs the Rust controls. Linux regenerates all retained
 NumPy batches and coupled refinements. The source archive and wheel contract
 include the new API, tests and [example](../../examples/python/rough_dividend_continuous_barrier.py).
@@ -297,8 +367,8 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. Quoted market-IV Vega/VegaKT, bucketed target risk
-and other model/market risk remain unsupported by this continuous wrapper. Independent fine-path studies, calibration-aware refinement
+are not valid substitutes. Quoted market-IV Vega/VegaKT and other model/market risk remain unsupported
+by this continuous wrapper. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.

@@ -458,6 +458,16 @@ not quoted market-IV Vega or VegaKT. See the
 [recalibration contract and validation scope](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-parallel-local-volatility-risk).
 
 
+`evaluate_bucketed_local_volatility_risk(local_volatility_bump=..., node_indices=...)`
+shifts selected original nodes individually with full recalibration. Indices are
+unique, nonempty and row-major (`time_index * x_count + x_index`); output rows
+retain the requested order. Each node has a half/base/double ladder and paired
+errors/gaps. The result includes original-grid coordinates and selected-node
+sums with covariance-aware sampling errors. A sum of finite node risks need not
+equal the finite parallel shift. Cost is six recalibrations per selected node;
+all shifted targets validate before calibration. Units and uncertainty scope
+match the parallel API. See the
+[bucket contract and validation](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-bucketed-local-volatility-risk).
 
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.

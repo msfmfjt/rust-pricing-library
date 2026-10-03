@@ -108,6 +108,27 @@ impl StochasticDividendContinuousBarrierPlan {
         &self,
         bumps: &[f64; 3],
     ) -> Result<Vec<StochasticDividendPathPlan>, MonteCarloError> {
+        self.local_volatility_scenarios_for_nodes(bumps, &[None])
+    }
+
+    pub(super) fn original_local_variance_target(
+        &self,
+    ) -> Result<&LocalVarianceGrid, MonteCarloError> {
+        match self.inner.lsv.as_ref() {
+            Some(StochasticDividendLsvCalibration::Rough {
+                original_target, ..
+            }) => Ok(original_target),
+            _ => Err(invalid("continuous_local_volatility_calibration").into()),
+        }
+    }
+
+    // None denotes the parallel shift; Some(index) denotes one original node.
+    // Validate and refine every target before starting any particle calibration.
+    pub(super) fn local_volatility_scenarios_for_nodes(
+        &self,
+        bumps: &[f64; 3],
+        nodes: &[Option<usize>],
+    ) -> Result<Vec<StochasticDividendPathPlan>, MonteCarloError> {
         let Some(StochasticDividendLsvCalibration::Rough {
             calibration,
             original_target,
@@ -116,26 +137,28 @@ impl StochasticDividendContinuousBarrierPlan {
         else {
             return Err(invalid("continuous_local_volatility_calibration").into());
         };
-        let mut targets = Vec::with_capacity(6);
-        for &h in bumps {
-            if !h.is_finite() || h <= 0.0 || !(2.0 * h).is_finite() {
-                return Err(invalid("continuous_local_volatility_bump").into());
-            }
-            for shift in [-h, h] {
-                let original = shifted_target(original_target, shift)?;
-                let mut values = Vec::with_capacity(calibration.target().values().len());
-                for &t in self.time_nodes() {
-                    for &x in original.log_moneyness_nodes() {
-                        values.push(original.interpolate(t, x)?.value);
-                    }
+        let mut targets = Vec::new();
+        for &node in nodes {
+            for &h in bumps {
+                if !h.is_finite() || h <= 0.0 || !(2.0 * h).is_finite() {
+                    return Err(invalid("continuous_local_volatility_bump").into());
                 }
-                targets.push(LocalVarianceGrid::new(
-                    self.time_nodes().to_vec(),
-                    original.log_moneyness_nodes().to_vec(),
-                    values,
-                    original.floor(),
-                    original.cap(),
-                )?);
+                for shift in [-h, h] {
+                    let original = shifted_target(original_target, shift, node)?;
+                    let mut values = Vec::with_capacity(calibration.target().values().len());
+                    for &t in self.time_nodes() {
+                        for &x in original.log_moneyness_nodes() {
+                            values.push(original.interpolate(t, x)?.value);
+                        }
+                    }
+                    targets.push(LocalVarianceGrid::new(
+                        self.time_nodes().to_vec(),
+                        original.log_moneyness_nodes().to_vec(),
+                        values,
+                        original.floor(),
+                        original.cap(),
+                    )?);
+                }
             }
         }
         let executor = DeterministicExecutor::new(self.inner.policy)?;
@@ -165,7 +188,7 @@ impl StochasticDividendContinuousBarrierPlan {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn local_volatility_sample(
+    pub(super) fn local_volatility_sample(
         &self,
         scenarios: &[StochasticDividendPathPlan],
         bumps: &[f64; 3],
@@ -199,13 +222,15 @@ impl StochasticDividendContinuousBarrierPlan {
         } {
             let shocks = z.iter().map(|v| sign * v).collect::<Vec<_>>();
             out[0] += self.path_payoff(&shocks)?;
-            for (j, (pair, h)) in scenarios.as_chunks::<2>().0.iter().zip(bumps).enumerate() {
-                let payoff = |path: &StochasticDividendPathPlan| {
-                    let (states, volatilities) =
-                        path.evolve_rough_path_with_volatilities(&shocks)?;
-                    self.payoff_from_trace(path, &states, &volatilities)
-                };
-                out[j + 1] += (payoff(&pair[1])? - payoff(&pair[0])?) / (2.0 * h);
+            for (bucket, ladder) in scenarios.as_chunks::<6>().0.iter().enumerate() {
+                for (j, (pair, h)) in ladder.as_chunks::<2>().0.iter().zip(bumps).enumerate() {
+                    let payoff = |path: &StochasticDividendPathPlan| {
+                        let (states, volatilities) =
+                            path.evolve_rough_path_with_volatilities(&shocks)?;
+                        self.payoff_from_trace(path, &states, &volatilities)
+                    };
+                    out[1 + 5 * bucket + j] += (payoff(&pair[1])? - payoff(&pair[0])?) / (2.0 * h);
+                }
             }
         }
         if antithetic {
@@ -213,8 +238,10 @@ impl StochasticDividendContinuousBarrierPlan {
                 *v *= 0.5;
             }
         }
-        out[4] = out[1] - out[2];
-        out[5] = out[2] - out[3];
+        for row in out[1..].as_chunks_mut::<5>().0 {
+            row[3] = row[0] - row[1];
+            row[4] = row[1] - row[2];
+        }
         if out.iter().any(|v| !v.is_finite()) {
             return Err(invalid("continuous_local_volatility_sample").into());
         }
@@ -225,11 +252,16 @@ impl StochasticDividendContinuousBarrierPlan {
 fn shifted_target(
     target: &LocalVarianceGrid,
     shift: f64,
+    node: Option<usize>,
 ) -> Result<LocalVarianceGrid, MonteCarloError> {
     let values = target
         .values()
         .iter()
-        .map(|&v| {
+        .enumerate()
+        .map(|(index, &v)| {
+            if node.is_some_and(|node| node != index) {
+                return Ok(v);
+            }
             let sigma = v.sqrt();
             let bumped = sigma + shift;
             let variance = bumped * bumped;

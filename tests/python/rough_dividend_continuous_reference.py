@@ -173,6 +173,25 @@ def verify_local_volatility_fixture():
         print(json.dumps(dict(scope=fixture['scope'],case=case['id'],estimates=means.mean(axis=0).tolist(),standard_errors=errors.tolist())),flush=True)
 
 
+def verify_bucketed_local_volatility_fixture():
+    fixture=json.loads((DIRECTORY/'rough-continuous-bucketed-local-vol-reference.json').read_text())
+    bases,market=inputs()
+    for case in fixture['cases']:
+        panels=[]
+        for node in case['nodes']:
+            means=local_volatility_bump_means(bases[case['base_case']],market|case['market'],case['contract'],node['scenarios'],**fixture['sampling'])
+            np.testing.assert_allclose(means,node['batch_means'],rtol=0,atol=1e-9)
+            panels.append(means)
+            errors=means.std(axis=0,ddof=1)/math.sqrt(len(means))
+            assert max(errors[:3])<fixture['acceptance']['reference_vega_se']
+            print(json.dumps(dict(scope=fixture['scope'],case=case['id'],node_index=node['node_index'],estimates=means.mean(axis=0).tolist(),standard_errors=errors.tolist())),flush=True)
+        summed=np.sum(panels,axis=0)
+        np.testing.assert_allclose(summed,case['sum_batch_means'],rtol=0,atol=1e-9)
+        errors=summed.std(axis=0,ddof=1)/math.sqrt(len(summed))
+        assert max(errors[:3])<fixture['acceptance']['reference_vega_se']
+        print(json.dumps(dict(scope=fixture['scope'],case=case['id'],node_indices=case['node_indices'],sum_estimates=summed.mean(axis=0).tolist(),sum_standard_errors=errors.tolist())),flush=True)
+
+
 def refinement_means(base, market, contract, coarse_steps, *, seed=20261004, batches=16, pairs=2048):
     """Coupled coarse/fine Brownian increments and exact newest-cell integrals."""
     fine = refine_case(base, 2*coarse_steps)
@@ -233,3 +252,4 @@ def verify_fixture():
 if __name__ == '__main__':
     verify_fixture()
     verify_local_volatility_fixture()
+    verify_bucketed_local_volatility_fixture()
