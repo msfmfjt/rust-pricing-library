@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod bass_lv;
 mod builders;
 mod diagnostics;
 mod heston_calibration;
@@ -293,6 +294,26 @@ pub struct PyPricingPlan {
 
 #[pymethods]
 impl PyPricingPlan {
+    #[getter]
+    fn bass_calibration_diagnostics(&self) -> Option<Vec<bass_lv::PyBassCalibrationDiagnostics>> {
+        self.inner
+            .bass_calibration_diagnostics()
+            .map(|d| d.iter().map(Into::into).collect())
+    }
+    #[getter]
+    fn bass_projection_diagnostics(&self) -> Option<Vec<bass_lv::PyBassSurfaceDiagnostics>> {
+        self.inner
+            .bass_projection_diagnostics()
+            .map(|d| d.iter().map(Into::into).collect())
+    }
+    #[getter]
+    fn bass_vega_scenario_diagnostics(
+        &self,
+    ) -> Option<Vec<bass_lv::PyBassVegaKtScenarioDiagnostics>> {
+        self.inner
+            .bass_vega_scenario_diagnostics()
+            .map(|d| d.iter().map(Into::into).collect())
+    }
     /// Compile a request while releasing the Python GIL.
     #[staticmethod]
     #[pyo3(signature = (request, *, worker_threads, reduction_block_size=None))]
@@ -1206,6 +1227,22 @@ fn result_json_schema() -> &'static str {
 
 #[pymodule]
 fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<bass_lv::PyBassMarginal>()?;
+    module.add_class::<bass_lv::PyBassLvConfig>()?;
+    module.add_class::<bass_lv::PyBassLvModel>()?;
+    module.add_class::<bass_lv::PyBassSimulationPlan>()?;
+    module.add_class::<bass_lv::PyBassCalibrationDiagnostics>()?;
+    module.add_class::<bass_lv::PyBassEstimate>()?;
+    module.add_class::<bass_lv::PyBassMarginalProjection>()?;
+    module.add_class::<bass_lv::PyBassSurfaceDiagnostics>()?;
+    module.add_class::<bass_lv::PyBassMappingBump>()?;
+    module.add_class::<bass_lv::PyBassMappingRisk>()?;
+    module.add_class::<bass_lv::PyBassMappingRiskPlan>()?;
+    module.add_class::<bass_lv::PyBassDeterministicMappingRisk>()?;
+    module.add_class::<bass_lv::PyBassMarketIvModel>()?;
+    module.add_class::<bass_lv::PyBassVegaKtRisk>()?;
+    module.add_class::<bass_lv::PyBassVegaKtRiskPlan>()?;
+    module.add_class::<bass_lv::PyBassVegaKtScenarioDiagnostics>()?;
     module.add("__version__", facade_version())?;
     module.add("ValidationError", module.py().get_type::<ValidationError>())?;
     module.add("PricingError", module.py().get_type::<PricingError>())?;
