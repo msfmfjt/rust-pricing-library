@@ -13,6 +13,10 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/market_iv.rs',
+    'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/market_iv_tests.rs',
+    'crates/pricing-python/src/market_iv.rs',
+    'examples/python/rough_dividend_market_iv.py',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/tests.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/continuous_barrier/sampling.rs',
@@ -465,6 +469,7 @@ REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 
 REQUIRED_WHEEL_SMOKE_SNIPPETS = {
     'subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)',
+    'subprocess.run([str(python), "examples/python/rough_dividend_market_iv.py"], check=True)',
     'subprocess.run([str(python), "examples/python/rough_dividend_continuous_barrier.py"], check=True)',
     "('StochasticDividendPlan', 'evaluate_lsv_hard_barrier_spot_risk')",
     "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",

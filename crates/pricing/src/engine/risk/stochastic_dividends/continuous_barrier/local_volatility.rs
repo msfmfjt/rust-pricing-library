@@ -129,14 +129,7 @@ impl StochasticDividendContinuousBarrierPlan {
         bumps: &[f64; 3],
         nodes: &[Option<usize>],
     ) -> Result<Vec<StochasticDividendPathPlan>, MonteCarloError> {
-        let Some(StochasticDividendLsvCalibration::Rough {
-            calibration,
-            original_target,
-            dividend_volatility_correlation,
-        }) = self.inner.lsv.as_ref()
-        else {
-            return Err(invalid("continuous_local_volatility_calibration").into());
-        };
+        let original_target = self.original_local_variance_target()?;
         let mut targets = Vec::new();
         for &node in nodes {
             for &h in bumps {
@@ -144,22 +137,42 @@ impl StochasticDividendContinuousBarrierPlan {
                     return Err(invalid("continuous_local_volatility_bump").into());
                 }
                 for shift in [-h, h] {
-                    let original = shifted_target(original_target, shift, node)?;
-                    let mut values = Vec::with_capacity(calibration.target().values().len());
-                    for &t in self.time_nodes() {
-                        for &x in original.log_moneyness_nodes() {
-                            values.push(original.interpolate(t, x)?.value);
-                        }
-                    }
-                    targets.push(LocalVarianceGrid::new(
-                        self.time_nodes().to_vec(),
-                        original.log_moneyness_nodes().to_vec(),
-                        values,
-                        original.floor(),
-                        original.cap(),
-                    )?);
+                    targets.push(shifted_target(original_target, shift, node)?);
                 }
             }
+        }
+        self.recalibrated_target_scenarios(&targets)
+    }
+
+    // All original targets must validate before any refinement or calibration.
+    // Refinement interpolates original VARIANCE nodes onto the fixed price grid.
+    pub(super) fn recalibrated_target_scenarios(
+        &self,
+        original_targets: &[LocalVarianceGrid],
+    ) -> Result<Vec<StochasticDividendPathPlan>, MonteCarloError> {
+        let Some(StochasticDividendLsvCalibration::Rough {
+            calibration,
+            dividend_volatility_correlation,
+            ..
+        }) = self.inner.lsv.as_ref()
+        else {
+            return Err(invalid("continuous_local_volatility_calibration").into());
+        };
+        let mut targets = Vec::with_capacity(original_targets.len());
+        for original in original_targets {
+            let mut values = Vec::with_capacity(calibration.target().values().len());
+            for &t in self.time_nodes() {
+                for &x in original.log_moneyness_nodes() {
+                    values.push(original.interpolate(t, x)?.value);
+                }
+            }
+            targets.push(LocalVarianceGrid::new(
+                self.time_nodes().to_vec(),
+                original.log_moneyness_nodes().to_vec(),
+                values,
+                original.floor(),
+                original.cap(),
+            )?);
         }
         let executor = DeterministicExecutor::new(self.inner.policy)?;
         targets

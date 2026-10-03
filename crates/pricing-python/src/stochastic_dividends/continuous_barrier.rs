@@ -1,10 +1,12 @@
 use super::*;
+use crate::market_iv::PyMarketIvSurface;
 use pricing::core::PositiveF64;
 use pricing::stochastic_dividends::{
     StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
     StochasticDividendContinuousBarrierGammaRisk,
     StochasticDividendContinuousBarrierLocalVolatilityRisk,
-    StochasticDividendContinuousBarrierPlan, StochasticDividendContinuousBarrierReportingIvRisk,
+    StochasticDividendContinuousBarrierMarketIvRisk, StochasticDividendContinuousBarrierPlan,
+    StochasticDividendContinuousBarrierReportingIvRisk,
     StochasticDividendContinuousBarrierSpotRisk,
 };
 
@@ -24,7 +26,7 @@ pub struct PyStochasticDividendContinuousBarrierPlan {
 impl PyStochasticDividendContinuousBarrierPlan {
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(request, *, hurst, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None))]
+    #[pyo3(signature=(request, *, hurst, vol_of_vol, correlation, dividend_mean_reversion, equity_linkage, dividend_volatility, equity_dividend_correlation, dividend_volatility_correlation, particle_count, calibration_seed, log_bandwidth, minimum_effective_samples, maximum_step, worker_threads, reduction_block_size=None, market_iv_surface=None))]
     fn compile_rough_bergomi_lsv(
         py: Python<'_>,
         request: &PyPricingRequest,
@@ -43,6 +45,7 @@ impl PyStochasticDividendContinuousBarrierPlan {
         maximum_step: f64,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        market_iv_surface: Option<&PyMarketIvSurface>,
     ) -> PyResult<Self> {
         let factor =
             RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
@@ -64,8 +67,9 @@ impl PyStochasticDividendContinuousBarrierPlan {
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
+        let surface = market_iv_surface.map(|s| s.inner.clone());
         py.detach(|| {
-            StochasticDividendContinuousBarrierPlan::compile_rough_bergomi_lsv(
+            let plan = StochasticDividendContinuousBarrierPlan::compile_rough_bergomi_lsv(
                 &request,
                 model,
                 factor,
@@ -73,7 +77,11 @@ impl PyStochasticDividendContinuousBarrierPlan {
                 particles,
                 maximum_step,
                 policy,
-            )
+            )?;
+            match surface {
+                Some(surface) => plan.with_market_iv_surface(surface),
+                None => Ok(plan),
+            }
         })
         .map(|inner| Self { inner })
         .map_err(pricing_exception)
@@ -109,6 +117,25 @@ impl PyStochasticDividendContinuousBarrierPlan {
         py.detach(|| self.inner.evaluate_gamma_bump_risk(bump))
             .map(|inner| PyStochasticDividendContinuousBarrierGammaRisk { inner })
             .map_err(pricing_exception)
+    }
+    #[getter]
+    fn supports_market_iv_risk(&self) -> bool {
+        self.inner.supports_market_iv_risk()
+    }
+
+    /// Parallel retained-quote IV bumps, with Dupire rebuild and LSV recalibration.
+    #[pyo3(signature=(*, implied_volatility_bump))]
+    fn evaluate_parallel_market_iv_risk(
+        &self,
+        py: Python<'_>,
+        implied_volatility_bump: f64,
+    ) -> PyResult<PyStochasticDividendContinuousBarrierMarketIvRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_parallel_market_iv_risk(implied_volatility_bump)
+        })
+        .map(|inner| PyStochasticDividendContinuousBarrierMarketIvRisk { inner })
+        .map_err(pricing_exception)
     }
     /// Parallel absolute shifts of original residual Local volatility, with full recalibration.
     #[pyo3(signature=(*, local_volatility_bump))]
@@ -701,5 +728,102 @@ impl PyStochasticDividendContinuousBarrierReportingIvRisk {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         self.inner.uncertainty_scope()
+    }
+}
+
+/// Paired parallel residual-forward quote IV risk, with full Dupire/LSV rebuild.
+#[pyclass(
+    frozen,
+    name = "StochasticDividendContinuousBarrierMarketIvRisk",
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendContinuousBarrierMarketIvRisk {
+    inner: StochasticDividendContinuousBarrierMarketIvRisk,
+}
+#[pymethods]
+impl PyStochasticDividendContinuousBarrierMarketIvRisk {
+    #[getter]
+    fn quote_maturity_nodes(&self) -> Vec<f64> {
+        self.inner.quote_maturity_nodes.clone()
+    }
+    #[getter]
+    fn quote_log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.quote_log_moneyness_nodes.clone()
+    }
+    #[getter]
+    fn implied_volatilities(&self) -> Vec<f64> {
+        self.inner.implied_volatilities.clone()
+    }
+    #[getter]
+    fn interpolation(&self) -> &'static str {
+        self.inner.interpolation()
+    }
+
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn implied_volatility_bumps(&self) -> Vec<f64> {
+        self.inner.implied_volatility_bumps.to_vec()
+    }
+    #[getter]
+    fn vega_estimates(&self) -> Vec<f64> {
+        self.inner.vega_estimates.to_vec()
+    }
+    #[getter]
+    fn vega_standard_errors(&self) -> Vec<f64> {
+        self.inner.vega_standard_errors.to_vec()
+    }
+    #[getter]
+    fn bump_differences(&self) -> Vec<f64> {
+        self.inner.bump_differences.to_vec()
+    }
+    #[getter]
+    fn bump_difference_standard_errors(&self) -> Vec<f64> {
+        self.inner.bump_difference_standard_errors.to_vec()
+    }
+    #[getter]
+    fn scenario_evaluated_paths(&self) -> u128 {
+        self.inner.scenario_evaluated_paths
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn recalibration_count(&self) -> usize {
+        self.inner.recalibration_count
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn vega(&self) -> f64 {
+        self.inner.vega()
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error()
+    }
+    #[getter]
+    fn vega_per_vol_point(&self) -> f64 {
+        self.inner.vega_per_vol_point()
+    }
+    #[getter]
+    fn standard_error_per_vol_point(&self) -> f64 {
+        self.inner.standard_error_per_vol_point()
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        self.inner.uncertainty_scope()
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
     }
 }

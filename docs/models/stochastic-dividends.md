@@ -486,6 +486,22 @@ reporting convention, not quoted-IV rebootstrap risk or the complete VegaKT
 operator. See the
 [projection contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#reporting-iv-projection-of-finite-node-risks).
 
+Parallel quote-IV risk is available with an explicit `MarketIvSurface`. Build
+its strict Local Volatility model, use that model in the price request and pass
+`market_iv_surface=source` at compilation (Rust: bind once using
+`with_market_iv_surface`). The source must exactly reproduce the original
+variance grid without repairs. `evaluate_parallel_market_iv_risk(implied_volatility_bump=...)`
+shifts all source IV inputs on a half/base/double ladder, rebuilds original-grid
+Dupire variance and fully recalibrates each scenario before paired valuation.
+It returns raw/per-vol-point Vega, paired errors/gaps and quote metadata. The
+source is retained separately from the serialized request and participates in
+the plan fingerprint; `supports_market_iv_risk` identifies availability.
+These are funded residual-forward IV inputs, with natural-cubic total-variance
+interpolation in log moneyness and linear time interpolation. Physical-stock
+quote conversion and SSVI refitting are outside this contract. See the
+[quote-IV contract](../../design/validation/stochastic-dividend-continuous-barrier-approximation.md#recalibrated-parallel-quote-iv-risk)
+and [example](../../examples/python/rough_dividend_market_iv.py).
+
 Existing `StochasticDividendPlan` factories retain their live-monitoring
 rejection and discrete-risk behavior.
 

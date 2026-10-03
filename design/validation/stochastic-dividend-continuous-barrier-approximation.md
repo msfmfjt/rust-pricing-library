@@ -11,7 +11,8 @@ The result uses `StochasticDividendPrice` and scheme
 `buehler-rough-residual-lsv-continuous-physical-log-bridge-approx-v1`.
 The scheme participates in the plan fingerprint. The plan exposes calibration
 inputs, price evaluation, finite-bump Spot Delta/Gamma and recalibrated parallel
-residual Local-volatility risk. Generic risk flags, payoff
+residual Local-volatility risk, reporting projection with joint covariance, and
+parallel retained-quote IV risk. Generic risk flags, payoff
 smoothing and smoothing-width ladders reject before calibration.
 
 ## Finite-grid definition
@@ -358,6 +359,85 @@ remain unchanged. The uncertainty scope is
 Calibration sampling uncertainty, model error, and grid/bridge/bump/reporting-map
 bias are excluded. Generic Vega/VegaKT request flags still reject.
 
+## Recalibrated parallel quote-IV risk
+
+The explicit quote source supports finite parallel **residual-forward IV** risk.
+Rust constructs `MarketIvSurface`, materializes its strict `local_variance_grid`,
+then binds it once to a compiled continuous plan with `with_market_iv_surface`.
+Python constructs `MarketIvSurface(maturity_nodes, log_moneyness_nodes, implied_volatilities)`,
+uses `source.local_volatility_model(...)` in the request, and passes
+`market_iv_surface=source` to `compile_rough_bergomi_lsv`. The plan exposes
+`supports_market_iv_risk`. The original price factory without a source remains
+unchanged and the quote-risk method rejects. A reporting-IV basis is neither
+required nor treated as a quote source.
+
+The source must rebuild every original target variance **exactly**, with the
+same target axes and floor/cap and without any repair. A mismatched source or
+re-binding an already bound Rust plan rejects. Binding changes the plan fingerprint
+but leaves the base price, sampling error and calibrated surface unchanged.
+The fingerprint includes `continuous-residual-market-iv-original-grid-dupire-v1`,
+the interpolation label, quote-axis lengths/values and all input IVs. Requests
+still serialize the explicit grid; the caller must retain and re-supply the
+separate quote source when compiling a restored request.
+
+This reuses the existing `natural-cubic-w-linear-time-v1` contract: form
+`w_ij=T_i*sigma_ij^2`, interpolate w by a natural cubic spline in log moneyness,
+and linearly in time. Use the right slope at interior quote times; at the final
+quote time and outside the quote-time domain use constant-IV tails. No strike
+extrapolation is permitted. Quote axes and original target axes may differ,
+including quote maturities beyond expiry. The entire original target log grid
+must be covered. Time-zero target variance uses the first positive original
+sample time. The constructor checks positive finite IV, calendar slope and
+Durrleman density at quote samples; strict target construction also checks the
+original target samples and rejects floor/cap repair. These are sampled checks,
+not a globally arbitrage-free fit. There is no SSVI/eSSVI optimizer or raw
+physical-stock quote conversion in this API.
+
+`evaluate_parallel_market_iv_risk(implied_volatility_bump=h)` evaluates:
+
+1. Shift every retained IV input by each of `-h/2,+h/2,-h,+h,-2h,+2h`, at fixed
+   quote coordinates, Spot, curves, cash dividends and model parameters.
+2. Reconstruct each quote surface and recompute Dupire variance `w_T/g` on the
+   **original** target axes. Validate all six surfaces/targets before scenario
+   calibration, rejecting nonpositive or unrepresentable shifts, sampled
+   calendar/density violations and any floor/cap repair.
+3. Interpolate each original variance grid onto the unchanged execution grid,
+   then fully recalibrate leverage with the same particle seed/configuration.
+4. Evolve six separate f/Y/volatility paths with common valuation normals and
+   recompute continuous bridge, endpoint and cash-jump payoffs. The base price
+   and three central price differences plus two adjacent gaps share observations.
+
+The result is `StochasticDividendContinuousBarrierMarketIvRisk`, with three
+Vega estimates/SEs in half/base/double order, two paired gap estimates/SEs,
+quote coordinates/values, base price, method and fingerprint. Values are currency
+per unit absolute IV; `vega_per_vol_point` and its SE multiply the base-bump
+quantity by 0.01. MC uses independent paths or antithetic pairs; RQMC uses
+scramble means. The work count is six recalibrations and seven scenario paths
+per base path, excluding calibration particles. On a nonflat smile the result
+differs from shifting sqrt(Local variance); the reporting projection is also a
+separate convention. This is a finite parallel quote bump, not quote-bucket risk
+or the full VegaKT operator.
+
+The method is
+`buehler-rough-residual-lsv-continuous-bridge-parallel-market-iv-recalibrated-crn-v1`.
+Its risk fingerprint combines the source-bound plan and bump ladder.
+Uncertainty scope is
+`pricing_only_fixed_calibration_seed_grid_bridge_and_quote_interpolation`.
+Calibration noise and interpolation/grid/bridge/bump bias remain excluded.
+For stochastic cash dividends, these inputs describe the funded residual
+forward f. Unconverted physical-Spot Black IV is not an f smile; this API does
+not supply or differentiate that model-dependent conversion. See the
+[runnable quote-IV example](../../examples/python/rough_dividend_market_iv.py).
+
+Controls independently derive natural-cubic/Dupire values for a nonflat smile,
+recompile each shifted target, and compare all eight Barrier contract styles.
+Paired errors are rebuilt from individual MC units and RQMC scramble means,
+with and without antithetics. Flat-IV, eta-zero, no-cash limits are checked
+against one-dimensional Gaussian barrier quadrature at all three bump sizes
+for four knockout styles. Python uses a separate NumPy natural-spline solve
+and Dupire formula, plus source/target mismatch, coverage, calendar and repair
+rejection, fixed-cash history, worker/concurrent replay and detached arrays.
+
 ## Validation
 
 Joint-covariance controls reconstruct every matrix entry independently from
@@ -509,9 +589,11 @@ include the new API, tests and [example](../../examples/python/rough_dividend_co
 
 Zero-bump continuous Barrier sensitivities require treating the bridge
 estimator and its discontinuous endpoint/jump branches; discrete graph adjoints
-are not valid substitutes. Quoted market-IV bump/rebootstrap risk, the full VegaKT operator and other
-model/market risks remain unsupported by this continuous wrapper. The reporting
-projection above does not close these items. Independent fine-path studies, calibration-aware refinement
+are not valid substitutes. Quote-by-quote IV buckets, the full VegaKT operator,
+physical-Spot quote conversion/refitting and other model/market risks remain
+unsupported by this continuous wrapper. Parallel retained-quote rebuilding is
+supported under the interpolation contract above; the reporting projection is a
+separate convention. Independent fine-path studies, calibration-aware refinement
 and wider H/volatility/correlation/near-barrier panels remain necessary before
 claiming broad continuous-time accuracy. This API is an explicit
 approximation, not an extension of the discrete hard-Delta guarantee.

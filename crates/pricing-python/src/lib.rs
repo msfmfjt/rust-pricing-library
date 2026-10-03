@@ -7,6 +7,7 @@ mod diagnostics;
 mod hull_white;
 mod local_correlation;
 mod lsv;
+mod market_iv;
 mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
@@ -1217,6 +1218,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyDividendEvent>()?;
     module.add_class::<PyAsianObservation>()?;
     module.add_class::<PyEssviSlice>()?;
+    module.add_class::<market_iv::PyMarketIvSurface>()?;
+    module
+        .add_class::<stochastic_dividends::PyStochasticDividendContinuousBarrierMarketIvRisk>()?;
     module.add_class::<PyProduct>()?;
     module.add_class::<PyMarket>()?;
     module.add_class::<PyModel>()?;

@@ -20,7 +20,7 @@ pub use continuous_barrier::{
     PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk,
     PyStochasticDividendContinuousBarrierGammaRisk,
     PyStochasticDividendContinuousBarrierLocalVolatilityRisk,
-    PyStochasticDividendContinuousBarrierPlan,
+    PyStochasticDividendContinuousBarrierMarketIvRisk, PyStochasticDividendContinuousBarrierPlan,
     PyStochasticDividendContinuousBarrierReportingIvRisk,
     PyStochasticDividendContinuousBarrierSpotRisk,
 };

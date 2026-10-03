@@ -41,6 +41,47 @@ def reporting_request(case, **kwargs):
     return rp.PricingRequest.from_json(json.dumps(data))
 
 
+QUOTE_TIMES=[.25,1.25]
+QUOTE_X=[-.75,0.,.75]
+QUOTE_IV=[.22,.20,.21,.24,.22,.23]
+
+def iv_request(case, surface):
+    c,m=case['contract'],MARKET|case['market']
+    return rp.PricingRequest('2026-09-04',
+        rp.Product.barrier(1,2,'2027-09-03',m['strike'],m['barrier'],c['notional'],
+            c['side'],c['direction'],c['style'],'continuous',BASES[case['base_case']]['monitoring_dates'],
+            '2027-12-04',rebate=c['rebate'] or None),
+        rp.Market.equity(2,1,100.,rp.DiscountCurve(10,[0.,1.],[1.,m['annual_discount']]),
+            rp.DiscountCurve(11,[0.,1.],[1.,m['annual_carry']]),
+            discrete_dividends=[rp.DividendEvent.fixed_cash(i+1,t,q) for i,(t,q) in enumerate(zip(m['cash_times'],m['cash_means']))]),
+        surface.local_volatility_model([0.,m['fixing_time'],m['expiry_time']],[-.5,0.,.5]),
+        rp.Engine.randomized_quasi_monte_carlo(32,193,scramble_count=4,antithetic=True,brownian_bridge=True),
+        rp.RiskRequest())
+
+def independent_quote_target(quotes):
+    # Solve the natural cubic system directly; do not use the Rust coefficient
+    # map, surface queries or finite-difference Dupire derivatives.
+    times=np.asarray(QUOTE_TIMES);xs=np.asarray(QUOTE_X);q=np.asarray(quotes).reshape(2,3)
+    h=np.diff(xs);matrix=np.eye(3)
+    matrix[1]=[h[0],2*(h[0]+h[1]),h[1]]
+    w=times[:,None]*q*q;rhs=np.zeros_like(w)
+    rhs[:,1]=6*(np.diff(w,axis=1)[:,1]/h[1]-np.diff(w,axis=1)[:,0]/h[0])
+    second=np.linalg.solve(matrix,rhs.T).T
+    values=[]
+    for t in [MARKET['fixing_time'],MARKET['fixing_time'],MARKET['expiry_time']]:
+        for x in [-.5,0.,.5]:
+            i=min(np.searchsorted(xs,x,side='right')-1,1)
+            b=(x-xs[i])/h[i];a=1-b
+            v=a*w[:,i]+b*w[:,i+1]+((a**3-a)*second[:,i]+(b**3-b)*second[:,i+1])*h[i]**2/6
+            dx=(w[:,i+1]-w[:,i])/h[i]+((1-3*a*a)*second[:,i]+(3*b*b-1)*second[:,i+1])*h[i]/6
+            dxx=a*second[:,i]+b*second[:,i+1]
+            wt=(v[1]-v[0])/(times[1]-times[0]);b=(t-times[0])/(times[1]-times[0])
+            v,dx,dxx=[(1-b)*y[0]+b*y[1] for y in (v,dx,dxx)]
+            density=(1-x*dx/(2*v))**2-dx*dx/4*(1/v+.25)+dxx/2
+            values.append(wt/density)
+    return values
+
+
 class ContinuousBarrierApproximation(unittest.TestCase):
     def test_independent_numpy_references_and_calibration_inputs(self):
         for case in FIXTURE['cases']:
@@ -350,6 +391,78 @@ class ContinuousBarrierApproximation(unittest.TestCase):
         self.assertEqual(fixed.sum_vega_estimates,[0.]*3)
         self.assertEqual(fixed.sum_vega_standard_errors,[0.]*3)
         self.assertEqual(fixed.sum_bump_difference_standard_errors,[0.]*2)
+
+    def test_market_iv_rebuild_against_independent_numpy_dupire(self):
+        source=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,QUOTE_IV)
+        for case in FIXTURE['cases']:
+            with self.subTest(case=case['id']):
+                req=iv_request(case,source);data=json.loads(req.to_json())
+                np.testing.assert_allclose(data['model']['local_variance_grid']['values'],independent_quote_target(QUOTE_IV),rtol=0,atol=3e-15)
+                plain=compile_plan(case,req)
+                plan=compile_plan(case,req,market_iv_surface=source)
+                r=plan.evaluate_parallel_market_iv_risk(implied_volatility_bump=.01)
+                self.assertFalse(plain.supports_market_iv_risk);self.assertTrue(plan.supports_market_iv_risk)
+                self.assertNotEqual(plan.plan_fingerprint,plain.plan_fingerprint)
+                self.assertEqual((r.price.value,r.price.standard_error),(plain.evaluate().value,plain.evaluate().standard_error))
+                self.assertEqual(r.price.plan_fingerprint,plan.plan_fingerprint)
+                for j,h in enumerate(r.implied_volatility_bumps):
+                    prices=[]
+                    for shift in [-h,h]:
+                        data['model']['local_variance_grid']['values']=independent_quote_target(np.asarray(QUOTE_IV)+shift)
+                        prices.append(compile_plan(case,rp.PricingRequest.from_json(json.dumps(data))).evaluate().value)
+                    self.assertAlmostEqual(r.vega_estimates[j],(prices[1]-prices[0])/(2*h),delta=2e-9)
+                local=plan.evaluate_parallel_local_volatility_risk(local_volatility_bump=.01)
+                self.assertGreater(abs(local.vega-r.vega),1e-5)
+                self.assertEqual(r.quote_maturity_nodes,QUOTE_TIMES);self.assertEqual(r.quote_log_moneyness_nodes,QUOTE_X)
+                self.assertEqual(r.implied_volatilities,QUOTE_IV)
+                self.assertEqual(r.implied_volatility_bumps,[.005,.01,.02])
+                self.assertEqual(r.recalibration_count,6);self.assertEqual(r.payoff_evaluations,7*r.price.evaluated_paths)
+                self.assertEqual(r.scenario_evaluated_paths,r.payoff_evaluations)
+                self.assertEqual(r.vega_per_vol_point,.01*r.vega)
+                self.assertEqual(r.standard_error_per_vol_point,.01*r.standard_error)
+                self.assertEqual(r.interpolation,'natural-cubic-w-linear-time-v1')
+                self.assertEqual(r.uncertainty_scope,'pricing_only_fixed_calibration_seed_grid_bridge_and_quote_interpolation')
+
+    def test_market_iv_api_replay_history_and_validation(self):
+        source=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,QUOTE_IV)
+        self.assertEqual(source.maturity_nodes,QUOTE_TIMES);self.assertEqual(source.log_moneyness_nodes,QUOTE_X)
+        self.assertEqual(source.implied_volatilities,QUOTE_IV);self.assertEqual(source.interpolation,'natural-cubic-w-linear-time-v1')
+        with self.assertRaises(AttributeError):source.implied_volatilities=[]
+        detached=source.implied_volatilities;detached[0]=999.;self.assertEqual(source.implied_volatilities,QUOTE_IV)
+        case=FIXTURE['cases'][0];req=iv_request(case,source)
+        plan=compile_plan(case,req,market_iv_surface=source)
+        kwargs=dict(implied_volatility_bump=.01)
+        r=plan.evaluate_parallel_market_iv_risk(**kwargs)
+        worker=compile_plan(case,req,market_iv_surface=source,worker_threads=3).evaluate_parallel_market_iv_risk(**kwargs)
+        self.assertEqual(r.vega_estimates,worker.vega_estimates);self.assertEqual(r.vega_standard_errors,worker.vega_standard_errors)
+        self.assertEqual(r.bump_difference_standard_errors,worker.bump_difference_standard_errors)
+        with self.assertRaises(AttributeError):r.vega=0.
+        detached=r.implied_volatilities;detached[0]=999.;self.assertEqual(r.implied_volatilities,QUOTE_IV)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertEqual(list(pool.map(lambda _:plan.evaluate_parallel_market_iv_risk(**kwargs).vega_estimates,range(2))),[r.vega_estimates]*2)
+        with self.assertRaises(rp.PricingError):compile_plan(case,req).evaluate_parallel_market_iv_risk(**kwargs)
+        wrong=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,(np.asarray(QUOTE_IV)+.001).tolist())
+        with self.assertRaises(rp.PricingError):compile_plan(case,req,market_iv_surface=wrong)
+        for h in [0.,-.01,.2,1e-300,float('nan'),float('inf')]:
+            with self.assertRaises(rp.PricingError):plan.evaluate_parallel_market_iv_risk(implied_volatility_bump=h)
+        for changes in [dict(floor=.2),dict(cap=.01)]:
+            with self.assertRaises(rp.ValidationError):source.local_volatility_model([0.,.5,1.],[-.5,0.,.5],**changes)
+        with self.assertRaises(rp.ValidationError):source.local_volatility_model([0.,.5,1.],[-.8,0.,.5])
+        for times,xs,iv in [(QUOTE_TIMES,QUOTE_X,[.2]*5),([0.,1.],QUOTE_X,[.2]*6),
+                            (QUOTE_TIMES,QUOTE_X,[float('nan')]*6),([.5,1.],QUOTE_X,[.5]*3+[.1]*3)]:
+            with self.assertRaises(rp.ValidationError):rp.MarketIvSurface(times,xs,iv)
+        # Only the largest positive ladder shift exceeds this cap: no partial
+        # scenario valuation or clipping is allowed to turn it into a result.
+        flat=rp.MarketIvSurface(QUOTE_TIMES,QUOTE_X,[.2]*6)
+        capped=json.loads(iv_request(case,flat).to_json());capped['model']['local_variance_grid']['cap']=.045
+        capped_plan=compile_plan(case,rp.PricingRequest.from_json(json.dumps(capped)),market_iv_surface=flat)
+        with self.assertRaises(rp.PricingError):capped_plan.evaluate_parallel_market_iv_risk(**kwargs)
+        self.assertNotEqual(r.risk_fingerprint,plan.evaluate_parallel_market_iv_risk(implied_volatility_bump=.005).risk_fingerprint)
+        data=json.loads(req.to_json());data['product'].update(style=dict(type='knock_out'),historical_hit=True,
+            monitoring_dates=['2026-09-03','2027-09-03'],notional=1e18,rebate=7.)
+        fixed=compile_plan(case,rp.PricingRequest.from_json(json.dumps(data)),market_iv_surface=source).evaluate_parallel_market_iv_risk(**kwargs)
+        self.assertEqual(fixed.vega_estimates,[0.]*3);self.assertEqual(fixed.vega_standard_errors,[0.]*3)
+        self.assertEqual(fixed.bump_difference_standard_errors,[0.]*2)
 
     def test_reporting_iv_projection_against_independent_numpy(self):
         fixture=json.loads((DIRECTORY/'rough-continuous-reporting-iv-reference.json').read_text())
