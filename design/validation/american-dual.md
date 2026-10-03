@@ -40,7 +40,20 @@ compared with floating-point tolerance where their operation order differs.
 
 ## Execution evidence
 
-Local validation on 2026-10-03, macOS Apple Silicon, Rust 1.98.1:
+The full local validation below was run on commit
+`f73e73406c66a6326d2338e99cc08363d2730060`, based on `c76fbdf`, on
+2026-10-03, macOS Apple Silicon, Rust 1.98.1. The retained JSON identifies that
+source snapshot; its checksum and test counts are historical execution evidence.
+
+For the pull request, only the Andersen–Broadie commit was replayed onto
+`main` at `fbd9beafe4c01eaac3fae713bf4914bdea23b9bf`. Seven unrelated,
+unmerged rough-dividend validation commits are excluded. The dual implementation,
+all production pricing code, and the extended-model price/risk acceptance tests
+are unchanged by this replay. The archive manifest conflict was resolved by
+adding only the eleven dual files to the main-branch requirements. Cross-platform
+CI checks the resulting pull-request tree separately from the original local run.
+
+Original local execution results:
 
 - Three exact kernel/namespace tests and five public conformance tests pass.
 - Workspace tests (all features, excluding the Python binding crate): 654
