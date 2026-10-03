@@ -41,7 +41,8 @@ the validation record. American exercise, continuous Barriers, smoothing-width
 ladders and all requested Greeks are rejected by the extension or shared graph.
 
 This MC adapter does **not** implement Fourier pricing (a separate
-[forward-only API](rough-heston-fourier.md) does), model calibration, VIX contracts, SSR calculations, AAD/Greeks, leverage-function
+[forward-only API](rough-heston-fourier.md) does), model calibration (the separate
+[Heston price-calibration API](heston-calibration.md) does), VIX contracts, SSR calculations, AAD/Greeks, leverage-function
 calibration, stochastic rates, stochastic dividends or multi-asset composition.
 A model's support elsewhere in the library does not imply that combination is
 available through this adapter. In particular, using the existing

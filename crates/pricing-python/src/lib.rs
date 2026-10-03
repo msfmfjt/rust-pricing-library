@@ -4,7 +4,9 @@
 
 mod builders;
 mod diagnostics;
+mod heston_calibration;
 mod heston_fourier;
+mod heston_iv_calibration;
 mod hull_white;
 mod local_correlation;
 mod lsv;
@@ -1278,6 +1280,17 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<rough_volatility::PyRoughVolatilityPathPlan>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityPlan>()?;
     module.add_class::<heston_fourier::PyHestonFourierPlan>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationQuote>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationVariable>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationEvaluation>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationResult>()?;
+    module.add_class::<heston_calibration::PyHestonCalibrationProblem>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationQuote>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationEvaluation>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationProblem>()?;
+    module.add_class::<heston_iv_calibration::PyHestonIvCalibrationResult>()?;
+    module.add_class::<heston_iv_calibration::PyHestonCalibrationSsviSurface>()?;
+
     module.add_class::<heston_fourier::PyHestonFourierPrice>()?;
     module.add_class::<heston_fourier::PyHestonFourierGreeks>()?;
     module.add_class::<heston_fourier::PyHestonParameterSensitivities>()?;

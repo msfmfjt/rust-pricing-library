@@ -26,3 +26,5 @@ pub use fractional::{digamma_half_to_two, fractional_ou_correlation, gamma_half_
 
 mod complex;
 pub use complex::Complex64;
+
+pub mod least_squares;
