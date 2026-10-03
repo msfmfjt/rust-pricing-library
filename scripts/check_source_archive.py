@@ -128,6 +128,12 @@ REQUIRED_FILES = {
     "crates/pricing-python/src/rough_volatility.rs",
     "crates/pricing/tests/rough_volatility_families.rs",
     "crates/pricing/tests/rough_volatility_pricing_reference.rs",
+    "crates/pricing/tests/lifted_heston_factor_prices.rs",
+    "scripts/check_lifted_heston_factors.py",
+    "scripts/test_lifted_heston_factors.py",
+    "fixtures/rough-volatility/lifted-factor-prices.json",
+    "design/validation/lifted-heston-factor-prices.md",
+    ".github/workflows/lifted-heston-factors.yml",
     "crates/pricing/tests/rough_volatility_refinement.rs",
     "scripts/check_rough_volatility_refinement.py",
     "scripts/test_rough_volatility_refinement.py",
@@ -826,6 +832,7 @@ def main() -> int:
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
         check_rough_refinement_workflow(package, archive)
+        check_lifted_factor_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1033,6 +1040,24 @@ def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> N
     missing = [snippet for snippet in required if snippet not in workflow]
     if missing:
         raise SystemExit(f"{archive}: rough refinement workflow is missing gates: {missing}")
+
+
+def check_lifted_factor_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/lifted-heston-factors.yml")
+    required = (
+        "python scripts/check_lifted_heston_factors.py",
+        "python -m unittest discover -s scripts -p 'test_lifted_heston_factors.py'",
+        "cargo test --locked -p pricing --test lifted_heston_factor_prices",
+        "cargo test --locked --no-default-features -p pricing --test lifted_heston_factor_prices",
+        "cargo test --locked --release -p pricing --test lifted_heston_factor_prices -- --include-ignored --nocapture",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "name: lifted-heston-factor-prices-${{ matrix.os }}",
+        "path: lifted-heston-factor-prices.log",
+        "if-no-files-found: error",
+    )
+    missing = [snippet for snippet in required if snippet not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: lifted factor workflow is missing gates: {missing}")
 
 
 def check_wheel_smoke_gate(package: tarfile.TarFile, archive: str) -> None:

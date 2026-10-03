@@ -3,7 +3,8 @@
 [Model index](README.md) · [Components](components/README.md) ·
 [Python example](../../examples/python/rough_volatility_families.py) ·
 [Validation status](../../design/validation/rough-volatility-families.md) ·
-[Finite-grid refinement](../../design/validation/rough-volatility-refinement.md)
+[Finite-grid refinement](../../design/validation/rough-volatility-refinement.md) ·
+[Factor-price validation](../../design/validation/lifted-heston-factor-prices.md)
 
 **Experimental, price-only extension.** Six families have compiled Rust/Python
 implementations with executable boundary, sampling and finite-grid reference
@@ -115,6 +116,14 @@ The retained check samples five positive lags between `1/128` and `1` year;
 it is neither a tolerance-certified production factory nor a price-error bound.
 Time-grid refinement holds the lift fixed at 20 factors and ratio 2.5. Do not
 interpret finite-factor and finite-time errors as interchangeable.
+
+A separate [factor-price panel](../../design/validation/lifted-heston-factor-prices.md)
+holds 64 time steps fixed and compares 8-256 factors against the infinite-Laplace-
+measure limit of the **same semi-implicit scheme**. It covers H=.1/.3, .25/1-year
+horizons and three strikes, with paired sampling errors and raw-truncation/forward
+moment diagnostics. The target is not the continuous-time model, nor the existing
+hybrid rough-Heston simulator at the same grid. Consequently, the observed small
+256-factor price differences do not bound time or truncation bias.
 
 ## Quadratic rough Heston
 

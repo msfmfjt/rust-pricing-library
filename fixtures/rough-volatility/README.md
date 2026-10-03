@@ -77,3 +77,20 @@ checks retained values without regeneration; only `--write` replaces them.
 The [protocol](../../design/validation/rough-volatility-refinement.md) describes
 the original failed ratio sequence and the revised shrinking-bin sequence.
 These references are not continuous-time option prices or price-bias bounds.
+
+## Fixed-grid Lifted Heston factor-price inputs
+
+[`lifted-factor-prices.json`](lifted-factor-prices.json) retains the full fixed
+price experiment and rational-kernel references for the semi-implicit scheme.
+The infinite-factor values are independently integrated over the entire Laplace
+measure, not obtained from a larger finite-factor production run. The finite
+factory kernels and the beta-integral identity are checked independently.
+
+```shell
+python scripts/check_lifted_heston_factors.py
+python -m unittest discover -s scripts -p 'test_lifted_heston_factors.py'
+```
+
+The [protocol](../../design/validation/lifted-heston-factor-prices.md) distinguishes
+factor-price comparisons from continuous-time accuracy. Regeneration uses the
+explicit `--write` option and requires review; CI only verifies retained values.
