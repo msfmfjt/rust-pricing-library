@@ -28,5 +28,6 @@ pub use pricing_numerics::least_squares::{LeastSquaresOptions, LeastSquaresTermi
 
 pub use crate::engine::analytic::heston_fourier::{
     HestonIvCalibrationEvaluation, HestonIvCalibrationProblem, HestonIvCalibrationQuote,
-    HestonIvCalibrationResult,
+    HestonIvCalibrationResult, HestonIvGridValidation, HestonIvRefinementOptions,
+    HestonIvRefinementResult, HestonIvRefinementStage,
 };

@@ -123,6 +123,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/heston_hurst_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_calibration.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_iv_calibration.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_iv_refinement.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -999,6 +1000,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "HestonIvRefinementOptions",
+        "HestonIvGridValidation",
+        "HestonIvRefinementStage",
+        "HestonIvRefinementResult",
+
         "HestonCalibrationSsviSurface",
         'HestonCalibrationQuote',
         'HestonIvCalibrationQuote',
@@ -1257,6 +1263,27 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ('HestonIvRefinementOptions', 'fit_tolerance'): 'float',
+        ('HestonIvRefinementOptions', 'grid_tolerance'): 'float',
+        ('HestonIvRefinementOptions', 'max_stages'): 'int',
+        ('HestonIvGridValidation', 'fit_tolerance'): 'float',
+        ('HestonIvGridValidation', 'grid_tolerance'): 'float',
+        ('HestonIvGridValidation', 'max_abs_iv_residual'): 'float',
+        ('HestonIvGridValidation', 'max_abs_iv_difference'): 'float',
+        ('HestonIvGridValidation', 'fit_within_tolerance'): 'bool',
+        ('HestonIvGridValidation', 'grid_stable'): 'bool',
+        ('HestonIvGridValidation', 'accepted'): 'bool',
+        ('HestonIvGridValidation', 'plan_compilations'): 'int',
+        ('HestonIvRefinementStage', 'calibration'): 'HestonIvCalibrationResult',
+        ('HestonIvRefinementStage', 'validation'): 'HestonIvGridValidation',
+        ('HestonIvRefinementResult', 'accepted'): 'bool',
+        ('HestonIvRefinementResult', 'termination'): 'str',
+        ('HestonIvRefinementResult', 'optimizer_evaluations'): 'int',
+        ('HestonIvRefinementResult', 'validation_plan_compilations'): 'int',
+        ('HestonIvRefinementOptions', 'create'): 'HestonIvRefinementOptions',
+        ('HestonIvCalibrationProblem', 'validate_grid'): 'HestonIvGridValidation',
+        ('HestonIvCalibrationProblem', 'calibrate_refined'): 'HestonIvRefinementResult',
+
         ("HestonCalibrationSsviSurface", "power_law"): "HestonCalibrationSsviSurface",
         ("HestonCalibrationSsviSurface", "heston_like"): "HestonCalibrationSsviSurface",
         ("HestonCalibrationSsviSurface", "quote"): "HestonIvCalibrationQuote",
@@ -1328,6 +1355,34 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('HestonIvRefinementOptions', 'fit_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementOptions', 'grid_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementOptions', 'max_stages'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'grid_names'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'configurations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'model_implied_volatilities'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'iv_residuals'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'iv_differences'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'fit_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'grid_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'max_abs_iv_residual'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'max_abs_iv_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'fit_within_tolerance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'grid_stable'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'accepted'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvGridValidation', 'plan_compilations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementStage', 'initial_parameters'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementStage', 'calibration'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementStage', 'validation'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementResult', 'stages'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementResult', 'accepted'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementResult', 'termination'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementResult', 'optimizer_evaluations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementResult', 'validation_plan_compilations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvRefinementOptions', 'create'): {'positional': [], 'positional_defaults': {}, 'keyword_only': ['fit_tolerance', 'grid_tolerance', 'max_stages'], 'required_keyword_only': [], 'keyword_only_defaults': {'fit_tolerance': 0.0005, 'grid_tolerance': 0.0001, 'max_stages': 2}},
+        ('HestonIvCalibrationProblem', 'validate_grid'): {'positional': ['self', 'parameters', 'policy'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonIvCalibrationProblem', 'calibrate_refined'): {'positional': ['self', 'policy'], 'positional_defaults': {}, 'keyword_only': ['max_iterations', 'max_evaluations', 'residual_tolerance', 'gradient_tolerance', 'step_tolerance'], 'required_keyword_only': [], 'keyword_only_defaults': {'max_iterations': 100, 'max_evaluations': 150, 'residual_tolerance': 1e-06, 'gradient_tolerance': 1e-10, 'step_tolerance': 1e-12}},
+
         ("HestonCalibrationSsviSurface", "power_law"): {'positional': ['theta_times', 'theta_values', 'terminal_theta_slope', 'rho', 'eta', 'gamma'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ("HestonCalibrationSsviSurface", "heston_like"): {'positional': ['theta_times', 'theta_values', 'terminal_theta_slope', 'rho', 'lambda_'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ("HestonCalibrationSsviSurface", "quote"): {'positional': ['self', 'maturity', 'forward', 'strike', 'discount', 'iv_scale'], 'positional_defaults': {'iv_scale': 1.0}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2262,6 +2317,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'HestonIvRefinementOptions': {'grid_tolerance', 'create', 'fit_tolerance', 'max_stages'},
+        'HestonIvGridValidation': {'grid_stable', 'fit_tolerance', 'accepted', 'iv_residuals', 'max_abs_iv_residual', 'iv_differences', 'max_abs_iv_difference', 'grid_names', 'grid_tolerance', 'fit_within_tolerance', 'plan_compilations', 'configurations', 'model_implied_volatilities'},
+        'HestonIvRefinementStage': {'validation', 'calibration', 'initial_parameters'},
+        'HestonIvRefinementResult': {'optimizer_evaluations', 'accepted', 'validation_plan_compilations', 'stages', 'termination'},
+
         "HestonCalibrationSsviSurface": {"power_law", "heston_like", "quote"},
         'HestonCalibrationQuote': {'forward', 'target_price', 'create', 'price_scale', 'maturity', 'is_call', 'discount', 'strike'},
         'HestonIvCalibrationQuote': {'forward', 'target_volatility', 'create', 'iv_scale', 'maturity', 'is_call', 'discount', 'strike'},
@@ -2271,7 +2331,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'HestonCalibrationResult': {'termination', 'model', 'projected_gradient_norm', 'accepted_objectives', 'objective', 'iterations', 'parameters', 'evaluations', 'active_bounds', 'invalid_evaluations', 'fit_achieved', 'evaluation', 'parameter_names', 'rejected_evaluations'},
         'HestonIvCalibrationResult': {'termination', 'model', 'projected_gradient_norm', 'accepted_objectives', 'objective', 'iterations', 'parameters', 'evaluations', 'active_bounds', 'invalid_evaluations', 'fit_achieved', 'evaluation', 'parameter_names', 'rejected_evaluations'},
         'HestonCalibrationProblem': {'maturity_count', 'calibrate', 'initial_parameters', 'compile', 'parameter_names', 'evaluate'},
-        'HestonIvCalibrationProblem': {'maturity_count', 'calibrate', 'initial_parameters', 'compile', 'parameter_names', 'evaluate'},
+        'HestonIvCalibrationProblem': {'validate_grid', 'calibrate_refined', 'maturity_count', 'calibrate', 'initial_parameters', 'compile', 'parameter_names', 'evaluate'},
 
         'HestonFourierHurstRisk': {'price','hurst_sensitivity','quadrature_difference','tail_indicator'},
         'HestonFourierHurstRiskPlan': {'price','log_transform_derivative'},
@@ -2853,6 +2913,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("HestonIvRefinementOptions", "create"),
         ("HestonCalibrationSsviSurface", "power_law"),
         ("HestonCalibrationSsviSurface", "heston_like"),
         ('HestonCalibrationQuote', 'create'),
@@ -2930,6 +2991,31 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('HestonIvRefinementOptions', 'fit_tolerance'),
+        ('HestonIvRefinementOptions', 'grid_tolerance'),
+        ('HestonIvRefinementOptions', 'max_stages'),
+        ('HestonIvGridValidation', 'grid_names'),
+        ('HestonIvGridValidation', 'configurations'),
+        ('HestonIvGridValidation', 'model_implied_volatilities'),
+        ('HestonIvGridValidation', 'iv_residuals'),
+        ('HestonIvGridValidation', 'iv_differences'),
+        ('HestonIvGridValidation', 'fit_tolerance'),
+        ('HestonIvGridValidation', 'grid_tolerance'),
+        ('HestonIvGridValidation', 'max_abs_iv_residual'),
+        ('HestonIvGridValidation', 'max_abs_iv_difference'),
+        ('HestonIvGridValidation', 'fit_within_tolerance'),
+        ('HestonIvGridValidation', 'grid_stable'),
+        ('HestonIvGridValidation', 'accepted'),
+        ('HestonIvGridValidation', 'plan_compilations'),
+        ('HestonIvRefinementStage', 'initial_parameters'),
+        ('HestonIvRefinementStage', 'calibration'),
+        ('HestonIvRefinementStage', 'validation'),
+        ('HestonIvRefinementResult', 'stages'),
+        ('HestonIvRefinementResult', 'accepted'),
+        ('HestonIvRefinementResult', 'termination'),
+        ('HestonIvRefinementResult', 'optimizer_evaluations'),
+        ('HestonIvRefinementResult', 'validation_plan_compilations'),
+
         ('HestonCalibrationQuote', 'maturity'),
         ('HestonIvCalibrationQuote', 'maturity'),
         ('HestonCalibrationQuote', 'forward'),

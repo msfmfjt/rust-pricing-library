@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    '.github/workflows/heston-iv-refinement.yml',
+    'crates/pricing/src/engine/analytic/heston_fourier/iv_refinement.rs',
+    'crates/pricing-python/src/heston_iv_refinement.rs',
+    'crates/pricing/tests/heston_iv_refinement.rs',
+    'tests/python/test_heston_iv_refinement.py',
+    'examples/python/heston_iv_refinement.py',
+    'fixtures/rough-volatility/iv-refinement.json',
+    'scripts/test_heston_iv_refinement_protocol.py',
+    'docs/models/heston-iv-refinement.md',
+    'design/validation/heston-iv-refinement.md',
+
     '.github/workflows/heston-iv-calibration.yml',
     'crates/pricing/src/engine/analytic/heston_fourier/iv_calibration.rs',
     'crates/pricing-python/src/heston_iv_calibration.rs',
@@ -911,6 +922,7 @@ def main() -> int:
         check_heston_hurst_risk_workflow(package, archive)
         check_heston_calibration_workflow(package, archive)
         check_heston_iv_calibration_workflow(package, archive)
+        check_heston_iv_refinement_workflow(package, archive)
         check_wheel_smoke_gate(package, archive)
         check_schema_validation_gate(package, archive)
         check_replay_fixture_gate(package, archive)
@@ -1140,6 +1152,27 @@ def check_heston_parameter_risk_workflow(package: tarfile.TarFile, archive: str)
     if '"examples/python/heston_parameter_risk.py"' not in smoke:
         raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
 
+
+
+def check_heston_iv_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/heston-iv-refinement.yml")
+    required = (
+        "cargo test --locked -p pricing --test heston_iv_refinement",
+        "cargo test --locked --no-default-features -p pricing --test heston_iv_refinement",
+        "cargo test --locked --release -p pricing --test heston_iv_refinement -- --include-ignored --nocapture",
+        "python scripts/check_heston_iv_calibration.py",
+        "python -m unittest discover -s scripts -p 'test_heston_iv_refinement_protocol.py'",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "name: heston-iv-refinement-${{ matrix.os }}",
+        "path: heston-iv-refinement.log", "if-no-files-found: error",
+        "contents: read", "set -o pipefail",
+    )
+    missing = [item for item in required if item not in workflow]
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/heston_iv_refinement.py"' not in smoke:
+        missing.append("registered refinement example")
+    if missing:
+        raise SystemExit(f"{archive}: IV refinement evidence gates missing: {missing}")
 
 
 def check_heston_iv_calibration_workflow(package: tarfile.TarFile, archive: str) -> None:

@@ -426,3 +426,10 @@ mod tests {
         assert!(BlackCoordinates::new(1e308, 1e308, 1e308, 1., true).is_err());
     }
 }
+
+#[path = "iv_refinement.rs"]
+mod refinement;
+pub use refinement::{
+    HestonIvGridValidation, HestonIvRefinementOptions, HestonIvRefinementResult,
+    HestonIvRefinementStage,
+};
