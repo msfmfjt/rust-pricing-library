@@ -36,7 +36,7 @@ def hybrid_weights(times, h):
 
 
 def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
-                side="call", style="knock_in"):
+                side="call", style="knock_in", notional=1., rebate=0.):
     """Per-path price/analytic Delta; normals have shape (paths, steps, 3)."""
     if direction not in ('up', 'down') or side not in ('call', 'put') or style not in ('knock_in', 'knock_out'):
         raise ValueError('invalid Barrier direction, side or style')
@@ -83,6 +83,7 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
         f, y = np.ones(n), np.ones(n)
         df, dy = np.zeros(n), np.zeros(n)
         survival, dsurvival = np.ones(n), np.zeros(n)
+        hit = np.zeros(n)
         for i in range(steps):
             log_f = np.log(f)
             cell = np.clip(np.searchsorted(nodes, log_f, side='right') - 1, 0, len(nodes) - 2)
@@ -106,6 +107,18 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
             monitored_q = a + monitored_b * link
             boundary = (market['barrier'] - monitored_b * u - c) / monitored_q
             dboundary = -monitored_b * du / monitored_q - boundary * g / monitored_q
+
+            # The digital probability has no exercise boundary. Evaluate both
+            # tails directly so rare-hit rebates survive CDF rounding near one.
+            probability, dprobability, hit_probability = np.ones(n), np.zeros(n), np.zeros(n)
+            if knockout and i + 1 in monitors:
+                positive = boundary > 0
+                cutoff, dcutoff = np.full(n, -np.inf), np.zeros(n)
+                cutoff[positive] = (np.log(boundary[positive]) - mu[positive]) / s[positive]
+                dcutoff[positive] = (dboundary[positive] / boundary[positive] - dmu[positive] - cutoff[positive] * ds[positive]) / s[positive]
+                sign = 1. if up else -1.
+                probability, dprobability = cdf(sign * cutoff), sign * density(cutoff) * dcutoff
+                hit_probability = cdf(-sign * cutoff)
 
             if i == steps - 1:
                 q = a + b * link
@@ -145,17 +158,16 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
                 first, last = (tail(lo, dlo), tail(hi, dhi)) if call else (tail(hi, dhi), tail(lo, dlo))
                 value = np.where(hi > lo, first[0] - last[0], 0.)
                 tangent = np.where(hi > lo, first[1] - last[1], 0.)
-                return np.stack((survival * value, dsurvival * value + survival * tangent), axis=1)
+                payoff = np.stack((survival * value, dsurvival * value + survival * tangent), axis=1)
+                tangent = dsurvival * probability + survival * dprobability
+                surviving = np.stack((survival * probability, tangent), axis=1)
+                hitting = np.stack((hit + survival * hit_probability, -tangent), axis=1)
+                return payoff, surviving, hitting
 
             z = inverse_cdf(uniforms[:, i])
             dz = np.zeros(n)
             if knockout and i + 1 in monitors:
-                positive = boundary > 0
-                cutoff, dcutoff = np.full(n, -np.inf), np.zeros(n)
-                cutoff[positive] = (np.log(boundary[positive]) - mu[positive]) / s[positive]
-                dcutoff[positive] = (dboundary[positive] / boundary[positive] - dmu[positive] - cutoff[positive] * ds[positive]) / s[positive]
                 sign = 1. if up else -1.
-                probability, dprobability = cdf(sign * cutoff), sign * density(cutoff) * dcutoff
                 active = probability > 0
                 uniform = uniforms[:, i] if up else 1 - uniforms[:, i]
                 p = uniform * probability
@@ -163,6 +175,7 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
                 # Positive probabilities are never floored or clipped.
                 z[active] = sign * inverse_cdf(p[active])
                 dz[active] = sign * uniform[active] * dprobability[active] / density(z[active])
+                hit += survival * hit_probability
                 dsurvival = dsurvival * probability + survival * dprobability
                 survival *= probability
             f = np.exp(mu + s * z)
@@ -170,8 +183,9 @@ def path_values(case, market, normals, uniforms, *, spot=None, direction="up",
             y, dy = u + link * f, du + link * df
         raise AssertionError('missing terminal step')
 
-    ko = leg(True)
-    value = leg(False) - ko if style == 'knock_in' else ko
+    ko, survival, hit = leg(True)
+    payoff, inactive = (leg(False)[0] - ko, survival) if style == 'knock_in' else (ko, hit)
+    value = notional * payoff + rebate * inactive
     return value * market['annual_discount'] ** market['payment_time']
 
 

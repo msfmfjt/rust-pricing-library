@@ -1,8 +1,8 @@
 # Hard Barrier directions and option sides
 
 The production [hard Barrier Spot-risk method](stochastic-dividend-hard-barrier-spot-risk.md)
-supports discrete Up/Down and Call/Put for both knock-in and knock-out,
-without rebates. This panel validates the added Up Put, Down Call and Down
+supports discrete Up/Down and Call/Put for both knock-in and knock-out.
+This panel uses contracts without rebates and validates the added Up Put, Down Call and Down
 Put combinations. Existing Up Call reference gates are retained unchanged.
 
 ## Cash ordering and conditional intervals
@@ -62,16 +62,17 @@ The [Python controls](../../tests/python/test_rough_dividend_barrier_styles.py) 
 - All eight direction/side/style combinations in a deterministic-dividend,
   single-monitor limit against direct Gaussian payoff quadrature split at the
   Barrier and exercise boundaries. Price differences of this separate
-  quadrature check Delta, within 4e-9. It uses no truncated-moment formulas.
+  quadrature check Delta using Richardson extrapolation, within 8e-9. It uses no truncated-moment formulas.
 - Nonzero-eta/kappa per-sample analytic Delta against two common-input price
-  bumps for all twelve retained cases, within 2e-6.
+  bumps for the sixteen [rebate extension cases](stochastic-dividend-hard-barrier-rebates.md),
+  within 2e-6.
 - Retained batch means, aggregate SEs and reference precision caps.
 
 Production controls extend the full-recalibration Spot-bump checks to all
 eight combinations at H=0.1/0.3/0.5, with and without terminal monitoring.
 Knock-in/out parity and notional scaling cover all direction/side pairs.
 A further test distinguishes impossible Up survival from unrestricted Down
-survival when the equity cutoff is nonpositive. Rebate, historical/initial
+survival when the equity cutoff is nonpositive. Historical/initial
 monitoring, smoothing and degenerate-conditioning rejection remain covered.
 
 ## Sampling and acceptance
@@ -109,10 +110,11 @@ cargo test --locked --release -p pricing --test stochastic_dividend_barrier_refe
 The [regeneration command](../../tests/python/rough_dividend_barrier_styles.py)
 verifies every retained batch within 1e-9 and emits 24 aggregate price/Delta
 rows. Linux CI retains them in `stochastic-dividend-barrier-styles-reference.log`.
-The three-OS Barrier job's five numerical panels emit 148 rows, including the
-48 new comparisons. Source archives require the implementation, controls,
+The three-OS Barrier job's six numerical panels emit 212 rows, including
+these 48 comparisons and the later rebate extension. Source archives require the implementation, controls,
 fixture, documentation and CI regeneration command.
 
-Rebates, continuous monitoring, initial/historical hit states, other Greeks,
+Fixed cash rebates have a [separate panel](stochastic-dividend-hard-barrier-rebates.md).
+Continuous monitoring, initial/historical hit states, other Greeks,
 Python/request-level dispatch, calibration uncertainty and continuous-time
 accuracy remain separate work.

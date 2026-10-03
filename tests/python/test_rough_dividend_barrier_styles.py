@@ -18,7 +18,7 @@ class BarrierStyles(unittest.TestCase):
         market = dict(market, dividend_volatility=0., equity_dividend_correlation=0.)
         x, w = np.polynomial.legendre.leggauss(256)
 
-        def quadrature(spot, barrier, strike, up, call, knock_in):
+        def quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate):
             growth = market['annual_carry'] / market['annual_discount']
             funded = spot-sum(q/growth**ex for q, ex in zip(market['cash_means'], market['cash_times']))
             a = funded*growth**t
@@ -39,31 +39,35 @@ class BarrierStyles(unittest.TestCase):
                 stock = a*np.exp(mu+sd*z)+b
                 hit = stock+cash >= barrier if up else stock <= barrier
                 active = hit if knock_in else ~hit
-                payoff = np.maximum(stock-strike if call else strike-stock, 0)*active
+                payoff = notional*np.maximum(stock-strike if call else strike-stock, 0)*active + rebate*(~active)
                 value += (right-left)/2 * (w @ (payoff*np.exp(-z*z/2)/math.sqrt(2*math.pi)))
             return value*market['annual_discount']**market['payment_time']
 
-        for up in (True, False):
-            for call in (True, False):
-                for knock_in in (True, False):
-                    barrier, strike = (105. if up else 95.), (80. if call else 110.)
-                    actual = path_values(case, dict(market, barrier=barrier, strike=strike),
-                        np.zeros((1,1,3)), np.full((1,1),.5),
-                        direction='up' if up else 'down', side='call' if call else 'put',
-                        style='knock_in' if knock_in else 'knock_out')[0]
-                    price = lambda spot: quadrature(spot, barrier, strike, up, call, knock_in)
-                    spot, bump = market['spot'], 1e-3
-                    expected = [price(spot), (price(spot+bump)-price(spot-bump))/(2*bump)]
-                    np.testing.assert_allclose(actual, expected, rtol=0, atol=4e-9)
+        for notional, rebate in [(1., 0.), (2., 7.)]:
+            for strike in (1., 80., 110., 1000.):
+                for up in (True, False):
+                    for call in (True, False):
+                        for knock_in in (True, False):
+                            barrier = 105. if up else 95.
+                            actual = path_values(case, dict(market, barrier=barrier, strike=strike),
+                                np.zeros((1,1,3)), np.full((1,1),.5),
+                                direction='up' if up else 'down', side='call' if call else 'put',
+                                style='knock_in' if knock_in else 'knock_out', notional=notional, rebate=rebate)[0]
+                            price = lambda spot: quadrature(spot, barrier, strike, up, call, knock_in, notional, rebate)
+                            spot, bump = market['spot'], .01
+                            coarse = (price(spot+bump)-price(spot-bump))/(2*bump)
+                            fine = (price(spot+bump/2)-price(spot-bump/2))/bump
+                            expected = [price(spot), (4*fine-coarse)/3]
+                            np.testing.assert_allclose(actual, expected, rtol=0, atol=8e-9)
 
     def test_analytic_tangents_for_every_contract_variant(self):
-        cfg, bases, market = inputs()
+        cfg, bases, market = inputs("rough-barrier-rebates-reference.json")
         rng = np.random.Generator(np.random.PCG64(930))
         z, u = rng.standard_normal((32,8,3)), rng.random((32,8))
         for row in cfg['cases']:
             contract = row['contract']
             m = dict(market, barrier=contract['barrier'], strike=contract['strike'])
-            kwargs = {k: contract[k] for k in ('direction','side','style')}
+            kwargs = {k: contract[k] for k in ('direction','side','style','notional','rebate')}
             base = bases[row['base_case']]
             analytic = path_values(base,m,z,u,**kwargs)[:,1]
             for bump in (1e-3,5e-4):
@@ -72,15 +76,16 @@ class BarrierStyles(unittest.TestCase):
                 np.testing.assert_allclose(analytic,fd,rtol=0,atol=2e-6)
 
     def test_retained_batch_errors_and_precision(self):
-        cfg, _, _ = inputs()
-        for row in cfg['cases']:
-            means = np.asarray(row['batch_means'])
-            self.assertEqual(means.shape, (cfg['sampling']['batches'],2))
-            se = means.std(axis=0,ddof=1)/np.sqrt(len(means))
-            for j,q in enumerate(('price','delta')):
-                self.assertAlmostEqual(means[:,j].mean(),row[q],delta=2e-13)
-                self.assertAlmostEqual(se[j],row[q+'_se'],delta=2e-13)
-                self.assertLess(se[j],cfg['acceptance']['reference_'+q+'_se'])
+        for filename in ("rough-barrier-styles-reference.json", "rough-barrier-rebates-reference.json"):
+            cfg, _, _ = inputs(filename)
+            for row in cfg['cases']:
+                means = np.asarray(row['batch_means'])
+                self.assertEqual(means.shape, (cfg['sampling']['batches'],2))
+                se = means.std(axis=0,ddof=1)/np.sqrt(len(means))
+                for j,q in enumerate(('price','delta')):
+                    self.assertAlmostEqual(means[:,j].mean(),row[q],delta=2e-13)
+                    self.assertAlmostEqual(se[j],row[q+'_se'],delta=2e-13)
+                    self.assertLess(se[j],cfg['acceptance']['reference_'+q+'_se'])
 
 
 if __name__ == '__main__':

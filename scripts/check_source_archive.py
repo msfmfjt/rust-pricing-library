@@ -16,6 +16,8 @@ REQUIRED_FILES = {
     'tests/python/rough_dividend_barrier_styles.py',
     'tests/python/test_rough_dividend_barrier_styles.py',
     'fixtures/stochastic-dividends/rough-barrier-styles-reference.json',
+    'fixtures/stochastic-dividends/rough-barrier-rebates-reference.json',
+    'design/validation/stochastic-dividend-hard-barrier-rebates.md',
     'design/validation/stochastic-dividend-hard-barrier-styles.md',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_hard_barrier.rs',
     'crates/pricing/src/engine/risk/stochastic_dividends/lsv_hard_barrier/tests.rs',
@@ -323,6 +325,8 @@ INTERNAL_WORKSPACE_DEPENDENCIES = {
 
 REQUIRED_CI_SNIPPETS = {
     'python tests/python/rough_dividend_barrier_styles.py',
+    'python tests/python/rough_dividend_barrier_styles.py rough-barrier-rebates-reference.json',
+    '            stochastic-dividend-barrier-rebates-reference.log',
     '            stochastic-dividend-barrier-styles-reference.log',
     'cargo test --locked --release -p pricing --lib lsv_hard_barrier -- --nocapture',
     '            stochastic-dividend-hard-barrier-risk.log',

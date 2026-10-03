@@ -9,8 +9,8 @@ from rough_dividend_survival_reference import path_values
 DIRECTORY = Path(__file__).resolve().parents[2] / 'fixtures/stochastic-dividends'
 
 
-def inputs():
-    cfg = json.loads((DIRECTORY / 'rough-barrier-styles-reference.json').read_text())
+def inputs(filename="rough-barrier-styles-reference.json"):
+    cfg = json.loads((DIRECTORY / filename).read_text())
     source = json.loads((DIRECTORY / cfg['source_fixture']).read_text())
     market = json.loads((DIRECTORY / source['market_contract_fixture']).read_text())
     bases = {c['id']: c for c in source['cases']}
@@ -22,7 +22,7 @@ def batch_means(case, base, market, sampling):
     pairs, steps = sampling['antithetic_pairs_per_batch'], len(base['times']) - 1
     contract = case['contract']
     market = dict(market, barrier=contract['barrier'], strike=contract['strike'])
-    kwargs = {k: contract[k] for k in ('direction', 'side', 'style')}
+    kwargs = {k: contract[k] for k in ('direction', 'side', 'style', 'notional', 'rebate') if k in contract}
     means = []
     for _ in range(sampling['batches']):
         z, u = rng.standard_normal((pairs, steps, 3)), rng.random((pairs, steps))
@@ -32,8 +32,8 @@ def batch_means(case, base, market, sampling):
     return np.asarray(means)
 
 
-def verify_fixture():
-    cfg, bases, market = inputs()
+def verify_fixture(filename="rough-barrier-styles-reference.json"):
+    cfg, bases, market = inputs(filename)
     for case in cfg['cases']:
         means = batch_means(case, bases[case['base_case']], market, cfg['sampling'])
         np.testing.assert_allclose(means, case['batch_means'], rtol=0, atol=1e-9)
@@ -45,4 +45,5 @@ def verify_fixture():
 
 
 if __name__ == '__main__':
-    verify_fixture()
+    import sys
+    verify_fixture(*sys.argv[1:])

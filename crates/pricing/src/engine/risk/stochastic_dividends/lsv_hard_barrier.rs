@@ -23,10 +23,19 @@ pub(super) struct HardBarrierPlan {
     conditional_root: f64,
 }
 
+// Values before payment discount; payoff also excludes contractual notional.
+#[derive(Default)]
+struct ConditionalLeg {
+    payoff: [f64; 2],
+    survival: [f64; 2],
+    hit: [f64; 2],
+}
+
 impl StochasticDividendPricingPlan {
     /// Hard-payoff physical-Spot Delta by survival conditioning. Supports rough
-    /// residual LSV, discrete up/down knock-in/out calls/puts, future monitoring and no
-    /// rebate or smoothing. Requires positive conditional equity variance.
+    /// residual LSV, discrete up/down knock-in/out calls/puts with optional fixed
+    /// cash rebates at payment, future monitoring and no smoothing. Requires
+    /// positive conditional equity variance.
     /// Leverage is re-anchored under Spot; calibration uncertainty and time-grid
     /// bias are excluded from the reported MC/RQMC standard errors.
     pub fn evaluate_lsv_hard_barrier_spot_risk(
@@ -38,7 +47,7 @@ impl StochasticDividendPricingPlan {
 
 fn unsupported() -> MonteCarloError {
     MonteCarloError::UnsupportedRiskForModel {
-        model: "hard Barrier Spot risk requires rough residual LSV, an unsmoothed discrete Barrier call/put, future monitoring, no rebate, and positive conditional equity variance",
+        model: "hard Barrier Spot risk requires rough residual LSV, an unsmoothed discrete Barrier call/put, future monitoring, and positive conditional equity variance",
     }
 }
 
@@ -54,7 +63,6 @@ impl HardBarrierPlan {
         };
         let barrier = plan.barrier.as_ref().ok_or_else(unsupported)?;
         if barrier.monitoring() != BarrierMonitoring::Discrete
-            || barrier.rebate().is_some()
             || plan.base.payoff_smoothing.is_some()
         {
             return Err(unsupported());
@@ -150,14 +158,25 @@ impl HardBarrierPlan {
         }
         let ko = self.leg(plan, z, &loadings, true)?;
         let barrier = plan.barrier.as_ref().expect("validated Barrier");
-        let value = if barrier.style() == BarrierStyle::KnockIn {
+        let (payoff, inactive) = if barrier.style() == BarrierStyle::KnockIn {
             let vanilla = self.leg(plan, z, &loadings, false)?;
-            [vanilla[0] - ko[0], vanilla[1] - ko[1]]
+            (
+                [
+                    vanilla.payoff[0] - ko.payoff[0],
+                    vanilla.payoff[1] - ko.payoff[1],
+                ],
+                ko.survival,
+            )
         } else {
-            ko
+            (ko.payoff, ko.hit)
         };
-        let scale = plan.base.discount * barrier.notional().get();
-        let result = value.map(|v| scale * v);
+        let notional = barrier.notional().get();
+        let rebate = barrier.rebate().map_or(0.0, |r| r.get());
+        // Rebate is fixed cash, independent of notional, paid when the vanilla
+        // branch is inactive. Combine inside the sample to preserve covariance.
+        let result = std::array::from_fn(|j| {
+            plan.base.discount * (notional * payoff[j] + rebate * inactive[j])
+        });
         if result.iter().any(|v| !v.is_finite()) {
             return Err(invalid("hard_barrier_sample").into());
         }
@@ -170,7 +189,7 @@ impl HardBarrierPlan {
         z: &[f64],
         loadings: &[f64],
         knockout: bool,
-    ) -> Result<[f64; 2], MonteCarloError> {
+    ) -> Result<ConditionalLeg, MonteCarloError> {
         let surface = plan.path.lsv_surface().expect("validated LSV");
         let barrier = plan.barrier.as_ref().expect("validated Barrier");
         let model = plan.path.model();
@@ -178,6 +197,7 @@ impl HardBarrierPlan {
         let mut f: f64 = 1.0;
         let mut y = 1.0;
         let (mut df, mut dy, mut weight, mut dweight) = (0.0, 0.0, 1.0, 0.0);
+        let mut hit_weight = 0.0;
         for (i, step) in plan.path.times().windows(2).enumerate() {
             let dt = step[1] - step[0];
             let lookup = surface.lookup_row(self.rows[i], f.ln());
@@ -216,9 +236,29 @@ impl HardBarrierPlan {
             let dboundary = -monitor_b * du / monitor_q - boundary * growth / monitor_q;
             let monitored = knockout && self.monitors[i + 1];
             if monitored && up && boundary <= 0.0 {
-                return Ok([0.0, 0.0]);
+                return Ok(ConditionalLeg {
+                    hit: [1.0, 0.0],
+                    ..ConditionalLeg::default()
+                });
             }
             if i + 2 == plan.path.times().len() {
+                // Survival is independent of the exercise region. Even when
+                // the vanilla payoff is identically zero, a rebate can remain.
+                let (probability, dprobability, hit_probability) = if monitored && boundary > 0.0 {
+                    let sign = if up { 1.0 } else { -1.0 };
+                    let raw = (boundary.ln() - mu) / s;
+                    let cutoff = sign * raw;
+                    let dcutoff = sign * (dboundary / boundary - dmu - raw * ds) / s;
+                    (cdf(cutoff), pdf(cutoff) * dcutoff, cdf(-cutoff))
+                } else {
+                    (1.0, 0.0, 0.0)
+                };
+                let survival_delta = dweight * probability + weight * dprobability;
+                let mut result = ConditionalLeg {
+                    payoff: [0.0, 0.0],
+                    survival: [weight * probability, survival_delta],
+                    hit: [hit_weight + weight * hit_probability, -survival_delta],
+                };
                 let q = a + b * link;
                 let constant = b * u + c - barrier.strike().get();
                 let dconstant = b * du;
@@ -243,7 +283,7 @@ impl HardBarrierPlan {
                     }
                 }
                 if upper.0 <= lower.0 {
-                    return Ok([0.0, 0.0]);
+                    return Ok(result);
                 }
                 let mean = (mu + 0.5 * s * s).exp();
                 if !mean.is_finite() || mean <= 0.0 {
@@ -277,7 +317,8 @@ impl HardBarrierPlan {
                     (tail(upper), tail(lower))
                 };
                 let value = [first[0] - second[0], first[1] - second[1]];
-                return Ok([weight * value[0], dweight * value[0] + weight * value[1]]);
+                result.payoff = [weight * value[0], dweight * value[0] + weight * value[1]];
+                return Ok(result);
             }
             let mut equity = z[4 * i + 3];
             let mut dequity = 0.0;
@@ -303,6 +344,9 @@ impl HardBarrierPlan {
                 .map_err(|_| invalid("hard_barrier_survival_quantile"))?;
                 dequity = sign * uniform * dprobability / pdf(equity);
                 equity *= sign;
+                // Sum disjoint first-hit masses using complementary CDFs;
+                // subtracting survival from one would lose rare-hit rebates.
+                hit_weight += weight * cdf(-cutoff);
                 dweight = dweight * probability + weight * dprobability;
                 weight *= probability;
             }

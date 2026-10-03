@@ -8,9 +8,9 @@ requirement for discontinuous payoffs.
 
 ## Contract and estimator
 
-Supported contracts are discrete up/down knock-in/out calls and puts without rebates, with
+Supported contracts are discrete up/down knock-in/out calls and puts with optional fixed cash rebates and
 all monitoring dates strictly after valuation. Payment may follow expiry;
-cash means beyond expiry remain funded. Rebates, historical
+cash means beyond expiry remain funded. Historical
 or initial observations, smoothing requests, non-rough models, and degenerate
 conditional equity laws are rejected. Continuous monitoring remains rejected
 by the shared compiler. Other Greeks and Python/request-level dispatch are
@@ -45,7 +45,10 @@ The knock-out estimator is the survival-weighted vanilla payoff. Knock-in is
 a coupled vanilla payoff minus that knock-out. Terminal intrinsic value uses
 post-cash stock; monitoring checks the pre/post-cash maximum for Up and
 minimum for Down. The result includes contractual
-notional and the discount factor to the payment date.
+notional and the discount factor to the payment date. A fixed cash rebate
+pays on the inactive branch, independently of notional. Its probability
+and Spot tangent are combined with the payoff inside each sampling unit;
+see the [rebate derivation and controls](stochastic-dividend-hard-barrier-rebates.md).
 
 The [independent Python reference](stochastic-dividend-survival-barrier-reference.md)
 implements this law without calling the Rust transition, payoff, derivative,
@@ -64,7 +67,7 @@ The new method shares the existing deterministic MC/RQMC reduction. MC errors
 use independent antithetic-pair means when enabled; RQMC errors use independent
 scramble means. Brownian bridge operates on the independent normal coordinates
 before conditional transport. Knock-in's two legs are combined within each
-sampling unit, preserving their covariance. `evaluated_paths` counts signed
+sampling unit, preserving their covariance, including the rebate. `evaluated_paths` counts signed
 input samples, not the two coupled legs separately.
 
 The method label is
@@ -86,20 +89,23 @@ finite-bump risk is performed.
 
 ## Validation
 
-Six fast unit tests cover:
+Nine fast unit tests cover:
 
 - Per-sample analytic Delta against two full-recalibration Spot bumps, at
   H=0.1/0.3/0.5, with and without terminal monitoring, for all eight
-  direction/side/style combinations (2e-6 absolute tolerance).
+  direction/side/style combinations, with and without a rebate and notional=2
+  (2e-6 absolute tolerance).
 - MC means and standard errors against explicit sampling-unit reductions,
   both with and without antithetics, plus identical results with 1/2 workers.
-- Rejection of rebates, initial observations, Asian
+- Rejection of initial observations, Asian
   contracts and singular conditioning correlations.
 - Knock-in/out parity and notional scaling on common inputs with delayed
   payment, including both price and Delta for Up/Down and Call/Put.
 - Complementary-tail transport when the ordinary CDF rounds to one, and
   errors for unrepresentable quantiles and nonfinite normals.
 - Nonpositive cutoffs: impossible Up survival versus unrestricted Down survival.
+- Fixed cash rebate parity and independence from notional, terminal/nonterminal
+  monitoring, empty exercise intervals, and rare-hit complementary tails.
 
 A public integration control checks replay, counts, uncertainty scope,
 fingerprint separation, smoothing rejection and unchanged ordinary valuation.
@@ -130,11 +136,12 @@ cargo test --locked --release -p pricing --test stochastic_dividend_barrier_refe
 ```
 
 The full Barrier integration suite includes the earlier smoothed comparisons
-as regression controls. Its five numerical panels emit 148 JSON rows: 72
+as regression controls. Its six numerical panels emit 212 JSON rows: 72
 earlier reference comparisons, 28 Up Call production comparisons and 48
-[direction/side extension comparisons](stochastic-dividend-hard-barrier-styles.md). The
+[direction/side extension comparisons](stochastic-dividend-hard-barrier-styles.md),
+plus 64 [rebate comparisons](stochastic-dividend-hard-barrier-rebates.md). The
 three-OS Barrier CI job retains these in the existing reference log and runs
-the six fast controls in `stochastic-dividend-hard-barrier-risk.log`.
+the nine fast controls in `stochastic-dividend-hard-barrier-risk.log`.
 
 This validates the stated discrete laws and Spot convention conditional on
 finite-particle calibration. It does not certify continuous-time accuracy,

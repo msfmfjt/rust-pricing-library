@@ -72,8 +72,10 @@ fn build_plan(
         for key in ["side", "direction", "style"] {
             v["product"][key] = json!({"type":contract[key]});
         }
-        for key in ["strike", "barrier"] {
-            v["product"][key] = contract[key].clone();
+        for key in ["strike", "barrier", "notional", "rebate"] {
+            if let Some(value) = contract.get(key) {
+                v["product"][key] = value.clone();
+            }
         }
     }
     v["model"] = json!({"type":"local_volatility", "local_variance_grid":{
@@ -461,6 +463,20 @@ fn production_hard_barrier_directions_and_sides_match_independent_references() {
         "../../../fixtures/stochastic-dividends/rough-barrier-styles-reference.json"
     ))
     .unwrap();
+    check_contract_references(&fixture, "production_hard_barrier_directions_and_sides");
+}
+
+#[test]
+#[ignore = "release-mode production hard Barrier fixed cash rebates"]
+fn production_hard_barrier_rebates_match_independent_references() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/stochastic-dividends/rough-barrier-rebates-reference.json"
+    ))
+    .unwrap();
+    check_contract_references(&fixture, "production_hard_barrier_fixed_cash_rebates");
+}
+
+fn check_contract_references(fixture: &Value, scope: &str) {
     let source = survival_reference();
     let acceptance = &fixture["acceptance"];
     let mut failures = Vec::new();
@@ -515,7 +531,7 @@ fn production_hard_barrier_directions_and_sides_match_independent_references() {
                     .unwrap();
                 println!(
                     "{}",
-                    json!({"scope":"production_hard_barrier_directions_and_sides",
+                    json!({"scope":scope,
                     "case":case["id"],"seed":seed,"contract":case["contract"],"quantity":quantity,
                     "value":value,"scramble_se":se,"reference":expected,"reference_se":reference_se,
                     "combined_se":combined,"abs_difference_plus_4se":bound,"limit":limit,

@@ -344,15 +344,17 @@ values.
 
 For rough residual LSV, hard-payoff Barrier Spot risk is available through
 `evaluate_lsv_hard_barrier_spot_risk()`. This separate Rust method supports
-discrete up/down knock-in/out calls and puts with future monitoring, no rebate and no payoff
-smoothing. It conditions on survival at every monitoring date and integrates
+discrete up/down knock-in/out calls and puts with future monitoring, optional
+fixed cash rebates and no payoff smoothing. A rebate pays when the vanilla
+branch is inactive, without notional scaling, at the contractual payment date. It conditions on survival at every monitoring date and integrates
 the final equity innovation, differentiating the survival weights and
 conditional paths analytically. It returns `StochasticDividendLsvSpotRisk`
 with a distinct method label and price fingerprint. Its standard errors use
 MC antithetic units or RQMC scramble means and exclude calibration uncertainty
 and time-grid bias. Positive conditional equity variance is required;
 unsupported contracts and unrepresentable numerical transports return errors.
-See the [contract and validation](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md).
+See the [contract and validation](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md)
+and [rebate controls](../../design/validation/stochastic-dividend-hard-barrier-rebates.md).
 The original `evaluate_lsv_spot_risk()` still requires smoothing for Barrier
 payoffs; the new method does not add other hard-payoff Greeks or request-level
 Delta dispatch.
@@ -802,7 +804,8 @@ Its paired-error gates isolate finite-grid evolution sensitivity; they do not
 provide a continuous-time error bound or enable public unsmoothed Spot risk.
 The dedicated [hard Barrier Spot-risk method](../../design/validation/stochastic-dividend-hard-barrier-spot-risk.md)
 uses these independent references to validate production survival-conditioned
-price/Delta for discrete up/down knock-in/out calls and puts without rebates.
+price/Delta for discrete up/down knock-in/out calls and puts, including
+[fixed cash rebates](../../design/validation/stochastic-dividend-hard-barrier-rebates.md).
 These finite-grid checks distinguish implementation and uncertainty aggregation
 from continuous-time pricing accuracy. Broad rough-dividend exotic accuracy
 remains outside this validation panel.
