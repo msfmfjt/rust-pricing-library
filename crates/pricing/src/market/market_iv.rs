@@ -2,7 +2,9 @@
 //! linear total variance in time, and its exact quote transpose.
 //! No strike extrapolation or arbitrage repair is silently applied.
 
-use crate::market::{ImpliedVarianceSurface, MarketError, ThetaRegion, TotalVarianceDerivatives};
+use crate::market::{
+    ImpliedVarianceSurface, LocalVarianceGrid, MarketError, ThetaRegion, TotalVarianceDerivatives,
+};
 
 pub const MARKET_IV_INTERPOLATION: &str = "natural-cubic-w-linear-time-v1";
 type TimeWeights = (Vec<(usize, f64, f64)>, ThetaRegion);
@@ -87,6 +89,27 @@ impl MarketIvSurface {
     #[must_use]
     pub fn implied_volatilities(&self) -> &[f64] {
         &self.volatilities
+    }
+
+    /// Build a Dupire target on the supplied axes, rejecting every floor/cap
+    /// repair. Time zero uses the first positive target time, as in the standard
+    /// grid builder. Target log nodes must lie inside the quote domain.
+    pub fn local_variance_grid(
+        &self,
+        time_nodes: Vec<f64>,
+        log_moneyness_nodes: Vec<f64>,
+        floor: f64,
+        cap: f64,
+    ) -> Result<LocalVarianceGrid, MarketError> {
+        let grid =
+            LocalVarianceGrid::from_surface(self, time_nodes, log_moneyness_nodes, floor, cap)?;
+        if let Some(repair) = grid.repairs().first() {
+            return Err(MarketError::InvalidSurfaceParameter {
+                parameter: "market_iv_local_variance_repair",
+                bits: repair.original_bits,
+            });
+        }
+        Ok(grid)
     }
 
     /// Seeds in order (w, w_x, w_xx, w_t); axes and quote interpretation fixed.

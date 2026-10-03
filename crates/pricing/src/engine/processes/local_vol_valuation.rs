@@ -285,6 +285,9 @@ impl SimulationPlan {
         path: &LocalVolPath,
         spot: f64,
     ) -> Result<LocalVolContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        if let Some(survival) = barrier.resolved_survival() {
+            return Ok(LocalVolContinuousBarrierBridgeEvaluation::Resolved { survival });
+        }
         let nodes = local_volatility.plan.time_grid().nodes();
         let end_node = nodes
             .iter()

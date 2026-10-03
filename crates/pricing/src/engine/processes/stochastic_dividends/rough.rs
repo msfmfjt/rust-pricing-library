@@ -206,6 +206,19 @@ impl RoughDividendKernel {
         times: &[f64],
         normals: &[f64],
     ) -> Result<Vec<BuehlerDividendState>, StochasticDividendError> {
+        self.evolve_with_volatilities(model, sigma0, times, normals, None)
+    }
+
+    /// Optionally retain the causal, left-node volatility actually used by the
+    /// split. Continuous monitoring must not reconstruct it from the next node.
+    pub(super) fn evolve_with_volatilities(
+        &self,
+        model: BuehlerDividendModel,
+        sigma0: f64,
+        times: &[f64],
+        normals: &[f64],
+        mut volatilities: Option<&mut Vec<f64>>,
+    ) -> Result<Vec<BuehlerDividendState>, StochasticDividendError> {
         let mut increments = Vec::with_capacity(self.steps.len());
         let mut state = BuehlerDividendState::initial();
         let mut states = Vec::with_capacity(times.len());
@@ -233,6 +246,9 @@ impl RoughDividendKernel {
                 positive(sigma, "rough_equity_volatility")?;
                 sigma
             };
+            if let Some(values) = &mut volatilities {
+                values.push(sigma);
+            }
             state = model.evolve(state, sigma, times[i + 1] - times[i], [z[0], z[1]])?;
             states.push(state);
             let (dw, near) = self.innovations(i, z);

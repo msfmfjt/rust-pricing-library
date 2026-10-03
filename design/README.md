@@ -53,6 +53,35 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
+adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump
+checks, independent NumPy comparisons and coupled fixed-surface refinement.
+It does not claim an exact nonlinear crossing law or continuous Barrier Greeks.
+
+The [hard Barrier Spot-risk method](validation/stochastic-dividend-hard-barrier-spot-risk.md)
+adds production survival-conditioned price and Delta for discrete rough-LSV
+up/down knock-in/out calls and puts, including
+[fixed cash rebates](validation/stochastic-dividend-hard-barrier-rebates.md),
+with independent-reference and sampling-error controls. The
+[Python example](../examples/python/rough_dividend_hard_barrier.py) uses the
+dedicated hard-payoff method on a price-only rough-LSV plan.
+
+The [hard Barrier refinement panel](validation/stochastic-dividend-hard-barrier-refinement.md)
+checks price and analytic Spot Delta on 16/32/64/128-step grids while keeping
+the calibrated surface and four observation dates fixed.
+
+The [multi-step survival reference](validation/stochastic-dividend-survival-barrier-reference.md)
+checks hard Barrier price and Spot Delta on 4/8-step grids with 2/4 monitoring
+dates, including independent reference sampling uncertainty.
+
+The [conditional hard Barrier reference](validation/stochastic-dividend-conditional-barrier-reference.md)
+adds independent price and Spot Delta for two-step rough LSV with nonzero
+vol-of-vol, dividend mean reversion, and a nonflat frozen leverage surface.
+
+The [hard two-date Barrier reference](validation/stochastic-dividend-hard-barrier-reference.md)
+checks stochastic-dividend price and Spot Delta in an exact lognormal limit
+using independent Gaussian integration, including both monitoring boundaries.
+
 The [rough diffusion-cache record](validation/rough-diffusion-cache.md) isolates
 arithmetic-preserving path acceleration from numerical-scheme changes.
 

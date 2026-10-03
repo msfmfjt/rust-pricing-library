@@ -98,6 +98,9 @@ impl SimulationPlan {
         spot: f64,
         volatility: f64,
     ) -> Result<ContinuousBarrierBridgeEvaluation, MonteCarloError> {
+        if let Some(survival) = barrier.resolved_survival() {
+            return Ok(ContinuousBarrierBridgeEvaluation::Resolved { survival });
+        }
         if let Some(PayoffSmoothing::CompactC2 { half_width }) = self.payoff_smoothing {
             return self.smoothed_continuous_barrier_bridge(
                 barrier,
@@ -712,7 +715,8 @@ impl SimulationPlan {
                     }
                 }
             }
-            ContinuousBarrierBridgeEvaluation::Exact(_) => {}
+            ContinuousBarrierBridgeEvaluation::Exact(_)
+            | ContinuousBarrierBridgeEvaluation::Resolved { .. } => {}
         }
 
         let mut delta = initial_state_adjoint;

@@ -38,6 +38,19 @@ jobs:
           } 2>&1 | tee stochastic-dividend-hw-risk.log
       - name: Check common-noise refinement
         run: cargo test --locked --release -p pricing --test stochastic_dividend_refinement --test stochastic_dividend_hull_white_refinement -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-refinement.log
+      - name: Check rough residual-LSV uncertainty
+        run: |
+          set -o pipefail
+          {
+            cargo test --locked --release -p pricing --lib lsv_uncertainty_tests -- --nocapture
+            cargo test --locked --release -p pricing --test stochastic_dividend_rough_lsv -- --nocapture
+          } 2>&1 | tee stochastic-dividend-rough-lsv.log
+      - name: Check conditional rough residual-LSV refinement
+        run: cargo test --locked --release -p pricing --lib lsv_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-refinement.log
+      - name: Check rough residual-LSV recalibration and particles
+        run: cargo test --locked --release -p pricing --lib lsv_calibration_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-calibration-refinement.log
+      - name: Check rough residual-LSV Asian and Barrier refinement
+        run: cargo test --locked --release -p pricing --lib lsv_path_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-path-refinement.log
       - name: Retain risk and refinement evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -47,6 +60,100 @@ jobs:
             stochastic-dividend-risk.log
             stochastic-dividend-hw-risk.log
             stochastic-dividend-refinement.log
+            stochastic-dividend-rough-lsv.log
+            stochastic-dividend-rough-lsv-refinement.log
+            stochastic-dividend-rough-lsv-calibration-refinement.log
+            stochastic-dividend-rough-lsv-path-refinement.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  rough-dividend-smoothing:
+    name: Rough dividend Barrier smoothing / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check fixed-grid Barrier smoothing widths
+        run: cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-barrier-smoothing.log
+      - name: Check exact-limit and multi-step hard Barrier references
+        run: cargo test --locked --release -p pricing --test stochastic_dividend_barrier_reference -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-hard-barrier-reference.log
+      - name: Check production hard Barrier Spot risk controls
+        run: cargo test --locked --release -p pricing --lib lsv_hard_barrier -- --nocapture 2>&1 | tee stochastic-dividend-hard-barrier-risk.log
+      - name: Check resolved continuous stochastic-dividend contracts
+        run: cargo test --locked --release -p pricing --lib resolved_barrier_tests -- --nocapture 2>&1 | tee stochastic-dividend-resolved-barrier.log
+      - name: Check continuous stochastic-dividend bridge approximation
+        run: cargo test --locked --release -p pricing --lib stochastic_dividends::continuous_barrier -- --nocapture 2>&1 | tee stochastic-dividend-continuous-barrier.log
+      - name: Check independent rough particle calibration
+        run: cargo test --locked --release -p pricing --test rough_lsv_calibration_reference -- --nocapture 2>&1 | tee stochastic-dividend-independent-calibration.log
+      - name: Retain Barrier smoothing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rough-dividend-barrier-smoothing-${{ matrix.os }}
+          path: |
+            stochastic-dividend-rough-lsv-barrier-smoothing.log
+            stochastic-dividend-hard-barrier-reference.log
+            stochastic-dividend-hard-barrier-risk.log
+            stochastic-dividend-resolved-barrier.log
+            stochastic-dividend-continuous-barrier.log
+            stochastic-dividend-independent-calibration.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  rough-dividend-survival-reference:
+    name: Independent hard Barrier references and refinement / Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install reference dependency
+        run: python -m pip install "numpy>=2.0,<3.0"
+      - name: Regenerate retained independent reference batches
+        run: python tests/python/rough_dividend_survival_reference.py 2>&1 | tee stochastic-dividend-survival-reference.log
+      - name: Check fixed-surface hard Barrier refinement
+        run: python tests/python/rough_dividend_hard_refinement.py 2>&1 | tee stochastic-dividend-hard-refinement.log
+      - name: Regenerate independent Barrier directions and option sides
+        run: python tests/python/rough_dividend_barrier_styles.py 2>&1 | tee stochastic-dividend-barrier-styles-reference.log
+      - name: Regenerate independent fixed cash rebate references
+        run: python tests/python/rough_dividend_barrier_styles.py rough-barrier-rebates-reference.json 2>&1 | tee stochastic-dividend-barrier-rebates-reference.log
+      - name: Regenerate continuous bridge approximation and refinement references
+        env:
+          OPENBLAS_NUM_THREADS: 1
+        run: python tests/python/rough_dividend_continuous_reference.py 2>&1 | tee stochastic-dividend-continuous-reference.log
+      - name: Regenerate independent continuous quote-IV references
+        env:
+          OPENBLAS_NUM_THREADS: 1
+        run: python tests/python/rough_dividend_market_iv_reference.py 2>&1 | tee stochastic-dividend-market-iv-reference.log
+      - name: Recompute independent rough particle calibration
+        env:
+          OPENBLAS_NUM_THREADS: 1
+        run: python tests/python/test_rough_lsv_calibration_reference.py 2>&1 | tee stochastic-dividend-independent-calibration-numpy.log
+      - name: Retain independent reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rough-dividend-survival-reference-linux
+          path: |
+            stochastic-dividend-survival-reference.log
+            stochastic-dividend-hard-refinement.log
+            stochastic-dividend-barrier-styles-reference.log
+            stochastic-dividend-barrier-rebates-reference.log
+            stochastic-dividend-continuous-reference.log
+            stochastic-dividend-market-iv-reference.log
+            stochastic-dividend-independent-calibration-numpy.log
           retention-days: 14
           if-no-files-found: warn
 
