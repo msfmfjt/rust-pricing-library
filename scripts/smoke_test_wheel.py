@@ -120,6 +120,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_hurst_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
@@ -1002,6 +1003,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "HestonParameterSensitivities",
         "HestonFourierParameterRisk",
         "HestonFourierParameterRiskPlan",
+        "HestonFourierHurstRisk",
+        "HestonFourierHurstRiskPlan",
 
         "ForwardVarianceCurve",
         "RoughVolatilityModel",
@@ -1241,6 +1244,12 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ("HestonFourierPlan", "hurst_risk_plan"): "HestonFourierHurstRiskPlan",
+        ("HestonFourierHurstRiskPlan", "price"): "HestonFourierHurstRisk",
+        ("HestonFourierHurstRisk", "price"): "HestonFourierPrice",
+        ("HestonFourierHurstRisk", "hurst_sensitivity"): "float",
+        ("HestonFourierHurstRisk", "quadrature_difference"): "float",
+        ("HestonFourierHurstRisk", "tail_indicator"): "float",
         ("ValidationIssue", "phase"): "ValidationPhase",
     }
     for (class_name, method_name), expected in sorted(expected_return_names.items()):
@@ -1252,6 +1261,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('HestonFourierPlan', 'hurst_risk_plan'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierHurstRiskPlan', 'price'): {'positional': ['self', 'forward', 'strike', 'discount'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierHurstRiskPlan', 'log_transform_derivative'): {'positional': ['self', 'real', 'imag'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierHurstRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierHurstRisk', 'hurst_sensitivity'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierHurstRisk', 'quadrature_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonFourierHurstRisk', 'tail_indicator'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonParameterSensitivities', 'initial_variance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonParameterSensitivities', 'mean_reversion'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonParameterSensitivities', 'long_run_variance'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2101,10 +2117,12 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'HestonFourierHurstRisk': {'price','hurst_sensitivity','quadrature_difference','tail_indicator'},
+        'HestonFourierHurstRiskPlan': {'price','log_transform_derivative'},
         'HestonParameterSensitivities': {'initial_variance', 'mean_reversion', 'vol_of_vol', 'long_run_variance', 'correlation'},
         'HestonFourierParameterRisk': {'tail_indicators', 'price', 'sensitivities', 'quadrature_differences'},
         'HestonFourierParameterRiskPlan': {'price', 'log_transform_derivatives'},
-        'HestonFourierPlan': {'compile','price','price_and_greeks','parameter_risk_plan','log_transform','characteristic_function','time_steps','integration_intervals','cutoff'},
+        'HestonFourierPlan': {'compile','price','price_and_greeks','hurst_risk_plan','parameter_risk_plan','log_transform','characteristic_function','time_steps','integration_intervals','cutoff'},
         'HestonFourierPrice': {'call','put','quadrature_difference','tail_indicator'},
         'HestonFourierGreeks': {'price','call_forward_delta','put_forward_delta','forward_gamma','delta_quadrature_difference','gamma_quadrature_difference','delta_tail_indicator','gamma_tail_indicator'},
         'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
@@ -2748,6 +2766,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('HestonFourierHurstRisk', 'price'),
+        ('HestonFourierHurstRisk', 'hurst_sensitivity'),
+        ('HestonFourierHurstRisk', 'quadrature_difference'),
+        ('HestonFourierHurstRisk', 'tail_indicator'),
+
         ('HestonFourierPlan', 'time_steps'),
         ('HestonFourierPlan', 'integration_intervals'),
         ('HestonFourierPlan', 'cutoff'),

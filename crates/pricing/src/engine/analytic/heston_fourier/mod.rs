@@ -2,6 +2,8 @@
 //! See docs/models/rough-heston-fourier.md for definitions, references and limits.
 
 mod greeks;
+mod hurst_risk;
+pub use hurst_risk::{HestonFourierHurstRisk, HestonFourierHurstRiskPlan};
 mod parameter_risk;
 mod riccati;
 use crate::rough_volatility::RoughVolatilityModel;

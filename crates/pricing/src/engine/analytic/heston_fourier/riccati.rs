@@ -5,7 +5,7 @@
 
 use super::{FourierError, HestonFourierConfig};
 use crate::rough_volatility::{RoughHeston, RoughVolatilityModel};
-use pricing_numerics::{Complex64 as C, gamma_half_to_two};
+use pricing_numerics::{Complex64 as C, digamma_half_to_two, gamma_half_to_two};
 
 #[derive(Clone, Debug)]
 enum Kernel {
@@ -116,7 +116,7 @@ impl RiccatiPlan {
         6 * per_node
     }
     pub(super) fn log_transform(&self, z: C) -> Result<C, FourierError> {
-        self.solve::<false>(z).map(|(value, _)| value)
+        self.solve::<false, false>(z, None).map(|(value, _)| value)
     }
     pub(super) fn log_transform_derivatives(&self, z: C) -> Result<(C, [C; 5]), FourierError> {
         if self.maturity > 0.0 && self.control_variance() <= 0.0 {
@@ -124,11 +124,36 @@ impl RiccatiPlan {
                 "parameter risk requires positive initial/control variance at positive maturity",
             ));
         }
-        self.solve::<true>(z)
+        self.solve::<true, false>(z, None)
+    }
+    pub(super) fn hurst_work(&self) -> u64 {
+        // Primal history, tangent history, and differentiated-weight history.
+        3 * (self.steps as u64).pow(2)
+    }
+    pub(super) fn hurst_weights(&self) -> Result<PowerHurstWeights, FourierError> {
+        if !matches!(self.kernel, Kernel::Power { .. }) {
+            return Err(FourierError::InvalidInput(
+                "Hurst risk requires Rough Heston, not a fixed finite lift",
+            ));
+        }
+        PowerHurstWeights::new(self.parameters.hurst(), self.maturity, self.steps)
+    }
+    pub(super) fn log_transform_hurst_derivative(
+        &self,
+        z: C,
+        weights: &PowerHurstWeights,
+    ) -> Result<(C, C), FourierError> {
+        // Lane zero holds ONLY Hurst in this distinct const instantiation.
+        self.solve::<false, true>(z, Some(weights))
+            .map(|(v, d)| (v, d[0]))
     }
     // Preserve the primal operation order. The const-false instantiation performs
     // no tangent allocations or arithmetic; both routes use the same root.
-    fn solve<const RISK: bool>(&self, z: C) -> Result<(C, [C; 5]), FourierError> {
+    fn solve<const RISK: bool, const HURST: bool>(
+        &self,
+        z: C,
+        hurst_weights: Option<&PowerHurstWeights>,
+    ) -> Result<(C, [C; 5]), FourierError> {
         if !z.is_finite() || !(0.0..=1.0).contains(&z.re) || z.im.abs() > 1e6 {
             return Err(FourierError::InvalidInput(
                 "exponent: 0<=real<=1, |imag|<=1e6, finite",
@@ -167,6 +192,10 @@ impl RiccatiPlan {
         } else {
             Vec::new()
         };
+        let mut hurst_history = if HURST { vec![C::ZERO] } else { Vec::new() };
+        let mut hurst_psi = C::ZERO;
+        let mut hurst_f = C::ZERO;
+        let mut hurst_exponent = C::ZERO;
         for n in 1..=self.steps {
             let (past, end) = match &self.kernel {
                 Kernel::Power {
@@ -305,6 +334,47 @@ impl RiccatiPlan {
                 dpsi = next_dpsi;
                 df = next_df;
             }
+            if HURST {
+                let w =
+                    hurst_weights.ok_or(FourierError::NumericalFailure("missing Hurst weights"))?;
+                let Kernel::Power { interior, .. } = &self.kernel else {
+                    return Err(FourierError::InvalidInput(
+                        "Hurst risk requires Rough Heston",
+                    ));
+                };
+                // Differentiate ALL weights, including the newest-cell endpoint.
+                let mut dpast = c * w.initial[n];
+                for j in 1..n {
+                    dpast =
+                        dpast + hurst_history[j] * interior[n - j] + history[j] * w.interior[n - j];
+                }
+                let slope = b + root * (2.0 * a);
+                let denominator = C::ONE - slope * end;
+                if !denominator.is_finite()
+                    || denominator.abs() <= 64.0 * f64::EPSILON * (1.0 + (slope * end).abs())
+                {
+                    return Err(FourierError::NumericalFailure("singular Hurst tangent"));
+                }
+                let next_hpsi = (dpast + next_f * w.endpoint) / denominator;
+                let next_hf = slope * next_hpsi;
+                let residual = next_hpsi - dpast - next_f * w.endpoint - next_hf * end;
+                if !next_hpsi.is_finite()
+                    || !next_hf.is_finite()
+                    || residual.abs() > 1e-9 * (1.0 + next_hpsi.abs() + dpast.abs())
+                {
+                    return Err(FourierError::NumericalFailure(
+                        "Hurst tangent residual/non-finite",
+                    ));
+                }
+                // v0, kappa and theta are fixed: only R and psi depend on H.
+                hurst_exponent = hurst_exponent
+                    + ((hurst_f + next_hf) * p.initial_variance()
+                        + (hurst_psi + next_hpsi) * (p.mean_reversion() * p.long_run_variance()))
+                        * (0.5 * dt);
+                hurst_psi = next_hpsi;
+                hurst_f = next_hf;
+                hurst_history.push(next_hf);
+            }
             if let Kernel::Lift {
                 decay, left, right, ..
             } = &self.kernel
@@ -336,7 +406,98 @@ impl RiccatiPlan {
                 "non-finite log-transform derivative",
             ));
         }
+        if HURST {
+            if !hurst_exponent.is_finite() {
+                return Err(FourierError::NumericalFailure(
+                    "non-finite Hurst log-transform derivative",
+                ));
+            }
+            dexponent[0] = hurst_exponent;
+        }
         Ok((exponent, dexponent))
+    }
+}
+
+/// Analytic H derivatives of the mathematical product-integration weights.
+/// Stored separately so existing price/fixed-parameter plans do not allocate them.
+#[derive(Clone, Debug)]
+pub(super) struct PowerHurstWeights {
+    initial: Vec<f64>,
+    interior: Vec<f64>,
+    endpoint: f64,
+}
+impl PowerHurstWeights {
+    fn new(h: f64, t: f64, n: usize) -> Result<Self, FourierError> {
+        let mut result = Self {
+            initial: vec![0.0; n + 1],
+            interior: vec![0.0; n + 1],
+            endpoint: 0.0,
+        };
+        if t == 0.0 {
+            return Ok(result);
+        }
+        let alpha = h + 0.5;
+        let beta = alpha + 1.0;
+        let dt = t / n as f64;
+        if dt <= 0.0 {
+            return Err(FourierError::NumericalFailure("Hurst time step underflow"));
+        }
+        let gamma =
+            gamma_half_to_two(alpha).ok_or(FourierError::NumericalFailure("Hurst Gamma"))?;
+        let psi =
+            digamma_half_to_two(alpha).ok_or(FourierError::NumericalFailure("Hurst digamma"))?;
+        let endpoint = dt.powf(alpha) / (alpha * beta * gamma);
+        let log_derivative = dt.ln() - psi - 1.0 / alpha - 1.0 / beta;
+        result.endpoint = endpoint * log_derivative;
+        for l in 1..=n {
+            let (a, da, b, db) = if l == 1 {
+                let power = 2.0_f64.powf(beta);
+                (alpha, 1.0, power - 2.0, power * 2.0_f64.ln())
+            } else {
+                // Binomial tails of (1 +/- 1/l)^beta. Start at k=2 rather
+                // than subtract large near-equal powers. Derivative recurrence
+                // does not divide by beta-k: remains valid at beta=2 (H=.5).
+                // 64 terms at |1/l|<=.5; no data-dependent convergence exit.
+                let u = 1.0 / l as f64;
+                let mut c = beta;
+                let mut dc = 1.0;
+                let mut power = u;
+                let (mut a, mut da, mut b, mut db) = (0.0, 0.0, 0.0, 0.0);
+                for k in 2..=64 {
+                    let factor = (beta - k as f64 + 1.0) / k as f64;
+                    dc = dc * factor + c / k as f64;
+                    c *= factor;
+                    power *= u;
+                    let sign = if k % 2 == 0 { 1.0 } else { -1.0 };
+                    a += sign * c * power;
+                    da += sign * dc * power;
+                    if k % 2 == 0 {
+                        b += 2.0 * c * power;
+                        db += 2.0 * dc * power;
+                    }
+                }
+                let x = l as f64;
+                let xp = x.powf(beta);
+                (
+                    xp * a,
+                    xp * (da + a * x.ln()),
+                    xp * b,
+                    xp * (db + b * x.ln()),
+                )
+            };
+            result.initial[l] = endpoint * (log_derivative * a + da);
+            result.interior[l] = endpoint * (log_derivative * b + db);
+        }
+        if result
+            .initial
+            .iter()
+            .chain(result.interior.iter())
+            .chain([&result.endpoint])
+            .any(|x| !x.is_finite())
+        {
+            return Err(FourierError::NumericalFailure("non-finite Hurst weights"));
+        }
+        Ok(result)
     }
 }
 
@@ -364,6 +525,43 @@ fn exponential_weights(r: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn hurst_hat_weights_match_independent_improper_integrals() {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../fixtures/rough-volatility/hurst-risk.json"
+        )))
+        .unwrap();
+        for row in reference["kernels"].as_array().unwrap() {
+            let n = row["steps"].as_u64().unwrap() as usize;
+            let l = row["lag"].as_u64().unwrap() as usize;
+            let w = PowerHurstWeights::new(row["hurst"].as_f64().unwrap(), 1.0, n).unwrap();
+            for (actual, expected) in [w.initial[l], w.interior[l], w.endpoint]
+                .iter()
+                .zip(row["derivatives"].as_array().unwrap())
+            {
+                assert!(
+                    (actual - expected.as_f64().unwrap()).abs() < 3e-13,
+                    "{row}: {actual}"
+                );
+            }
+        }
+        for h in [0.01, 0.1, 0.3, 0.5] {
+            let w = PowerHurstWeights::new(h, 1.0, 8192).unwrap();
+            for n in [1, 2, 128, 8192] {
+                let alpha = h + 0.5;
+                let t = n as f64 / 8192.0;
+                let mass = t.powf(alpha) / (alpha * gamma_half_to_two(alpha).unwrap());
+                let derivative =
+                    mass * (t.ln() - digamma_half_to_two(alpha).unwrap() - 1.0 / alpha);
+                let actual = w.initial[n] + w.endpoint + w.interior[1..n].iter().sum::<f64>();
+                assert!(
+                    (actual - derivative).abs() < 3e-12,
+                    "{h} {n}: {actual} {derivative}"
+                );
+            }
+        }
+    }
     #[test]
     fn exponential_hat_weights_and_power_mass() {
         for r in [0.0, 1e-9, 0.009, 0.01, 1.0, 100.0, 1e8] {

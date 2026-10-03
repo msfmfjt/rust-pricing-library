@@ -168,3 +168,9 @@ recalibrated, or model-parameter Greeks.
 
 [Fixed-kernel scalar parameter sensitivities](heston-parameter-risk.md) are
 available separately from Forward Delta/Gamma and are not calibrated market risk.
+
+## Related Hurst risk
+
+[Power-kernel Hurst sensitivity](heston-hurst-risk.md) is available separately
+through `hurst_risk_plan()`. It differentiates the Rough Heston kernel, holding
+all five scalar parameters fixed; finite lifts are explicitly rejected.

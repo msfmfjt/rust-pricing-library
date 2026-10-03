@@ -94,3 +94,9 @@ calibration uncertainty. Price convergence alone does not certify risk accuracy.
 
 See the [validation protocol](../../design/validation/heston-parameter-risk.md)
 and [executable example](../../examples/python/heston_parameter_risk.py).
+
+## Related Hurst risk
+
+[Power-kernel Hurst sensitivity](heston-hurst-risk.md) is available separately
+through `hurst_risk_plan()`. It differentiates the Rough Heston kernel, holding
+all five scalar parameters fixed; finite lifts are explicitly rejected.
