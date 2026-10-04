@@ -1,0 +1,56 @@
+name: Rough family finite-bump Gamma
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - '**/*rough_family_gamma*'
+      - '**/rough-family-gamma.md'
+      - 'rust_pricing.pyi'
+      - 'scripts/check_source_archive.py'
+      - 'scripts/smoke_test_wheel.py'
+      - '.github/workflows/rough-family-gamma.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: rough-family-gamma-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s scripts -p 'test_rough_family_gamma_contract.py'
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --locked -p pricing --test rough_family_gamma_bump
+      - run: cargo test --locked --no-default-features -p pricing --test rough_family_gamma_bump
+      - name: Execute finite-bump controls and independent Black limits
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test rough_family_gamma_bump -- --include-ignored --nocapture
+          } 2>&1 | tee rough-family-gamma.log
+      - name: Retain numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rough-family-gamma-${{ matrix.os }}
+          path: rough-family-gamma.log
+          retention-days: 14
+          if-no-files-found: error
