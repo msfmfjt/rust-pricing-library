@@ -361,6 +361,11 @@ impl PyRoughVolatilityPlan {
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
     }
+    fn evaluate_heston_parameter_risk(&self, py: Python<'_>) -> PyResult<PyHestonMcParameterRisk> {
+        py.detach(|| self.inner.evaluate_heston_parameter_risk())
+            .map(|inner| PyHestonMcParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_delta(&self, py: Python<'_>) -> PyResult<PyRoughVolatilityDelta> {
         py.detach(|| self.inner.evaluate_delta())
             .map(|inner| PyRoughVolatilityDelta { inner })
@@ -461,6 +466,45 @@ impl PyRoughVolatilityGamma {
     #[getter]
     fn method(&self) -> &'static str {
         self.inner.method
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "HestonMcParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHestonMcParameterRisk {
+    inner: pricing::rough_volatility::HestonMcParameterRisk,
+}
+#[pymethods]
+impl PyHestonMcParameterRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<&'static str> {
+        pricing::rough_volatility::HESTON_MC_PARAMETER_NAMES.to_vec()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "fixed_kernel_heston_scalar_parameters"
     }
     #[getter]
     fn risk_fingerprint(&self) -> String {

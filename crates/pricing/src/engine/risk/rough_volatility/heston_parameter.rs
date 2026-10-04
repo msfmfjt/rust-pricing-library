@@ -1,33 +1,27 @@
-//! Fixed-model physical Spot Delta via payoff, path and escrow reverse.
+//! Pure-SV Heston scalar parameter risk through the full discrete variance history.
+use super::delta::estimate;
 use super::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct RoughVolatilityDelta {
+pub struct HestonMcParameterRisk {
     pub price: RoughVolatilityPrice,
-    pub delta: f64,
-    pub delta_standard_error: f64,
+    /// Natural units: v0, kappa, theta, nu, rho. Not IV Vega or refitted risk.
+    pub parameter_adjoints: [f64; 5],
+    /// Marginal sampling errors; these do not define the covariance of a basket.
+    pub standard_errors: [f64; 5],
     pub method: &'static str,
+    pub risk_fingerprint: Fingerprint,
 }
-pub(super) fn estimate(s: DeterministicStatistics, n: u64) -> Result<(f64, f64), MonteCarloError> {
-    let v = s
-        .moments()
-        .sample_variance()
-        .ok_or(MonteCarloError::InsufficientSamplingUnits { count: n })?;
-    let mean = s.sum().total() / n as f64;
-    let se = (v / n as f64).sqrt();
-    if !mean.is_finite() || !se.is_finite() {
-        return Err(invalid("rough_delta_estimator").into());
-    }
-    Ok((mean, se))
-}
+
 impl RoughVolatilityPricingPlan {
-    /// Physical Spot Delta, keeping all rough-model parameters, rate/repo curves,
-    /// and cash/proportional dividend amounts fixed. No bumps or recalibration.
-    /// Discontinuous payoffs need an explicit supported smoothing contract.
-    pub fn evaluate_delta(&self) -> Result<RoughVolatilityDelta, MonteCarloError> {
+    /// Reverse payoff, log-Euler asset, and the entire rough/lift variance
+    /// recurrence. Fix kernel/Hurst, spot, curves, dividends and Gaussian draws.
+    /// This is not an LSV-parameter recalibration risk or Fourier derivative.
+    pub fn evaluate_heston_parameter_risk(&self) -> Result<HestonMcParameterRisk, MonteCarloError> {
+        self.path.heston_parameter_domain()?;
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
-                model: "rough MC Delta requires a pathwise payoff or explicit smoothing",
+                model: "Heston MC parameter risk requires pathwise payoff or explicit smoothing",
             });
         }
         let executor = DeterministicExecutor::new(self.policy)?;
@@ -35,11 +29,16 @@ impl RoughVolatilityPricingPlan {
             EngineConfig::PseudoMonteCarlo(c) => {
                 let n = c.independent_sampling_units().get();
                 let bridge = self.bridge(c.variance_reduction())?;
-                let stats = executor.try_map_reduce_statistics_vector(n, 2, |i, out| {
+                let stats = executor.try_map_reduce_statistics_vector(n, 6, |i, out| {
                     let z = self
                         .path
                         .pseudo_shocks(c.master_seed(), i, RandomDomain::Valuation);
-                    self.delta_sample(z, bridge.as_ref(), c.variance_reduction().antithetic(), out)
+                    self.heston_parameter_sample(
+                        z,
+                        bridge.as_ref(),
+                        c.variance_reduction().antithetic(),
+                        out,
+                    )
                 })?;
                 (stats, n, c.evaluated_paths())
             }
@@ -49,12 +48,10 @@ impl RoughVolatilityPricingPlan {
                 let bridge = self.bridge(c.variance_reduction())?;
                 let n = c.points_per_scramble().get();
                 let count = c.scramble_count().get();
-                let mut means = [
-                    Vec::with_capacity(count as usize),
-                    Vec::with_capacity(count as usize),
-                ];
+                let mut means: [Vec<f64>; 6] =
+                    std::array::from_fn(|_| Vec::with_capacity(count as usize));
                 for scramble in 0..count {
-                    let stats = executor.try_map_reduce_statistics_vector(n, 2, |i, out| {
+                    let stats = executor.try_map_reduce_statistics_vector(n, 6, |i, out| {
                         let z = (0..dimension)
                             .map(|d| {
                                 let u = qmc
@@ -63,14 +60,14 @@ impl RoughVolatilityPricingPlan {
                                 inverse_standard_normal(u).map_err(|_| invalid("rough_rqmc_normal"))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
-                        self.delta_sample(
+                        self.heston_parameter_sample(
                             z,
                             bridge.as_ref(),
                             c.variance_reduction().antithetic(),
                             out,
                         )
                     })?;
-                    for j in 0..2 {
+                    for j in 0..6 {
                         means[j].push(stats[j].sum().total() / n as f64);
                     }
                 }
@@ -92,8 +89,16 @@ impl RoughVolatilityPricingPlan {
             }
         };
         let (value, standard_error) = estimate(stats[0], units)?;
-        let (delta, delta_standard_error) = estimate(stats[1], units)?;
-        Ok(RoughVolatilityDelta {
+        let mut parameter_adjoints = [0.0; 5];
+        let mut standard_errors = [0.0; 5];
+        for j in 0..5 {
+            (parameter_adjoints[j], standard_errors[j]) = estimate(stats[j + 1], units)?;
+        }
+        let method = "heston-mc-fixed-kernel-parameter-vjp-v1";
+        let mut hash = blake3::Hasher::new();
+        hash.update(method.as_bytes());
+        hash.update(self.fingerprint.as_bytes());
+        Ok(HestonMcParameterRisk {
             price: RoughVolatilityPrice {
                 value,
                 standard_error,
@@ -105,12 +110,14 @@ impl RoughVolatilityPricingPlan {
                 calibration_seed: None,
                 cash_dividend_model: Some(HULL_WHITE_CASH_DIVIDEND_MODEL),
             },
-            delta,
-            delta_standard_error,
-            method: "rough-fixed-model-spot-delta-discrete-vjp-v1",
+            parameter_adjoints,
+            standard_errors,
+            method,
+            risk_fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
         })
     }
-    fn delta_sample(
+
+    fn heston_parameter_sample(
         &self,
         mut normals: Vec<f64>,
         bridge: Option<&BrownianBridgePlan>,
@@ -129,7 +136,9 @@ impl RoughVolatilityPricingPlan {
         let signs = if anti { &[1.0, -1.0][..] } else { &[1.0][..] };
         for &sign in signs {
             let z = normals.iter().map(|v| sign * v).collect::<Vec<_>>();
-            let record = self.path.evolve_recorded_path(self.initial_forward, &z)?;
+            let record = self
+                .path
+                .evolve_heston_parameter_path(self.initial_forward, &z)?;
             let spots = self
                 .observations
                 .iter()
@@ -137,7 +146,7 @@ impl RoughVolatilityPricingPlan {
                 .map(|(o, &f)| {
                     let post = o.scale * f + o.reserve;
                     let pre = o.event.map(|e| (post + e.cash) / (1.0 - e.beta));
-                    if !post.is_finite() || pre.is_some_and(|s| !s.is_finite()) {
+                    if !post.is_finite() || pre.is_some_and(|p| !p.is_finite()) {
                         return Err(invalid("rough_observation_overflow"));
                     }
                     Ok((post, pre))
@@ -146,24 +155,20 @@ impl RoughVolatilityPricingPlan {
             let (price, seeds) = self
                 .base
                 .hybrid_spot_payoff_adjoints(self.time_nodes(), &spots)?;
-            let mut market_seeds = self.dividends.zero_adjoints();
-            let mut forward_seeds = Vec::with_capacity(n + 1);
-            for (j, (&(post, pre), &f)) in seeds.iter().zip(&record.path().forwards).enumerate() {
-                forward_seeds.push(self.dividends.nodes()[j].reverse_spots(
-                    f,
-                    0.0,
-                    post,
-                    pre,
-                    &mut market_seeds[j],
-                )?);
-            }
-            let delta = record.reverse_initial_forward(&forward_seeds)?
-                + self.dividends.reverse_market(&market_seeds)?.spot;
-            if !delta.is_finite() {
-                return Err(invalid("rough_spot_delta").into());
-            }
+            // Curves, cash and Spot are fixed. Only the affine observation slope
+            // transmits these parameter adjoints; no market/escrow reverse term.
+            let forward_seeds = seeds
+                .iter()
+                .zip(&self.observations)
+                .map(|(&(post, pre), o)| {
+                    o.scale * (post + o.event.map_or(0.0, |e| pre / (1.0 - e.beta)))
+                })
+                .collect::<Vec<_>>();
+            let risk = record.reverse(&forward_seeds, &vec![0.0; n + 1])?;
             out[0] += price / signs.len() as f64;
-            out[1] += delta / signs.len() as f64;
+            for j in 0..5 {
+                out[j + 1] += risk.parameters[j] / signs.len() as f64;
+            }
         }
         Ok(())
     }
