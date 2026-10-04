@@ -111,6 +111,7 @@ def main() -> None:
     verify_runtime_symbols(python, stub_api, metadata["Version"])
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
+    subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
@@ -963,6 +964,129 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
     }
 
 
+# Explicit Bass public contract, independent of the stub being checked.
+BASS_STUB_API = {
+    "BassMarginal": {
+        "methods": {"__init__", "call_price", "cdf", "quantile"},
+        "staticmethods": {"from_essvi", "lognormal"},
+        "properties": {"expiry", "mean", "probabilities", "spots", "variance"},
+    },
+    "BassLvConfig": {
+        "methods": {"__init__"},
+        "properties": {
+            "cdf_tolerance",
+            "grid_points",
+            "grid_width",
+            "max_iterations",
+            "tail_tolerance",
+        },
+    },
+    "BassSurfaceDiagnostics": {
+        "properties": {
+            "lower_tail_probability",
+            "max_call_price_error",
+            "mean_scale",
+            "retained_nodes",
+            "retained_probability",
+            "unscaled_mean",
+            "upper_tail_probability",
+        },
+    },
+    "BassMarginalProjection": {
+        "properties": {"diagnostics", "marginal"},
+    },
+    "BassCalibrationDiagnostics": {
+        "properties": {
+            "boundary_tail_probability",
+            "brownian_max",
+            "brownian_min",
+            "cdf_residual",
+            "end_time",
+            "grid_spacing",
+            "iterations",
+            "marginal_cdf_error",
+            "start_time",
+        },
+    },
+    "BassEstimate": {
+        "properties": {"paths", "price", "seed", "standard_error"},
+    },
+    "BassLvModel": {
+        "methods": {"compile_mapping_risk", "compile_simulation", "local_volatility", "mapping"},
+        "staticmethods": {"calibrate"},
+        "properties": {"diagnostics", "initial_brownian_state", "initial_spot_error", "spot"},
+    },
+    "BassSimulationPlan": {
+        "methods": {"path_from_normals", "price_asian", "price_european", "sample_paths"},
+        "properties": {"normal_count", "observation_times", "time_nodes"},
+    },
+    "BassMarketIvModel": {
+        "methods": {"bumped", "compile_vega_kt"},
+        "staticmethods": {"calibrate"},
+        "properties": {
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "model",
+            "projection_diagnostics",
+        },
+    },
+    "BassVegaKtScenarioDiagnostics": {
+        "properties": {"calibration", "initial_spot_error", "projection", "quote_index", "shift"},
+    },
+    "BassVegaKtRisk": {
+        "properties": {
+            "bucket_sum",
+            "bucket_sum_standard_error",
+            "bump_size",
+            "estimate",
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "method",
+            "parallel_sensitivity",
+            "parallel_standard_error",
+            "sensitivities",
+            "standard_errors",
+            "standard_errors_per_vol_point",
+            "vega_per_vol_point",
+        },
+    },
+    "BassVegaKtRiskPlan": {
+        "methods": {"price_asian", "price_european"},
+        "properties": {
+            "bump_size",
+            "diagnostics",
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "simulation",
+        },
+    },
+    "BassMappingBump": {
+        "methods": {"__init__"},
+        "properties": {"center", "interval", "left", "right"},
+    },
+    "BassMappingRisk": {
+        "properties": {"estimate", "sensitivities", "standard_errors"},
+    },
+    "BassDeterministicMappingRisk": {
+        "properties": {"price", "sensitivities"},
+    },
+    "BassMappingRiskPlan": {
+        "methods": {
+            "bumped_simulation",
+            "bumped_vanilla_call",
+            "path_sensitivities",
+            "price_asian",
+            "price_european",
+            "vanilla_call",
+        },
+        "properties": {"bumps", "simulation"},
+    },
+}
+
+
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
@@ -1111,6 +1235,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "OptionSide",
         "PricingError",
         "PricingPlan",
+        "AndersenBroadieConfig",
+        "AndersenBroadiePlan",
+        "AndersenBroadieResult",
         "PricingRequest",
         "PricingResult",
         "PricingWarning",
@@ -1150,6 +1277,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "result_json_schema",
         "version",
     }
+    expected_top_level_names.update(BASS_STUB_API)
     missing_top_level_names = sorted(expected_top_level_names.difference(top_level_names))
     if missing_top_level_names:
         raise RuntimeError(
@@ -2150,6 +2278,20 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "required_keyword_only": ["worker_threads"],
             "keyword_only_defaults": {"reduction_block_size": None},
         },
+        ("AndersenBroadieConfig", "__init__"): {
+            "positional": ["self", "continuation_inner_paths", "exercise_inner_paths", "inner_seed"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("AndersenBroadiePlan", "compile"): {
+            "positional": ["request", "config"],
+            "positional_defaults": {},
+            "keyword_only": ["worker_threads", "reduction_block_size"],
+            "required_keyword_only": ["worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
         ("PricingRequest", "__init__"): {
             "positional": [
                 "self",
@@ -2786,6 +2928,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "local_volatility_from_standard_ssvi_power_law",
         },
         "PricingError": set(),
+        "AndersenBroadieConfig": {
+            "__init__", "__repr__", "continuation_inner_paths", "exercise_inner_paths", "inner_seed",
+        },
+        "AndersenBroadiePlan": {"__repr__", "compile", "evaluate", "plan_fingerprint"},
+        "AndersenBroadieResult": {
+            "__repr__", "lower_bound", "upper_bound", "duality_gap",
+            "price_confidence_interval_95", "policy_fingerprint", "plan_fingerprint",
+            "config", "outer_trajectories", "exercise_date_count",
+        },
         "PricingPlan": {
             "__repr__",
             "compile",
@@ -2959,6 +3110,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "entries",
         },
     }
+    expected_class_members.update({
+        name: set().union(*parts.values()) for name, parts in BASS_STUB_API.items()
+    })
+    expected_class_members["Model"].add("bass_local_volatility")
+    expected_class_members["PricingPlan"].update({
+        "bass_calibration_diagnostics", "bass_projection_diagnostics",
+        "bass_vega_scenario_diagnostics",
+    })
     unexpected_classes = sorted(set(class_members).difference(expected_class_members))
     if unexpected_classes:
         raise RuntimeError(f"wheel type stub has unexpected classes: {unexpected_classes}")
@@ -2988,6 +3147,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_static_methods = {
         ('RoughFamilyLsvPlan', 'compile'),
 
+        ("AndersenBroadiePlan", "compile"),
         ('StochasticDividendContinuousBarrierPlan', "compile_rough_bergomi_lsv"),
         ("HestonIvRefinementOptions", "create"),
         ("HestonCalibrationSsviSurface", "power_law"),
@@ -3085,6 +3245,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('RoughVolatilityDelta', 'method'),
         ('RoughVolatilityDelta', 'coordinate'),
 
+        ("AndersenBroadieConfig", "continuation_inner_paths"),
+        ("AndersenBroadieConfig", "exercise_inner_paths"),
+        ("AndersenBroadieConfig", "inner_seed"),
+        ("AndersenBroadiePlan", "plan_fingerprint"),
+        ("AndersenBroadieResult", "lower_bound"),
+        ("AndersenBroadieResult", "upper_bound"),
+        ("AndersenBroadieResult", "duality_gap"),
+        ("AndersenBroadieResult", "price_confidence_interval_95"),
+        ("AndersenBroadieResult", "policy_fingerprint"),
+        ("AndersenBroadieResult", "plan_fingerprint"),
+        ("AndersenBroadieResult", "config"),
+        ("AndersenBroadieResult", "outer_trajectories"),
+        ("AndersenBroadieResult", "exercise_date_count"),
         ('MarketIvSurface', 'maturity_nodes'),
         ('MarketIvSurface', 'log_moneyness_nodes'),
         ('MarketIvSurface', 'implied_volatilities'),
@@ -4015,6 +4188,19 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("WidthLadderResult", "entries"),
         ("WidthLadderResult", "primary"),
     }
+    expected_static_methods.update(
+        (name, method) for name, parts in BASS_STUB_API.items()
+        for method in parts.get("staticmethods", set())
+    )
+    expected_static_methods.add(("Model", "bass_local_volatility"))
+    expected_properties.update(
+        (name, method) for name, parts in BASS_STUB_API.items()
+        for method in parts.get("properties", set())
+    )
+    expected_properties.update(("PricingPlan", method) for method in {
+        "bass_calibration_diagnostics", "bass_projection_diagnostics",
+        "bass_vega_scenario_diagnostics",
+    })
     for class_name, method_name in sorted(expected_static_methods):
         decorators = decorator_names(class_methods[class_name][method_name])
         if "staticmethod" not in decorators:

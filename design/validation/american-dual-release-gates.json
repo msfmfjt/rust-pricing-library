@@ -1,0 +1,327 @@
+{
+  "recorded_utc": "2026-10-03T09:36:57.656486+00:00",
+  "scope": "Local regression acceptance for the Andersen-Broadie addition; existing model contracts unchanged",
+  "platform": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "base_commit": "c76fbdff43009c9b5984ef5e769358df55ff350b",
+  "pricing_source_sha256": "531ce111fece3cf3472274fc74444f84dc02675df811ba43f32a2633abf74e66",
+  "pricing_source_hash_scope": "SHA256 over relative path, NUL, and contents in runner order: sorted pricing Rust files, sorted pricing-numerics Rust files, Cargo.lock, Cargo.toml, rust-toolchain.toml, pricing and pricing-numerics Cargo.toml, Sobol direction data",
+  "price": {
+    "expected_tests": 27,
+    "passed_tests": 27,
+    "failed_tests": 0,
+    "release_build": true,
+    "processes": 4,
+    "test_threads_per_process": 1,
+    "retained_prior_passes": 5,
+    "acceptance_panels": 74,
+    "quote_points": 222,
+    "cases": [
+      {
+        "name": "multi_asset::bs_basket_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": true,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 0.3738204763881203,
+        "max_fraction_of_price_error_budget": 0.0923382858375202,
+        "raw_log_sha256": "681737335b6ab764cc5478b8c43273730847780d28b1b2d52656126dae5f2646"
+      },
+      {
+        "name": "multi_asset::bs_basket_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": true,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 0.9030751318114816,
+        "max_fraction_of_price_error_budget": 0.08535847918549481,
+        "raw_log_sha256": "681737335b6ab764cc5478b8c43273730847780d28b1b2d52656126dae5f2646"
+      },
+      {
+        "name": "multi_asset::bs_constituent_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": true,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 0.4169974328982473,
+        "max_fraction_of_price_error_budget": 0.07195824097485638,
+        "raw_log_sha256": "681737335b6ab764cc5478b8c43273730847780d28b1b2d52656126dae5f2646"
+      },
+      {
+        "name": "multi_asset::bs_constituent_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": true,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 0.2524855740848597,
+        "max_fraction_of_price_error_budget": 0.09505281949665816,
+        "raw_log_sha256": "681737335b6ab764cc5478b8c43273730847780d28b1b2d52656126dae5f2646"
+      },
+      {
+        "name": "multi_asset::rough_hw_basket_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": true,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 1.377622546707702,
+        "max_fraction_of_price_error_budget": 0.4337502405583922,
+        "raw_log_sha256": "681737335b6ab764cc5478b8c43273730847780d28b1b2d52656126dae5f2646"
+      },
+      {
+        "name": "multi_asset::rough_hw_basket_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 1.581941824955746,
+        "max_fraction_of_price_error_budget": 0.33580405288900783,
+        "raw_log_sha256": "088f49c0cf088f3dc38ee3fecf19864bdf774b88da32ad7b0a7e761abe7760eb"
+      },
+      {
+        "name": "multi_asset::rough_hw_constituent_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 3.9554038062272756,
+        "max_fraction_of_price_error_budget": 0.8030888121748326,
+        "raw_log_sha256": "77eb559cb1860c873c28d9fa592be977158da483dcdb9bbdb62a64aa6c88a599"
+      },
+      {
+        "name": "multi_asset::rough_hw_constituent_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 3.7108323938839227,
+        "max_fraction_of_price_error_budget": 0.7453537516217706,
+        "raw_log_sha256": "54da9d08f05411a3ea3e40263cae4b4e31068e00d73a3436df2439ef324af147"
+      },
+      {
+        "name": "multi_asset::two_factor_basket_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 2.016143417446492,
+        "max_fraction_of_price_error_budget": 0.3943610709176238,
+        "raw_log_sha256": "de02752bdc1e38070fe436397f15ea73d735cfcec015fdcd30e0b7de5e17f700"
+      },
+      {
+        "name": "multi_asset::two_factor_basket_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 0.5377095104203145,
+        "max_fraction_of_price_error_budget": 0.24247852194929956,
+        "raw_log_sha256": "7ee6509aff3facc6f76587b7010aa894bb8b369ea977a4d46261f9461b5ff4cc"
+      },
+      {
+        "name": "multi_asset::two_factor_constituent_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 5.507426191235787,
+        "max_fraction_of_price_error_budget": 0.8024746575727312,
+        "raw_log_sha256": "4510407b9599c2a343b4c015ca2201a8eaf86621a2fb85cf98e5718c6093e335"
+      },
+      {
+        "name": "multi_asset::two_factor_constituent_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 1.8653002211099778,
+        "max_fraction_of_price_error_budget": 0.5045632163288386,
+        "raw_log_sha256": "dbb90da9549f872f380582fe57be8824ec7c575b4d8e889dd91501e42826e346"
+      },
+      {
+        "name": "single_asset::deterministic_lsv_smile_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 5,
+        "quote_points": 15,
+        "max_absolute_iv_error_bp": 5.0423317246067745,
+        "max_fraction_of_price_error_budget": 0.5276678909940914,
+        "raw_log_sha256": "2653223cb717c5a297baae78b47671d1d68fff3c7360b14dca50e276940826f9"
+      },
+      {
+        "name": "single_asset::gaussian_hull_white_independent_price_reference",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 6,
+        "quote_points": 18,
+        "max_absolute_iv_error_bp": 0.036525562601696926,
+        "max_fraction_of_price_error_budget": 0.052617162114564985,
+        "raw_log_sha256": "3d360554839a26105125e10ae320dfb7383acfb0aadb50997d3067e93604a9cd"
+      },
+      {
+        "name": "single_asset::one_factor_hw_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 5.350746151288055,
+        "max_fraction_of_price_error_budget": 0.691690013023999,
+        "raw_log_sha256": "b056a67eaa963824f1649291fc11cbcb6e41874a9c568622cf560f0e7df6088a"
+      },
+      {
+        "name": "single_asset::one_factor_hw_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 2.710274366393428,
+        "max_fraction_of_price_error_budget": 0.45651922297489106,
+        "raw_log_sha256": "c840ccb29cb780e764a23dd2065d395cabc931f72da41abd92807a8949710b7b"
+      },
+      {
+        "name": "single_asset::one_factor_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 5.10815718597013,
+        "max_fraction_of_price_error_budget": 0.6910938642164681,
+        "raw_log_sha256": "3a591de9897b81459018b86f7cde3cbfe01e706470448cab33cad0889b58a658"
+      },
+      {
+        "name": "single_asset::one_factor_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 3.650678926554185,
+        "max_fraction_of_price_error_budget": 0.49337150297707794,
+        "raw_log_sha256": "08e1ab5d58a728dbc90a74997c6e318b97d646976def9e9169e139fd20c90587"
+      },
+      {
+        "name": "single_asset::rough_hw_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 2.668082328983745,
+        "max_fraction_of_price_error_budget": 0.5715971629466913,
+        "raw_log_sha256": "7b5e1e11e7d47ca61154ee1828e32a43766d603ac7c867c650b924014f9b48d3"
+      },
+      {
+        "name": "single_asset::rough_hw_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 0.9101580515522012,
+        "max_fraction_of_price_error_budget": 0.3991055676667625,
+        "raw_log_sha256": "532696acc9a2e1e5a1093bb21511dd6ca5fad7e898e60d6c1b35498f1e42d0a4"
+      },
+      {
+        "name": "single_asset::rough_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 3.3358430320676313,
+        "max_fraction_of_price_error_budget": 0.53585192468247,
+        "raw_log_sha256": "4e3632fe79c7d0df15422a19cb77a4642bf93628b2e2ef85314560a2faa7af26"
+      },
+      {
+        "name": "single_asset::rough_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 2.0613790956269806,
+        "max_fraction_of_price_error_budget": 0.4466905662167006,
+        "raw_log_sha256": "0ffead25ad49ca8d9ea7b4d64b9b84c918407560621b1eef3ccdd7eb634e9faa"
+      },
+      {
+        "name": "single_asset::stochastic_rate_lsv_smile_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 3,
+        "quote_points": 9,
+        "max_absolute_iv_error_bp": 3.164222587962451,
+        "max_fraction_of_price_error_budget": 0.5150055689587333,
+        "raw_log_sha256": "a7047cec96facde2b2db3db333026792c68baa2e42e30748049402a8129696c9"
+      },
+      {
+        "name": "single_asset::two_factor_hw_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 3.0574360411611545,
+        "max_fraction_of_price_error_budget": 0.3459520117210344,
+        "raw_log_sha256": "7d45c0582794dd5a80c26205c583e1025e1c1a8b548eb298020136939c51a261"
+      },
+      {
+        "name": "single_asset::two_factor_hw_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 1.9167898700014896,
+        "max_fraction_of_price_error_budget": 0.5828801258577115,
+        "raw_log_sha256": "f559aea1786f81b125cc46a5f570f114540a23737ff61cfedd7d82b4839c3971"
+      },
+      {
+        "name": "single_asset::two_factor_refinement_consistency",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 4,
+        "quote_points": 12,
+        "max_absolute_iv_error_bp": 4.032326706290279,
+        "max_fraction_of_price_error_budget": 0.48564542898758767,
+        "raw_log_sha256": "df6ecbc6b5b43c80cf2bc4825f23be9505337ea97c9b1e7574e4c640d976e478"
+      },
+      {
+        "name": "single_asset::two_factor_stress_repricing",
+        "status": "passed",
+        "retained_previous_case": false,
+        "acceptance_panels": 1,
+        "quote_points": 3,
+        "max_absolute_iv_error_bp": 2.1605418667472454,
+        "max_fraction_of_price_error_budget": 0.577240695881469,
+        "raw_log_sha256": "4904be5efd42e52fc5d625fc716a40816a618fbb5c6b2c18379521d34e325ed6"
+      }
+    ]
+  },
+  "risk": {
+    "expected_tests": 11,
+    "passed_tests": 11,
+    "failed_tests": 0,
+    "release_build": true,
+    "test_threads": 1,
+    "derivative_sweeps": 738,
+    "failed_sweeps": 0,
+    "max_fraction_of_derivative_error_budget": 0.037159068749439035,
+    "cases": [
+      "joint_rough_hw_local_correlation",
+      "joint_two_factor_hw_local_correlation",
+      "joint_two_factor_local_correlation",
+      "mixed_bergomi_hw_vegakt",
+      "mixed_rough_hw_vegakt",
+      "one_factor_calibrated_local_variance",
+      "one_factor_hw_aad_and_vegakt",
+      "rough_calibrated_local_variance",
+      "rough_hw_aad_and_vegakt",
+      "two_factor_calibrated_local_variance",
+      "two_factor_hw_aad_and_vegakt"
+    ],
+    "raw_log_sha256": "2b549f85689e16c30557cc98e1363f3d8fabec91e42deb26106f89afcc58a9a3"
+  },
+  "reproduction_commands": [
+    "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
+    "cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1"
+  ],
+  "limitations": [
+    "One local macOS arm64 host; cross-platform CI not run here",
+    "These checks do not extend the dual adapter to the tested stochastic models or Greeks"
+  ]
+}
