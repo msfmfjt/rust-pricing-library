@@ -361,6 +361,11 @@ impl PyRoughVolatilityPlan {
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
     }
+    fn evaluate_hurst_risk(&self, py: Python<'_>) -> PyResult<PyRoughHestonMcHurstRisk> {
+        py.detach(|| self.inner.evaluate_hurst_risk())
+            .map(|inner| PyRoughHestonMcHurstRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_heston_parameter_risk(&self, py: Python<'_>) -> PyResult<PyHestonMcParameterRisk> {
         py.detach(|| self.inner.evaluate_heston_parameter_risk())
             .map(|inner| PyHestonMcParameterRisk { inner })
@@ -505,6 +510,41 @@ impl PyHestonMcParameterRisk {
     #[getter]
     fn coordinate(&self) -> &'static str {
         "fixed_kernel_heston_scalar_parameters"
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "RoughHestonMcHurstRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughHestonMcHurstRisk {
+    inner: pricing::rough_volatility::RoughHestonMcHurstRisk,
+}
+#[pymethods]
+impl PyRoughHestonMcHurstRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn hurst_sensitivity(&self) -> f64 {
+        self.inner.hurst_sensitivity
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "rough_heston_hurst_fixed_scalar_parameters"
     }
     #[getter]
     fn risk_fingerprint(&self) -> String {

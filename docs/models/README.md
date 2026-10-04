@@ -82,3 +82,5 @@ separate from solver termination; this is not an IV or general six-family fitter
 [Explicit rough-family finite-bump MC Gamma](rough-family-gamma.md)
 
 [Pure-SV Heston MC parameter adjoints](heston-mc-parameter-risk.md)
+
+[Pure-SV MC Hurst sensitivity](heston-mc-hurst-risk.md) is available separately.

@@ -84,6 +84,16 @@ impl HestonMcRecordedPath<'_> {
         forward_seeds: &[f64],
         variance_seeds: &[f64],
     ) -> Result<HestonMcAdjoints, HullWhiteError> {
+        self.reverse_impl(forward_seeds, variance_seeds, None)
+            .map(|r| r.0)
+    }
+
+    pub(super) fn reverse_impl(
+        &self,
+        forward_seeds: &[f64],
+        variance_seeds: &[f64],
+        hurst_kernel: Option<&super::hurst::PowerKernelHurst>,
+    ) -> Result<(HestonMcAdjoints, f64), HullWhiteError> {
         let times = &self.plan.times;
         let n = times.len() - 1;
         if forward_seeds.len() != n + 1
@@ -117,6 +127,7 @@ impl HestonMcRecordedPath<'_> {
             })
             .collect();
         let mut g: [NeumaierSum; 5] = std::array::from_fn(|_| NeumaierSum::new());
+        let mut gh = NeumaierSum::new();
         match (&self.plan.model, &self.plan.driver) {
             (RoughVolatilityModel::RoughHeston(_), CompiledDriver::Power(k)) => {
                 let (dw, near) = self.plan.innovations(k, h.correlation, self.normals, false);
@@ -135,6 +146,21 @@ impl HestonMcRecordedPath<'_> {
                         } else {
                             (k.weights[i][j] * dw[j], k.weights[i][j])
                         };
+                        if let Some(dk) = hurst_kernel {
+                            let dc = dk.loading(i, j);
+                            let di = if j + 1 == i {
+                                dc * dw[j] + dk.residual[j] * self.normals[2 * n + j]
+                            } else {
+                                dc * dw[j]
+                            };
+                            gh.add(
+                                bar * (dc
+                                    * (times[j + 1] - times[j])
+                                    * h.mean_reversion
+                                    * (h.long_run_variance - v)
+                                    + h.vol_of_vol * root * di),
+                            );
+                        }
                         g[1].add(bar * d * (h.long_run_variance - v));
                         g[2].add(bar * d * h.mean_reversion);
                         g[3].add(bar * k.fractional_scale * root * innovation);
@@ -188,10 +214,14 @@ impl HestonMcRecordedPath<'_> {
         if parameters.iter().any(|p| !p.is_finite()) || bv.iter().any(|v| !v.is_finite()) {
             return Err(invalid("heston_mc_risk_nonfinite_adjoint"));
         }
-        Ok(HestonMcAdjoints {
-            initial_forward: bf,
-            parameters,
-        })
+        let hurst = finite_value(gh.total())?;
+        Ok((
+            HestonMcAdjoints {
+                initial_forward: bf,
+                parameters,
+            },
+            hurst,
+        ))
     }
 
     fn raw_bar(&self, i: usize, seed: f64) -> Result<f64, HullWhiteError> {
