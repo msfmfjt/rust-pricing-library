@@ -118,3 +118,6 @@ impl LeveragePathModel for RoughFamilyLsvPlan {
         a.squared_leverage
     }
 }
+
+mod spot_delta;
+pub use spot_delta::{RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention};

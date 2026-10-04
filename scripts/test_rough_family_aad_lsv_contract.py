@@ -58,7 +58,7 @@ class RoughFamilyContractTests(unittest.TestCase):
         docs = (ROOT/"docs/models/rough-family-aad-lsv.md").read_text()
         self.assertIn("Local variance nodes are not market implied-volatility quotes", docs)
         self.assertIn("fixed-driver LSV extension", docs)
-        self.assertIn("No high-level LSV Spot Delta is exposed here", docs)
+        self.assertIn("Two explicit high-level LSV Spot Delta conventions", docs)
 
 if __name__ == "__main__":
     unittest.main()

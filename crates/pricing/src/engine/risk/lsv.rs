@@ -28,7 +28,9 @@ mod models;
 mod rough_families;
 use evaluation::{Evaluation, PriceOnly, Recalibrated};
 use models::{CalibratedModel, LeveragePathModel, PathModel};
-pub use rough_families::RoughFamilyLsvPricingPlan;
+pub use rough_families::{
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvPricingPlan,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LsvPrice {

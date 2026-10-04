@@ -73,3 +73,5 @@ separate from solver termination; this is not an IV or general six-family fitter
 - [Heston IV disjoint holdout validation](heston-iv-holdout.md)
 
 [Six-family MC Spot Delta and particle LSV AAD](rough-family-aad-lsv.md) documents the explicit risk coordinates and experimental limits.
+
+[Six-family LSV physical Spot Delta](rough-family-lsv-spot-delta.md) distinguishes fixed leverage from a sticky-relative-local-variance target.

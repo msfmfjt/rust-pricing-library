@@ -22,7 +22,7 @@ Rust's high-level LSV type is `RoughFamilyLsvPricingPlan`; Rust additionally exp
 `RoughFamilyLsvPlan`, its recorded path and `CalibratedRoughFamilyLsv`.
 The low-level LSV path's initial-forward adjoint holds the leverage grid anchor
 and axes fixed. It is **not** the high-level physical Spot Delta, and is not a
-recalibrated Spot derivative. No high-level LSV Spot Delta is exposed here.
+recalibrated Spot derivative. Two explicit high-level LSV Spot Delta conventions are now available in the [Spot Delta extension](rough-family-lsv-spot-delta.md).
 
 ## Pure MC physical Spot Delta
 
@@ -174,3 +174,8 @@ This extension does not address the existing small-H full-truncation/time-grid
 bias. A derivative may closely match the derivative of a biased discrete price.
 See the [validation record](../../design/validation/rough-family-aad-lsv.md) for
 the finite comparisons actually executed and remaining acceptance work.
+
+## Related LSV Spot Delta
+
+[Fixed-leverage and sticky-relative-target physical Spot Delta](rough-family-lsv-spot-delta.md)
+are separate from local-variance-node risk and market-IV VegaKT.

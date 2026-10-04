@@ -41,4 +41,6 @@ pub use crate::engine::analytic::heston_fourier::{
 pub use crate::engine::calibration::lsv::{
     CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
 };
-pub use crate::engine::risk::lsv::RoughFamilyLsvPricingPlan;
+pub use crate::engine::risk::lsv::{
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvPricingPlan,
+};

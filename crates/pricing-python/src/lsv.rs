@@ -460,6 +460,16 @@ impl PyRoughFamilyLsvPlan {
             .map(|inner| PyLsvLocalVarianceRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_frozen_leverage_delta(&self, py: Python<'_>) -> PyResult<PyRoughFamilyLsvDelta> {
+        py.detach(|| self.inner.evaluate_frozen_leverage_delta())
+            .map(|inner| PyRoughFamilyLsvDelta { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_sticky_moneyness_delta(&self, py: Python<'_>) -> PyResult<PyRoughFamilyLsvDelta> {
+        py.detach(|| self.inner.evaluate_sticky_moneyness_delta())
+            .map(|inner| PyRoughFamilyLsvDelta { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
@@ -498,5 +508,40 @@ impl PyRoughFamilyLsvPlan {
             .iter()
             .map(|r| r.minimum_effective_samples)
             .collect()
+    }
+}
+
+#[pyclass(frozen, name = "RoughFamilyLsvDelta", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvDelta {
+    inner: pricing::rough_volatility::RoughFamilyLsvDelta,
+}
+#[pymethods]
+impl PyRoughFamilyLsvDelta {
+    #[getter]
+    fn price(&self) -> PyLsvPrice {
+        PyLsvPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn convention(&self) -> &'static str {
+        self.inner.convention.as_str()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "physical_spot_fixed_curves_and_cash_dividends"
     }
 }
