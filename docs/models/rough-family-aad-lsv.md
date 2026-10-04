@@ -179,3 +179,6 @@ the finite comparisons actually executed and remaining acceptance work.
 
 [Fixed-leverage and sticky-relative-target physical Spot Delta](rough-family-lsv-spot-delta.md)
 are separate from local-variance-node risk and market-IV VegaKT.
+
+A separate [market-IV risk plan](rough-family-market-iv.md) now binds the exact
+quote source and extends this local-variance transpose into quote coordinates.
