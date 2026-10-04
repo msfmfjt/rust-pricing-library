@@ -37,6 +37,19 @@ pub struct WidthLadderResult {
 }
 
 impl PricingPlan {
+    pub fn bass_calibration_diagnostics(
+        &self,
+    ) -> Option<&[crate::bass_lv::BassCalibrationDiagnostics]> {
+        self.simulation.bass_calibration_diagnostics()
+    }
+    pub fn bass_projection_diagnostics(&self) -> Option<&[crate::bass_lv::BassSurfaceDiagnostics]> {
+        self.simulation.bass_projection_diagnostics()
+    }
+    pub fn bass_vega_scenario_diagnostics(
+        &self,
+    ) -> Option<&[crate::bass_lv::BassVegaKtScenarioDiagnostics]> {
+        self.simulation.bass_vega_scenario_diagnostics()
+    }
     pub fn compile(
         request: &PricingRequest,
         execution_policy: ExecutionPolicy,

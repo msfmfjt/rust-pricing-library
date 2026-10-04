@@ -17,6 +17,7 @@ surface, correlation or cash-flow component.
 | Component family | Main topics |
 | --- | --- |
 | Equity dynamics | Black–Scholes/Black-76, Local Volatility, LSV, Bergomi, rough Bergomi and [six additional experimental rough families](rough-volatility-families.md) |
+| Multi-marginal local volatility | [Bass-LV calibration and simulation](bass-local-volatility.md) |
 | Rate dynamics | Hull–White short-rate model and integrated-rate simulation |
 | Volatility surfaces | SVI/SSVI/eSSVI, Dupire local variance and market-IV coordinates |
 | Multi-asset and correlation | Basket state, PSD correlations and Particle Local Correlation |

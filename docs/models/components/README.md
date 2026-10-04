@@ -10,6 +10,7 @@ Published sources are collected in the [bibliography](../../references.md).
 | --- | --- | --- |
 | Black–Scholes and Black-76 | [European diagnostics](../european-bs-diagnostics.md) | [European Black–Scholes](../../../examples/python/european_bs.py) |
 | Local Volatility and Dupire | [Local Volatility calculation specifications](../local-vol-vegakt-calculation-specifications.md) | [Local Volatility](../../../examples/python/local_vol_vegakt.py) |
+| Multi-marginal Bass-LV | [Bass-LV calculation specifications](../bass-local-volatility.md) | [Bass-LV](../../../examples/python/bass_lv.py) |
 | Local-stochastic volatility | [LSV calculation specifications](../lsv-calculation-specifications.md) | [Bergomi LSV](../../../examples/python/bergomi_lsv.py) |
 | Pure stochastic volatility | [1F/2F/rough Bergomi](../pure-stochastic-volatility.md) | [Pure Bergomi](../../../examples/python/pure_bergomi.py) |
 | Bergomi volatility factors | [Two-factor factor contracts](../bergomi-two-factor-lsv.md) | [Two-factor Bergomi](../../../examples/python/multi_asset_bergomi_two_factor.py) |

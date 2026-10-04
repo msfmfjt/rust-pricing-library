@@ -50,11 +50,13 @@ diagnostic and calculation-specification pages.
 | European Monte Carlo/RQMC diagnostics | [European diagnostics](../models/european-bs-diagnostics.md) | [European Black–Scholes](../../examples/python/european_bs.py) |
 | Path-dependent payoff and barrier contracts | [Calculation specifications](path-dependence-calculation-specifications.md), [diagnostics](path-dependence-diagnostics.md) | [Path dependence](../../examples/python/path_dependence.py) |
 | Early-exercise policy and fixed-policy risk | [Calculation specifications](early-exercise-calculation-specifications.md), [diagnostics](early-exercise-diagnostics.md) | [American LSM](../../examples/python/american_lsm.py) |
+| Andersen–Broadie price bounds | [Primal-dual pricing](american-dual.md) | [Rust example](../../crates/pricing/examples/american_dual.rs), [Python example](../../examples/python/american_dual.py) |
 | Multi-asset payoff graph and risk | [Multi-asset contracts](../models/multi-asset.md) | [Multi-asset pricing](../../examples/python/multi_asset.py) |
 | Rough Bergomi with stochastic cash dividends (price only) | [Model and limits](../models/stochastic-dividends.md#rough-bergomi-price-composition) | [Rough dividends](../../examples/python/rough_dividends.py) |
 | Stochastic cash dividends and first-order risk | [Buehler model and support limits](../models/stochastic-dividends.md) | [Stochastic dividends](../../examples/python/stochastic_dividends.py) |
 | Dividend IV coordinates | [Escrowed calibration coordinate](../models/hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration) | [Hull–White LSV](../../examples/python/hull_white_lsv.py) |
 | Local-variance risk and VegaKT | [Local Volatility calculation specifications](../models/local-vol-vegakt-calculation-specifications.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
+| Bass-LV through the common request API | [Bass-LV coordinate and risk contract](../models/bass-local-volatility.md#common-request-and-physical-spot-payoffs) | [Bass request with dividends and VegaKT](../../examples/python/bass_lv_request.py) |
 
 The experimental [six-family rough-volatility adapter](../models/rough-volatility-families.md)
 has separate price-only Rust and Python entry points. Its source and tests are

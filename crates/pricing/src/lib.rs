@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod api;
+pub mod bass_lv;
 mod engine;
 use api::{error, request, result};
 pub mod hull_white;
@@ -30,6 +31,7 @@ pub use plan::{
     PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,
 };
 pub mod core;
+pub mod dual;
 pub mod market;
 pub mod mc;
 pub mod models;
