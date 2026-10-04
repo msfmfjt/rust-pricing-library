@@ -1,0 +1,56 @@
+name: Heston MC parameter reverse
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - '**/*heston_mc_parameter*'
+      - '**/heston-mc-parameter-risk.md'
+      - 'rust_pricing.pyi'
+      - 'scripts/check_source_archive.py'
+      - 'scripts/smoke_test_wheel.py'
+      - '.github/workflows/heston-mc-parameter-risk.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: heston-mc-parameter-risk-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s scripts -p 'test_heston_mc_parameter_contract.py'
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --locked -p pricing --test heston_mc_parameter_risk
+      - run: cargo test --locked --no-default-features -p pricing --test heston_mc_parameter_risk
+      - name: Execute parameter adjoints and independent Black limits
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test heston_mc_parameter_risk -- --include-ignored --nocapture
+          } 2>&1 | tee heston-mc-parameter-risk.log
+      - name: Retain numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heston-mc-parameter-risk-${{ matrix.os }}
+          path: heston-mc-parameter-risk.log
+          retention-days: 14
+          if-no-files-found: error
