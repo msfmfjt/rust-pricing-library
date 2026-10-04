@@ -1,4 +1,5 @@
 //! Risk implementation.
+pub(crate) mod dual;
 pub(crate) mod early_exercise;
 pub(crate) mod hull_white;
 pub(crate) mod local_vol;
