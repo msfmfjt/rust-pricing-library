@@ -2,6 +2,7 @@
 //! isolated from the existing rough Bergomi/HW and stochastic-dividend engines.
 
 mod heston_parameter;
+pub(in crate::engine) use heston_parameter::HestonVarianceRiskPlan;
 mod hurst;
 pub use heston_parameter::{HESTON_MC_PARAMETER_NAMES, HestonMcAdjoints, HestonMcRecordedPath};
 pub use hurst::{

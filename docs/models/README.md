@@ -84,3 +84,5 @@ separate from solver termination; this is not an IV or general six-family fitter
 [Pure-SV Heston MC parameter adjoints](heston-mc-parameter-risk.md)
 
 [Pure-SV MC Hurst sensitivity](heston-mc-hurst-risk.md) is available separately.
+
+- [Heston LSV recalibrated parameter risk](heston-lsv-parameter-risk.md)

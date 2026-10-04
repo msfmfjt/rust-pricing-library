@@ -127,3 +127,9 @@ pub use market_iv::{RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan};
 
 mod gamma;
 pub use gamma::RoughFamilyLsvGamma;
+
+mod heston_parameter;
+pub use heston_parameter::HestonLsvParameterRisk;
+
+#[cfg(test)]
+mod heston_parameter_tests;

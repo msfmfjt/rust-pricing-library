@@ -185,6 +185,22 @@ impl RoughFamilyLsvPath {
         &self.states
     }
     pub fn reverse(&self, seeds: &[f64]) -> Result<RoughFamilyLsvAdjoints, LsvError> {
+        self.reverse_impl(seeds, None)
+    }
+    /// Also seed the exogenous diffusion variance at every time node.
+    pub(in crate::engine) fn reverse_variances(
+        &self,
+        seeds: &[f64],
+    ) -> Result<(RoughFamilyLsvAdjoints, Vec<f64>), LsvError> {
+        let mut variance = vec![0.0; self.states.len()];
+        let adjoints = self.reverse_impl(seeds, Some(&mut variance))?;
+        Ok((adjoints, variance))
+    }
+    fn reverse_impl(
+        &self,
+        seeds: &[f64],
+        mut variance: Option<&mut [f64]>,
+    ) -> Result<RoughFamilyLsvAdjoints, LsvError> {
         length("state_seeds", self.states.len(), seeds.len())?;
         for (i, &v) in seeds.iter().enumerate() {
             valid(v, "state_seed", i, false)?;
@@ -201,6 +217,18 @@ impl RoughFamilyLsvPath {
                     * (-0.5 * s.dt + s.dt.sqrt() * s.z / (2.0 * s.variance.sqrt()))
                     * s.multiplier_squared
             };
+            if let Some(v) = variance.as_deref_mut() {
+                // A negative raw Heston state is locally stuck at diffusion
+                // variance zero. Exact raw zero is rejected by the driver VJP.
+                v[j] = if s.multiplier_squared == 0.0 {
+                    0.0
+                } else {
+                    bar * self.states[j + 1]
+                        * (-0.5 * s.dt + s.dt.sqrt() * s.z / (2.0 * s.variance.sqrt()))
+                        * s.lookup.value
+                };
+                valid(v[j], "rough_lsv_variance_adjoint", j, false)?;
+            }
             s.lookup.transpose(lb, &mut values);
             bar = seeds[j]
                 + bar * self.states[j + 1] / self.states[j]
