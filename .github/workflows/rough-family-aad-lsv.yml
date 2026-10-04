@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'crates/**'
+      - '**/rough_family_market_iv*'
+      - '**/test_rough_family_market_iv*'
+      - '**/rough-family-market-iv.md'
       - 'rust_pricing.pyi'
       - 'scripts/check_source_archive.py'
       - 'scripts/smoke_test_wheel.py'
@@ -31,6 +34,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s scripts -p 'test_rough_family_aad_lsv_contract.py'
+      - run: python -m unittest discover -s scripts -p 'test_rough_family_market_iv_contract.py'
   rust:
     strategy:
       fail-fast: false
@@ -59,5 +63,25 @@ jobs:
         with:
           name: rough-family-aad-lsv-${{ matrix.os }}
           path: rough-family-aad-lsv.log
+          retention-days: 14
+          if-no-files-found: error
+      - name: Check market-IV quote transpose in default and minimal builds
+        run: |
+          cargo test --locked -p pricing --test rough_family_market_iv
+          cargo test --locked --no-default-features -p pricing --test rough_family_market_iv
+      - name: Check market-IV Black limits and retain full numerical output
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test rough_family_market_iv -- --include-ignored --nocapture
+          } 2>&1 | tee rough-family-market-iv.log
+      - name: Retain market-IV numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rough-family-market-iv-${{ matrix.os }}
+          path: rough-family-market-iv.log
           retention-days: 14
           if-no-files-found: error
