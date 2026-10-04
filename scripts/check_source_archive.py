@@ -365,6 +365,7 @@ REQUIRED_FILES = {
     "rust-toolchain.toml",
     "rustfmt.toml",
     "pyproject.toml",
+    ".github/dependabot.yml",
     ".github/workflows/ci.yml",
     ".github/workflows/model-heap-followup.yml",
     "scripts/profile_model_heap_followup.py",
