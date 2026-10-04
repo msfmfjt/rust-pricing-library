@@ -78,3 +78,5 @@ separate from solver termination; this is not an IV or general six-family fitter
 [Six-family LSV physical Spot Delta](rough-family-lsv-spot-delta.md) distinguishes fixed leverage from a sticky-relative-local-variance target.
 
 [Additional rough-family market-IV quote risk](rough-family-market-iv.md) includes the discrete Dupire and particle-calibration transpose.
+
+[Explicit rough-family finite-bump MC Gamma](rough-family-gamma.md)

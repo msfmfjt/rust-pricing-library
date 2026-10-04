@@ -124,3 +124,6 @@ pub use spot_delta::{RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention};
 
 mod market_iv;
 pub use market_iv::{RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan};
+
+mod gamma;
+pub use gamma::RoughFamilyLsvGamma;

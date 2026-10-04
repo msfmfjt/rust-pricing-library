@@ -407,6 +407,25 @@ pub struct PyRoughFamilyLsvPlan {
 
 #[pymethods]
 impl PyRoughFamilyLsvPlan {
+    fn evaluate_frozen_leverage_gamma_bump(
+        &self,
+        py: Python<'_>,
+        spot_bump: f64,
+    ) -> PyResult<PyRoughFamilyLsvGamma> {
+        py.detach(|| self.inner.evaluate_frozen_leverage_gamma_bump(spot_bump))
+            .map(|inner| PyRoughFamilyLsvGamma { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_sticky_moneyness_gamma_bump(
+        &self,
+        py: Python<'_>,
+        spot_bump: f64,
+    ) -> PyResult<PyRoughFamilyLsvGamma> {
+        py.detach(|| self.inner.evaluate_sticky_moneyness_gamma_bump(spot_bump))
+            .map(|inner| PyRoughFamilyLsvGamma { inner })
+            .map_err(pricing_exception)
+    }
+
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(target_request, model, *, particle_count,
@@ -634,5 +653,64 @@ impl PyRoughFamilyLsvMarketIvRisk {
     #[getter]
     fn uncertainty_scope(&self) -> &'static str {
         "pricing_conditional_on_calibration"
+    }
+}
+
+#[pyclass(frozen, name = "RoughFamilyLsvGamma", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvGamma {
+    inner: pricing::rough_volatility::RoughFamilyLsvGamma,
+}
+#[pymethods]
+impl PyRoughFamilyLsvGamma {
+    #[getter]
+    fn price(&self) -> PyLsvPrice {
+        PyLsvPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.inner.gamma
+    }
+    #[getter]
+    fn gamma_standard_error(&self) -> f64 {
+        self.inner.gamma_standard_error
+    }
+    #[getter]
+    fn half_bump_gamma(&self) -> f64 {
+        self.inner.half_bump_gamma
+    }
+    #[getter]
+    fn half_bump_standard_error(&self) -> f64 {
+        self.inner.half_bump_standard_error
+    }
+    #[getter]
+    fn bump_difference(&self) -> f64 {
+        self.inner.bump_difference
+    }
+    #[getter]
+    fn bump_difference_standard_error(&self) -> f64 {
+        self.inner.bump_difference_standard_error
+    }
+    #[getter]
+    fn spot_bump(&self) -> f64 {
+        self.inner.spot_bump
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn convention(&self) -> &'static str {
+        self.inner.convention
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
     }
 }

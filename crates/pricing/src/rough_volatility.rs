@@ -1,8 +1,9 @@
 //! Additional rough model families, finite-grid paths and deterministic-rate
 //! MC/RQMC pricing, plus separate fixed-model Fourier forward, scalar and Hurst sensitivities.
 //! Explicit fixed-model MC Spot Delta and particle LSV local-variance-node
-//! discrete adjoints are available. This does not add stable JSON tags, MC
-//! Gamma, stochastic-parameter AAD or Hull-White composition. An explicit
+//! discrete adjoints are available. This does not add stable JSON tags,
+//! stochastic-parameter AAD or Hull-White composition. Explicit finite-bump MC
+//! Gamma with paired h/h2 diagnostics is available separately from AAD. An explicit
 //! market-IV source can additionally be bound for discrete quote-node risk.
 
 pub use crate::engine::processes::rough_volatility::{
@@ -10,7 +11,7 @@ pub use crate::engine::processes::rough_volatility::{
     RoughVolatilityPathPlan, RoughVolatilityRecordedPath,
 };
 pub use crate::engine::risk::rough_volatility::{
-    RoughVolatilityDelta, RoughVolatilityPrice, RoughVolatilityPricingPlan,
+    RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice, RoughVolatilityPricingPlan,
 };
 pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,
@@ -43,6 +44,9 @@ pub use crate::engine::calibration::lsv::{
     CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
 };
 pub use crate::engine::risk::lsv::{
-    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvMarketIvRisk,
-    RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma,
+    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
 };
+
+/// Shared finite-bump Gamma report (not a second-order AAD result).
+pub use crate::engine::risk::gamma_bump::RoughGammaBump;

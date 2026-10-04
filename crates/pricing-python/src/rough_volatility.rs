@@ -316,6 +316,16 @@ pub struct PyRoughVolatilityPlan {
 }
 #[pymethods]
 impl PyRoughVolatilityPlan {
+    fn evaluate_gamma_bump(
+        &self,
+        py: Python<'_>,
+        spot_bump: f64,
+    ) -> PyResult<PyRoughVolatilityGamma> {
+        py.detach(|| self.inner.evaluate_gamma_bump(spot_bump))
+            .map(|inner| PyRoughVolatilityGamma { inner })
+            .map_err(pricing_exception)
+    }
+
     #[staticmethod]
     #[pyo3(signature=(request, model, *, maximum_step, worker_threads, reduction_block_size=None))]
     fn compile(
@@ -396,5 +406,64 @@ impl PyRoughVolatilityDelta {
     #[getter]
     fn coordinate(&self) -> &'static str {
         "physical_spot_fixed_model_fixed_cash_dividends"
+    }
+}
+
+#[pyclass(frozen, name = "RoughVolatilityGamma", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughVolatilityGamma {
+    inner: pricing::rough_volatility::RoughVolatilityGamma,
+}
+#[pymethods]
+impl PyRoughVolatilityGamma {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.inner.gamma
+    }
+    #[getter]
+    fn gamma_standard_error(&self) -> f64 {
+        self.inner.gamma_standard_error
+    }
+    #[getter]
+    fn half_bump_gamma(&self) -> f64 {
+        self.inner.half_bump_gamma
+    }
+    #[getter]
+    fn half_bump_standard_error(&self) -> f64 {
+        self.inner.half_bump_standard_error
+    }
+    #[getter]
+    fn bump_difference(&self) -> f64 {
+        self.inner.bump_difference
+    }
+    #[getter]
+    fn bump_difference_standard_error(&self) -> f64 {
+        self.inner.bump_difference_standard_error
+    }
+    #[getter]
+    fn spot_bump(&self) -> f64 {
+        self.inner.spot_bump
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn convention(&self) -> &'static str {
+        self.inner.convention
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
     }
 }
