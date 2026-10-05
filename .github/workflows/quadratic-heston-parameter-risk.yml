@@ -1,0 +1,59 @@
+name: Quadratic Heston parameter reverse
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - '**/*quadratic_heston*'
+      - '**/quadratic-heston-parameter-risk.md'
+      - 'rust_pricing.pyi'
+      - 'scripts/check_source_archive.py'
+      - 'scripts/smoke_test_wheel.py'
+      - '.github/workflows/quadratic-heston-parameter-risk.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: quadratic-heston-parameter-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  references:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install numpy scipy
+      - run: python scripts/check_quadratic_heston_reference.py
+      - run: python -m unittest discover -s scripts -p 'test_quadratic_heston_contract.py'
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --locked -p pricing --test quadratic_heston_parameter_risk
+      - run: cargo test --locked --no-default-features -p pricing --test quadratic_heston_parameter_risk
+      - run: cargo test --locked -p pricing --lib quadratic_
+      - name: Execute independent expectations and cancellation
+        run: |
+          set -o pipefail
+          {
+            git rev-parse HEAD
+            rustc -vV
+            cargo test --locked --release -p pricing --test quadratic_heston_parameter_risk -- --include-ignored --nocapture
+          } 2>&1 | tee quadratic-heston-parameter-risk.log
+      - name: Retain numerical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quadratic-heston-risk-${{ matrix.os }}
+          path: quadratic-heston-parameter-risk.log
+          retention-days: 14
+          if-no-files-found: error
