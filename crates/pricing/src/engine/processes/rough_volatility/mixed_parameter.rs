@@ -6,15 +6,16 @@ use pricing_numerics::NeumaierSum;
 #[derive(Clone, Debug, PartialEq)]
 pub struct MixedBergomiMcAdjoints {
     pub initial_forward: f64,
-    /// eta[0], ..., eta[m-1], rho, optionally Hurst, per absolute parameter unit.
+    /// Selected eta/rho(/Hurst) or simplex-weight/xi coordinates, per absolute unit.
     pub parameters: Box<[f64]>,
 }
 
 #[derive(Debug)]
 pub struct MixedBergomiMcRecordedPath<'a> {
-    plan: &'a RoughVolatilityPathPlan,
-    normals: &'a [f64],
-    path: RoughVolatilityPath,
+    pub(super) plan: &'a RoughVolatilityPathPlan,
+    pub(super) normals: &'a [f64],
+    pub(super) path: RoughVolatilityPath,
+    pub(super) shape: bool,
     pub(super) hurst: Option<&'a MixedKernelHurst>,
 }
 
@@ -56,6 +57,7 @@ impl RoughVolatilityPathPlan {
             normals,
             path,
             hurst: None,
+            shape: false,
         })
     }
 
@@ -143,7 +145,8 @@ impl MixedBergomiMcRecordedPath<'_> {
     }
 
     /// Reverse fixed cotangents on forward and diffusion-variance observations.
-    /// Zero xi nodes are identically zero under these parameter variations.
+    /// Eta/rho/H scopes fix zero xi nodes. The separate shape scope requires
+    /// positive curve inputs and differentiates their original coordinates.
     pub fn reverse(
         &self,
         forward_seeds: &[f64],
@@ -170,12 +173,17 @@ impl MixedBergomiMcRecordedPath<'_> {
             }
             bf = finite_value(forward_seeds[j] + next_bar / self.path.forwards[j])?;
         }
-        let parameters = self.plan.mixed_variance_reverse(
-            self.normals,
-            &self.path.latent_states,
-            &bv,
-            self.hurst,
-        )?;
+        let parameters = if self.shape {
+            self.plan
+                .mixed_shape_reverse(&self.path.latent_states, &bv)?
+        } else {
+            self.plan.mixed_variance_reverse(
+                self.normals,
+                &self.path.latent_states,
+                &bv,
+                self.hurst,
+            )?
+        };
         Ok(MixedBergomiMcAdjoints {
             initial_forward: bf,
             parameters: parameters.into(),
@@ -188,6 +196,7 @@ impl MixedBergomiMcRecordedPath<'_> {
 pub(in crate::engine) struct MixedBergomiVarianceRiskPlan {
     path: RoughVolatilityPathPlan,
     hurst: Option<MixedKernelHurst>,
+    shape: bool,
 }
 impl MixedBergomiVarianceRiskPlan {
     pub(in crate::engine) fn compile(
@@ -196,7 +205,11 @@ impl MixedBergomiVarianceRiskPlan {
     ) -> Result<Self, HullWhiteError> {
         let path = RoughVolatilityPathPlan::compile(model, times)?;
         path.mixed_parameter_domain()?;
-        Ok(Self { path, hurst: None })
+        Ok(Self {
+            path,
+            hurst: None,
+            shape: false,
+        })
     }
     pub(in crate::engine) fn compile_with_hurst(
         model: RoughVolatilityModel,
@@ -206,10 +219,25 @@ impl MixedBergomiVarianceRiskPlan {
         plan.hurst = Some(MixedKernelHurst::compile(&plan.path)?);
         Ok(plan)
     }
+    pub(in crate::engine) fn compile_shape(
+        model: RoughVolatilityModel,
+        times: Vec<f64>,
+    ) -> Result<Self, HullWhiteError> {
+        let path = RoughVolatilityPathPlan::compile(model, times)?;
+        path.mixed_shape_domain()?;
+        Ok(Self {
+            path,
+            hurst: None,
+            shape: true,
+        })
+    }
     pub(in crate::engine) fn path_plan(&self) -> &RoughVolatilityPathPlan {
         &self.path
     }
     pub(in crate::engine) fn width(&self) -> usize {
+        if self.shape {
+            return self.path.mixed_shape_width();
+        }
         match &self.path.model {
             RoughVolatilityModel::MixedRoughBergomi(m) => {
                 m.weights.len() + 1 + usize::from(self.hurst.is_some())
@@ -223,6 +251,9 @@ impl MixedBergomiVarianceRiskPlan {
         seeds: &[f64],
     ) -> Result<Vec<f64>, HullWhiteError> {
         let history = self.path.variance_history(normals)?;
+        if self.shape {
+            return self.path.mixed_shape_reverse(&history.latent_states, seeds);
+        }
         self.path.mixed_variance_reverse(
             normals,
             &history.latent_states,

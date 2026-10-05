@@ -103,7 +103,7 @@ impl Default for HestonFourierConfig {
 pub struct HestonFourierPrice {
     pub call: f64,
     pub put: f64,
-    /// Absolute difference between Simpson grids of N and N/2 on [0,cutoff].
+    /// Absolute difference between Simpson grids of N and N/2 on `[0,cutoff]`.
     pub quadrature_difference: f64,
     /// Integral of the absolute control-variate integrand envelope on
     /// [cutoff/2,cutoff]. It does NOT bound the omitted infinite tail.

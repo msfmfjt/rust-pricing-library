@@ -99,7 +99,7 @@ struct Node {
 }
 
 /// All supplied cash means are funded, including events beyond the option.
-/// The reserve uses conditional DISCOUNTED cash, not P(t,T)*E^Q_t[cash].
+/// The reserve uses conditional DISCOUNTED cash, not `P(t,T)*E^Q_t[cash]`.
 #[derive(Clone, Debug)]
 pub struct StochasticDividendHullWhitePathPlan {
     model: BuehlerDividendModel,

@@ -366,6 +366,14 @@ impl PyRoughVolatilityPlan {
             .map(|inner| PyRoughHestonMcHurstRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_mixed_bergomi_shape_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiMcParameterRisk> {
+        py.detach(|| self.inner.evaluate_mixed_bergomi_shape_risk())
+            .map(|inner| PyMixedBergomiMcParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_mixed_bergomi_parameter_risk(
         &self,
         py: Python<'_>,
@@ -602,7 +610,9 @@ impl PyMixedBergomiMcParameterRisk {
     }
     #[getter]
     fn coordinate(&self) -> &'static str {
-        if self
+        if self.inner.method.contains("shape-vjp") {
+            "mixed_bergomi_simplex_weights_and_forward_variance"
+        } else if self
             .inner
             .parameter_names
             .last()

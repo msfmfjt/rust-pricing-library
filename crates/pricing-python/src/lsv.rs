@@ -407,6 +407,14 @@ pub struct PyRoughFamilyLsvPlan {
 
 #[pymethods]
 impl PyRoughFamilyLsvPlan {
+    fn evaluate_mixed_bergomi_shape_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiLsvParameterRisk> {
+        py.detach(|| self.inner.evaluate_mixed_bergomi_shape_risk())
+            .map(|inner| PyMixedBergomiLsvParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_mixed_bergomi_parameter_risk(
         &self,
         py: Python<'_>,
@@ -836,7 +844,9 @@ impl PyMixedBergomiLsvParameterRisk {
     }
     #[getter]
     fn coordinate(&self) -> &'static str {
-        if self
+        if self.inner.method.contains("shape-vjp") {
+            "mixed_bergomi_shape_fixed_relative_local_variance_target"
+        } else if self
             .inner
             .parameter_names
             .last()
