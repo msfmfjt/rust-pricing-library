@@ -13,6 +13,18 @@ impl CalibratedRoughFamilyLsv {
         )?;
         self.mixed_bergomi_parameter_pullback(seeds, &plan)
     }
+    /// Extend component eta/rho Leverage adjoints by Hurst, including the
+    /// complete kernel and finite-grid centering derivatives. Weights/xi fixed.
+    pub fn reverse_mixed_bergomi_parameters_with_hurst(
+        &self,
+        seeds: &[f64],
+    ) -> Result<Vec<f64>, LsvError> {
+        let plan = MixedBergomiVarianceRiskPlan::compile_with_hurst(
+            self.model.clone(),
+            self.core.surface.times().to_vec(),
+        )?;
+        self.mixed_bergomi_parameter_pullback(seeds, &plan)
+    }
     pub(in crate::engine) fn mixed_bergomi_parameter_pullback(
         &self,
         seeds: &[f64],

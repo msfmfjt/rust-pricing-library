@@ -1,6 +1,8 @@
 //! Explicit, price-only rough model path schemes. New random layouts are
 //! isolated from the existing rough Bergomi/HW and stochastic-dividend engines.
 
+mod mixed_hurst;
+pub use mixed_hurst::MixedBergomiMcHurstPlan;
 mod mixed_parameter;
 pub(in crate::engine) use mixed_parameter::MixedBergomiVarianceRiskPlan;
 pub use mixed_parameter::{MixedBergomiMcAdjoints, MixedBergomiMcRecordedPath};

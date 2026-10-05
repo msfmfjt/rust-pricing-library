@@ -415,6 +415,17 @@ impl PyRoughFamilyLsvPlan {
             .map(|inner| PyMixedBergomiLsvParameterRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_mixed_bergomi_parameter_risk_with_hurst(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiLsvParameterRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_mixed_bergomi_parameter_risk_with_hurst()
+        })
+        .map(|inner| PyMixedBergomiLsvParameterRisk { inner })
+        .map_err(pricing_exception)
+    }
 
     #[pyo3(signature=(*, include_hurst=false))]
     fn evaluate_heston_parameter_risk(
@@ -825,7 +836,16 @@ impl PyMixedBergomiLsvParameterRisk {
     }
     #[getter]
     fn coordinate(&self) -> &'static str {
-        "mixed_bergomi_eta_rho_fixed_relative_local_variance_target"
+        if self
+            .inner
+            .parameter_names
+            .last()
+            .is_some_and(|name| name == "hurst")
+        {
+            "mixed_bergomi_eta_rho_hurst_fixed_relative_local_variance_target"
+        } else {
+            "mixed_bergomi_eta_rho_fixed_relative_local_variance_target"
+        }
     }
     #[getter]
     fn method(&self) -> &'static str {

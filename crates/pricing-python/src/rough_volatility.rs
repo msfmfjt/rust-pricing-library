@@ -374,6 +374,17 @@ impl PyRoughVolatilityPlan {
             .map(|inner| PyMixedBergomiMcParameterRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_mixed_bergomi_parameter_risk_with_hurst(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiMcParameterRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_mixed_bergomi_parameter_risk_with_hurst()
+        })
+        .map(|inner| PyMixedBergomiMcParameterRisk { inner })
+        .map_err(pricing_exception)
+    }
     fn evaluate_heston_parameter_risk(&self, py: Python<'_>) -> PyResult<PyHestonMcParameterRisk> {
         py.detach(|| self.inner.evaluate_heston_parameter_risk())
             .map(|inner| PyHestonMcParameterRisk { inner })
@@ -591,7 +602,16 @@ impl PyMixedBergomiMcParameterRisk {
     }
     #[getter]
     fn coordinate(&self) -> &'static str {
-        "mixed_bergomi_eta_rho_fixed_kernel_weights_and_xi"
+        if self
+            .inner
+            .parameter_names
+            .last()
+            .is_some_and(|name| name == "hurst")
+        {
+            "mixed_bergomi_eta_rho_hurst_fixed_weights_and_xi"
+        } else {
+            "mixed_bergomi_eta_rho_fixed_kernel_weights_and_xi"
+        }
     }
     #[getter]
     fn risk_fingerprint(&self) -> String {

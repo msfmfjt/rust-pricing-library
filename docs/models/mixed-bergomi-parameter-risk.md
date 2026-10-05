@@ -86,3 +86,5 @@ price or risk fingerprint is changed.
 
 See the [validation protocol](../../design/validation/mixed-bergomi-parameter-risk.md)
 and [complete Python example](../../examples/python/mixed_bergomi_parameter_risk.py).
+
+An explicit [Hurst extension](mixed-bergomi-hurst-risk.md) appends H to these risks.
