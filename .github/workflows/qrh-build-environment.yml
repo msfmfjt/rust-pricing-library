@@ -1,0 +1,38 @@
+name: Export pinned QRH build environment
+on:
+  push:
+    branches: [work/qrh-build-environment-20261005]
+    paths: [.github/workflows/qrh-build-environment.yml]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 65ded25690827eac75d6f7b95639f360bbb004b8
+          persist-credentials: false
+      - name: Package only pinned public toolchain and locked dependency sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc -vV
+          cargo vendor --locked "$RUNNER_TEMP/qrh-env/vendor" > "$RUNNER_TEMP/vendor-config.txt"
+          mkdir -p "$RUNNER_TEMP/qrh-env/toolchain"
+          toolchain="$(rustc --print sysroot)"
+          cp -a "$toolchain/bin" "$toolchain/lib" "$toolchain/libexec" "$RUNNER_TEMP/qrh-env/toolchain/"
+          cp Cargo.lock "$RUNNER_TEMP/qrh-env/Cargo.lock"
+          rustc -vV > "$RUNNER_TEMP/qrh-env/toolchain.txt"
+          tar -C "$RUNNER_TEMP" -I 'xz -T2 -3' -cf "$RUNNER_TEMP/qrh-build-environment.tar.xz" qrh-env
+          cd "$RUNNER_TEMP"
+          sha256sum qrh-build-environment.tar.xz > qrh-build-environment.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qrh-build-environment
+          path: |
+            ${{ runner.temp }}/qrh-build-environment.tar.xz
+            ${{ runner.temp }}/qrh-build-environment.sha256
+          if-no-files-found: error
+          retention-days: 2
