@@ -198,3 +198,5 @@ impl CalibrationReverse for CalibratedRoughFamilyLsv {
 }
 
 mod heston_parameter;
+
+mod mixed_parameter;

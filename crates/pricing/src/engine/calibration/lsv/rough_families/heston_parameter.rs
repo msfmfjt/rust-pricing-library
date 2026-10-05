@@ -60,7 +60,7 @@ impl Calibration {
     /// Cotangents on a_i,r^2 = diffusion variance. Both the kernel regression
     /// denominator and all earlier particle positions depend on model parameters.
     /// This separate path leaves the existing fixed-model target VJP unchanged.
-    fn reverse_particle_variances(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+    pub(super) fn reverse_particle_variances(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
         length("leverage_adjoints", self.surface.values.len(), seeds.len())?;
         for (i, &a) in seeds.iter().enumerate() {
             valid(a, "leverage_adjoint", i, false)?;

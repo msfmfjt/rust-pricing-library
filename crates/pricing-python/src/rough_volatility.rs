@@ -366,6 +366,14 @@ impl PyRoughVolatilityPlan {
             .map(|inner| PyRoughHestonMcHurstRisk { inner })
             .map_err(pricing_exception)
     }
+    fn evaluate_mixed_bergomi_parameter_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiMcParameterRisk> {
+        py.detach(|| self.inner.evaluate_mixed_bergomi_parameter_risk())
+            .map(|inner| PyMixedBergomiMcParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate_heston_parameter_risk(&self, py: Python<'_>) -> PyResult<PyHestonMcParameterRisk> {
         py.detach(|| self.inner.evaluate_heston_parameter_risk())
             .map(|inner| PyHestonMcParameterRisk { inner })
@@ -545,6 +553,45 @@ impl PyRoughHestonMcHurstRisk {
     #[getter]
     fn coordinate(&self) -> &'static str {
         "rough_heston_hurst_fixed_scalar_parameters"
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "MixedBergomiMcParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyMixedBergomiMcParameterRisk {
+    inner: pricing::rough_volatility::MixedBergomiMcParameterRisk,
+}
+#[pymethods]
+impl PyMixedBergomiMcParameterRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<String> {
+        self.inner.parameter_names.to_vec()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "mixed_bergomi_eta_rho_fixed_kernel_weights_and_xi"
     }
     #[getter]
     fn risk_fingerprint(&self) -> String {

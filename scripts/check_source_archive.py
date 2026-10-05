@@ -13,6 +13,21 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'scripts/test_mixed_bergomi_parameter_contract.py',
+    '.github/workflows/mixed-bergomi-parameter-risk.yml',
+    'crates/pricing/src/engine/calibration/lsv/rough_families/mixed_parameter.rs',
+    'crates/pricing/src/engine/processes/rough_volatility/mixed_parameter.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/mixed_parameter.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/mixed_parameter_tests.rs',
+    'crates/pricing/src/engine/risk/rough_volatility/mixed_parameter.rs',
+    'crates/pricing/tests/mixed_bergomi_parameter_risk.rs',
+    'design/validation/mixed-bergomi-parameter-risk.md',
+    'docs/models/mixed-bergomi-parameter-risk.md',
+    'examples/python/mixed_bergomi_parameter_risk.py',
+    'fixtures/rough-volatility/mixed-parameter.json',
+    'scripts/check_mixed_bergomi_parameter_reference.py',
+    'tests/python/test_mixed_bergomi_parameter_risk.py',
+
     'crates/pricing/src/engine/calibration/lsv/rough_families/heston_parameter.rs',
     'crates/pricing/src/engine/risk/lsv/rough_families/heston_parameter.rs',
     'crates/pricing/src/engine/risk/lsv/rough_families/heston_parameter_tests.rs',
