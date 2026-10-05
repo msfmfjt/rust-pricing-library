@@ -1,0 +1,23 @@
+name: Export QRH wheel builder retry
+on:
+  push:
+    branches: [work/qrh-build-environment-20261005]
+    paths: [.github/workflows/qrh-wheel-builder-retry.yml]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: |
+          python -m pip download --only-binary=:all: --no-deps maturin==1.15.0 -d builder
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qrh-wheel-builder
+          path: builder/*.whl
+          if-no-files-found: error
+          retention-days: 2
