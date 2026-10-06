@@ -13,6 +13,19 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    '.github/workflows/rough-family-aad-lsv.yml',
+    'crates/pricing/src/engine/processes/rough_volatility/reverse.rs',
+    'crates/pricing/src/engine/processes/rough_volatility/lsv.rs',
+    'crates/pricing/src/engine/calibration/lsv/rough_families.rs',
+    'crates/pricing/src/engine/risk/rough_volatility/delta.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families.rs',
+    'crates/pricing/tests/rough_family_aad_lsv.rs',
+    'scripts/test_rough_family_aad_lsv_contract.py',
+    'examples/python/rough_family_aad_lsv.py',
+    'docs/models/rough-family-aad-lsv.md',
+    'design/validation/rough-family-aad-lsv.md',
+    'tests/python/test_rough_family_aad_lsv.py',
+
     'crates/pricing-python/src/dual.rs',
     'examples/python/american_dual.py',
     'tests/python/test_american_dual.py',
@@ -1074,6 +1087,7 @@ def main() -> int:
         check_cargo_manifests(package, archive)
         check_pyproject(package, archive)
         check_ci_workflow(package, archive)
+        check_rough_family_aad_lsv_workflow(package, archive)
         check_rough_refinement_workflow(package, archive)
         check_lifted_factor_workflow(package, archive)
         check_heston_fourier_workflow(package, archive)
@@ -1421,6 +1435,17 @@ def check_heston_fourier_greeks_workflow(package: tarfile.TarFile, archive: str)
     smoke = read_text(package, "scripts/smoke_test_wheel.py")
     if '"examples/python/heston_fourier_greeks.py"' not in smoke:
         raise SystemExit(f"{archive}: Fourier example must be exercised by wheel smoke tests")
+
+
+def check_rough_family_aad_lsv_workflow(package: tarfile.TarFile, archive: str) -> None:
+    workflow = read_text(package, ".github/workflows/rough-family-aad-lsv.yml")
+    required = ('contents: read', "python -m unittest discover -s scripts -p 'test_rough_family_aad_lsv_contract.py'", 'cargo test --locked -p pricing --test rough_family_aad_lsv', 'cargo test --locked --no-default-features -p pricing --test rough_family_aad_lsv', 'cargo test --locked --release -p pricing --test rough_family_aad_lsv -- --include-ignored --nocapture', 'os: [ubuntu-24.04, macos-15, windows-2025]', 'set -o pipefail', 'name: rough-family-aad-lsv-${{ matrix.os }}', 'path: rough-family-aad-lsv.log', 'if-no-files-found: error')
+    missing = [gate for gate in required if gate not in workflow]
+    if missing:
+        raise SystemExit(f"{archive}: rough family AAD/LSV evidence gates missing: {missing}")
+    smoke = read_text(package, "scripts/smoke_test_wheel.py")
+    if '"examples/python/rough_family_aad_lsv.py"' not in smoke:
+        raise SystemExit(f"{archive}: rough AAD/LSV example is not exercised")
 
 
 def check_heston_fourier_workflow(package: tarfile.TarFile, archive: str) -> None:

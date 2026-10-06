@@ -72,3 +72,5 @@ separate from solver termination; this is not an IV or general six-family fitter
 - [Heston IV grid validation and staged recalibration](heston-iv-refinement.md)
 
 - [Heston IV disjoint holdout validation](heston-iv-holdout.md)
+
+[Six-family MC Spot Delta and particle LSV AAD](rough-family-aad-lsv.md) documents the explicit risk coordinates and experimental limits.
