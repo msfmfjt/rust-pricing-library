@@ -121,6 +121,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_lsv_spot_delta.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_market_iv.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_mc_parameter_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_gamma_bump.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
@@ -1132,6 +1133,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "HestonMcParameterRisk",
         "RoughVolatilityGamma", "RoughFamilyLsvGamma",
         "RoughFamilyLsvPlan", "RoughVolatilityDelta", "RoughFamilyLsvDelta",
         "RoughFamilyLsvMarketIvRiskPlan", "RoughFamilyLsvMarketIvRisk",
@@ -1412,6 +1414,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ('HestonMcParameterRisk', 'price'): 'HullWhitePrice',
+        ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): 'HestonMcParameterRisk',
         ('RoughVolatilityGamma', 'price'): 'HullWhitePrice',
         ('RoughVolatilityPlan', 'evaluate_gamma_bump'): 'RoughVolatilityGamma',
         ('RoughFamilyLsvGamma', 'price'): 'LsvPrice',
@@ -1518,6 +1522,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('HestonMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'parameter_names'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'parameter_adjoints'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'standard_errors'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityGamma', 'spot_bump'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityGamma', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityGamma', 'payoff_evaluations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2577,6 +2589,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'HestonMcParameterRisk': {'price', 'parameter_adjoints', 'parameter_names', 'method', 'coordinate', 'standard_errors', 'risk_fingerprint'},
         'RoughVolatilityGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
         'RoughFamilyLsvGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
 
@@ -2625,7 +2638,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
         'RoughVolatilityPathPlan': {'reverse_initial_forward', 'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
-        'RoughVolatilityPlan': {'evaluate_gamma_bump', 'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
+        'RoughVolatilityPlan': {'evaluate_heston_parameter_risk', 'evaluate_gamma_bump', 'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -3319,6 +3332,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('RoughFamilyLsvGamma', 'price'),
         ('RoughFamilyLsvGamma', 'risk_fingerprint'),
         ('RoughFamilyLsvGamma', 'spot_bump'),
+        ('HestonMcParameterRisk', 'price'),
+        ('HestonMcParameterRisk', 'parameter_names'),
+        ('HestonMcParameterRisk', 'parameter_adjoints'),
+        ('HestonMcParameterRisk', 'standard_errors'),
+        ('HestonMcParameterRisk', 'method'),
+        ('HestonMcParameterRisk', 'coordinate'),
+        ('HestonMcParameterRisk', 'risk_fingerprint'),
         ('RoughVolatilityGamma', 'bump_difference'),
         ('RoughVolatilityGamma', 'bump_difference_standard_error'),
         ('RoughVolatilityGamma', 'convention'),

@@ -80,3 +80,5 @@ separate from solver termination; this is not an IV or general six-family fitter
 [Additional rough-family market-IV quote risk](rough-family-market-iv.md) includes the discrete Dupire and particle-calibration transpose.
 
 [Explicit rough-family finite-bump MC Gamma](rough-family-gamma.md)
+
+[Pure-SV Heston MC parameter adjoints](heston-mc-parameter-risk.md)

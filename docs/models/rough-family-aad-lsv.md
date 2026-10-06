@@ -187,3 +187,9 @@ quote source and extends this local-variance transpose into quote coordinates.
 
 [Explicit physical-Spot Gamma](rough-family-gamma.md) is available separately
 from the first-order adjoints. It is not second-order AAD.
+
+## Fixed-kernel Heston MC parameter risk
+
+A separate [five-parameter MC reverse](heston-mc-parameter-risk.md) is available
+for Pure-SV rough/lifted Heston. Other families and LSV model-parameter
+recalibration are not included in that contract.

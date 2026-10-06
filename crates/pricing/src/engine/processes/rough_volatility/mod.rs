@@ -1,6 +1,8 @@
 //! Explicit, price-only rough model path schemes. New random layouts are
 //! isolated from the existing rough Bergomi/HW and stochastic-dividend engines.
 
+mod heston_parameter;
+pub use heston_parameter::{HESTON_MC_PARAMETER_NAMES, HestonMcAdjoints, HestonMcRecordedPath};
 mod kernel;
 pub(in crate::engine) mod lsv;
 mod reverse;

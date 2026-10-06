@@ -1334,6 +1334,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<rough_volatility::PyRoughVolatilityPath>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityPathPlan>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityPlan>()?;
+    module.add_class::<rough_volatility::PyHestonMcParameterRisk>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityDelta>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityGamma>()?;
     module.add_class::<lsv::PyRoughFamilyLsvMarketIvRiskPlan>()?;

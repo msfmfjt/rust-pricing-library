@@ -2,16 +2,19 @@
 //! MC/RQMC pricing, plus separate fixed-model Fourier forward, scalar and Hurst sensitivities.
 //! Explicit fixed-model MC Spot Delta and particle LSV local-variance-node
 //! discrete adjoints are available. This does not add stable JSON tags,
-//! stochastic-parameter AAD or Hull-White composition. Explicit finite-bump MC
+//! general stochastic-parameter AAD or Hull-White composition. A fixed-kernel
+//! pure Heston MC parameter reverse is available separately. Explicit finite-bump MC
 //! Gamma with paired h/h2 diagnostics is available separately from AAD. An explicit
 //! market-IV source can additionally be bound for discrete quote-node risk.
 
 pub use crate::engine::processes::rough_volatility::{
-    RoughFamilyLsvAdjoints, RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughVolatilityPath,
-    RoughVolatilityPathPlan, RoughVolatilityRecordedPath,
+    HESTON_MC_PARAMETER_NAMES, HestonMcAdjoints, HestonMcRecordedPath, RoughFamilyLsvAdjoints,
+    RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughVolatilityPath, RoughVolatilityPathPlan,
+    RoughVolatilityRecordedPath,
 };
 pub use crate::engine::risk::rough_volatility::{
-    RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice, RoughVolatilityPricingPlan,
+    HestonMcParameterRisk, RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice,
+    RoughVolatilityPricingPlan,
 };
 pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,

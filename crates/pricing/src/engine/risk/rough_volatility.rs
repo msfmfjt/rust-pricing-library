@@ -5,6 +5,9 @@
 mod gamma;
 pub use gamma::RoughVolatilityGamma;
 
+mod heston_parameter;
+pub use heston_parameter::HestonMcParameterRisk;
+
 mod delta;
 pub use delta::RoughVolatilityDelta;
 
