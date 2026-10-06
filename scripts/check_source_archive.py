@@ -13,6 +13,16 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/processes/rough_volatility/mixed_hurst.rs',
+    'crates/pricing/tests/mixed_bergomi_hurst_risk.rs',
+    'tests/python/test_mixed_bergomi_hurst_risk.py',
+    'examples/python/mixed_bergomi_hurst_risk.py',
+    'docs/models/mixed-bergomi-hurst-risk.md',
+    'design/validation/mixed-bergomi-hurst-risk.md',
+    'scripts/check_mixed_bergomi_hurst_reference.py',
+    'scripts/test_mixed_bergomi_hurst_contract.py',
+    'fixtures/rough-volatility/mixed-hurst.json',
+
     'scripts/test_mixed_bergomi_parameter_contract.py',
     '.github/workflows/mixed-bergomi-parameter-risk.yml',
     'crates/pricing/src/engine/calibration/lsv/rough_families/mixed_parameter.rs',

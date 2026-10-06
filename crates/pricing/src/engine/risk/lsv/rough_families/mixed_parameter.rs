@@ -96,6 +96,21 @@ impl RoughFamilyLsvPricingPlan {
     pub fn evaluate_mixed_bergomi_parameter_risk(
         &self,
     ) -> Result<MixedBergomiLsvParameterRisk, MonteCarloError> {
+        self.mixed_bergomi_parameter_risk_impl(false)
+    }
+
+    /// Include Hurst and discrete centering in both direct valuation and full
+    /// particle recalibration at the same target. H=1/2 uses the left derivative.
+    pub fn evaluate_mixed_bergomi_parameter_risk_with_hurst(
+        &self,
+    ) -> Result<MixedBergomiLsvParameterRisk, MonteCarloError> {
+        self.mixed_bergomi_parameter_risk_impl(true)
+    }
+
+    fn mixed_bergomi_parameter_risk_impl(
+        &self,
+        include_hurst: bool,
+    ) -> Result<MixedBergomiLsvParameterRisk, MonteCarloError> {
         let core = &self.core;
         core.calibration.validate_calibration_reverse()?;
         if !core.risk_supported {
@@ -103,13 +118,18 @@ impl RoughFamilyLsvPricingPlan {
                 model: "Mixed Bergomi LSV parameter risk requires pathwise payoff or explicit smoothing",
             });
         }
+        let compile = if include_hurst {
+            MixedBergomiVarianceRiskPlan::compile_with_hurst
+        } else {
+            MixedBergomiVarianceRiskPlan::compile
+        };
         let reverse = ParameterReverse {
             plan: self,
-            valuation: MixedBergomiVarianceRiskPlan::compile(
+            valuation: compile(
                 core.path_plan.model().clone(),
                 core.path_plan.times().to_vec(),
             )?,
-            calibration: MixedBergomiVarianceRiskPlan::compile(
+            calibration: compile(
                 core.calibration.model().clone(),
                 core.calibration.surface().times().to_vec(),
             )?,
@@ -187,11 +207,18 @@ impl RoughFamilyLsvPricingPlan {
                 )
             }
         };
-        let names = reverse
+        let mut names = reverse
             .valuation
             .path_plan()
             .mixed_bergomi_parameter_names()?;
-        let method = "mixed-bergomi-lsv-fixed-target-parameter-particle-vjp-v1";
+        if include_hurst {
+            names.push("hurst".into());
+        }
+        let method = if include_hurst {
+            "mixed-bergomi-lsv-fixed-target-parameter-hurst-vjp-v1"
+        } else {
+            "mixed-bergomi-lsv-fixed-target-parameter-particle-vjp-v1"
+        };
         let mut hash = blake3::Hasher::new();
         hash.update(method.as_bytes());
         hash.update(core.fingerprint.as_bytes());

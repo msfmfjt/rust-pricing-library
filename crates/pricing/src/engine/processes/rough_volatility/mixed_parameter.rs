@@ -1,11 +1,12 @@
 //! Fixed-kernel, fixed-weight parameter reverse for the shared-driver mixture.
+use super::mixed_hurst::MixedKernelHurst;
 use super::*;
 use pricing_numerics::NeumaierSum;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MixedBergomiMcAdjoints {
     pub initial_forward: f64,
-    /// eta[0], ..., eta[m-1], rho, per one absolute parameter unit.
+    /// eta[0], ..., eta[m-1], rho, optionally Hurst, per absolute parameter unit.
     pub parameters: Box<[f64]>,
 }
 
@@ -14,6 +15,7 @@ pub struct MixedBergomiMcRecordedPath<'a> {
     plan: &'a RoughVolatilityPathPlan,
     normals: &'a [f64],
     path: RoughVolatilityPath,
+    pub(super) hurst: Option<&'a MixedKernelHurst>,
 }
 
 impl RoughVolatilityPathPlan {
@@ -53,6 +55,7 @@ impl RoughVolatilityPathPlan {
             plan: self,
             normals,
             path,
+            hurst: None,
         })
     }
 
@@ -61,6 +64,7 @@ impl RoughVolatilityPathPlan {
         normals: &[f64],
         latent: &[f64],
         seeds: &[f64],
+        hurst: Option<&MixedKernelHurst>,
     ) -> Result<Vec<f64>, HullWhiteError> {
         let m = self.mixed_parameter_domain()?;
         let CompiledDriver::Power(k) = &self.driver else {
@@ -92,8 +96,11 @@ impl RoughVolatilityPathPlan {
             .zip(&k.near_loading)
             .map(|(d, c)| d * c)
             .collect::<Vec<_>>();
+        let dx_h = hurst
+            .map(|d| d.gaussian_derivatives(self, normals))
+            .transpose()?;
         let count = m.weights.len();
-        let mut g = vec![NeumaierSum::new(); count + 1];
+        let mut g = vec![NeumaierSum::new(); count + 1 + usize::from(hurst.is_some())];
         // V(0)=xi(0), independently of eta and rho.
         for i in 1..=n {
             if seeds[i] == 0.0 {
@@ -116,6 +123,9 @@ impl RoughVolatilityPathPlan {
                 let b = seeds[i] * component;
                 g[j].add(b * (latent[i] - eta * k.variances[i]));
                 g[count].add(b * eta * dx);
+                if let (Some(d), Some(dx)) = (hurst, &dx_h) {
+                    g[count + 1].add(b * (eta * dx[i] - 0.5 * eta.powi(2) * d.variances[i]));
+                }
             }
         }
         let result = g.into_iter().map(NeumaierSum::total).collect::<Vec<_>>();
@@ -160,9 +170,12 @@ impl MixedBergomiMcRecordedPath<'_> {
             }
             bf = finite_value(forward_seeds[j] + next_bar / self.path.forwards[j])?;
         }
-        let parameters =
-            self.plan
-                .mixed_variance_reverse(self.normals, &self.path.latent_states, &bv)?;
+        let parameters = self.plan.mixed_variance_reverse(
+            self.normals,
+            &self.path.latent_states,
+            &bv,
+            self.hurst,
+        )?;
         Ok(MixedBergomiMcAdjoints {
             initial_forward: bf,
             parameters: parameters.into(),
@@ -174,6 +187,7 @@ impl MixedBergomiMcRecordedPath<'_> {
 #[derive(Clone, Debug)]
 pub(in crate::engine) struct MixedBergomiVarianceRiskPlan {
     path: RoughVolatilityPathPlan,
+    hurst: Option<MixedKernelHurst>,
 }
 impl MixedBergomiVarianceRiskPlan {
     pub(in crate::engine) fn compile(
@@ -182,14 +196,24 @@ impl MixedBergomiVarianceRiskPlan {
     ) -> Result<Self, HullWhiteError> {
         let path = RoughVolatilityPathPlan::compile(model, times)?;
         path.mixed_parameter_domain()?;
-        Ok(Self { path })
+        Ok(Self { path, hurst: None })
+    }
+    pub(in crate::engine) fn compile_with_hurst(
+        model: RoughVolatilityModel,
+        times: Vec<f64>,
+    ) -> Result<Self, HullWhiteError> {
+        let mut plan = Self::compile(model, times)?;
+        plan.hurst = Some(MixedKernelHurst::compile(&plan.path)?);
+        Ok(plan)
     }
     pub(in crate::engine) fn path_plan(&self) -> &RoughVolatilityPathPlan {
         &self.path
     }
     pub(in crate::engine) fn width(&self) -> usize {
         match &self.path.model {
-            RoughVolatilityModel::MixedRoughBergomi(m) => m.weights.len() + 1,
+            RoughVolatilityModel::MixedRoughBergomi(m) => {
+                m.weights.len() + 1 + usize::from(self.hurst.is_some())
+            }
             _ => unreachable!(),
         }
     }
@@ -199,7 +223,11 @@ impl MixedBergomiVarianceRiskPlan {
         seeds: &[f64],
     ) -> Result<Vec<f64>, HullWhiteError> {
         let history = self.path.variance_history(normals)?;
-        self.path
-            .mixed_variance_reverse(normals, &history.latent_states, seeds)
+        self.path.mixed_variance_reverse(
+            normals,
+            &history.latent_states,
+            seeds,
+            self.hurst.as_ref(),
+        )
     }
 }

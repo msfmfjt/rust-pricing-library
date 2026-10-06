@@ -1,11 +1,12 @@
 //! Pure-SV Mixed rough Bergomi component eta and shared rho risk.
 use super::delta::estimate;
 use super::*;
+use crate::engine::processes::rough_volatility::MixedBergomiMcHurstPlan;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MixedBergomiMcParameterRisk {
     pub price: RoughVolatilityPrice,
-    /// Component eta values followed by shared rho; weights, H and xi fixed.
+    /// Component eta values, shared rho, and optionally Hurst; weights and xi fixed.
     pub parameter_names: Box<[String]>,
     pub parameter_adjoints: Box<[f64]>,
     /// Marginal sampling errors; these do not define the covariance of a basket.
@@ -21,7 +22,28 @@ impl RoughVolatilityPricingPlan {
     pub fn evaluate_mixed_bergomi_parameter_risk(
         &self,
     ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
-        let names = self.path.mixed_bergomi_parameter_names()?;
+        self.mixed_bergomi_parameter_risk_impl(false)
+    }
+
+    /// Extend the existing eta/rho risk by Hurst at fixed weights and xi.
+    /// At H=1/2 return its left derivative; no price bumps.
+    pub fn evaluate_mixed_bergomi_parameter_risk_with_hurst(
+        &self,
+    ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
+        self.mixed_bergomi_parameter_risk_impl(true)
+    }
+
+    fn mixed_bergomi_parameter_risk_impl(
+        &self,
+        include_hurst: bool,
+    ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
+        let mut names = self.path.mixed_bergomi_parameter_names()?;
+        let hurst = if include_hurst {
+            names.push("hurst".into());
+            Some(MixedBergomiMcHurstPlan::compile(&self.path)?)
+        } else {
+            None
+        };
         let d = names.len();
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
@@ -42,6 +64,7 @@ impl RoughVolatilityPricingPlan {
                         bridge.as_ref(),
                         c.variance_reduction().antithetic(),
                         out,
+                        hurst.as_ref(),
                     )
                 })?;
                 (stats, n, c.evaluated_paths())
@@ -68,6 +91,7 @@ impl RoughVolatilityPricingPlan {
                             bridge.as_ref(),
                             c.variance_reduction().antithetic(),
                             out,
+                            hurst.as_ref(),
                         )
                     })?;
                     for j in 0..d + 1 {
@@ -97,7 +121,11 @@ impl RoughVolatilityPricingPlan {
         for j in 0..d {
             (parameter_adjoints[j], standard_errors[j]) = estimate(stats[j + 1], units)?;
         }
-        let method = "mixed-bergomi-mc-fixed-kernel-parameter-vjp-v1";
+        let method = if include_hurst {
+            "mixed-bergomi-mc-parameter-hurst-vjp-v1"
+        } else {
+            "mixed-bergomi-mc-fixed-kernel-parameter-vjp-v1"
+        };
         let mut hash = blake3::Hasher::new();
         hash.update(method.as_bytes());
         hash.update(self.fingerprint.as_bytes());
@@ -127,6 +155,7 @@ impl RoughVolatilityPricingPlan {
         bridge: Option<&BrownianBridgePlan>,
         anti: bool,
         out: &mut [f64],
+        hurst: Option<&MixedBergomiMcHurstPlan>,
     ) -> Result<(), MonteCarloError> {
         let n = self.time_nodes().len() - 1;
         if let Some(bridge) = bridge {
@@ -140,9 +169,12 @@ impl RoughVolatilityPricingPlan {
         let signs = if anti { &[1.0, -1.0][..] } else { &[1.0][..] };
         for &sign in signs {
             let z = normals.iter().map(|v| sign * v).collect::<Vec<_>>();
-            let record = self
-                .path
-                .evolve_mixed_bergomi_parameter_path(self.initial_forward, &z)?;
+            let record = match hurst {
+                Some(plan) => plan.evolve_path(self.initial_forward, &z)?,
+                None => self
+                    .path
+                    .evolve_mixed_bergomi_parameter_path(self.initial_forward, &z)?,
+            };
             let spots = self
                 .observations
                 .iter()

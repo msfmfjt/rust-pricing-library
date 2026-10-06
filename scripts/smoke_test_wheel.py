@@ -125,6 +125,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/heston_mc_hurst_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_lsv_parameter_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/mixed_bergomi_parameter_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/mixed_bergomi_hurst_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_gamma_bump.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
@@ -1425,11 +1426,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("MixedBergomiLsvParameterRisk", "price"): "LsvPrice",
         ("RoughFamilyLsvPlan", "evaluate_heston_parameter_risk"): "HestonLsvParameterRisk",
         ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk"): "MixedBergomiLsvParameterRisk",
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk_with_hurst"): "MixedBergomiLsvParameterRisk",
         ('HestonMcParameterRisk', 'price'): 'HullWhitePrice',
         ('MixedBergomiMcParameterRisk', 'price'): 'HullWhitePrice',
         ('RoughHestonMcHurstRisk', 'price'): 'HullWhitePrice',
         ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): 'HestonMcParameterRisk',
         ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk'): 'MixedBergomiMcParameterRisk',
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk_with_hurst'): 'MixedBergomiMcParameterRisk',
         ('RoughVolatilityPlan', 'evaluate_hurst_risk'): 'RoughHestonMcHurstRisk',
         ('RoughVolatilityGamma', 'price'): 'HullWhitePrice',
         ('RoughVolatilityPlan', 'evaluate_gamma_bump'): 'RoughVolatilityGamma',
@@ -1557,6 +1560,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("MixedBergomiLsvParameterRisk", "risk_fingerprint"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ("RoughFamilyLsvPlan", "evaluate_heston_parameter_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['include_hurst'], 'required_keyword_only': [], 'keyword_only_defaults': {'include_hurst': False}},
         ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk_with_hurst"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('MixedBergomiMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughHestonMcHurstRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -1579,6 +1583,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('RoughHestonMcHurstRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk_with_hurst'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityPlan', 'evaluate_hurst_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityGamma', 'spot_bump'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityGamma', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2651,7 +2656,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'RoughFamilyLsvMarketIvRisk': {'coordinate', 'maturity_nodes', 'uncertainty_scope', 'parallel_vega', 'log_moneyness_nodes', 'price', 'method', 'risk_fingerprint', 'implied_volatilities', 'interpolation', 'quote_adjoints', 'parallel_standard_error', 'standard_errors'},
 
         "RoughFamilyLsvDelta": {'delta', 'price', 'coordinate', 'convention', 'delta_standard_error', 'method'},
-        'RoughFamilyLsvPlan': {'evaluate_mixed_bergomi_parameter_risk', 'evaluate_heston_parameter_risk','evaluate_frozen_leverage_gamma_bump', 'evaluate_sticky_moneyness_gamma_bump', 'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        'RoughFamilyLsvPlan': {'evaluate_mixed_bergomi_parameter_risk_with_hurst', 'evaluate_mixed_bergomi_parameter_risk', 'evaluate_heston_parameter_risk','evaluate_frozen_leverage_gamma_bump', 'evaluate_sticky_moneyness_gamma_bump', 'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
         'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
 
         'MarketIvSurface': {'__init__', 'implied_volatilities', 'maturity_nodes', 'local_volatility_model', 'interpolation', 'log_moneyness_nodes'},
@@ -2692,7 +2697,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
         'RoughVolatilityPathPlan': {'reverse_initial_forward', 'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
-        'RoughVolatilityPlan': {'evaluate_mixed_bergomi_parameter_risk', 'evaluate_hurst_risk', 'evaluate_heston_parameter_risk', 'evaluate_gamma_bump', 'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
+        'RoughVolatilityPlan': {'evaluate_mixed_bergomi_parameter_risk_with_hurst', 'evaluate_mixed_bergomi_parameter_risk', 'evaluate_hurst_risk', 'evaluate_heston_parameter_risk', 'evaluate_gamma_bump', 'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
