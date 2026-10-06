@@ -450,6 +450,16 @@ impl PyRoughFamilyLsvPlan {
         .map(|inner| Self { inner })
         .map_err(pricing_exception)
     }
+    fn market_iv_risk_plan(
+        &self,
+        py: Python<'_>,
+        surface: &crate::market_iv::PyMarketIvSurface,
+    ) -> PyResult<PyRoughFamilyLsvMarketIvRiskPlan> {
+        let source = surface.inner.clone();
+        py.detach(|| self.inner.market_iv_risk_plan(source))
+            .map(|inner| PyRoughFamilyLsvMarketIvRiskPlan { inner })
+            .map_err(pricing_exception)
+    }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyLsvPrice { inner })
@@ -543,5 +553,86 @@ impl PyRoughFamilyLsvDelta {
     #[getter]
     fn coordinate(&self) -> &'static str {
         "physical_spot_fixed_curves_and_cash_dividends"
+    }
+}
+
+#[pyclass(frozen, name = "RoughFamilyLsvMarketIvRiskPlan", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvMarketIvRiskPlan {
+    inner: pricing::rough_volatility::RoughFamilyLsvMarketIvRiskPlan,
+}
+#[pymethods]
+impl PyRoughFamilyLsvMarketIvRiskPlan {
+    fn evaluate(&self, py: Python<'_>) -> PyResult<PyRoughFamilyLsvMarketIvRisk> {
+        py.detach(|| self.inner.evaluate())
+            .map(|inner| PyRoughFamilyLsvMarketIvRisk { inner })
+            .map_err(pricing_exception)
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint().to_string()
+    }
+}
+
+#[pyclass(frozen, name = "RoughFamilyLsvMarketIvRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvMarketIvRisk {
+    inner: pricing::rough_volatility::RoughFamilyLsvMarketIvRisk,
+}
+#[pymethods]
+impl PyRoughFamilyLsvMarketIvRisk {
+    #[getter]
+    fn price(&self) -> PyLsvPrice {
+        PyLsvPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn maturity_nodes(&self) -> Vec<f64> {
+        self.inner.maturity_nodes.to_vec()
+    }
+    #[getter]
+    fn log_moneyness_nodes(&self) -> Vec<f64> {
+        self.inner.log_moneyness_nodes.to_vec()
+    }
+    #[getter]
+    fn implied_volatilities(&self) -> Vec<f64> {
+        self.inner.implied_volatilities.to_vec()
+    }
+    #[getter]
+    fn quote_adjoints(&self) -> Vec<f64> {
+        self.inner.quote_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Option<Vec<f64>> {
+        self.inner.standard_errors.as_ref().map(|v| v.to_vec())
+    }
+    #[getter]
+    fn parallel_vega(&self) -> f64 {
+        self.inner.parallel_vega
+    }
+    #[getter]
+    fn parallel_standard_error(&self) -> Option<f64> {
+        self.inner.parallel_standard_error
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        pricing::rough_volatility::RoughFamilyLsvMarketIvRiskPlan::COORDINATE
+    }
+    #[getter]
+    fn interpolation(&self) -> &'static str {
+        pricing::market::MARKET_IV_INTERPOLATION
+    }
+    #[getter]
+    fn uncertainty_scope(&self) -> &'static str {
+        "pricing_conditional_on_calibration"
     }
 }

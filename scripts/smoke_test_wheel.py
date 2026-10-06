@@ -120,6 +120,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_lsv_spot_delta.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_market_iv.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
@@ -1131,6 +1132,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
 
     expected_top_level_names = {
         "RoughFamilyLsvPlan", "RoughVolatilityDelta", "RoughFamilyLsvDelta",
+        "RoughFamilyLsvMarketIvRiskPlan", "RoughFamilyLsvMarketIvRisk",
         'MarketIvSurface',
         'StochasticDividendContinuousBarrierMarketIvRisk',
 
@@ -1408,6 +1410,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ('RoughFamilyLsvPlan', 'market_iv_risk_plan'): 'RoughFamilyLsvMarketIvRiskPlan',
+        ('RoughFamilyLsvMarketIvRiskPlan', 'evaluate'): 'RoughFamilyLsvMarketIvRisk',
+        ('RoughFamilyLsvMarketIvRisk', 'price'): 'LsvPrice',
+
         ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_delta'): "RoughFamilyLsvDelta",
         ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_delta'): "RoughFamilyLsvDelta",
         ("RoughFamilyLsvDelta", "price"): "LsvPrice",
@@ -1504,6 +1510,23 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('RoughFamilyLsvPlan', 'market_iv_risk_plan'): {'positional': ['self', 'surface'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRiskPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRiskPlan', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'maturity_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'log_moneyness_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'implied_volatilities'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'quote_adjoints'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'standard_errors'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_vega'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'interpolation'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'uncertainty_scope'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
         ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughFamilyLsvDelta', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2518,8 +2541,11 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'RoughFamilyLsvMarketIvRiskPlan': {'risk_fingerprint', 'evaluate'},
+        'RoughFamilyLsvMarketIvRisk': {'coordinate', 'maturity_nodes', 'uncertainty_scope', 'parallel_vega', 'log_moneyness_nodes', 'price', 'method', 'risk_fingerprint', 'implied_volatilities', 'interpolation', 'quote_adjoints', 'parallel_standard_error', 'standard_errors'},
+
         "RoughFamilyLsvDelta": {'delta', 'price', 'coordinate', 'convention', 'delta_standard_error', 'method'},
-        'RoughFamilyLsvPlan': {'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        'RoughFamilyLsvPlan': {'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
         'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
 
         'MarketIvSurface': {'__init__', 'implied_volatilities', 'maturity_nodes', 'local_volatility_model', 'interpolation', 'log_moneyness_nodes'},
@@ -3227,6 +3253,20 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('RoughFamilyLsvMarketIvRiskPlan', 'risk_fingerprint'),
+        ('RoughFamilyLsvMarketIvRisk', 'price'),
+        ('RoughFamilyLsvMarketIvRisk', 'maturity_nodes'),
+        ('RoughFamilyLsvMarketIvRisk', 'log_moneyness_nodes'),
+        ('RoughFamilyLsvMarketIvRisk', 'implied_volatilities'),
+        ('RoughFamilyLsvMarketIvRisk', 'quote_adjoints'),
+        ('RoughFamilyLsvMarketIvRisk', 'standard_errors'),
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_vega'),
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_standard_error'),
+        ('RoughFamilyLsvMarketIvRisk', 'risk_fingerprint'),
+        ('RoughFamilyLsvMarketIvRisk', 'method'),
+        ('RoughFamilyLsvMarketIvRisk', 'coordinate'),
+        ('RoughFamilyLsvMarketIvRisk', 'interpolation'),
+        ('RoughFamilyLsvMarketIvRisk', 'uncertainty_scope'),
         ('RoughFamilyLsvDelta', 'price'),
         ('RoughFamilyLsvDelta', 'delta'),
         ('RoughFamilyLsvDelta', 'delta_standard_error'),

@@ -112,6 +112,77 @@ impl MarketIvSurface {
         Ok(grid)
     }
 
+    /// Transpose of this surface's strict Dupire grid construction, including
+    /// natural-cubic/time interpolation and w_i = T_i * sigma_i^2. Grid axes,
+    /// quote coordinates and floor/cap are fixed. The supplied grid must be
+    /// reproduced bit-for-bit and strictly inside its bounds: repaired nodes
+    /// and exact floor/cap kinks have no derivative under this contract.
+    /// Time zero uses the first positive target time, just as the primal does.
+    pub fn local_variance_pullback(
+        &self,
+        grid: &LocalVarianceGrid,
+        node_adjoints: &[f64],
+    ) -> Result<Vec<f64>, MarketError> {
+        self.validate_local_variance_source(grid)?;
+        if node_adjoints.len() != grid.values().len()
+            || node_adjoints.iter().any(|a| !a.is_finite())
+        {
+            return Err(invalid(
+                "market_iv_local_variance_seeds",
+                node_adjoints.len() as f64,
+            ));
+        }
+        let mut out = vec![0.0; self.volatilities.len()];
+        let m = grid.log_moneyness_nodes().len();
+        for (row, &t) in grid.time_nodes().iter().enumerate() {
+            let time = if t == 0.0 { grid.time_nodes()[1] } else { t };
+            for (col, &x) in grid.log_moneyness_nodes().iter().enumerate() {
+                let v = self.total_variance_derivatives(time, x)?;
+                let w = v.total_variance;
+                let wx = v.log_moneyness_derivative;
+                let g = crate::market::durrleman_density_factor(time, x, v)?;
+                let a = node_adjoints[row * m + col];
+                let g_bar = -a * v.time_derivative / (g * g);
+                let u = 1.0 - x * wx / (2.0 * w);
+                let w_bar = g_bar * (u * x * wx / (w * w) + wx * wx / (4.0 * w * w));
+                let wx_bar = g_bar * (-u * x / w - 0.5 * wx * (1.0 / w + 0.25));
+                self.transpose_accumulate(time, x, [w_bar, wx_bar, 0.5 * g_bar, a / g], &mut out)?;
+            }
+        }
+        Ok(out)
+    }
+
+    /// Validate binding to a previously compiled strict Dupire grid. This does
+    /// not infer a market convention from an arbitrary Local Variance grid.
+    pub fn validate_local_variance_source(
+        &self,
+        grid: &LocalVarianceGrid,
+    ) -> Result<(), MarketError> {
+        let rebuilt = self.local_variance_grid(
+            grid.time_nodes().to_vec(),
+            grid.log_moneyness_nodes().to_vec(),
+            grid.floor(),
+            grid.cap(),
+        )?;
+        if !grid.repairs().is_empty()
+            || rebuilt
+                .values()
+                .iter()
+                .zip(grid.values())
+                .any(|(a, b)| a.to_bits() != b.to_bits())
+        {
+            return Err(invalid("market_iv_original_target_mismatch", 0.0));
+        }
+        if grid
+            .values()
+            .iter()
+            .any(|&v| v <= grid.floor() || v >= grid.cap())
+        {
+            return Err(invalid("market_iv_local_variance_bound_kink", 0.0));
+        }
+        Ok(())
+    }
+
     /// Seeds in order (w, w_x, w_xx, w_t); axes and quote interpretation fixed.
     pub fn transpose_accumulate(
         &self,

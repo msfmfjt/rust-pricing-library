@@ -29,7 +29,8 @@ mod rough_families;
 use evaluation::{Evaluation, PriceOnly, Recalibrated};
 use models::{CalibratedModel, LeveragePathModel, PathModel};
 pub use rough_families::{
-    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvPricingPlan,
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvMarketIvRisk,
+    RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -358,6 +359,16 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
     }
 
     fn run<M: Evaluation<C>>(&self) -> Result<(LsvPrice, RiskOutput), MonteCarloError> {
+        self.run_projected::<M>(self.original_target.values().len(), Ok)
+    }
+
+    // Map each scramble's full gradient before computing moments. Mapping
+    // marginal standard errors would discard the cross-node covariance.
+    fn run_projected<M: Evaluation<C>>(
+        &self,
+        risk_width: usize,
+        project: impl Fn(Vec<f64>) -> Result<Vec<f64>, MonteCarloError>,
+    ) -> Result<(LsvPrice, RiskOutput), MonteCarloError> {
         let executor = DeterministicExecutor::new(self.policy)?;
         let width = 1 + if M::RISK {
             self.calibration.surface().squared_leverage().len()
@@ -377,7 +388,10 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
                     let z = self.apply_bridge(z, bridge.as_ref())?;
                     self.sample::<M>(&z, i, engine.variance_reduction().antithetic(), out)
                 })?;
-                let gradient = M::target_gradient(self, &stats, n)?.map(|values| (values, None));
+                let gradient = M::target_gradient(self, &stats, n)?
+                    .map(&project)
+                    .transpose()?
+                    .map(|values| (values, None));
                 (stats[0], n, engine.evaluated_paths(), gradient)
             }
             EngineConfig::RandomizedQuasiMonteCarlo(engine) => {
@@ -420,14 +434,14 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
                     })?;
                     prices.push(stats[0].sum().total() / n as f64);
                     if let Some(gradient) = M::target_gradient(self, &stats, n)? {
-                        risks.push(gradient);
+                        risks.push(project(gradient)?);
                     }
                 }
                 let count = u64::from(engine.scramble_count().get());
                 let gradient = if M::RISK {
                     let mut means = Vec::new();
                     let mut errors = Vec::new();
-                    for j in 0..self.original_target.values().len() {
+                    for j in 0..risk_width {
                         let values = risks.iter().map(|r| r[j]).collect::<Vec<_>>();
                         let stat = DeterministicStatistics::from_ordered_values_two_pass(&values);
                         means.push(stat.sum().total() / count as f64);

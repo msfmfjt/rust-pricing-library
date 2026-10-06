@@ -1,8 +1,9 @@
 //! Additional rough model families, finite-grid paths and deterministic-rate
 //! MC/RQMC pricing, plus separate fixed-model Fourier forward, scalar and Hurst sensitivities.
 //! Explicit fixed-model MC Spot Delta and particle LSV local-variance-node
-//! discrete adjoints are available. This does not add stable JSON tags, market
-//! IV VegaKT, Gamma, stochastic-parameter AAD or Hull-White composition.
+//! discrete adjoints are available. This does not add stable JSON tags, MC
+//! Gamma, stochastic-parameter AAD or Hull-White composition. An explicit
+//! market-IV source can additionally be bound for discrete quote-node risk.
 
 pub use crate::engine::processes::rough_volatility::{
     RoughFamilyLsvAdjoints, RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughVolatilityPath,
@@ -42,5 +43,6 @@ pub use crate::engine::calibration::lsv::{
     CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
 };
 pub use crate::engine::risk::lsv::{
-    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvPricingPlan,
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvMarketIvRisk,
+    RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
 };

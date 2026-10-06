@@ -13,6 +13,14 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/lsv/rough_families/market_iv.rs',
+    'crates/pricing/tests/rough_family_market_iv.rs',
+    'scripts/test_rough_family_market_iv_contract.py',
+    'examples/python/rough_family_market_iv.py',
+    'docs/models/rough-family-market-iv.md',
+    'design/validation/rough-family-market-iv.md',
+    'tests/python/test_rough_family_market_iv.py',
+
     '.github/workflows/rough-family-lsv-spot-delta.yml',
     'crates/pricing/src/engine/risk/lsv/rough_families/spot_delta.rs',
     'crates/pricing/tests/rough_family_lsv_spot_delta.rs',

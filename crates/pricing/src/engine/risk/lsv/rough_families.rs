@@ -121,3 +121,6 @@ impl LeveragePathModel for RoughFamilyLsvPlan {
 
 mod spot_delta;
 pub use spot_delta::{RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention};
+
+mod market_iv;
+pub use market_iv::{RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan};
