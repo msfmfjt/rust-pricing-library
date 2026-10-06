@@ -25,6 +25,14 @@ impl CalibratedRoughFamilyLsv {
         )?;
         self.mixed_bergomi_parameter_pullback(seeds, &plan)
     }
+    /// Simplex weight transfers and original curve coordinates; fixed target.
+    pub fn reverse_mixed_bergomi_shape(&self, seeds: &[f64]) -> Result<Vec<f64>, LsvError> {
+        let plan = MixedBergomiVarianceRiskPlan::compile_shape(
+            self.model.clone(),
+            self.core.surface.times().to_vec(),
+        )?;
+        self.mixed_bergomi_parameter_pullback(seeds, &plan)
+    }
     pub(in crate::engine) fn mixed_bergomi_parameter_pullback(
         &self,
         seeds: &[f64],

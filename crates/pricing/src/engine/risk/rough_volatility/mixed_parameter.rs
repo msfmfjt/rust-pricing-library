@@ -6,7 +6,7 @@ use crate::engine::processes::rough_volatility::MixedBergomiMcHurstPlan;
 #[derive(Clone, Debug, PartialEq)]
 pub struct MixedBergomiMcParameterRisk {
     pub price: RoughVolatilityPrice,
-    /// Component eta values, shared rho, and optionally Hurst; weights and xi fixed.
+    /// Selected coordinates: eta/rho(/Hurst), or simplex weight transfers and xi.
     pub parameter_names: Box<[String]>,
     pub parameter_adjoints: Box<[f64]>,
     /// Marginal sampling errors; these do not define the covariance of a basket.
@@ -22,7 +22,7 @@ impl RoughVolatilityPricingPlan {
     pub fn evaluate_mixed_bergomi_parameter_risk(
         &self,
     ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
-        self.mixed_bergomi_parameter_risk_impl(false)
+        self.mixed_bergomi_parameter_risk_impl(false, false)
     }
 
     /// Extend the existing eta/rho risk by Hurst at fixed weights and xi.
@@ -30,14 +30,27 @@ impl RoughVolatilityPricingPlan {
     pub fn evaluate_mixed_bergomi_parameter_risk_with_hurst(
         &self,
     ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
-        self.mixed_bergomi_parameter_risk_impl(true)
+        self.mixed_bergomi_parameter_risk_impl(true, false)
+    }
+
+    /// Simplex weight transfers and original Forward Variance Curve coordinates.
+    /// Eta/rho/Hurst and market inputs are fixed. No parameter bumps.
+    pub fn evaluate_mixed_bergomi_shape_risk(
+        &self,
+    ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
+        self.mixed_bergomi_parameter_risk_impl(false, true)
     }
 
     fn mixed_bergomi_parameter_risk_impl(
         &self,
         include_hurst: bool,
+        shape: bool,
     ) -> Result<MixedBergomiMcParameterRisk, MonteCarloError> {
-        let mut names = self.path.mixed_bergomi_parameter_names()?;
+        let mut names = if shape {
+            self.path.mixed_bergomi_shape_names()?
+        } else {
+            self.path.mixed_bergomi_parameter_names()?
+        };
         let hurst = if include_hurst {
             names.push("hurst".into());
             Some(MixedBergomiMcHurstPlan::compile(&self.path)?)
@@ -65,6 +78,7 @@ impl RoughVolatilityPricingPlan {
                         c.variance_reduction().antithetic(),
                         out,
                         hurst.as_ref(),
+                        shape,
                     )
                 })?;
                 (stats, n, c.evaluated_paths())
@@ -92,6 +106,7 @@ impl RoughVolatilityPricingPlan {
                             c.variance_reduction().antithetic(),
                             out,
                             hurst.as_ref(),
+                            shape,
                         )
                     })?;
                     for j in 0..d + 1 {
@@ -121,7 +136,9 @@ impl RoughVolatilityPricingPlan {
         for j in 0..d {
             (parameter_adjoints[j], standard_errors[j]) = estimate(stats[j + 1], units)?;
         }
-        let method = if include_hurst {
+        let method = if shape {
+            "mixed-bergomi-mc-shape-vjp-v1"
+        } else if include_hurst {
             "mixed-bergomi-mc-parameter-hurst-vjp-v1"
         } else {
             "mixed-bergomi-mc-fixed-kernel-parameter-vjp-v1"
@@ -156,6 +173,7 @@ impl RoughVolatilityPricingPlan {
         anti: bool,
         out: &mut [f64],
         hurst: Option<&MixedBergomiMcHurstPlan>,
+        shape: bool,
     ) -> Result<(), MonteCarloError> {
         let n = self.time_nodes().len() - 1;
         if let Some(bridge) = bridge {
@@ -169,11 +187,16 @@ impl RoughVolatilityPricingPlan {
         let signs = if anti { &[1.0, -1.0][..] } else { &[1.0][..] };
         for &sign in signs {
             let z = normals.iter().map(|v| sign * v).collect::<Vec<_>>();
-            let record = match hurst {
-                Some(plan) => plan.evolve_path(self.initial_forward, &z)?,
-                None => self
-                    .path
-                    .evolve_mixed_bergomi_parameter_path(self.initial_forward, &z)?,
+            let record = if shape {
+                self.path
+                    .evolve_mixed_bergomi_shape_path(self.initial_forward, &z)?
+            } else {
+                match hurst {
+                    Some(plan) => plan.evolve_path(self.initial_forward, &z)?,
+                    None => self
+                        .path
+                        .evolve_mixed_bergomi_parameter_path(self.initial_forward, &z)?,
+                }
             };
             let spots = self
                 .observations

@@ -4,13 +4,17 @@ use serde_json::{Value, json};
 
 #[test]
 fn mixed_total_scramble_errors_preserve_direct_calibration_covariance() {
-    mixed_scramble_covariance(false);
+    mixed_scramble_covariance(false, false);
 }
 #[test]
 fn mixed_hurst_total_scramble_errors_preserve_direct_calibration_covariance() {
-    mixed_scramble_covariance(true);
+    mixed_scramble_covariance(true, false);
 }
-fn mixed_scramble_covariance(include_hurst: bool) {
+#[test]
+fn mixed_shape_total_scramble_errors_preserve_direct_calibration_covariance() {
+    mixed_scramble_covariance(false, true);
+}
+fn mixed_scramble_covariance(include_hurst: bool, shape: bool) {
     let mut v: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../fixtures/v1/pricing_request.golden.json"
@@ -37,7 +41,9 @@ fn mixed_scramble_covariance(include_hurst: bool) {
         ExecutionPolicy::new(1, None).unwrap(),
     )
     .unwrap();
-    let risk = if include_hurst {
+    let risk = if shape {
+        p.evaluate_mixed_bergomi_shape_risk()
+    } else if include_hurst {
         p.evaluate_mixed_bergomi_parameter_risk_with_hurst()
     } else {
         p.evaluate_mixed_bergomi_parameter_risk()
@@ -51,7 +57,9 @@ fn mixed_scramble_covariance(include_hurst: bool) {
     let dim = core.path_plan.random_dimension();
     let qmc = RqmcPlan::compile(c, dim).unwrap();
     let bridge = core.bridge(c.variance_reduction()).unwrap();
-    let compile = if include_hurst {
+    let compile = if shape {
+        crate::engine::processes::rough_volatility::MixedBergomiVarianceRiskPlan::compile_shape
+    } else if include_hurst {
         crate::engine::processes::rough_volatility::MixedBergomiVarianceRiskPlan::compile_with_hurst
     } else {
         crate::engine::processes::rough_volatility::MixedBergomiVarianceRiskPlan::compile
@@ -93,7 +101,9 @@ fn mixed_scramble_covariance(include_hurst: bool) {
                 }
             }
         }
-        let cal = if include_hurst {
+        let cal = if shape {
+            core.calibration.reverse_mixed_bergomi_shape(&lb)
+        } else if include_hurst {
             core.calibration
                 .reverse_mixed_bergomi_parameters_with_hurst(&lb)
         } else {

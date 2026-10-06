@@ -4,6 +4,7 @@
 mod mixed_hurst;
 pub use mixed_hurst::MixedBergomiMcHurstPlan;
 mod mixed_parameter;
+mod mixed_shape;
 pub(in crate::engine) use mixed_parameter::MixedBergomiVarianceRiskPlan;
 pub use mixed_parameter::{MixedBergomiMcAdjoints, MixedBergomiMcRecordedPath};
 
