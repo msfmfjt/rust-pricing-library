@@ -108,6 +108,44 @@ impl RoughFamilyLsvPlan {
             value_count: self.surface.squared_leverage().len(),
         })
     }
+    /// A fixed-anchor Spot move crosses a spatial interpolation kink when a
+    /// recorded state is exactly on a node with unequal one-sided slopes.
+    /// Do not report the arbitrarily selected branch as a two-sided Delta.
+    pub(in crate::engine) fn validate_spot_delta_path(
+        &self,
+        path: &RoughFamilyLsvPath,
+    ) -> Result<(), LsvError> {
+        let xs = self.surface.log_nodes();
+        let m = xs.len();
+        for (j, step) in path.steps.iter().enumerate() {
+            if step.multiplier_squared == 0.0 {
+                continue;
+            }
+            let x = (path.states[j] / self.surface.initial_f()).ln();
+            if let Ok(i) = xs.binary_search_by(|a| a.partial_cmp(&x).expect("finite axes")) {
+                let row =
+                    &self.surface.squared_leverage()[self.rows[j] * m..(self.rows[j] + 1) * m];
+                let left = if i == 0 {
+                    0.0
+                } else {
+                    (row[i] - row[i - 1]) / (xs[i] - xs[i - 1])
+                };
+                let right = if i + 1 == m {
+                    0.0
+                } else {
+                    (row[i + 1] - row[i]) / (xs[i + 1] - xs[i])
+                };
+                let scale = left.abs().max(right.abs()).max(f64::MIN_POSITIVE);
+                if (left - right).abs() > 64.0 * f64::EPSILON * scale {
+                    return Err(LsvError::InvalidInput {
+                        field: "rough_lsv_delta_spatial_kink",
+                        index: j,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
     pub fn evolve_states(
         &self,
         initial_forward: f64,

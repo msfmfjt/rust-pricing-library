@@ -119,6 +119,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_lsv_spot_delta.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
@@ -1129,7 +1130,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
-        "RoughFamilyLsvPlan", "RoughVolatilityDelta",
+        "RoughFamilyLsvPlan", "RoughVolatilityDelta", "RoughFamilyLsvDelta",
         'MarketIvSurface',
         'StochasticDividendContinuousBarrierMarketIvRisk',
 
@@ -1407,6 +1408,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_delta'): "RoughFamilyLsvDelta",
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_delta'): "RoughFamilyLsvDelta",
+        ("RoughFamilyLsvDelta", "price"): "LsvPrice",
         ('HestonIvRefinementOptions', 'fit_tolerance'): 'float',
         ('HestonIvRefinementOptions', 'grid_tolerance'): 'float',
         ('HestonIvRefinementOptions', 'max_stages'): 'int',
@@ -1500,6 +1504,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'delta_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'convention'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityPathPlan', 'reverse_initial_forward'): {'positional': ['self', 'initial_forward', 'normals', 'state_seeds'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughVolatilityPlan', 'evaluate_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughFamilyLsvPlan', 'compile'): {'positional': ['target_request', 'model'], 'positional_defaults': {}, 'keyword_only': ['particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
@@ -2506,7 +2518,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
-        'RoughFamilyLsvPlan': {'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        "RoughFamilyLsvDelta": {'delta', 'price', 'coordinate', 'convention', 'delta_standard_error', 'method'},
+        'RoughFamilyLsvPlan': {'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
         'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
 
         'MarketIvSurface': {'__init__', 'implied_volatilities', 'maturity_nodes', 'local_volatility_model', 'interpolation', 'log_moneyness_nodes'},
@@ -3214,6 +3227,12 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ('RoughFamilyLsvDelta', 'price'),
+        ('RoughFamilyLsvDelta', 'delta'),
+        ('RoughFamilyLsvDelta', 'delta_standard_error'),
+        ('RoughFamilyLsvDelta', 'convention'),
+        ('RoughFamilyLsvDelta', 'method'),
+        ('RoughFamilyLsvDelta', 'coordinate'),
         ('RoughFamilyLsvPlan', 'plan_fingerprint'),
         ('RoughFamilyLsvPlan', 'time_nodes'),
         ('RoughFamilyLsvPlan', 'log_moneyness_nodes'),
