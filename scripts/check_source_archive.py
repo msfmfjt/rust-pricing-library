@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/risk/gamma_bump.rs',
+    'crates/pricing/src/engine/risk/rough_volatility/gamma.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/gamma.rs',
+    'crates/pricing/tests/rough_family_gamma_bump.rs',
+    'tests/python/test_rough_family_gamma_bump.py',
+    'examples/python/rough_family_gamma_bump.py',
+    'docs/models/rough-family-gamma.md',
+    'design/validation/rough-family-gamma.md',
+    'scripts/test_rough_family_gamma_contract.py',
+    '.github/workflows/rough-family-gamma.yml',
+
     'crates/pricing/src/engine/risk/lsv/rough_families/market_iv.rs',
     'crates/pricing/tests/rough_family_market_iv.rs',
     'scripts/test_rough_family_market_iv_contract.py',

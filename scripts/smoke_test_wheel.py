@@ -121,6 +121,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_lsv_spot_delta.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_market_iv.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_gamma_bump.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
@@ -1131,6 +1132,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "RoughVolatilityGamma", "RoughFamilyLsvGamma",
         "RoughFamilyLsvPlan", "RoughVolatilityDelta", "RoughFamilyLsvDelta",
         "RoughFamilyLsvMarketIvRiskPlan", "RoughFamilyLsvMarketIvRisk",
         'MarketIvSurface',
@@ -1410,6 +1412,12 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ('RoughVolatilityGamma', 'price'): 'HullWhitePrice',
+        ('RoughVolatilityPlan', 'evaluate_gamma_bump'): 'RoughVolatilityGamma',
+        ('RoughFamilyLsvGamma', 'price'): 'LsvPrice',
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_gamma_bump'): 'RoughFamilyLsvGamma',
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_gamma_bump'): 'RoughFamilyLsvGamma',
+
         ('RoughFamilyLsvPlan', 'market_iv_risk_plan'): 'RoughFamilyLsvMarketIvRiskPlan',
         ('RoughFamilyLsvMarketIvRiskPlan', 'evaluate'): 'RoughFamilyLsvMarketIvRisk',
         ('RoughFamilyLsvMarketIvRisk', 'price'): 'LsvPrice',
@@ -1510,6 +1518,34 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ('RoughVolatilityGamma', 'spot_bump'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'payoff_evaluations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'half_bump_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'bump_difference_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'convention'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'bump_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'gamma_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'half_bump_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_gamma_bump'): {'positional': ['self', 'spot_bump'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'spot_bump'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'payoff_evaluations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'half_bump_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'bump_difference_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'convention'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'bump_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'gamma_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'half_bump_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_gamma_bump'): {'positional': ['self', 'spot_bump'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_gamma_bump'): {'positional': ['self', 'spot_bump'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
         ('RoughFamilyLsvPlan', 'market_iv_risk_plan'): {'positional': ['self', 'surface'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughFamilyLsvMarketIvRiskPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughFamilyLsvMarketIvRiskPlan', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2541,11 +2577,14 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        'RoughVolatilityGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
+        'RoughFamilyLsvGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
+
         'RoughFamilyLsvMarketIvRiskPlan': {'risk_fingerprint', 'evaluate'},
         'RoughFamilyLsvMarketIvRisk': {'coordinate', 'maturity_nodes', 'uncertainty_scope', 'parallel_vega', 'log_moneyness_nodes', 'price', 'method', 'risk_fingerprint', 'implied_volatilities', 'interpolation', 'quote_adjoints', 'parallel_standard_error', 'standard_errors'},
 
         "RoughFamilyLsvDelta": {'delta', 'price', 'coordinate', 'convention', 'delta_standard_error', 'method'},
-        'RoughFamilyLsvPlan': {'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        'RoughFamilyLsvPlan': {'evaluate_frozen_leverage_gamma_bump', 'evaluate_sticky_moneyness_gamma_bump', 'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
         'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
 
         'MarketIvSurface': {'__init__', 'implied_volatilities', 'maturity_nodes', 'local_volatility_model', 'interpolation', 'log_moneyness_nodes'},
@@ -2586,7 +2625,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
         'RoughVolatilityPathPlan': {'reverse_initial_forward', 'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
-        'RoughVolatilityPlan': {'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
+        'RoughVolatilityPlan': {'evaluate_gamma_bump', 'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -3268,6 +3307,31 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ('RoughFamilyLsvMarketIvRisk', 'interpolation'),
         ('RoughFamilyLsvMarketIvRisk', 'uncertainty_scope'),
         ('RoughFamilyLsvDelta', 'price'),
+        ('RoughFamilyLsvGamma', 'bump_difference'),
+        ('RoughFamilyLsvGamma', 'bump_difference_standard_error'),
+        ('RoughFamilyLsvGamma', 'convention'),
+        ('RoughFamilyLsvGamma', 'gamma'),
+        ('RoughFamilyLsvGamma', 'gamma_standard_error'),
+        ('RoughFamilyLsvGamma', 'half_bump_gamma'),
+        ('RoughFamilyLsvGamma', 'half_bump_standard_error'),
+        ('RoughFamilyLsvGamma', 'method'),
+        ('RoughFamilyLsvGamma', 'payoff_evaluations'),
+        ('RoughFamilyLsvGamma', 'price'),
+        ('RoughFamilyLsvGamma', 'risk_fingerprint'),
+        ('RoughFamilyLsvGamma', 'spot_bump'),
+        ('RoughVolatilityGamma', 'bump_difference'),
+        ('RoughVolatilityGamma', 'bump_difference_standard_error'),
+        ('RoughVolatilityGamma', 'convention'),
+        ('RoughVolatilityGamma', 'gamma'),
+        ('RoughVolatilityGamma', 'gamma_standard_error'),
+        ('RoughVolatilityGamma', 'half_bump_gamma'),
+        ('RoughVolatilityGamma', 'half_bump_standard_error'),
+        ('RoughVolatilityGamma', 'method'),
+        ('RoughVolatilityGamma', 'payoff_evaluations'),
+        ('RoughVolatilityGamma', 'price'),
+        ('RoughVolatilityGamma', 'risk_fingerprint'),
+        ('RoughVolatilityGamma', 'spot_bump'),
+
         ('RoughFamilyLsvDelta', 'delta'),
         ('RoughFamilyLsvDelta', 'delta_standard_error'),
         ('RoughFamilyLsvDelta', 'convention'),

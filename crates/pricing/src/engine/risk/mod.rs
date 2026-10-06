@@ -13,3 +13,5 @@ pub(crate) mod stochastic_dividends;
 pub(crate) mod stochastic_volatility;
 pub(crate) mod valuation;
 pub(crate) mod vegakt;
+
+pub(crate) mod gamma_bump;

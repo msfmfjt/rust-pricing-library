@@ -2,6 +2,9 @@
 //! Models carry their own volatility levels; the BlackScholes request is an
 //! explicit carrier for market, payoff, dates and sampling settings only.
 
+mod gamma;
+pub use gamma::RoughVolatilityGamma;
+
 mod delta;
 pub use delta::RoughVolatilityDelta;
 

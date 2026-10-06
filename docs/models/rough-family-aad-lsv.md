@@ -182,3 +182,8 @@ are separate from local-variance-node risk and market-IV VegaKT.
 
 A separate [market-IV risk plan](rough-family-market-iv.md) now binds the exact
 quote source and extends this local-variance transpose into quote coordinates.
+
+## Related finite-bump Gamma
+
+[Explicit physical-Spot Gamma](rough-family-gamma.md) is available separately
+from the first-order adjoints. It is not second-order AAD.
