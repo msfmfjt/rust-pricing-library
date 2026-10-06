@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/calibration/lsv/rough_families/heston_parameter.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/heston_parameter.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/heston_parameter_tests.rs',
+    'crates/pricing/tests/heston_lsv_parameter_risk.rs',
+    'tests/python/test_heston_lsv_parameter_risk.py',
+    'examples/python/heston_lsv_parameter_risk.py',
+    'docs/models/heston-lsv-parameter-risk.md',
+    'design/validation/heston-lsv-parameter-risk.md',
+    'scripts/test_heston_lsv_parameter_contract.py',
+    '.github/workflows/heston-lsv-parameter-risk.yml',
+
     'crates/pricing/src/engine/processes/rough_volatility/hurst.rs',
     'crates/pricing/src/engine/risk/rough_volatility/hurst.rs',
     'crates/pricing/tests/heston_mc_hurst_risk.rs',

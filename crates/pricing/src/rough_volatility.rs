@@ -48,8 +48,9 @@ pub use crate::engine::calibration::lsv::{
     CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
 };
 pub use crate::engine::risk::lsv::{
-    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma,
-    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
+    HestonLsvParameterRisk, RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention,
+    RoughFamilyLsvGamma, RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan,
+    RoughFamilyLsvPricingPlan,
 };
 
 /// Shared finite-bump Gamma report (not a second-order AAD result).

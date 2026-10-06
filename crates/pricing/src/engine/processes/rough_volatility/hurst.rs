@@ -79,6 +79,9 @@ pub struct RoughHestonMcHurstPlan {
     kernel: PowerKernelHurst,
 }
 impl RoughHestonMcHurstPlan {
+    pub(super) fn kernel_derivative(&self) -> &PowerKernelHurst {
+        &self.kernel
+    }
     pub fn compile(base: &RoughVolatilityPathPlan) -> Result<Self, HullWhiteError> {
         let h = match &base.model {
             RoughVolatilityModel::RoughHeston(h) => h,

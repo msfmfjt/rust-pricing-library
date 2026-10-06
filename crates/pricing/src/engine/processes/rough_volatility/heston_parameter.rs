@@ -235,3 +235,72 @@ impl HestonMcRecordedPath<'_> {
         Ok(if raw > 0.0 { seed } else { 0.0 })
     }
 }
+
+/// Internal variance-only reverse. In LSV the unlevered equity path is not
+/// part of the calculation: do not generate it (or expose its overflow errors).
+#[derive(Clone, Debug)]
+pub(in crate::engine) struct HestonVarianceRiskPlan {
+    base: RoughVolatilityPathPlan,
+    hurst: Option<RoughHestonMcHurstPlan>,
+}
+impl HestonVarianceRiskPlan {
+    pub(in crate::engine) fn compile(
+        model: RoughVolatilityModel,
+        times: Vec<f64>,
+        include_hurst: bool,
+    ) -> Result<Self, HullWhiteError> {
+        let base = RoughVolatilityPathPlan::compile(model, times)?;
+        base.heston_parameter_domain()?;
+        let hurst = include_hurst
+            .then(|| RoughHestonMcHurstPlan::compile(&base))
+            .transpose()?;
+        Ok(Self { base, hurst })
+    }
+    pub(in crate::engine) fn width(&self) -> usize {
+        5 + usize::from(self.hurst.is_some())
+    }
+    pub(in crate::engine) fn path_plan(&self) -> &RoughVolatilityPathPlan {
+        &self.base
+    }
+    pub(in crate::engine) fn reverse(
+        &self,
+        normals: &[f64],
+        variance_seeds: &[f64],
+    ) -> Result<Vec<f64>, HullWhiteError> {
+        let record = self.base.heston_variance_record(normals)?;
+        let zeros = vec![0.0; self.base.times.len()];
+        let (a, h) = record.reverse_impl(
+            &zeros,
+            variance_seeds,
+            self.hurst.as_ref().map(|p| p.kernel_derivative()),
+        )?;
+        let mut values = a.parameters.to_vec();
+        if self.hurst.is_some() {
+            values.push(h);
+        }
+        Ok(values)
+    }
+}
+impl RoughVolatilityPathPlan {
+    fn heston_variance_record<'a>(
+        &'a self,
+        normals: &'a [f64],
+    ) -> Result<HestonMcRecordedPath<'a>, HullWhiteError> {
+        self.heston_parameter_domain()?;
+        let h = self.variance_history(normals)?;
+        if h.latent_states[..self.times.len() - 1].contains(&0.0) {
+            return Err(invalid("heston_mc_risk_zero_raw_variance_kink"));
+        }
+        Ok(HestonMcRecordedPath {
+            plan: self,
+            normals,
+            path: RoughVolatilityPath {
+                forwards: vec![1.0; self.times.len()],
+                variances: h.variances,
+                latent_states: h.latent_states,
+                negative_variance_nodes: h.negative_variance_nodes,
+                absorbed_forward_steps: 0,
+            },
+        })
+    }
+}

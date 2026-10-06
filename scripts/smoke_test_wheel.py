@@ -123,6 +123,7 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_family_market_iv.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_mc_parameter_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_mc_hurst_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_lsv_parameter_risk.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_family_gamma_bump.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
@@ -1134,6 +1135,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "HestonLsvParameterRisk",
         "HestonMcParameterRisk",
         "RoughHestonMcHurstRisk",
         "RoughVolatilityGamma", "RoughFamilyLsvGamma",
@@ -1416,6 +1418,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ("HestonLsvParameterRisk", "price"): "LsvPrice",
+        ("RoughFamilyLsvPlan", "evaluate_heston_parameter_risk"): "HestonLsvParameterRisk",
         ('HestonMcParameterRisk', 'price'): 'HullWhitePrice',
         ('RoughHestonMcHurstRisk', 'price'): 'HullWhitePrice',
         ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): 'HestonMcParameterRisk',
@@ -1526,6 +1530,16 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("HestonLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "parameter_names"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "parameter_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "direct_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "calibration_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "standard_errors"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "coordinate"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "method"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "risk_fingerprint"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("RoughFamilyLsvPlan", "evaluate_heston_parameter_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['include_hurst'], 'required_keyword_only': [], 'keyword_only_defaults': {'include_hurst': False}},
         ('HestonMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('RoughHestonMcHurstRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ('HestonMcParameterRisk', 'parameter_names'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2600,6 +2614,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "HestonLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
         'HestonMcParameterRisk': {'price', 'parameter_adjoints', 'parameter_names', 'method', 'coordinate', 'standard_errors', 'risk_fingerprint'},
         'RoughHestonMcHurstRisk': {'price', 'hurst_sensitivity', 'method', 'coordinate', 'standard_error', 'risk_fingerprint'},
         'RoughVolatilityGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
@@ -2609,7 +2624,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'RoughFamilyLsvMarketIvRisk': {'coordinate', 'maturity_nodes', 'uncertainty_scope', 'parallel_vega', 'log_moneyness_nodes', 'price', 'method', 'risk_fingerprint', 'implied_volatilities', 'interpolation', 'quote_adjoints', 'parallel_standard_error', 'standard_errors'},
 
         "RoughFamilyLsvDelta": {'delta', 'price', 'coordinate', 'convention', 'delta_standard_error', 'method'},
-        'RoughFamilyLsvPlan': {'evaluate_frozen_leverage_gamma_bump', 'evaluate_sticky_moneyness_gamma_bump', 'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        'RoughFamilyLsvPlan': {'evaluate_heston_parameter_risk','evaluate_frozen_leverage_gamma_bump', 'evaluate_sticky_moneyness_gamma_bump', 'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
         'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
 
         'MarketIvSurface': {'__init__', 'implied_volatilities', 'maturity_nodes', 'local_volatility_model', 'interpolation', 'log_moneyness_nodes'},
@@ -3317,6 +3332,16 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("HestonLsvParameterRisk", "price"),
+        ("HestonLsvParameterRisk", "parameter_names"),
+        ("HestonLsvParameterRisk", "parameter_adjoints"),
+        ("HestonLsvParameterRisk", "direct_adjoints"),
+        ("HestonLsvParameterRisk", "calibration_adjoints"),
+        ("HestonLsvParameterRisk", "standard_errors"),
+        ("HestonLsvParameterRisk", "coordinate"),
+        ("HestonLsvParameterRisk", "method"),
+        ("HestonLsvParameterRisk", "risk_fingerprint"),
+
         ('RoughFamilyLsvMarketIvRiskPlan', 'risk_fingerprint'),
         ('RoughFamilyLsvMarketIvRisk', 'price'),
         ('RoughFamilyLsvMarketIvRisk', 'maturity_nodes'),
