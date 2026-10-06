@@ -12,7 +12,7 @@ pub(super) struct PowerKernelHurst {
     pub(super) residual: Vec<f64>,
 }
 impl PowerKernelHurst {
-    fn compile(h: f64, times: &[f64], k: &PowerKernel) -> Result<Self, HullWhiteError> {
+    pub(super) fn compile(h: f64, times: &[f64], k: &PowerKernel) -> Result<Self, HullWhiteError> {
         let a = h + 0.5;
         let psi = digamma_half_to_two(a).ok_or(invalid("rough_hurst_digamma"))?;
         let mut older = Vec::with_capacity(times.len());

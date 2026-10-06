@@ -134,8 +134,13 @@ pub use heston_parameter::HestonLsvParameterRisk;
 #[cfg(test)]
 mod heston_parameter_tests;
 
+mod quadratic_parameter;
+pub use quadratic_parameter::QuadraticHestonLsvParameterRisk;
 mod mixed_parameter;
 pub use mixed_parameter::MixedBergomiLsvParameterRisk;
 
 #[cfg(test)]
 mod mixed_parameter_tests;
+
+#[cfg(test)]
+mod quadratic_parameter_tests;

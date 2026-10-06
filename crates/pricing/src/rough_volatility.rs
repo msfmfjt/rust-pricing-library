@@ -9,14 +9,16 @@
 
 pub use crate::engine::processes::rough_volatility::{
     HESTON_MC_PARAMETER_NAMES, HestonMcAdjoints, HestonMcRecordedPath, MixedBergomiMcAdjoints,
-    MixedBergomiMcHurstPlan, MixedBergomiMcRecordedPath, RoughFamilyLsvAdjoints,
+    MixedBergomiMcHurstPlan, MixedBergomiMcRecordedPath, QuadraticHestonMcAdjoints,
+    QuadraticHestonMcRecordedPath, QuadraticHestonMcRiskPlan, RoughFamilyLsvAdjoints,
     RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughHestonMcHurstAdjoints, RoughHestonMcHurstPlan,
     RoughHestonMcHurstRecordedPath, RoughVolatilityPath, RoughVolatilityPathPlan,
     RoughVolatilityRecordedPath,
 };
 pub use crate::engine::risk::rough_volatility::{
-    HestonMcParameterRisk, MixedBergomiMcParameterRisk, RoughHestonMcHurstRisk,
-    RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice, RoughVolatilityPricingPlan,
+    HestonMcParameterRisk, MixedBergomiMcParameterRisk, QuadraticHestonMcParameterRisk,
+    RoughHestonMcHurstRisk, RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice,
+    RoughVolatilityPricingPlan,
 };
 pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,
@@ -49,9 +51,9 @@ pub use crate::engine::calibration::lsv::{
     CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
 };
 pub use crate::engine::risk::lsv::{
-    HestonLsvParameterRisk, MixedBergomiLsvParameterRisk, RoughFamilyLsvDelta,
-    RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma, RoughFamilyLsvMarketIvRisk,
-    RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
+    HestonLsvParameterRisk, MixedBergomiLsvParameterRisk, QuadraticHestonLsvParameterRisk,
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma,
+    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
 };
 
 /// Shared finite-bump Gamma report (not a second-order AAD result).

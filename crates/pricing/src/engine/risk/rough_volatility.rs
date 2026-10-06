@@ -5,6 +5,9 @@
 mod gamma;
 pub use gamma::RoughVolatilityGamma;
 
+mod quadratic_parameter;
+pub use quadratic_parameter::QuadraticHestonMcParameterRisk;
+
 mod mixed_parameter;
 pub use mixed_parameter::MixedBergomiMcParameterRisk;
 

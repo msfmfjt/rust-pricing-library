@@ -29,9 +29,9 @@ mod rough_families;
 use evaluation::{Evaluation, PriceOnly, Recalibrated};
 use models::{CalibratedModel, LeveragePathModel, PathModel};
 pub use rough_families::{
-    HestonLsvParameterRisk, MixedBergomiLsvParameterRisk, RoughFamilyLsvDelta,
-    RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma, RoughFamilyLsvMarketIvRisk,
-    RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
+    HestonLsvParameterRisk, MixedBergomiLsvParameterRisk, QuadraticHestonLsvParameterRisk,
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma,
+    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]

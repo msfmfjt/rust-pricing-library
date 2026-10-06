@@ -88,5 +88,6 @@ separate from solver termination; this is not an IV or general six-family fitter
 - [Heston LSV recalibrated parameter risk](heston-lsv-parameter-risk.md)
 
 - [Mixed rough Bergomi eta/rho MC and LSV risk](mixed-bergomi-parameter-risk.md)
+- [Quadratic rough Heston scalar/Hurst MC and recalibrated LSV risk](quadratic-heston-parameter-risk.md).
 
 - [Mixed rough Bergomi weight and Forward Variance Curve risk](mixed-bergomi-shape-risk.md).
