@@ -13,6 +13,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/processes/rough_volatility/hurst.rs',
+    'crates/pricing/src/engine/risk/rough_volatility/hurst.rs',
+    'crates/pricing/tests/heston_mc_hurst_risk.rs',
+    'fixtures/rough-volatility/mc-hurst.json',
+    'scripts/check_heston_mc_hurst_reference.py',
+    'scripts/test_heston_mc_hurst_contract.py',
+    'tests/python/test_heston_mc_hurst_risk.py',
+    'examples/python/heston_mc_hurst_risk.py',
+    'docs/models/heston-mc-hurst-risk.md',
+    'design/validation/heston-mc-hurst-risk.md',
+
     'crates/pricing/src/engine/risk/gamma_bump.rs',
     'crates/pricing/src/engine/risk/rough_volatility/gamma.rs',
     'crates/pricing/src/engine/risk/lsv/rough_families/gamma.rs',

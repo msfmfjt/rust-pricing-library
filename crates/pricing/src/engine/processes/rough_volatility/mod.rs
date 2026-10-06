@@ -2,7 +2,11 @@
 //! isolated from the existing rough Bergomi/HW and stochastic-dividend engines.
 
 mod heston_parameter;
+mod hurst;
 pub use heston_parameter::{HESTON_MC_PARAMETER_NAMES, HestonMcAdjoints, HestonMcRecordedPath};
+pub use hurst::{
+    RoughHestonMcHurstAdjoints, RoughHestonMcHurstPlan, RoughHestonMcHurstRecordedPath,
+};
 mod kernel;
 pub(in crate::engine) mod lsv;
 mod reverse;

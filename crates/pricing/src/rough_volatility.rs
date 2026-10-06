@@ -9,12 +9,13 @@
 
 pub use crate::engine::processes::rough_volatility::{
     HESTON_MC_PARAMETER_NAMES, HestonMcAdjoints, HestonMcRecordedPath, RoughFamilyLsvAdjoints,
-    RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughVolatilityPath, RoughVolatilityPathPlan,
+    RoughFamilyLsvPath, RoughFamilyLsvPlan, RoughHestonMcHurstAdjoints, RoughHestonMcHurstPlan,
+    RoughHestonMcHurstRecordedPath, RoughVolatilityPath, RoughVolatilityPathPlan,
     RoughVolatilityRecordedPath,
 };
 pub use crate::engine::risk::rough_volatility::{
-    HestonMcParameterRisk, RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice,
-    RoughVolatilityPricingPlan,
+    HestonMcParameterRisk, RoughHestonMcHurstRisk, RoughVolatilityDelta, RoughVolatilityGamma,
+    RoughVolatilityPrice, RoughVolatilityPricingPlan,
 };
 pub use crate::models::{
     ForwardVarianceCurve, LiftedHeston, MixedRoughBergomi, QuadraticRoughHeston, Rfsv, RoughHeston,

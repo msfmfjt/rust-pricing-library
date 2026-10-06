@@ -89,3 +89,5 @@ the fixed five-direction method identifier. No stable JSON request tag changes.
 
 [Complete example](../../examples/python/heston_mc_parameter_risk.py) ·
 [Validation protocol](../../design/validation/heston-mc-parameter-risk.md)
+
+[Pure-SV MC Hurst sensitivity](heston-mc-hurst-risk.md) is available separately.
