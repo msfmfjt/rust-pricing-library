@@ -8,6 +8,11 @@ mod mixed_shape;
 pub(in crate::engine) use mixed_parameter::MixedBergomiVarianceRiskPlan;
 pub use mixed_parameter::{MixedBergomiMcAdjoints, MixedBergomiMcRecordedPath};
 
+mod quadratic_parameter;
+pub use quadratic_parameter::{
+    QuadraticHestonMcAdjoints, QuadraticHestonMcRecordedPath, QuadraticHestonMcRiskPlan,
+};
+
 mod heston_parameter;
 pub(in crate::engine) use heston_parameter::HestonVarianceRiskPlan;
 mod hurst;

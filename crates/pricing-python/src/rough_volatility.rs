@@ -366,6 +366,20 @@ impl PyRoughVolatilityPlan {
             .map(|inner| PyRoughHestonMcHurstRisk { inner })
             .map_err(pricing_exception)
     }
+    /// Finite-grid QRH scalar risk; optional Hurst uses the left derivative at 1/2.
+    #[pyo3(signature = (*, include_hurst=false))]
+    fn evaluate_quadratic_heston_parameter_risk(
+        &self,
+        py: Python<'_>,
+        include_hurst: bool,
+    ) -> PyResult<PyQuadraticHestonMcParameterRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_quadratic_heston_parameter_risk(include_hurst)
+        })
+        .map(|inner| PyQuadraticHestonMcParameterRisk { inner })
+        .map_err(pricing_exception)
+    }
     fn evaluate_mixed_bergomi_shape_risk(
         &self,
         py: Python<'_>,
@@ -622,6 +636,45 @@ impl PyMixedBergomiMcParameterRisk {
         } else {
             "mixed_bergomi_eta_rho_fixed_kernel_weights_and_xi"
         }
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "QuadraticHestonMcParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyQuadraticHestonMcParameterRisk {
+    inner: pricing::rough_volatility::QuadraticHestonMcParameterRisk,
+}
+#[pymethods]
+impl PyQuadraticHestonMcParameterRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<String> {
+        self.inner.parameter_names.to_vec()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "quadratic_heston_scalar_parameters_optional_hurst"
     }
     #[getter]
     fn risk_fingerprint(&self) -> String {

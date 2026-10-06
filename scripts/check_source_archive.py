@@ -13,6 +13,21 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'crates/pricing/src/engine/processes/rough_volatility/quadratic_parameter.rs',
+    'crates/pricing/src/engine/risk/rough_volatility/quadratic_parameter.rs',
+    'crates/pricing/src/engine/calibration/lsv/rough_families/quadratic_parameter.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/quadratic_parameter.rs',
+    'crates/pricing/src/engine/risk/lsv/rough_families/quadratic_parameter_tests.rs',
+    'crates/pricing/tests/quadratic_heston_parameter_risk.rs',
+    'tests/python/test_quadratic_heston_parameter_risk.py',
+    'scripts/check_quadratic_heston_reference.py',
+    'scripts/test_quadratic_heston_contract.py',
+    'fixtures/rough-volatility/quadratic-parameter.json',
+    'docs/models/quadratic-heston-parameter-risk.md',
+    'design/validation/quadratic-heston-parameter-risk.md',
+    'examples/python/quadratic_heston_parameter_risk.py',
+    '.github/workflows/quadratic-heston-parameter-risk.yml',
+
     'crates/pricing/src/engine/processes/rough_volatility/mixed_shape.rs',
     'crates/pricing/tests/mixed_bergomi_shape_risk.rs',
     'tests/python/test_mixed_bergomi_shape_risk.py',

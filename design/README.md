@@ -179,3 +179,4 @@ Bass local volatility: [decision](adr/0027-bass-local-volatility.md),
 [validation protocol](validation/bass-local-volatility.md).
 
 - [Mixed rough Bergomi eta/rho MC and LSV risk](validation/mixed-bergomi-parameter-risk.md)
+- [Quadratic rough Heston parameter reverse validation](validation/quadratic-heston-parameter-risk.md).
