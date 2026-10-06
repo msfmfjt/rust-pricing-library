@@ -177,3 +177,5 @@ HW stochastic-dividend basic AAD: [decision](adr/0023-stochastic-dividend-hull-w
 
 Bass local volatility: [decision](adr/0027-bass-local-volatility.md),
 [validation protocol](validation/bass-local-volatility.md).
+
+- [Mixed rough Bergomi eta/rho MC and LSV risk](validation/mixed-bergomi-parameter-risk.md)

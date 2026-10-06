@@ -407,6 +407,15 @@ pub struct PyRoughFamilyLsvPlan {
 
 #[pymethods]
 impl PyRoughFamilyLsvPlan {
+    fn evaluate_mixed_bergomi_parameter_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiLsvParameterRisk> {
+        py.detach(|| self.inner.evaluate_mixed_bergomi_parameter_risk())
+            .map(|inner| PyMixedBergomiLsvParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
+
     #[pyo3(signature=(*, include_hurst=false))]
     fn evaluate_heston_parameter_risk(
         &self,
@@ -766,6 +775,57 @@ impl PyHestonLsvParameterRisk {
     #[getter]
     fn coordinate(&self) -> &'static str {
         "heston_parameters_fixed_relative_local_variance_target"
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "MixedBergomiLsvParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyMixedBergomiLsvParameterRisk {
+    inner: pricing::rough_volatility::MixedBergomiLsvParameterRisk,
+}
+#[pymethods]
+impl PyMixedBergomiLsvParameterRisk {
+    #[getter]
+    fn price(&self) -> PyLsvPrice {
+        PyLsvPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<String> {
+        self.inner
+            .parameter_names
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn direct_adjoints(&self) -> Vec<f64> {
+        self.inner.direct_adjoints.to_vec()
+    }
+    #[getter]
+    fn calibration_adjoints(&self) -> Vec<f64> {
+        self.inner.calibration_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Option<Vec<f64>> {
+        self.inner.standard_errors.as_ref().map(|v| v.to_vec())
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "mixed_bergomi_eta_rho_fixed_relative_local_variance_target"
     }
     #[getter]
     fn method(&self) -> &'static str {

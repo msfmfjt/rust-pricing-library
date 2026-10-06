@@ -133,3 +133,9 @@ pub use heston_parameter::HestonLsvParameterRisk;
 
 #[cfg(test)]
 mod heston_parameter_tests;
+
+mod mixed_parameter;
+pub use mixed_parameter::MixedBergomiLsvParameterRisk;
+
+#[cfg(test)]
+mod mixed_parameter_tests;
