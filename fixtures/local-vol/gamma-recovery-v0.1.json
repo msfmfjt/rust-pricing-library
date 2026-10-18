@@ -1,0 +1,61 @@
+{
+  "fixture_version": 1,
+  "reference": "120-digit Decimal conditional Black-Scholes price bumps; exact binary64 inputs",
+  "scope": "One positive-time, mass-lumped local-volatility row; no vanilla weights or IV risk",
+  "forward": 100.0,
+  "volatility": 0.25,
+  "source_maturity": 0.4,
+  "option_expiry": 1.0,
+  "option_strike": 105.0,
+  "delta_t": 0.05,
+  "log_moneyness_nodes": [
+    -0.6,
+    -0.27,
+    -0.11,
+    0.0,
+    0.07,
+    0.19,
+    0.43,
+    0.7
+  ],
+  "relative_density_threshold": 1e-12,
+  "current_time_gamma": [
+    0.00018875204683308506,
+    0.008125704221928497,
+    0.017705413348476386,
+    0.02035489818440143,
+    0.01880387977830708,
+    0.012111940026102042,
+    0.0015879578120571373,
+    2.5751509757737535e-05
+  ],
+  "gamma_relative_tolerance": 1e-07,
+  "cases": [
+    {
+      "bump": 0.0001,
+      "integrated_local_vol_adjoints": [
+        2.9722357214012683e-06,
+        0.0971469976312939,
+        0.5002359364249856,
+        0.57597594440251,
+        0.5655930108210394,
+        0.4427845218138227,
+        0.006011335947092401,
+        1.7320191396116857e-07
+      ]
+    },
+    {
+      "bump": 2e-05,
+      "integrated_local_vol_adjoints": [
+        2.9722354946082526e-06,
+        0.09714699667663387,
+        0.5002359375550937,
+        0.575975947618907,
+        0.5655930141350481,
+        0.44278452315939265,
+        0.006011335842486824,
+        1.7320190060955913e-07
+      ]
+    }
+  ]
+}

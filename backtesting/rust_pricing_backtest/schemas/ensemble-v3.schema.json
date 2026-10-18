@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:backtesting:ensemble-v3",
+  "title": "Hedging backtest ensemble-v3",
+  "$ref": "urn:rust-pricing-library:backtesting:definitions:v3#/$defs/ensemble_v3"
+}

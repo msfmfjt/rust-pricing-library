@@ -19,6 +19,55 @@ class WheelContractTests(unittest.TestCase):
         self.assertIn("BassMarketIvModel", api["symbols"])
         self.assertIn("bass_local_volatility", api["class_members"]["Model"])
 
+    def test_nonflat_gamma_contract_requires_explicit_variance_directions(self):
+        original = ast.parse((ROOT / "rust_pricing.pyi").read_text())
+        for mutation in ("missing_method", "wrong_direction_name", "implicit_policy"):
+            tree = copy.deepcopy(original)
+            plan = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PricingPlan")
+            method = next(n for n in plan.body if isinstance(n, ast.FunctionDef) and n.name == "evaluate_vega_kt_two_step_smile_gamma_audit")
+            if mutation == "missing_method":
+                plan.body.remove(method)
+            elif mutation == "wrong_direction_name":
+                method.args.kwonlyargs[1].arg = "local_vega_conservation_directions"
+            else:
+                method.args.kw_defaults[0] = ast.Constant(value=None)
+            with self.subTest(mutation=mutation), self.assertRaises((RuntimeError, KeyError)):
+                gate.verify_stub_static_shape(tree)
+
+    def test_initial_smile_contract_keeps_explicit_precision_defaults(self):
+        tree = ast.parse((ROOT / "rust_pricing.pyi").read_text())
+        plan = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PricingPlan")
+        method = next(n for n in plan.body if isinstance(n, ast.FunctionDef) and n.name == "evaluate_vega_kt_initial_smile_gamma_audit")
+        method.args.kw_defaults[0] = ast.Constant(value=64)
+        with self.assertRaises(RuntimeError):
+            gate.verify_stub_static_shape(tree)
+
+    def test_chain_sample_retention_is_explicit_and_opt_in(self):
+        original = ast.parse((ROOT / "rust_pricing.pyi").read_text())
+        for mutation in ("missing", "enabled_by_default"):
+            tree = copy.deepcopy(original)
+            plan = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PricingPlan")
+            method = next(n for n in plan.body if isinstance(n, ast.FunctionDef) and n.name == "evaluate_vega_kt_multi_step_gamma_chain_audit")
+            index = next(i for i, argument in enumerate(method.args.kwonlyargs) if argument.arg == "retain_samples")
+            if mutation == "missing":
+                method.args.kwonlyargs.pop(index)
+                method.args.kw_defaults.pop(index)
+            else:
+                method.args.kw_defaults[index] = ast.Constant(value=True)
+            with self.subTest(mutation=mutation), self.assertRaises(RuntimeError):
+                gate.verify_stub_static_shape(tree)
+
+    def test_middle_and_dependent_readout_contracts_are_explicit(self):
+        original=ast.parse((ROOT / "rust_pricing.pyi").read_text())
+        for name in ["evaluate_vega_kt_multi_step_gamma_chain_audit", "evaluate_vega_kt_multi_step_terminal_gamma_audit", "evaluate_vega_kt_three_step_initial_gamma_audit", "evaluate_vega_kt_middle_smile_gamma_audit",
+                     "evaluate_vega_kt_three_step_terminal_readout_audit"]:
+            tree=copy.deepcopy(original)
+            plan=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=="PricingPlan")
+            method=next(n for n in plan.body if isinstance(n,ast.FunctionDef) and n.name==name)
+            method.args.kw_defaults[0]=ast.Constant(value=None)
+            with self.subTest(method=name), self.assertRaises(RuntimeError):
+                gate.verify_stub_static_shape(tree)
+
     def test_bass_contract_rejects_missing_extra_and_misdecorated_api(self):
         original = ast.parse((ROOT / "rust_pricing.pyi").read_text())
         for mutation in ("missing_class", "missing_method", "extra_method", "wrong_decorator"):

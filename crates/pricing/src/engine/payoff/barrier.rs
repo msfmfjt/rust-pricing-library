@@ -15,12 +15,10 @@ use crate::engine::plan::simulation::ContinuousBarrierRuntime;
 use crate::engine::plan::simulation::ExactContinuousBarrierBridgeEvaluation;
 use crate::engine::plan::simulation::ExactLocalVolContinuousBarrierBridgeEvaluation;
 use crate::engine::plan::simulation::LocalVolContinuousBarrierBridgeEvaluation;
-use crate::engine::plan::simulation::LocalVolRuntime;
 use crate::engine::plan::simulation::PATHWISE_COMPONENTS;
 use crate::engine::plan::simulation::SmoothedBarrierHitFactor;
 use crate::engine::plan::simulation::SmoothedBarrierHitKind;
 use crate::engine::plan::simulation::SmoothedContinuousBarrierPath;
-use crate::market::LocalVarianceInterpolation;
 use crate::mc::{
     BarrierBridgeDirection, BarrierBridgePath, BarrierBridgeStatus, SmoothedBarrierBridgeEndpoint,
     SmoothedBarrierBridgeInterval, SmoothedBarrierBridgeIntervalAdjoints,
@@ -309,30 +307,6 @@ pub(in crate::engine) fn smoothed_jump_hit_factor(
         state_index,
         hit_weight: hit.value,
         state_derivative: hit.first * score_state_derivative,
-    }
-}
-
-pub(in crate::engine) fn accumulate_bridge_local_variance_adjoints(
-    local_volatility: &LocalVolRuntime,
-    states: &[f64],
-    node_interpolations: &[LocalVarianceInterpolation],
-    variance_seeds: Vec<f64>,
-    state_seeds: &mut [f64],
-    bridge_grid_adjoints: &mut [f64],
-) {
-    let x_count = local_volatility.grid.log_moneyness_nodes().len();
-    for (node, (interpolation, variance_seed)) in node_interpolations
-        .iter()
-        .copied()
-        .zip(variance_seeds)
-        .enumerate()
-    {
-        state_seeds[node] += variance_seed
-            * local_volatility
-                .grid
-                .interpolation_log_moneyness_derivative(interpolation)
-            / states[node];
-        interpolation.transpose_accumulate(variance_seed, bridge_grid_adjoints, x_count);
     }
 }
 

@@ -1,0 +1,21 @@
+{
+  "policy_id": "flat_gamma_split_sample_component_v1",
+  "scope": "Pilot-selected positive-time Gamma recovery and separate initial measure; no complete IV hedge acceptance.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "node_counts": [9, 17, 33],
+  "seeds": [7, 41, 101, 509],
+  "validation_sampling_units": 524288,
+  "selection": {
+    "candidate_regularizations": [0.01, 0.003, 0.001, 0.0003, 0.0001],
+    "pilot_sampling_units": 262144,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0
+  },
+  "statistical_multiplier": 6.0,
+  "local_vega_absolute_tolerance": 0.002,
+  "mass_absolute_tolerance": 0.000002,
+  "solver_absolute_tolerance": 0.000002,
+  "operator_relative_tolerance": 0.000002,
+  "scope_note": "The 3% reconstruction limit is retained. The vector MC margin and 25% relative Gamma SE guard are additional checks, not confidence bounds on unidentified Gamma. Historical fixed-lambda failures remain failures."
+}

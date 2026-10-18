@@ -1,0 +1,95 @@
+{
+  "document_kind": "vega_kt_weak_gamma_validation",
+  "schema_version": 1,
+  "date": "2026-10-04",
+  "diagnostic_only": true,
+  "native_acceptance": "not_accepted",
+  "policy_hash": "fce9be03ab787b19028243dc894960c342d0fcf75ad7043bb222184ca8655b09",
+  "comparison": {
+    "cases": 24,
+    "checks": 63,
+    "before_failed": 32,
+    "after_failed": 0,
+    "before_failed_by_type": {
+      "chain_sum_vs_local_parallel_vega": 20,
+      "chain_sum_vs_crn": 6,
+      "chain_sum_grid_stability": 6
+    },
+    "maximum_relative_local_vega_error": 0.016712315262729104,
+    "selected_observations": [
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 2,
+        "nodes": 17,
+        "local_vega": 23.375993968213017,
+        "before_chain": 21.18025318525977,
+        "after_chain": 23.64680674824058,
+        "after_standard_error": 0.2564313968923552
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 17,
+        "local_vega": 23.578940572005273,
+        "before_chain": 21.25246147847752,
+        "after_chain": 23.777008206205384,
+        "after_standard_error": 0.30493467069953845
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 16,
+        "nodes": 17,
+        "local_vega": 23.37138452471218,
+        "before_chain": -2493.654939112756,
+        "after_chain": 23.588742799844326,
+        "after_standard_error": 0.3266345607035582
+      }
+    ],
+    "before_native_binary_hash": "f9ceac385ea115b86eb328df1fc790162dccd7537a4dba769fc2ec4dbfe95add",
+    "after_native_binary_hash": "141d96933d6d3b3640323e03cbaf307ace42941ff3c4bc3cb48037f28ddde944",
+    "elapsed_seconds": 255.59524229192175,
+    "before_report_sha256": "67793f510ba6d5b8ce82fb3b44f8ab0934efc2b10955d993b7e07b64c7d3f340",
+    "after_report_sha256": "908a0dff3e469cb9e053cd2070fd5944a369ec40e8cb9b50d1579729a20a112c"
+  },
+  "ordinary_native_panel": {
+    "checks": 154,
+    "failed": 54,
+    "observations_and_checks_identical_to_previous": true,
+    "report_sha256": "fae179424c947e8ccdfca309a4fa2dc1968af5d0128381fc860e29dede0446fb"
+  },
+  "verification": {
+    "rust_integration_passed": 65,
+    "rust_local_vol_library_passed": 46,
+    "python_passed": 25,
+    "independent_reference_checkers_passed": 11,
+    "clippy": "passed",
+    "markdown_links": "passed"
+  },
+  "files_sha256": {
+    "crates/pricing/src/engine/risk/vegakt_chain.rs": "8828354f78d0edc546d48195cb989bb2fa34cb04afef1f41ad1c82a5a3d61d3b",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3a2007f792485d74fffc0a0e6149a88225667822308ed2a5925721d1beb51c34",
+    "crates/pricing/src/engine/risk/vegakt_pricing.rs": "ec27a27278867372b4231c8ab7ee828906bf536e3719b7a5dad60ed02561ad2f",
+    "crates/pricing/src/risk/vegakt_chain.rs": "24d0f0237ee02543a6a9447493271621726c0f21a5c0fdda8616b675606b6d21",
+    "crates/pricing-python/src/vegakt_chain.rs": "7773c8cbf5c12a59368b35f515ba40899e52c17c6fb1b4788b185c118836f0b5",
+    "backtesting/rust_pricing_backtest/chain_numerics.py": "5b271fa802a957d7248dc01965f60dc387dfebf7f95cbe71b2e625d5f1abce88",
+    "scripts/check_local_vol_density_mass.py": "24b088720bf80f2c03d52e1fd0d68f92d0471b43d351efcb880c5560a6a457db",
+    "scripts/check_local_vol_weak_chain.py": "7c5bf35ed894c2820390620658c57ada926532f18bc56b475a73aece8d8bc3d8",
+    "scripts/check_local_vol_vegakt_chain.py": "71b582cf92ec5cd8323724eb9c92acff49de58e9ce211f8e928751501da3c058",
+    "fixtures/local-vol/density-mass-v0.1.json": "2e57f3f87ee6fc44173d73b88ba0bc0ed663936c3a236e5926d79e6dd1386a34",
+    "fixtures/local-vol/weak-chain-v0.1.json": "a8238fa8b4cf53fdd36628e402a977660ad9b13404a06eb6e1f0f40110ff7169",
+    "crates/pricing/examples/vega_kt_chain_probe.rs": "193db2edf0375404ca552c46afe2a67e721764d7c927552c76542a7112612ad5",
+    "crates/pricing/tests/local_vol_density_mass.rs": "1978af1a41d9d0fa617f3a33d6312ff5a3795e990d9a5afed75d0999e3baedc6",
+    "crates/pricing/tests/local_vol_vegakt_pricing.rs": "47e97a86bb770afe71f65c2fb26cde6083a2231afd83b24b147086943122d7b2",
+    "crates/pricing/tests/local_vol_vegakt_chain.rs": "4293bece80a4b9c0315e6cda66ebc03b14b75fee0dc7aded55e41cc6a730a44b",
+    "tests/python/test_vega_kt_chain.py": "8a204e27dfd5bb6985cd08eb7449a8efcaac1c0cc9978fb561506a9bdee10ab2"
+  },
+  "limitations": [
+    "Restricted flat-space weak recovery, not exact equation (3) inversion.",
+    "Conditional-hat, initial finite differences, interpolation and finite-domain biases remain.",
+    "Passing scalar comparisons does not certify expiry/strike bucket localization or hedge quantities.",
+    "Ordinary evaluate() remains diagnostic local-node allocation, with 54 acceptance failures."
+  ]
+}

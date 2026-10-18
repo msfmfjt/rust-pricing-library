@@ -1,0 +1,23 @@
+{
+  "policy_id": "flat_signed_atom_iv_chain_component_v1",
+  "scope": "Calibrated spatially flat zero-carry two-fixing products; conditional on selected inverse, not full market-IV acceptance.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "interval_volatilities": [[0.2, 0.2], [0.17, 0.26]],
+  "seeds": [7, 41],
+  "node_count": 17,
+  "samples": 131072,
+  "selection": {
+    "candidate_regularizations": [0.01, 0.003, 0.001, 0.0003, 0.0001],
+    "pilot_sampling_units": 131072,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0
+  },
+  "statistical_multiplier": 6.0,
+  "vega_absolute_tolerance": 0.002,
+  "quadrature_absolute_tolerance": 0.000000002,
+  "identity_absolute_tolerance": 0.00000001,
+  "covariance_absolute_tolerance": 0.00000001,
+  "vol_bump": 0.00001,
+  "price_fd_absolute_tolerance": 0.01
+}

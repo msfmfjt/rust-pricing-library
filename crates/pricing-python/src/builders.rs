@@ -3,9 +3,9 @@ use std::sync::Arc;
 use pricing::PricingRequest;
 use pricing::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, UnderlyingId};
 use pricing::market::{
-    DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice, EssviSurface,
-    LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
-    ThetaPchip,
+    DiscountCurve as _, DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice,
+    EssviSurface, LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi,
+    SurfaceValidationTolerance, ThetaPchip,
 };
 use pricing::mc::{
     CpqrConfig, EngineConfig, LsmConfig, LsmStateVariable, PolynomialBasisSpec, PseudoMcConfig,
@@ -56,6 +56,13 @@ impl PyDiscountCurve {
     #[getter]
     fn curve_id(&self) -> u32 {
         self.inner.id().get()
+    }
+
+    /// Evaluate the native log-linear curve at an ACT/365F year fraction.
+    fn discount(&self, py: Python<'_>, time: f64) -> PyResult<f64> {
+        self.inner
+            .discount(time)
+            .map_err(|error| domain_error(py, "invalid_discount_time", "/time", error))
     }
 
     fn __repr__(&self) -> String {
@@ -485,7 +492,7 @@ impl PyProduct {
 
     /// Build a fixed-strike discrete-monitoring Lookback call or put.
     #[staticmethod]
-    #[pyo3(signature = (underlying_id, currency_id, strike, notional, side, monitoring_dates, payment_date, *, historical_extremum=None))]
+    #[pyo3(signature = (underlying_id, currency_id, strike, notional, side, monitoring_dates, payment_date, *, historical_extremum=None, valuation_date_fixing=None))]
     #[allow(clippy::too_many_arguments)]
     fn fixed_lookback(
         py: Python<'_>,
@@ -497,6 +504,7 @@ impl PyProduct {
         monitoring_dates: &Bound<'_, PyAny>,
         payment_date: &Bound<'_, PyAny>,
         historical_extremum: Option<f64>,
+        valuation_date_fixing: Option<f64>,
     ) -> PyResult<Self> {
         let side = option_side(py, side)?;
         let monitoring_dates =
@@ -512,6 +520,7 @@ impl PyProduct {
             historical_extremum,
             payment_date,
         )
+        .and_then(|spec| spec.with_valuation_date_fixing(valuation_date_fixing))
         .map(|spec| Self {
             inner: ProductSpec::FixedLookback(spec),
         })

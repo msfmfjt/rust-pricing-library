@@ -2,7 +2,6 @@
 
 use crate::core::{PathIndex, PositiveF64};
 use crate::engine::compile::local_vol::compile_local_vol_runtime;
-use crate::engine::payoff::barrier::accumulate_bridge_local_variance_adjoints;
 use crate::engine::payoff::barrier::continuous_barrier_payoff_terms;
 use crate::engine::plan::simulation::BUMP_DELTA;
 use crate::engine::plan::simulation::BUMP_GAMMA;
@@ -18,9 +17,7 @@ use crate::engine::plan::simulation::PATHWISE_COMPONENTS;
 use crate::engine::plan::simulation::PRICE;
 use crate::engine::plan::simulation::SimulationPlan;
 use crate::engine::plan::simulation::VEGA;
-use crate::risk::{
-    local_vega_density_from_node_adjoints, project_local_vega_nodes_to_reporting_iv,
-};
+use crate::engine::risk::local_vol_allocation::allocate_local_vol_nodes;
 use crate::{MonteCarloError, ResultBuildError};
 
 impl SimulationPlan {
@@ -209,13 +206,14 @@ impl SimulationPlan {
             );
         let mut values = [0.0; PATHWISE_COMPONENTS];
         let mut raw_buckets = None;
+        let mut allocation_audit = None;
         values[PRICE] = price;
         if let Some((bridge, _)) = &continuous {
             bridge.diagnostic_values().write_to(&mut values);
         }
         if self.request_vega || local_volatility.vega_kt.is_some() {
             let mut state_seeds = vec![0.0; path_state.states().len()];
-            let mut bridge_grid_adjoints = vec![0.0; local_volatility.grid.values().len()];
+            let mut direct_variance_seeds = vec![0.0; path_state.states().len()];
             if let Some((bridge, payoff)) = &continuous {
                 let barrier = self
                     .continuous_barrier
@@ -233,7 +231,7 @@ impl SimulationPlan {
                     let interval_adjoints = bridge
                         .path
                         .reverse(discount * payoff.survival_derivative * bridge.survival());
-                    let mut variance_seeds = vec![0.0; bridge.node_interpolations.len()];
+
                     for ((left_node, right_node), adjoints) in bridge
                         .interval_node_indices
                         .iter()
@@ -242,48 +240,32 @@ impl SimulationPlan {
                     {
                         state_seeds[left_node] += adjoints.left_state;
                         state_seeds[right_node] += adjoints.right_state;
-                        variance_seeds[left_node] += adjoints.left_local_variance;
-                        variance_seeds[right_node] += adjoints.right_local_variance;
+                        direct_variance_seeds[left_node] += adjoints.left_local_variance;
+                        direct_variance_seeds[right_node] += adjoints.right_local_variance;
                     }
-                    accumulate_bridge_local_variance_adjoints(
-                        local_volatility,
-                        path_state.states(),
-                        &bridge.node_interpolations,
-                        variance_seeds,
-                        &mut state_seeds,
-                        &mut bridge_grid_adjoints,
-                    );
                 }
                 if let LocalVolContinuousBarrierBridgeEvaluation::Smoothed {
                     path,
                     interval_node_indices,
-                    node_interpolations,
+                    ..
                 } = bridge
                 {
                     let (interval_adjoints, hit_factor_adjoints) =
                         path.reverse(discount * payoff.survival_derivative);
-                    let mut variance_seeds = vec![0.0; node_interpolations.len()];
+
                     for ((left_node, right_node), adjoints) in
                         interval_node_indices.iter().copied().zip(interval_adjoints)
                     {
                         state_seeds[left_node] += adjoints.left_endpoint.state;
                         state_seeds[right_node] += adjoints.right_endpoint.state;
-                        variance_seeds[left_node] += adjoints.left_local_variance;
-                        variance_seeds[right_node] += adjoints.right_local_variance;
+                        direct_variance_seeds[left_node] += adjoints.left_local_variance;
+                        direct_variance_seeds[right_node] += adjoints.right_local_variance;
                     }
                     for (state_index, adjoint) in hit_factor_adjoints {
                         state_seeds
                             [state_index.expect("Local Vol hit factors use node indices")] +=
                             adjoint;
                     }
-                    accumulate_bridge_local_variance_adjoints(
-                        local_volatility,
-                        path_state.states(),
-                        node_interpolations,
-                        variance_seeds,
-                        &mut state_seeds,
-                        &mut bridge_grid_adjoints,
-                    );
                 }
             } else {
                 let payoff = graph_payoff.as_ref().expect("graph payoff");
@@ -319,19 +301,17 @@ impl SimulationPlan {
                     }
                 }
             }
-            let reverse = path_state.reverse_state_adjoints(
+            let reverse = local_volatility.plan.reverse_path_with_variance_seeds(
+                &local_volatility.grid,
+                &path_state,
                 &state_seeds,
-                local_volatility.grid.values().len(),
-                local_volatility.grid.log_moneyness_nodes().len(),
+                &direct_variance_seeds,
             )?;
             let local_vol_node_adjoints = reverse
                 .local_variance_value_adjoints()
                 .iter()
-                .zip(&bridge_grid_adjoints)
                 .zip(local_volatility.grid.values())
-                .map(|((path_adjoint, bridge_adjoint), variance)| {
-                    (path_adjoint + bridge_adjoint) * 2.0 * variance.sqrt()
-                })
+                .map(|(adjoint, variance)| adjoint * 2.0 * variance.sqrt())
                 .collect::<Vec<_>>();
             let vega = local_vol_node_adjoints
                 .iter()
@@ -339,44 +319,14 @@ impl SimulationPlan {
                 .collect::<pricing_numerics::NeumaierSum>()
                 .total();
             values[VEGA] = vega;
-            if let Some(vega_kt) = &local_volatility.vega_kt {
-                let x_count = local_volatility.grid.log_moneyness_nodes().len();
-                let mut bucket_values = vec![0.0; vega_kt.basis.bucket_count()];
-                for (time_index, maturity) in local_volatility
-                    .grid
-                    .time_nodes()
-                    .iter()
-                    .copied()
-                    .enumerate()
-                {
-                    if maturity == 0.0 {
-                        continue;
-                    }
-                    let row_start = time_index * x_count;
-                    let row_end = row_start + x_count;
-                    let density = local_vega_density_from_node_adjoints(
-                        &local_vol_node_adjoints[row_start..row_end],
-                        local_volatility.grid.log_moneyness_nodes(),
-                    )?;
-                    let density_row = vega_kt
-                        .density_rows
-                        .iter()
-                        .find(|row| row.maturity().get().to_bits() == maturity.to_bits())
-                        .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
-                    let projection = project_local_vega_nodes_to_reporting_iv(
-                        &vega_kt.basis,
-                        maturity,
-                        local_volatility.grid.log_moneyness_nodes(),
-                        &density,
-                        density_row.active_domain(),
-                    )?;
-                    for (bucket, projected) in
-                        bucket_values.iter_mut().zip(projection.raw_buckets())
-                    {
-                        *bucket += *projected;
-                    }
-                }
-                raw_buckets = Some(bucket_values);
+            if local_volatility.vega_kt.is_some() && self.terminal_replication_vega_kt.is_none() {
+                let (buckets, audit) = if let Some(terminal) = &self.terminal_vega_kt {
+                    terminal.sample(*path_state.states().last().expect("terminal state"), shocks)?
+                } else {
+                    allocate_local_vol_nodes(local_volatility, &local_vol_node_adjoints)?
+                };
+                raw_buckets = Some(buckets);
+                allocation_audit = Some(audit);
             }
         }
         if let Some(bumps) = bump_runtimes {
@@ -406,6 +356,7 @@ impl SimulationPlan {
         Ok(LocalVolPathwise {
             values,
             raw_buckets,
+            allocation_audit,
         })
     }
 }

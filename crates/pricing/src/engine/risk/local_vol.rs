@@ -9,9 +9,9 @@ use crate::engine::plan::simulation::LocalVolRuntime;
 use crate::engine::plan::simulation::PATHWISE_COMPONENTS;
 use crate::engine::plan::simulation::PRICE;
 use crate::engine::plan::simulation::SimulationPlan;
-use crate::engine::plan::simulation::VEGA;
 use crate::engine::plan::simulation::bucket_sample_capacity;
-use crate::engine::processes::local_vol_valuation::average_local_vol_pathwise;
+use crate::engine::risk::local_vol_allocation::LocalVolAllocationAuditSum;
+use crate::engine::risk::local_vol_allocation::average_local_vol_pathwise;
 use crate::engine::risk::report::estimate_from_statistics;
 use crate::engine::risk::report::extrapolation_warnings;
 use crate::engine::sampling::path_normals::local_vol_rqmc_shocks;
@@ -19,11 +19,7 @@ use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, PseudoMcConfig,
     RandomDomain, RqmcConfig, RqmcPlan, RqmcPlanError,
 };
-use crate::risk::{
-    vega_kt_bucket_estimates, vega_kt_full_bucket_covariance, vega_kt_projection_from_parts,
-    vega_kt_report,
-};
-use crate::{Diagnostics, EstimatorKind, MonteCarloError, PricingResult, VegaKtResult};
+use crate::{Diagnostics, EstimatorKind, MonteCarloError, PricingResult};
 
 impl SimulationPlan {
     pub(in crate::engine) fn execute_local_vol_pseudo(
@@ -35,7 +31,7 @@ impl SimulationPlan {
         let antithetic = engine.variance_reduction().antithetic();
         let brownian_bridge = engine.variance_reduction().brownian_bridge();
         let bump_runtimes = self.local_vol_bump_runtimes()?;
-        if local_volatility.vega_kt.is_some() {
+        if local_volatility.vega_kt.is_some() && self.terminal_replication_vega_kt.is_none() {
             return self.execute_local_vol_pseudo_with_vega_kt(
                 engine,
                 local_volatility,
@@ -93,7 +89,7 @@ impl SimulationPlan {
                 &statistics,
                 independent_units,
                 EstimatorKind::PseudoMonteCarlo,
-                None,
+                self.terminal_replication_vega_kt.clone(),
             )?,
             diagnostics: Diagnostics::new(extrapolation_warnings(
                 self.discount_region,
@@ -158,6 +154,7 @@ impl SimulationPlan {
             usize::try_from(independent_units).expect("sampling-unit count fits usize"),
         );
         let mut price_samples = Vec::with_capacity(values.capacity());
+        let mut allocation_audits = Vec::with_capacity(values.capacity());
         let mut raw_bucket_samples =
             Vec::with_capacity(bucket_sample_capacity(values.capacity(), bucket_count));
         for sampling_unit in 0..independent_units {
@@ -185,6 +182,11 @@ impl SimulationPlan {
             } else {
                 primary
             };
+            allocation_audits.push(
+                pathwise
+                    .allocation_audit
+                    .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?,
+            );
             price_samples.push(pathwise.values[PRICE]);
             raw_bucket_samples.extend(
                 pathwise
@@ -202,43 +204,14 @@ impl SimulationPlan {
                     .collect::<Vec<_>>();
                 DeterministicStatistics::from_ordered_values_two_pass(&component_values)
             });
-        let estimates =
-            vega_kt_bucket_estimates(&price_samples, &raw_bucket_samples, bucket_count)?;
-        let raw_bucket_means = estimates
-            .iter()
-            .map(|estimate| estimate.raw_mean())
-            .collect::<Vec<_>>();
-        let mean_vega = statistics[VEGA].sum().total() / independent_units as f64;
-        let bucket_sum = raw_bucket_means
-            .iter()
-            .copied()
-            .collect::<pricing_numerics::NeumaierSum>()
-            .total();
-        let projection = vega_kt_projection_from_parts(
-            raw_bucket_means,
-            mean_vega - bucket_sum,
-            mean_vega,
-            Default::default(),
+        let vega_kt = self.build_vega_kt_result(
+            local_volatility,
+            &statistics,
+            independent_units,
+            &price_samples,
+            &raw_bucket_samples,
+            &allocation_audits,
         )?;
-        let full_bucket_covariance = if vega_kt.full_bucket_covariance {
-            Some(vega_kt_full_bucket_covariance(
-                &raw_bucket_samples,
-                bucket_count,
-            )?)
-        } else {
-            None
-        };
-        let density_row = vega_kt
-            .density_rows
-            .last()
-            .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
-        let vega_kt = VegaKtResult::try_from(&vega_kt_report(
-            &vega_kt.basis,
-            density_row,
-            projection,
-            estimates,
-            full_bucket_covariance,
-        )?)?;
         let estimate = estimate_from_statistics(
             statistics[PRICE],
             independent_units,
@@ -324,7 +297,7 @@ impl SimulationPlan {
         let antithetic = engine.variance_reduction().antithetic();
         let points = engine.points_per_scramble().get();
         let bump_runtimes = self.local_vol_bump_runtimes()?;
-        if local_volatility.vega_kt.is_some() {
+        if local_volatility.vega_kt.is_some() && self.terminal_replication_vega_kt.is_none() {
             return self.execute_local_vol_rqmc_with_vega_kt(
                 engine,
                 local_volatility,
@@ -398,7 +371,7 @@ impl SimulationPlan {
                 &statistics,
                 independent_units,
                 EstimatorKind::RandomizedQuasiMonteCarlo,
-                None,
+                self.terminal_replication_vega_kt.clone(),
             )?,
             diagnostics: Diagnostics::new(extrapolation_warnings(
                 self.discount_region,
@@ -467,6 +440,7 @@ impl SimulationPlan {
             usize::try_from(engine.scramble_count().get()).expect("u32 fits usize"),
         );
         let mut price_samples = Vec::with_capacity(replicate_values.capacity());
+        let mut allocation_audits = Vec::with_capacity(replicate_values.capacity());
         let mut raw_bucket_samples = Vec::with_capacity(bucket_sample_capacity(
             replicate_values.capacity(),
             bucket_count,
@@ -475,6 +449,7 @@ impl SimulationPlan {
         for scramble in 0..engine.scramble_count().get() {
             let mut component_sums = [pricing_numerics::NeumaierSum::new(); PATHWISE_COMPONENTS];
             let mut bucket_sums = vec![pricing_numerics::NeumaierSum::new(); bucket_count];
+            let mut audit_sum = LocalVolAllocationAuditSum::default();
             for point in 0..points {
                 let path_index = PathIndex::new(u64::from(scramble).saturating_mul(points) + point);
                 let shocks = local_vol_rqmc_shocks(qmc, bridge, scramble, point)?;
@@ -499,6 +474,11 @@ impl SimulationPlan {
                 for (sum, value) in component_sums.iter_mut().zip(pathwise.values) {
                     sum.add(value);
                 }
+                audit_sum.add(
+                    pathwise
+                        .allocation_audit
+                        .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?,
+                );
                 for (sum, value) in bucket_sums.iter_mut().zip(
                     pathwise
                         .raw_buckets
@@ -509,6 +489,7 @@ impl SimulationPlan {
             }
             let replicate =
                 std::array::from_fn(|component| component_sums[component].total() / points as f64);
+            allocation_audits.push(audit_sum.mean(points));
             price_samples.push(replicate[PRICE]);
             raw_bucket_samples.extend(
                 bucket_sums
@@ -527,43 +508,14 @@ impl SimulationPlan {
                 DeterministicStatistics::from_ordered_values_two_pass(&values)
             });
         let independent_units = u64::from(engine.scramble_count().get());
-        let estimates =
-            vega_kt_bucket_estimates(&price_samples, &raw_bucket_samples, bucket_count)?;
-        let raw_bucket_means = estimates
-            .iter()
-            .map(|estimate| estimate.raw_mean())
-            .collect::<Vec<_>>();
-        let mean_vega = statistics[VEGA].sum().total() / independent_units as f64;
-        let bucket_sum = raw_bucket_means
-            .iter()
-            .copied()
-            .collect::<pricing_numerics::NeumaierSum>()
-            .total();
-        let projection = vega_kt_projection_from_parts(
-            raw_bucket_means,
-            mean_vega - bucket_sum,
-            mean_vega,
-            Default::default(),
+        let vega_kt = self.build_vega_kt_result(
+            local_volatility,
+            &statistics,
+            independent_units,
+            &price_samples,
+            &raw_bucket_samples,
+            &allocation_audits,
         )?;
-        let full_bucket_covariance = if vega_kt.full_bucket_covariance {
-            Some(vega_kt_full_bucket_covariance(
-                &raw_bucket_samples,
-                bucket_count,
-            )?)
-        } else {
-            None
-        };
-        let density_row = vega_kt
-            .density_rows
-            .last()
-            .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
-        let vega_kt = VegaKtResult::try_from(&vega_kt_report(
-            &vega_kt.basis,
-            density_row,
-            projection,
-            estimates,
-            full_bucket_covariance,
-        )?)?;
         let estimate = estimate_from_statistics(
             statistics[PRICE],
             independent_units,

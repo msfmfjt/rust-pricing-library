@@ -1096,6 +1096,16 @@ BASS_STUB_API = {
 }
 
 
+VEGA_KT_DIAGNOSTIC_PROPERTIES = {
+    "VegaKtChainDiagnostic": {"policy_label", "raw_buckets", "standard_errors",
+        "hedge_quantities", "scalar_vega", "scalar_standard_error", "maturity_nodes",
+        "log_moneyness_nodes"},
+    "VegaKtTerminalDiagnostic": {"policy_label", "gamma_atoms", "raw_buckets",
+        "hedge_quantities", "scalar_vega", "expected_local_parallel_vega",
+        "maturity_nodes", "log_moneyness_nodes"},
+}
+
+
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
@@ -1296,6 +1306,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "version",
     }
     expected_top_level_names.update(BASS_STUB_API)
+    expected_top_level_names.update(VEGA_KT_DIAGNOSTIC_PROPERTIES)
+    expected_top_level_names.add("VegaKtGammaRecoveryPolicy")
     missing_top_level_names = sorted(expected_top_level_names.difference(top_level_names))
     if missing_top_level_names:
         raise RuntimeError(
@@ -2592,9 +2604,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "payment_date",
             ],
             "positional_defaults": {},
-            "keyword_only": ["historical_extremum"],
+            "keyword_only": ["historical_extremum", "valuation_date_fixing"],
             "required_keyword_only": [],
-            "keyword_only_defaults": {"historical_extremum": None},
+            "keyword_only_defaults": {"historical_extremum": None, "valuation_date_fixing": None},
         },
         ("RiskRequest", "__init__"): {
             "positional": ["self"],
@@ -2632,6 +2644,68 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             },
         },
     }
+    expected_signature_shapes.update({
+        ("VegaKtGammaRecoveryPolicy", "__init__"): {
+            "positional": ["self", "candidate_regularizations"], "positional_defaults": {},
+            "keyword_only": ["pilot_sampling_units", "reconstruction_relative_limit",
+                "gamma_relative_standard_error_limit", "mc_margin_multiplier",
+                "preserve_local_vega_total", "local_vega_conservation_directions"],
+            "required_keyword_only": ["pilot_sampling_units", "reconstruction_relative_limit",
+                "gamma_relative_standard_error_limit", "mc_margin_multiplier"],
+            "keyword_only_defaults": {"preserve_local_vega_total": False, "local_vega_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_multi_step_terminal_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_multi_step_gamma_chain_audit"): {
+            "positional": ["self", "variance_rows", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["variance_risk_directions", "subdivisions", "relative_tolerance", "gamma_relative_standard_error_limit", "retain_samples"],
+            "required_keyword_only": ["variance_risk_directions"],
+            "keyword_only_defaults": {"subdivisions": 64, "relative_tolerance": 1e-6, "gamma_relative_standard_error_limit": .25, "retain_samples": False},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_terminal_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_joint_gamma_audit"): {
+            "positional": ["self", "gamma_strikes", "initial_gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions", "risk_directions", "subdivisions", "relative_tolerance"],
+            "required_keyword_only": ["policy", "variance_conservation_directions", "risk_directions"],
+            "keyword_only_defaults": {"subdivisions": 32768, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_initial_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 512, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_middle_smile_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 512, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_terminal_readout_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions", "variance_risk_directions"],
+            "required_keyword_only": ["policy", "variance_conservation_directions", "variance_risk_directions"],
+            "keyword_only_defaults": {},
+        },
+        ("PricingPlan", "evaluate_vega_kt_initial_smile_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 32768, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_two_step_smile_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+    })
     for (class_name, method_name), expected in sorted(expected_signature_shapes.items()):
         if method_name not in class_methods.get(class_name, {}):
             raise RuntimeError(f"wheel stub is missing required member {class_name}.{method_name}")
@@ -2922,6 +2996,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "__init__",
             "__repr__",
             "curve_id",
+            "discount",
         },
         "DiagnosticEstimate": {
             "__repr__",
@@ -2967,6 +3042,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "lookback_past_monitoring_count",
             "lookback_future_monitoring_count",
             "lookback_historical_extremum",
+            "lookback_valuation_date_fixing",
             "barrier_bridge_abi",
             "barrier_bridge_policy_version",
             "barrier_hit_indicator_mode",
@@ -3282,6 +3358,24 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_class_members.update({
         name: set().union(*parts.values()) for name, parts in BASS_STUB_API.items()
     })
+    expected_class_members.update({
+        name: properties | {"to_dict"} for name, properties in VEGA_KT_DIAGNOSTIC_PROPERTIES.items()
+    })
+    expected_class_members["PricingPlan"].update({
+        "evaluate_vega_kt_chain_diagnostic", "evaluate_vega_kt_terminal_diagnostic",
+        "evaluate_vega_kt_atom_chain_diagnostic", "evaluate_vega_kt_gamma_recovery_audit",
+        "evaluate_vega_kt_initial_gamma_diagnostic", "evaluate_vega_kt_gamma_recovery_diagnostic",
+        "evaluate_vega_kt_two_step_smile_gamma_audit",
+        "evaluate_vega_kt_initial_smile_gamma_audit",
+        "evaluate_vega_kt_joint_gamma_audit",
+        "evaluate_vega_kt_three_step_terminal_gamma_audit",
+        "evaluate_vega_kt_multi_step_terminal_gamma_audit",
+        "evaluate_vega_kt_multi_step_gamma_chain_audit",
+        "evaluate_vega_kt_middle_smile_gamma_audit",
+        "evaluate_vega_kt_three_step_initial_gamma_audit",
+        "evaluate_vega_kt_three_step_terminal_readout_audit",
+    })
+    expected_class_members["VegaKtGammaRecoveryPolicy"] = {"__init__", "to_dict"}
     expected_class_members["Model"].add("bass_local_volatility")
     expected_class_members["PricingPlan"].update({
         "bass_calibration_diagnostics", "bass_projection_diagnostics",
@@ -4274,6 +4368,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Diagnostics", "lookback_past_monitoring_count"),
         ("Diagnostics", "lookback_future_monitoring_count"),
         ("Diagnostics", "lookback_historical_extremum"),
+        ("Diagnostics", "lookback_valuation_date_fixing"),
         ("Diagnostics", "payoff_fingerprint"),
         ("Diagnostics", "payoff_smoothing_half_width"),
         ("Diagnostics", "payoff_smoothing_dividend_jump_count"),
@@ -4456,6 +4551,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         for method in parts.get("staticmethods", set())
     )
     expected_static_methods.add(("Model", "bass_local_volatility"))
+    expected_properties.update(
+        (name, method) for name, properties in VEGA_KT_DIAGNOSTIC_PROPERTIES.items()
+        for method in properties
+    )
     expected_properties.update(
         (name, method) for name, parts in BASS_STUB_API.items()
         for method in parts.get("properties", set())

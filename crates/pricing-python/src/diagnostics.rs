@@ -543,6 +543,7 @@ pub struct PyDiagnostics {
     lookback_past_monitoring_count: Option<u32>,
     lookback_future_monitoring_count: Option<u32>,
     lookback_historical_extremum: Option<f64>,
+    lookback_valuation_date_fixing: Option<f64>,
     barrier_bridge_abi: Option<&'static str>,
     barrier_bridge_policy_version: Option<u32>,
     barrier_hit_indicator_mode: Option<&'static str>,
@@ -630,6 +631,8 @@ impl PyDiagnostics {
                 .map(|state| state.1),
             lookback_historical_extremum: lookback_state(diagnostics.path_state)
                 .and_then(|state| state.2),
+            lookback_valuation_date_fixing: lookback_state(diagnostics.path_state)
+                .and_then(|state| state.3),
             barrier_bridge_abi: diagnostics.barrier_bridge.map(|bridge| bridge.abi),
             barrier_bridge_policy_version: diagnostics
                 .barrier_bridge
@@ -872,6 +875,11 @@ impl PyDiagnostics {
     }
 
     #[getter]
+    fn lookback_valuation_date_fixing(&self) -> Option<f64> {
+        self.lookback_valuation_date_fixing
+    }
+
+    #[getter]
     fn barrier_bridge_abi(&self) -> Option<&str> {
         self.barrier_bridge_abi
     }
@@ -1098,16 +1106,20 @@ const fn asian_state(state: Option<PathStateDiagnostics>) -> Option<(u32, u32, f
     }
 }
 
-const fn lookback_state(state: Option<PathStateDiagnostics>) -> Option<(u32, u32, Option<f64>)> {
+const fn lookback_state(
+    state: Option<PathStateDiagnostics>,
+) -> Option<(u32, u32, Option<f64>, Option<f64>)> {
     match state {
         Some(PathStateDiagnostics::FixedLookback {
             past_monitoring_count,
             future_monitoring_count,
             historical_extremum,
+            valuation_date_fixing,
         }) => Some((
             past_monitoring_count,
             future_monitoring_count,
             historical_extremum,
+            valuation_date_fixing,
         )),
         Some(PathStateDiagnostics::ArithmeticAsian { .. }) | None => None,
     }

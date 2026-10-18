@@ -489,7 +489,7 @@ impl SimulationPlan {
         } else {
             plan_fingerprint
         };
-        Ok(Self {
+        let mut compiled = Self {
             bass,
             valuation_date: request.valuation_date(),
             expiry: product.expiry(),
@@ -529,9 +529,31 @@ impl SimulationPlan {
             dividend_region: forward_evaluation.dividend_region,
             market_forward: market_forward.clone(),
             local_volatility,
+            terminal_vega_kt: None,
+            terminal_replication_vega_kt: None,
             continuous_barrier,
             early_exercise,
-        })
+        };
+        compiled.terminal_vega_kt = compiled.compile_terminal_vega_kt()?;
+        compiled.terminal_replication_vega_kt = compiled.compile_terminal_replication_vega_kt()?;
+        if compiled.terminal_vega_kt.is_some() {
+            let mut h = blake3::Hasher::new();
+            h.update(compiled.plan_fingerprint.as_bytes());
+            h.update(
+                crate::engine::risk::vegakt_terminal_pathwise::TERMINAL_PATHWISE_LABEL.as_bytes(),
+            );
+            compiled.plan_fingerprint = Fingerprint::from_bytes(*h.finalize().as_bytes());
+        }
+        if compiled.terminal_replication_vega_kt.is_some() {
+            let mut h = blake3::Hasher::new();
+            h.update(compiled.plan_fingerprint.as_bytes());
+            h.update(
+                crate::engine::risk::vegakt_terminal_replication::TERMINAL_REPLICATION_LABEL
+                    .as_bytes(),
+            );
+            compiled.plan_fingerprint = Fingerprint::from_bytes(*h.finalize().as_bytes());
+        }
+        Ok(compiled)
     }
 }
 

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rust-pricing-backtest"
+version = "0.1.0"
+description = "Daily VegaKT hedging research using rust-pricing."
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.0,<3.0"]
+
+[project.optional-dependencies]
+native = ["rust-pricing==0.1.0"]
+validation = ["jsonschema>=4.23,<5"]
+constraints = ["scipy>=1.16,<2"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rust_pricing_backtest*"]
+
+[tool.setuptools.package-data]
+rust_pricing_backtest = ["schemas/*.schema.json"]

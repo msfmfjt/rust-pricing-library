@@ -1,0 +1,19 @@
+{
+  "policy_id": "all_transition_variance_extension_market_Gamma_v1",
+  "scope": "Four/six zero-carry intervals, 33 variance nodes, five quotes per two-step maturity; explicit all-row or linear-time variance increments, including the initial law.",
+  "extensions": ["all_rows", "linear_time"],
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "gamma_samples": 2048,
+  "gamma_seeds": [7, 41],
+  "subdivisions": 512,
+  "relative_tolerance": 0.000001,
+  "gamma_relative_standard_error_limit": 0.25,
+  "gamma_bins": [80.0, 90.0, 100.0, 110.0, 120.0],
+  "iv_bumps": [0.00001, 0.000005],
+  "stress_iv_bump": 0.003,
+  "quote_price_tolerance": 0.0000000001,
+  "absolute_tolerance": 0.002,
+  "sobol_power": 16,
+  "sobol_scrambles": 8,
+  "sampling_scope": "2048 antithetic independent units keep the all-row six-interval Asian work under the unchanged native resource limit; precision gates still apply to every row and direction."
+}

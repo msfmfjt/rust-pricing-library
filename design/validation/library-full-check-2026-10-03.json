@@ -1,0 +1,317 @@
+{
+  "scope": "Local Apple Silicon macOS validation; no remote Linux/Windows run.",
+  "finished_utc": "2026-10-03T13:57:44.117591+00:00",
+  "working_tree_dirty": true,
+  "rust_all_features_excluding_python": {
+    "passed": 711,
+    "failed": 0,
+    "ignored": 50
+  },
+  "rust_python": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "default_workspace_earlier_snapshot": {
+    "passed": 706,
+    "failed": 0,
+    "ignored": 50
+  },
+  "pricing_no_default_features_earlier_snapshot": {
+    "passed": 692,
+    "failed": 0,
+    "ignored": 50
+  },
+  "latest_step_recovery_no_default_features": {
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0
+  },
+  "extra_ignored_tests": {
+    "passed": 50,
+    "failed": 0
+  },
+  "extended_models": {
+    "passed_tests": 27,
+    "failed_tests": 0,
+    "accuracy_panels": 74,
+    "quote_points": 222,
+    "completed_in_original_run": [
+      "multi_asset::bs_basket_refinement_consistency",
+      "multi_asset::bs_basket_stress_repricing",
+      "multi_asset::bs_constituent_refinement_consistency",
+      "multi_asset::bs_constituent_stress_repricing",
+      "multi_asset::rough_hw_basket_refinement_consistency",
+      "multi_asset::rough_hw_basket_stress_repricing"
+    ],
+    "individual_runs": [
+      {
+        "name": "multi_asset::two_factor_basket_refinement_consistency",
+        "status": "passed",
+        "seconds": 249.704,
+        "log": "multi_asset--two_factor_basket_refinement_consistency.log"
+      },
+      {
+        "name": "multi_asset::rough_hw_constituent_refinement_consistency",
+        "status": "passed",
+        "seconds": 497.997,
+        "log": "multi_asset--rough_hw_constituent_refinement_consistency.log"
+      },
+      {
+        "name": "multi_asset::two_factor_constituent_refinement_consistency",
+        "status": "passed",
+        "seconds": 284.144,
+        "log": "multi_asset--two_factor_constituent_refinement_consistency.log"
+      },
+      {
+        "name": "single_asset::deterministic_lsv_smile_repricing",
+        "status": "passed",
+        "seconds": 42.002,
+        "log": "single_asset--deterministic_lsv_smile_repricing.log"
+      },
+      {
+        "name": "single_asset::gaussian_hull_white_independent_price_reference",
+        "status": "passed",
+        "seconds": 23.821,
+        "log": "single_asset--gaussian_hull_white_independent_price_reference.log"
+      },
+      {
+        "name": "single_asset::one_factor_hw_refinement_consistency",
+        "status": "passed",
+        "seconds": 63.148,
+        "log": "single_asset--one_factor_hw_refinement_consistency.log"
+      },
+      {
+        "name": "single_asset::one_factor_hw_stress_repricing",
+        "status": "passed",
+        "seconds": 89.883,
+        "log": "single_asset--one_factor_hw_stress_repricing.log"
+      },
+      {
+        "name": "single_asset::one_factor_refinement_consistency",
+        "status": "passed",
+        "seconds": 29.44,
+        "log": "single_asset--one_factor_refinement_consistency.log"
+      },
+      {
+        "name": "single_asset::one_factor_stress_repricing",
+        "status": "passed",
+        "seconds": 42.891,
+        "log": "single_asset--one_factor_stress_repricing.log"
+      },
+      {
+        "name": "multi_asset::two_factor_basket_stress_repricing",
+        "status": "passed",
+        "seconds": 908.982,
+        "log": "multi_asset--two_factor_basket_stress_repricing.log"
+      },
+      {
+        "name": "single_asset::rough_hw_refinement_consistency",
+        "status": "passed",
+        "seconds": 108.736,
+        "log": "single_asset--rough_hw_refinement_consistency.log"
+      },
+      {
+        "name": "multi_asset::rough_hw_constituent_stress_repricing",
+        "status": "passed",
+        "seconds": 970.416,
+        "log": "multi_asset--rough_hw_constituent_stress_repricing.log"
+      },
+      {
+        "name": "single_asset::rough_refinement_consistency",
+        "status": "passed",
+        "seconds": 53.558,
+        "log": "single_asset--rough_refinement_consistency.log"
+      },
+      {
+        "name": "single_asset::stochastic_rate_lsv_smile_repricing",
+        "status": "passed",
+        "seconds": 43.825,
+        "log": "single_asset--stochastic_rate_lsv_smile_repricing.log"
+      },
+      {
+        "name": "single_asset::rough_stress_repricing",
+        "status": "passed",
+        "seconds": 78.726,
+        "log": "single_asset--rough_stress_repricing.log"
+      },
+      {
+        "name": "single_asset::rough_hw_stress_repricing",
+        "status": "passed",
+        "seconds": 165.516,
+        "log": "single_asset--rough_hw_stress_repricing.log"
+      },
+      {
+        "name": "single_asset::two_factor_refinement_consistency",
+        "status": "passed",
+        "seconds": 32.59,
+        "log": "single_asset--two_factor_refinement_consistency.log"
+      },
+      {
+        "name": "single_asset::two_factor_hw_refinement_consistency",
+        "status": "passed",
+        "seconds": 77.016,
+        "log": "single_asset--two_factor_hw_refinement_consistency.log"
+      },
+      {
+        "name": "single_asset::two_factor_stress_repricing",
+        "status": "passed",
+        "seconds": 47.133,
+        "log": "single_asset--two_factor_stress_repricing.log"
+      },
+      {
+        "name": "single_asset::two_factor_hw_stress_repricing",
+        "status": "passed",
+        "seconds": 122.327,
+        "log": "single_asset--two_factor_hw_stress_repricing.log"
+      },
+      {
+        "name": "multi_asset::two_factor_constituent_stress_repricing",
+        "status": "passed",
+        "seconds": 823.145,
+        "log": "multi_asset--two_factor_constituent_stress_repricing.log"
+      }
+    ],
+    "test_binary_sha256": "bac7466aea6a65cf8dbe681f7db685630d486f29c093becf05357e93c40a9ce3",
+    "original_invocation_intentionally_interrupted": true
+  },
+  "release_wheel": {
+    "filename": "rust_pricing-0.1.0-cp313-cp313-macosx_11_0_arm64.whl",
+    "sha256": "f38e0377b514608f07affa882c770cfde45d7d598b9b8c976e9f7fe48a8309ff",
+    "tests": 199,
+    "skipped_with_optional_dependencies": 0,
+    "companion_tests": 193
+  },
+  "replay": {
+    "passed": [
+      "european_bs",
+      "local_volatility_macos_aarch64",
+      "path_dependence",
+      "early_exercise"
+    ]
+  },
+  "benchmark_reports": "Passed; retained under verified-benchmarks in the evidence directory.",
+  "known_unaccepted_gate": {
+    "name": "experimental Local Volatility paper VegaKT",
+    "checks": 154,
+    "passed": 100,
+    "failed": 54,
+    "native_binary_hash": "462b41ed6e80ff2803cd2d75490f2fb119588000974ddec27dfcb886a1dd4a93",
+    "policy_hash": "fce9be03ab787b19028243dc894960c342d0fcf75ad7043bb222184ca8655b09",
+    "scope_excludes_bass_market_iv_risk": true
+  },
+  "unverified_platforms": [
+    "Linux",
+    "Windows"
+  ],
+  "windows_local_volatility_replay": "Stale fixture needs a native capture and review; no macOS values substituted.",
+  "evidence_directory": "benchmark-results/full-check-20261003T125142Z",
+  "production_source_manifest_sha256": "8a690aa59ede4010aad6574f1df5cfaddac085a1522ace465d531b9c16c4f6fa",
+  "final_build_and_wheel_gates": [
+    {
+      "name": "rust-all-features-final",
+      "command": [
+        "/Users/fujimas/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-features",
+        "--exclude",
+        "pricing-python"
+      ],
+      "started_utc": "2026-10-03T13:41:34.327409+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 491.298
+    },
+    {
+      "name": "rust-python-final",
+      "command": [
+        "/Users/fujimas/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "-p",
+        "pricing-python"
+      ],
+      "started_utc": "2026-10-03T13:49:45.631147+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 17.151
+    },
+    {
+      "name": "clippy-latest",
+      "command": [
+        "/Users/fujimas/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_utc": "2026-10-03T13:50:02.783170+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 18.011
+    },
+    {
+      "name": "rustdoc-latest",
+      "command": [
+        "/Users/fujimas/.cargo/bin/cargo",
+        "doc",
+        "--locked",
+        "--workspace",
+        "--all-features",
+        "--no-deps"
+      ],
+      "started_utc": "2026-10-03T13:50:20.794452+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 4.771
+    },
+    {
+      "name": "format-latest",
+      "command": [
+        "/Users/fujimas/.cargo/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "started_utc": "2026-10-03T13:50:25.565469+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.946
+    },
+    {
+      "name": "release-wheel-build-latest",
+      "command": [
+        "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/.venv/bin/python",
+        "-m",
+        "maturin",
+        "build",
+        "--locked",
+        "--release",
+        "--out",
+        "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/benchmark-results/full-check-20261003T125142Z/final-wheels"
+      ],
+      "started_utc": "2026-10-03T13:50:26.511552+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 26.143
+    },
+    {
+      "name": "release-wheel-smoke-latest",
+      "command": [
+        "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/.venv/bin/python",
+        "scripts/smoke_test_wheel.py",
+        "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/benchmark-results/full-check-20261003T125142Z/final-wheels/rust_pricing-0.1.0-cp313-cp313-macosx_11_0_arm64.whl"
+      ],
+      "started_utc": "2026-10-03T13:50:52.655207+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 42.256
+    }
+  ]
+}
