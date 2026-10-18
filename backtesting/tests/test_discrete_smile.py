@@ -50,11 +50,13 @@ class DiscreteSmileTests(unittest.TestCase):
         self.assertEqual(audit['rank'], 5); self.assertLess(audit['iv_response_residual'], 1e-12)
         for direction in (c.quote_nodes, c.quote_nodes**2, np.eye(5)[2]):
             approximations = []
-            for bump in (2e-6, 1e-6):
+            # Check quadratic convergence above the calibration/price roundoff
+            # floor, retaining the original fine bump and absolute accuracy.
+            for bump in (2e-5, 1e-5, 1e-6):
                 rows = [np.array(c.calibrate(sign*bump*direction)[0]['model']['local_variance_grid']['values'])[33:66]
                         for sign in (1., -1.)]
                 approximations.append((rows[0]-rows[1])/(2*bump))
-            self.assertLess(np.max(abs(approximations[1]-u@direction)), 2e-6)
+            self.assertLess(np.max(abs(approximations[-1]-u@direction)), 2e-6)
             self.assertLessEqual(np.linalg.norm(approximations[1]-u@direction),
                                  .4*np.linalg.norm(approximations[0]-u@direction)+1e-8)
 

@@ -1,4 +1,6 @@
 """Frozen named basis constructions accepted for ledger replay."""
+from fractions import Fraction
+import math
 import numpy as np
 
 from .domain import fingerprint, require
@@ -10,6 +12,29 @@ COUPLED_BASIS_HASHES = {
     4: "8d957c3f233540f07698515b1a985d7d2760b0b28d99e9359dddb65c8f4293e7",
     6: "821589f0d43f22d8593f009dafe268cd473a591c4f4fef6630ab807e7c775f33",
 }
+
+
+def _portable_fma(a, b, c):
+    """One binary64 rounding, also on Python 3.12 without math.fma."""
+    return float(Fraction(a) * Fraction(b) + Fraction(c))
+
+
+_fma = getattr(math, "fma", _portable_fma)
+
+
+def _coupled_product(basis, mixing):
+    # The accepted matrices used ascending-column fused accumulation. Generic
+    # BLAS may split the multiply/add or reorder terms, changing the frozen hash
+    # by one ULP. Sparse scalar accumulation preserves those exact matrix bits.
+    result = np.zeros((basis.shape[0], mixing.shape[1]))
+    for inner in range(basis.shape[1]):
+        rows = np.flatnonzero(basis[:, inner])
+        columns = np.flatnonzero(mixing[inner])
+        for row in rows:
+            for column in columns:
+                result[row, column] = _fma(float(basis[row, inner]),
+                    float(mixing[inner, column]), float(result[row, column]))
+    return result
 
 
 def named_variance_basis(payload, policy):
@@ -39,7 +64,7 @@ def named_variance_basis(payload, policy):
                 mixing[row*k+j, (row-1)*k+j] = .2 + .1*j/(k-1) + .03*row
                 if j+1 < k:
                     mixing[row*k+j, (row-1)*k+j+1] = -.12*(1+j/(k-1))
-        basis = basis @ mixing
+        basis = _coupled_product(basis, mixing)
         digest = fingerprint(basis.tolist())
         require(digest == COUPLED_BASIS_HASHES[n], "custom_basis_provider_scope",
                 "coupled_row_hats requires the exact accepted four/six-interval matrix")

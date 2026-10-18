@@ -6,12 +6,21 @@ from unittest.mock import patch
 import numpy as np
 from rust_pricing_backtest.domain import BacktestError, fingerprint
 from rust_pricing_backtest.named_variance_basis import named_variance_basis, COUPLED_BASIS_HASHES
+from rust_pricing_backtest.named_variance_basis import _portable_fma
 from test_named_variance_basis import model
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class CoupledVarianceBasisTests(unittest.TestCase):
+    def test_python_312_fused_fallback_preserves_every_accepted_matrix_bit(self):
+        with patch('rust_pricing_backtest.named_variance_basis._fma', _portable_fma):
+            for n in (4, 6):
+                basis, _ = named_variance_basis(model(n), 'coupled_row_hats')
+                doc = json.loads((ROOT/f'fixtures/backtesting/raw-coupled-variance-basis-{n}-v0.1.json').read_text())
+                np.testing.assert_array_equal(basis, doc['values'])
+                self.assertEqual(fingerprint(basis.tolist()), COUPLED_BASIS_HASHES[n])
+
     def test_both_matrices_equal_independent_accepted_inputs(self):
         for n in (4, 6):
             payload = model(n); before = deepcopy(payload)

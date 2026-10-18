@@ -38,6 +38,14 @@ checkout and are not part of the source archive.
   provenance checks remain strict; this does not promote the merged binary.
 - Documentation labels local raw evidence as such instead of linking to files
   absent from a clean source archive.
+- Linux CI exposed BLAS-dependent last-bit differences in the coupled basis.
+  Sparse, ascending-column fused accumulation now reproduces every bit of both
+  accepted matrices, including a correctly rounded Python 3.12 fallback. The
+  matrix hashes and rejection of changed grids remain unchanged.
+- The cached-failure unit test supplies a native-module double, so the companion
+  suite needs no native installation. The smile tangent test checks quadratic
+  convergence above the price-roundoff floor using 2e-5/1e-5 bumps and retains
+  its original 1e-6 fine-bump absolute bound; numerical tolerances are unchanged.
 
 ## Validation
 

@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -80,10 +81,12 @@ class QuoteControlTests(unittest.TestCase):
             relative_tolerance=1e-6, gamma_relative_standard_error_limit=.25, workers=1))
         cache = {key: dict(audit=dict(status='validation_failed', estimate=None,
                                      recovery_passed=True, validation_passed=False), risk=None)}
-        with patch('rust_pricing.PricingPlan') as plan:
+        native = SimpleNamespace(PricingPlan=Mock(), PricingRequest=Mock())
+        with patch.dict(sys.modules, {'rust_pricing': native}):
             with self.assertRaisesRegex(BacktestError, 'portfolio_gamma_failure'):
                 evaluate_portfolio({'target':self.base}, {'target':-1.}, _native_cache=cache)
-            plan.compile.assert_not_called()
+            native.PricingPlan.compile.assert_not_called()
+            native.PricingRequest.from_json.assert_not_called()
 
     def test_control_rolls_with_current_spot_and_is_detached(self):
         before = deepcopy(self.base); moved = deepcopy(self.base); moved['market']['spot'] = 103.
