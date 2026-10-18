@@ -1,11 +1,22 @@
 # Local Volatility and VegaKT conformance report v0.1
 
-Status: accepted
+Status: historical acceptance superseded by failed end-to-end numerical evidence
 Evidence date: 2026-09-09
 Requirements: [requirements-v1.0.md](../requirements-v1.0.md)
 Roadmap: [local-vol-vegakt-roadmap-v0.1.md](../roadmaps/local-vol-vegakt-roadmap-v0.1.md)
 
-## Decision
+## Current correction (2026-10-03)
+
+The [independent backtest panel](vega-kt-backtest-numerics-v0.1.md) supersedes
+this record's paper-VegaKT acceptance conclusion. The public execution path does
+not connect Gamma recovery/propagation to IV projection. Passing the component
+and replay tests below did not establish that connection. Native VegaKT remains
+diagnostic and unvalidated; the companion guard is retained.
+The [Gamma numerical correction](local-vol-gamma-numerics-v0.1.md) additionally
+fixes tail and short-step integration defects in the currently unconnected
+operator. It does not restore the old L0–L8 acceptance claim.
+
+## Historical decision (2026-09-09)
 
 The Local Volatility/VegaKT slice satisfies Gates L0-L8 and is accepted as the
 v0.1 Local Volatility/VegaKT baseline. Pull-request CI for this report's commit
@@ -58,7 +69,7 @@ diagnostics.
   `benchmark-results/local-volatility-rust.json` from CI.
 - CI evidence: latest pull-request workflow run for this report's commit.
 
-## Remaining Work
+## Historical remaining-work statement
 
 - No L8 acceptance item remains open for the v0.1 Local Volatility/VegaKT
   baseline.

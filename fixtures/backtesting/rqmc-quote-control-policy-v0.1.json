@@ -1,0 +1,14 @@
+{
+  "policy_id": "terminal_quote_control_fixed_unit_coefficient_v1",
+  "role": "predeclared_control_design_before_observing_holdout_panels",
+  "holdout_seeds": [100057, 100069],
+  "native_setting": "direct_1024x12",
+  "control_instrument": "hedge-10",
+  "coefficient_for_every_instrument": 1.0,
+  "control_expectation": "At a calibrated terminal market quote, the market-IV gradient is the quote's Black vega in its own coordinate and zero elsewhere.",
+  "estimator": "For each scramble and instrument: raw VegaKT minus control VegaKT plus the known quote gradient. Prices and frozen-grid Delta stay on their original estimator.",
+  "coefficient_fitted_from_samples": false,
+  "precision_limit": 10.0,
+  "independent_comparison": "Both IV bumps, all thirty instruments, and the signed held portfolio against the sealed independent price oracle. Every native Gamma and AD gate remains mandatory.",
+  "scope": "The first annual snapshot, thirty same-expiry unit European calls, zero rates/dividends, all_rows calibration. Diagnostic candidate; no normal-provider promotion."
+}

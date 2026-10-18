@@ -337,6 +337,8 @@ enum ProductV1 {
         monitoring_dates: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         historical_extremum: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        valuation_date_fixing: Option<f64>,
         payment_date: String,
     },
 }
@@ -432,6 +434,9 @@ struct CurveV1 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum ModelV1 {
+    BassLocalVolatility {
+        parameters: BassParametersV3,
+    },
     BlackScholes {
         volatility: f64,
     },
@@ -444,6 +449,70 @@ enum ModelV1 {
         #[serde(skip_serializing_if = "Option::is_none")]
         reporting_iv_basis: Option<ReportingIvBasisV1>,
     },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BassParametersV3 {
+    maturity_nodes: Vec<f64>,
+    log_forward_moneyness_nodes: Vec<f64>,
+    implied_volatilities: Vec<f64>,
+    projection_nodes: Vec<f64>,
+    grid_points: usize,
+    grid_width: f64,
+    max_iterations: usize,
+    cdf_tolerance: f64,
+    tail_tolerance: f64,
+    projection_tail_tolerance: f64,
+    projection_mean_tolerance: f64,
+    iv_bump: f64,
+}
+impl From<&crate::models::BassLvSpec> for BassParametersV3 {
+    fn from(s: &crate::models::BassLvSpec) -> Self {
+        let c = s.config();
+        let p = s.projection_config();
+        Self {
+            maturity_nodes: s.surface().maturity_nodes().to_vec(),
+            log_forward_moneyness_nodes: s.surface().log_moneyness_nodes().to_vec(),
+            implied_volatilities: s.surface().implied_volatilities().to_vec(),
+            projection_nodes: s.projection_nodes().to_vec(),
+            grid_points: c.grid_points,
+            grid_width: c.grid_width,
+            max_iterations: c.max_iterations,
+            cdf_tolerance: c.cdf_tolerance,
+            tail_tolerance: c.tail_tolerance,
+            projection_tail_tolerance: p.tail_probability_tolerance,
+            projection_mean_tolerance: p.relative_mean_tolerance,
+            iv_bump: s.iv_bump(),
+        }
+    }
+}
+impl BassParametersV3 {
+    fn into_spec(self) -> Result<crate::models::BassLvSpec, WireError> {
+        let surface = crate::market::MarketIvSurface::new(
+            self.maturity_nodes,
+            self.log_forward_moneyness_nodes,
+            self.implied_volatilities,
+        )
+        .map_err(|e| domain_at("/model/parameters", e))?;
+        crate::models::BassLvSpec::new(
+            surface,
+            self.projection_nodes,
+            crate::bass_lv::BassLvConfig {
+                grid_points: self.grid_points,
+                grid_width: self.grid_width,
+                max_iterations: self.max_iterations,
+                cdf_tolerance: self.cdf_tolerance,
+                tail_tolerance: self.tail_tolerance,
+            },
+            crate::bass_lv::BassSurfaceProjectionConfig {
+                tail_probability_tolerance: self.projection_tail_tolerance,
+                relative_mean_tolerance: self.projection_mean_tolerance,
+            },
+            self.iv_bump,
+        )
+        .map_err(|e| domain_at("/model/parameters", e))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -717,6 +786,7 @@ impl From<&ProductSpec> for ProductV1 {
                     .map(ToString::to_string)
                     .collect(),
                 historical_extremum: spec.historical_extremum().map(|value| value.get()),
+                valuation_date_fixing: spec.valuation_date_fixing().map(|value| value.get()),
                 payment_date: spec.payment_date().to_string(),
             },
         }
@@ -819,6 +889,9 @@ impl From<&LogLinearDiscountCurve> for CurveV1 {
 impl From<&ModelSpec> for ModelV1 {
     fn from(model: &ModelSpec) -> Self {
         match model {
+            ModelSpec::BassLocalVolatility(spec) => Self::BassLocalVolatility {
+                parameters: spec.into(),
+            },
             ModelSpec::BlackScholes(spec) => Self::BlackScholes {
                 volatility: spec.volatility().get(),
             },
@@ -1230,6 +1303,7 @@ impl TryFrom<RequestV3> for PricingRequest {
                 side,
                 monitoring_dates,
                 historical_extremum,
+                valuation_date_fixing,
                 payment_date,
             } => ProductSpec::FixedLookback(
                 FixedLookbackSpec::new(
@@ -1251,6 +1325,7 @@ impl TryFrom<RequestV3> for PricingRequest {
                     historical_extremum,
                     parse_date_at(&payment_date, "/product/payment_date")?,
                 )
+                .and_then(|spec| spec.with_valuation_date_fixing(valuation_date_fixing))
                 .map_err(|error| domain_at("/product", error))?,
             ),
         };
@@ -1293,6 +1368,9 @@ impl TryFrom<RequestV3> for PricingRequest {
             }
         };
         let model = match value.model {
+            ModelV1::BassLocalVolatility { parameters } => {
+                ModelSpec::BassLocalVolatility(parameters.into_spec()?)
+            }
             ModelV1::BlackScholes { volatility } => ModelSpec::BlackScholes(
                 BlackScholesSpec::new(volatility)
                     .map_err(|error| domain_at("/model/volatility", error))?,
@@ -1769,6 +1847,8 @@ enum PathStateDiagnosticsV3 {
         future_monitoring_count: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
         historical_extremum: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        valuation_date_fixing: Option<f64>,
     },
 }
 
@@ -2328,10 +2408,12 @@ impl From<PathStateDiagnostics> for PathStateDiagnosticsV3 {
                 past_monitoring_count,
                 future_monitoring_count,
                 historical_extremum,
+                valuation_date_fixing,
             } => Self::FixedLookback {
                 past_monitoring_count,
                 future_monitoring_count,
                 historical_extremum,
+                valuation_date_fixing,
             },
         }
     }
@@ -3329,9 +3411,22 @@ fn path_state_diagnostics_from_wire(
             past_monitoring_count,
             future_monitoring_count,
             historical_extremum,
+            valuation_date_fixing,
         } => Ok(PathStateDiagnostics::FixedLookback {
             past_monitoring_count,
             future_monitoring_count,
+            valuation_date_fixing: valuation_date_fixing
+                .map(|item| {
+                    PositiveF64::new(item, "valuation_date_fixing")
+                        .map(PositiveF64::get)
+                        .map_err(|error| {
+                            domain_at(
+                                "/monte_carlo/diagnostics/path_state/valuation_date_fixing",
+                                error,
+                            )
+                        })
+                })
+                .transpose()?,
             historical_extremum: historical_extremum
                 .map(|item| {
                     PositiveF64::new(item, "historical_extremum")
@@ -3874,6 +3969,25 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
     let text = validate_and_decode(input, limits)?;
     let version = validate_envelope(text, DOCUMENT_REQUEST)?;
+    if version < 3
+        && serde_json::from_str::<Value>(text).map_err(json)?["model"]["type"]
+            == "bass_local_volatility"
+    {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "Bass local volatility",
+            schema_version: version,
+        });
+    }
+    if version < 3
+        && serde_json::from_str::<Value>(text).map_err(json)?["product"]
+            .get("valuation_date_fixing")
+            .is_some()
+    {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "Lookback valuation-date fixing",
+            schema_version: version,
+        });
+    }
     let source_fingerprint = (version != SchemaVersion::CURRENT.get())
         .then(|| {
             serde_json::from_str::<Value>(text)
@@ -5045,12 +5159,14 @@ mod tests {
             side: SideV1::Put,
             monitoring_dates: vec!["2027-09-04".to_owned()],
             historical_extremum: None,
+            valuation_date_fixing: None,
             payment_date: "2027-09-04".to_owned(),
         };
         let barrier_json = serde_json::to_value(barrier).expect("Barrier JSON");
         let lookback_json = serde_json::to_value(lookback).expect("Lookback JSON");
         assert!(barrier_json.get("rebate").is_none());
         assert!(lookback_json.get("historical_extremum").is_none());
+        assert!(lookback_json.get("valuation_date_fixing").is_none());
     }
 
     #[test]

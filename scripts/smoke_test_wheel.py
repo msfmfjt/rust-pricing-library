@@ -949,6 +949,139 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
     }
 
 
+# Explicit Bass public contract, independent of the stub being checked.
+BASS_STUB_API = {
+    "BassMarginal": {
+        "methods": {"__init__", "call_price", "cdf", "quantile"},
+        "staticmethods": {"from_essvi", "lognormal"},
+        "properties": {"expiry", "mean", "probabilities", "spots", "variance"},
+    },
+    "BassLvConfig": {
+        "methods": {"__init__"},
+        "properties": {
+            "cdf_tolerance",
+            "grid_points",
+            "grid_width",
+            "max_iterations",
+            "tail_tolerance",
+        },
+    },
+    "BassSurfaceDiagnostics": {
+        "properties": {
+            "lower_tail_probability",
+            "max_call_price_error",
+            "mean_scale",
+            "retained_nodes",
+            "retained_probability",
+            "unscaled_mean",
+            "upper_tail_probability",
+        },
+    },
+    "BassMarginalProjection": {
+        "properties": {"diagnostics", "marginal"},
+    },
+    "BassCalibrationDiagnostics": {
+        "properties": {
+            "boundary_tail_probability",
+            "brownian_max",
+            "brownian_min",
+            "cdf_residual",
+            "end_time",
+            "grid_spacing",
+            "iterations",
+            "marginal_cdf_error",
+            "start_time",
+        },
+    },
+    "BassEstimate": {
+        "properties": {"paths", "price", "seed", "standard_error"},
+    },
+    "BassLvModel": {
+        "methods": {"compile_mapping_risk", "compile_simulation", "local_volatility", "mapping"},
+        "staticmethods": {"calibrate"},
+        "properties": {"diagnostics", "initial_brownian_state", "initial_spot_error", "spot"},
+    },
+    "BassSimulationPlan": {
+        "methods": {"path_from_normals", "price_asian", "price_european", "sample_paths"},
+        "properties": {"normal_count", "observation_times", "time_nodes"},
+    },
+    "BassMarketIvModel": {
+        "methods": {"bumped", "compile_vega_kt"},
+        "staticmethods": {"calibrate"},
+        "properties": {
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "model",
+            "projection_diagnostics",
+        },
+    },
+    "BassVegaKtScenarioDiagnostics": {
+        "properties": {"calibration", "initial_spot_error", "projection", "quote_index", "shift"},
+    },
+    "BassVegaKtRisk": {
+        "properties": {
+            "bucket_sum",
+            "bucket_sum_standard_error",
+            "bump_size",
+            "estimate",
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "method",
+            "parallel_sensitivity",
+            "parallel_standard_error",
+            "sensitivities",
+            "standard_errors",
+            "standard_errors_per_vol_point",
+            "vega_per_vol_point",
+        },
+    },
+    "BassVegaKtRiskPlan": {
+        "methods": {"price_asian", "price_european"},
+        "properties": {
+            "bump_size",
+            "diagnostics",
+            "implied_volatilities",
+            "log_moneyness_nodes",
+            "maturity_nodes",
+            "simulation",
+        },
+    },
+    "BassMappingBump": {
+        "methods": {"__init__"},
+        "properties": {"center", "interval", "left", "right"},
+    },
+    "BassMappingRisk": {
+        "properties": {"estimate", "sensitivities", "standard_errors"},
+    },
+    "BassDeterministicMappingRisk": {
+        "properties": {"price", "sensitivities"},
+    },
+    "BassMappingRiskPlan": {
+        "methods": {
+            "bumped_simulation",
+            "bumped_vanilla_call",
+            "path_sensitivities",
+            "price_asian",
+            "price_european",
+            "vanilla_call",
+        },
+        "properties": {"bumps", "simulation"},
+    },
+}
+
+
+VEGA_KT_DIAGNOSTIC_PROPERTIES = {
+    "VegaKtChainDiagnostic": {"policy_label", "raw_buckets", "standard_errors",
+        "hedge_quantities", "scalar_vega", "scalar_standard_error", "maturity_nodes",
+        "log_moneyness_nodes"},
+    "VegaKtTerminalDiagnostic": {"policy_label", "gamma_atoms", "raw_buckets",
+        "hedge_quantities", "scalar_vega", "expected_local_parallel_vega",
+        "maturity_nodes", "log_moneyness_nodes"},
+}
+
+
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
@@ -1095,6 +1228,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "result_json_schema",
         "version",
     }
+    expected_top_level_names.update(BASS_STUB_API)
+    expected_top_level_names.update(VEGA_KT_DIAGNOSTIC_PROPERTIES)
+    expected_top_level_names.add("VegaKtGammaRecoveryPolicy")
     missing_top_level_names = sorted(expected_top_level_names.difference(top_level_names))
     if missing_top_level_names:
         raise RuntimeError(
@@ -1940,9 +2076,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "payment_date",
             ],
             "positional_defaults": {},
-            "keyword_only": ["historical_extremum"],
+            "keyword_only": ["historical_extremum", "valuation_date_fixing"],
             "required_keyword_only": [],
-            "keyword_only_defaults": {"historical_extremum": None},
+            "keyword_only_defaults": {"historical_extremum": None, "valuation_date_fixing": None},
         },
         ("RiskRequest", "__init__"): {
             "positional": ["self"],
@@ -1980,6 +2116,68 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             },
         },
     }
+    expected_signature_shapes.update({
+        ("VegaKtGammaRecoveryPolicy", "__init__"): {
+            "positional": ["self", "candidate_regularizations"], "positional_defaults": {},
+            "keyword_only": ["pilot_sampling_units", "reconstruction_relative_limit",
+                "gamma_relative_standard_error_limit", "mc_margin_multiplier",
+                "preserve_local_vega_total", "local_vega_conservation_directions"],
+            "required_keyword_only": ["pilot_sampling_units", "reconstruction_relative_limit",
+                "gamma_relative_standard_error_limit", "mc_margin_multiplier"],
+            "keyword_only_defaults": {"preserve_local_vega_total": False, "local_vega_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_multi_step_terminal_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_multi_step_gamma_chain_audit"): {
+            "positional": ["self", "variance_rows", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["variance_risk_directions", "subdivisions", "relative_tolerance", "gamma_relative_standard_error_limit"],
+            "required_keyword_only": ["variance_risk_directions"],
+            "keyword_only_defaults": {"subdivisions": 64, "relative_tolerance": 1e-6, "gamma_relative_standard_error_limit": .25},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_terminal_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_joint_gamma_audit"): {
+            "positional": ["self", "gamma_strikes", "initial_gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions", "risk_directions", "subdivisions", "relative_tolerance"],
+            "required_keyword_only": ["policy", "variance_conservation_directions", "risk_directions"],
+            "keyword_only_defaults": {"subdivisions": 32768, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_initial_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 512, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_middle_smile_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 512, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_terminal_readout_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions", "variance_risk_directions"],
+            "required_keyword_only": ["policy", "variance_conservation_directions", "variance_risk_directions"],
+            "keyword_only_defaults": {},
+        },
+        ("PricingPlan", "evaluate_vega_kt_initial_smile_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 32768, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_two_step_smile_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+    })
     for (class_name, method_name), expected in sorted(expected_signature_shapes.items()):
         actual = function_signature_shape(class_methods[class_name][method_name])
         if actual != expected:
@@ -2212,6 +2410,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "__init__",
             "__repr__",
             "curve_id",
+            "discount",
         },
         "DiagnosticEstimate": {
             "__repr__",
@@ -2257,6 +2456,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "lookback_past_monitoring_count",
             "lookback_future_monitoring_count",
             "lookback_historical_extremum",
+            "lookback_valuation_date_fixing",
             "barrier_bridge_abi",
             "barrier_bridge_policy_version",
             "barrier_hit_indicator_mode",
@@ -2560,6 +2760,32 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "entries",
         },
     }
+    expected_class_members.update({
+        name: set().union(*parts.values()) for name, parts in BASS_STUB_API.items()
+    })
+    expected_class_members.update({
+        name: properties | {"to_dict"} for name, properties in VEGA_KT_DIAGNOSTIC_PROPERTIES.items()
+    })
+    expected_class_members["PricingPlan"].update({
+        "evaluate_vega_kt_chain_diagnostic", "evaluate_vega_kt_terminal_diagnostic",
+        "evaluate_vega_kt_atom_chain_diagnostic", "evaluate_vega_kt_gamma_recovery_audit",
+        "evaluate_vega_kt_initial_gamma_diagnostic", "evaluate_vega_kt_gamma_recovery_diagnostic",
+        "evaluate_vega_kt_two_step_smile_gamma_audit",
+        "evaluate_vega_kt_initial_smile_gamma_audit",
+        "evaluate_vega_kt_joint_gamma_audit",
+        "evaluate_vega_kt_three_step_terminal_gamma_audit",
+        "evaluate_vega_kt_multi_step_terminal_gamma_audit",
+        "evaluate_vega_kt_multi_step_gamma_chain_audit",
+        "evaluate_vega_kt_middle_smile_gamma_audit",
+        "evaluate_vega_kt_three_step_initial_gamma_audit",
+        "evaluate_vega_kt_three_step_terminal_readout_audit",
+    })
+    expected_class_members["VegaKtGammaRecoveryPolicy"] = {"__init__", "to_dict"}
+    expected_class_members["Model"].add("bass_local_volatility")
+    expected_class_members["PricingPlan"].update({
+        "bass_calibration_diagnostics", "bass_projection_diagnostics",
+        "bass_vega_scenario_diagnostics",
+    })
     unexpected_classes = sorted(set(class_members).difference(expected_class_members))
     if unexpected_classes:
         raise RuntimeError(f"wheel type stub has unexpected classes: {unexpected_classes}")
@@ -3113,6 +3339,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Diagnostics", "lookback_past_monitoring_count"),
         ("Diagnostics", "lookback_future_monitoring_count"),
         ("Diagnostics", "lookback_historical_extremum"),
+        ("Diagnostics", "lookback_valuation_date_fixing"),
         ("Diagnostics", "payoff_fingerprint"),
         ("Diagnostics", "payoff_smoothing_half_width"),
         ("Diagnostics", "payoff_smoothing_dividend_jump_count"),
@@ -3290,6 +3517,23 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("WidthLadderResult", "entries"),
         ("WidthLadderResult", "primary"),
     }
+    expected_static_methods.update(
+        (name, method) for name, parts in BASS_STUB_API.items()
+        for method in parts.get("staticmethods", set())
+    )
+    expected_static_methods.add(("Model", "bass_local_volatility"))
+    expected_properties.update(
+        (name, method) for name, properties in VEGA_KT_DIAGNOSTIC_PROPERTIES.items()
+        for method in properties
+    )
+    expected_properties.update(
+        (name, method) for name, parts in BASS_STUB_API.items()
+        for method in parts.get("properties", set())
+    )
+    expected_properties.update(("PricingPlan", method) for method in {
+        "bass_calibration_diagnostics", "bass_projection_diagnostics",
+        "bass_vega_scenario_diagnostics",
+    })
     for class_name, method_name in sorted(expected_static_methods):
         decorators = decorator_names(class_methods[class_name][method_name])
         if "staticmethod" not in decorators:

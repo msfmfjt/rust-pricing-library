@@ -183,6 +183,7 @@ fn path_diagnostics(output: &MonteCarloPrice) -> Value {
                 past_monitoring_count,
                 future_monitoring_count,
                 historical_extremum,
+                ..
             } => json!({
                 "kind": "fixed_lookback",
                 "past_monitoring_count": past_monitoring_count,

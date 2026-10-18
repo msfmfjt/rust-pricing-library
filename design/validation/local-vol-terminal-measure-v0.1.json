@@ -1,0 +1,78 @@
+{
+  "document_kind": "vega_kt_terminal_measure_validation_record",
+  "date": "2026-10-04",
+  "diagnostic_only": true,
+  "policy_unchanged": true,
+  "policy_hash": "fce9be03ab787b19028243dc894960c342d0fcf75ad7043bb222184ca8655b09",
+  "native_binary_hash": "c0e5e484c6fce54afa5f65553b934d91f9cd6d0d04701e15552015bdd35df8c6",
+  "oracle_vega": 23.583437936006682,
+  "cases": 24,
+  "checks": 96,
+  "failed": 0,
+  "max_absolute_errors": {
+    "expected_local_parallel_absolute_error": 1.7763568394002505e-14,
+    "source_hat_unconditional_quadrature": 7.105427357601002e-15,
+    "terminal_bucket_absolute_error": 0.0
+  },
+  "original_three_percent_failures": [
+    {
+      "check": "original_three_percent_vs_native",
+      "passed": false,
+      "observed": 0.05623399776920926,
+      "limit": 0.03,
+      "standard_errors": 1.9107990356361526,
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    }
+  ],
+  "normal_acceptance": {
+    "checks": 154,
+    "failed": 54,
+    "all_observations_unchanged": true,
+    "all_checks_unchanged": true
+  },
+  "weak_chain_regression": {
+    "checks": 63,
+    "failed": 0,
+    "all_chain_observations_unchanged": true,
+    "all_checks_unchanged": true
+  },
+  "validation": {
+    "rust_integration_tests": 74,
+    "rust_local_vol_library_tests": 46,
+    "python_vega_kt_tests": 28,
+    "python_wheel_contract_tests": 2,
+    "clippy": "passed",
+    "strict_stub_and_native_api": "passed"
+  },
+  "report_sha256": {
+    "benchmark-results/vega-kt-terminal-measure/report.json": "e9c071acc4b47a628b130de668e235793ed16689e73bc8646cdbc08bf4348f50",
+    "benchmark-results/vega-kt-numerics/terminal-measure/report.json": "74834b8de6bb1c37140499c4f2a2adacc074c6d89164840d2d03a44c0ab356fe",
+    "benchmark-results/vega-kt-pricing-chain/terminal-measure-regression/report.json": "44346983281ce65a6aaaeb06c55ab692c29cf36f0b19260aadb7b27e8b3874e3"
+  },
+  "files_sha256": {
+    "crates/pricing/src/risk/vegakt_measure.rs": "fe01bf125c08f56951f64b58922e3217f8c310a0f577e6c399e173d3fd69d185",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "a383441759fc37a7eed87245c70d5b540bab950e28a8737d73f42e20229923b5",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "d5f039f1f11819e066d03037a2c906100a8820457ca7c3c591887da56360c68c",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "cbad3b88e4ea8f21022a1feebe3936afd1ed839aac51605ba21a016028ef8826",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3ac977988640ba86cce3dbbd9a31f000bda25b78aba6cb387a57b31a4027f2e1",
+    "crates/pricing/src/engine/risk/pricing.rs": "f769bc0a690b7f01604ce2eb57f9934ce4780b181f65b13679e49e5b9ad78ca0",
+    "crates/pricing-python/src/vegakt_measure.rs": "c3cd20bed4891b2f69a2073cf28eca568b732c9b37d509220767c9e7604045c4",
+    "crates/pricing-python/src/lib.rs": "49345846b713e7bd696ab7b116564d2b4e4c82affb6e16df13764d16483e5c1b",
+    "rust_pricing.pyi": "89ca6ed490db7510fb41b236d0f1099b0badf7130df70b17a325ec792303c469",
+    "crates/pricing/tests/local_vol_gamma_measure.rs": "15d501c23df0a457354721db32f80fdd49e2d80ed73ef8fa772efa0bba4f201d",
+    "crates/pricing/tests/local_vol_vegakt_pricing.rs": "e5bd7bcdf93940c5d2ec3a26e364de4f096f77349445b764845787cb06a27f31",
+    "tests/python/test_vega_kt_terminal.py": "081f63fdd7c3b1904b3a3925e37d68336eeea7105b975bb605734d7cac21d8fa",
+    "scripts/check_vega_kt_terminal_measure.py": "378d9b296fd4af80037707b1477e6307d91c8e8395b7c4d7b043c1a8098d11e0",
+    "scripts/smoke_test_wheel.py": "1d0e3908d3ded408155e6c49e0c8f931006d6ae1327fbdb68261df67a0c36adf",
+    "scripts/check_source_archive.py": "467c0b4c5d77f5e5e96a90c6833770da58c845c582b5fc2e00af8112da8d8434",
+    "design/validation/local-vol-terminal-measure-v0.1.md": "e8039021dafee82baf52540e5b3b642e7f3ea382f3e9b930557850e9577ff66b"
+  },
+  "limitations": [
+    "Continuous piecewise-affine single-terminal payoffs and spatially flat zero-carry model only.",
+    "Ordinary evaluate() and the original 154-check gate are unchanged.",
+    "This is a terminal boundary implementation, not inversion of arbitrary noisy AD rows."
+  ]
+}

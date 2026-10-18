@@ -1,0 +1,205 @@
+name: Backtesting
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      numerical_acceptance:
+        description: "Run P0 smile and path-Gamma diagnostics with retained historical evidence"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  ledger-and-optimizer:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install companion package
+        run: python -m pip install "./backtesting[validation,constraints]"
+      - name: Check generated backtest schemas
+        run: python scripts/generate_backtest_schemas.py --check
+      - name: Validate replay and hedge optimization
+        run: python -m unittest discover -s backtesting/tests -v
+      - name: Validate raw basis inputs and parameter metrics
+        run: python -m unittest discover -s scripts -p test_raw_variance_basis.py -v
+      - name: Validate current matrix runtime and saved-report integrity
+        run: python -m unittest discover -s scripts -p test_variance_basis_runtime.py -v
+
+  numerical-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.numerical_acceptance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.98.1"
+      - name: Build and install current native library and companion
+        run: python -m pip install . "./backtesting[validation,constraints]"
+      - name: Validate joint portfolio readouts and replay P&L explanation
+        run: |
+          python -m unittest discover -s tests/python -p test_vega_kt_joint_portfolio.py -v
+          python -m unittest discover -s tests/python -p test_vega_kt_pnl_report.py -v
+          python -m unittest discover -s tests/python -p test_vega_kt_joint_replay.py -v
+      - name: Run P0 smile acceptance with audited legacy dispositions
+        run: python -m rust_pricing_backtest.smile_numerics --policy fixtures/backtesting/smile-policy-v0.3.json --output benchmark-results/vega-kt-smile-v0.3
+      - name: Compare weak Gamma chain against the unchanged numerical policy
+        if: always()
+        run: python -m rust_pricing_backtest.chain_numerics --policy fixtures/backtesting/numerical-policy-v0.1.json --output benchmark-results/vega-kt-chain-comparison
+      - name: Validate path Gamma convolution component independently
+        if: always()
+        run: python scripts/check_path_gamma_recovery.py --policy fixtures/backtesting/path-gamma-refinement-policy-v0.1.json --output benchmark-results/vega-kt-path-gamma/refined-report.json
+      - name: Validate conditional initial Gamma independently
+        if: always()
+        run: python scripts/check_initial_gamma_measure.py --policy fixtures/backtesting/initial-gamma-measure-refinement-policy-v0.1.json --output benchmark-results/vega-kt-initial-measure/refined-report.json
+      - name: Validate split-sample Gamma selection on held-out counters
+        if: always()
+        run: python scripts/check_gamma_selection.py --policy fixtures/backtesting/gamma-selection-policy-v0.1.json --output benchmark-results/vega-kt-selection/report.json
+      - name: Validate signed-atom Gamma propagation and joint IV covariance
+        if: always()
+        run: python scripts/check_atom_gamma_chain.py --policy fixtures/backtesting/atom-chain-policy-v0.1.json --output benchmark-results/vega-kt-atom-chain/report.json
+      - name: Validate conservative Gamma against recalibrated maturity IV prices
+        if: always()
+        run: python scripts/check_conservative_gamma_market.py --policy fixtures/backtesting/conservative-gamma-market-policy-v0.1.json --output benchmark-results/vega-kt-conservative-market/report.json
+      - name: Retest difficult 33-node Gamma recovery with conservation
+        if: always()
+        run: python scripts/check_conservative_gamma_refinement.py --policy fixtures/backtesting/conservative-gamma-refinement-policy-v0.1.json --output benchmark-results/vega-kt-conservative-market/refinement.json
+      - name: Retain the finite-step smile calibration gap
+        if: always()
+        run: python scripts/probe_discrete_smile_calibration.py --policy fixtures/backtesting/discrete-smile-probe-policy-v0.1.json --output benchmark-results/vega-kt-conservative-market/smile-calibration-gap.json
+      - name: Validate two-step smile calibration and retain Gamma quote gaps
+        if: always()
+        run: python scripts/check_discrete_smile_calibration.py --calibration-only --policy fixtures/backtesting/discrete-smile-calibration-policy-v0.1.json --output benchmark-results/vega-kt-discrete-smile/report.json
+      - name: Validate calibration-direction Gamma conservation and independent price differences
+        if: always()
+        run: python scripts/check_gamma_quote_conservation.py --policy fixtures/backtesting/gamma-quote-conservation-refinement-policy-v0.1.json --output benchmark-results/vega-kt-quote-conservation/refined-report.json
+      - name: Validate two-step nonflat variance Gamma and independent recalibrated prices
+        if: always()
+        run: python scripts/check_nonflat_gamma_recovery.py --policy fixtures/backtesting/nonflat-gamma-policy-v0.1.json --output benchmark-results/vega-kt-nonflat-gamma/report.json
+      - name: Validate initial Gamma with nonflat continuation and variance price bumps
+        if: always()
+        run: python scripts/check_initial_smile_gamma.py --policy fixtures/backtesting/initial-smile-gamma-policy-v0.1.json --output benchmark-results/vega-kt-initial-smile/report.json
+      - name: Validate coupled first and terminal market IV Gamma and full covariance
+        if: always()
+        run: python scripts/check_joint_smile_gamma.py --policy fixtures/backtesting/joint-smile-gamma-policy-v0.1.json --output benchmark-results/vega-kt-joint-smile/report.json
+      - name: Validate three-step terminal Gamma with a non-Gaussian source marginal
+        if: always()
+        run: python scripts/check_three_step_gamma.py --policy fixtures/backtesting/three-step-gamma-policy-v0.1.json --output benchmark-results/vega-kt-three-step/report.json
+      - name: Validate conditional middle Gamma and coupled middle/terminal market IVs
+        if: always()
+        run: python scripts/check_middle_smile_gamma.py --policy fixtures/backtesting/middle-smile-gamma-policy-v0.1.json --output benchmark-results/vega-kt-middle-smile/report.json
+      - name: Validate initial Gamma and the three-maturity calibration chain
+        if: always()
+        run: python scripts/check_initial_three_gamma.py --policy fixtures/backtesting/initial-three-gamma-policy-v0.1.json --previous-report benchmark-results/vega-kt-middle-smile/report.json --output benchmark-results/vega-kt-initial-three/report.json
+      - name: Validate variable-step terminal Gamma with a nonflat first market smile
+        if: always()
+        run: python scripts/check_multi_step_gamma.py --policy fixtures/backtesting/multi-step-gamma-policy-v0.1.json --output benchmark-results/vega-kt-multi-step/report.json
+      - name: Validate variable-step conditional Gamma and every reported smile quote
+        if: always()
+        run: python scripts/check_multi_step_gamma_chain.py --policy fixtures/backtesting/path-gamma-chain-policy-v0.1.json --output benchmark-results/vega-kt-path-chain/report.json
+      - name: Validate full covariance across variable-step market Gamma directions
+        if: always()
+        run: python scripts/check_path_gamma_covariance.py --previous-report benchmark-results/vega-kt-path-chain/report.json --output benchmark-results/vega-kt-path-covariance/report.json
+      - name: Validate composed directions with increased sampling and unchanged tolerances
+        if: always()
+        run: python scripts/check_path_gamma_composed_precision.py --covariance-report benchmark-results/vega-kt-path-covariance/report.json --output benchmark-results/vega-kt-path-covariance/precision-report.json
+      - name: Validate conditional native AD and all market directions
+        if: always()
+        run: python scripts/check_path_gamma_conditional_ad.py --covariance-report benchmark-results/vega-kt-path-covariance/report.json --precision-report benchmark-results/vega-kt-path-covariance/precision-report.json --price-report benchmark-results/vega-kt-path-chain/report.json --output benchmark-results/vega-kt-conditional-ad/report.json
+      - name: Validate calibrated multi-step Gamma in the European backtest ledger
+        if: always()
+        run: OPENBLAS_NUM_THREADS=1 python scripts/check_multi_step_provider.py --output benchmark-results/vega-kt-multi-step-provider/report.json
+      - name: Validate dated Asian and Lookback histories, native Gamma and settlement
+        if: always()
+        run: OPENBLAS_NUM_THREADS=1 python scripts/check_path_ledger.py --output benchmark-results/vega-kt-path-ledger/report.json
+      - name: Validate fixed Lookback observations on valuation dates
+        if: always()
+        run: OPENBLAS_NUM_THREADS=1 python scripts/check_lookback_fixing_day.py --output benchmark-results/vega-kt-lookback-fixing-day/report.json
+      - name: Validate all-transition variance extensions and retained refinement evidence
+        if: always()
+        run: OPENBLAS_NUM_THREADS=1 python scripts/check_variance_extension_refinement.py --policy fixtures/backtesting/variance-extension-refinement-policy-v0.1.json --baseline-report benchmark-results/vega-kt-extension/report.json --output benchmark-results/vega-kt-extension/refined-report.json
+      - name: Validate explicit variance extensions in the backtest ledger
+        if: always()
+        run: |
+          python -m unittest discover -s scripts -p test_extension_provider_comparison.py
+          OPENBLAS_NUM_THREADS=1 python scripts/check_extension_provider.py --reference-report benchmark-results/vega-kt-extension/refined-report.json --output benchmark-results/vega-kt-extension-provider/report.json
+      - name: Validate Put payoff oracle and known-kink refinement
+        if: always()
+        run: |
+          OPENBLAS_NUM_THREADS=1 python -m unittest discover -s scripts -p test_extension_put_reference.py
+          OPENBLAS_NUM_THREADS=1 python scripts/check_extension_put_refinement.py --policy fixtures/backtesting/variance-extension-put-refinement-policy-v0.1.json --baseline-report benchmark-results/vega-kt-extension-put/numerical-report.json --output benchmark-results/vega-kt-extension-put/refined-numerical-report.json
+      - name: Validate Put extension providers and mixed-side ledgers
+        if: always()
+        run: OPENBLAS_NUM_THREADS=1 python scripts/check_extension_put_provider.py --reference-report benchmark-results/vega-kt-extension-put/refined-numerical-report.json --output benchmark-results/vega-kt-extension-put/provider-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vega-kt-numerical-acceptance
+          path: |
+            benchmark-results/vega-kt-smile-v0.3
+            benchmark-results/vega-kt-chain-comparison
+            benchmark-results/vega-kt-path-gamma
+            benchmark-results/vega-kt-initial-measure
+            benchmark-results/vega-kt-selection
+            benchmark-results/vega-kt-atom-chain
+            benchmark-results/vega-kt-conservative-market
+            benchmark-results/vega-kt-discrete-smile
+            benchmark-results/vega-kt-quote-conservation
+            benchmark-results/vega-kt-nonflat-gamma
+            benchmark-results/vega-kt-initial-smile
+            benchmark-results/vega-kt-joint-smile
+            benchmark-results/vega-kt-three-step
+            benchmark-results/vega-kt-middle-smile
+            benchmark-results/vega-kt-initial-three
+            benchmark-results/vega-kt-multi-step
+            benchmark-results/vega-kt-path-chain
+            benchmark-results/vega-kt-path-covariance
+            benchmark-results/vega-kt-conditional-ad
+            benchmark-results/vega-kt-multi-step-provider
+            benchmark-results/vega-kt-path-ledger
+            benchmark-results/vega-kt-lookback-fixing-day
+            benchmark-results/vega-kt-extension
+            benchmark-results/vega-kt-extension-provider
+            benchmark-results/vega-kt-extension-put
+            benchmark-results/vega-kt-portfolio-market
+            benchmark-results/vega-kt-joint-replay
+
+  declared-market-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.numerical_acceptance
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [regression_4, regression_6, short_3_left_skew, uneven_3_right_skew, uneven_5_smile, long_8_smile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.98.1"
+      - name: Build native library and companion
+        run: python -m pip install . "./backtesting[validation,constraints]"
+      - name: Validate declared market, joint covariance and fixed-strike P&L
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+        run: python scripts/check_portfolio_market.py --case ${{ matrix.case }} --output benchmark-results/vega-kt-portfolio-market/${{ matrix.case }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vega-kt-market-${{ matrix.case }}
+          path: benchmark-results/vega-kt-portfolio-market

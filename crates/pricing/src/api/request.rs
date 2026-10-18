@@ -134,6 +134,15 @@ impl PricingRequest {
             });
         }
         if let ProductSpec::FixedLookback(lookback) = &product {
+            if lookback.valuation_date_fixing().is_some()
+                && !lookback.monitoring_dates().contains(&valuation_date)
+            {
+                return Err(
+                    RequestValidationError::LookbackFixingWithoutValuationDateMonitoring {
+                        valuation_date,
+                    },
+                );
+            }
             let has_past_monitoring = lookback
                 .monitoring_dates()
                 .iter()

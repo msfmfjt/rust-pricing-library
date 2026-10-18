@@ -1,6 +1,7 @@
 //! Private execution implementation; public entry points re-export selected items.
 pub(crate) mod aad;
 pub(crate) mod analytic;
+pub(crate) mod bass_lv;
 pub(crate) mod calibration;
 pub(crate) mod compile;
 pub(crate) mod mc;

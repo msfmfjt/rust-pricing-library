@@ -39,6 +39,24 @@ pub struct Equation11LocalGamma {
     pub(crate) truncation_order: &'static str,
 }
 
+/// One positive-time equation-(11) recovery, before any vanilla/IV allocation.
+///
+/// Gamma values are first-order estimates at `source_maturity + delta_t`.
+/// Excluded local Vega is retained separately in its original volatility units.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Equation11GammaRow {
+    pub(crate) source_maturity: PositiveF64,
+    pub(crate) recovered_maturity: PositiveF64,
+    pub(crate) delta_t: PositiveF64,
+    pub(crate) strike_nodes: Box<[f64]>,
+    pub(crate) gamma_values: Box<[f64]>,
+    pub(crate) active_domain: ActiveDensityDomain,
+    pub(crate) input_local_vega: f64,
+    pub(crate) retained_local_vega: f64,
+    pub(crate) excluded_local_vega: f64,
+    pub(crate) excluded_probability_mass: f64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Equation11RefinementLevel {
     pub(crate) delta_t: PositiveF64,
@@ -101,6 +119,14 @@ pub struct VegaKtProjection {
     pub(crate) signed_residual: f64,
     pub(crate) pre_projection: f64,
     pub(crate) reporting_stats: ReportingIvProjectionStats,
+}
+
+/// Equation (9) for an already integrated vanilla hedge measure at one expiry.
+/// Position IV risk and offsetting vanilla hedge quantities have opposite signs.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VegaKtVanillaProjection {
+    pub(crate) position_risk: VegaKtProjection,
+    pub(crate) hedge_quantities: Box<[f64]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -1,0 +1,70 @@
+{
+  "policy_id": "gamma_quote_direction_conservation_v1",
+  "scope": "Retest the original 40 quote-Gamma comparisons with fixed calibration-direction constraints and unchanged thresholds.",
+  "products": [
+    "call",
+    "asian",
+    "fixed_asian",
+    "lookback"
+  ],
+  "base_shapes": [
+    "flat",
+    "nonflat"
+  ],
+  "base_skew": 0.015,
+  "base_curvature": 0.02,
+  "local_nodes": 33,
+  "quote_log_nodes": [
+    -0.2,
+    -0.1,
+    0.0,
+    0.1,
+    0.2
+  ],
+  "stress_iv_bump": 0.003,
+  "iv_bumps": [
+    1e-05,
+    5e-06
+  ],
+  "batch_samples": 16384,
+  "batch_seeds": [
+    4001,
+    4002,
+    4003,
+    4004,
+    4005,
+    4006,
+    4007,
+    4008
+  ],
+  "gamma_samples": 131072,
+  "gamma_seeds": [
+    7,
+    41
+  ],
+  "selection": {
+    "candidate_regularizations": [
+      0.01,
+      0.003,
+      0.001,
+      0.0003,
+      0.0001
+    ],
+    "pilot_sampling_units": 262144,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0,
+    "preserve_local_vega_total": true
+  },
+  "quote_price_tolerance": 1e-10,
+  "quadrature_derivative_tolerance": 2e-06,
+  "derivative_absolute_tolerance": 0.002,
+  "bump_refinement_tolerance": 0.002,
+  "statistical_multiplier": 6.0,
+  "algebra_tolerance": 1e-10,
+  "solver_absolute_tolerance": 2e-06,
+  "gamma_quote_absolute_target": 0.002,
+  "gamma_quote_relative_target": 0.01,
+  "identity_absolute_tolerance": 1e-08,
+  "operator_relative_tolerance": 2e-06
+}

@@ -64,6 +64,24 @@ Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
 ## Workspace
 
+Experimental multi-marginal Bass local volatility is available through Rust
+`pricing::bass_lv` and Python `BassLvModel`. It calibrates tabulated martingale
+marginals with a heat-kernel fixed point and simulates Brownian steps with
+continuous spot resets at market expiries. It includes local volatility,
+European/Asian pricing, path generation and separate convergence/marginal-fit
+diagnostics. The implied-surface adapter accepts eSSVI from Python; explicit
+terminal-map hats support reverse path risk and semi-analytic vanilla risk.
+`BassMarketIvModel` adds quote-node VegaKT with full recalibration and paired
+Monte Carlo errors, including a separate parallel-IV check.
+`Model.bass_local_volatility` also works with `PricingRequest`/`PricingPlan`,
+shared payoffs, carry/dividend reconstruction, Delta/Gamma/Vega/VegaKT, RQMC
+and JSON v3. Input IVs use the residual-equity coordinate.
+See the [model specification](docs/models/bass-local-volatility.md),
+[pricing example](examples/python/bass_lv.py) and
+[surface/risk example](examples/python/bass_lv_risk.py), and
+[market-IV VegaKT example](examples/python/bass_lv_vega_kt.py), plus the
+[common-request example](examples/python/bass_lv_request.py).
+
 Pure one-/two-factor and rough Bergomi are available through Rust
 `StochasticVolatilityPricingPlan` and Python `StochasticVolatilityPlan`, with
 deterministic market curves and no LV target or particle calibration. Their

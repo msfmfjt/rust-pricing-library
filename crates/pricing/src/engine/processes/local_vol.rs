@@ -1,6 +1,13 @@
 use std::error::Error;
 use std::fmt;
 
+mod continuation;
+mod direct_adjoints;
+pub use direct_adjoints::{LocalVolDirectVarianceAdjoint, LocalVolPayoffReverseAdjoints};
+
+mod step_adjoints;
+pub use step_adjoints::LocalVolStepAdjoint;
+
 use crate::core::{EventId, PathIndex};
 use crate::market::{
     AffineDividendCoordinate, AffineDividendTimelineEntry, AffineDividendTransform,
@@ -28,6 +35,8 @@ pub enum LocalVolError {
     ShockCountMismatch { expected: usize, actual: usize },
     NonFiniteState { step: usize, bits: u64 },
     AdjointCountMismatch { expected: usize, actual: usize },
+    NonFiniteAdjoint { index: usize, bits: u64 },
+    CachedPathMismatch { step: usize },
     BrownianBridge(BrownianBridgeError),
     Market(crate::market::MarketError),
 }
@@ -75,6 +84,14 @@ impl fmt::Display for LocalVolError {
             Self::AdjointCountMismatch { expected, actual } => write!(
                 formatter,
                 "Local Volatility reverse expected {expected} adjoints; received {actual}"
+            ),
+            Self::NonFiniteAdjoint { index, bits } => write!(
+                formatter,
+                "Local Volatility reverse produced a non-finite adjoint at index {index}: 0x{bits:016x}"
+            ),
+            Self::CachedPathMismatch { step } => write!(
+                formatter,
+                "Local Volatility cached path differs from the supplied plan/grid at step {step}"
             ),
             Self::BrownianBridge(error) => error.fmt(formatter),
             Self::Market(error) => error.fmt(formatter),
@@ -630,11 +647,17 @@ impl LocalVolPath {
                 actual: state_seeds.len(),
             });
         }
+        for (index, seed) in state_seeds.iter().copied().enumerate() {
+            validate_adjoint(seed, index)?;
+        }
         for cache in self.step_cache.iter().copied() {
             let required = (cache.interpolation.lower_time_index + 2)
                 .checked_mul(grid_log_moneyness_count)
                 .ok_or(LocalVolError::StepCountOverflow)?;
-            if grid_log_moneyness_count < 2 || required > grid_value_count {
+            if grid_log_moneyness_count < 2
+                || cache.interpolation.lower_log_moneyness_index + 1 >= grid_log_moneyness_count
+                || required > grid_value_count
+            {
                 return Err(LocalVolError::AdjointCountMismatch {
                     expected: required,
                     actual: grid_value_count,
@@ -644,6 +667,7 @@ impl LocalVolPath {
         let mut state_adjoints = state_seeds.to_vec();
         let mut shock_adjoints = vec![0.0; self.step_cache.len()];
         let mut local_variance_value_adjoints = vec![0.0; grid_value_count];
+        let mut step_adjoints = Vec::with_capacity(self.step_cache.len());
         for step in (0..self.step_cache.len()).rev() {
             let cache = self.step_cache[step];
             let next_state_adjoint = state_adjoints[step + 1];
@@ -655,17 +679,41 @@ impl LocalVolPath {
             let local_variance_adjoint = log_exponent_adjoint
                 * (-0.5 * cache.dt + cache.shock * cache.dt.sqrt() / (2.0 * local_volatility));
             state_adjoints[step] += local_variance_adjoint * cache.local_variance_state_derivative;
+            // Paper equation (10): an additive bump to the volatility actually
+            // used in THIS interval, before either time or strike projection.
+            let local_volatility_adjoint = log_exponent_adjoint
+                * (-local_volatility * cache.dt + cache.shock * cache.dt.sqrt());
+            for value in [
+                state_adjoints[step],
+                shock_adjoints[step],
+                local_variance_adjoint,
+                local_volatility_adjoint,
+            ] {
+                validate_adjoint(value, step)?;
+            }
+            step_adjoints.push(LocalVolStepAdjoint::new(
+                local_variance_adjoint,
+                local_volatility_adjoint,
+                cache.interpolation.lower_log_moneyness_index,
+                cache.interpolation.log_moneyness_weight,
+                grid_log_moneyness_count,
+            ));
             cache.interpolation.transpose_accumulate(
                 local_variance_adjoint,
                 &mut local_variance_value_adjoints,
                 grid_log_moneyness_count,
             );
         }
+        step_adjoints.reverse();
+        for (index, adjoint) in local_variance_value_adjoints.iter().copied().enumerate() {
+            validate_adjoint(adjoint, index)?;
+        }
         Ok(LocalVolReverseAdjoints {
             initial_state_adjoint: state_adjoints[0],
             state_adjoints: state_adjoints.into_boxed_slice(),
             shock_adjoints: shock_adjoints.into_boxed_slice(),
             local_variance_value_adjoints: local_variance_value_adjoints.into_boxed_slice(),
+            step_adjoints: step_adjoints.into_boxed_slice(),
         })
     }
 }
@@ -770,6 +818,7 @@ pub struct LocalVolReverseAdjoints {
     state_adjoints: Box<[f64]>,
     shock_adjoints: Box<[f64]>,
     local_variance_value_adjoints: Box<[f64]>,
+    step_adjoints: Box<[LocalVolStepAdjoint]>,
 }
 
 impl LocalVolReverseAdjoints {
@@ -791,6 +840,26 @@ impl LocalVolReverseAdjoints {
     #[must_use]
     pub fn local_variance_value_adjoints(&self) -> &[f64] {
         &self.local_variance_value_adjoints
+    }
+
+    /// One entry per actual simulation interval, in forward time order.
+    /// Entry i belongs to plan.time_grid().nodes()[i..=i+1], including i=0.
+    /// These are transition sensitivities; any explicit payoff dependence on
+    /// local variance (e.g. a barrier bridge) must be accounted for separately.
+    #[must_use]
+    pub fn step_adjoints(&self) -> &[LocalVolStepAdjoint] {
+        &self.step_adjoints
+    }
+}
+
+fn validate_adjoint(value: f64, index: usize) -> Result<(), LocalVolError> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(LocalVolError::NonFiniteAdjoint {
+            index,
+            bits: value.to_bits(),
+        })
     }
 }
 

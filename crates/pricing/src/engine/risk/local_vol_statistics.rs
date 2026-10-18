@@ -6,7 +6,7 @@ use crate::engine::plan::simulation::EarlyExerciseRuntime;
 use crate::engine::plan::simulation::LocalVolRuntime;
 use crate::engine::plan::simulation::PATHWISE_COMPONENTS;
 use crate::engine::plan::simulation::SimulationPlan;
-use crate::engine::processes::local_vol_valuation::average_local_vol_pathwise;
+use crate::engine::risk::local_vol_allocation::average_local_vol_pathwise;
 use crate::engine::sampling::path_normals::local_vol_rqmc_shocks;
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, LsmNumericalError,

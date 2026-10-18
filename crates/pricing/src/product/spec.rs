@@ -130,6 +130,7 @@ pub struct FixedLookbackSpec {
     side: OptionSide,
     monitoring_dates: Box<[Date]>,
     historical_extremum: Option<PositiveF64>,
+    valuation_date_fixing: Option<PositiveF64>,
     payment_date: Date,
 }
 
@@ -747,6 +748,7 @@ impl FixedLookbackSpec {
             historical_extremum: historical_extremum
                 .map(|value| PositiveF64::new(value, "lookback_historical_extremum"))
                 .transpose()?,
+            valuation_date_fixing: None,
             payment_date,
         })
     }
@@ -792,6 +794,20 @@ impl FixedLookbackSpec {
     #[must_use]
     pub const fn historical_extremum(&self) -> Option<PositiveF64> {
         self.historical_extremum
+    }
+
+    /// Freeze the observation on the request's valuation date, independently of spot.
+    /// The request validates that this date is present in the monitoring schedule.
+    pub fn with_valuation_date_fixing(mut self, fixing: Option<f64>) -> Result<Self, CoreError> {
+        self.valuation_date_fixing = fixing
+            .map(|value| PositiveF64::new(value, "lookback_valuation_date_fixing"))
+            .transpose()?;
+        Ok(self)
+    }
+
+    #[must_use]
+    pub const fn valuation_date_fixing(&self) -> Option<PositiveF64> {
+        self.valuation_date_fixing
     }
 
     #[must_use]

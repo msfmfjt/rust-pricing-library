@@ -1,0 +1,541 @@
+{
+  "fixture_version": 1,
+  "reference": "100-digit Decimal price bumps; independent two-pass moments; analytic flat density and hat areas",
+  "relative_tolerance": 1e-09,
+  "absolute_tolerance": 0.0,
+  "density_threshold": 0.05,
+  "base": {
+    "initial": 100.0,
+    "simulation_times": [
+      0.0,
+      0.1,
+      0.23,
+      0.4,
+      0.7,
+      1.0
+    ],
+    "forwards": [
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      100.0
+    ],
+    "grid_times": [
+      0.0,
+      0.4,
+      1.0
+    ],
+    "nodes": [
+      -0.4,
+      0.0,
+      0.35
+    ],
+    "variances": [
+      0.04,
+      0.04,
+      0.04,
+      0.04,
+      0.04,
+      0.04,
+      0.04,
+      0.04,
+      0.04
+    ],
+    "quadratic_weights": [
+      0.0,
+      0.15,
+      0.0,
+      -0.08,
+      0.0,
+      0.25
+    ],
+    "cross_weight": 0.1
+  },
+  "primary_shocks": [
+    [
+      0.35,
+      -0.6,
+      0.8,
+      -0.2,
+      0.4
+    ],
+    [
+      -0.3,
+      0.1,
+      -0.8,
+      1.2,
+      0.6
+    ],
+    [
+      1.3,
+      -0.2,
+      0.1,
+      -0.7,
+      -0.5
+    ],
+    [
+      -1.0,
+      0.4,
+      0.6,
+      -0.1,
+      0.2
+    ],
+    [
+      0.2,
+      0.5,
+      -0.4,
+      0.7,
+      -0.1
+    ]
+  ],
+  "estimates": [
+    {
+      "sampling_unit": "independent_path",
+      "count": 5,
+      "rows": [
+        {
+          "nodes": [
+            {
+              "mean": 0.0,
+              "sample_variance": 0.0,
+              "standard_error": 0.0
+            },
+            {
+              "mean": 102.00982264976678,
+              "sample_variance": 4745751.749564204,
+              "standard_error": 974.243475684
+            },
+            {
+              "mean": 0.0,
+              "sample_variance": 0.0,
+              "standard_error": 0.0
+            }
+          ],
+          "total": {
+            "mean": 102.00982264976678,
+            "sample_variance": 4745751.749564204,
+            "standard_error": 974.243475684
+          }
+        },
+        {
+          "nodes": [
+            {
+              "mean": 21.452533783581103,
+              "sample_variance": 2111.884536332129,
+              "standard_error": 20.55181031603848
+            },
+            {
+              "mean": -26.04712651362372,
+              "sample_variance": 757951.8330958913,
+              "standard_error": 389.3460756437366
+            },
+            {
+              "mean": -30.31120571724644,
+              "sample_variance": 3202.1008105423007,
+              "standard_error": 25.306524101671098
+            }
+          ],
+          "total": {
+            "mean": -34.90579844728906,
+            "sample_variance": 876222.0183230073,
+            "standard_error": 418.622029597824
+          },
+          "active_indices": [
+            1
+          ],
+          "retained": {
+            "mean": -26.04712651362372,
+            "sample_variance": 757951.8330958913,
+            "standard_error": 389.3460756437366
+          },
+          "excluded": {
+            "mean": -8.858671933665338,
+            "sample_variance": 6939.615758550194,
+            "standard_error": 37.25484064802907
+          },
+          "gamma": [
+            {
+              "mean": -0.04237329931721924,
+              "sample_variance": 2.0058873078444313,
+              "standard_error": 0.6333857131076499
+            }
+          ]
+        },
+        {
+          "nodes": [
+            {
+              "mean": 19.17799962359485,
+              "sample_variance": 5605.2867215738015,
+              "standard_error": 33.48219443696545
+            },
+            {
+              "mean": -147.3497586846815,
+              "sample_variance": 1829881.2047475872,
+              "standard_error": 604.9597019219689
+            },
+            {
+              "mean": -24.868073174451588,
+              "sample_variance": 3382.7004932553928,
+              "standard_error": 26.010384438740587
+            }
+          ],
+          "total": {
+            "mean": -153.03983223553823,
+            "sample_variance": 2083417.905558063,
+            "standard_error": 645.5103261076562
+          },
+          "active_indices": [
+            1
+          ],
+          "retained": {
+            "mean": -147.3497586846815,
+            "sample_variance": 1829881.2047475872,
+            "standard_error": 604.9597019219689
+          },
+          "excluded": {
+            "mean": -5.690073550856739,
+            "sample_variance": 10180.286959777099,
+            "standard_error": 45.12269264965711
+          },
+          "gamma": [
+            {
+              "mean": -0.2781778400593625,
+              "sample_variance": 6.521824379188661,
+              "standard_error": 1.1420879457544995
+            }
+          ]
+        },
+        {
+          "nodes": [
+            {
+              "mean": 184.0030042544832,
+              "sample_variance": 169285.5278733768,
+              "standard_error": 184.0030042544832
+            },
+            {
+              "mean": 391.5257755928332,
+              "sample_variance": 5047039.608908949,
+              "standard_error": 1004.6929490057098
+            },
+            {
+              "mean": -107.55048623716064,
+              "sample_variance": 41491.91494426025,
+              "standard_error": 91.0954608575644
+            }
+          ],
+          "total": {
+            "mean": 467.97829361015573,
+            "sample_variance": 7328074.768469385,
+            "standard_error": 1210.625852067383
+          },
+          "active_indices": [
+            1
+          ],
+          "retained": {
+            "mean": 391.5257755928332,
+            "sample_variance": 5047039.608908949,
+            "standard_error": 1004.6929490057098
+          },
+          "excluded": {
+            "mean": 76.45251801732255,
+            "sample_variance": 260251.47425930703,
+            "standard_error": 228.14533712495947
+          },
+          "gamma": [
+            {
+              "mean": 0.5528360495186861,
+              "sample_variance": 10.062565163105099,
+              "standard_error": 1.4186306892990226
+            }
+          ]
+        },
+        {
+          "nodes": [
+            {
+              "mean": -11.445857302764198,
+              "sample_variance": 893.2954653082768,
+              "standard_error": 13.36634179802594
+            },
+            {
+              "mean": 141.78711795166325,
+              "sample_variance": 1797114.1627872118,
+              "standard_error": 599.5188341974273
+            },
+            {
+              "mean": 14.321977260229927,
+              "sample_variance": 19482.84935209701,
+              "standard_error": 62.42251092690362
+            }
+          ],
+          "total": {
+            "mean": 144.66323790912898,
+            "sample_variance": 2126137.5445842026,
+            "standard_error": 652.0947085484137
+          },
+          "active_indices": [
+            0,
+            1,
+            2
+          ],
+          "retained": {
+            "mean": 144.66323790912898,
+            "sample_variance": 2126137.5445842026,
+            "standard_error": 652.0947085484137
+          },
+          "excluded": {
+            "mean": 0.0,
+            "sample_variance": 0.0,
+            "standard_error": 0.0
+          },
+          "gamma": [
+            {
+              "mean": -1.273720467837787,
+              "sample_variance": 11.062333071984513,
+              "standard_error": 1.4874362555743028
+            },
+            {
+              "mean": 0.26524257614175617,
+              "sample_variance": 6.289101323105308,
+              "standard_error": 1.1215258644458725
+            },
+            {
+              "mean": 0.3027033570919634,
+              "sample_variance": 8.703240559653834,
+              "standard_error": 1.319336239148598
+            }
+          ]
+        }
+      ],
+      "total": {
+        "mean": 526.7057234862242,
+        "sample_variance": 3943258.3122518547,
+        "standard_error": 888.0606186800375
+      }
+    },
+    {
+      "sampling_unit": "antithetic_pair",
+      "count": 5,
+      "rows": [
+        {
+          "nodes": [
+            {
+              "mean": 0.0,
+              "sample_variance": 0.0,
+              "standard_error": 0.0
+            },
+            {
+              "mean": -172.5851844377406,
+              "sample_variance": 11545.265536793928,
+              "standard_error": 48.052607706125436
+            },
+            {
+              "mean": 0.0,
+              "sample_variance": 0.0,
+              "standard_error": 0.0
+            }
+          ],
+          "total": {
+            "mean": -172.5851844377406,
+            "sample_variance": 11545.265536793928,
+            "standard_error": 48.052607706125436
+          }
+        },
+        {
+          "nodes": [
+            {
+              "mean": 18.58543687132967,
+              "sample_variance": 689.6109733355776,
+              "standard_error": 11.744028042674094
+            },
+            {
+              "mean": -85.49700558221446,
+              "sample_variance": 11070.961273978795,
+              "standard_error": 47.05520433273836
+            },
+            {
+              "mean": -31.161834459164975,
+              "sample_variance": 1267.9907784309223,
+              "standard_error": 15.924765482925784
+            }
+          ],
+          "total": {
+            "mean": -98.07340317004976,
+            "sample_variance": 11923.82721750578,
+            "standard_error": 48.83406028072165
+          },
+          "active_indices": [
+            1
+          ],
+          "retained": {
+            "mean": -85.49700558221446,
+            "sample_variance": 11070.961273978795,
+            "standard_error": 47.05520433273836
+          },
+          "excluded": {
+            "mean": -12.576397587835304,
+            "sample_variance": 94.55259902725156,
+            "standard_error": 4.348622748118111
+          },
+          "gamma": [
+            {
+              "mean": -0.13908598349097237,
+              "sample_variance": 0.029298828415527795,
+              "standard_error": 0.07654910635079654
+            }
+          ]
+        },
+        {
+          "nodes": [
+            {
+              "mean": 8.764576502936896,
+              "sample_variance": 1928.9673794455798,
+              "standard_error": 19.641626100939707
+            },
+            {
+              "mean": -215.43518974198042,
+              "sample_variance": 58505.077466920964,
+              "standard_error": 108.17123228189736
+            },
+            {
+              "mean": -26.70144476563836,
+              "sample_variance": 996.8289419853394,
+              "standard_error": 14.11969505326046
+            }
+          ],
+          "total": {
+            "mean": -233.3720580046819,
+            "sample_variance": 66910.99301456245,
+            "standard_error": 115.68145315007281
+          },
+          "active_indices": [
+            1
+          ],
+          "retained": {
+            "mean": -215.43518974198042,
+            "sample_variance": 58505.077466920964,
+            "standard_error": 108.17123228189736
+          },
+          "excluded": {
+            "mean": -17.936868262701463,
+            "sample_variance": 502.09303584846845,
+            "standard_error": 10.02090850021562
+          },
+          "gamma": [
+            {
+              "mean": -0.4067145836556657,
+              "sample_variance": 0.20851618101772815,
+              "standard_error": 0.20421370229136349
+            }
+          ]
+        },
+        {
+          "nodes": [
+            {
+              "mean": 125.22722648181524,
+              "sample_variance": 45989.26083069963,
+              "standard_error": 95.90543345473147
+            },
+            {
+              "mean": -96.75992747212432,
+              "sample_variance": 91461.25532499916,
+              "standard_error": 135.24884866423017
+            },
+            {
+              "mean": -120.35719121169754,
+              "sample_variance": 23587.606680397657,
+              "standard_error": 68.68421460626547
+            }
+          ],
+          "total": {
+            "mean": -91.88989220200662,
+            "sample_variance": 129030.80768304794,
+            "standard_error": 160.64296292277973
+          },
+          "active_indices": [
+            1
+          ],
+          "retained": {
+            "mean": -96.75992747212432,
+            "sample_variance": 91461.25532499916,
+            "standard_error": 135.24884866423017
+          },
+          "excluded": {
+            "mean": 4.870035270117693,
+            "sample_variance": 4907.63030602135,
+            "standard_error": 31.329316322005337
+          },
+          "gamma": [
+            {
+              "mean": -0.13662542644710352,
+              "sample_variance": 0.1823514204213174,
+              "standard_error": 0.19097194580425544
+            }
+          ]
+        },
+        {
+          "nodes": [
+            {
+              "mean": -50.03484849079926,
+              "sample_variance": 3942.723539564113,
+              "standard_error": 28.08103822711729
+            },
+            {
+              "mean": -170.3924716534451,
+              "sample_variance": 28420.5267204475,
+              "standard_error": 75.39300593615764
+            },
+            {
+              "mean": 7.1609886301149634,
+              "sample_variance": 4870.712338024253,
+              "standard_error": 31.21125546345181
+            }
+          ],
+          "total": {
+            "mean": -213.2663315141294,
+            "sample_variance": 30437.326639100243,
+            "standard_error": 78.02221047765853
+          },
+          "active_indices": [
+            0,
+            1,
+            2
+          ],
+          "retained": {
+            "mean": -213.2663315141294,
+            "sample_variance": 30437.326639100243,
+            "standard_error": 78.02221047765853
+          },
+          "excluded": {
+            "mean": 0.0,
+            "sample_variance": 0.0,
+            "standard_error": 0.0
+          },
+          "gamma": [
+            {
+              "mean": -5.5679892682658725,
+              "sample_variance": 48.825637987941775,
+              "standard_error": 3.124920414600723
+            },
+            {
+              "mean": -0.3187548967031583,
+              "sample_variance": 0.09945921962114095,
+              "standard_error": 0.14103844838989185
+            },
+            {
+              "mean": 0.1513516785459817,
+              "sample_variance": 2.1758101399134584,
+              "standard_error": 0.659668119574299
+            }
+          ]
+        }
+      ],
+      "total": {
+        "mean": -809.1868693286083,
+        "sample_variance": 38330.29820131296,
+        "standard_error": 87.55603714343513
+      }
+    }
+  ]
+}

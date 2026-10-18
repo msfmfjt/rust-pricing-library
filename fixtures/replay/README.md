@@ -34,3 +34,53 @@ number of CRN difference diagnostics differ in low bits. They are intentionally
 stored separately because the reproducibility contract guarantees bitwise
 identity only on the same platform. Fixture changes require a reviewed numerical
 explanation; regenerating a file is not, by itself, acceptance evidence.
+
+## Local-node allocation correction, 2026-10-03
+
+The historical macOS Local Volatility fixture before terminal replication reflects the previously validated
+integrated-adjoint and exclusion-audit corrections. The
+[earlier macOS fixture](historical/local_volatility-macos-aarch64-before-node-allocation-audit.json)
+is retained byte-for-byte. The [46-field change audit](local-vol-node-allocation-change-audit-v1.json)
+confirms that every changed field is inside the VegaKT report of the two
+full-risk cases. Prices, Delta, Gamma, scalar local Vega, requests, fingerprints
+and execution/RNG diagnostics are unchanged. Independent initial-row price
+bumps pass 48 checks; see the [numerical explanation](../../design/validation/vega-kt-backtest-allocation-audit-v0.1.md).
+
+This freezes replay of `local_vol_node_allocation_diagnostic_v1`, **not**
+acceptance of the unfinished paper VegaKT decomposition. Its numerical
+acceptance thresholds and the companion's diagnostic-only guard are unchanged.
+The Windows Local Volatility fixture still represents the earlier algorithm;
+it must be regenerated and reviewed on Windows before that platform's current
+replay can pass. A macOS capture is not substituted for Windows evidence.
+
+Run `python scripts/audit_local_vol_replay.py <native-candidate.json> --output
+benchmark-results/local-vol-candidate-audit.json` to inspect a candidate. This
+read-only audit allows only the 46 field paths reviewed above, checks the
+diagnostic labels and scalar/bucket/residual accounting, and rejects changes
+to prices, other Greeks, requests and fingerprints. Its
+`requires_native_numerical_review` status does not approve a replacement.
+The exact replay gate remains unchanged. Native capture provenance and an
+independent allocation probe remain required; see the
+[cross-platform record](../../design/validation/library-cross-platform-2026-10-04.md).
+
+
+## Terminal replication extension, 2026-10-04
+
+The current macOS capture uses `terminal_payoff_replication_iv_v1` for its two
+European risk cases. The immediately preceding
+[capture](historical/local_volatility-macos-aarch64-before-terminal-replication.json)
+is retained byte-for-byte. The [218-field audit](local-vol-terminal-replication-change-audit-v3.json)
+records 212 VegaKT fields, two method-dependent plan fingerprints and four
+pseudo-MC Delta/Gamma SE changes of one ULP from the existing scalar statistics
+reduction. Price-only cases, all point estimates, requests and RNG inputs are
+unchanged. Both pseudo-MC and RQMC market-IV risks match independent quote price
+differences within 6.804e-10, including deterministic continuous-dividend carry.
+Sample moments for exact replication are unavailable, not fabricated as zero.
+See [P0 smile acceptance](../../design/validation/vega-kt-smile-acceptance-v0.3.md).
+
+The exact byte-comparison gate remains unchanged. The old
+`audit_local_vol_replay.py` remains an audit of the historical 46-field
+node-allocation correction and deliberately rejects this new algorithm; its
+tests use the retained historical captures. It must not be used to approve the
+terminal-replication transition. Windows retains its earlier capture pending
+regeneration and review on that platform; no cross-platform acceptance is claimed.

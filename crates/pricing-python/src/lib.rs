@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod bass_lv;
 mod builders;
 mod diagnostics;
 mod hull_white;
@@ -14,6 +15,20 @@ mod multi_asset_rough;
 mod stochastic_dividend_hull_white;
 mod stochastic_dividends;
 mod stochastic_volatility;
+mod vegakt_atom_chain;
+mod vegakt_chain;
+mod vegakt_convolution;
+mod vegakt_initial_measure;
+mod vegakt_initial_smile;
+mod vegakt_initial_three;
+mod vegakt_joint;
+mod vegakt_measure;
+mod vegakt_middle;
+mod vegakt_multi_step;
+mod vegakt_path_chain;
+mod vegakt_selection;
+mod vegakt_smile;
+mod vegakt_three_step;
 
 use pricing::market::CurveRegion;
 use pricing::mc::ExecutionPolicy;
@@ -287,6 +302,26 @@ pub struct PyPricingPlan {
 
 #[pymethods]
 impl PyPricingPlan {
+    #[getter]
+    fn bass_calibration_diagnostics(&self) -> Option<Vec<bass_lv::PyBassCalibrationDiagnostics>> {
+        self.inner
+            .bass_calibration_diagnostics()
+            .map(|d| d.iter().map(Into::into).collect())
+    }
+    #[getter]
+    fn bass_projection_diagnostics(&self) -> Option<Vec<bass_lv::PyBassSurfaceDiagnostics>> {
+        self.inner
+            .bass_projection_diagnostics()
+            .map(|d| d.iter().map(Into::into).collect())
+    }
+    #[getter]
+    fn bass_vega_scenario_diagnostics(
+        &self,
+    ) -> Option<Vec<bass_lv::PyBassVegaKtScenarioDiagnostics>> {
+        self.inner
+            .bass_vega_scenario_diagnostics()
+            .map(|d| d.iter().map(Into::into).collect())
+    }
     /// Compile a request while releasing the Python GIL.
     #[staticmethod]
     #[pyo3(signature = (request, *, worker_threads, reduction_block_size=None))]
@@ -309,6 +344,318 @@ impl PyPricingPlan {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyPricingResult { inner })
             .map_err(pricing_exception)
+    }
+
+    /// Deterministic terminal Gamma measure for the restricted flat model.
+    fn evaluate_vega_kt_terminal_diagnostic(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<vegakt_measure::PyVegaKtTerminalDiagnostic> {
+        py.detach(|| self.inner.evaluate_vega_kt_terminal_diagnostic())
+            .map(|inner| vegakt_measure::PyVegaKtTerminalDiagnostic { inner })
+            .map_err(pricing_exception)
+    }
+
+    /// Explicit restricted paper-chain diagnostic using the compiled payoff and RNG.
+    #[pyo3(signature=(initial_strikes, *, relative_bump=0.04, subdivisions=2))]
+    fn evaluate_vega_kt_chain_diagnostic(
+        &self,
+        py: Python<'_>,
+        initial_strikes: Vec<f64>,
+        relative_bump: f64,
+        subdivisions: usize,
+    ) -> PyResult<vegakt_chain::PyVegaKtChainDiagnostic> {
+        py.detach(|| {
+            self.inner.evaluate_vega_kt_chain_diagnostic(
+                initial_strikes,
+                relative_bump,
+                subdivisions,
+            )
+        })
+        .map(|inner| vegakt_chain::PyVegaKtChainDiagnostic { inner })
+        .map_err(pricing_exception)
+    }
+
+    /// Regularized positive-time Gamma recovery; uncertainty excludes inverse bias.
+    #[pyo3(signature=(gamma_strikes, *, relative_regularization))]
+    fn evaluate_vega_kt_gamma_recovery_diagnostic<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        relative_regularization: f64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_gamma_recovery_diagnostic(
+                    gamma_strikes,
+                    relative_regularization,
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_convolution::to_dict(py, &result)
+    }
+
+    /// Conditional initial Gamma measure; exact first-interval integration.
+    fn evaluate_vega_kt_initial_gamma_diagnostic<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_bin_boundaries: Vec<f64>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner
+                    .evaluate_vega_kt_initial_gamma_diagnostic(gamma_bin_boundaries)
+            })
+            .map_err(pricing_exception)?;
+        vegakt_initial_measure::to_dict(py, &result)
+    }
+
+    /// Split-sample Gamma regularization audit; never retries on validation data.
+    #[pyo3(signature=(gamma_strikes, *, policy))]
+    fn evaluate_vega_kt_gamma_recovery_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner
+                    .evaluate_vega_kt_gamma_recovery_audit(gamma_strikes, &policy.inner)
+            })
+            .map_err(pricing_exception)?;
+        vegakt_selection::to_dict(py, &result)
+    }
+
+    /// Joint annual-variance directions with same-path cross-maturity covariance.
+    #[allow(clippy::too_many_arguments)] // Public Python keyword-only diagnostic controls.
+    #[pyo3(signature=(gamma_strikes, initial_gamma_bin_boundaries, *, policy, variance_conservation_directions, risk_directions, subdivisions=32768, relative_tolerance=1e-8))]
+    fn evaluate_vega_kt_joint_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        initial_gamma_bin_boundaries: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+        variance_conservation_directions: Vec<Vec<f64>>,
+        risk_directions: Vec<Vec<f64>>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let directions = pricing::risk::VegaKtJointGammaDirections {
+            conservation_basis: variance_conservation_directions,
+            risk_directions,
+        };
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_joint_gamma_audit(
+                    gamma_strikes,
+                    initial_gamma_bin_boundaries,
+                    &policy.inner,
+                    directions,
+                    subdivisions,
+                    relative_tolerance,
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_joint::to_dict(py, &result)
+    }
+
+    /// Selected-row conditional Gamma with the complete history and future evolution.
+    #[pyo3(signature=(variance_rows, gamma_bin_boundaries, *, variance_risk_directions, subdivisions=64, relative_tolerance=1e-6, gamma_relative_standard_error_limit=0.25, retain_samples=false))]
+    #[allow(clippy::too_many_arguments)]
+    fn evaluate_vega_kt_multi_step_gamma_chain_audit<'py>(
+        &self,
+        py: Python<'py>,
+        variance_rows: Vec<usize>,
+        gamma_bin_boundaries: Vec<f64>,
+        variance_risk_directions: Vec<Vec<Vec<f64>>>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+        gamma_relative_standard_error_limit: f64,
+        retain_samples: bool,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner
+                    .evaluate_vega_kt_multi_step_gamma_chain_with_samples(
+                        variance_rows,
+                        gamma_bin_boundaries,
+                        variance_risk_directions,
+                        subdivisions,
+                        relative_tolerance,
+                        gamma_relative_standard_error_limit,
+                        retain_samples,
+                    )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_path_chain::to_dict(py, &result)
+    }
+
+    /// Terminal row Gamma after 1..15 recursively integrated earlier transitions.
+    #[pyo3(signature=(gamma_strikes, *, policy, variance_conservation_directions=None))]
+    fn evaluate_vega_kt_multi_step_terminal_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+        variance_conservation_directions: Option<Vec<Vec<f64>>>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_multi_step_terminal_gamma_audit(
+                    gamma_strikes,
+                    &policy.inner,
+                    variance_conservation_directions.unwrap_or_default(),
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_multi_step::to_dict(py, &result)
+    }
+
+    /// Terminal row Gamma after two actual, possibly non-Gaussian, transitions.
+    #[pyo3(signature=(gamma_strikes, *, policy, variance_conservation_directions=None))]
+    fn evaluate_vega_kt_three_step_terminal_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+        variance_conservation_directions: Option<Vec<Vec<f64>>>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_three_step_terminal_gamma_audit(
+                    gamma_strikes,
+                    &policy.inner,
+                    variance_conservation_directions.unwrap_or_default(),
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_three_step::to_dict(py, &result)
+    }
+
+    /// Initial Gamma with both subsequent transitions and the first fixing.
+    #[pyo3(signature=(gamma_bin_boundaries, *, subdivisions=512, relative_tolerance=1e-8))]
+    fn evaluate_vega_kt_three_step_initial_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_bin_boundaries: Vec<f64>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_three_step_initial_gamma_audit(
+                    gamma_bin_boundaries,
+                    subdivisions,
+                    relative_tolerance,
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_initial_three::to_dict(py, &result)
+    }
+
+    /// History-conditional middle Gamma; all other local variance rows frozen.
+    #[pyo3(signature=(gamma_bin_boundaries, *, subdivisions=512, relative_tolerance=1e-8))]
+    fn evaluate_vega_kt_middle_smile_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_bin_boundaries: Vec<f64>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_middle_smile_gamma_audit(
+                    gamma_bin_boundaries,
+                    subdivisions,
+                    relative_tolerance,
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_middle::to_dict(py, &result)
+    }
+
+    /// Dependent terminal risk readouts preserved by an independent constraint basis.
+    #[pyo3(signature=(gamma_strikes, *, policy, variance_conservation_directions, variance_risk_directions))]
+    fn evaluate_vega_kt_three_step_terminal_readout_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+        variance_conservation_directions: Vec<Vec<f64>>,
+        variance_risk_directions: Vec<Vec<f64>>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner
+                    .evaluate_vega_kt_three_step_terminal_readout_audit(
+                        gamma_strikes,
+                        &policy.inner,
+                        variance_conservation_directions,
+                        variance_risk_directions,
+                    )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_three_step::to_dict(py, &result)
+    }
+
+    /// Refined initial continuation Gamma; separate convergence and native MC gates.
+    #[pyo3(signature=(gamma_bin_boundaries, *, subdivisions=32768, relative_tolerance=1e-8))]
+    fn evaluate_vega_kt_initial_smile_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_bin_boundaries: Vec<f64>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_initial_smile_gamma_audit(
+                    gamma_bin_boundaries,
+                    subdivisions,
+                    relative_tolerance,
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_initial_smile::to_dict(py, &result)
+    }
+
+    /// Two-step nonflat second-transition recovery in annual variance coordinates.
+    #[pyo3(signature=(gamma_strikes, *, policy, variance_conservation_directions=None))]
+    fn evaluate_vega_kt_two_step_smile_gamma_audit<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+        variance_conservation_directions: Option<Vec<Vec<f64>>>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner.evaluate_vega_kt_two_step_smile_gamma_audit(
+                    gamma_strikes,
+                    &policy.inner,
+                    variance_conservation_directions.unwrap_or_default(),
+                )
+            })
+            .map_err(pricing_exception)?;
+        vegakt_smile::to_dict(py, &result)
+    }
+
+    /// Joint atom Gamma propagation and IV bucket uncertainty, diagnostic only.
+    #[pyo3(signature=(gamma_strikes, *, policy))]
+    fn evaluate_vega_kt_atom_chain_diagnostic<'py>(
+        &self,
+        py: Python<'py>,
+        gamma_strikes: Vec<f64>,
+        policy: &vegakt_selection::PyVegaKtGammaRecoveryPolicy,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = py
+            .detach(|| {
+                self.inner
+                    .evaluate_vega_kt_atom_chain_diagnostic(gamma_strikes, &policy.inner)
+            })
+            .map_err(pricing_exception)?;
+        vegakt_atom_chain::to_dict(py, &result)
     }
 
     /// Evaluate the primary smoothing width and every explicitly ordered ladder width.
@@ -1200,6 +1547,22 @@ fn result_json_schema() -> &'static str {
 
 #[pymodule]
 fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<bass_lv::PyBassMarginal>()?;
+    module.add_class::<bass_lv::PyBassLvConfig>()?;
+    module.add_class::<bass_lv::PyBassLvModel>()?;
+    module.add_class::<bass_lv::PyBassSimulationPlan>()?;
+    module.add_class::<bass_lv::PyBassCalibrationDiagnostics>()?;
+    module.add_class::<bass_lv::PyBassEstimate>()?;
+    module.add_class::<bass_lv::PyBassMarginalProjection>()?;
+    module.add_class::<bass_lv::PyBassSurfaceDiagnostics>()?;
+    module.add_class::<bass_lv::PyBassMappingBump>()?;
+    module.add_class::<bass_lv::PyBassMappingRisk>()?;
+    module.add_class::<bass_lv::PyBassMappingRiskPlan>()?;
+    module.add_class::<bass_lv::PyBassDeterministicMappingRisk>()?;
+    module.add_class::<bass_lv::PyBassMarketIvModel>()?;
+    module.add_class::<bass_lv::PyBassVegaKtRisk>()?;
+    module.add_class::<bass_lv::PyBassVegaKtRiskPlan>()?;
+    module.add_class::<bass_lv::PyBassVegaKtScenarioDiagnostics>()?;
     module.add("__version__", facade_version())?;
     module.add("ValidationError", module.py().get_type::<ValidationError>())?;
     module.add("PricingError", module.py().get_type::<PricingError>())?;
@@ -1283,6 +1646,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyVegaKtProjection>()?;
     module.add_class::<PyVegaKtResidualDiagnostics>()?;
     module.add_class::<PyVegaKtResult>()?;
+    module.add_class::<vegakt_chain::PyVegaKtChainDiagnostic>()?;
+    module.add_class::<vegakt_selection::PyVegaKtGammaRecoveryPolicy>()?;
+    module.add_class::<vegakt_measure::PyVegaKtTerminalDiagnostic>()?;
     module.add_function(wrap_pyfunction!(version, module)?)?;
     module.add_function(wrap_pyfunction!(request_json_schema, module)?)?;
     module.add_function(wrap_pyfunction!(result_json_schema, module)?)?;

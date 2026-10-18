@@ -175,6 +175,7 @@ impl SimulationPlan {
         let discount = discount_evaluation.discount;
         let spot = market_forward.spot().get();
         let (volatility, total_variance, local_volatility) = match request.model() {
+            ModelSpec::BassLocalVolatility(_) => (0.0, 0.0, None),
             ModelSpec::BlackScholes(model) => {
                 let volatility = model.volatility().get();
                 (volatility, volatility * volatility * time, None)
@@ -438,7 +439,18 @@ impl SimulationPlan {
                     _ => (0, 0),
                 },
             };
-        Ok(Self {
+        let bass =
+            crate::engine::bass_lv::request::BassRuntime::compile(request, &observation_times)?;
+        let plan_fingerprint = if bass.is_some() {
+            let mut h = blake3::Hasher::new();
+            h.update(plan_fingerprint.as_bytes());
+            h.update(b"bass-normalized-affine-central-crn-v1");
+            Fingerprint::from_bytes(*h.finalize().as_bytes())
+        } else {
+            plan_fingerprint
+        };
+        let mut compiled = Self {
+            bass,
             valuation_date: request.valuation_date(),
             expiry: product.expiry(),
             underlying: product.underlying(),
@@ -477,9 +489,31 @@ impl SimulationPlan {
             dividend_region: forward_evaluation.dividend_region,
             market_forward: market_forward.clone(),
             local_volatility,
+            terminal_vega_kt: None,
+            terminal_replication_vega_kt: None,
             continuous_barrier,
             early_exercise,
-        })
+        };
+        compiled.terminal_vega_kt = compiled.compile_terminal_vega_kt()?;
+        compiled.terminal_replication_vega_kt = compiled.compile_terminal_replication_vega_kt()?;
+        if compiled.terminal_vega_kt.is_some() {
+            let mut h = blake3::Hasher::new();
+            h.update(compiled.plan_fingerprint.as_bytes());
+            h.update(
+                crate::engine::risk::vegakt_terminal_pathwise::TERMINAL_PATHWISE_LABEL.as_bytes(),
+            );
+            compiled.plan_fingerprint = Fingerprint::from_bytes(*h.finalize().as_bytes());
+        }
+        if compiled.terminal_replication_vega_kt.is_some() {
+            let mut h = blake3::Hasher::new();
+            h.update(compiled.plan_fingerprint.as_bytes());
+            h.update(
+                crate::engine::risk::vegakt_terminal_replication::TERMINAL_REPLICATION_LABEL
+                    .as_bytes(),
+            );
+            compiled.plan_fingerprint = Fingerprint::from_bytes(*h.finalize().as_bytes());
+        }
+        Ok(compiled)
     }
 }
 

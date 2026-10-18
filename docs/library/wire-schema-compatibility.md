@@ -14,6 +14,15 @@ regression matrix resource limit needed to reproduce the LSM configuration
 fingerprint. The field is required for American products and forbidden for all
 other products.
 
+The current v3 model union also includes experimental `bass_local_volatility`
+with explicit market-IV quote axes, projection/calibration settings and IV
+bump size. This is an additive v3 extension; older v3 readers without this
+model tag cannot consume Bass requests. v1/v2 reject the tag before migration.
+Existing model payloads, historical schemas and golden outputs are unchanged.
+Bass result JSON uses the shared price/risk/replay contract; detailed
+calibration diagnostics remain on the compiled plan. See the
+[Bass specification](../models/bass-local-volatility.md).
+
 The result block preserves execution counts and variances, numerical and risk
 method diagnostics, random-stream checksums, and complete LSM training and
 valuation state. The LSM state includes its policy fingerprint, exercise dates,
@@ -57,3 +66,13 @@ matrix under the compact layout is invalid schema/domain input.
 The canonical fingerprint is separate from JSON. It hashes a domain-separated,
 versioned, self-delimiting typed-data stream with BLAKE3-256 and renders as
 `blake3-256:` followed by 64 lowercase hexadecimal digits.
+
+Path-dependent backtests add request v8, result v12, checkpoint v10 and ensemble v4.
+The previous backtest schemas remain unchanged. See
+[dated path replay](../../design/validation/local-vol-path-ledger-v0.1.md).
+
+Native request/result v3 also accept an optional Lookback `valuation_date_fixing`.
+It fixes an observation on the request valuation date independently of spot.
+The field is omitted when unset; legacy request/result JSON is retained.
+Requests in v1/v2 reject this field, and their schemas remain unchanged.
+See [fixing-day semantics and validation](../../design/validation/local-vol-lookback-fixing-day-v0.1.md).

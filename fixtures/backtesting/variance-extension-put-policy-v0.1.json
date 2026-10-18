@@ -1,0 +1,16 @@
+{
+  "policy_id": "all_transition_put_market_Gamma_v1",
+  "extensions": ["all_rows", "linear_time"],
+  "products": ["put", "asian", "fixed_asian", "lookback", "lookback_past", "lookback_today"],
+  "gamma_samples_by_intervals": {"4": 4096, "6": 2048},
+  "gamma_seeds": [7, 41],
+  "subdivisions": 512,
+  "relative_tolerance": 0.000001,
+  "gamma_relative_standard_error_limit": 0.25,
+  "gamma_bins": [80.0, 90.0, 100.0, 110.0, 120.0],
+  "iv_bumps": [0.00001, 0.000005],
+  "absolute_tolerance": 0.002,
+  "sobol_power": 16,
+  "sobol_scrambles": 8,
+  "scope": "4/6 intervals; direct Put payoffs including fixed historical and valuation-date Lookback minima; unchanged native precision and work gates."
+}

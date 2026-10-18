@@ -357,6 +357,23 @@ impl BarrierSpec {
 }
 
 impl FixedLookbackSpec {
+    fn monitoring_node(
+        &self,
+        builder: &mut SourceGraphBuilder,
+        date: Date,
+        valuation_date: Date,
+    ) -> Result<NodeId, GraphError> {
+        if date == valuation_date
+            && let Some(fixing) = self.valuation_date_fixing()
+        {
+            return builder.literal(fixing.get());
+        }
+        builder.push(SourceOpcode::TerminalSpot {
+            underlying: self.underlying(),
+            observation_date: date,
+        })
+    }
+
     pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
         let mut builder = SourceGraphBuilder::new();
         let mut dates = self
@@ -368,17 +385,11 @@ impl FixedLookbackSpec {
             builder.literal(extremum.get())?
         } else {
             let date = dates.next().ok_or(GraphError::NoOutputs)?;
-            builder.push(SourceOpcode::TerminalSpot {
-                underlying: self.underlying(),
-                observation_date: date,
-            })?
+            self.monitoring_node(&mut builder, date, valuation_date)?
         };
         let mut extremum = first;
         for date in dates {
-            let spot = builder.push(SourceOpcode::TerminalSpot {
-                underlying: self.underlying(),
-                observation_date: date,
-            })?;
+            let spot = self.monitoring_node(&mut builder, date, valuation_date)?;
             extremum = match self.side() {
                 OptionSide::Call => builder.push(SourceOpcode::Maximum {
                     left: extremum,

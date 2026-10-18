@@ -3,9 +3,9 @@ use std::sync::Arc;
 use pricing::PricingRequest;
 use pricing::core::{CurrencyId, CurveId, Date, EventId, PositiveF64, UnderlyingId};
 use pricing::market::{
-    DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice, EssviSurface,
-    LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi, SurfaceValidationTolerance,
-    ThetaPchip,
+    DiscountCurve as _, DividendEvent, DividendQuote, EquityForward, EquityMarket, EssviSlice,
+    EssviSurface, LogLinearDiscountCurve, MarketContext, PhiSpec, StandardSsvi,
+    SurfaceValidationTolerance, ThetaPchip,
 };
 use pricing::mc::{
     CpqrConfig, EngineConfig, LsmConfig, LsmStateVariable, PolynomialBasisSpec, PseudoMcConfig,
@@ -56,6 +56,13 @@ impl PyDiscountCurve {
     #[getter]
     fn curve_id(&self) -> u32 {
         self.inner.id().get()
+    }
+
+    /// Evaluate the native log-linear curve at an ACT/365F year fraction.
+    fn discount(&self, py: Python<'_>, time: f64) -> PyResult<f64> {
+        self.inner
+            .discount(time)
+            .map_err(|error| domain_error(py, "invalid_discount_time", "/time", error))
     }
 
     fn __repr__(&self) -> String {
@@ -481,7 +488,7 @@ impl PyProduct {
 
     /// Build a fixed-strike discrete-monitoring Lookback call or put.
     #[staticmethod]
-    #[pyo3(signature = (underlying_id, currency_id, strike, notional, side, monitoring_dates, payment_date, *, historical_extremum=None))]
+    #[pyo3(signature = (underlying_id, currency_id, strike, notional, side, monitoring_dates, payment_date, *, historical_extremum=None, valuation_date_fixing=None))]
     #[allow(clippy::too_many_arguments)]
     fn fixed_lookback(
         py: Python<'_>,
@@ -493,6 +500,7 @@ impl PyProduct {
         monitoring_dates: &Bound<'_, PyAny>,
         payment_date: &Bound<'_, PyAny>,
         historical_extremum: Option<f64>,
+        valuation_date_fixing: Option<f64>,
     ) -> PyResult<Self> {
         let side = option_side(py, side)?;
         let monitoring_dates =
@@ -508,6 +516,7 @@ impl PyProduct {
             historical_extremum,
             payment_date,
         )
+        .and_then(|spec| spec.with_valuation_date_fixing(valuation_date_fixing))
         .map(|spec| Self {
             inner: ProductSpec::FixedLookback(spec),
         })
@@ -578,6 +587,45 @@ pub struct PyModel {
 
 #[pymethods]
 impl PyModel {
+    /// IVs refer to log(K_f/F_f) in normalized residual equity (mean one).
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(maturity_nodes,log_forward_moneyness_nodes,implied_volatilities,projection_nodes,*,config=None,tail_probability_tolerance=1e-7,relative_mean_tolerance=1e-4,iv_bump=1e-4))]
+    fn bass_local_volatility(
+        py: Python<'_>,
+        maturity_nodes: Vec<f64>,
+        log_forward_moneyness_nodes: Vec<f64>,
+        implied_volatilities: Vec<f64>,
+        projection_nodes: Vec<f64>,
+        config: Option<PyRef<'_, crate::bass_lv::PyBassLvConfig>>,
+        tail_probability_tolerance: f64,
+        relative_mean_tolerance: f64,
+        iv_bump: f64,
+    ) -> PyResult<Self> {
+        let config = config.map(|c| c.config()).unwrap_or_default();
+        py.detach(|| {
+            let surface = pricing::market::MarketIvSurface::new(
+                maturity_nodes,
+                log_forward_moneyness_nodes,
+                implied_volatilities,
+            )
+            .map_err(|e| pricing::bass_lv::BassError::InvalidInput(e.to_string()))?;
+            pricing::models::BassLvSpec::new(
+                surface,
+                projection_nodes,
+                config,
+                pricing::bass_lv::BassSurfaceProjectionConfig {
+                    tail_probability_tolerance,
+                    relative_mean_tolerance,
+                },
+                iv_bump,
+            )
+        })
+        .map(|spec| Self {
+            inner: ModelSpec::BassLocalVolatility(spec),
+        })
+        .map_err(|error| domain_error(py, "invalid_bass_target", "/model/parameters", error))
+    }
     /// Build a constant-volatility Black--Scholes model.
     #[staticmethod]
     fn black_scholes(py: Python<'_>, volatility: f64) -> PyResult<Self> {

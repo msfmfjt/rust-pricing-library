@@ -263,6 +263,7 @@ pub enum ModelSpec {
     BlackScholes(BlackScholesSpec),
     Black76(Black76Spec),
     LocalVolatility(LocalVolatilitySpec),
+    BassLocalVolatility(super::bass_lv::BassLvSpec),
 }
 
 impl ModelSpec {
@@ -272,6 +273,7 @@ impl ModelSpec {
             Self::BlackScholes(_) => "black_scholes",
             Self::Black76(_) => "black_76",
             Self::LocalVolatility(_) => "local_volatility",
+            Self::BassLocalVolatility(_) => "bass_local_volatility",
         }
     }
 }

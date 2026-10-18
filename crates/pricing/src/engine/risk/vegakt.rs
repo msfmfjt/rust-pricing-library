@@ -9,7 +9,9 @@ use crate::risk::{
     VegaKtBucketCoordinate, VegaKtBucketEstimate, VegaKtBucketUnit, VegaKtCovarianceLayout,
     VegaKtProjection, VegaKtReport, VegaKtResidualDiagnostics,
 };
-use pricing_numerics::{CenteredCovariance, CenteredMoment, NeumaierSum, standard_normal_cdf};
+use pricing_numerics::{
+    CenteredCovariance, CenteredMoment, NeumaierSum, standard_normal_cdf, standard_normal_pdf,
+};
 
 impl ActiveDensityDomain {
     #[must_use]
@@ -1120,8 +1122,17 @@ pub fn local_gamma_transition_cells(
     validate_transition_strikes(strike_nodes)?;
 
     let standard_deviation = variance.get().sqrt();
-    let mean = spot.get().ln() + 1.5 * variance.get();
-    let moment_scale = (mean + 0.5 * variance.get()).exp();
+    let factor = (2.0 * variance.get()).exp();
+    let moment_scale = if factor.is_finite() {
+        spot.get() * factor
+    } else {
+        (spot.get().ln() + 2.0 * variance.get()).exp()
+    };
+    if !moment_scale.is_finite() {
+        return Err(RiskConfigError::InvalidVegaKtTransitionValue {
+            bits: moment_scale.to_bits(),
+        });
+    }
     let mut cells = Vec::with_capacity(strike_nodes.len() + 1);
     let mut probability_sum = NeumaierSum::new();
 
@@ -1136,33 +1147,33 @@ pub fn local_gamma_transition_cells(
         } else {
             strike_nodes[cell_index]
         };
-        let probability = if cell_index == strike_nodes.len() {
-            let raw = 1.0 - probability_sum.total();
-            if !raw.is_finite() {
-                return Err(RiskConfigError::InvalidVegaKtTransitionProbability {
-                    cell_index,
-                    bits: raw.to_bits(),
-                });
-            }
-            if !(-8.0 * f64::EPSILON..=1.0 + 8.0 * f64::EPSILON).contains(&raw) {
-                return Err(RiskConfigError::VegaKtTransitionMassDefect {
-                    bits: raw.to_bits(),
-                });
-            }
-            raw.clamp(0.0, 1.0)
-        } else {
-            let probability = lognormal_probability(mean, standard_deviation, lower, upper);
-            if !probability.is_finite() {
-                return Err(RiskConfigError::InvalidVegaKtTransitionProbability {
-                    cell_index,
-                    bits: probability.to_bits(),
-                });
-            }
-            probability_sum.add(probability);
-            probability
-        };
+        let probability = lognormal_probability(
+            spot.get(),
+            1.5 * variance.get(),
+            standard_deviation,
+            lower,
+            upper,
+        );
+        if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
+            return Err(RiskConfigError::InvalidVegaKtTransitionProbability {
+                cell_index,
+                bits: probability.to_bits(),
+            });
+        }
+        probability_sum.add(probability);
         let first_moment = moment_scale
-            * lognormal_probability(mean + variance.get(), standard_deviation, lower, upper);
+            * lognormal_probability(
+                spot.get(),
+                2.5 * variance.get(),
+                standard_deviation,
+                lower,
+                upper,
+            );
+        if !first_moment.is_finite() {
+            return Err(RiskConfigError::InvalidVegaKtTransitionValue {
+                bits: first_moment.to_bits(),
+            });
+        }
         cells.push(TransitionCellIntegral {
             lower_strike: lower,
             upper_strike: upper,
@@ -1170,6 +1181,21 @@ pub fn local_gamma_transition_cells(
             first_moment,
         });
     }
+    // Never obtain a small tail by subtracting a rounded unit mass. Correct
+    // only roundoff in the largest cell, preserving both directly computed tails.
+    let defect = 1.0 - probability_sum.total();
+    if defect.abs() > 8.0 * f64::EPSILON {
+        return Err(RiskConfigError::VegaKtTransitionMassDefect {
+            bits: defect.to_bits(),
+        });
+    }
+    let largest = cells
+        .iter()
+        .enumerate()
+        .max_by(|a, b| a.1.probability.total_cmp(&b.1.probability))
+        .expect("nonempty transition cells")
+        .0;
+    cells[largest].probability += defect;
     Ok(cells)
 }
 
@@ -1202,6 +1228,36 @@ pub fn integrate_piecewise_linear_local_gamma_transition(
             let right_index = cell_index;
             let left_strike = strike_nodes[left_index];
             let right_strike = strike_nodes[right_index];
+            let left_z = gamma_kernel_z(
+                left_strike,
+                spot,
+                1.5 * variance.get(),
+                variance.get().sqrt(),
+            );
+            let right_z = gamma_kernel_z(
+                right_strike,
+                spot,
+                1.5 * variance.get(),
+                variance.get().sqrt(),
+            );
+            let log_width = stable_log_ratio(right_strike, left_strike);
+            let z_width = log_width / variance.get().sqrt();
+            let z_scale = 1.0 + left_z.abs().max(right_z.abs());
+            if z_width * z_scale < 1.0e-3
+                || (log_width < 1.0e-3 && z_width < 16.0 && z_scale < 41.0)
+            {
+                // The closed-form intercept/moment expression subtracts two
+                // nearly equal terms for a narrow cell. Integrate the smooth
+                // kernel against linear Gamma directly in this regime.
+                integral.add(narrow_gamma_cell(
+                    left_z,
+                    z_width,
+                    log_width,
+                    local_gamma_values[left_index],
+                    local_gamma_values[right_index],
+                ));
+                continue;
+            }
             let slope = (local_gamma_values[right_index] - local_gamma_values[left_index])
                 / (right_strike - left_strike);
             let intercept = local_gamma_values[left_index] - slope * left_strike;
@@ -1216,6 +1272,136 @@ pub fn integrate_piecewise_linear_local_gamma_transition(
         });
     }
     Ok(value)
+}
+
+/// Equation (5)'s total spot derivative, including the spot dependence of
+/// `v(S) = sigma_local(S)^2 * delta_t`. The derivative inputs hold the interval
+/// fixed. The frozen-variance operator is recovered exactly when both are zero.
+pub fn integrate_local_gamma_total_variance_transition(
+    spot: f64,
+    variance: f64,
+    variance_spot_derivative: f64,
+    variance_spot_second_derivative: f64,
+    strike_nodes: &[f64],
+    gamma_values: &[f64],
+) -> Result<f64, RiskConfigError> {
+    validate_finite(
+        variance_spot_derivative,
+        "vega_kt_step_variance_spot_derivative",
+    )?;
+    validate_finite(
+        variance_spot_second_derivative,
+        "vega_kt_step_variance_spot_second_derivative",
+    )?;
+    if variance_spot_derivative == 0.0 && variance_spot_second_derivative == 0.0 {
+        return integrate_piecewise_linear_local_gamma_transition(
+            spot,
+            variance,
+            strike_nodes,
+            gamma_values,
+        );
+    }
+    let cells = local_gamma_transition_cells(spot, variance, strike_nodes)?;
+    if gamma_values.len() != strike_nodes.len() {
+        return Err(RiskConfigError::VegaKtGammaLengthMismatch {
+            strike_count: strike_nodes.len(),
+            gamma_count: gamma_values.len(),
+        });
+    }
+    for value in gamma_values {
+        validate_finite(*value, "vega_kt_local_gamma")?;
+    }
+    let sd = variance.sqrt();
+    let a = spot * variance_spot_derivative;
+    let b = spot * (spot * variance_spot_second_derivative);
+    // Under q, d1 = -z-sqrt(v), d2 = -z-2*sqrt(v). The chain rule
+    // BS_SS + 2*BS_Sv*v' + BS_vv*v'^2 + BS_v*v'' is G times this polynomial.
+    let polynomial = [
+        1.0 + 2.0 * a + 0.5 * b + 0.5 * a * a - 0.25 * a * a / variance,
+        (a + 0.75 * a * a) / sd,
+        0.25 * a * a / variance,
+    ];
+    for value in polynomial {
+        validate_finite(value, "vega_kt_gamma_kernel_polynomial")?;
+    }
+    let factor = (2.0 * variance).exp();
+    let moment_scale = if factor.is_finite() {
+        spot * factor
+    } else {
+        (spot.ln() + 2.0 * variance).exp()
+    };
+    validate_finite(moment_scale, "vega_kt_gamma_kernel_moment_scale")?;
+    let mut integral = NeumaierSum::new();
+    for (i, cell) in cells.iter().enumerate() {
+        let lo = if i == 0 {
+            f64::NEG_INFINITY
+        } else {
+            gamma_kernel_z(strike_nodes[i - 1], spot, 1.5 * variance, sd)
+        };
+        let hi = if i == strike_nodes.len() {
+            f64::INFINITY
+        } else {
+            gamma_kernel_z(strike_nodes[i], spot, 1.5 * variance, sd)
+        };
+        if i == 0 || i == strike_nodes.len() {
+            let moments = normal_interval_moments(lo, hi, hi - lo);
+            let edge = if i == 0 {
+                gamma_values[0]
+            } else {
+                gamma_values[i - 1]
+            };
+            integral.add(edge * dot_three(polynomial, moments));
+            continue;
+        }
+        let log_width = stable_log_ratio(strike_nodes[i], strike_nodes[i - 1]);
+        let width = log_width / sd;
+        if lo.abs().max(hi.abs()) < 40.0 && (width < 1.0 || (log_width < 0.01 && width < 16.0)) {
+            integral.add(weighted_gamma_cell(
+                lo,
+                width,
+                log_width,
+                gamma_values[i - 1],
+                gamma_values[i],
+                polynomial,
+            ));
+            continue;
+        }
+        let mut moments = normal_interval_moments(lo, hi, width);
+        moments[0] = cell.probability();
+        let shifted = normal_interval_moments(lo - sd, hi - sd, width);
+        let strike_moments = [
+            cell.first_moment(),
+            moment_scale * (shifted[1] + sd * shifted[0]),
+            moment_scale * (shifted[2] + 2.0 * sd * shifted[1] + variance * shifted[0]),
+        ];
+        let slope =
+            (gamma_values[i] - gamma_values[i - 1]) / (strike_nodes[i] - strike_nodes[i - 1]);
+        let intercept = gamma_values[i - 1] - slope * strike_nodes[i - 1];
+        integral.add(
+            intercept * dot_three(polynomial, moments)
+                + slope * dot_three(polynomial, strike_moments),
+        );
+    }
+    let result = variance.exp() * integral.total();
+    validate_finite(result, "vega_kt_total_gamma_transition")?;
+    Ok(result)
+}
+
+fn dot_three(left: [f64; 3], right: [f64; 3]) -> f64 {
+    left.into_iter()
+        .zip(right)
+        .map(|(a, b)| a * b)
+        .collect::<NeumaierSum>()
+        .total()
+}
+
+fn normal_interval_moments(lo: f64, hi: f64, width: f64) -> [f64; 3] {
+    let p = normal_interval_probability(lo, hi, width);
+    let lo_pdf = standard_normal_pdf(lo);
+    let hi_pdf = standard_normal_pdf(hi);
+    let lo_flux = if lo.is_finite() { lo * lo_pdf } else { 0.0 };
+    let hi_flux = if hi.is_finite() { hi * hi_pdf } else { 0.0 };
+    [p, lo_pdf - hi_pdf, p + lo_flux - hi_flux]
 }
 
 fn validate_domain_inputs(
@@ -1300,7 +1486,7 @@ fn reporting_iv_value_count(
     )
 }
 
-fn full_bucket_covariance_len(bucket_count: usize) -> Result<usize, RiskConfigError> {
+pub(super) fn full_bucket_covariance_len(bucket_count: usize) -> Result<usize, RiskConfigError> {
     bucket_count.checked_mul(bucket_count).ok_or(
         RiskConfigError::VegaKtFullCovarianceLengthMismatch {
             expected: usize::MAX,
@@ -1369,28 +1555,135 @@ fn reporting_log_moneyness_interval(
     (index, weight, ReportingIvBoundary::InRange)
 }
 
-fn lognormal_probability(mean: f64, standard_deviation: f64, lower: f64, upper: f64) -> f64 {
+fn gamma_kernel_z(strike: f64, spot: f64, mean_shift: f64, standard_deviation: f64) -> f64 {
+    (stable_log_ratio(strike, spot) - mean_shift) / standard_deviation
+}
+
+fn stable_log_ratio(strike: f64, spot: f64) -> f64 {
+    let relative = (strike - spot) / spot;
+    if relative.abs() < 0.5 {
+        relative.ln_1p()
+    } else {
+        let ratio = strike / spot;
+        if ratio.is_finite() && ratio > 0.0 {
+            ratio.ln()
+        } else {
+            strike.ln() - spot.ln()
+        }
+    }
+}
+
+fn lognormal_probability(
+    spot: f64,
+    mean_shift: f64,
+    standard_deviation: f64,
+    lower: f64,
+    upper: f64,
+) -> f64 {
     let lower_z = if lower == 0.0 {
         f64::NEG_INFINITY
     } else {
-        (lower.ln() - mean) / standard_deviation
+        gamma_kernel_z(lower, spot, mean_shift, standard_deviation)
     };
     let upper_z = if upper.is_infinite() {
         f64::INFINITY
     } else {
-        (upper.ln() - mean) / standard_deviation
+        gamma_kernel_z(upper, spot, mean_shift, standard_deviation)
     };
-    normal_interval_probability(lower_z, upper_z)
+    let width = if lower > 0.0 && upper.is_finite() {
+        stable_log_ratio(upper, lower) / standard_deviation
+    } else {
+        upper_z - lower_z
+    };
+    normal_interval_probability(lower_z, upper_z, width)
 }
 
-fn normal_interval_probability(lower_z: f64, upper_z: f64) -> f64 {
-    let direct = standard_normal_cdf(upper_z) - standard_normal_cdf(lower_z);
-    let survival = standard_normal_cdf(-lower_z) - standard_normal_cdf(-upper_z);
-    if lower_z > 0.0 || upper_z < 0.0 {
-        direct.min(survival).max(0.0)
+pub(super) fn normal_interval_probability(lower_z: f64, upper_z: f64, width: f64) -> f64 {
+    if width * (1.0 + lower_z.abs().max(upper_z.abs())) < 1.0e-3 {
+        // Symmetric integral of the Gaussian density; the omitted relative
+        // sixth-order term is below 1e-22 in this regime.
+        let mid = lower_z + 0.5 * width;
+        let m2 = mid * mid;
+        let w2 = width * width;
+        standard_normal_pdf(mid)
+            * width
+            * (1.0 + (m2 - 1.0) * w2 / 24.0 + (m2 * m2 - 6.0 * m2 + 3.0) * w2 * w2 / 1920.0)
+    } else if lower_z >= 0.0 {
+        normal_survival(lower_z) - normal_survival(upper_z)
+    } else if upper_z <= 0.0 {
+        normal_survival(-upper_z) - normal_survival(-lower_z)
     } else {
-        direct.max(0.0)
+        1.0 - normal_survival(-lower_z) - normal_survival(upper_z)
     }
+}
+
+// Laplace's convergent continued fraction for the Mills ratio in the tail.
+// Keep this local to Gamma integration: changing the global CDF would change
+// pricing/MC replay outside this numerical correction.
+fn normal_survival(x: f64) -> f64 {
+    if x < 3.0 {
+        return standard_normal_cdf(-x);
+    }
+    let mut fraction = 0.0;
+    for n in (1..=128).rev() {
+        fraction = f64::from(n) / (x + fraction);
+    }
+    standard_normal_pdf(x) / (x + fraction)
+}
+
+fn narrow_gamma_cell(left_z: f64, z_width: f64, log_width: f64, left: f64, right: f64) -> f64 {
+    weighted_gamma_cell(left_z, z_width, log_width, left, right, [1.0, 0.0, 0.0])
+}
+
+fn weighted_gamma_cell(
+    left_z: f64,
+    z_width: f64,
+    log_width: f64,
+    left: f64,
+    right: f64,
+    polynomial: [f64; 3],
+) -> f64 {
+    // Eight-point Gauss-Legendre in standard-normal coordinates. exp_m1 keeps
+    // the linear-strike interpolation accurate even for nearly equal strikes.
+    let nodes = [
+        -0.960_289_856_497_536_3,
+        -0.796_666_477_413_626_7,
+        -0.525_532_409_916_329,
+        -0.183_434_642_495_649_8,
+        0.183_434_642_495_649_8,
+        0.525_532_409_916_329,
+        0.796_666_477_413_626_7,
+        0.960_289_856_497_536_3,
+    ];
+    let weights = [
+        0.101_228_536_290_376_3,
+        0.222_381_034_453_374_5,
+        0.313_706_645_877_887_3,
+        0.362_683_783_378_362,
+        0.362_683_783_378_362,
+        0.313_706_645_877_887_3,
+        0.222_381_034_453_374_5,
+        0.101_228_536_290_376_3,
+    ];
+    let panels = (z_width * (1.0 + left_z.abs().max((left_z + z_width).abs())))
+        .ceil()
+        .max(1.0) as u32;
+    let mut sum = NeumaierSum::new();
+    for panel in 0..panels {
+        for (node, weight) in nodes.into_iter().zip(weights) {
+            let u = (f64::from(panel) + (1.0 + node) * 0.5) / f64::from(panels);
+            let t = (log_width * u).exp_m1() / log_width.exp_m1();
+            let gamma = left * (1.0 - t) + right * t;
+            let z = left_z + z_width * u;
+            let multiplier = if polynomial[1] == 0.0 && polynomial[2] == 0.0 {
+                polynomial[0]
+            } else {
+                polynomial[0] + z * (polynomial[1] + z * polynomial[2])
+            };
+            sum.add(weight * gamma * standard_normal_pdf(z) * multiplier);
+        }
+    }
+    0.5 * z_width / f64::from(panels) * sum.total()
 }
 
 fn validate_log_moneyness_nodes(log_moneyness_nodes: &[f64]) -> Result<(), RiskConfigError> {

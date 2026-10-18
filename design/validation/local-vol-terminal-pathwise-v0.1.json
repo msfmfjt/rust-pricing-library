@@ -1,0 +1,852 @@
+{
+  "document_kind": "vega_kt_terminal_pathwise_validation_record",
+  "date": "2026-10-04",
+  "normal_pricing_policy": "flat_variance_terminal_measure_pathwise_v1",
+  "full_numerical_acceptance": "failed",
+  "policy_unchanged": true,
+  "policy_hash": "fce9be03ab787b19028243dc894960c342d0fcf75ad7043bb222184ca8655b09",
+  "native_binary_hash": "17328f430753e9c318c71ba44dd2a0c3ad498d56829f9d3c5493df9c69c43cfa",
+  "original_acceptance": {
+    "checks": 154,
+    "previous_failed": 54,
+    "previous_failure_counts": {
+      "bucket_sum_vs_local_parallel_vega": 24,
+      "projection_residual": 24,
+      "bucket_sum_vs_crn": 6
+    },
+    "all_previous_failures_resolved": true,
+    "failed": 6,
+    "remaining_failures": [
+      {
+        "check": "hedge_grid_stability",
+        "passed": false,
+        "observed": 0.05395620405474984,
+        "limit": 0.05,
+        "seed": 7,
+        "nodes": 9
+      },
+      {
+        "check": "hedge_grid_stability",
+        "passed": false,
+        "observed": 0.9807645049435407,
+        "limit": 0.05,
+        "seed": 7,
+        "nodes": 33
+      },
+      {
+        "check": "hedge_grid_stability",
+        "passed": false,
+        "observed": 0.054024483844390174,
+        "limit": 0.05,
+        "seed": 41,
+        "nodes": 9
+      },
+      {
+        "check": "hedge_grid_stability",
+        "passed": false,
+        "observed": 0.9807246287269379,
+        "limit": 0.05,
+        "seed": 41,
+        "nodes": 33
+      },
+      {
+        "check": "hedge_grid_stability",
+        "passed": false,
+        "observed": 0.053967832048044395,
+        "limit": 0.05,
+        "seed": 97,
+        "nodes": 9
+      },
+      {
+        "check": "hedge_grid_stability",
+        "passed": false,
+        "observed": 0.9807724548961697,
+        "limit": 0.05,
+        "seed": 97,
+        "nodes": 33
+      }
+    ],
+    "price_delta_local_vega_means_and_standard_errors_bitwise_unchanged": true,
+    "max_bucket_sum_vs_local_vega_absolute_difference": 3.552713678800501e-15,
+    "observations": [
+      {
+        "seed": 7,
+        "samples": 1024,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.671209577485793,
+        "price_se": 0.1199808008312082,
+        "delta": 0.5201992966877425,
+        "delta_se": 0.004003237356802462,
+        "local_vega": 23.248972713636544,
+        "local_vega_se": 0.666484009483892,
+        "bucket_sum": 23.248972713636547,
+        "signed_residual": 0.0,
+        "pre_projection": 23.248972713636547
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 2,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.681950799351033,
+        "price_se": 0.06348899802273325,
+        "delta": 0.5217260240539482,
+        "delta_se": 0.001966480650028011,
+        "local_vega": 23.375993968213017,
+        "local_vega_se": 0.35706010336725824,
+        "bucket_sum": 23.375993968213017,
+        "signed_residual": 0.0,
+        "pre_projection": 23.375993968213017
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 4,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.775632341036497,
+        "price_se": 0.06304252045774694,
+        "delta": 0.5248389588154759,
+        "delta_se": 0.0018943802046231695,
+        "local_vega": 23.866480603170633,
+        "local_vega_se": 0.35368950516739106,
+        "bucket_sum": 23.866480603170636,
+        "signed_residual": 0.0,
+        "pre_projection": 23.866480603170636
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 9,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.730122100584759,
+        "price_se": 0.06098831715654355,
+        "delta": 0.5234229192135382,
+        "delta_se": 0.001918561697534663,
+        "local_vega": 23.578940572005273,
+        "local_vega_se": 0.3406896696623475,
+        "bucket_sum": 23.578940572005276,
+        "signed_residual": 0.0,
+        "pre_projection": 23.578940572005276,
+        "hedge_quantities": [
+          0.6661375645825867,
+          0.7076664908148823
+        ]
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.730122100584759,
+        "price_se": 0.06098831715654355,
+        "delta": 0.5234229192135382,
+        "delta_se": 0.0019185616975346607,
+        "local_vega": 23.578940572005273,
+        "local_vega_se": 0.3406896696623475,
+        "bucket_sum": 23.578940572005276,
+        "signed_residual": 0.0,
+        "pre_projection": 23.578940572005276,
+        "hedge_quantities": [
+          0.6899095644648595,
+          0.7575808992467904
+        ],
+        "crn_parallel_vegas": [
+          23.57894055647236,
+          23.57894018392681
+        ]
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 33,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.730122100584759,
+        "price_se": 0.06098831715654355,
+        "delta": 0.5234229192135388,
+        "delta_se": 0.001918561697534665,
+        "local_vega": 23.578940572005273,
+        "local_vega_se": 0.3406896696623475,
+        "bucket_sum": 23.578940572005276,
+        "signed_residual": 0.0,
+        "pre_projection": 23.578940572005276,
+        "hedge_quantities": [
+          0.0,
+          0.0268781960419008
+        ]
+      },
+      {
+        "seed": 7,
+        "samples": 4096,
+        "steps": 16,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.686182289625119,
+        "price_se": 0.062351817958762205,
+        "delta": 0.522831365134987,
+        "delta_se": 0.001926596675851721,
+        "local_vega": 23.37138452471218,
+        "local_vega_se": 0.3490619148432453,
+        "bucket_sum": 23.371384524712177,
+        "signed_residual": 0.0,
+        "pre_projection": 23.371384524712177
+      },
+      {
+        "seed": 7,
+        "samples": 16384,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.676552839578008,
+        "price_se": 0.03134910713683233,
+        "delta": 0.5221513617945721,
+        "delta_se": 0.00097435169890067,
+        "local_vega": 23.32887919522053,
+        "local_vega_se": 0.17571157799699325,
+        "bucket_sum": 23.32887919522053,
+        "signed_residual": 0.0,
+        "pre_projection": 23.32887919522053
+      },
+      {
+        "seed": 41,
+        "samples": 1024,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.6373658116921925,
+        "price_se": 0.12186740903958414,
+        "delta": 0.5285456009213495,
+        "delta_se": 0.003367581507434465,
+        "local_vega": 23.051330421991704,
+        "local_vega_se": 0.6849214961185206,
+        "bucket_sum": 23.051330421991707,
+        "signed_residual": 0.0,
+        "pre_projection": 23.051330421991707
+      },
+      {
+        "seed": 41,
+        "samples": 4096,
+        "steps": 2,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.715617140260091,
+        "price_se": 0.0630069796012302,
+        "delta": 0.5223075750052477,
+        "delta_se": 0.001957051131768326,
+        "local_vega": 23.549314832744386,
+        "local_vega_se": 0.35274033803645455,
+        "bucket_sum": 23.549314832744386,
+        "signed_residual": 0.0,
+        "pre_projection": 23.549314832744386
+      },
+      {
+        "seed": 41,
+        "samples": 4096,
+        "steps": 4,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.828781250139459,
+        "price_se": 0.06372249135647817,
+        "delta": 0.5241248185148798,
+        "delta_se": 0.0019412341258878095,
+        "local_vega": 24.175075382590755,
+        "local_vega_se": 0.357557870157687,
+        "bucket_sum": 24.175075382590755,
+        "signed_residual": 0.0,
+        "pre_projection": 24.175075382590755
+      },
+      {
+        "seed": 41,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 9,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.765668185497003,
+        "price_se": 0.06259605969302715,
+        "delta": 0.5276407320250532,
+        "delta_se": 0.001785662596643315,
+        "local_vega": 23.79207921575898,
+        "local_vega_se": 0.35123436384842305,
+        "bucket_sum": 23.792079215758985,
+        "signed_residual": 0.0,
+        "pre_projection": 23.792079215758985,
+        "hedge_quantities": [
+          0.6648651160956216,
+          0.7078328820020672
+        ]
+      },
+      {
+        "seed": 41,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.765668185497003,
+        "price_se": 0.06259605969302715,
+        "delta": 0.5276407320250529,
+        "delta_se": 0.001785662596643315,
+        "local_vega": 23.79207921575898,
+        "local_vega_se": 0.35123436384842305,
+        "bucket_sum": 23.792079215758985,
+        "signed_residual": 0.0,
+        "pre_projection": 23.792079215758985,
+        "hedge_quantities": [
+          0.6885628088590281,
+          0.7578162692150809
+        ],
+        "crn_parallel_vegas": [
+          23.79207920155224,
+          23.792100910652536
+        ]
+      },
+      {
+        "seed": 41,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 33,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.765668185497003,
+        "price_se": 0.06259605969302715,
+        "delta": 0.5276407320250536,
+        "delta_se": 0.00178566259664332,
+        "local_vega": 23.79207921575898,
+        "local_vega_se": 0.35123436384842305,
+        "bucket_sum": 23.792079215758985,
+        "signed_residual": 0.0,
+        "pre_projection": 23.792079215758985,
+        "hedge_quantities": [
+          0.0,
+          0.026886546186471266
+        ]
+      },
+      {
+        "seed": 41,
+        "samples": 4096,
+        "steps": 16,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.784681485401398,
+        "price_se": 0.06350115241650692,
+        "delta": 0.5258535714192483,
+        "delta_se": 0.0018611684947619533,
+        "local_vega": 23.923204239949104,
+        "local_vega_se": 0.35615051966239086,
+        "bucket_sum": 23.9232042399491,
+        "signed_residual": 0.0,
+        "pre_projection": 23.9232042399491
+      },
+      {
+        "seed": 41,
+        "samples": 16384,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.722592473050418,
+        "price_se": 0.031326692877668906,
+        "delta": 0.5249199596654035,
+        "delta_se": 0.0009353488077671373,
+        "local_vega": 23.56909075450357,
+        "local_vega_se": 0.1755762566205535,
+        "bucket_sum": 23.56909075450357,
+        "signed_residual": 0.0,
+        "pre_projection": 23.56909075450357
+      },
+      {
+        "seed": 97,
+        "samples": 1024,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.973779562021748,
+        "price_se": 0.13071000622573073,
+        "delta": 0.5284520110873957,
+        "delta_se": 0.003698843894439741,
+        "local_vega": 24.988649601979976,
+        "local_vega_se": 0.7354052622836111,
+        "bucket_sum": 24.988649601979976,
+        "signed_residual": 0.0,
+        "pre_projection": 24.988649601979976
+      },
+      {
+        "seed": 97,
+        "samples": 4096,
+        "steps": 2,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.713929296273739,
+        "price_se": 0.06320673488788758,
+        "delta": 0.523710370596023,
+        "delta_se": 0.001913443385877638,
+        "local_vega": 23.539235891418784,
+        "local_vega_se": 0.3539063706863813,
+        "bucket_sum": 23.539235891418787,
+        "signed_residual": 0.0,
+        "pre_projection": 23.539235891418787
+      },
+      {
+        "seed": 97,
+        "samples": 4096,
+        "steps": 4,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.752027357380523,
+        "price_se": 0.06324444452483542,
+        "delta": 0.5248406289773835,
+        "delta_se": 0.0018880592642102887,
+        "local_vega": 23.743254677604835,
+        "local_vega_se": 0.35448519817825963,
+        "bucket_sum": 23.74325467760484,
+        "signed_residual": 0.0,
+        "pre_projection": 23.74325467760484
+      },
+      {
+        "seed": 97,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 9,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.770871608006565,
+        "price_se": 0.06332140434745191,
+        "delta": 0.5239398808868634,
+        "delta_se": 0.0019263507658793145,
+        "local_vega": 23.850563836264516,
+        "local_vega_se": 0.3551094943508211,
+        "bucket_sum": 23.850563836264516,
+        "signed_residual": 0.0,
+        "pre_projection": 23.850563836264516,
+        "hedge_quantities": [
+          0.6667956488007971,
+          0.7080689343394698
+        ]
+      },
+      {
+        "seed": 97,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.770871608006565,
+        "price_se": 0.06332140434745191,
+        "delta": 0.5239398808868644,
+        "delta_se": 0.0019263507658793186,
+        "local_vega": 23.850563836264516,
+        "local_vega_se": 0.3551094943508211,
+        "bucket_sum": 23.850563836264516,
+        "signed_residual": 0.0,
+        "pre_projection": 23.850563836264516,
+        "hedge_quantities": [
+          0.6906117087518043,
+          0.7580233670372887
+        ],
+        "crn_parallel_vegas": [
+          23.85056382247175,
+          23.8505634915942
+        ]
+      },
+      {
+        "seed": 97,
+        "samples": 4096,
+        "steps": 8,
+        "nodes": 33,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.770871608006565,
+        "price_se": 0.06332140434745191,
+        "delta": 0.5239398808868635,
+        "delta_se": 0.0019263507658793173,
+        "local_vega": 23.850563836264516,
+        "local_vega_se": 0.3551094943508211,
+        "bucket_sum": 23.850563836264516,
+        "signed_residual": 0.0,
+        "pre_projection": 23.850563836264516,
+        "hedge_quantities": [
+          0.0,
+          0.026893445986662746
+        ]
+      },
+      {
+        "seed": 97,
+        "samples": 4096,
+        "steps": 16,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.813382680180121,
+        "price_se": 0.06326078293644688,
+        "delta": 0.5280838282949646,
+        "delta_se": 0.001790925275941107,
+        "local_vega": 24.066476062142787,
+        "local_vega_se": 0.3550620372805319,
+        "bucket_sum": 24.066476062142783,
+        "signed_residual": 0.0,
+        "pre_projection": 24.066476062142783
+      },
+      {
+        "seed": 97,
+        "samples": 16384,
+        "steps": 8,
+        "nodes": 17,
+        "native_policy": "flat_variance_terminal_measure_pathwise_v1",
+        "native_truncation_order": "not_applicable",
+        "price": 4.694562268932724,
+        "price_se": 0.031361786815919356,
+        "delta": 0.5221240265541294,
+        "delta_se": 0.0009780241367896368,
+        "local_vega": 23.42824126530152,
+        "local_vega_se": 0.17555421605364246,
+        "bucket_sum": 23.428241265301523,
+        "signed_residual": 0.0,
+        "pre_projection": 23.428241265301523
+      }
+    ]
+  },
+  "deterministic_reference": {
+    "checks": 96,
+    "failed": 0,
+    "max_absolute_errors": {
+      "terminal_bucket_absolute_error": 0,
+      "source_hat_unconditional_quadrature": 7.105427357601002e-15,
+      "expected_local_parallel_absolute_error": 1.7763568394002505e-14
+    },
+    "retained_original_three_percent_counterexamples": [
+      {
+        "check": "original_three_percent_vs_native",
+        "passed": false,
+        "observed": 0.05623399776920926,
+        "limit": 0.03,
+        "standard_errors": 1.9107990356361526,
+        "seed": 97,
+        "samples": 1024,
+        "steps": 8,
+        "nodes": 17
+      }
+    ]
+  },
+  "hedge_grid_investigation": {
+    "diagnostic_only": true,
+    "original_exact_risk_failure_count": 6,
+    "common_quote_nodes": [
+      -0.8,
+      -0.6000000000000001,
+      -0.4,
+      -0.19999999999999996,
+      0.0,
+      0.19999999999999996,
+      0.40000000000000013,
+      0.6000000000000001,
+      0.8
+    ],
+    "max_native_common_quantity_relative_change": 1.0785308569744714e-15,
+    "max_native_common_risk_absolute_difference": 3.552713678800501e-15,
+    "observations": [
+      {
+        "seed": 7,
+        "nodes": 9,
+        "native_original_quantities": [
+          0.6661375645825867,
+          0.7076664908148823
+        ],
+        "exact_original_quantities": [
+          0.6686539050005791,
+          0.7088506891605565
+        ],
+        "native_common_shock_quantities": [
+          0.6661375645825867,
+          0.7076664908148823
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005791,
+          0.7088506891605565
+        ],
+        "exact_original_relative_change": 0.05390319596752643,
+        "native_common_relative_change": 0.0,
+        "exact_common_relative_change": 0.0,
+        "native_common_max_risk_difference": 0.0
+      },
+      {
+        "seed": 7,
+        "nodes": 17,
+        "native_original_quantities": [
+          0.6899095644648595,
+          0.7575808992467904
+        ],
+        "exact_original_quantities": [
+          0.6925535305575939,
+          0.7588043904543322
+        ],
+        "native_common_shock_quantities": [
+          0.6661375645825861,
+          0.7076664908148828
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005798,
+          0.7088506891605558
+        ],
+        "exact_original_relative_change": 0.0,
+        "native_common_relative_change": 7.314657962783132e-16,
+        "exact_common_relative_change": 9.667486909057981e-16,
+        "native_common_max_risk_difference": 3.552713678800501e-15
+      },
+      {
+        "seed": 7,
+        "nodes": 33,
+        "native_original_quantities": [
+          0.0,
+          0.0268781960419008
+        ],
+        "exact_original_quantities": [
+          0.0,
+          0.026921344156163443
+        ],
+        "native_common_shock_quantities": [
+          0.6661375645825862,
+          0.7076664908148825
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005789,
+          0.7088506891605565
+        ],
+        "exact_original_relative_change": 0.9808036415503514,
+        "native_common_relative_change": 5.108778724399924e-16,
+        "exact_common_relative_change": 2.2786485168090253e-16,
+        "native_common_max_risk_difference": 1.7763568394002505e-15
+      },
+      {
+        "seed": 41,
+        "nodes": 9,
+        "native_original_quantities": [
+          0.6648651160956216,
+          0.7078328820020672
+        ],
+        "exact_original_quantities": [
+          0.6686539050005791,
+          0.7088506891605565
+        ],
+        "native_common_shock_quantities": [
+          0.6648651160956216,
+          0.7078328820020672
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005791,
+          0.7088506891605565
+        ],
+        "exact_original_relative_change": 0.05390319596752643,
+        "native_common_relative_change": 0.0,
+        "exact_common_relative_change": 0.0,
+        "native_common_max_risk_difference": 0.0
+      },
+      {
+        "seed": 41,
+        "nodes": 17,
+        "native_original_quantities": [
+          0.6885628088590281,
+          0.7578162692150809
+        ],
+        "exact_original_quantities": [
+          0.6925535305575939,
+          0.7588043904543322
+        ],
+        "native_common_shock_quantities": [
+          0.6648651160956222,
+          0.7078328820020663
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005798,
+          0.7088506891605558
+        ],
+        "exact_original_relative_change": 0.0,
+        "native_common_relative_change": 1.0785308569744714e-15,
+        "exact_common_relative_change": 9.667486909057981e-16,
+        "native_common_max_risk_difference": 3.552713678800501e-15
+      },
+      {
+        "seed": 41,
+        "nodes": 33,
+        "native_original_quantities": [
+          0.0,
+          0.026886546186471266
+        ],
+        "exact_original_quantities": [
+          0.0,
+          0.026921344156163443
+        ],
+        "native_common_shock_quantities": [
+          0.6648651160956215,
+          0.7078328820020671
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005789,
+          0.7088506891605565
+        ],
+        "exact_original_relative_change": 0.9808036415503514,
+        "native_common_relative_change": 1.616786109724459e-16,
+        "exact_common_relative_change": 2.2786485168090253e-16,
+        "native_common_max_risk_difference": 3.552713678800501e-15
+      },
+      {
+        "seed": 97,
+        "nodes": 9,
+        "native_original_quantities": [
+          0.6667956488007971,
+          0.7080689343394698
+        ],
+        "exact_original_quantities": [
+          0.6686539050005791,
+          0.7088506891605565
+        ],
+        "native_common_shock_quantities": [
+          0.6667956488007971,
+          0.7080689343394698
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005791,
+          0.7088506891605565
+        ],
+        "exact_original_relative_change": 0.05390319596752643,
+        "native_common_relative_change": 0.0,
+        "exact_common_relative_change": 0.0,
+        "native_common_max_risk_difference": 0.0
+      },
+      {
+        "seed": 97,
+        "nodes": 17,
+        "native_original_quantities": [
+          0.6906117087518043,
+          0.7580233670372887
+        ],
+        "exact_original_quantities": [
+          0.6925535305575939,
+          0.7588043904543322
+        ],
+        "native_common_shock_quantities": [
+          0.6667956488007971,
+          0.7080689343394698
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005798,
+          0.7088506891605558
+        ],
+        "exact_original_relative_change": 0.0,
+        "native_common_relative_change": 0.0,
+        "exact_common_relative_change": 9.667486909057981e-16,
+        "native_common_max_risk_difference": 0.0
+      },
+      {
+        "seed": 97,
+        "nodes": 33,
+        "native_original_quantities": [
+          0.0,
+          0.026893445986662746
+        ],
+        "exact_original_quantities": [
+          0.0,
+          0.026921344156163443
+        ],
+        "native_common_shock_quantities": [
+          0.6667956488007971,
+          0.7080689343394698
+        ],
+        "exact_common_shock_quantities": [
+          0.6686539050005789,
+          0.7088506891605565
+        ],
+        "exact_original_relative_change": 0.9808036415503514,
+        "native_common_relative_change": 0.0,
+        "exact_common_relative_change": 2.2786485168090253e-16,
+        "native_common_max_risk_difference": 1.7763568394002505e-15
+      }
+    ],
+    "limitations": [
+      "Common shocks restrict the risk objective; they do not demonstrate hedging of independent fine-grid quote shocks.",
+      "Nested linear log-IV hats and unchanged maturity grid only.",
+      "The original six failed hedge-grid comparisons remain failed; no threshold is changed."
+    ]
+  },
+  "legacy_initial_loss_probe": {
+    "status": "not_applicable",
+    "exit_code": 2,
+    "checks": 0,
+    "not_applicable_cases": 12,
+    "paper_vega_kt_acceptance": "not_established"
+  },
+  "validation": {
+    "rust_integration_tests": 76,
+    "rust_local_vol_library_tests": 46,
+    "rust_signed_spread_sample_tests": 1,
+    "python_vega_kt_tests": 30,
+    "python_native_smoke_tests": 2,
+    "clippy": "passed",
+    "strict_stub_and_native_api": "passed",
+    "v3_wire_roundtrip_and_schema": "passed",
+    "existing_nonflat_local_vol_replay": "bitwise_unchanged",
+    "final_wheel_binary_matches_numerical_reports": true
+  },
+  "report_sha256": {
+    "benchmark-results/vega-kt-numerics/terminal-measure/report.json": "74834b8de6bb1c37140499c4f2a2adacc074c6d89164840d2d03a44c0ab356fe",
+    "benchmark-results/vega-kt-numerics/terminal-pathwise/report.json": "264bc89d48c8b40880ffef71db62a54513cdd8821af228acef1ab55a4743a0af",
+    "benchmark-results/vega-kt-terminal-pathwise/deterministic-reference.json": "eeb4288f9495aafeca21557f06b8c185696fcff60dfe988a660980bd5b0fa7e1",
+    "benchmark-results/vega-kt-terminal-pathwise/hedge-grid.json": "fd8bfcdd5e955eb1961a35cc4fdef96f881d0b5054eabf04e26aeaf4b7acd583",
+    "benchmark-results/vega-kt-terminal-pathwise/legacy-allocation-probe/report.json": "cb20b081ddaaee74982430e63fae33a5a14285963db06f388467be0333d29f37"
+  },
+  "files_sha256": {
+    "crates/pricing/src/engine/risk/vegakt_terminal_pathwise.rs": "c82349789a79aee187210739b76c007234a0c0b5ed57bd2990e5e19391598ead",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "c43da49ffc9728854f3d3792c8fdeaafdbd05142ee91333e5da09ba3579293de",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "17819955e64bf678552c5c635dd810d029bb2fa52201978d03d889efd1dc4594",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "a383441759fc37a7eed87245c70d5b540bab950e28a8737d73f42e20229923b5",
+    "crates/pricing/src/engine/risk/pathwise_local_vol.rs": "ebab88b1d498921ed1fb7a2618e4df7e5fb23e18fb738cde39da14ee5a9c2667",
+    "crates/pricing/src/engine/risk/local_vol_allocation.rs": "fc25f13634d41a097faa2b171050f393caaeb6ffc033465c03abe131961747df",
+    "crates/pricing/src/engine/risk/report.rs": "400db21bd36cbd41fa79116854d1f6abb63deb1aa706637596c1b519cd8d7039",
+    "crates/pricing/src/engine/risk/mod.rs": "e72c541bb6f220c7a8e4e5c0f5c81f06b12b23d27dfef3273ca73983c67cf249",
+    "crates/pricing/src/engine/plan/simulation.rs": "4ed5d104890622a920ce248b4358300f2e5683acea3bab3e27e98ca6a2ef1e86",
+    "crates/pricing/src/engine/compile/simulation.rs": "d1aaa7ff33aa2229ae38095a6473f0c315b3be8ac65f8042948954f0b6b63caf",
+    "crates/pricing/src/engine/plan/tests.rs": "745c32da72b44e72138ccd00eb0025cbcc56e80dda53f1f8a2569c796bb7f6b1",
+    "crates/pricing/tests/local_vol_vegakt_pricing.rs": "6f85564370cf7bf0a91841324546a9c70eebe27820b6ea55ae81bfd91bf2223c",
+    "tests/python/test_vega_kt_terminal.py": "3d44e2f77fe4c27e90dadfe0a83a601962d60eba2b1ffc10ff8c2849368e8cbd",
+    "tests/python/test_vega_kt_backtest.py": "57f5dd246981e39d78f7442ca81434403c915bd75d125e9770db0fef1f7368be",
+    "backtesting/rust_pricing_backtest/numerics.py": "73557626e9420dece88dd374f1ae56793ea92bbe2f2d738a3abb92b1c6119b40",
+    "backtesting/rust_pricing_backtest/allocation_probe.py": "d6e9a69bc22ec8e1c46e9831aa74913e6c62d6599af5cbb515a60c49c49199dc",
+    "scripts/check_vega_kt_terminal_measure.py": "994d6fd8a44c99e5c0f0716a3da99a93f2f827882c8d588ff57cfb563d678030",
+    "scripts/analyze_vega_kt_hedge_grid.py": "e611d3f4c6aa9b93e3ac6bfb8b028dd1d4dc340fbc00516c81c57c7545ab622b",
+    "scripts/check_source_archive.py": "8c8aa1b0e887c4a229fe2641bdd1e5b98f8ed14643636a1f5751b9703380b655",
+    "fixtures/backtesting/numerical-policy-v0.1.json": "6e3715fe42a6c38193508338d0260bbffad5706202153e5c7222984ec4343e55",
+    "docs/models/local-vol-vegakt-diagnostics.md": "a3f6e24fde3309162f8a8c8217940de108ba601321d37b8761ffd47784599d9a",
+    "docs/models/local-vol-vegakt-calculation-specifications.md": "857dad415c0706421656140e582f1a3cfecc73f3a6db3c46089b078478eccd86",
+    "docs/library/vega-kt-backtesting.md": "f6e4702ba2698026c0ccffbaa24930412b92ccd78f7d21b9fa4b72fef651cdab",
+    "design/roadmaps/vega-kt-hedging-backtest-roadmap-v0.1.md": "e2f015d34d786f6b6c438f010843df5e9dbe7a911ef3f18f8320dc5b57124e05",
+    "design/validation/local-vol-terminal-pathwise-v0.1.md": "0b565d28377539ac69530850c44ec6d17c365d083a229e679f46789b4ed2363f"
+  },
+  "limitations": [
+    "Only continuous single-terminal piecewise-affine payoffs in a spatially flat zero-carry model are eligible.",
+    "General smile/noisy-adjoint recovery remains on the explicitly labelled diagnostic fallback.",
+    "The frozen original numerical gate remains failed with six hedge-grid comparisons; no acceptance thresholds or check definitions changed.",
+    "Common market shocks are an investigation in a restricted shock subspace, not evidence that independent fine-grid shocks can be hedged.",
+    "Backtesting providers remain unvalidated and require diagnostic_only."
+  ]
+}

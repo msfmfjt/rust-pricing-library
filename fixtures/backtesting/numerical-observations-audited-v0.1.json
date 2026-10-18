@@ -1,0 +1,2281 @@
+{
+  "document_kind": "backtest_numerical_acceptance",
+  "schema_version": 1,
+  "status": "failed",
+  "policy": {
+    "policy_id": "backtest_numerical_acceptance_v1",
+    "description": "Predeclared constant-volatility, common-random-number and grid/seed checks. No quote-node independence assumption is used: the Vega reference shifts the entire flat IV surface and corresponding local variance together.",
+    "valuation_date": "2026-01-05",
+    "expiry_days": 128,
+    "spot": 100.0,
+    "strike": 100.0,
+    "volatility": 0.2,
+    "rate": 0.0,
+    "log_moneyness_extent": 0.8,
+    "density_threshold": 1e-12,
+    "volatility_bumps": [
+      0.0001,
+      0.0005
+    ],
+    "seeds": [
+      7,
+      41,
+      97
+    ],
+    "sampling_units": [
+      1024,
+      4096,
+      16384
+    ],
+    "time_steps": [
+      2,
+      4,
+      8,
+      16
+    ],
+    "strike_nodes": [
+      9,
+      17,
+      33
+    ],
+    "base_sampling_units": 4096,
+    "base_time_steps": 8,
+    "base_strike_nodes": 17,
+    "statistical_multiplier": 6.0,
+    "price_absolute_tolerance": 0.002,
+    "delta_absolute_tolerance": 0.002,
+    "parallel_vega_relative_tolerance": 0.03,
+    "projection_residual_relative_tolerance": 0.03,
+    "spatial_refinement_relative_tolerance": 0.05,
+    "crn_bump_relative_tolerance": 0.02,
+    "hedge_quantity_relative_tolerance": 0.05,
+    "hedge_strikes": [
+      95.0,
+      105.0
+    ],
+    "hedge_ridge": 0.0001,
+    "hedge_position_limit": 100.0,
+    "solver_tolerance": 1e-10,
+    "max_standard_error_ratio": 0.4
+  },
+  "policy_hash": "fce9be03ab787b19028243dc894960c342d0fcf75ad7043bb222184ca8655b09",
+  "native_binary_hash": "9ddc44bb208e16e573aba5ffbc83fbba5a1b8b6a0151186c592e49f5f25db18c",
+  "runner_hash": "73557626e9420dece88dd374f1ae56793ea92bbe2f2d738a3abb92b1c6119b40",
+  "python": "3.13.1",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "numpy": "2.5.3",
+  "execution": {
+    "worker_threads": 1,
+    "reduction_block_size": 256,
+    "antithetic": true
+  },
+  "oracle": {
+    "price": 4.722205027070032,
+    "delta": 0.5236110251353502,
+    "vega": 23.583437936006682
+  },
+  "checks": [
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.050995449584239516,
+      "limit": 0.7218848049872492,
+      "seed": 7,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0034117284476077314,
+      "limit": 0.026019424140814776,
+      "seed": 7,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.3344652223701381,
+      "limit": 4.706407194983552,
+      "seed": 7,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12461297934375533,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.12461297934375538,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.040254227718999225,
+      "limit": 0.3829339881363995,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0018850010814019935,
+      "limit": 0.013798883900168066,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.20744396779366525,
+      "limit": 2.8498637582837496,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.4930671228465675,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.4930671228465675,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.053427313966464496,
+      "limit": 0.38025512274648166,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0012279336801257479,
+      "limit": 0.013366281227739018,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.28304266716395077,
+      "limit": 2.8296401690845467,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.2394935963459787,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.23949359634597886,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.007917073514726702,
+      "limit": 0.3679299029392613,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.00018810592181195407,
+      "limit": 0.013511370185207977,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.00449736400140921,
+      "limit": 2.7516411560542853,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12010148810268506,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1201014881026851,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.007917073514726702,
+      "limit": 0.3679299029392613,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.00018810592181195407,
+      "limit": 0.013511370185207964,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.00449736400140921,
+      "limit": 2.7516411560542853,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12010148810268506,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1201014881026851,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_vs_crn",
+      "passed": true,
+      "observed": 6.587620766267029e-10,
+      "limit": 0.02,
+      "bump": 0.0001,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_crn",
+      "passed": false,
+      "observed": 0.12010148752304128,
+      "limit": 0.03,
+      "bump": 0.0001,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_vs_crn",
+      "passed": true,
+      "observed": 1.6458689779237015e-08,
+      "limit": 0.02,
+      "bump": 0.0005,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_crn",
+      "passed": false,
+      "observed": 0.12010147362070842,
+      "limit": 0.03,
+      "bump": 0.0005,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.007917073514726702,
+      "limit": 0.3679299029392613,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.00018810592181139896,
+      "limit": 0.013511370185207991,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.00449736400140921,
+      "limit": 2.7516411560542853,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12010148810268506,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1201014881026851,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.03602273744491313,
+      "limit": 0.3761109077525732,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0007796600003632248,
+      "limit": 0.013559580055110326,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.21205341129450161,
+      "limit": 2.8018746271396724,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.06401853628208443,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.0640185362820845,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.045652187492024154,
+      "limit": 0.19009464282099398,
+      "seed": 7,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0014596633407780724,
+      "limit": 0.00784611019340402,
+      "seed": 7,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.2545587407861518,
+      "limit": 1.76177260606216,
+      "seed": 7,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12592406925910773,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.12592406925910765,
+      "limit": 0.03,
+      "seed": 7,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.08483921537783967,
+      "limit": 0.7332044542375048,
+      "seed": 41,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.004934575785999318,
+      "limit": 0.022205489044606792,
+      "seed": 41,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.532107514014978,
+      "limit": 4.817032114791324,
+      "seed": 41,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.140272914379892,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.14027291437989198,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.006587886809941601,
+      "limit": 0.3800418776073812,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0013034501301024681,
+      "limit": 0.013742306790609955,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.03412310326229573,
+      "limit": 2.8239451662989277,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.5183366295324792,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.5183366295324792,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.10657622306942649,
+      "limit": 0.38433494813886904,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0005137933795296146,
+      "limit": 0.013647404755326857,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.5916374465840732,
+      "limit": 2.8528503590263226,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.2600256764718797,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.26002567647187963,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.04346315842697113,
+      "limit": 0.3775763581581629,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.004029706889703055,
+      "limit": 0.01271397557985989,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.20864127975229962,
+      "limit": 2.814909321170739,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.1441822950253595,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.14418229502535956,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.04346315842697113,
+      "limit": 0.3775763581581629,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.004029706889702722,
+      "limit": 0.01271397557985989,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.20864127975229962,
+      "limit": 2.814909321170739,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.1441822950253595,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.14418229502535956,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_vs_crn",
+      "passed": true,
+      "observed": 5.971206027187013e-10,
+      "limit": 0.02,
+      "bump": 0.0001,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_crn",
+      "passed": false,
+      "observed": 0.14418229451433315,
+      "limit": 0.03,
+      "bump": 0.0001,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_vs_crn",
+      "passed": true,
+      "observed": 9.118527882844996e-07,
+      "limit": 0.02,
+      "bump": 0.0005,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_crn",
+      "passed": false,
+      "observed": 0.14418307540512007,
+      "limit": 0.03,
+      "bump": 0.0005,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.04346315842697113,
+      "limit": 0.3775763581581629,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.004029706889703388,
+      "limit": 0.01271397557985992,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.20864127975229962,
+      "limit": 2.814909321170739,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.1441822950253595,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.14418229502535956,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.06247645833136595,
+      "limit": 0.3830069144990415,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0022425462838980836,
+      "limit": 0.01316701096857172,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.33976630394242235,
+      "limit": 2.844406256054546,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.06987587091659923,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.06987587091659925,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.00038744598038586986,
+      "limit": 0.18996015726601345,
+      "seed": 41,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0013089345300533184,
+      "limit": 0.007612092846602823,
+      "seed": 41,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.014347181503111983,
+      "limit": 1.7609606778035214,
+      "seed": 41,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12748742034862812,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.12748742034862812,
+      "limit": 0.03,
+      "seed": 41,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.25157453495171556,
+      "limit": 0.7862600373543844,
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.004840985952045518,
+      "limit": 0.024193063366638443,
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 1.4052116659732938,
+      "limit": 5.119934711781868,
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.11268267594055027,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1126826759405502,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.008275730796293068,
+      "limit": 0.3812404093273255,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 9.934546067280614e-05,
+      "limit": 0.013480660315265828,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.044202044587898115,
+      "limit": 2.8309413621984882,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.49372278238394296,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.49372278238394307,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.029822330310491196,
+      "limit": 0.38146666714901256,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0012296038420333,
+      "limit": 0.013328355585261733,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.15981674159815284,
+      "limit": 2.8344143271497586,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.2361911428953679,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.23619114289536802,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.04866658093653253,
+      "limit": 0.38192842608471145,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0003288557515132018,
+      "limit": 0.013558104595275887,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.26712590025783456,
+      "limit": 2.8381601041851274,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.11179616907351965,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1117961690735196,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.04866658093653253,
+      "limit": 0.38192842608471145,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.000328855751514201,
+      "limit": 0.013558104595275912,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.26712590025783456,
+      "limit": 2.8381601041851274,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.11179616907351965,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1117961690735196,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_vs_crn",
+      "passed": true,
+      "observed": 5.782994448027128e-10,
+      "limit": 0.02,
+      "bump": 0.0001,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_crn",
+      "passed": false,
+      "observed": 0.11179616855987187,
+      "limit": 0.03,
+      "bump": 0.0001,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_vs_crn",
+      "passed": true,
+      "observed": 1.4451244119294183e-08,
+      "limit": 0.02,
+      "bump": 0.0005,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_crn",
+      "passed": false,
+      "observed": 0.11179615623786927,
+      "limit": 0.03,
+      "bump": 0.0005,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.04866658093653253,
+      "limit": 0.38192842608471145,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0003288557515133128,
+      "limit": 0.013558104595275905,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.26712590025783456,
+      "limit": 2.8381601041851274,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.11179616907351965,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.1117961690735196,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.09117765311008874,
+      "limit": 0.3815646976186813,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0044728031596144024,
+      "limit": 0.012745551655646642,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.48303812613610475,
+      "limit": 2.837875361763392,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.05780148047072146,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.05780148047072143,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17
+    },
+    {
+      "check": "price_analytic",
+      "passed": true,
+      "observed": 0.027642758137307766,
+      "limit": 0.19017072089551612,
+      "seed": 97,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "delta_analytic",
+      "passed": true,
+      "observed": 0.0014869985812208109,
+      "limit": 0.00786814482073782,
+      "seed": 97,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "local_vega_analytic",
+      "passed": true,
+      "observed": 0.15519667070516263,
+      "limit": 1.760828434402055,
+      "seed": 97,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_vs_local_parallel_vega",
+      "passed": false,
+      "observed": 0.12040362522937152,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "projection_residual",
+      "passed": false,
+      "observed": 0.12040362522937158,
+      "limit": 0.03,
+      "seed": 97,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17
+    },
+    {
+      "check": "hedge_seed_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 7
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 7,
+      "nodes": 9
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.009325924125099099,
+      "limit": 0.05,
+      "seed": 7,
+      "nodes": 9
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 7,
+      "nodes": 17
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 7,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 7,
+      "nodes": 33
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.01291127665049889,
+      "limit": 0.05,
+      "seed": 7,
+      "nodes": 33
+    },
+    {
+      "check": "hedge_seed_stability",
+      "passed": true,
+      "observed": 0.01509297486968709,
+      "limit": 0.05,
+      "seed": 41
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 41,
+      "nodes": 9
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.011615982360805188,
+      "limit": 0.05,
+      "seed": 41,
+      "nodes": 9
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 41,
+      "nodes": 17
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 41,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 41,
+      "nodes": 33
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.020800193817556243,
+      "limit": 0.05,
+      "seed": 41,
+      "nodes": 33
+    },
+    {
+      "check": "hedge_seed_stability",
+      "passed": true,
+      "observed": 0.00478161906778649,
+      "limit": 0.05,
+      "seed": 97
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 97,
+      "nodes": 9
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.004614168440749812,
+      "limit": 0.05,
+      "seed": 97,
+      "nodes": 9
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 97,
+      "nodes": 17
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 97,
+      "nodes": 17
+    },
+    {
+      "check": "bucket_sum_grid_stability",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.05,
+      "seed": 97,
+      "nodes": 33
+    },
+    {
+      "check": "hedge_grid_stability",
+      "passed": true,
+      "observed": 0.012718059549230392,
+      "limit": 0.05,
+      "seed": 97,
+      "nodes": 33
+    },
+    {
+      "check": "price_se_sampling_refinement",
+      "passed": true,
+      "observed": 0.2522316634459723,
+      "limit": 0.4
+    }
+  ],
+  "limitations": [
+    "Necessary constant-volatility panel only; not complete H2/H3 acceptance.",
+    "No cross-bucket standard error is inferred from marginal errors.",
+    "CRN shifts both flat IV and matching local variance; no independent quote-node bump.",
+    "Quantity stability cannot validate an incorrect risk definition."
+  ],
+  "checkout_revision": "c76fbdff43009c9b5984ef5e769358df55ff350b",
+  "observations": [
+    {
+      "seed": 7,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.671209577485793,
+      "price_se": 0.1199808008312082,
+      "delta": 0.5201992966877425,
+      "delta_se": 0.004003237356802462,
+      "local_vega": 23.248972713636544,
+      "local_vega_se": 0.666484009483892,
+      "bucket_sum": 20.351848957108622,
+      "signed_residual": 2.897123756527923,
+      "pre_projection": 23.248972713636544,
+      "maturity_totals": [
+        3.2349072645712926,
+        3.025443178950871,
+        3.235159265408103,
+        2.631552914111669,
+        3.056645634568774,
+        2.5214752846193855,
+        2.6466654148785262,
+        0.0
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.681950799351033,
+      "price_se": 0.06348899802273325,
+      "delta": 0.5217260240539482,
+      "delta_se": 0.001966480650028011,
+      "local_vega": 23.375993968213017,
+      "local_vega_se": 0.35706010336725824,
+      "bucket_sum": 11.850059878627508,
+      "signed_residual": 11.525934089585508,
+      "pre_projection": 23.375993968213017,
+      "maturity_totals": [
+        11.850059878627507,
+        0.0
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.775632341036497,
+      "price_se": 0.06304252045774694,
+      "delta": 0.5248389588154759,
+      "delta_se": 0.0018943802046231695,
+      "local_vega": 23.866480603170633,
+      "local_vega_se": 0.35368950516739106,
+      "bucket_sum": 18.150611331395755,
+      "signed_residual": 5.715869271774881,
+      "pre_projection": 23.866480603170633,
+      "maturity_totals": [
+        5.887726534686654,
+        6.213001031098749,
+        6.0498837656103515,
+        0.0
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.730122100584759,
+      "price_se": 0.06098831715654355,
+      "delta": 0.5234229192135382,
+      "delta_se": 0.001918561697534663,
+      "local_vega": 23.578940572005273,
+      "local_vega_se": 0.3406896696623475,
+      "bucket_sum": 20.747074721422663,
+      "signed_residual": 2.83186585058261,
+      "pre_projection": 23.578940572005273,
+      "maturity_totals": [
+        3.071407373745166,
+        3.267465854973805,
+        3.0954705667151674,
+        2.8056727065836022,
+        2.936581795096841,
+        2.9347263092545526,
+        2.6357501150535283,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5408016937548171,
+        0.564593886902062
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.730122100584759,
+      "price_se": 0.06098831715654355,
+      "delta": 0.5234229192135382,
+      "delta_se": 0.0019185616975346607,
+      "local_vega": 23.578940572005273,
+      "local_vega_se": 0.3406896696623475,
+      "bucket_sum": 20.747074721422663,
+      "signed_residual": 2.83186585058261,
+      "pre_projection": 23.578940572005273,
+      "maturity_totals": [
+        3.071407373745166,
+        3.2674658549738056,
+        3.0954705667151674,
+        2.805672706583602,
+        2.936581795096842,
+        2.9347263092545526,
+        2.635750115053528,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5477305580689656,
+        0.5622325204823367
+      ],
+      "crn_parallel_vegas": [
+        23.57894055647236,
+        23.57894018392681
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.730122100584759,
+      "price_se": 0.06098831715654355,
+      "delta": 0.5234229192135388,
+      "delta_se": 0.001918561697534665,
+      "local_vega": 23.578940572005273,
+      "local_vega_se": 0.3406896696623475,
+      "bucket_sum": 20.747074721422663,
+      "signed_residual": 2.83186585058261,
+      "pre_projection": 23.578940572005273,
+      "maturity_totals": [
+        3.071407373745166,
+        3.267465854973805,
+        3.0954705667151674,
+        2.8056727065836022,
+        2.936581795096842,
+        2.934726309254553,
+        2.6357501150535283,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5413795807181924,
+        0.5543349274910717
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.686182289625119,
+      "price_se": 0.062351817958762205,
+      "delta": 0.522831365134987,
+      "delta_se": 0.001926596675851721,
+      "local_vega": 23.37138452471218,
+      "local_vega_se": 0.3490619148432453,
+      "bucket_sum": 21.875182696554347,
+      "signed_residual": 1.4962018281578349,
+      "pre_projection": 23.37138452471218,
+      "maturity_totals": [
+        1.3441458906318493,
+        1.6035976210242713,
+        1.7047812465948131,
+        1.2831389780324973,
+        1.494301884719286,
+        1.4450386921472762,
+        1.2416556399290957,
+        1.2291598948750575,
+        1.4011795374971279,
+        1.5866545372203822,
+        1.6673287476122645,
+        1.5805043209182792,
+        1.5672858842755335,
+        1.3070316541200353,
+        1.419378166956578,
+        0.0
+      ]
+    },
+    {
+      "seed": 7,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.676552839578008,
+      "price_se": 0.03134910713683233,
+      "delta": 0.5221513617945721,
+      "delta_se": 0.00097435169890067,
+      "local_vega": 23.32887919522053,
+      "local_vega_se": 0.17571157799699325,
+      "bucket_sum": 20.391211795704223,
+      "signed_residual": 2.9376673995163056,
+      "pre_projection": 23.32887919522053,
+      "maturity_totals": [
+        2.9322834232018797,
+        2.9261537883601005,
+        3.0044613590156555,
+        2.7928390459986603,
+        2.928498496657195,
+        2.9367262728492496,
+        2.8702494096214823,
+        0.0
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.6373658116921925,
+      "price_se": 0.12186740903958414,
+      "delta": 0.5285456009213495,
+      "delta_se": 0.003367581507434465,
+      "local_vega": 23.051330421991704,
+      "local_vega_se": 0.6849214961185206,
+      "bucket_sum": 19.81785312336506,
+      "signed_residual": 3.233477298626642,
+      "pre_projection": 23.051330421991704,
+      "maturity_totals": [
+        2.651079650126727,
+        2.4943050163042924,
+        2.6468784368635303,
+        3.4475616805704226,
+        3.3692258405460835,
+        2.465326227984523,
+        2.743476270969483,
+        0.0
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.715617140260091,
+      "price_se": 0.0630069796012302,
+      "delta": 0.5223075750052477,
+      "delta_se": 0.001957051131768326,
+      "local_vega": 23.549314832744386,
+      "local_vega_se": 0.35274033803645455,
+      "bucket_sum": 11.342842354540442,
+      "signed_residual": 12.206472478203944,
+      "pre_projection": 23.549314832744386,
+      "maturity_totals": [
+        11.342842354540442,
+        0.0
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.828781250139459,
+      "price_se": 0.06372249135647817,
+      "delta": 0.5241248185148798,
+      "delta_se": 0.0019412341258878095,
+      "local_vega": 24.175075382590755,
+      "local_vega_se": 0.357557870157687,
+      "bucket_sum": 17.888935052473908,
+      "signed_residual": 6.2861403301168455,
+      "pre_projection": 24.175075382590755,
+      "maturity_totals": [
+        5.683587280538549,
+        5.94701155454301,
+        6.258336217392349,
+        0.0
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.765668185497003,
+      "price_se": 0.06259605969302715,
+      "delta": 0.5276407320250532,
+      "delta_se": 0.001785662596643315,
+      "local_vega": 23.79207921575898,
+      "local_vega_se": 0.35123436384842305,
+      "bucket_sum": 20.361682631005696,
+      "signed_residual": 3.430396584753287,
+      "pre_projection": 23.79207921575898,
+      "maturity_totals": [
+        2.837273334249361,
+        2.848751046467767,
+        2.9168067727653604,
+        3.3462847590729456,
+        2.9104697778284643,
+        2.8277014402119196,
+        2.6743955004098785,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.54792255257855,
+        0.5581613439861755
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.765668185497003,
+      "price_se": 0.06259605969302715,
+      "delta": 0.5276407320250529,
+      "delta_se": 0.001785662596643315,
+      "local_vega": 23.79207921575898,
+      "local_vega_se": 0.35123436384842305,
+      "bucket_sum": 20.361682631005696,
+      "signed_residual": 3.430396584753287,
+      "pre_projection": 23.79207921575898,
+      "maturity_totals": [
+        2.837273334249361,
+        2.8487510464677666,
+        2.91680677276536,
+        3.3462847590729456,
+        2.9104697778284647,
+        2.8277014402119196,
+        2.6743955004098785,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.555769592033845,
+        0.5535305987752299
+      ],
+      "crn_parallel_vegas": [
+        23.79207920155224,
+        23.792100910652536
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.765668185497003,
+      "price_se": 0.06259605969302715,
+      "delta": 0.5276407320250536,
+      "delta_se": 0.00178566259664332,
+      "local_vega": 23.79207921575898,
+      "local_vega_se": 0.35123436384842305,
+      "bucket_sum": 20.361682631005696,
+      "signed_residual": 3.430396584753287,
+      "pre_projection": 23.79207921575898,
+      "maturity_totals": [
+        2.8372733342493612,
+        2.8487510464677666,
+        2.9168067727653604,
+        3.346284759072946,
+        2.9104697778284647,
+        2.827701440211919,
+        2.6743955004098785,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5575691894726373,
+        0.5373145757529859
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.784681485401398,
+      "price_se": 0.06350115241650692,
+      "delta": 0.5258535714192483,
+      "delta_se": 0.0018611684947619533,
+      "local_vega": 23.923204239949104,
+      "local_vega_se": 0.35615051966239086,
+      "bucket_sum": 22.25154950856698,
+      "signed_residual": 1.6716547313821233,
+      "pre_projection": 23.923204239949104,
+      "maturity_totals": [
+        1.4274296463492568,
+        1.495036917841949,
+        1.458904185100224,
+        1.7452580406948268,
+        1.5703862824625219,
+        1.2872439878311326,
+        1.2294665418134794,
+        1.7739591739584197,
+        1.2495216917427365,
+        1.5988969199019916,
+        1.4591757305337325,
+        1.6063447056442028,
+        1.323136957194607,
+        1.4252689361536062,
+        1.6015197913442936,
+        0.0
+      ]
+    },
+    {
+      "seed": 41,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.722592473050418,
+      "price_se": 0.031326692877668906,
+      "delta": 0.5249199596654035,
+      "delta_se": 0.0009353488077671373,
+      "local_vega": 23.56909075450357,
+      "local_vega_se": 0.1755762566205535,
+      "bucket_sum": 20.56432817424921,
+      "signed_residual": 3.004762580254361,
+      "pre_projection": 23.56909075450357,
+      "maturity_totals": [
+        2.8695050293615942,
+        2.931867401274492,
+        3.0041808038711992,
+        2.9564072698680506,
+        3.043489690034744,
+        2.856715838740614,
+        2.9021621410985152,
+        0.0
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 1024,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.973779562021748,
+      "price_se": 0.13071000622573073,
+      "delta": 0.5284520110873957,
+      "delta_se": 0.003698843894439741,
+      "local_vega": 24.988649601979976,
+      "local_vega_se": 0.7354052622836111,
+      "bucket_sum": 22.172861696688106,
+      "signed_residual": 2.8157879052918684,
+      "pre_projection": 24.988649601979976,
+      "maturity_totals": [
+        3.005456622644253,
+        2.898662606844982,
+        3.1121423541459943,
+        3.3278042531680128,
+        3.8098412812944003,
+        2.6263708689927387,
+        3.392583709597726,
+        0.0
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 4096,
+      "steps": 2,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.713929296273739,
+      "price_se": 0.06320673488788758,
+      "delta": 0.523710370596023,
+      "delta_se": 0.001913443385877638,
+      "local_vega": 23.539235891418784,
+      "local_vega_se": 0.3539063706863813,
+      "bucket_sum": 11.917378851915528,
+      "signed_residual": 11.621857039503258,
+      "pre_projection": 23.539235891418784,
+      "maturity_totals": [
+        11.91737885191553,
+        0.0
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 4096,
+      "steps": 4,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.752027357380523,
+      "price_se": 0.06324444452483542,
+      "delta": 0.5248406289773835,
+      "delta_se": 0.0018880592642102887,
+      "local_vega": 23.743254677604835,
+      "local_vega_se": 0.35448519817825963,
+      "bucket_sum": 18.13530821924556,
+      "signed_residual": 5.607946458359279,
+      "pre_projection": 23.743254677604835,
+      "maturity_totals": [
+        6.153789691940094,
+        5.7970748711305,
+        6.184443656174963,
+        0.0
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 9,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.770871608006565,
+      "price_se": 0.06332140434745191,
+      "delta": 0.5239398808868634,
+      "delta_se": 0.0019263507658793145,
+      "local_vega": 23.850563836264516,
+      "local_vega_se": 0.3551094943508211,
+      "bucket_sum": 21.184162169126715,
+      "signed_residual": 2.6664016671378,
+      "pre_projection": 23.850563836264516,
+      "maturity_totals": [
+        3.211676677838328,
+        2.842668352088613,
+        3.2286791153163867,
+        2.9467009373576243,
+        2.92370910847088,
+        2.915260811917613,
+        3.1154671661372713,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5408292461737737,
+        0.5646967622035117
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.770871608006565,
+      "price_se": 0.06332140434745191,
+      "delta": 0.5239398808868644,
+      "delta_se": 0.0019263507658793186,
+      "local_vega": 23.850563836264516,
+      "local_vega_se": 0.3551094943508211,
+      "bucket_sum": 21.184162169126715,
+      "signed_residual": 2.6664016671378,
+      "pre_projection": 23.850563836264516,
+      "maturity_totals": [
+        3.211676677838328,
+        2.8426683520886136,
+        3.2286791153163863,
+        2.9467009373576243,
+        2.923709108470879,
+        2.9152608119176135,
+        3.1154671661372713,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5443462938861404,
+        0.5638553319257126
+      ],
+      "crn_parallel_vegas": [
+        23.85056382247175,
+        23.8505634915942
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 4096,
+      "steps": 8,
+      "nodes": 33,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.770871608006565,
+      "price_se": 0.06332140434745191,
+      "delta": 0.5239398808868635,
+      "delta_se": 0.0019263507658793173,
+      "local_vega": 23.850563836264516,
+      "local_vega_se": 0.3551094943508211,
+      "bucket_sum": 21.184162169126715,
+      "signed_residual": 2.6664016671378,
+      "pre_projection": 23.850563836264516,
+      "maturity_totals": [
+        3.2116766778383283,
+        2.8426683520886136,
+        3.2286791153163863,
+        2.946700937357624,
+        2.9237091084708795,
+        2.915260811917613,
+        3.1154671661372713,
+        0.0
+      ],
+      "hedge_quantities": [
+        0.5379254508583292,
+        0.5562312628000375
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 4096,
+      "steps": 16,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.813382680180121,
+      "price_se": 0.06326078293644688,
+      "delta": 0.5280838282949646,
+      "delta_se": 0.001790925275941107,
+      "local_vega": 24.066476062142787,
+      "local_vega_se": 0.3550620372805319,
+      "bucket_sum": 22.675398116037755,
+      "signed_residual": 1.391077946105031,
+      "pre_projection": 24.066476062142787,
+      "maturity_totals": [
+        1.5590377760398857,
+        1.4422973354348698,
+        1.701286719493166,
+        1.413992257915618,
+        1.336821315070199,
+        1.3811289322277314,
+        1.4987203616752505,
+        1.6358321743395012,
+        1.4833088775474212,
+        1.5834021139928254,
+        1.3605706132770605,
+        1.7942665399497149,
+        1.647216250646537,
+        1.332477080775352,
+        1.505039767652624,
+        0.0
+      ]
+    },
+    {
+      "seed": 97,
+      "samples": 16384,
+      "steps": 8,
+      "nodes": 17,
+      "native_policy": "local_vol_node_allocation_diagnostic_v1",
+      "native_truncation_order": "not_applicable",
+      "price": 4.694562268932724,
+      "price_se": 0.031361786815919356,
+      "delta": 0.5221240265541294,
+      "delta_se": 0.0009780241367896368,
+      "local_vega": 23.42824126530152,
+      "local_vega_se": 0.17555421605364246,
+      "bucket_sum": 20.60739608421086,
+      "signed_residual": 2.8208451810906623,
+      "pre_projection": 23.42824126530152,
+      "maturity_totals": [
+        2.9987789070690276,
+        2.8710651107728613,
+        2.9286832075675964,
+        3.026835961097541,
+        2.893204302979181,
+        2.883112654352247,
+        3.005715940372404,
+        0.0
+      ]
+    }
+  ]
+}

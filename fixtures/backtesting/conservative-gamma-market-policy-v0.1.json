@@ -1,0 +1,27 @@
+{
+  "policy_id": "conservative_gamma_flat_maturity_iv_v1",
+  "scope": "Uniform-in-strike IV at each of two maturities; exact discrete flat forward-variance recalibration; no complete smile-bucket acceptance.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "interval_volatilities": [[0.2, 0.2], [0.17, 0.26]],
+  "seeds": [7, 41],
+  "node_count": 17,
+  "samples": 131072,
+  "selection": {
+    "candidate_regularizations": [0.01, 0.003, 0.001, 0.0003, 0.0001],
+    "pilot_sampling_units": 131072,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0,
+    "preserve_local_vega_total": true
+  },
+  "iv_bumps": [0.0001, 0.00005],
+  "batch_seeds": [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008],
+  "batch_samples": 16384,
+  "statistical_multiplier": 6.0,
+  "vega_absolute_tolerance": 0.002,
+  "quadrature_derivative_tolerance": 0.000002,
+  "reference_derivative_tolerance": 0.0002,
+  "algebra_tolerance": 0.00000001,
+  "solver_absolute_tolerance": 0.000002,
+  "operator_relative_tolerance": 0.000002
+}

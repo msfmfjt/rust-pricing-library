@@ -5,7 +5,7 @@ use crate::core::{Date, UnderlyingId};
 use crate::engine::aad::{AadTilePolicy, CheckpointPolicy};
 use crate::market::{
     AffineDividendCoordinate, AffineDividendTransform, CurveRegion, EquityForward,
-    LocalVarianceGrid, LocalVarianceInterpolation,
+    LocalVarianceGrid,
 };
 use crate::mc::{
     BarrierBridgePath, EngineConfig, ExecutionPolicy, LocalVolDividendCheckpointSchedule,
@@ -71,6 +71,7 @@ pub(in crate::engine) const SMOOTHED_BARRIER_BRIDGE_ABI: &str =
 /// Immutable one-expiry plan for the European Black-Scholes MC/RQMC slice.
 #[derive(Clone, Debug)]
 pub struct SimulationPlan {
+    pub(in crate::engine) bass: Option<crate::engine::bass_lv::request::BassRuntime>,
     pub(in crate::engine) valuation_date: Date,
     pub(in crate::engine) expiry: Date,
     pub(in crate::engine) underlying: UnderlyingId,
@@ -109,6 +110,9 @@ pub struct SimulationPlan {
     pub(in crate::engine) dividend_region: CurveRegion,
     pub(in crate::engine) market_forward: EquityForward,
     pub(in crate::engine) local_volatility: Option<LocalVolRuntime>,
+    pub(in crate::engine) terminal_vega_kt:
+        Option<crate::engine::risk::vegakt_terminal_pathwise::TerminalVegaKtPathwise>,
+    pub(in crate::engine) terminal_replication_vega_kt: Option<crate::VegaKtResult>,
     pub(in crate::engine) continuous_barrier: Option<ContinuousBarrierRuntime>,
     pub(in crate::engine) early_exercise: Option<EarlyExerciseRuntime>,
 }
@@ -208,7 +212,6 @@ pub(in crate::engine) struct ContinuousBarrierPayoffTerms {
 pub(in crate::engine) struct ExactLocalVolContinuousBarrierBridgeEvaluation {
     pub(in crate::engine) path: BarrierBridgePath,
     pub(in crate::engine) interval_node_indices: Box<[(usize, usize)]>,
-    pub(in crate::engine) node_interpolations: Box<[LocalVarianceInterpolation]>,
     pub(in crate::engine) endpoint_touched: bool,
     pub(in crate::engine) dividend_jump_touched: bool,
 }
@@ -219,7 +222,6 @@ pub(in crate::engine) enum LocalVolContinuousBarrierBridgeEvaluation {
     Smoothed {
         path: SmoothedContinuousBarrierPath,
         interval_node_indices: Box<[(usize, usize)]>,
-        node_interpolations: Box<[LocalVarianceInterpolation]>,
     },
 }
 
@@ -239,6 +241,8 @@ pub(in crate::engine) struct BarrierPathDiagnosticValues {
 pub(in crate::engine) struct LocalVolPathwise {
     pub(in crate::engine) values: [f64; PATHWISE_COMPONENTS],
     pub(in crate::engine) raw_buckets: Option<Vec<f64>>,
+    pub(in crate::engine) allocation_audit:
+        Option<crate::engine::risk::local_vol_allocation::LocalVolAllocationAudit>,
 }
 
 #[derive(Clone, Copy, Debug)]

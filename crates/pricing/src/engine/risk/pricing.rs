@@ -37,6 +37,19 @@ pub struct WidthLadderResult {
 }
 
 impl PricingPlan {
+    pub fn bass_calibration_diagnostics(
+        &self,
+    ) -> Option<&[crate::bass_lv::BassCalibrationDiagnostics]> {
+        self.simulation.bass_calibration_diagnostics()
+    }
+    pub fn bass_projection_diagnostics(&self) -> Option<&[crate::bass_lv::BassSurfaceDiagnostics]> {
+        self.simulation.bass_projection_diagnostics()
+    }
+    pub fn bass_vega_scenario_diagnostics(
+        &self,
+    ) -> Option<&[crate::bass_lv::BassVegaKtScenarioDiagnostics]> {
+        self.simulation.bass_vega_scenario_diagnostics()
+    }
     pub fn compile(
         request: &PricingRequest,
         execution_policy: ExecutionPolicy,
@@ -72,6 +85,245 @@ impl PricingPlan {
 
     pub fn evaluate(&self) -> Result<MonteCarloPrice, MonteCarloError> {
         self.simulation.execute()
+    }
+
+    /// Deterministic signed terminal Gamma measure and equation-(9) projection
+    /// for a compiled continuous piecewise-affine terminal payoff, spatially flat
+    /// variance and zero carry. Expected source-hat local Vegas include t=0.
+    /// Sampling settings are unused: no MC moments or covariance are produced.
+    /// Does not replace evaluate() or certify the ordinary acceptance gate.
+    pub fn evaluate_vega_kt_terminal_diagnostic(
+        &self,
+    ) -> Result<crate::risk::VegaKtTerminalDiagnostic, MonteCarloError> {
+        self.simulation.evaluate_vega_kt_terminal_diagnostic()
+    }
+
+    /// Diagnose the flat-space, zero-carry weak Gamma chain using this compiled payoff,
+    /// observation map, engine seed and sampling units. Does not replace evaluate().
+    /// Rejects unsupported models, indicators/barriers, early exercise, smoothing,
+    /// RQMC and full covariance requests instead of falling back to grid allocation.
+    /// Initial strike anchors and the recovery log grid are subdivided with spacing
+    /// bounded by min(relative_bump/2, sqrt(first-step variance)/2), up to 1025 nodes.
+    /// The result records both requested anchors and actual numerical grids.
+    pub fn evaluate_vega_kt_chain_diagnostic(
+        &self,
+        initial_strikes: Vec<f64>,
+        relative_bump: f64,
+        subdivisions: usize,
+    ) -> Result<crate::risk::VegaKtChainDiagnostic, MonteCarloError> {
+        self.simulation.evaluate_vega_kt_chain_diagnostic(
+            initial_strikes,
+            relative_bump,
+            subdivisions,
+        )
+    }
+
+    /// Full source-hat convolution recovery of positive-time Gamma from the
+    /// compiled continuous path payoff's AD. Explicit regularization; initial
+    /// risk stays unrecovered. Does not certify or replace ordinary IV buckets.
+    pub fn evaluate_vega_kt_gamma_recovery_diagnostic(
+        &self,
+        gamma_strikes: Vec<f64>,
+        relative_regularization: f64,
+    ) -> Result<crate::risk::VegaKtConvolutionDiagnostic, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_gamma_recovery_diagnostic(gamma_strikes, relative_regularization)
+    }
+
+    /// Initial-boundary Gamma from conditional piecewise-affine payoff measures.
+    /// Bins include both tails. First-step Vega uses original atom locations,
+    /// independent of binning, with same-draw differences against native AD.
+    /// Spatially flat, zero carry, continuous affine/min/max payoffs only.
+    pub fn evaluate_vega_kt_initial_gamma_diagnostic(
+        &self,
+        gamma_bin_boundaries: Vec<f64>,
+    ) -> Result<crate::risk::VegaKtInitialMeasureDiagnostic, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_initial_gamma_diagnostic(gamma_bin_boundaries)
+    }
+
+    /// Select regularization on disjoint pilot counters, then validate once on
+    /// the original pricing counters. Includes the separate initial measure.
+    /// A failed validation is retained, never used to choose another candidate.
+    pub fn evaluate_vega_kt_gamma_recovery_audit(
+        &self,
+        gamma_strikes: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+    ) -> Result<crate::risk::VegaKtGammaRecoveryAudit, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_gamma_recovery_audit(gamma_strikes, policy)
+    }
+
+    /// Same-path joint annual-variance readouts after both Gamma recovery gates.
+    pub fn evaluate_vega_kt_joint_gamma_audit(
+        &self,
+        gamma_strikes: Vec<f64>,
+        initial_gamma_bin_boundaries: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+        directions: crate::risk::VegaKtJointGammaDirections,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> Result<crate::risk::VegaKtJointGammaAudit, MonteCarloError> {
+        self.simulation.evaluate_vega_kt_joint_gamma_audit(
+            gamma_strikes,
+            initial_gamma_bin_boundaries,
+            policy,
+            directions,
+            subdivisions,
+            relative_tolerance,
+        )
+    }
+
+    /// Refined initial continuation Gamma for two-step nonflat local variance.
+    pub fn evaluate_vega_kt_initial_smile_gamma_audit(
+        &self,
+        gamma_bin_boundaries: Vec<f64>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> Result<crate::risk::VegaKtInitialSmileGammaAudit, MonteCarloError> {
+        self.simulation.evaluate_vega_kt_initial_smile_gamma_audit(
+            gamma_bin_boundaries,
+            subdivisions,
+            relative_tolerance,
+        )
+    }
+
+    /// Initial Gamma through both subsequent local-variance transitions.
+    pub fn evaluate_vega_kt_three_step_initial_gamma_audit(
+        &self,
+        boundaries: Vec<f64>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> Result<crate::risk::VegaKtThreeStepInitialGammaAudit, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_three_step_initial_gamma_audit(
+                boundaries,
+                subdivisions,
+                relative_tolerance,
+            )
+    }
+
+    /// History-conditional middle Gamma with separate deterministic and MC gates.
+    pub fn evaluate_vega_kt_middle_smile_gamma_audit(
+        &self,
+        boundaries: Vec<f64>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+    ) -> Result<crate::risk::VegaKtMiddleSmileGammaAudit, MonteCarloError> {
+        self.simulation.evaluate_vega_kt_middle_smile_gamma_audit(
+            boundaries,
+            subdivisions,
+            relative_tolerance,
+        )
+    }
+
+    /// Selected-row conditional Gamma with the complete history and future evolution.
+    pub fn evaluate_vega_kt_multi_step_gamma_chain_audit(
+        &self,
+        rows: Vec<usize>,
+        boundaries: Vec<f64>,
+        directions: Vec<Vec<Vec<f64>>>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+        gamma_se_limit: f64,
+    ) -> Result<crate::risk::VegaKtPathGammaChainAudit, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_multi_step_gamma_chain_audit(
+                rows,
+                boundaries,
+                directions,
+                subdivisions,
+                relative_tolerance,
+                gamma_se_limit,
+            )
+    }
+
+    /// Same audit with optional counter-ordered readouts for portfolio covariance.
+    #[allow(clippy::too_many_arguments)]
+    pub fn evaluate_vega_kt_multi_step_gamma_chain_with_samples(
+        &self,
+        rows: Vec<usize>,
+        boundaries: Vec<f64>,
+        directions: Vec<Vec<Vec<f64>>>,
+        subdivisions: usize,
+        relative_tolerance: f64,
+        gamma_se_limit: f64,
+        retain_samples: bool,
+    ) -> Result<crate::risk::VegaKtPathGammaChainAudit, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_multi_step_gamma_chain_with_samples(
+                rows,
+                boundaries,
+                directions,
+                subdivisions,
+                relative_tolerance,
+                gamma_se_limit,
+                retain_samples,
+            )
+    }
+
+    /// Last-row Gamma after 1..15 integrated earlier log-Euler transitions.
+    pub fn evaluate_vega_kt_multi_step_terminal_gamma_audit(
+        &self,
+        strikes: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+        directions: Vec<Vec<f64>>,
+    ) -> Result<crate::risk::VegaKtMultiStepTerminalGammaAudit, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_multi_step_terminal_gamma_audit(strikes, policy, directions)
+    }
+
+    /// Third-row recovery under the actual two-transition source distribution.
+    /// Initial and middle continuation Gamma are not inferred by this audit.
+    pub fn evaluate_vega_kt_three_step_terminal_gamma_audit(
+        &self,
+        strikes: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+        directions: Vec<Vec<f64>>,
+    ) -> Result<crate::risk::VegaKtThreeStepTerminalGammaAudit, crate::MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_three_step_terminal_gamma_audit(strikes, policy, directions)
+    }
+
+    /// Dependent terminal readouts certified against an independent constraint basis.
+    pub fn evaluate_vega_kt_three_step_terminal_readout_audit(
+        &self,
+        strikes: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+        directions: Vec<Vec<f64>>,
+        readouts: Vec<Vec<f64>>,
+    ) -> Result<crate::risk::VegaKtThreeStepTerminalGammaAudit, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_three_step_terminal_readout_audit(
+                strikes, policy, directions, readouts,
+            )
+    }
+
+    /// Two-step nonflat variance-node recovery with a fixed first Gaussian marginal.
+    /// No initial Gamma or full IV-chain estimate is inferred from this audit.
+    pub fn evaluate_vega_kt_two_step_smile_gamma_audit(
+        &self,
+        gamma_strikes: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+        variance_conservation_directions: Vec<Vec<f64>>,
+    ) -> Result<crate::risk::VegaKtTwoStepSmileGammaAudit, MonteCarloError> {
+        self.simulation.evaluate_vega_kt_two_step_smile_gamma_audit(
+            gamma_strikes,
+            policy,
+            variance_conservation_directions,
+        )
+    }
+
+    /// Joint signed-atom equation-(4)/(9) IV diagnostic after held-out Gamma
+    /// validation. Spatially flat calibrated IV, zero carry, state-only payoff.
+    /// Failed recovery returns no estimate; does not promote ordinary IV risk.
+    pub fn evaluate_vega_kt_atom_chain_diagnostic(
+        &self,
+        gamma_strikes: Vec<f64>,
+        policy: &crate::risk::VegaKtGammaRecoveryPolicy,
+    ) -> Result<crate::risk::VegaKtAtomChainDiagnostic, MonteCarloError> {
+        self.simulation
+            .evaluate_vega_kt_atom_chain_diagnostic(gamma_strikes, policy)
     }
 
     pub fn evaluate_width_ladder(&self) -> Result<WidthLadderResult, MonteCarloError> {

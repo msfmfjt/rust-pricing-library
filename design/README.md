@@ -11,6 +11,9 @@ contracts and calculation specifications.
 - [Frozen MVP requirements](requirements-v1.0.md)
 - [Architecture](architecture-v0.1.md)
 - [Requirements change template](requirements-change-template.md)
+- [Accepted VegaKT hedging backtest requirements v0.1 (Japanese)](vega-kt-hedging-backtest-requirements-v0.1.md)
+- [Path-dependent Gamma recovery component (Japanese)](validation/local-vol-path-gamma-recovery-v0.1.md)
+- [P0 VegaKT general-smile numerical acceptance v0.3 (Japanese)](validation/vega-kt-smile-acceptance-v0.3.md)
 - [ADR template](adr/0000-template.md)
 - [Release readiness](release-readiness-v0.1.md)
 - [Contributor workflow and checks](../CONTRIBUTING.md)
@@ -49,6 +52,69 @@ documents the public API migration.
 | [0019](adr/0019-rough-stochastic-dividends.md) | Rough Bergomi with stochastic cash dividends, price-only |
 
 ## Implementation roadmaps and acceptance
+
+The [2026-10-03 local validation record](validation/library-full-check-2026-10-03.md)
+covers the full library gates, packaging repairs and the reviewed Local Volatility
+replay correction, with experimental numerical acceptance kept separate.
+
+The [2026-10-04 portability record](validation/library-cross-platform-2026-10-04.md)
+checks that retained snapshot on Linux ARM64 and documents native Windows
+capture/review preparation without promoting a new Windows golden file.
+
+The [VegaKT hedging backtest record](roadmaps/vega-kt-hedging-backtest-roadmap-v0.1.md)
+tracks the first executable Python/native slice, validation and remaining H0–H4 gates.
+The [independent VegaKT numerical record](validation/vega-kt-backtest-numerics-v0.1.md)
+documents the corrected grid-scaling defect and the still-failing paper-decomposition gate.
+The [Gamma numerical record](validation/local-vol-gamma-numerics-v0.1.md) covers
+tail-mass preservation, short-step/narrow-strike integration and independent Decimal references.
+The [Gamma recovery bridge](validation/local-vol-gamma-recovery-v0.1.md) connects
+positive-time node-adjoint recovery and propagation, with independent price bumps
+and time/strike refinement checks.
+The [paper operator record](validation/local-vol-vegakt-paper-v0.1.md) adds the
+nonflat total Gamma derivative, vanilla hedge sign, and equation-(9) Vega ratios,
+checked against independent price differences. Pricing-path integration remains open.
+The [step-adjoint record](validation/local-vol-step-adjoints-v0.1.md) adds native
+retention before time/space aggregation, 136 independent price derivatives,
+and event-inserted step rows feeding positive-time Gamma recovery.
+The [step-recovery record](validation/local-vol-step-recovery-v0.1.md) adds
+compiled actual-time density rows, deterministic path/pair statistics, and
+conditional Gamma standard errors, checked with independent price bumps.
+The [direct-variance record](validation/local-vol-direct-variance-v0.1.md) retains
+bridge endpoint risk through native reverse and path/pair statistics, including
+the terminal node, while withholding Gamma for its unresolved decomposition.
+The [initial-Gamma record](validation/local-vol-initial-gamma-v0.1.md) adds
+conditional continuation repricing, correlated bump diagnostics and an initial
+Vega reconstruction without singular density division, for a restricted model class.
+The [joint-chain record](validation/local-vol-vegakt-chain-v0.1.md) connects
+conditional initial Gamma and positive-time recovery per sampling unit to
+paper hedge densities and IV buckets, retaining covariance in total errors
+and separate quadrature, bump, excluded-local-Vega and tail/edge diagnostics.
+The [allocation audit](validation/vega-kt-backtest-allocation-audit-v0.1.md)
+records independent residual accounting and corrected native method metadata.
+The [failure-recovery record](validation/vega-kt-backtest-failure-recovery-v0.1.md)
+documents failed-run artifacts, atomic snapshot rollback and exact retry tests.
+The [settlement record](validation/vega-kt-backtest-settlement-v0.1.md) covers
+explicit fixing provenance, availability checks and independent payoff tests.
+The [payment record](validation/vega-kt-backtest-payments-v0.1.md) covers
+discounted unpaid claims, native payment-date scaling and payment recovery.
+The [P&L attribution record](validation/vega-kt-backtest-pnl-attribution-v0.1.md)
+covers exact component/equity reconciliation, signed costs and mismatch recovery.
+The [numeraire record](validation/vega-kt-backtest-numeraire-v0.1.md) covers
+shared-account discounted P&L, initial-capital conversion and input/recovery checks.
+The [capital-flow record](validation/vega-kt-backtest-capital-v0.1.md) covers
+investor deposits/withdrawals, flow-adjusted P&L, duplicate IDs and exact retry.
+The [cost-basis record](validation/vega-kt-backtest-cost-basis-v0.1.md) covers
+moving-average realized/unrealized P&L, fixing/payment conventions and reconciliation.
+The [Greek explanation record](validation/vega-kt-backtest-greek-pnl-v0.1.md) covers
+lagged Delta/optional Gamma, missing-risk coverage and explicit unexplained P&L.
+The [IV alignment record](validation/vega-kt-backtest-iv-alignment-v0.1.md) covers
+fixed-strike IV mapping, absolute-date matching and diagnostic missing-risk coverage.
+The [scenario-statistics record](validation/vega-kt-backtest-ensemble-v0.1.md) covers
+paired terminal-error cohorts, failure exclusions, empirical tails and conditional bootstrap intervals.
+The [schema validation record](validation/vega-kt-backtest-schemas-v0.1.md) covers
+offline current-format schemas, malformed input rejection and wheel-bundled resources.
+The [budget-constraint record](validation/vega-kt-backtest-budget-v0.1.md) covers
+joint option/stock cash and gross constraints, KKT checks, rounding and execution rejection.
 
 The [Gamma validation protocol](validation/stochastic-dividend-gamma.md) covers
 common-noise Delta bumps and their uncertainty.
@@ -132,3 +198,83 @@ Rough/dividend correlation risk: [decision](adr/0021-rough-stochastic-dividend-c
 
 HW stochastic-dividend basic AAD: [decision](adr/0023-stochastic-dividend-hull-white-risk.md),
 [validation protocol](validation/stochastic-dividend-hull-white-risk.md).
+
+Bass local volatility: [decision](adr/0027-bass-local-volatility.md),
+[validation protocol](validation/bass-local-volatility.md).
+
+The [weak Gamma numerical correction](validation/local-vol-weak-gamma-v0.1.md) integrates density before inversion,
+uses next-time weak recovery and resolves the auxiliary grid independently of
+reporting nodes. The explicit compiled-payoff diagnostic reduces failures from
+32/63 to 0/63 under unchanged thresholds; ordinary native acceptance remains
+54/154 failures. Bucket localization and full paper conformance remain open.
+
+- [Conditional initial Gamma measure and residual-bias analysis](validation/local-vol-initial-gamma-measure-v0.1.md)
+
+- [Split-sample Gamma selection and independent validation](validation/local-vol-gamma-selection-v0.1.md)
+
+- [Signed-atom path Gamma IV chain and joint covariance](validation/local-vol-atom-chain-v0.1.md)
+
+- [Conservative Gamma and recalibrated maturity-IV validation](validation/local-vol-conservative-gamma-v0.1.md)
+
+- [Finite-step smile quote calibration and remaining Gamma quote bias](validation/local-vol-discrete-smile-calibration-v0.1.md)
+
+- [Calibration-direction Gamma conservation and quote-bias retest](validation/local-vol-gamma-quote-conservation-v0.1.md)
+
+- [2区間・非平坦な第2区間のGamma回復](validation/local-vol-nonflat-gamma-v0.1.md): 年率分散作用素、較正方向保存、独立価格差分。第1分布は固定。
+
+- [非平坦な継続価格の初期Gamma](validation/local-vol-initial-smile-gamma-v0.1.md): 2区間の符号付きGamma近似、tail上界、初期分散の独立価格差分。
+
+- [第1満期と終端スマイルの共同IV Gamma](validation/local-vol-joint-smile-gamma-v0.1.md): 初期Gamma・第2区間回復・再較正接線を結合し、満期間・節点間の共分散を保持。
+
+- [3区間の終端Gammaと非正規source分布](validation/local-vol-three-step-gamma-v0.1.md): 実際の2遷移から分布を積分し、第3区間の回復・終端スマイル再較正価格を照合。
+
+- [3区間の中間Gammaと中間・終端IV連鎖](validation/local-vol-middle-smile-gamma-v0.1.md): 履歴条件付き回復、終端再較正の補償、10市場座標の独立価格差分。
+
+- [3区間の初期Gammaと全満期の較正連鎖](validation/local-vol-initial-three-gamma-v0.1.md): 第1平行IV＋中間・終端各5点、履歴を動かした継続価格、独立部分積分と再較正価格差分。
+- [可変区間数の終端Gamma](validation/local-vol-multi-step-gamma-v0.1.md): 4・6区間、第1市場満期の非平坦スマイル、全履歴を条件とした終端積分と再較正価格差分。
+- [可変区間数のGammaと全報告満期の接続](validation/local-vol-path-gamma-chain-v0.1.md): 各満期直前の分散rowを選択し、非平坦な第1市場満期を含む10・15方向を再較正価格で検証。
+
+- [経路依存Gammaの全市場方向共分散](validation/local-vol-path-covariance-v0.1.md)
+
+- [経路依存Gammaの中間区間AD照合](validation/local-vol-conditional-ad-v0.1.md)
+
+- [複数満期Gammaのバックテスト接続](validation/local-vol-multi-step-provider-v0.1.md)
+
+- [Asian・Lookbackの観測履歴と決済](validation/local-vol-path-ledger-v0.1.md)
+
+- [Lookback fixing-day valuation and replay](validation/local-vol-lookback-fixing-day-v0.1.md): immutable current-day observations, native Greeks and conditional Gamma, settlement and resume.
+
+- [All-transition variance extensions](validation/local-vol-variance-extension-v0.1.md): initial-law score, explicit parameter metric, simultaneous market quote calibration and independent path-price differences.
+- [Variance-extension backtest provider](validation/local-vol-extension-provider-v0.1.md): explicit all-row or linear-time rules for checked Call-side ledgers, same-product covariance, dated fixings and checkpoint isolation.
+- [Put extension acceptance](validation/local-vol-extension-put-v0.1.md): independent Put price differences, known-minimum Lookback recovery and Put targets with Call hedges under both preset rules.
+- [Explicit custom variance bases](validation/local-vol-custom-basis-v0.1.md): tensor interpolation, declared parameter scales and independent Call/Put price differences for two coarse bases.
+- [Named-basis backtest provider](validation/local-vol-custom-basis-provider-v0.1.md): the two accepted constructions in Call/Put ledgers, audited basis identity, dated settlement and checkpoint isolation.
+- [Per-matrix numerical validation](validation/local-vol-raw-basis-v0.1.md): bound raw matrices, nonseparable calibration metrics, independent Call/Put price differences and resumable native diagnostics.
+- [Coupled-basis backtest provider](validation/local-vol-coupled-basis-provider-v0.1.md): explicitly selected fixed matrices, matching calibration/Gamma hashes, dated Call/Put ledgers and checkpoint isolation.
+- [Current per-matrix runtime](validation/local-vol-current-raw-basis-v0.1.md): current accepted-source binding, unchanged numerical checks, preflight without numerical acceptance and integrity-checked continuation.
+
+## 商品間の推定誤差とVegaKT損益説明
+
+[通常バックテストへの接続](validation/vega-kt-joint-replay-v0.1.md)では、
+`BacktestConfig(max_joint_bucket_standard_error=...)` を指定し、保有・発注予定の合同精度検査と
+保存済み期首リスクによる日次IV損益説明を有効にできる。新形式での保存・再開と通常CLIに対応する。
+
+[市場拡張・合同共分散・損益説明の実装記録](validation/vega-kt-portfolio-market-v0.1.md)を参照。
+`portfolio_market_risk.evaluate_portfolio` で共通経路の異商品共分散を計算し、
+`explain_backtest` で保存済み台帳に対応する期首リスクから追加の損益説明を作成する。
+固定strikeのIV変化にDeltaを合わせ、期限切れ・欠落・外挿が必要な区間は未説明とする。
+既存の台帳と旧受入記録は保持する。
+
+[未使用seedの安定性検証](validation/vega-kt-holdout-v0.1.md)では、元の精度で120パネル中112件が合格し、
+4/6区間の8件に照合失敗が残った。RQMCによる失敗例の再検証結果と、受入精度での年間計測の
+事前実行・数量最適化の反復上限の検証を分けて記録している。
+
+- [RQMCの通常バックテスト接続と追加受入](validation/vega-kt-rqmc-provider-v0.1.md):
+  4/6区間の未使用seed40ケース、混在点数の経路依存商品、保存・再開、年間用ポートフォリオの精度検査。
+- [年間初日の市場クォートによる誤差削減](validation/vega-kt-quote-control-v0.1.md):
+  未使用2seedで保有・丸め後発注予定のSE上限10を通過。60銘柄、2段階の独立価格参照。
+  保存パネルによる初日再生を確認し、通常providerへの採用と翌日以降は別の受入範囲とする。
+
+- [VegaKT 市場クォート制御変量の通常provider接続](validation/vega-kt-quote-control-provider-v0.1.md)
+- [VegaKT クォート制御変量の日次継続と圧縮保存](validation/vega-kt-quote-control-continuation-v0.1.md):
+  3営業日目の追加受入、元のチェックポイントを保持する圧縮保存、年間入力の事前チェック。

@@ -55,6 +55,7 @@ diagnostic and calculation-specification pages.
 | Stochastic cash dividends and first-order risk | [Buehler model and support limits](../models/stochastic-dividends.md) | [Stochastic dividends](../../examples/python/stochastic_dividends.py) |
 | Dividend IV coordinates | [Escrowed calibration coordinate](../models/hull-white-cash-dividends.md#lsv-target-coordinate-and-calibration) | [Hull–White LSV](../../examples/python/hull_white_lsv.py) |
 | Local-variance risk and VegaKT | [Local Volatility calculation specifications](../models/local-vol-vegakt-calculation-specifications.md), [diagnostics](../models/local-vol-vegakt-diagnostics.md) | [Local Volatility/VegaKT](../../examples/python/local_vol_vegakt.py) |
+| Bass-LV through the common request API | [Bass-LV coordinate and risk contract](../models/bass-local-volatility.md#common-request-and-physical-spot-payoffs) | [Bass request with dividends and VegaKT](../../examples/python/bass_lv_request.py) |
 
 Greeks, smoothing policies and supported products depend on the selected plan.
 Use the corresponding calculation specification before combining product and model
@@ -62,6 +63,10 @@ features. Experimental model adapters have separate entry points and limitations
 
 ## Compatibility and operations
 
+- [VegaKT hedging backtesting](vega-kt-backtesting.md): daily research replay,
+  cash ledger with investor capital, cost-basis and nominal/discounted P&L reconciliation, constrained hedge quantities
+  and strategy comparison, with lagged Delta/optional Gamma P&L explanations, fixed-strike IV audits
+  and paired terminal-error scenario statistics, plus offline JSON Schema validation.
 - [Wire-schema compatibility](wire-schema-compatibility.md): accepted request and
   result versions, writer output, migrations and covariance layouts.
 - [Three-crate migration](three-crate-migration.md): Rust dependency changes,

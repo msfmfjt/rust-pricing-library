@@ -1,0 +1,18 @@
+{
+  "policy_id": "conservative_gamma_original_33_node_conditions_v1",
+  "products": ["asian", "fixed_asian"],
+  "seeds": [7, 41],
+  "nodes": 33,
+  "samples": 131072,
+  "selection": {
+    "candidate_regularizations": [0.01, 0.003, 0.001, 0.0003, 0.0001],
+    "pilot_sampling_units": 262144,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0,
+    "preserve_local_vega_total": true
+  },
+  "solver_absolute_tolerance": 0.000002,
+  "identity_absolute_tolerance": 0.00000001,
+  "mass_absolute_tolerance": 0.000002
+}

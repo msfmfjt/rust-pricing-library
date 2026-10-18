@@ -1,0 +1,8 @@
+{
+  "policy_id": "custom_tensor_variance_basis_price_refinement_v1",
+  "baseline_policy": "fixtures/backtesting/custom-variance-basis-policy-v0.1.json",
+  "iv_bumps": [0.000001, 0.0000005],
+  "retained_native_panels": 80,
+  "unchanged_acceptance_tolerances": true,
+  "full_market_iv_bucket_acceptance": "not_established"
+}

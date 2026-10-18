@@ -1,0 +1,1220 @@
+{
+  "document_kind": "joint_smile_gamma_validation_record",
+  "schema_version": 1,
+  "date": "2026-10-05",
+  "status": "passed",
+  "checks": 636,
+  "failed": 0,
+  "scope": "Exactly two intervals, one flat first-maturity parallel IV and five terminal quote IVs; terminal smile preserved on first-IV moves.",
+  "full_market_iv_bucket_acceptance": "not_established",
+  "policy": {
+    "policy_id": "two_step_joint_market_iv_gamma_v1",
+    "scope": "Two intervals: first flat parallel IV plus five terminal quote IVs, recalibrated jointly; research diagnostic only.",
+    "products": [
+      "call",
+      "asian",
+      "fixed_asian",
+      "lookback"
+    ],
+    "base_shapes": [
+      "nonflat"
+    ],
+    "base_skew": 0.015,
+    "base_curvature": 0.02,
+    "local_nodes": 33,
+    "quote_log_nodes": [
+      -0.2,
+      -0.1,
+      0.0,
+      0.1,
+      0.2
+    ],
+    "stress_iv_bump": 0.003,
+    "iv_bumps": [
+      1e-05,
+      5e-06
+    ],
+    "batch_samples": 16384,
+    "batch_seeds": [
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008
+    ],
+    "gamma_samples": 524288,
+    "gamma_seeds": [
+      7,
+      41
+    ],
+    "selection": {
+      "candidate_regularizations": [
+        0.01,
+        0.003,
+        0.001,
+        0.0003,
+        0.0001
+      ],
+      "pilot_sampling_units": 262144,
+      "reconstruction_relative_limit": 0.03,
+      "gamma_relative_standard_error_limit": 0.25,
+      "mc_margin_multiplier": 2.0
+    },
+    "quote_price_tolerance": 1e-10,
+    "quadrature_derivative_tolerance": 2e-06,
+    "derivative_absolute_tolerance": 0.002,
+    "bump_refinement_tolerance": 0.002,
+    "statistical_multiplier": 6.0,
+    "algebra_tolerance": 1e-10,
+    "solver_absolute_tolerance": 2e-06,
+    "gamma_quote_absolute_target": 0.002,
+    "gamma_quote_relative_target": 0.01,
+    "identity_absolute_tolerance": 1e-08,
+    "operator_relative_tolerance": 2e-06,
+    "nonflat_profiles": [
+      {
+        "name": "positive_skew",
+        "base_skew": 0.015,
+        "base_curvature": 0.02
+      },
+      {
+        "name": "negative_skew",
+        "base_skew": -0.02,
+        "base_curvature": 0.03
+      }
+    ],
+    "gamma_bin_boundaries": [
+      60.0,
+      80.0,
+      90.0,
+      100.0,
+      110.0,
+      120.0,
+      140.0
+    ],
+    "subdivisions": 32768,
+    "relative_tolerance": 1e-08
+  },
+  "metrics": {
+    "atm_call_first_iv_compensation": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 2.2647963374830213e-14
+    },
+    "bumped_quote_calibration": {
+      "count": 48,
+      "failed": 0,
+      "maximum_observed": 1.0746958878371515e-13
+    },
+    "combined_risk_full_covariance_vs_native_price": {
+      "count": 48,
+      "failed": 0,
+      "maximum_observed": 1.0412771530348053
+    },
+    "finite_first_iv_stress_calibration": {
+      "count": 4,
+      "failed": 0,
+      "maximum_observed": 1.7763568394002505e-14
+    },
+    "finite_first_iv_stress_preserves_terminal_quotes": {
+      "count": 4,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "independent_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 5.937683678070016e-05
+    },
+    "independent_unchanged_pilot_quality": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "joint_component_and_validation_gates": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "joint_covariance_diagonal": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "joint_covariance_psd": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 1.2963191664031405e-16
+    },
+    "joint_covariance_symmetry": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "joint_gamma_vs_independent_price": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 0.6454543233113874
+    },
+    "joint_gamma_vs_recalibrated_native_price": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 1.0462014210312418
+    },
+    "joint_population_gamma_bias": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 2.984279490192421e-13
+    },
+    "joint_population_vs_recalibrated_price": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 7.916797389029284e-05
+    },
+    "joint_quote_tangent_identity": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 4.440892098500626e-15
+    },
+    "native_recalibrated_price_vs_reference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.2803000162360851
+    },
+    "paired_native_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 0.3189630392003816
+    },
+    "same_frozen_tangent": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "same_path_difference_covariance": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 7.356904921725536e-17
+    },
+    "strongest_pilot_feasible_selection": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    }
+  },
+  "settings": [
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 5.004357319648989e-07,
+      "native_means": [
+        0.035880484600623826,
+        -0.1974200575119859,
+        0.510210753165919,
+        22.990495926956527,
+        0.3161168996813677,
+        -0.13717893522175306
+      ],
+      "recovered_means": [
+        0.051482062084321295,
+        -0.19742005751198555,
+        0.5102107531659263,
+        22.990495926956527,
+        0.31611689968136997,
+        -0.13717893522175095
+      ],
+      "recovered_standard_errors": [
+        0.027469913112034634,
+        0.09466118584811092,
+        0.29184732449849904,
+        0.4290392653644176,
+        0.35637604049471283,
+        0.14282852922254763
+      ],
+      "population_gamma": [
+        7.105427357601002e-15,
+        -2.4868995751603507e-14,
+        4.263256414560601e-14,
+        23.583437936006675,
+        2.1316282072803006e-14,
+        0.0
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.9310495128483935e-12,
+        7.814769569466974e-12,
+        2.408231083684113e-11,
+        3.79313982689221e-11,
+        2.9372123861227685e-11,
+        1.1772963377192139e-11
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 5.004357319648989e-07,
+      "native_means": [
+        -0.03728672997417895,
+        4.812847143712599e-05,
+        -0.014649626887099771,
+        23.706348913752446,
+        -0.15090086383094894,
+        0.030051005358605786
+      ],
+      "recovered_means": [
+        0.007052390999196599,
+        4.812847143774598e-05,
+        -0.014649626887092676,
+        23.706348913752443,
+        -0.15090086383094642,
+        0.030051005358608
+      ],
+      "recovered_standard_errors": [
+        0.027522055689592317,
+        0.09479711246295029,
+        0.292946429038468,
+        0.430890064857736,
+        0.35689733030316356,
+        0.14283680098884027
+      ],
+      "population_gamma": [
+        7.105427357601002e-15,
+        -2.4868995751603507e-14,
+        4.263256414560601e-14,
+        23.583437936006675,
+        2.1316282072803006e-14,
+        0.0
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.931661048056213e-12,
+        7.803520194710734e-12,
+        2.4116448216808657e-11,
+        3.816513556147726e-11,
+        2.939625254012377e-11,
+        1.1761465257397251e-11
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.0003,
+      "initial_gamma_refinement": 1.0081518837523618e-06,
+      "native_means": [
+        11.14192658510798,
+        2.9365848832664896,
+        -12.675494016034387,
+        27.95903998830342,
+        -13.573695988064808,
+        2.89716119628386
+      ],
+      "recovered_means": [
+        11.169748737718217,
+        2.9365848832664874,
+        -12.675494016034376,
+        27.959039988303523,
+        -13.573695988064815,
+        2.897161196283875
+      ],
+      "recovered_standard_errors": [
+        0.015385153969501107,
+        0.041860028211537406,
+        0.13448031349591227,
+        0.20977020703655402,
+        0.1843340564622821,
+        0.07537885004172125
+      ],
+      "population_gamma": [
+        11.155272247405382,
+        3.008163675134411,
+        -12.906622522564893,
+        28.237544458943802,
+        -13.700378989433878,
+        2.933225525678581
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        3.186265249514749e-12,
+        3.779687509418367e-12,
+        1.2511195816808135e-11,
+        2.0446452064792513e-11,
+        1.6717173137754234e-11,
+        6.5344100589038435e-12
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.0003,
+      "initial_gamma_refinement": 1.0081518837523618e-06,
+      "native_means": [
+        11.114572544707002,
+        3.047778540805164,
+        -13.040225137242018,
+        28.46529116561197,
+        -13.886387781778955,
+        2.982702568318767
+      ],
+      "recovered_means": [
+        11.157092245920735,
+        3.0477785408051625,
+        -13.040225137242007,
+        28.465291165612072,
+        -13.886387781778964,
+        2.9827025683187838
+      ],
+      "recovered_standard_errors": [
+        0.015420540188334168,
+        0.04194623691086677,
+        0.1349714869967631,
+        0.21053670146341388,
+        0.18445588539402175,
+        0.07534733918188144
+      ],
+      "population_gamma": [
+        11.155272247405382,
+        3.008163675134411,
+        -12.906622522564893,
+        28.237544458943802,
+        -13.700378989433878,
+        2.933225525678581
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        3.1855521071634846e-12,
+        3.799425297904099e-12,
+        1.2593093396028384e-11,
+        2.056710249713456e-11,
+        1.6762750800701918e-11,
+        6.5415410740236945e-12
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 6.046114648938783e-07,
+      "native_means": [
+        5.764411960475584,
+        1.6337346443771974,
+        -7.525125991237288,
+        20.06756304933794,
+        -5.485075859969375,
+        0.5719281307840833
+      ],
+      "recovered_means": [
+        5.7843454801199465,
+        1.6337346443771987,
+        -7.525125991237285,
+        20.067563049337934,
+        -5.485075859969369,
+        0.5719281307840846
+      ],
+      "recovered_standard_errors": [
+        0.014567295560848145,
+        0.043010479786288705,
+        0.13745199183898066,
+        0.2094529897719202,
+        0.17934659547654144,
+        0.07331912821279021
+      ],
+      "population_gamma": [
+        5.768301324813426,
+        1.704873876330149,
+        -7.770215199093684,
+        20.367497895685872,
+        -5.636427944627009,
+        0.6287785891320059
+      ],
+      "initial_error_allowances": [
+        7.98e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.3393581070203178e-12,
+        3.726273531515765e-12,
+        1.2170289569506291e-11,
+        1.9523182295715724e-11,
+        1.5387045363742443e-11,
+        6.100509352419608e-12
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 6.046114648938783e-07,
+      "native_means": [
+        5.737349072530082,
+        1.7294398828784279,
+        -7.855997301240417,
+        20.547940944970026,
+        -5.801844672243144,
+        0.6719072296150902
+      ],
+      "recovered_means": [
+        5.770349434045381,
+        1.7294398828784294,
+        -7.855997301240414,
+        20.547940944970023,
+        -5.801844672243138,
+        0.6719072296150914
+      ],
+      "recovered_standard_errors": [
+        0.014597728536932713,
+        0.04299768102026357,
+        0.13785042865347596,
+        0.2102232075183366,
+        0.17953314761189637,
+        0.0733256812377163
+      ],
+      "population_gamma": [
+        5.768301324813426,
+        1.704873876330149,
+        -7.770215199093684,
+        20.367497895685872,
+        -5.636427944627009,
+        0.6287785891320059
+      ],
+      "initial_error_allowances": [
+        7.98e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.338271159786878e-12,
+        3.7361003878000125e-12,
+        1.2240703829428857e-11,
+        1.964119777293817e-11,
+        1.5438414418822485e-11,
+        6.112415092325929e-12
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 2.611674645436324e-07,
+      "native_means": [
+        0.25666579996998595,
+        -0.9006605947964764,
+        3.0177595419270493,
+        18.682781978748167,
+        2.848900398217915,
+        5.159585062817181
+      ],
+      "recovered_means": [
+        0.27293772342965145,
+        -0.9006605947964768,
+        3.0177595419270555,
+        18.682781978748167,
+        2.848900398217912,
+        5.159585062817183
+      ],
+      "recovered_standard_errors": [
+        0.022931076910446456,
+        0.09260084061739303,
+        0.28453572541233046,
+        0.4148143496891945,
+        0.3375103566783852,
+        0.1297311865921479
+      ],
+      "population_gamma": [
+        0.2254583854618737,
+        -0.6977120770145131,
+        2.4878333716327674,
+        19.31356753682175,
+        2.4894484186332804,
+        5.308748678575547
+      ],
+      "initial_error_allowances": [
+        1.2000000000000002e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.4601754962543492e-12,
+        7.725115132778792e-12,
+        2.376550945122208e-11,
+        3.627070038053656e-11,
+        2.8107081449487165e-11,
+        1.1265796965289922e-11
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 2.611674645436324e-07,
+      "native_means": [
+        0.19636716125130185,
+        -0.7200288419298518,
+        2.558763682812158,
+        19.261742403436408,
+        2.5532236371379056,
+        5.229767330648121
+      ],
+      "recovered_means": [
+        0.2349488480899353,
+        -0.720028841929852,
+        2.5587636828121636,
+        19.261742403436408,
+        2.553223637137903,
+        5.229767330648123
+      ],
+      "recovered_standard_errors": [
+        0.023000146752699003,
+        0.09274478010044712,
+        0.28568250166886866,
+        0.41678860764753145,
+        0.3381346858366689,
+        0.1298333899371659
+      ],
+      "population_gamma": [
+        0.2254583854618737,
+        -0.6977120770145131,
+        2.4878333716327674,
+        19.31356753682175,
+        2.4894484186332804,
+        5.308748678575547
+      ],
+      "initial_error_allowances": [
+        1.2000000000000002e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.4587098880002032e-12,
+        7.716428499509165e-12,
+        2.3807728064175515e-11,
+        3.6499037652360833e-11,
+        2.812486046082736e-11,
+        1.1282188946828632e-11
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 5.019577429266064e-07,
+      "native_means": [
+        0.04003325348401698,
+        -0.20503120364223845,
+        0.5427873791700235,
+        22.965044956222915,
+        0.3278944045558244,
+        -0.14797565724802608
+      ],
+      "recovered_means": [
+        0.04917297364763606,
+        -0.2050312036422418,
+        0.5427873791700144,
+        22.965044956222915,
+        0.3278944045558296,
+        -0.14797565724802747
+      ],
+      "recovered_standard_errors": [
+        0.027664126650571788,
+        0.11825643851302675,
+        0.3393864832976025,
+        0.4509045681107908,
+        0.3434709161110138,
+        0.1343993447148409
+      ],
+      "population_gamma": [
+        -1.7763568394002505e-14,
+        1.9539925233402755e-14,
+        1.4210854715202004e-14,
+        23.58343793600666,
+        1.4210854715202004e-14,
+        -1.7763568394002505e-15
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.972923811225192e-12,
+        9.757950363720084e-12,
+        2.7999345863093674e-11,
+        3.972841420841788e-11,
+        2.8311137960048244e-11,
+        1.1080316676836657e-11
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 5.019577429266064e-07,
+      "native_means": [
+        -0.04180821736526116,
+        0.04549907067363362,
+        -0.12017905335849204,
+        23.830371071578316,
+        -0.24203761425322431,
+        0.06867648136247666
+      ],
+      "recovered_means": [
+        8.059726526764428e-05,
+        0.0454990706736298,
+        -0.12017905335850124,
+        23.830371071578323,
+        -0.24203761425321907,
+        0.06867648136247506
+      ],
+      "recovered_standard_errors": [
+        0.02770672330035708,
+        0.11834519972783018,
+        0.34032031050947514,
+        0.45278330365991626,
+        0.3440258490174481,
+        0.1342821252688493
+      ],
+      "population_gamma": [
+        -1.7763568394002505e-14,
+        1.9539925233402755e-14,
+        1.4210854715202004e-14,
+        23.58343793600666,
+        1.4210854715202004e-14,
+        -1.7763568394002505e-15
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.973272405822093e-12,
+        9.747120311324234e-12,
+        2.802817170666027e-11,
+        3.998144427029912e-11,
+        2.8347058175290712e-11,
+        1.106165212649798e-11
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.0003,
+      "initial_gamma_refinement": 1.0093751328099643e-06,
+      "native_means": [
+        11.136986352307435,
+        2.289786331352787,
+        -11.924530296597133,
+        27.23646650350952,
+        -13.267794514831108,
+        3.2151136722177065
+      ],
+      "recovered_means": [
+        11.161174991154278,
+        2.289786331352781,
+        -11.92453029659714,
+        27.23646650350944,
+        -13.267794514831063,
+        3.215113672217705
+      ],
+      "recovered_standard_errors": [
+        0.01495151814193348,
+        0.05475461640175234,
+        0.16380286916979744,
+        0.22689821395952978,
+        0.1805609132872464,
+        0.07079499767067972
+      ],
+      "population_gamma": [
+        11.147067398164547,
+        2.3633645261097413,
+        -12.175289453365195,
+        27.52710458810102,
+        -13.391432842634815,
+        3.255386177149113
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        3.1664229527308453e-12,
+        4.767612556828996e-12,
+        1.4839597126183495e-11,
+        2.1774249331761765e-11,
+        1.6371798327138883e-11,
+        6.193223219894403e-12
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.0003,
+      "initial_gamma_refinement": 1.0093751328099643e-06,
+      "native_means": [
+        11.10753777177578,
+        2.409507208026846,
+        -12.328667302395436,
+        27.785984122438357,
+        -13.609313367610438,
+        3.319689424736917
+      ],
+      "recovered_means": [
+        11.147957712486761,
+        2.4095072080268403,
+        -12.328667302395443,
+        27.78598412243828,
+        -13.60931336761039,
+        3.319689424736916
+      ],
+      "recovered_standard_errors": [
+        0.014980789651527772,
+        0.05482324899633793,
+        0.16433968369335175,
+        0.22788124724974268,
+        0.18085178340493427,
+        0.07074081408073256
+      ],
+      "population_gamma": [
+        11.147067398164547,
+        2.3633645261097413,
+        -12.175289453365195,
+        27.52710458810102,
+        -13.391432842634815,
+        3.255386177149113
+      ],
+      "initial_error_allowances": [
+        8e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        3.1653367000209934e-12,
+        4.7868729469864484e-12,
+        1.492973171641549e-11,
+        2.1917643648934335e-11,
+        1.6434568390351137e-11,
+        6.200651818302859e-12
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 6.082138526153358e-07,
+      "native_means": [
+        5.781152612349389,
+        1.5254737039018211,
+        -7.882792141913835,
+        20.82290026341217,
+        -6.278142199992028,
+        1.0805781084729718
+      ],
+      "recovered_means": [
+        5.800583663471049,
+        1.5254737039018167,
+        -7.882792141913839,
+        20.822900263412173,
+        -6.278142199992025,
+        1.0805781084729698
+      ],
+      "recovered_standard_errors": [
+        0.014487155428889738,
+        0.05557443803501105,
+        0.1652897566313386,
+        0.2254733594818205,
+        0.17605686559879383,
+        0.06942827385382148
+      ],
+      "population_gamma": [
+        5.789258116981646,
+        1.587039048193268,
+        -8.11293949923639,
+        21.097965302530454,
+        -6.402034834100277,
+        1.122349283985308
+      ],
+      "initial_error_allowances": [
+        7.98e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.351249900639099e-12,
+        4.748206400446891e-12,
+        1.4502502392952026e-11,
+        2.092782000603571e-11,
+        1.52064023750759e-11,
+        5.838048563707794e-12
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 6.082138526153358e-07,
+      "native_means": [
+        5.759599894315995,
+        1.617576845476872,
+        -8.22637253809914,
+        21.31004773518525,
+        -6.592583119099631,
+        1.1807854359546113
+      ],
+      "recovered_means": [
+        5.790540909877016,
+        1.6175768454768673,
+        -8.226372538099143,
+        21.310047735185254,
+        -6.5925831190996265,
+        1.180785435954609
+      ],
+      "recovered_standard_errors": [
+        0.014514697459164746,
+        0.05555772046336842,
+        0.1656610585546994,
+        0.2263153974706152,
+        0.17631639970188684,
+        0.06941448152385157
+      ],
+      "population_gamma": [
+        5.789258116981646,
+        1.587039048193268,
+        -8.11293949923639,
+        21.097965302530454,
+        -6.402034834100277,
+        1.122349283985308
+      ],
+      "initial_error_allowances": [
+        7.98e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.350530743486182e-12,
+        4.757301157232776e-12,
+        1.4572127817001555e-11,
+        2.1052517198234868e-11,
+        1.526351451359779e-11,
+        5.848305459991469e-12
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 2.3597338838499127e-07,
+      "native_means": [
+        -0.13190736048034546,
+        -1.66447973598376,
+        5.4759091802443995,
+        15.263742382221084,
+        5.080994763875526,
+        4.855545622949057
+      ],
+      "recovered_means": [
+        -0.12066879671017489,
+        -1.6644797359837618,
+        5.475909180244389,
+        15.263742382221091,
+        5.080994763875529,
+        4.855545622949057
+      ],
+      "recovered_standard_errors": [
+        0.022920541760789375,
+        0.11464470637175939,
+        0.3265522905982266,
+        0.42800940113482444,
+        0.31608839540556166,
+        0.11740223204872813
+      ],
+      "population_gamma": [
+        -0.1649697412810074,
+        -1.4537294709812603,
+        4.915638594743367,
+        15.909205005655387,
+        4.728738938583888,
+        5.002914084395979
+      ],
+      "initial_error_allowances": [
+        1.2000000000000002e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.4441045869562215e-12,
+        9.62655965643741e-12,
+        2.7503690991182642e-11,
+        3.696819166352103e-11,
+        2.6597426831110455e-11,
+        1.0216336019861452e-11
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "joint_direction_policy_passed",
+      "regularization": 0.01,
+      "initial_gamma_refinement": 2.3597338838499127e-07,
+      "native_means": [
+        -0.19884914730955422,
+        -1.4246606302218383,
+        4.867584411440633,
+        15.99717465169384,
+        4.69543850205183,
+        4.9597635765881884
+      ],
+      "recovered_means": [
+        -0.1610188694397725,
+        -1.4246606302218405,
+        4.867584411440622,
+        15.997174651693848,
+        4.695438502051832,
+        4.9597635765881884
+      ],
+      "recovered_standard_errors": [
+        0.02298181149103561,
+        0.11477684954183931,
+        0.3276118838032039,
+        0.4301420312255364,
+        0.31687236523883294,
+        0.11745508819757566
+      ],
+      "population_gamma": [
+        -0.1649697412810074,
+        -1.4537294709812603,
+        4.915638594743367,
+        15.909205005655387,
+        4.728738938583888,
+        5.002914084395979
+      ],
+      "initial_error_allowances": [
+        1.2000000000000002e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roundoff_allowances": [
+        2.4539159740472525e-12,
+        9.610173150543556e-12,
+        2.7521756132638807e-11,
+        3.7227127238145e-11,
+        2.6618129037455565e-11,
+        1.0232535245261588e-11
+      ]
+    }
+  ],
+  "failed_gate_controls": {
+    "initial_grid_failure": {
+      "status": "initial_recovery_failed",
+      "estimate_withheld": true,
+      "joint_raw_statistics_retained": false
+    },
+    "second_recovery_failure": {
+      "status": "second_recovery_failed",
+      "estimate_withheld": true,
+      "joint_raw_statistics_retained": false
+    },
+    "unconserved_joint_failure": {
+      "status": "joint_validation_failed",
+      "estimate_withheld": true,
+      "joint_raw_statistics_retained": true
+    }
+  },
+  "legacy_replay": {
+    "cases": 40,
+    "byte_identical": true,
+    "sha256": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84"
+  },
+  "tests": {
+    "rust_related": 33,
+    "python_vegakt": 105,
+    "companion_calibration": 11,
+    "wheel_contract": 4,
+    "runtime_stub_contract": "passed",
+    "clippy": "passed",
+    "rustfmt": "passed",
+    "dependency_direction": "passed",
+    "diff_whitespace": "passed"
+  },
+  "native_binary_sha256": "cee79d88986bcfb9854409d7b9b5709802d40119f04efaa617343425c3eb7359",
+  "source_sha256": {
+    "scripts/check_joint_smile_gamma.py": "2a6dd0ecf054157449bb9d7403ef966e9edf9d0a9b35af242442c9f61a469b80",
+    "scripts/check_initial_smile_gamma.py": "ee2163871620bdd5fd4096b1654c7632544ca3d461428369b2de10ab1f80bd89",
+    "scripts/check_nonflat_gamma_recovery.py": "9b37c45d4c1677b47063959e6447ba7203ef4adebfafdb52a324ee88825ba4ac",
+    "scripts/check_gamma_quote_conservation.py": "28675468e2538db4576b23fe16e219528bc2ddd4e065a9d8a831a8e7cc43affb",
+    "scripts/check_discrete_smile_calibration.py": "c7ce77c529b05e343a2ed526c4b6a56395dfdcd439d6b9a2581882d4740e3555",
+    "scripts/check_path_gamma_recovery.py": "f328f1faf45d04b58e21512e72da159e7c9dea0ef1e24cc552b15b32a478df80",
+    "backtesting/rust_pricing_backtest/discrete_smile.py": "11159b8b2eb517f37962978b8b84d5ae2989d5f6b776b3d9867a193851ff26d8",
+    "backtesting/rust_pricing_backtest/joint_smile.py": "638ab1161c2d2d4c63d72a9e63679ff7dd25e7e1cab0a46391e67dbcd2cc923c",
+    "crates/pricing-python/src/lib.rs": "006b329d35cff5faa1f4ce10f6c63235eed7b5591b46c01c672efa166e6f0cbf",
+    "crates/pricing/src/risk/vegakt.rs": "7aa84ed69dd6fc84f9b74a603126a591aac30a0fed0feecd1ed5ff62d2be1f09",
+    "crates/pricing/src/risk/vegakt_atom_chain.rs": "7266ae096d156d5e02015efe584b9104ba79c9593fa980accf288c45c3ce70a9",
+    "crates/pricing/src/risk/vegakt_chain.rs": "24d0f0237ee02543a6a9447493271621726c0f21a5c0fdda8616b675606b6d21",
+    "crates/pricing/src/risk/vegakt_convolution.rs": "e32e1a359784fb2528ae5c3e0f46ce43feb293b487ab463bda14ed87c7ce2768",
+    "crates/pricing/src/risk/vegakt_initial.rs": "3ce5f25d1b088c5aa234c9b7d4a1d1f64eef142e0b8ed56323c8b49b78e3d7c2",
+    "crates/pricing/src/risk/vegakt_initial_measure.rs": "8700df90f8b3d3901f941755ffd1d33084d3c8c4fec3e70ad5632085ad250caa",
+    "crates/pricing/src/risk/vegakt_initial_smile.rs": "7cd4e86783aa39dd534a113b625e5b1fa9c0c23dd137585e2f4435dcebbb87f9",
+    "crates/pricing/src/risk/vegakt_joint.rs": "50614ba8ce505684ab62e647e343285cac4095fb553bafbc665958d7a5b9bfa6",
+    "crates/pricing/src/risk/vegakt_measure.rs": "fe01bf125c08f56951f64b58922e3217f8c310a0f577e6c399e173d3fd69d185",
+    "crates/pricing/src/risk/vegakt_selection.rs": "14a124600747f674c93c85d560e466595f4cfbd217328a9fc50200aa928dd4fe",
+    "crates/pricing/src/risk/vegakt_smile.rs": "3d131bd530dd345c37337ac8a4732434f3a1876f2ef78b21cf470ae31dc9c7c9",
+    "crates/pricing/src/risk/vegakt_steps.rs": "33003d58ccdf7a67748a447162cbc8598de6fab01bcdc7dd528d870cabb40100",
+    "crates/pricing/src/risk/vegakt_convolution/constraints.rs": "9ef2e8b8f23518bb7193bc112ede9449618c812499a99898e3c7ec8eb9edb8de",
+    "crates/pricing/src/risk/vegakt_convolution/gaussian_variance.rs": "1bb020a041b52b05d70236226e19ffc9d9e917e54f29731e68864c6ae4cbb3e4",
+    "crates/pricing/src/engine/risk/vegakt.rs": "36598c1f25c06a2bf2d8a82a19293d8f5d80a37587fd32eba204ee301f0916fd",
+    "crates/pricing/src/engine/risk/vegakt_atom_chain.rs": "fbd88eaba74115b8cb6da4bf4986fbc143be23f9b58a8114d6085b19ba4e8987",
+    "crates/pricing/src/engine/risk/vegakt_chain.rs": "8828354f78d0edc546d48195cb989bb2fa34cb04afef1f41ad1c82a5a3d61d3b",
+    "crates/pricing/src/engine/risk/vegakt_convolution.rs": "f0178f33575758230d79d0eeb187e8582c8ae62fed49c9a68d050c0109dfe4f1",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3ac977988640ba86cce3dbbd9a31f000bda25b78aba6cb387a57b31a4027f2e1",
+    "crates/pricing/src/engine/risk/vegakt_initial.rs": "70728da1ce84b418f3380bf9053caff189ca2d56b52eb603f02891453f00ea43",
+    "crates/pricing/src/engine/risk/vegakt_initial_measure.rs": "c423414ac4b1ec9a8d842d128535d70d5f95e6b1ac0ad81910aed9fbdd979c87",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile.rs": "c450da9b73623b9f8fddc7adfeca5423c2d248318c5efe5bc2fd208a3950aaaa",
+    "crates/pricing/src/engine/risk/vegakt_joint.rs": "d7987a733234894774ffd42be8763b9e05728a22758bcda4f2505b7999b0eda3",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "f20d4efaeaae009f689216fbc257b96f9ee3c20941ac86ea5a9eafe640455fc3",
+    "crates/pricing/src/engine/risk/vegakt_paper.rs": "8d87c63ecd296faaceed3652faca09c2ed19a6adb3227f102f8eb7e847ca2234",
+    "crates/pricing/src/engine/risk/vegakt_pricing.rs": "f428f270929fec13642ab87ea26611bb41959ee2410c52225b317a0d20e5cbdc",
+    "crates/pricing/src/engine/risk/vegakt_recovery.rs": "93e730ab228a33ddeb803c9f614da1757705e4d90ba0cecb0dec4a0b449c7664",
+    "crates/pricing/src/engine/risk/vegakt_selection.rs": "4417c2a25674e2e6a03b1111f87ea1ee99da03afd17961e929e9ac2c2165c5a7",
+    "crates/pricing/src/engine/risk/vegakt_smile.rs": "a9650a0eb83f6e020531222d2affe9ac5bc75e9e566561b331d43d07d93002be",
+    "crates/pricing/src/engine/risk/vegakt_steps.rs": "88fab970c8dfe184cb78eee3cf0169e9cb916ad7f6c6bd2880696e452207c516",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "33cca43b7c17a81b1c2d67a5e9a540d243bb79f7a6920b77a4fcf4311ecb08ba",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pathwise.rs": "c82349789a79aee187210739b76c007234a0c0b5ed57bd2990e5e19391598ead",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "be375917683731c91ed024b91b4ac77c2d4c87d6b2a9edfc7b95b6f825b86ded",
+    "crates/pricing/src/engine/risk/vegakt_terminal_replication.rs": "5c9e1b83c69830c6b495a3a31b897632e585a4ae77dc519820c90203aaa0977e",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile/bound.rs": "4198c3b954230aa67b955843126bafc794f1e103a2f922e800461a1da2cbc3d7",
+    "crates/pricing-python/src/vegakt_atom_chain.rs": "ab57521eae4b6498f2c9ea4b55ee7a6852d8c165dc5ad31ce4196002bfcde344",
+    "crates/pricing-python/src/vegakt_chain.rs": "7773c8cbf5c12a59368b35f515ba40899e52c17c6fb1b4788b185c118836f0b5",
+    "crates/pricing-python/src/vegakt_convolution.rs": "cb167825141569680e430c82bc879b9eae2cf6923a1bb20cb226ddefbd06c3da",
+    "crates/pricing-python/src/vegakt_initial_measure.rs": "3710dd79df378660f1ccb6133455ab7f75eec95de488994a16e29be4678928c5",
+    "crates/pricing-python/src/vegakt_initial_smile.rs": "bd2a8d3fb419084d3e69582ae4df9ba2b65de0f9f368ad24d4266a03e7e21670",
+    "crates/pricing-python/src/vegakt_joint.rs": "1acee4e321b1dad1a5f845659e67f41133a4eb71d98425393d95546b248ad787",
+    "crates/pricing-python/src/vegakt_measure.rs": "c3cd20bed4891b2f69a2073cf28eca568b732c9b37d509220767c9e7604045c4",
+    "crates/pricing-python/src/vegakt_selection.rs": "e0864490126d5b54b580a507d66e78bef16a4121c69349de27eaba3f335e3772",
+    "crates/pricing-python/src/vegakt_smile.rs": "e7cd8c6b611a316a50aceb16df26e34b7ed3a7ae5a67408e2d2afac64dc99311",
+    "crates/pricing/src/risk/mod.rs": "c3b100987c6a8659f08a90159f17d3770a4f9ec212344d90b113cd2ae5697391",
+    "crates/pricing/src/engine/risk/mod.rs": "aec295985ee95ca782597034175c35ed6e59d5bd3967ac43a6516f029b2ac66a",
+    "crates/pricing/src/engine/risk/pricing.rs": "d975597f1ce29668f89f02bf099741fb97fb83428158d1946d2ea0feb66c40d3",
+    "crates/pricing/tests/local_vol_joint_gamma.rs": "c0f41701302355dff386cdb07449b4b18e06235515e16bd8eca040f652339afa",
+    "tests/python/test_vega_kt_joint_smile.py": "8f0d3935828e414f539b6e7fc2d98f13cc910c3fc34183398bf4288428714fb1",
+    "backtesting/tests/test_joint_smile.py": "43d8e97c9da52b7e0589e6437113c7a63076affdfcca3d928805ae38ec20445c",
+    "rust_pricing.pyi": "acc4ef89cf3f10cf10ed2e583de4e5081482b1cce4e6d305d392d79c16debdf4",
+    "scripts/smoke_test_wheel.py": "9282a97b9c64a87646d39c325ade5fe1607d0f7e8873c14bfb55ca9e541d13e0",
+    "scripts/check_source_archive.py": "74c940078b3093eb70b4f536265f8a5122d69d6fa40d799c2e06ea930e07be97",
+    ".github/workflows/backtesting.yml": "075d9fd8ab4d036b823ab78823c69503ea895a460d7529d1b0517c4f93596907"
+  },
+  "evidence_sha256": {
+    "benchmark-results/vega-kt-joint-smile/report.json": "2bed8655d68cd2a2f70e35586d80b84ad95a7c0abd7b4331d9fee0ef50681b03",
+    "benchmark-results/vega-kt-joint-smile/controls.json": "982d707e4f496f29cb114616724930e27faad5b7f2693156d49217d90864ee38",
+    "benchmark-results/vega-kt-joint-smile/legacy-after.json": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84",
+    "benchmark-results/vega-kt-initial-smile/legacy-after.json": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84",
+    "benchmark-results/vega-kt-initial-smile/legacy-replay.py": "2014872a65116eca8e98537885e0ea264fc0abf4ca7c203a0e774c8f8c51490e",
+    "fixtures/backtesting/joint-smile-gamma-policy-v0.1.json": "6e4c041ef41d64ad4c353eb391f4f81ee7223584785f7f3037f089bcc4ceefd9"
+  },
+  "limitations": [
+    "First-maturity nonflat smiles and arbitrary time grids remain unsupported.",
+    "Recovery is diagnostic only; no backtest provider promotion.",
+    "Initial Gamma is a finite-window approximation with separate numerical error allowances.",
+    "Joint covariance is conditional on pilot selection and excludes deterministic initial approximation error.",
+    "Population projection conservation is not a finite-sample pricing accuracy guarantee."
+  ]
+}

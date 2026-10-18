@@ -1,0 +1,159 @@
+{
+  "document_kind": "vega_kt_market_shock_daily_replay_validation",
+  "date": "2026-10-04",
+  "enabled_versions": {
+    "request": 7,
+    "result": 11,
+    "checkpoint": 9,
+    "ensemble": 3
+  },
+  "default_versions": {
+    "request": 6,
+    "result": 10,
+    "checkpoint": 8,
+    "ensemble": 2
+  },
+  "native_binary_hash": "17328f430753e9c318c71ba44dd2a0c3ad498d56829f9d3c5493df9c69c43cfa",
+  "native_binary_unchanged": true,
+  "native_replay": {
+    "strategies": [
+      {
+        "strategy": "unhedged",
+        "status": "completed",
+        "risk_validation": "unvalidated",
+        "result_version": 11,
+        "request_version": 7,
+        "checkpoint_version": 9,
+        "snapshots": 5,
+        "decisions": 4,
+        "resume_bitwise_equal": true,
+        "first_proposed_complement_l2": 3.269246103798808,
+        "final_held_risk_l2": 0.0
+      },
+      {
+        "strategy": "delta",
+        "status": "completed",
+        "risk_validation": "unvalidated",
+        "result_version": 11,
+        "request_version": 7,
+        "checkpoint_version": 9,
+        "snapshots": 5,
+        "decisions": 4,
+        "resume_bitwise_equal": true,
+        "first_proposed_complement_l2": 3.269246103798808,
+        "final_held_risk_l2": 0.0
+      },
+      {
+        "strategy": "scalar_vega",
+        "status": "completed",
+        "risk_validation": "unvalidated",
+        "result_version": 11,
+        "request_version": 7,
+        "checkpoint_version": 9,
+        "snapshots": 5,
+        "decisions": 4,
+        "resume_bitwise_equal": true,
+        "first_proposed_complement_l2": 0.7867679650317498,
+        "final_held_risk_l2": 0.0
+      },
+      {
+        "strategy": "vega_kt",
+        "status": "completed",
+        "risk_validation": "unvalidated",
+        "result_version": 11,
+        "request_version": 7,
+        "checkpoint_version": 9,
+        "snapshots": 5,
+        "decisions": 4,
+        "resume_bitwise_equal": true,
+        "first_proposed_complement_l2": 1.0350157789084558,
+        "final_held_risk_l2": 0.0
+      }
+    ],
+    "ensemble_version": 3,
+    "historical_hedge_evidence": false
+  },
+  "cli_checkpoint_resume_byte_equal": true,
+  "numeric_regression": {
+    "scoped_checks": 307,
+    "scoped_failed": 0,
+    "all_scoped_checks_unchanged": true,
+    "original_checks": 154,
+    "original_failed": 6,
+    "all_original_checks_and_observations_unchanged": true
+  },
+  "validation": {
+    "companion_tests_passed": 212,
+    "native_vega_kt_tests_passed": 35,
+    "new_daily_replay_tests": 9,
+    "new_native_four_strategy_test": 1,
+    "existing_schemas_unchanged": 11,
+    "new_schema_files": 5,
+    "schema_generation_check": "passed",
+    "full_financial_acceptance": "not_established"
+  },
+  "previous_schema_sha256": {
+    "definitions-v2.schema.json": "b499a4c3197304b8e1376579dc11d400f4501c3ffbbdafe744c2562e85dc32ff",
+    "definitions-v1.schema.json": "2b97e7fb41ca58bf220483e0723c67fc7d313dab919532ece1180ee23d40f525",
+    "ensemble-request-v1.schema.json": "9130d3d15a97fbe67594c4848ce6f80b44f6aa9f425885e3d1e9184abc74fb4f",
+    "request-v6.schema.json": "2ba2cb20f3c2153c785248ee3d57c4afa86e82ddc738a148e953967ca86d8cea",
+    "ensemble-v1.schema.json": "b26d2fd5f117569e21997267f859a924c8f860bb75592e37bcdf55d1303fd405",
+    "checkpoint-v7.schema.json": "12f3c798f9e7c4b751dfa4240bc90f65ac0f381fa49e14182b0b53ca4274d0f0",
+    "checkpoint-v8.schema.json": "a35e14e92f778056cba39d3347d805a419347d79c88eb7658e958b28609d3a90",
+    "result-v9.schema.json": "18918e5244c5bfd362db3525373f907b4e8e0ce1dcf8e1c9093bcb62fa2f51be",
+    "ensemble-v2.schema.json": "d6d5795fa17c4db5318ae6d6dceb9ebc080b0eaf09c011160b10ae267eec0a94",
+    "result-v10.schema.json": "033b90191cf06ba16f8654168cf64d4a2d404f38fe55edc5aeada3e7b060240d",
+    "request-v5.schema.json": "5cdaa8ea01bcf36daac5743fdf6c0201779e7e0cc2023c955942b47c7fd74306"
+  },
+  "source_sha256": {
+    "backtesting/rust_pricing_backtest/domain.py": "bd4c15b6a97baf2fa214cd2a4d1e4b7cc63eb8d3e38cd7ef597ade7dbfd10fcf",
+    "backtesting/rust_pricing_backtest/engine.py": "ef260ebd995520ba0be0b516f3580a3ba60a8b0e5552b09d5c7f536cb6a3efce",
+    "backtesting/rust_pricing_backtest/market_shocks.py": "4b654061aaf24edff826df5f33bc824e294e724e8bbeba0fda0318bdc55132b1",
+    "backtesting/rust_pricing_backtest/serialization.py": "01b25a5d9eacf2d751960ce61219a44138c45e4058cd3914ec95ce2393c31f93",
+    "backtesting/rust_pricing_backtest/ensemble.py": "8fd10447925b267c999c3c68f13a7649785bddc4071565e07a0d4a97d290849e",
+    "backtesting/rust_pricing_backtest/validation.py": "1736bc014c0c73810b6641c8f7e84cd5da38401ab1b1afb6778b8e181389959d",
+    "backtesting/tests/test_market_shock_replay.py": "b50cce4d2ce1cd26685ab8dee3ad25d218e3e3fce5e25a83d745737bb1e8ccae",
+    "backtesting/tests/test_validation.py": "4795d67d0f3a01dd7ca6e5f2c1427e1eabceed8dc6a6111b1feb654f6feffa50",
+    "tests/python/test_vega_kt_backtest.py": "ee31fb0681f5b2e6b748e62198657307eec91bd51785b44a49a91401260aede8",
+    "scripts/generate_backtest_schemas.py": "98ae0befa3ffa9e7c6066eccafdbf66345dd804e9f1bb3c0d6f8606374b3f6dd",
+    "scripts/check_source_archive.py": "f64cdf035758b1a3df7e3ded3a6042aac0c9c68f920248f0dc6a78a02114d6c5",
+    "backtesting/README.md": "f9ffa88aee8064b10a4fb8e94993bb5486b6dba14f1497afc8b395dd9261f1ec",
+    "docs/library/vega-kt-backtesting.md": "1056f4fc910d4deec2d82b9a200432b4292bae76ce0015abe06d00ed58b3c291",
+    "design/roadmaps/vega-kt-hedging-backtest-roadmap-v0.1.md": "a25a2b4a8552c6e4a720ba9881f20a47c8fc73bb6f9f11458d5210faf5293a37",
+    "design/validation/vega-kt-market-shock-replay-v0.1.md": "466ab2395a7dbf3e3a5b11b62f009031d256d52bfff4f06a677dac113924ffa7",
+    "backtesting/rust_pricing_backtest/schemas/definitions-v3.schema.json": "0ad20a7caee9b83f85224e77e2a5d4ec3678a3a257a91689d1dfb4a0ded9b343",
+    "backtesting/rust_pricing_backtest/schemas/request-v7.schema.json": "c6f81e7ff32f46c16c1be4fa04f5804c869a963258b0c5f8eb15d4cb687c6204",
+    "backtesting/rust_pricing_backtest/schemas/result-v11.schema.json": "8f54d9979ee125fe42a64e8ededc13783e4a2d1c76a644ef7d7e637b27376bd1",
+    "backtesting/rust_pricing_backtest/schemas/checkpoint-v9.schema.json": "241384aab7f6b1204cd25c65a882c9b2c9bf46a69bc46a71832c9cc087695eaa",
+    "backtesting/rust_pricing_backtest/schemas/ensemble-v3.schema.json": "0d525985204ac49823804100f361ff5ea0301f70576622ec81801599ee961b67"
+  },
+  "report_sha256": {
+    "benchmark-results/vega-kt-market-shock-replay/numerics/report.json": "66553bb716596b21acb70daa25783b1fe202c724f8cabcfc51245485813d8dd0",
+    "benchmark-results/vega-kt-market-shock-replay/native/summary.json": "42a013d8dcbd153f9670d82b06d935de1568d9e768d8210f9c23122e7ca7903c",
+    "benchmark-results/vega-kt-market-shock-replay/native/vega_kt/result.json": "8de499efc66f32fc2cbf381a932a39b07f7f1c788eff68dd7d05607f5c0171a8",
+    "benchmark-results/vega-kt-market-shock-replay/replayed/result.json": "8de499efc66f32fc2cbf381a932a39b07f7f1c788eff68dd7d05607f5c0171a8",
+    "benchmark-results/vega-kt-market-shock-replay/native/unhedged/input.json": "88126db1b6e3753d4b2506bdaea22d7f6c87393bc654e1e23b0e80e84774e9e5",
+    "benchmark-results/vega-kt-market-shock-replay/native/unhedged/result.json": "05cc2aa427a396a984eba00cc5136c5635e85143a4f25398191153c661ad10b5",
+    "benchmark-results/vega-kt-market-shock-replay/native/unhedged/partial-checkpoint.json": "f29ec0600f8a95c132a019aa8a279ccb10ac8586224b7f42f2231b1f7458aeac",
+    "benchmark-results/vega-kt-market-shock-replay/native/unhedged/checkpoint.json": "37e7ac7eee2dba8c45a0ba512dd72b63108e01275738edba10c5a4848e622e03",
+    "benchmark-results/vega-kt-market-shock-replay/native/delta/input.json": "d95618401adc2765c4f2a3a3654cbadc06b33ae9faa1f1ef83382abf3b6bd6ed",
+    "benchmark-results/vega-kt-market-shock-replay/native/delta/result.json": "5fe045c9f35c0eed76e560e1622d9e07d8373683e950e1aadf6393af99bc5b16",
+    "benchmark-results/vega-kt-market-shock-replay/native/delta/partial-checkpoint.json": "cf84326118776f7e09b34b820ff96a33da2b18f3c43e571a34a91afd76cf33fc",
+    "benchmark-results/vega-kt-market-shock-replay/native/delta/checkpoint.json": "2ccd306c8a4fed9e0400cf1e2001ba28c80901f185630a21121aff3750cc1244",
+    "benchmark-results/vega-kt-market-shock-replay/native/scalar_vega/input.json": "5e638ca3286f7ff9ae664cc8e9969e7e073c6bc0bdc95801a1b674669b55a51e",
+    "benchmark-results/vega-kt-market-shock-replay/native/scalar_vega/result.json": "c21b818c594318c21cd5710b3a195802003979a572a87c47c2910c8f4dd1a727",
+    "benchmark-results/vega-kt-market-shock-replay/native/scalar_vega/partial-checkpoint.json": "600d5b66cf2d12cdf9a17add8f8fbc79021b67355b90de67f54027d074de57ce",
+    "benchmark-results/vega-kt-market-shock-replay/native/scalar_vega/checkpoint.json": "11624bea1a7a3f668f1db16097fb77ff1592c673fa7c116bba209dda5b7f6cd6",
+    "benchmark-results/vega-kt-market-shock-replay/native/vega_kt/input.json": "c1182ef119440a969145a7afb0306ed835db743a29cd9f32bd8885f4eed48914",
+    "benchmark-results/vega-kt-market-shock-replay/native/vega_kt/partial-checkpoint.json": "7337486a65330b89a275f41fed0f7dd14ad41a08a58bca24b3f79bdb8b0d6b2e",
+    "benchmark-results/vega-kt-market-shock-replay/native/vega_kt/checkpoint.json": "e7d07262be1f283cdbe3f7727ab21232a339808f02bebf1e7a6ad0f3f3784a34"
+  },
+  "limitations": [
+    "Market knots are fixed in log-forward-moneyness; each snapshot uses its own exact reporting maturities.",
+    "No cross-date, absolute-strike or maturity-grid shock alignment is implied.",
+    "Complement risk is in the reporting-quote Euclidean metric, not empirical market covariance.",
+    "The daily provider exposes marginal errors, so transformed market-bucket errors are not fabricated.",
+    "All native replay results remain unvalidated and require explicit diagnostic mode.",
+    "Synthetic integration results are not historical hedging evidence; general smile acceptance remains open."
+  ]
+}

@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod api;
+pub mod bass_lv;
 mod engine;
 use api::{error, request, result};
 pub mod hull_white;

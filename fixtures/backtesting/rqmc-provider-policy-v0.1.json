@@ -1,0 +1,13 @@
+{
+  "policy_id": "four_six_interval_rqmc_256x16_unused_seeds_v1",
+  "seeds": [100003, 100019],
+  "excluded_seeds": [7, 41, 104729, 130363],
+  "cases": ["regression_4", "regression_6"],
+  "engine": {"type": "randomized_quasi_monte_carlo", "points_per_scramble": 256, "scramble_count": 16, "variance_reduction": {"antithetic": true, "brownian_bridge": false}},
+  "base_policy": "fixtures/backtesting/portfolio-market-policy-v0.1.json",
+  "reference_acceptance": "design/validation/vega-kt-portfolio-market-v0.1.json",
+  "current_acceptance": "design/validation/vega-kt-joint-replay-v0.1.json",
+  "worker_threads": 4,
+  "sigma_multiplier": 6.0,
+  "scope": "Freeze before evaluation. Two previously unused native randomizations, ten products, four/six intervals, coupled_row_hats basis. Reuse sealed independent prices, bump differences and P&L only after exact base request and unchanged numerical dependency checks. All precision gates remain unchanged. all_rows replay is separately tested and is not covered by this independent coupled-basis acceptance."
+}

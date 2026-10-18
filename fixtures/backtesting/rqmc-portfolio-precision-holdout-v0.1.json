@@ -1,0 +1,17 @@
+{
+  "role": "predeclared_unused_seed_validation_of_initial_annual_european_book",
+  "seeds": [100057, 100069],
+  "excluded_prior_seeds": [7, 41, 100003, 100019, 100043, 100049, 104729, 130363],
+  "settings": {
+    "direct_1024x12": {
+      "type": "randomized_quasi_monte_carlo",
+      "points_per_scramble": 1024,
+      "scramble_count": 12,
+      "variance_reduction": {"antithetic": true, "brownian_bridge": false}
+    }
+  },
+  "unchanged_precision": {"subdivisions": 512, "relative_tolerance": 0.000001, "gamma_relative_standard_error_limit": 0.25, "max_joint_bucket_standard_error": 10},
+  "universe": "all thirty instruments at the initial annual snapshot: ten held target calls and twenty hedge calls",
+  "acceptance": "All individual native and independent price checks, signed held-book joint SE <= 10, then the existing solver and lot-rounded proposed-book gate. Both seeds must pass; retain failures. No seed substitution or threshold relaxation.",
+  "scope": "Single frozen annual market and European calls only. Path-dependent products, subsequent dates, and normal-provider policy promotion require separate evidence."
+}
