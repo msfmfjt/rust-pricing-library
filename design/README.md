@@ -300,6 +300,9 @@ reporting nodes. The explicit compiled-payoff diagnostic reduces failures from
 
 ## 商品間の推定誤差とVegaKT損益説明
 
+[最新mainとの統合検証](validation/vega-kt-integration-2026-10-19.md)に、
+競合解消、履歴確定済みBarrierのVegaKT回帰修正、過去の数値受入の保存範囲を記録する。
+
 [通常バックテストへの接続](validation/vega-kt-joint-replay-v0.1.md)では、
 `BacktestConfig(max_joint_bucket_standard_error=...)` を指定し、保有・発注予定の合同精度検査と
 保存済み期首リスクによる日次IV損益説明を有効にできる。新形式での保存・再開と通常CLIに対応する。

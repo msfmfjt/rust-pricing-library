@@ -19,7 +19,10 @@ impl SimulationPlan {
         if self.terminal_vega_kt.is_some()
             || self.bass.is_some()
             || self.early_exercise.is_some()
-            || self.continuous_barrier.is_some()
+            || self
+                .continuous_barrier
+                .as_ref()
+                .is_some_and(|barrier| barrier.resolved_survival().is_none())
             || self.payoff_smoothing.is_some()
             || lv.dividends.is_some()
             || lv

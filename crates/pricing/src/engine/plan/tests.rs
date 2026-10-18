@@ -2863,82 +2863,106 @@ mod tests {
             vec![expiry],
             risk.clone(),
         );
-        let engine = EngineConfig::PseudoMonteCarlo(
-            PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true)).unwrap(),
-        );
-        let vanilla = ProductSpec::ArithmeticAsian(
-            ArithmeticAsianSpec::new(
-                UnderlyingId::new(1),
+        // Both terminal estimators must preserve resolved Barrier parity:
+        // zero carry selects pathwise risk; nonzero carry selects replication.
+        for rate in [0.0, 0.03] {
+            let market = MarketContext::Equity(EquityMarket::new(
                 CurrencyId::new(1),
-                100.0,
-                2.0,
-                OptionSide::Call,
-                vec![AsianObservation::unknown(expiry, 1.0).unwrap()],
-                expiry,
-            )
-            .unwrap(),
-        );
-        let reference = PricingRequest::new(
-            base.valuation_date(),
-            vanilla,
-            base.market().clone(),
-            base.model().clone(),
-            engine,
-            risk.clone(),
-        )
-        .unwrap();
-        let reference = SimulationPlan::compile(&reference, policy(1))
-            .unwrap()
-            .execute()
-            .unwrap();
-        let buckets = reference
-            .pricing_result
-            .risks
-            .vega_kt
-            .as_ref()
-            .unwrap()
-            .raw_buckets();
-        assert!(buckets.iter().any(|b| b.get().abs() > 0.0));
-        for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
-            for hit in [false, true] {
-                let product = BarrierSpec::new(
+                EquityForward::new(
                     UnderlyingId::new(1),
-                    CurrencyId::new(1),
-                    expiry,
-                    100.0,
-                    100.0,
-                    2.0,
-                    OptionSide::Call,
-                    BarrierDirection::Up,
-                    style,
-                    BarrierMonitoring::Continuous,
-                    if hit { vec![past, expiry] } else { vec![past] },
-                    Some(7.0),
-                    expiry,
-                )
-                .unwrap()
-                .with_historical_hit(hit);
-                let request = PricingRequest::new(
-                    base.valuation_date(),
-                    ProductSpec::Barrier(product),
-                    base.market().clone(),
-                    base.model().clone(),
-                    engine,
-                    risk.clone(),
-                )
-                .unwrap();
-                let actual = SimulationPlan::compile(&request, policy(1))
-                    .unwrap()
-                    .execute()
+                    PositiveF64::new(100.0, "spot").unwrap(),
+                    curve(1, rate),
+                    curve(2, 0.0),
+                ),
+            ));
+            for side in [OptionSide::Call, OptionSide::Put] {
+                for engine in [
+                    EngineConfig::PseudoMonteCarlo(
+                        PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true)).unwrap(),
+                    ),
+                    EngineConfig::RandomizedQuasiMonteCarlo(
+                        RqmcConfig::new(64, 4, 29, VarianceReduction::new(true, true)).unwrap(),
+                    ),
+                ] {
+                    let vanilla = ProductSpec::ArithmeticAsian(
+                        ArithmeticAsianSpec::new(
+                            UnderlyingId::new(1),
+                            CurrencyId::new(1),
+                            100.0,
+                            2.0,
+                            side,
+                            vec![AsianObservation::unknown(expiry, 1.0).unwrap()],
+                            expiry,
+                        )
+                        .unwrap(),
+                    );
+                    let reference = PricingRequest::new(
+                        base.valuation_date(),
+                        vanilla,
+                        market.clone(),
+                        base.model().clone(),
+                        engine,
+                        risk.clone(),
+                    )
                     .unwrap();
-                let actual = actual.pricing_result.risks.vega_kt.unwrap();
-                for (a, b) in actual.raw_buckets().iter().zip(buckets) {
-                    let expected = if (style == BarrierStyle::KnockIn) == hit {
-                        b.get()
-                    } else {
-                        0.0
-                    };
-                    assert!((a.get() - expected).abs() < 1e-12);
+                    let reference = SimulationPlan::compile(&reference, policy(1)).unwrap();
+                    assert_eq!(reference.terminal_vega_kt.is_some(), rate == 0.0);
+                    assert_eq!(
+                        reference.terminal_replication_vega_kt.is_some(),
+                        rate != 0.0
+                    );
+                    let reference = reference.execute().unwrap();
+                    let buckets = reference
+                        .pricing_result
+                        .risks
+                        .vega_kt
+                        .as_ref()
+                        .unwrap()
+                        .raw_buckets();
+                    assert!(buckets.iter().any(|b| b.get().abs() > 0.0));
+                    for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
+                        for hit in [false, true] {
+                            let product = BarrierSpec::new(
+                                UnderlyingId::new(1),
+                                CurrencyId::new(1),
+                                expiry,
+                                100.0,
+                                100.0,
+                                2.0,
+                                side,
+                                BarrierDirection::Up,
+                                style,
+                                BarrierMonitoring::Continuous,
+                                if hit { vec![past, expiry] } else { vec![past] },
+                                Some(7.0),
+                                expiry,
+                            )
+                            .unwrap()
+                            .with_historical_hit(hit);
+                            let request = PricingRequest::new(
+                                base.valuation_date(),
+                                ProductSpec::Barrier(product),
+                                market.clone(),
+                                base.model().clone(),
+                                engine,
+                                risk.clone(),
+                            )
+                            .unwrap();
+                            let actual = SimulationPlan::compile(&request, policy(1))
+                                .unwrap()
+                                .execute()
+                                .unwrap();
+                            let actual = actual.pricing_result.risks.vega_kt.unwrap();
+                            for (a, b) in actual.raw_buckets().iter().zip(buckets) {
+                                let expected = if (style == BarrierStyle::KnockIn) == hit {
+                                    b.get()
+                                } else {
+                                    0.0
+                                };
+                                assert!((a.get() - expected).abs() < 1e-12);
+                            }
+                        }
+                    }
                 }
             }
         }

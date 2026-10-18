@@ -105,6 +105,7 @@ def main() -> None:
             "--disable-pip-version-check",
             "numpy>=2.0,<3.0",
             str(wheel.resolve()),
+            "./backtesting[validation,constraints]",
         ],
         check=True,
     )

@@ -13,6 +13,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    'design/validation/vega-kt-integration-2026-10-19.md',
     'crates/pricing/src/engine/processes/rough_volatility/quadratic_parameter.rs',
     'crates/pricing/src/engine/risk/rough_volatility/quadratic_parameter.rs',
     'crates/pricing/src/engine/calibration/lsv/rough_families/quadratic_parameter.rs',
