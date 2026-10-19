@@ -38,8 +38,9 @@ checkout and are not part of the source archive.
   provenance checks remain strict; this does not promote the merged binary.
 - Documentation labels local raw evidence as such instead of linking to files
   absent from a clean source archive.
-- Linux CI exposed BLAS-dependent last-bit differences in the coupled basis.
-  Sparse, ascending-column fused accumulation now reproduces every bit of both
+- Linux CI exposed build-dependent last-bit differences in both `np.interp`
+  and BLAS. Explicit fused hat interpolation and sparse, ascending-column
+  fused accumulation reproduce every bit of both
   accepted matrices, including a correctly rounded Python 3.12 fallback. The
   matrix hashes and rejection of changed grids remain unchanged.
 - The cached-failure unit test supplies a native-module double, so the companion

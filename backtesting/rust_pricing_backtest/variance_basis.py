@@ -1,6 +1,34 @@
 """Explicit tensor hat bases for diagnostic variance-extension calibration."""
+from fractions import Fraction
+import math
 import numpy as np
 from .domain import BacktestError, fingerprint, require
+
+
+def _portable_fma(a, b, c):
+    """One binary64 rounding, also on Python 3.12 without math.fma."""
+    return float(Fraction(a) * Fraction(b) + Fraction(c))
+
+
+_fma = getattr(math, "fma", _portable_fma)
+
+
+def _hat_interpolation(points, knots):
+    # np.interp uses either fused or separate multiply/add depending on its
+    # build. Preserve the accepted fused slope*offset+value convention explicitly.
+    values = np.zeros((len(points), len(knots)))
+    for row, point in enumerate(points):
+        if point <= knots[0]:
+            values[row, 0] = 1.
+        elif point >= knots[-1]:
+            values[row, -1] = 1.
+        else:
+            left = int(np.searchsorted(knots, point, side='right')) - 1
+            offset = float(point-knots[left])
+            width = float(knots[left+1]-knots[left])
+            values[row, left] = _fma(-1./width, offset, 1.)
+            values[row, left+1] = _fma(1./width, offset, 0.)
+    return values
 
 
 def tensor_variance_basis(time_nodes, variance_nodes, *, time_knots, moneyness_knots,
@@ -27,8 +55,8 @@ def tensor_variance_basis(time_nodes, variance_nodes, *, time_knots, moneyness_k
             'variance_basis_shape','time knots must lie inside the simulation horizon')
     require(kk[0]>=nodes[0] and kk[-1]<=nodes[-1],
             'variance_basis_shape','moneyness knots must lie inside the variance grid')
-    tb=np.array([np.interp((times[:-1]+times[1:])/2,tk,e) for e in np.eye(len(tk))]).T
-    kb=np.array([np.interp(nodes,kk,e) for e in np.eye(len(kk))]).T
+    tb=_hat_interpolation((times[:-1]+times[1:])/2, tk)
+    kb=_hat_interpolation(nodes, kk)
     require(np.linalg.matrix_rank(tb)==len(tk) and np.linalg.matrix_rank(kb)==len(kk),
             'variance_basis_rank','interpolation knots produce dependent or unsupported parameters')
     shape=(len(tk),len(kk))

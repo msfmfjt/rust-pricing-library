@@ -1,10 +1,8 @@
 """Frozen named basis constructions accepted for ledger replay."""
-from fractions import Fraction
-import math
 import numpy as np
 
 from .domain import fingerprint, require
-from .variance_basis import tensor_variance_basis
+from .variance_basis import tensor_variance_basis, _fma
 
 
 POLICIES = ("row_hats", "weighted_time_hats", "coupled_row_hats")
@@ -12,14 +10,6 @@ COUPLED_BASIS_HASHES = {
     4: "8d957c3f233540f07698515b1a985d7d2760b0b28d99e9359dddb65c8f4293e7",
     6: "821589f0d43f22d8593f009dafe268cd473a591c4f4fef6630ab807e7c775f33",
 }
-
-
-def _portable_fma(a, b, c):
-    """One binary64 rounding, also on Python 3.12 without math.fma."""
-    return float(Fraction(a) * Fraction(b) + Fraction(c))
-
-
-_fma = getattr(math, "fma", _portable_fma)
 
 
 def _coupled_product(basis, mixing):
