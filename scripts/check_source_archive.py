@@ -440,6 +440,8 @@ REQUIRED_FILES = {
     'design/validation/vega-kt-smile-acceptance-v0.3.json',
     'fixtures/replay/historical/local_volatility-macos-aarch64-before-terminal-replication.json',
     'fixtures/replay/local-vol-terminal-replication-change-audit-v3.json',
+    'fixtures/replay/historical/local_volatility-windows-x86_64-before-terminal-replication.json',
+    'fixtures/replay/local-vol-terminal-replication-windows-change-audit-v1.json',
     'design/validation/vega-kt-reporting-maturities-v0.1.md',
     'design/validation/vega-kt-reporting-maturities-v0.1.json',
     'backtesting/tests/test_market_shock_replay.py',
@@ -1063,6 +1065,12 @@ REQUIRED_CI_SNIPPETS = {
     "target: x86_64-pc-windows-msvc",
     "actions/upload-artifact@v4",
     "name: replay-candidate-${{ matrix.target }}",
+    "name: local-vol-native-review-${{ matrix.target }}",
+    "git rev-parse HEAD > replay-review/source-commit.txt",
+    "rustc -vV > replay-review/toolchain.txt",
+    "cargo run --locked --release -p pricing --example replay_local_vol -- replay-review/local-volatility-replay.json",
+    "cargo run --locked --release -p pricing --example replay_local_vol -- replay-review/local-volatility-replay-repeat.json",
+    "native replay differs between repeated captures",
     "name: rust-pricing-${{ matrix.target }}-cp312",
     "name: rust-pricing-source-${{ matrix.target }}",
     "name: benchmark-${{ matrix.target }}",
@@ -1079,8 +1087,8 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 5,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 11,
-    "retention-days: 14": 9,
+    "actions/upload-artifact@v4": 12,
+    "retention-days: 14": 10,
 }
 
 REQUIRED_README_SNIPPETS = {

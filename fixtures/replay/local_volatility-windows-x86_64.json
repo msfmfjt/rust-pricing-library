@@ -401,7 +401,7 @@
       },
       "name": "pseudo_mc_delta_gamma_vega_vegakt",
       "plan": {
-        "plan_fingerprint": "blake3-256:b3ee9724e5db1f1a19577287f50d283b9a548b76b53dc4407e9ac29dff1ca155",
+        "plan_fingerprint": "blake3-256:62630ec607468ec176cd512184b18568591c56f7752f3dd701496381a04a339f",
         "reduction_block_size": 256,
         "request_fingerprint": "blake3-256:3274a35d62a46a6ea0ad65ef5d3a80ab81bd916cf142787fe9069bda6606973f",
         "worker_threads": 2
@@ -577,7 +577,7 @@
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.001010565474976372,
+              "standard_error": 0.0010105654749763718,
               "value": 0.5885958667721871
             },
             "market_scaled_unit": {
@@ -590,7 +590,7 @@
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.001010565474976372,
+              "standard_error": 0.0010105654749763718,
               "value": 0.5885958667721871
             },
             "raw_unit": {
@@ -605,7 +605,7 @@
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0008219788682209488,
+              "standard_error": 0.0008219788682209487,
               "value": 0.018763893033941163
             },
             "market_scaled_unit": {
@@ -618,7 +618,7 @@
               "estimator": {
                 "type": "pseudo_monte_carlo"
               },
-              "standard_error": 0.0008219788682209488,
+              "standard_error": 0.0008219788682209487,
               "value": 0.018763893033941163
             },
             "raw_unit": {
@@ -691,209 +691,161 @@
             },
             "estimates": [
               {
-                "market_scaled_mean": 0.33011018975220424,
-                "price_covariance": -77.61439630355675,
-                "raw_mean": 33.01101897522042,
-                "sample_variance": 8391.203162423228
-              },
-              {
-                "market_scaled_mean": 0.7916815019320669,
-                "price_covariance": 336.1846776793819,
-                "raw_mean": 79.16815019320669,
-                "sample_variance": 17150.562882988037
+                "market_scaled_mean": 0.0,
+                "raw_mean": 0.0
               },
               {
                 "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
+                "raw_mean": 0.0
               },
               {
                 "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
+                "raw_mean": 0.0
+              },
+              {
+                "market_scaled_mean": 0.05685244471569363,
+                "raw_mean": 5.685244471569363
+              },
+              {
+                "market_scaled_mean": 0.3221638533889325,
+                "raw_mean": 32.21638533889325
               },
               {
                 "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
-              },
-              {
-                "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
+                "raw_mean": 0.0
               }
             ],
             "full_bucket_covariance": [
               {
-                "type": "value",
-                "value": 8391.20316242323
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 2622.611440010693
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 2622.6114400106926
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 17150.562882988055
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               }
             ],
             "market_scaled_unit": {
               "type": "currency_per_volatility_point"
             },
-            "policy_label": "equation_11_first_order_v1",
+            "policy_label": "terminal_payoff_replication_iv_v1",
             "projection": {
-              "pre_projection": 38.399608286143724,
+              "pre_projection": 37.90162981046261,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "scalar_vega": 112.17916916842711,
-              "signed_residual": -73.77956088228339
+              "scalar_vega": 37.90162981046261,
+              "signed_residual": 0.0
             },
             "raw_buckets": [
-              33.01101897522042,
-              79.16815019320669,
               0.0,
               0.0,
               0.0,
+              5.685244471569363,
+              32.21638533889325,
               0.0
             ],
             "raw_unit": {
@@ -904,16 +856,16 @@
               "active_domain_forward_index": 1,
               "active_domain_start_index": 0,
               "excluded_probability_mass": 0.0,
-              "pre_projection": 38.399608286143724,
+              "pre_projection": 37.90162981046261,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "signed_residual": -73.77956088228339
+              "signed_residual": 0.0
             },
-            "truncation_order": "O(delta_t_k)"
+            "truncation_order": "not_applicable"
           }
         },
         "schema_version": 3,
@@ -971,7 +923,7 @@
       },
       "name": "rqmc_delta_gamma_vega_vegakt",
       "plan": {
-        "plan_fingerprint": "blake3-256:d4dddbfec654c8ac3e52aebeed09f3dfea3484d81bbdbd530fa031b1efda0fad",
+        "plan_fingerprint": "blake3-256:a3469ac96a4a74ffbbd72df10fee0ab99d3cd2c29ce0606037356aa6a7403d25",
         "reduction_block_size": 256,
         "request_fingerprint": "blake3-256:267b2c8a10aa43c742171b95d218652189b2ff83be63ab4fbc9b2175080e67bc",
         "worker_threads": 2
@@ -1262,209 +1214,161 @@
             },
             "estimates": [
               {
-                "market_scaled_mean": 0.32722422507056487,
-                "price_covariance": 0.001659844574238677,
-                "raw_mean": 32.722422507056486,
-                "sample_variance": 0.1483639816447721
-              },
-              {
-                "market_scaled_mean": 0.804123745195171,
-                "price_covariance": -0.004109539455817589,
-                "raw_mean": 80.4123745195171,
-                "sample_variance": 0.24535526161264062
+                "market_scaled_mean": 0.0,
+                "raw_mean": 0.0
               },
               {
                 "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
+                "raw_mean": 0.0
               },
               {
                 "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
+                "raw_mean": 0.0
+              },
+              {
+                "market_scaled_mean": 0.05685244471569363,
+                "raw_mean": 5.685244471569363
+              },
+              {
+                "market_scaled_mean": 0.3221638533889325,
+                "raw_mean": 32.21638533889325
               },
               {
                 "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
-              },
-              {
-                "market_scaled_mean": 0.0,
-                "price_covariance": 0.0,
-                "raw_mean": 0.0,
-                "sample_variance": 0.0
+                "raw_mean": 0.0
               }
             ],
             "full_bucket_covariance": [
               {
-                "type": "value",
-                "value": 0.14836398164477296
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": -0.11138990021181487
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": -0.11138990021181665
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.24535526161264115
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               },
               {
-                "type": "value",
-                "value": 0.0
+                "type": "unavailable"
               }
             ],
             "market_scaled_unit": {
               "type": "currency_per_volatility_point"
             },
-            "policy_label": "equation_11_first_order_v1",
+            "policy_label": "terminal_payoff_replication_iv_v1",
             "projection": {
-              "pre_projection": 38.403900431392294,
+              "pre_projection": 37.90162981046261,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "scalar_vega": 113.13479702657358,
-              "signed_residual": -74.73089659518129
+              "scalar_vega": 37.90162981046261,
+              "signed_residual": 0.0
             },
             "raw_buckets": [
-              32.722422507056486,
-              80.4123745195171,
               0.0,
               0.0,
               0.0,
+              5.685244471569363,
+              32.21638533889325,
               0.0
             ],
             "raw_unit": {
@@ -1475,16 +1379,16 @@
               "active_domain_forward_index": 1,
               "active_domain_start_index": 0,
               "excluded_probability_mass": 0.0,
-              "pre_projection": 38.403900431392294,
+              "pre_projection": 37.90162981046261,
               "reporting_stats": {
                 "left_edge_count": 0,
                 "left_edge_sensitivity": 0.0,
                 "right_edge_count": 0,
                 "right_edge_sensitivity": 0.0
               },
-              "signed_residual": -74.73089659518129
+              "signed_residual": 0.0
             },
-            "truncation_order": "O(delta_t_k)"
+            "truncation_order": "not_applicable"
           }
         },
         "schema_version": 3,

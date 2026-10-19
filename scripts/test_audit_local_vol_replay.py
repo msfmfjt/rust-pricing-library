@@ -42,7 +42,7 @@ class ReplayAuditTests(unittest.TestCase):
             mutation(document)
             with self.subTest(mutation=name), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "candidate.json"
-                path.write_text(json.dumps(document, indent=2) + "\n")
+                path.write_bytes((json.dumps(document, indent=2) + "\n").encode("utf-8"))
                 with self.assertRaises((ValueError, SystemExit)):
                     audit_candidate(self.old, path)
 
@@ -52,7 +52,7 @@ class ReplayAuditTests(unittest.TestCase):
             document["cases"][2]["result"]["risks"]["vega_kt"][key] = value
             with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "candidate.json"
-                path.write_text(json.dumps(document, indent=2) + "\n")
+                path.write_bytes((json.dumps(document, indent=2) + "\n").encode("utf-8"))
                 with self.assertRaises(ValueError):
                     audit_candidate(self.old, path)
 
@@ -67,7 +67,7 @@ class ReplayAuditTests(unittest.TestCase):
             document["cases"][2]["result"]["risks"]["vega_kt"]["projection"][field] += 1.0
             with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
                 candidate = Path(directory) / "candidate.json"
-                candidate.write_text(json.dumps(document, indent=2) + "\n")
+                candidate.write_bytes((json.dumps(document, indent=2) + "\n").encode("utf-8"))
                 with self.assertRaises(ValueError):
                     audit_candidate(self.old, candidate)
 

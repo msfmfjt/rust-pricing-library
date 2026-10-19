@@ -49,9 +49,9 @@ bumps pass 48 checks; see the [numerical explanation](../../design/validation/ve
 This freezes replay of `local_vol_node_allocation_diagnostic_v1`, **not**
 acceptance of the unfinished paper VegaKT decomposition. Its numerical
 acceptance thresholds and the companion's diagnostic-only guard are unchanged.
-The Windows Local Volatility fixture still represents the earlier algorithm;
-it must be regenerated and reviewed on Windows before that platform's current
-replay can pass. A macOS capture is not substituted for Windows evidence.
+At the time of this correction, the Windows Local Volatility fixture still
+represented the earlier algorithm. Its later native transition is recorded
+below; a macOS capture was not substituted for Windows evidence.
 
 Run `python scripts/audit_local_vol_replay.py <native-candidate.json> --output
 benchmark-results/local-vol-candidate-audit.json` to inspect a candidate. This
@@ -82,5 +82,28 @@ The exact byte-comparison gate remains unchanged. The old
 `audit_local_vol_replay.py` remains an audit of the historical 46-field
 node-allocation correction and deliberately rejects this new algorithm; its
 tests use the retained historical captures. It must not be used to approve the
-terminal-replication transition. Windows retains its earlier capture pending
-regeneration and review on that platform; no cross-platform acceptance is claimed.
+terminal-replication transition. Windows retained its earlier capture until the
+native review recorded below.
+
+## Native Windows terminal replication review, 2026-10-19
+
+The Windows fixture now contains the native capture from
+[CI run 39179699272](https://github.com/msfmfjt/rust-pricing-library/actions/runs/39179699272),
+using Rust 1.98.1 on `x86_64-pc-windows-msvc`. Two separately executed captures
+are byte-identical. The [prior Windows capture](historical/local_volatility-windows-x86_64-before-terminal-replication.json)
+is retained byte-for-byte, and the [212-field review](local-vol-terminal-replication-windows-change-audit-v1.json)
+records the source commit, verified PR parents, native artifact and hashes.
+
+The changes comprise 206 VegaKT fields, two method-dependent plan fingerprints,
+and four pseudo-MC Delta/Gamma standard-error fields differing by one ULP from
+the existing scalar reduction. Both price-only cases, price and non-VegaKT Greek point estimates,
+requests and execution/RNG conditions are unchanged. All 12 market-IV bucket
+checks agree with independent, carry-aware Black quote price differences within
+3.855e-10, below the unchanged 2e-6 bound. Projection accounting is conserved;
+sample moments are unavailable for exact replication. Deliberately altered
+prices and redistributed bucket risks fail the review checks.
+
+The native capture and its repeat both pass the unchanged exact replay gate.
+This review covers the retained European terminal-replication cases; it does
+not establish unrestricted-smile, path-Gamma, annual-backtest or live-market
+acceptance. Final wheel/CI results are tracked in [PR #147](https://github.com/msfmfjt/rust-pricing-library/pull/147).

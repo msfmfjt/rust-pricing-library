@@ -92,3 +92,22 @@ still represents the old allocation. Retain both captures, their hashes,
 independent 48-check allocation probe against the same native wheel before
 reviewing any golden replacement. Preserve the prior Windows fixture as
 historical evidence when a reviewed replacement is eventually accepted.
+
+## Native Windows follow-up, 2026-10-19
+
+The earlier sections describe the 2026-10-04 state. Under the later merge
+request, [PR #147](https://github.com/msfmfjt/rust-pricing-library/pull/147)
+published the integrated source and obtained two byte-identical native Windows
+captures with Rust 1.98.1. The [Windows terminal-replication review](../../fixtures/replay/local-vol-terminal-replication-windows-change-audit-v1.json)
+records provenance, both capture hashes, all 212 changed fields and independent
+carry-aware quote checks. The prior Windows fixture is retained as historical
+evidence. The reviewed capture and repeat pass the unchanged exact replay gate.
+
+The new calculation is terminal market-IV replication, so the earlier 46-field
+allocation auditor intentionally does not approve this transition. The review
+checks 12 bucket sensitivities against independent quote price differences
+(maximum absolute error 3.855e-10, unchanged limit 2e-6) and preserves prices,
+other Greek point estimates, requests and execution inputs. This closes the
+retained Windows replay gap for these European cases; broader numerical
+acceptance remains bounded by its separately recorded scopes. See the
+[integration record](vega-kt-integration-2026-10-19.md) for remaining wheel/CI validation.

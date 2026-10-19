@@ -47,15 +47,48 @@ checkout and are not part of the source archive.
   suite needs no native installation. The smile tangent test checks quadratic
   convergence above the price-roundoff floor using 2e-5/1e-5 bumps and retains
   its original 1e-6 fine-bump absolute bound; numerical tolerances are unchanged.
+- Native wheel jobs retain two identical Local Volatility replay captures with
+  the source commit and toolchain before the extended Python suite. The later
+  benchmark regeneration and exact platform replay gates remain required.
+- Rustdoc treats the Gaussian-variance matrix equation as code, preventing its
+  matrix indices from being parsed as a broken documentation link.
+- Replay-audit mutation tests write explicit UTF-8/LF bytes on Windows, so they
+  exercise numerical and structural rejection instead of failing early on CRLF
+  formatting. The production replay format and byte-comparison gate are unchanged.
 
 ## Validation
 
-Completed before the integration correction: workspace/all-target compilation,
-all-feature Clippy with warnings denied, formatting, 294 companion tests,
-6 wheel-contract tests, 10 runtime-provenance tests, 4 raw-basis tests,
-16 independent-reference/schema/documentation guards and source-archive checks.
-The resolved-Barrier regression passed after the correction. Full merged Rust,
-release-wheel and platform CI results are tracked in the PR before merge.
+The merged Rust suite passed 1,011 tests (84 explicitly ignored). The separate
+Python-binding Rust suite passed 3 tests, and the statistical, path-dependence
+and early-exercise acceptance suites passed 5 tests. Workspace/all-target
+compilation, all-feature Clippy with warnings denied, formatting and strict
+Rustdoc passed. Six wheel-contract tests and 16 independent-reference, schema
+and documentation guards also passed.
+
+[Backtesting CI](https://github.com/msfmfjt/rust-pricing-library/actions/runs/39178908181)
+passed on Linux, macOS and Windows: 295 companion tests, 4 raw-basis tests and
+10 runtime-provenance tests on each platform. Eighteen original/integrated basis
+comparisons (4/6 intervals, three date scales and three policies) preserved the
+complete matrix bytes and construction audits, including the frozen hashes.
+
+The macOS release wheel built and all four benchmark replay files matched their
+tracked platform fixtures exactly. Two further native Local Volatility captures
+matched each other and the tracked golden. An independent discounted Black
+calculation with forward `S*Dq/Dr`, terminal reporting-IV interpolation and
+central quote bumps agreed with both full-risk cases within 3.9e-10 (unchanged
+2e-6 absolute bound). Mutations of the price or bucket allocation were rejected
+by the review checks. The complete clean-wheel Python suite and final platform
+CI are tracked in the PR before merge.
+
+Native Windows replay from the same integrated source was captured twice in
+[CI run 39179699272](https://github.com/msfmfjt/rust-pricing-library/actions/runs/39179699272).
+The captures match exactly and both pass the unchanged replay gate after the
+reviewed golden update. The [Windows audit](../../fixtures/replay/local-vol-terminal-replication-windows-change-audit-v1.json)
+preserves native source/toolchain provenance and accounts for all 212 changes:
+206 VegaKT fields, two plan fingerprints and four one-ULP standard-error changes.
+Prices, non-VegaKT Greek point estimates, requests and execution inputs are unchanged.
+All 12 independent quote checks pass within 3.855e-10; negative price and bucket
+mutations are rejected. The prior Windows fixture is preserved byte-for-byte.
 
 An exploratory discovery run of all `scripts/test_*.py` is not a portable
 acceptance suite: some tests require the unshipped historical replay/shard files
