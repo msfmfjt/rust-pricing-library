@@ -203,6 +203,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -255,6 +256,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
 
     steps:
       - name: Check out source
@@ -340,6 +342,23 @@ jobs:
       - name: Build Rust API docs
         run: cargo doc --locked --workspace --all-features --no-deps
 
+      - name: Check dependency direction
+        shell: bash
+        run: cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
+
+  extended-acceptance:
+    name: Extended model acceptance / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 330
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
       - name: Run extended model risk acceptance
         shell: bash
         run: |
@@ -377,10 +396,6 @@ jobs:
           path: extended-model-accuracy.log
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Check dependency direction
-        shell: bash
-        run: cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
 
   python-wheel-linux:
     name: Python wheel / Linux

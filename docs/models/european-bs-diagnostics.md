@@ -42,6 +42,11 @@ Replay metadata additionally carries schema version, normalized Request
 fingerprint, library version, and platform. Plan fingerprint and execution policy
 are available from the compiled Rust facade and are included in replay fixtures.
 
+Each Pseudo-MC and RQMC coordinate maps one 32-bit word to the midpoint of its
+bin before the AS241 quantile. Normal draws therefore take at most 2^32 distinct
+values and are bounded by about ±6.338. This is immaterial for ordinary
+valuation but limits payoffs whose value is concentrated beyond that tail.
+
 ## Successful-result warnings
 
 Warnings are emitted in the order shown below and never replace an error.
