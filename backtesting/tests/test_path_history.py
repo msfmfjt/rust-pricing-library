@@ -30,6 +30,61 @@ def fixture(kind='arithmetic_asian',side='call'):
 
 
 class PathHistoryTests(unittest.TestCase):
+    def test_unused_path_candidates_do_not_require_missing_fixings(self):
+        c,_,_,_=fixture()
+        unused=replace(c,contract_id='unused')
+        target=Contract('target',c.expiry,100.)
+        provider=FixtureProvider({'target':(5.,.5,(10.,20.,0.,0.))})
+        for strategy,prices in [('unhedged',{'unused':5.}),('delta',{'unused':5.}),
+                                ('vega_kt',{}),('scalar_vega',{}),
+                                ('vega_kt',{'unused':(1.,9.)})]:
+            with self.subTest(strategy=strategy,prices=prices):
+                cfg=BacktestConfig(strategy=strategy)
+                history=[snapshot(i,prices=prices) for i in range(4)]
+                args=dict(config=cfg,history=history,portfolio=[Position('target',-1.,5.)],provider=provider)
+                expected=run_backtest(contracts=[target],**args)
+                actual=run_backtest(contracts=[target,unused],**args)
+                self.assertEqual(actual.ledger,expected.ledger)
+                self.assertEqual(actual.decisions,expected.decisions)
+                self.assertEqual(actual.checkpoint['state']['path_fixings'],{})
+
+    def test_path_candidate_requires_history_when_first_evaluated(self):
+        c,_,_,_=fixture()
+        candidate=replace(c,contract_id='candidate')
+        target=Contract('target',c.expiry,100.)
+        # The provider does not inspect path history; the engine must enforce it.
+        provider=FixtureProvider({'target':(5.,.5,(10.,20.,0.,0.)),
+                                  'candidate':(5.,.5,(10.,20.,0.,0.))})
+        history=[snapshot(0),snapshot(1,prices={'candidate':5.}),snapshot(2,prices={'candidate':5.})]
+        args=dict(config=BacktestConfig(strategy='vega_kt'),contracts=[target,candidate],
+                  portfolio=[Position('target',-1.,5.)],provider=provider)
+        partial=run_backtest(history=history,stop_after=1,**args)
+        failed=run_backtest(history=history,on_error='return',**args)
+        self.assertEqual(failed.failure['code'],'missing_path_fixing')
+        self.assertEqual(failed.checkpoint,partial.checkpoint)
+        repaired=[history[0],replace(history[1],settlement_fixings={
+            'f0':fixing(-1,98.),'f1':fixing(0,110.),'f2':fixing(1,94.)}),history[2]]
+        resumed=run_backtest(history=repaired,checkpoint=failed.checkpoint,**args)
+        self.assertEqual(resumed.to_json(),run_backtest(history=repaired,**args).to_json())
+        self.assertIn('candidate',resumed.decisions[1]['candidates'])
+
+    def test_available_candidate_history_is_retained_before_first_quote(self):
+        c,_,history,_=fixture()
+        candidate=replace(c,contract_id='candidate')
+        target=Contract('target',c.expiry,100.)
+        history=[replace(s,option_quotes=snapshot(i,prices={'candidate':5.} if i else {}).option_quotes)
+                 for i,s in enumerate(history)]
+        provider=FixtureProvider({'target':(5.,.5,(10.,20.,0.,0.)),
+                                  'candidate':(5.,.5,(10.,20.,0.,0.))})
+        args=dict(config=BacktestConfig(strategy='vega_kt',ridge=0),history=history,
+                  contracts=[target,candidate],portfolio=[Position('target',-1.,5.)],provider=provider)
+        partial=run_backtest(stop_after=1,**args)
+        self.assertEqual(set(partial.checkpoint['state']['path_fixings']),{'f0','f1'})
+        whole=run_backtest(**args)
+        self.assertEqual(run_backtest(checkpoint=partial.checkpoint,**args).to_json(),whole.to_json())
+        self.assertIn('candidate',whole.decisions[1]['candidates'])
+        self.assertTrue(whole.summary['fully_settled'])
+
     def test_weighted_asian_and_call_put_extrema_settle_from_fixings_not_spot(self):
         for kind,side,payoff in [('arithmetic_asian','call',2.4),('arithmetic_asian','put',0.),
                                  ('fixed_lookback','call',10.),('fixed_lookback','put',6.)]:

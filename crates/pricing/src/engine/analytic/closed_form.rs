@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::core::DayCountConvention;
-use crate::market::{DiscountCurve, MarketError};
+use crate::market::{AffineDividendCoordinate, DiscountCurve, MarketError};
 use crate::models::ModelSpec;
 use crate::product::{OptionSide, ProductSpec};
 use pricing_numerics::{standard_normal_cdf as normal_cdf, standard_normal_pdf as normal_density};
@@ -64,7 +64,8 @@ impl Error for AnalyticalError {
     }
 }
 
-/// Prices the supported vertical-slice request using the ACT/365F convention.
+/// Prices a European request using ACT/365F and the market's affine dividend model.
+/// Delta and Gamma are spot sensitivities with fixed cash dividends held fixed.
 pub fn black_scholes_oracle(
     request: &PricingRequest,
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
@@ -79,6 +80,26 @@ pub fn black_scholes_oracle(
     let forward = request.market().equity().forward();
     let discount = forward.discount_curve().discount(time)?;
     let dividend_discount = forward.dividend_curve().discount(time)?;
+    if forward.discrete_dividends().is_some() {
+        let evaluation = forward.evaluate(time)?;
+        let mut result = evaluate_affine_forward(
+            BlackForwardOracleInputs {
+                side: product.side(),
+                forward: evaluation.forward,
+                strike: product.strike().get(),
+                notional: product.notional().get(),
+                discount,
+                volatility: model.volatility().get(),
+                time,
+            },
+            forward.spot().get(),
+            evaluation.affine_coordinate,
+        )?;
+        let carry = evaluation.forward / forward.spot().get();
+        result.delta *= carry;
+        result.gamma *= carry * carry;
+        return validate_result(result);
+    }
     evaluate(BlackScholesOracleInputs {
         side: product.side(),
         spot: forward.spot().get(),
@@ -91,6 +112,9 @@ pub fn black_scholes_oracle(
     })
 }
 
+/// Prices a European request using ACT/365F and the market's affine dividend model.
+/// Delta and Gamma are canonical-forward sensitivities, with cash dividends and
+/// carry curves held fixed as spot (and hence the canonical forward) changes.
 pub fn black_76_oracle(
     request: &PricingRequest,
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
@@ -105,15 +129,39 @@ pub fn black_76_oracle(
     let forward = request.market().equity().forward();
     let discount = forward.discount_curve().discount(time)?;
     let forward_evaluation = forward.evaluate(time)?;
-    evaluate_black_forward(BlackForwardOracleInputs {
-        side: product.side(),
-        forward: forward_evaluation.forward,
-        strike: product.strike().get(),
-        notional: product.notional().get(),
-        discount,
-        volatility: model.volatility().get(),
-        time,
-    })
+    evaluate_affine_forward(
+        BlackForwardOracleInputs {
+            side: product.side(),
+            forward: forward_evaluation.forward,
+            strike: product.strike().get(),
+            notional: product.notional().get(),
+            discount,
+            volatility: model.volatility().get(),
+            time,
+        },
+        forward.spot().get(),
+        forward_evaluation.affine_coordinate,
+    )
+}
+
+fn evaluate_affine_forward(
+    inputs: BlackForwardOracleInputs,
+    spot: f64,
+    coordinate: AffineDividendCoordinate,
+) -> Result<BlackScholesOracleResult, AnalyticalError> {
+    // S_T = A_T*S_0 + B_T*f_T. The reserve is deterministic, so price the
+    // residual lognormal equity against the strike net of the remaining reserve.
+    let mut result = evaluate_shifted_black_forward(BlackForwardOracleInputs {
+        forward: coordinate.b() * inputs.forward,
+        strike: inputs.strike - coordinate.a() * spot,
+        ..inputs
+    })?;
+    // Rebuilding the market keeps cash amounts fixed. The derivative of B*f
+    // with respect to the canonical forward is spot_scale, not B itself.
+    let scale = coordinate.spot_scale();
+    result.delta *= scale;
+    result.gamma *= scale * scale;
+    validate_result(result)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -176,9 +224,20 @@ pub fn evaluate(
 pub fn evaluate_black_forward(
     inputs: BlackForwardOracleInputs,
 ) -> Result<BlackScholesOracleResult, AnalyticalError> {
+    if !inputs.strike.is_finite() || inputs.strike <= 0.0 {
+        return Err(AnalyticalError::InvalidInput {
+            field: "strike",
+            bits: inputs.strike.to_bits(),
+        });
+    }
+    evaluate_shifted_black_forward(inputs)
+}
+
+fn evaluate_shifted_black_forward(
+    inputs: BlackForwardOracleInputs,
+) -> Result<BlackScholesOracleResult, AnalyticalError> {
     for (field, value) in [
         ("forward", inputs.forward),
-        ("strike", inputs.strike),
         ("notional", inputs.notional),
         ("discount", inputs.discount),
     ] {
@@ -189,6 +248,12 @@ pub fn evaluate_black_forward(
             });
         }
     }
+    if !inputs.strike.is_finite() {
+        return Err(AnalyticalError::InvalidInput {
+            field: "strike",
+            bits: inputs.strike.to_bits(),
+        });
+    }
     for (field, value) in [("volatility", inputs.volatility), ("time", inputs.time)] {
         if !value.is_finite() || value < 0.0 {
             return Err(AnalyticalError::InvalidInput {
@@ -197,7 +262,9 @@ pub fn evaluate_black_forward(
             });
         }
     }
-    let result = if inputs.time == 0.0 || inputs.volatility == 0.0 {
+    // A nonpositive adjusted strike makes the call linear and the put zero,
+    // even at positive volatility; taking log(forward / strike) is invalid.
+    let result = if inputs.strike <= 0.0 || inputs.time == 0.0 || inputs.volatility == 0.0 {
         deterministic_forward_limit(inputs)
     } else {
         regular_forward_formula(inputs)

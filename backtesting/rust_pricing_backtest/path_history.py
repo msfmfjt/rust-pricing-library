@@ -13,12 +13,14 @@ def fixing_from_data(v):
         "observed_at":datetime.fromisoformat(v["observed_at"]), "available_at":datetime.fromisoformat(v["available_at"])})
 
 
-def observations(contract, snapshot):
+def observations(contract, snapshot, *, allow_missing=False):
     known = []
     for o in contract.observations:
         if o.observation_date > snapshot.at.date():
             continue
         f = snapshot.settlement_fixings.get(o.fixing_id)
+        if f is None and allow_missing:
+            continue
         require(f is not None, "missing_path_fixing", f"{contract.contract_id}: {o.fixing_id}")
         f.check_expiry(o.observation_date, snapshot.at)
         known.append((o, f))
@@ -26,7 +28,12 @@ def observations(contract, snapshot):
 
 
 def resolve(snapshot, contracts, book):
-    """Caller commits book atomically with the rest of the snapshot state."""
+    """Retain available history; require completeness only at valuation/settlement.
+
+    A candidate may receive its first quote after an observation, so preserve
+    supplied fixings even before it is evaluated. The caller commits the book
+    atomically with the rest of the snapshot state.
+    """
     for key, saved in book.items():
         current = snapshot.settlement_fixings.get(key)
         require(current is None or data(current) == saved, "path_fixing_revision", key)
@@ -36,7 +43,7 @@ def resolve(snapshot, contracts, book):
     for c in contracts:
         if not isinstance(c, PathContract) or snapshot.at.date() < c.listed_on:
             continue
-        for o,f in observations(c,resolved):
+        for o,f in observations(c,resolved,allow_missing=True):
             require(o.fixing_id not in book or book[o.fixing_id] == data(f), "path_fixing_revision", o.fixing_id)
             book[o.fixing_id] = data(f)
     return resolved
