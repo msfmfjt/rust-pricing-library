@@ -27,7 +27,7 @@ jobs:
   protocol:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -47,7 +47,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cargo test --locked -p pricing --test heston_iv_refinement
       - run: cargo test --locked --no-default-features -p pricing --test heston_iv_refinement
       - name: Execute finite-grid and staged numerical tests in release

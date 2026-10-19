@@ -26,7 +26,7 @@ jobs:
   references:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -48,7 +48,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cargo test --locked -p pricing --test mixed_bergomi_parameter_risk
       - run: cargo test --locked --no-default-features -p pricing --test mixed_bergomi_parameter_risk
       - run: cargo test --locked -p pricing --lib mixed_total_scramble_errors_preserve_direct_calibration_covariance

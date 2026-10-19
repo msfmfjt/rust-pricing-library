@@ -25,12 +25,12 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate
       - name: Check out baseline
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ea759bf5d73b06e4c480665e59c7daa37e6667be
           path: baseline
