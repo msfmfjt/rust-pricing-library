@@ -66,3 +66,13 @@ matrix under the compact layout is invalid schema/domain input.
 The canonical fingerprint is separate from JSON. It hashes a domain-separated,
 versioned, self-delimiting typed-data stream with BLAKE3-256 and renders as
 `blake3-256:` followed by 64 lowercase hexadecimal digits.
+
+Path-dependent backtests add request v8, result v12, checkpoint v10 and ensemble v4.
+The previous backtest schemas remain unchanged. See
+[dated path replay](../../design/validation/local-vol-path-ledger-v0.1.md).
+
+Native request/result v3 also accept an optional Lookback `valuation_date_fixing`.
+It fixes an observation on the request valuation date independently of spot.
+The field is omitted when unset; legacy request/result JSON is retained.
+Requests in v1/v2 reject this field, and their schemas remain unchanged.
+See [fixing-day semantics and validation](../../design/validation/local-vol-lookback-fixing-day-v0.1.md).

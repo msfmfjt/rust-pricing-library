@@ -34,6 +34,9 @@ use crate::engine::plan::simulation::SimulationPlan;
 use crate::engine::plan::simulation::VEGA;
 use crate::engine::plan::simulation::VEGA_DIFFERENCE;
 use crate::engine::plan::simulation::resolve_spot_bump;
+use crate::engine::risk::local_vol_allocation::{
+    LOCAL_NODE_ALLOCATION_LABEL, LocalVolAllocationAudit, LocalVolAllocationAuditSum,
+};
 use crate::market::CurveRegion;
 use crate::mc::{BARRIER_BRIDGE_ABI, DeterministicStatistics, ExercisePolicyFingerprint};
 use crate::risk::{
@@ -176,11 +179,18 @@ impl SimulationPlan {
         independent_units: u64,
         price_samples: &[f64],
         raw_bucket_samples: &[f64],
+        allocation_audits: &[LocalVolAllocationAudit],
     ) -> Result<VegaKtResult, MonteCarloError> {
         let vega_kt = local_volatility
             .vega_kt
             .as_ref()
             .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?;
+        if independent_units == 0
+            || allocation_audits.len() as u64 != independent_units
+            || price_samples.len() as u64 != independent_units
+        {
+            return Err(MonteCarloError::MismatchedLocalVolatilityReportingBasis);
+        }
         let bucket_count = vega_kt.basis.bucket_count();
         let estimates = vega_kt_bucket_estimates(price_samples, raw_bucket_samples, bucket_count)?;
         let raw_bucket_means = estimates
@@ -188,16 +198,22 @@ impl SimulationPlan {
             .map(|estimate| estimate.raw_mean())
             .collect::<Vec<_>>();
         let mean_vega = statistics[VEGA].sum().total() / independent_units as f64;
-        let bucket_sum = raw_bucket_means
-            .iter()
-            .copied()
-            .collect::<pricing_numerics::NeumaierSum>()
-            .total();
+        let mut audit_sum = LocalVolAllocationAuditSum::default();
+        for audit in allocation_audits {
+            audit_sum.add(*audit);
+        }
+        let audit = audit_sum.mean(independent_units);
         let projection = vega_kt_projection_from_parts(
             raw_bucket_means,
-            mean_vega - bucket_sum,
-            mean_vega,
-            Default::default(),
+            // Accumulate actual exclusions independently; do not manufacture a
+            // residual that makes arbitrary/missing buckets reconcile.
+            audit.initial_time + audit.density_excluded,
+            if self.terminal_vega_kt.is_some() {
+                audit.measure_pre_projection
+            } else {
+                mean_vega
+            },
+            audit.reporting_stats,
         )?;
         let full_bucket_covariance = if vega_kt.full_bucket_covariance {
             Some(vega_kt_full_bucket_covariance(
@@ -211,13 +227,27 @@ impl SimulationPlan {
             .density_rows
             .last()
             .ok_or(MonteCarloError::MismatchedLocalVolatilityReportingBasis)?;
-        Ok(VegaKtResult::try_from(&vega_kt_report(
+        let mut report = vega_kt_report(
             &vega_kt.basis,
             density_row,
             projection,
             estimates,
             full_bucket_covariance,
-        )?)?)
+        )?;
+        // Equation (11) primitives exist but are not used by this allocation.
+        // Do not claim their policy or convergence order on these native results.
+        report.policy_label = LOCAL_NODE_ALLOCATION_LABEL;
+        report.truncation_order = "not_applicable";
+        if self.terminal_vega_kt.is_some() {
+            report.policy_label = super::vegakt_terminal_pathwise::TERMINAL_PATHWISE_LABEL;
+            // The clamped reporting hats partition the entire strike axis;
+            // Gamma atoms are never excluded by a state-density threshold.
+            report.residual_diagnostics.active_domain.start_index = 0;
+            report.residual_diagnostics.active_domain.end_index =
+                density_row.log_moneyness_nodes().len() - 1;
+            report.residual_diagnostics.excluded_probability_mass = 0.;
+        }
+        Ok(VegaKtResult::try_from(&report)?)
     }
 }
 

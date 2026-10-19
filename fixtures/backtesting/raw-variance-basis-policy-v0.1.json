@@ -1,0 +1,18 @@
+{
+  "policy_id": "declared_raw_variance_basis_v1",
+  "intervals": [4, 6],
+  "products": ["call", "asian_call", "fixed_asian_call", "lookback_call", "put", "asian_put", "fixed_asian_put", "lookback_put", "lookback_past_put", "lookback_today_put"],
+  "gamma_samples_by_intervals": {"4": 4096, "6": 2048},
+  "gamma_seeds": [7, 41],
+  "subdivisions": 512,
+  "relative_tolerance": 0.000001,
+  "gamma_relative_standard_error_limit": 0.25,
+  "iv_bumps": [0.000001, 0.0000005],
+  "stress_iv_bump": 0.001,
+  "quote_price_tolerance": 0.0000000001,
+  "tangent_tolerance": 0.00002,
+  "absolute_tolerance": 0.002,
+  "sobol_power": 16,
+  "sobol_scrambles": 8,
+  "scope": "The supplied matrix on the exact bound market fixture and declared Call/Put payoff histories; diagnostic only. No automatic provider promotion or acceptance of all matrices."
+}

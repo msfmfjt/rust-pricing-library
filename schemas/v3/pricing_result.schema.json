@@ -120,7 +120,8 @@
             "type": {"type": "string", "const": "fixed_lookback"},
             "past_monitoring_count": {"$ref": "#/$defs/u32"},
             "future_monitoring_count": {"$ref": "#/$defs/u32"},
-            "historical_extremum": {"type": "number", "exclusiveMinimum": 0}
+            "historical_extremum": {"type": "number", "exclusiveMinimum": 0},
+            "valuation_date_fixing": {"type": "number", "exclusiveMinimum": 0}
           }
         }
       ]

@@ -1,0 +1,1891 @@
+{
+  "document_kind": "three_step_terminal_gamma_validation_record",
+  "schema_version": 1,
+  "date": "2026-10-06",
+  "status": "passed",
+  "checks": 984,
+  "failed": 0,
+  "scope": "Three log-Euler intervals; non-Gaussian second marginal, terminal variance-row Gamma and five terminal quote IV directions; earlier two rows fixed.",
+  "full_market_iv_bucket_acceptance": "not_established",
+  "policy": {
+    "policy_id": "three_step_terminal_gamma_v1",
+    "scope": "Three log-Euler intervals; non-Gaussian second marginal and terminal quote directions, earlier transitions fixed.",
+    "products": [
+      "call",
+      "asian",
+      "fixed_asian",
+      "lookback"
+    ],
+    "base_shapes": [
+      "nonflat"
+    ],
+    "base_skew": 0.015,
+    "base_curvature": 0.02,
+    "local_nodes": 33,
+    "quote_log_nodes": [
+      -0.2,
+      -0.1,
+      0.0,
+      0.1,
+      0.2
+    ],
+    "stress_iv_bump": 0.003,
+    "iv_bumps": [
+      1e-05,
+      5e-06
+    ],
+    "batch_samples": 16384,
+    "batch_seeds": [
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008
+    ],
+    "gamma_samples": 524288,
+    "gamma_seeds": [
+      7,
+      41
+    ],
+    "selection": {
+      "candidate_regularizations": [
+        0.01,
+        0.003,
+        0.001,
+        0.0003,
+        0.0001
+      ],
+      "pilot_sampling_units": 262144,
+      "reconstruction_relative_limit": 0.03,
+      "gamma_relative_standard_error_limit": 0.25,
+      "mc_margin_multiplier": 2.0
+    },
+    "quote_price_tolerance": 1e-10,
+    "quadrature_derivative_tolerance": 2e-06,
+    "derivative_absolute_tolerance": 0.002,
+    "bump_refinement_tolerance": 0.002,
+    "statistical_multiplier": 6.0,
+    "algebra_tolerance": 1e-10,
+    "solver_absolute_tolerance": 2e-06,
+    "gamma_quote_absolute_target": 0.002,
+    "gamma_quote_relative_target": 0.01,
+    "identity_absolute_tolerance": 1e-08,
+    "operator_relative_tolerance": 2e-06,
+    "nonflat_profiles": [
+      {
+        "name": "positive_skew",
+        "base_skew": 0.015,
+        "base_curvature": 0.02,
+        "third_skew": -0.012,
+        "third_curvature": 0.008
+      },
+      {
+        "name": "negative_skew",
+        "base_skew": -0.02,
+        "base_curvature": 0.03,
+        "third_skew": 0.015,
+        "third_curvature": 0.012
+      }
+    ]
+  },
+  "metrics": {
+    "actual_non_gaussian_operator": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.3306690738754696e-14
+    },
+    "all_spatial_residuals_retained": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 1.8601960249942096e-13
+    },
+    "calibration_tangent_vs_independent_price": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.541291456521378e-05
+    },
+    "earlier_variance_rows_unchanged": {
+      "count": 40,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "finite_terminal_iv_stress_independent_prices": {
+      "count": 4,
+      "failed": 0,
+      "maximum_observed": 9.14823772291129e-14
+    },
+    "frozen_strongest_pilot_selection": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "gamma_vs_independent_recalibrated_price": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 0.7432181856219424
+    },
+    "gamma_vs_native_recalibrated_price": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 1.1852429731167193
+    },
+    "heldout_recovery_gate": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "independent_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 2.655986541810762e-05
+    },
+    "independent_operator_refinement": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 5.329070518200751e-15
+    },
+    "independent_payoff_price_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 2.3092638912203256e-14
+    },
+    "independent_payoff_variance_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 1.865174681370263e-14
+    },
+    "independent_primal_KKT": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 1.340745853228853e-07
+    },
+    "native_operator_refinement": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 7.105427357601002e-15
+    },
+    "native_recalibrated_price_vs_reference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.20272762738133052
+    },
+    "native_variance_AD_vs_independent_payoff": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 0.5433789383783688
+    },
+    "omitted_operator_tail": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.166866375336766e-30
+    },
+    "paired_native_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 0.34552467021200095
+    },
+    "population_quote_gamma_bias": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 5.933031843596837e-13
+    },
+    "same_path_quote_direction_conservation": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 8.270401270212823e-13
+    },
+    "source_martingale": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "source_probability": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "terminal_iv_tangent_identity": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 1.8522273080017213e-15
+    },
+    "terminal_quote_fit": {
+      "count": 40,
+      "failed": 0,
+      "maximum_observed": 5.329070518200752e-14
+    },
+    "unchanged_quality_verdict": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 0.0
+    }
+  },
+  "settings": [
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 10.724027467872496,
+        "sensitivity_mc_norm": 0.06425339329400948,
+        "reconstruction_norm": 0.05213143973210464,
+        "reconstruction_mc_norm": 0.03143520478082887,
+        "gamma_norm": 0.7390855544926419,
+        "gamma_mc_norm": 0.05065276725480111,
+        "reconstruction_margin_ratio": 0.010853817641722625,
+        "gamma_relative_standard_error": 0.0685343759553961,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.1653737788997834,
+          "sample_variance": 6337.088106569364,
+          "standard_error": 0.10994105846351229
+        },
+        {
+          "mean": 0.14174438929667998,
+          "sample_variance": 47968.35304079367,
+          "standard_error": 0.30247706126353635
+        },
+        {
+          "mean": 29.18840335282936,
+          "sample_variance": 88645.81902545862,
+          "standard_error": 0.4111915389727186
+        },
+        {
+          "mean": -0.5465617841681331,
+          "sample_variance": 64404.02458203823,
+          "standard_error": 0.35048670193628356
+        },
+        {
+          "mean": 0.255942395460682,
+          "sample_variance": 14669.718107630903,
+          "standard_error": 0.1672730306305669
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.1653737788997822,
+          "sample_variance": 6337.088106569361,
+          "standard_error": 0.10994105846351228
+        },
+        {
+          "mean": 0.14174438929667327,
+          "sample_variance": 47968.353040793685,
+          "standard_error": 0.3024770612635364
+        },
+        {
+          "mean": 29.188403352829365,
+          "sample_variance": 88645.81902545865,
+          "standard_error": 0.4111915389727187
+        },
+        {
+          "mean": -0.5465617841681221,
+          "sample_variance": 64404.02458203824,
+          "standard_error": 0.35048670193628356
+        },
+        {
+          "mean": 0.2559423954606833,
+          "sample_variance": 14669.7181076309,
+          "standard_error": 0.1672730306305669
+        }
+      ],
+      "population_gamma": [
+        -5.417888360170764e-14,
+        1.3145040611561853e-13,
+        28.858300842050095,
+        6.927791673660977e-14,
+        4.440892098500626e-15
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 10.74778282023199,
+        "sensitivity_mc_norm": 0.0644323306608231,
+        "reconstruction_norm": 0.044451660753175144,
+        "reconstruction_mc_norm": 0.03159159897553847,
+        "gamma_norm": 0.7211187193308082,
+        "gamma_mc_norm": 0.05087323015718109,
+        "reconstruction_margin_ratio": 0.010136141657136284,
+        "gamma_relative_standard_error": 0.07054764880377949,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.08123009672827798,
+          "sample_variance": 6383.0366829231925,
+          "standard_error": 0.11033891557544684
+        },
+        {
+          "mean": 0.04156394659796989,
+          "sample_variance": 48200.61852991317,
+          "standard_error": 0.30320848248976595
+        },
+        {
+          "mean": 29.099157621183718,
+          "sample_variance": 89391.43844117747,
+          "standard_error": 0.41291722886787197
+        },
+        {
+          "mean": -0.18863460888494557,
+          "sample_variance": 65265.19410568118,
+          "standard_error": 0.35282216306195024
+        },
+        {
+          "mean": 0.03882654082654984,
+          "sample_variance": 14929.29998164321,
+          "standard_error": 0.16874649598979782
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.08123009672827657,
+          "sample_variance": 6383.036682923189,
+          "standard_error": 0.1103389155754468
+        },
+        {
+          "mean": 0.04156394659796322,
+          "sample_variance": 48200.61852991318,
+          "standard_error": 0.303208482489766
+        },
+        {
+          "mean": 29.09915762118372,
+          "sample_variance": 89391.43844117748,
+          "standard_error": 0.41291722886787197
+        },
+        {
+          "mean": -0.1886346088849346,
+          "sample_variance": 65265.19410568118,
+          "standard_error": 0.35282216306195024
+        },
+        {
+          "mean": 0.038826540826551126,
+          "sample_variance": 14929.29998164321,
+          "standard_error": 0.16874649598979782
+        }
+      ],
+      "population_gamma": [
+        -5.417888360170764e-14,
+        1.3145040611561853e-13,
+        28.858300842050095,
+        6.927791673660977e-14,
+        4.440892098500626e-15
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 2.1118658222323226,
+        "sensitivity_mc_norm": 0.021881781795710153,
+        "reconstruction_norm": 0.0423030315089695,
+        "reconstruction_mc_norm": 0.005059894929279231,
+        "gamma_norm": 12.32555107878115,
+        "gamma_mc_norm": 1.0581283801141004,
+        "reconstruction_margin_ratio": 0.025348273349877173,
+        "gamma_relative_standard_error": 0.08584836275074986,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.459801223949935,
+          "sample_variance": 528.3597516143046,
+          "standard_error": 0.03174533430088106
+        },
+        {
+          "mean": -6.476519218243311,
+          "sample_variance": 4438.6532501143865,
+          "standard_error": 0.09201119066795319
+        },
+        {
+          "mean": 15.05208603759209,
+          "sample_variance": 9905.271246884373,
+          "standard_error": 0.1374511024705945
+        },
+        {
+          "mean": -7.330810199290119,
+          "sample_variance": 8055.359690304608,
+          "standard_error": 0.12395313345016905
+        },
+        {
+          "mean": 1.9479268229505198,
+          "sample_variance": 1779.8630903735475,
+          "standard_error": 0.05826507900979296
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.4598012239499583,
+          "sample_variance": 528.3597516143119,
+          "standard_error": 0.031745334300881285
+        },
+        {
+          "mean": -6.476519218243265,
+          "sample_variance": 4438.653250114396,
+          "standard_error": 0.09201119066795328
+        },
+        {
+          "mean": 15.05208603759191,
+          "sample_variance": 9905.271246884286,
+          "standard_error": 0.1374511024705939
+        },
+        {
+          "mean": -7.330810199290027,
+          "sample_variance": 8055.359690304617,
+          "standard_error": 0.1239531334501691
+        },
+        {
+          "mean": 1.9479268229505553,
+          "sample_variance": 1779.8630903735448,
+          "standard_error": 0.058265079009792914
+        }
+      ],
+      "population_gamma": [
+        1.5208049122906295,
+        -6.60159611360839,
+        15.070397783272817,
+        -7.237420787294651,
+        1.8816079327781314
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 2.1095522287379906,
+        "sensitivity_mc_norm": 0.021934628657512285,
+        "reconstruction_norm": 0.04398842582152676,
+        "reconstruction_mc_norm": 0.0050918815739468,
+        "gamma_norm": 13.054528784235965,
+        "gamma_mc_norm": 1.0635283587834228,
+        "reconstruction_margin_ratio": 0.026224832038046632,
+        "gamma_relative_standard_error": 0.08146815380021144,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.4751157713368293,
+          "sample_variance": 529.8728946586182,
+          "standard_error": 0.031790758738846056
+        },
+        {
+          "mean": -6.497143325425491,
+          "sample_variance": 4448.3622103852695,
+          "standard_error": 0.09211176678488549
+        },
+        {
+          "mean": 14.97031488400864,
+          "sample_variance": 9974.352066267464,
+          "standard_error": 0.1379295717994723
+        },
+        {
+          "mean": -7.166114006930371,
+          "sample_variance": 8147.718714024672,
+          "standard_error": 0.12466170281901245
+        },
+        {
+          "mean": 1.8465947252065587,
+          "sample_variance": 1811.368375689369,
+          "standard_error": 0.05877849092049672
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.47511577133685,
+          "sample_variance": 529.872894658625,
+          "standard_error": 0.031790758738846264
+        },
+        {
+          "mean": -6.497143325425441,
+          "sample_variance": 4448.362210385279,
+          "standard_error": 0.09211176678488558
+        },
+        {
+          "mean": 14.970314884008454,
+          "sample_variance": 9974.352066267373,
+          "standard_error": 0.13792957179947166
+        },
+        {
+          "mean": -7.166114006930276,
+          "sample_variance": 8147.7187140246815,
+          "standard_error": 0.12466170281901252
+        },
+        {
+          "mean": 1.8465947252065924,
+          "sample_variance": 1811.3683756893658,
+          "standard_error": 0.058778490920496675
+        }
+      ],
+      "population_gamma": [
+        1.5208049122906295,
+        -6.60159611360839,
+        15.070397783272817,
+        -7.237420787294651,
+        1.8816079327781314
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 1.5849369964610747,
+        "sensitivity_mc_norm": 0.01608562494388998,
+        "reconstruction_norm": 0.029652046387308496,
+        "reconstruction_mc_norm": 0.0037347866728468225,
+        "gamma_norm": 8.842190327277859,
+        "gamma_mc_norm": 0.7794186912251195,
+        "reconstruction_margin_ratio": 0.02390677397084757,
+        "gamma_relative_standard_error": 0.08814769444858467,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.4882552662401927,
+          "sample_variance": 277.6259874089457,
+          "standard_error": 0.023011509023044815
+        },
+        {
+          "mean": -5.704772625301782,
+          "sample_variance": 2347.121089883956,
+          "standard_error": 0.06690873038576915
+        },
+        {
+          "mean": 11.404038027422398,
+          "sample_variance": 5366.877939285113,
+          "standard_error": 0.10117562601717385
+        },
+        {
+          "mean": -4.835921053837614,
+          "sample_variance": 4424.092334419016,
+          "standard_error": 0.09186014623050831
+        },
+        {
+          "mean": 1.145113853877676,
+          "sample_variance": 988.4779432536803,
+          "standard_error": 0.043420871175394664
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.4882552662402153,
+          "sample_variance": 277.6259874089496,
+          "standard_error": 0.02301150902304497
+        },
+        {
+          "mean": -5.704772625301747,
+          "sample_variance": 2347.1210898839595,
+          "standard_error": 0.0669087303857692
+        },
+        {
+          "mean": 11.404038027422269,
+          "sample_variance": 5366.877939285066,
+          "standard_error": 0.1011756260171734
+        },
+        {
+          "mean": -4.835921053837541,
+          "sample_variance": 4424.092334419021,
+          "standard_error": 0.09186014623050837
+        },
+        {
+          "mean": 1.145113853877701,
+          "sample_variance": 988.4779432536787,
+          "standard_error": 0.04342087117539463
+        }
+      ],
+      "population_gamma": [
+        1.518253490708715,
+        -5.763802838946977,
+        11.411475343784653,
+        -4.77306090296975,
+        1.1000638027361513
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 1.5880728732430995,
+        "sensitivity_mc_norm": 0.016131111722580253,
+        "reconstruction_norm": 0.03094690125999757,
+        "reconstruction_mc_norm": 0.0037603418701520797,
+        "gamma_norm": 9.177064026686102,
+        "gamma_mc_norm": 0.7837800694203846,
+        "reconstruction_margin_ratio": 0.02472510713646144,
+        "gamma_relative_standard_error": 0.08540640744591303,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.4916221590938659,
+          "sample_variance": 279.17775816059464,
+          "standard_error": 0.023075730006638335
+        },
+        {
+          "mean": -5.697515093262105,
+          "sample_variance": 2358.7846482379314,
+          "standard_error": 0.067074769279631
+        },
+        {
+          "mean": 11.341352297622342,
+          "sample_variance": 5409.959143086187,
+          "standard_error": 0.1015808947348709
+        },
+        {
+          "mean": -4.7165375436558845,
+          "sample_variance": 4478.357530134833,
+          "standard_error": 0.09242179998435562
+        },
+        {
+          "mean": 1.0713386212991407,
+          "sample_variance": 1006.3524198459377,
+          "standard_error": 0.043811698347823724
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.4916221590938865,
+          "sample_variance": 279.17775816059856,
+          "standard_error": 0.023075730006638498
+        },
+        {
+          "mean": -5.697515093262066,
+          "sample_variance": 2358.784648237936,
+          "standard_error": 0.06707476927963107
+        },
+        {
+          "mean": 11.341352297622208,
+          "sample_variance": 5409.959143086141,
+          "standard_error": 0.10158089473487047
+        },
+        {
+          "mean": -4.716537543655807,
+          "sample_variance": 4478.35753013484,
+          "standard_error": 0.0924217999843557
+        },
+        {
+          "mean": 1.0713386212991647,
+          "sample_variance": 1006.352419845936,
+          "standard_error": 0.04381169834782368
+        }
+      ],
+      "population_gamma": [
+        1.518253490708715,
+        -5.763802838946977,
+        11.411475343784653,
+        -4.77306090296975,
+        1.1000638027361513
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 12.170984075597158,
+        "sensitivity_mc_norm": 0.057199021511893315,
+        "reconstruction_norm": 0.09705314978905781,
+        "reconstruction_mc_norm": 0.027928102207773024,
+        "gamma_norm": 0.8320062700699459,
+        "gamma_mc_norm": 0.044925002236206185,
+        "reconstruction_margin_ratio": 0.012682641154924576,
+        "gamma_relative_standard_error": 0.053995989997081856,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.6792971151501813,
+          "sample_variance": 5619.113040825722,
+          "standard_error": 0.10352587877452589
+        },
+        {
+          "mean": 2.6420557703336933,
+          "sample_variance": 41886.350428943704,
+          "standard_error": 0.28265150490338986
+        },
+        {
+          "mean": 21.397576282533034,
+          "sample_variance": 75124.47440253939,
+          "standard_error": 0.37853475869785214
+        },
+        {
+          "mean": 3.5203383787595954,
+          "sample_variance": 50414.7923616552,
+          "standard_error": 0.3100944779974792
+        },
+        {
+          "mean": 11.433263850741216,
+          "sample_variance": 9937.1112997996,
+          "standard_error": 0.13767184044596198
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.6792971151501795,
+          "sample_variance": 5619.113040825719,
+          "standard_error": 0.10352587877452585
+        },
+        {
+          "mean": 2.642055770333687,
+          "sample_variance": 41886.350428943726,
+          "standard_error": 0.28265150490338997
+        },
+        {
+          "mean": 21.397576282533034,
+          "sample_variance": 75124.47440253942,
+          "standard_error": 0.3785347586978522
+        },
+        {
+          "mean": 3.520338378759607,
+          "sample_variance": 50414.79236165521,
+          "standard_error": 0.3100944779974792
+        },
+        {
+          "mean": 11.43326385074122,
+          "sample_variance": 9937.1112997996,
+          "standard_error": 0.13767184044596198
+        }
+      ],
+      "population_gamma": [
+        -0.45163603656796614,
+        2.298761227763144,
+        21.37067440220595,
+        3.7861505277904417,
+        11.315900710532397
+      ]
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.49032881576824,
+          1.49032881576824
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.14365200921251e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.166866375336766e-30,
+        "operator_entry_tolerance": 6.735246611492555e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 12.202744356965283,
+        "sensitivity_mc_norm": 0.057355675535022944,
+        "reconstruction_norm": 0.0999483633177238,
+        "reconstruction_mc_norm": 0.02808284809118451,
+        "gamma_norm": 0.821723863575176,
+        "gamma_mc_norm": 0.0451157819807328,
+        "reconstruction_margin_ratio": 0.012914761187693418,
+        "gamma_relative_standard_error": 0.05490382351127296,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.521609035926369,
+          "sample_variance": 5658.301298123731,
+          "standard_error": 0.10388625147254804
+        },
+        {
+          "mean": 2.337804363934876,
+          "sample_variance": 42070.761082198136,
+          "standard_error": 0.2832730284222484
+        },
+        {
+          "mean": 21.583227414675967,
+          "sample_variance": 75762.02516313466,
+          "standard_error": 0.38013760023708665
+        },
+        {
+          "mean": 3.646560106628437,
+          "sample_variance": 51130.86724965404,
+          "standard_error": 0.31228895232323706
+        },
+        {
+          "mean": 11.353348057365157,
+          "sample_variance": 10127.978650987567,
+          "standard_error": 0.13898771972053978
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.5216090359263671,
+          "sample_variance": 5658.301298123727,
+          "standard_error": 0.10388625147254801
+        },
+        {
+          "mean": 2.3378043639348696,
+          "sample_variance": 42070.76108219815,
+          "standard_error": 0.28327302842224844
+        },
+        {
+          "mean": 21.583227414675967,
+          "sample_variance": 75762.02516313468,
+          "standard_error": 0.38013760023708665
+        },
+        {
+          "mean": 3.6465601066284488,
+          "sample_variance": 51130.86724965404,
+          "standard_error": 0.31228895232323706
+        },
+        {
+          "mean": 11.353348057365158,
+          "sample_variance": 10127.978650987567,
+          "standard_error": 0.13898771972053978
+        }
+      ],
+      "population_gamma": [
+        -0.45163603656796614,
+        2.298761227763144,
+        21.37067440220595,
+        3.7861505277904417,
+        11.315900710532397
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 10.733783490039473,
+        "sensitivity_mc_norm": 0.06240606296050892,
+        "reconstruction_norm": 0.04862739856147084,
+        "reconstruction_mc_norm": 0.030492707792808743,
+        "gamma_norm": 0.7441102773338479,
+        "gamma_mc_norm": 0.04865715657115389,
+        "reconstruction_margin_ratio": 0.010332086908804331,
+        "gamma_relative_standard_error": 0.06538971178504993,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.11541710286606811,
+          "sample_variance": 4768.036332008976,
+          "standard_error": 0.09536407908147411
+        },
+        {
+          "mean": -0.027761024215149185,
+          "sample_variance": 39830.16034806406,
+          "standard_error": 0.27562656237123195
+        },
+        {
+          "mean": 29.430728809619627,
+          "sample_variance": 83611.579867841,
+          "standard_error": 0.399345004411248
+        },
+        {
+          "mean": -0.7432181852666676,
+          "sample_variance": 67548.87339008789,
+          "standard_error": 0.35894184948067676
+        },
+        {
+          "mean": 0.31702406161312874,
+          "sample_variance": 15568.437878152257,
+          "standard_error": 0.17232074367852537
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.1154171028660677,
+          "sample_variance": 4768.036332008977,
+          "standard_error": 0.09536407908147411
+        },
+        {
+          "mean": -0.027761024215148276,
+          "sample_variance": 39830.160348064106,
+          "standard_error": 0.2756265623712321
+        },
+        {
+          "mean": 29.430728809619623,
+          "sample_variance": 83611.57986784108,
+          "standard_error": 0.3993450044112482
+        },
+        {
+          "mean": -0.743218185266671,
+          "sample_variance": 67548.87339008787,
+          "standard_error": 0.35894184948067664
+        },
+        {
+          "mean": 0.3170240616131272,
+          "sample_variance": 15568.437878152254,
+          "standard_error": 0.17232074367852535
+        }
+      ],
+      "population_gamma": [
+        -2.4868995751603507e-14,
+        -3.375077994860476e-14,
+        28.858258289829255,
+        -6.750155989720952e-14,
+        3.019806626980426e-14
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 10.758399566545709,
+        "sensitivity_mc_norm": 0.06251958338386819,
+        "reconstruction_norm": 0.04660803607036641,
+        "reconstruction_mc_norm": 0.030576508750176163,
+        "gamma_norm": 0.7293664379373674,
+        "gamma_mc_norm": 0.04881479289160262,
+        "reconstruction_margin_ratio": 0.010134242564840445,
+        "gamma_relative_standard_error": 0.06692766537167491,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.027521473250784304,
+          "sample_variance": 4814.517351222346,
+          "standard_error": 0.09582777826656527
+        },
+        {
+          "mean": -0.10211344925812006,
+          "sample_variance": 39974.71767992541,
+          "standard_error": 0.27612628109955667
+        },
+        {
+          "mean": 29.26425944062292,
+          "sample_variance": 84194.78545408425,
+          "standard_error": 0.40073533525980626
+        },
+        {
+          "mean": -0.3129784723294835,
+          "sample_variance": 68331.72014356258,
+          "standard_error": 0.3610158071242178
+        },
+        {
+          "mean": 0.10825915660339,
+          "sample_variance": 15781.927353800795,
+          "standard_error": 0.17349823503833733
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.027521473250784047,
+          "sample_variance": 4814.517351222348,
+          "standard_error": 0.0958277782665653
+        },
+        {
+          "mean": -0.1021134492581188,
+          "sample_variance": 39974.71767992545,
+          "standard_error": 0.27612628109955684
+        },
+        {
+          "mean": 29.26425944062291,
+          "sample_variance": 84194.78545408431,
+          "standard_error": 0.4007353352598064
+        },
+        {
+          "mean": -0.3129784723294871,
+          "sample_variance": 68331.72014356258,
+          "standard_error": 0.3610158071242178
+        },
+        {
+          "mean": 0.10825915660338849,
+          "sample_variance": 15781.927353800793,
+          "standard_error": 0.1734982350383373
+        }
+      ],
+      "population_gamma": [
+        -2.4868995751603507e-14,
+        -3.375077994860476e-14,
+        28.858258289829255,
+        -6.750155989720952e-14,
+        3.019806626980426e-14
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 2.112756182939366,
+        "sensitivity_mc_norm": 0.021244377277772467,
+        "reconstruction_norm": 0.041332223087473974,
+        "reconstruction_mc_norm": 0.0050309959698140545,
+        "gamma_norm": 12.407009500868273,
+        "gamma_mc_norm": 1.0269251673614497,
+        "reconstruction_margin_ratio": 0.0248249160096305,
+        "gamma_relative_standard_error": 0.08276975747375569,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.6225518283398397,
+          "sample_variance": 382.89936698484354,
+          "standard_error": 0.02702448119989194
+        },
+        {
+          "mean": -6.655141364010968,
+          "sample_variance": 3484.7240133740693,
+          "standard_error": 0.08152658206154553
+        },
+        {
+          "mean": 15.28684765707966,
+          "sample_variance": 9064.583494663671,
+          "standard_error": 0.13148886240119925
+        },
+        {
+          "mean": -7.532058899742114,
+          "sample_variance": 8380.73736270112,
+          "standard_error": 0.1264317521460041
+        },
+        {
+          "mean": 1.9294342021906228,
+          "sample_variance": 1914.8483778606296,
+          "standard_error": 0.06043412476040093
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.6225518283398208,
+          "sample_variance": 382.8993669848434,
+          "standard_error": 0.027024481199891932
+        },
+        {
+          "mean": -6.655141364010978,
+          "sample_variance": 3484.7240133741047,
+          "standard_error": 0.08152658206154595
+        },
+        {
+          "mean": 15.2868476570798,
+          "sample_variance": 9064.583494663808,
+          "standard_error": 0.13148886240120022
+        },
+        {
+          "mean": -7.532058899742231,
+          "sample_variance": 8380.737362701073,
+          "standard_error": 0.12643175214600377
+        },
+        {
+          "mean": 1.9294342021906423,
+          "sample_variance": 1914.8483778606387,
+          "standard_error": 0.060434124760401074
+        }
+      ],
+      "population_gamma": [
+        1.6624255601755906,
+        -6.728799676440724,
+        15.241967977128413,
+        -7.382085747336054,
+        1.840622477138381
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 2.112988010228165,
+        "sensitivity_mc_norm": 0.021284739046282416,
+        "reconstruction_norm": 0.04353945620709717,
+        "reconstruction_mc_norm": 0.0050466651322344565,
+        "gamma_norm": 12.711224985384458,
+        "gamma_mc_norm": 1.0301641761025295,
+        "reconstruction_margin_ratio": 0.0259043211018039,
+        "gamma_relative_standard_error": 0.08104365844259909,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.62581337724753,
+          "sample_variance": 384.00924704320545,
+          "standard_error": 0.027063619719749528
+        },
+        {
+          "mean": -6.649549624907439,
+          "sample_variance": 3488.6267824848683,
+          "standard_error": 0.08157222274748668
+        },
+        {
+          "mean": 15.18351783972757,
+          "sample_variance": 9122.36614091415,
+          "standard_error": 0.13190728784600056
+        },
+        {
+          "mean": -7.347694798355566,
+          "sample_variance": 8471.056347222655,
+          "standard_error": 0.12711120226932313
+        },
+        {
+          "mean": 1.8221691638720963,
+          "sample_variance": 1943.6505218221366,
+          "standard_error": 0.06088693756022513
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.6258133772475116,
+          "sample_variance": 384.0092470432053,
+          "standard_error": 0.027063619719749517
+        },
+        {
+          "mean": -6.649549624907447,
+          "sample_variance": 3488.626782484905,
+          "standard_error": 0.08157222274748711
+        },
+        {
+          "mean": 15.183517839727713,
+          "sample_variance": 9122.36614091429,
+          "standard_error": 0.13190728784600156
+        },
+        {
+          "mean": -7.347694798355689,
+          "sample_variance": 8471.056347222606,
+          "standard_error": 0.12711120226932277
+        },
+        {
+          "mean": 1.8221691638721147,
+          "sample_variance": 1943.6505218221457,
+          "standard_error": 0.06088693756022528
+        }
+      ],
+      "population_gamma": [
+        1.6624255601755906,
+        -6.728799676440724,
+        15.241967977128413,
+        -7.382085747336054,
+        1.840622477138381
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 1.586484044469729,
+        "sensitivity_mc_norm": 0.015615853061484204,
+        "reconstruction_norm": 0.02855697450076885,
+        "reconstruction_mc_norm": 0.0037194773370308448,
+        "gamma_norm": 9.033915611225003,
+        "gamma_mc_norm": 0.7567133249965645,
+        "reconstruction_margin_ratio": 0.023144751682607562,
+        "gamma_relative_standard_error": 0.08376360346518157,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.4869277002889159,
+          "sample_variance": 201.6726978402915,
+          "standard_error": 0.019612754638277826
+        },
+        {
+          "mean": -5.524491412758883,
+          "sample_variance": 1846.4440610527042,
+          "standard_error": 0.059344861238473164
+        },
+        {
+          "mean": 11.191493499135492,
+          "sample_variance": 4926.261237734538,
+          "standard_error": 0.09693347015695963
+        },
+        {
+          "mean": -4.677210594472835,
+          "sample_variance": 4591.9397164377,
+          "standard_error": 0.0935864837468791
+        },
+        {
+          "mean": 1.0069525283401077,
+          "sample_variance": 1059.9685049369361,
+          "standard_error": 0.04496364619018096
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.4869277002889028,
+          "sample_variance": 201.6726978402916,
+          "standard_error": 0.01961275463827783
+        },
+        {
+          "mean": -5.524491412758899,
+          "sample_variance": 1846.444061052724,
+          "standard_error": 0.05934486123847349
+        },
+        {
+          "mean": 11.191493499135598,
+          "sample_variance": 4926.261237734611,
+          "standard_error": 0.09693347015696037
+        },
+        {
+          "mean": -4.677210594472928,
+          "sample_variance": 4591.93971643767,
+          "standard_error": 0.09358648374687878
+        },
+        {
+          "mean": 1.0069525283401235,
+          "sample_variance": 1059.9685049369411,
+          "standard_error": 0.04496364619018107
+        }
+      ],
+      "population_gamma": [
+        1.5073072601273698,
+        -5.558503837532965,
+        11.157108157467931,
+        -4.571111983382454,
+        0.9450553756995028
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0001,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 1.5886897697911602,
+        "sensitivity_mc_norm": 0.015645265924197026,
+        "reconstruction_norm": 0.03004741512564499,
+        "reconstruction_mc_norm": 0.003730666005437314,
+        "gamma_norm": 9.027309977694744,
+        "gamma_mc_norm": 0.7589898596391096,
+        "reconstruction_margin_ratio": 0.024084220810372613,
+        "gamma_relative_standard_error": 0.0840770796078201,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": 1.4852036903840493,
+          "sample_variance": 202.69684105813676,
+          "standard_error": 0.01966249075441994
+        },
+        {
+          "mean": -5.503556753359929,
+          "sample_variance": 1854.1031480460747,
+          "standard_error": 0.05946781570327795
+        },
+        {
+          "mean": 11.095474703026126,
+          "sample_variance": 4962.234729355795,
+          "standard_error": 0.09728674949206331
+        },
+        {
+          "mean": -4.523796364625616,
+          "sample_variance": 4644.455363503142,
+          "standard_error": 0.09412011255696838
+        },
+        {
+          "mean": 0.9217864207041631,
+          "sample_variance": 1076.0542751285361,
+          "standard_error": 0.04530353905048102
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": 1.4852036903840367,
+          "sample_variance": 202.69684105813684,
+          "standard_error": 0.019662490754419948
+        },
+        {
+          "mean": -5.503556753359945,
+          "sample_variance": 1854.103148046095,
+          "standard_error": 0.059467815703278276
+        },
+        {
+          "mean": 11.095474703026232,
+          "sample_variance": 4962.2347293558705,
+          "standard_error": 0.09728674949206403
+        },
+        {
+          "mean": -4.523796364625714,
+          "sample_variance": 4644.4553635031125,
+          "standard_error": 0.09412011255696809
+        },
+        {
+          "mean": 0.9217864207041777,
+          "sample_variance": 1076.0542751285413,
+          "standard_error": 0.04530353905048113
+        }
+      ],
+      "population_gamma": [
+        1.5073072601273698,
+        -5.558503837532965,
+        11.157108157467931,
+        -4.571111983382454,
+        0.9450553756995028
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 12.143388627044896,
+        "sensitivity_mc_norm": 0.05617343675521155,
+        "reconstruction_norm": 0.09824121695533283,
+        "reconstruction_mc_norm": 0.027395554136046146,
+        "gamma_norm": 0.8073820687935771,
+        "gamma_mc_norm": 0.04376722572314996,
+        "reconstruction_margin_ratio": 0.012719790053298367,
+        "gamma_relative_standard_error": 0.054208815646040694,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.5873318837610998,
+          "sample_variance": 4278.019856597086,
+          "standard_error": 0.09033092119880755
+        },
+        {
+          "mean": 2.109603375129222,
+          "sample_variance": 35334.788801945215,
+          "standard_error": 0.25960693579353505
+        },
+        {
+          "mean": 22.528545819560133,
+          "sample_variance": 72450.52533280493,
+          "standard_error": 0.3717370178500829
+        },
+        {
+          "mean": 2.4507458969581357,
+          "sample_variance": 54670.80547840248,
+          "standard_error": 0.3229183892007222
+        },
+        {
+          "mean": 11.229984183929444,
+          "sample_variance": 11075.66370048553,
+          "standard_error": 0.14534494148958918
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.5873318837610996,
+          "sample_variance": 4278.019856597087,
+          "standard_error": 0.09033092119880755
+        },
+        {
+          "mean": 2.1096033751292245,
+          "sample_variance": 35334.788801945244,
+          "standard_error": 0.25960693579353517
+        },
+        {
+          "mean": 22.528545819560122,
+          "sample_variance": 72450.52533280499,
+          "standard_error": 0.37173701785008306
+        },
+        {
+          "mean": 2.450745896958133,
+          "sample_variance": 54670.805478402464,
+          "standard_error": 0.32291838920072213
+        },
+        {
+          "mean": 11.229984183929442,
+          "sample_variance": 11075.663700485526,
+          "standard_error": 0.14534494148958918
+        }
+      ],
+      "population_gamma": [
+        -0.42124509849142955,
+        1.9635010745856665,
+        22.24344699184229,
+        2.9356057153815094,
+        11.026488194093407
+      ]
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "operator_accuracy": {
+        "quadrature_order": 64,
+        "source_log_window": [
+          -1.5149462346814626,
+          1.5149462346814626
+        ],
+        "source_probability": 1.0,
+        "source_first_spot_moment": 100.0,
+        "source_probability_tail_bound": 1.1115668742124593e-31,
+        "source_spot_tail_bound": 7.114176345044198e-30,
+        "probability_refinement_difference": 1.1102230246251565e-15,
+        "spot_refinement_difference": 1.1368683772161603e-13,
+        "operator_refinement_difference": 7.105427357601002e-15,
+        "omitted_operator_entry_bound": 3.161825543456284e-30,
+        "operator_entry_tolerance": 6.743594728214016e-10,
+        "renormalized": false,
+        "refinement_interpretation": "convergence_diagnostic_not_rigorous_total_error_bound"
+      },
+      "heldout_quality": {
+        "sensitivity_norm": 12.176942878727465,
+        "sensitivity_mc_norm": 0.05627429522294855,
+        "reconstruction_norm": 0.103479173314162,
+        "reconstruction_mc_norm": 0.027471764291301836,
+        "gamma_norm": 0.7966717537824516,
+        "gamma_mc_norm": 0.043904784742018164,
+        "reconstruction_margin_ratio": 0.013131426088307259,
+        "gamma_relative_standard_error": 0.05511025655618677,
+        "passed": true
+      },
+      "native_quote_risks": [
+        {
+          "mean": -0.46040116338479087,
+          "sample_variance": 4316.367740472211,
+          "standard_error": 0.09073487812581031
+        },
+        {
+          "mean": 1.9002146430973468,
+          "sample_variance": 35449.11888898786,
+          "standard_error": 0.26002659180806637
+        },
+        {
+          "mean": 22.56402654749183,
+          "sample_variance": 72957.38125906294,
+          "standard_error": 0.3730350672497882
+        },
+        {
+          "mean": 2.7241239547073466,
+          "sample_variance": 55355.204556675366,
+          "standard_error": 0.32493333736357527
+        },
+        {
+          "mean": 11.088976137948857,
+          "sample_variance": 11245.587121756735,
+          "standard_error": 0.1464556425060385
+        }
+      ],
+      "recovered_quote_risks": [
+        {
+          "mean": -0.4604011633847908,
+          "sample_variance": 4316.367740472212,
+          "standard_error": 0.09073487812581031
+        },
+        {
+          "mean": 1.9002146430973499,
+          "sample_variance": 35449.1188889879,
+          "standard_error": 0.2600265918080665
+        },
+        {
+          "mean": 22.56402654749182,
+          "sample_variance": 72957.381259063,
+          "standard_error": 0.3730350672497883
+        },
+        {
+          "mean": 2.724123954707344,
+          "sample_variance": 55355.20455667535,
+          "standard_error": 0.3249333373635752
+        },
+        {
+          "mean": 11.088976137948855,
+          "sample_variance": 11245.587121756731,
+          "standard_error": 0.1464556425060385
+        }
+      ],
+      "population_gamma": [
+        -0.42124509849142955,
+        1.9635010745856665,
+        22.24344699184229,
+        2.9356057153815094,
+        11.026488194093407
+      ]
+    }
+  ],
+  "failed_gate_controls": {
+    "no_pilot": {
+      "status": "no_feasible_pilot_candidate",
+      "estimate_withheld": true,
+      "selected_regularization": null
+    },
+    "heldout_failure": {
+      "status": "validation_failed",
+      "estimate_withheld": true,
+      "selected_regularization": 0.01
+    }
+  },
+  "legacy_replay": {
+    "cases": 40,
+    "byte_identical": true,
+    "sha256": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84"
+  },
+  "tests": {
+    "rust_related": 36,
+    "python_vegakt": 111,
+    "companion_calibration": 16,
+    "wheel_contract": 4,
+    "runtime_stub_contract": "passed",
+    "clippy": "passed",
+    "rustfmt": "passed",
+    "dependency_direction": "passed",
+    "diff_whitespace": "passed"
+  },
+  "native_binary_sha256": "726c25f4e7274f8b414b4b5fc81f2ceff4a20dd6cb9b5f2ca17eba876705deec",
+  "source_sha256": {
+    "scripts/check_three_step_gamma.py": "524a11ac573d3734429b51a580ad77999a3850dde3e91570fd656913a0a0e8f8",
+    "backtesting/rust_pricing_backtest/three_step_smile.py": "21e0ba84ae31d9492953626d79c99706486cf9fe8f11ce2355f865c0ea7b35fc",
+    "backtesting/rust_pricing_backtest/discrete_smile.py": "11159b8b2eb517f37962978b8b84d5ae2989d5f6b776b3d9867a193851ff26d8",
+    "scripts/check_gamma_quote_conservation.py": "28675468e2538db4576b23fe16e219528bc2ddd4e065a9d8a831a8e7cc43affb",
+    "scripts/check_nonflat_gamma_recovery.py": "9b37c45d4c1677b47063959e6447ba7203ef4adebfafdb52a324ee88825ba4ac",
+    "crates/pricing-python/src/lib.rs": "a8f7c4d12a04f7b96e5242b6388cb81013cbd03ed9a46ff17f25b81b96b5fbf8",
+    "crates/pricing/src/engine/risk/pricing.rs": "b4099618691e4f17e8706b4b10f30a9321b7124722561c5e93d0a366120dc8b4",
+    "crates/pricing/src/risk/vegakt.rs": "7aa84ed69dd6fc84f9b74a603126a591aac30a0fed0feecd1ed5ff62d2be1f09",
+    "crates/pricing/src/risk/vegakt_atom_chain.rs": "7266ae096d156d5e02015efe584b9104ba79c9593fa980accf288c45c3ce70a9",
+    "crates/pricing/src/risk/vegakt_chain.rs": "24d0f0237ee02543a6a9447493271621726c0f21a5c0fdda8616b675606b6d21",
+    "crates/pricing/src/risk/vegakt_convolution.rs": "7f20fac1870815ce47f4cc11d8d42fed0a2893cb98a39635f755c9148a34780a",
+    "crates/pricing/src/risk/vegakt_initial.rs": "3ce5f25d1b088c5aa234c9b7d4a1d1f64eef142e0b8ed56323c8b49b78e3d7c2",
+    "crates/pricing/src/risk/vegakt_initial_measure.rs": "8700df90f8b3d3901f941755ffd1d33084d3c8c4fec3e70ad5632085ad250caa",
+    "crates/pricing/src/risk/vegakt_initial_smile.rs": "7cd4e86783aa39dd534a113b625e5b1fa9c0c23dd137585e2f4435dcebbb87f9",
+    "crates/pricing/src/risk/vegakt_joint.rs": "50614ba8ce505684ab62e647e343285cac4095fb553bafbc665958d7a5b9bfa6",
+    "crates/pricing/src/risk/vegakt_measure.rs": "fe01bf125c08f56951f64b58922e3217f8c310a0f577e6c399e173d3fd69d185",
+    "crates/pricing/src/risk/vegakt_selection.rs": "14a124600747f674c93c85d560e466595f4cfbd217328a9fc50200aa928dd4fe",
+    "crates/pricing/src/risk/vegakt_smile.rs": "3d131bd530dd345c37337ac8a4732434f3a1876f2ef78b21cf470ae31dc9c7c9",
+    "crates/pricing/src/risk/vegakt_steps.rs": "33003d58ccdf7a67748a447162cbc8598de6fab01bcdc7dd528d870cabb40100",
+    "crates/pricing/src/risk/vegakt_three_step.rs": "7b099167b9e383c2ff53db98af3788c0770a7e25f8223b6142efd432ec8ed83e",
+    "crates/pricing/src/risk/vegakt_convolution/constraints.rs": "9ef2e8b8f23518bb7193bc112ede9449618c812499a99898e3c7ec8eb9edb8de",
+    "crates/pricing/src/risk/vegakt_convolution/gaussian_variance.rs": "1bb020a041b52b05d70236226e19ffc9d9e917e54f29731e68864c6ae4cbb3e4",
+    "crates/pricing/src/risk/vegakt_convolution/two_transition_source.rs": "36b0f0b31fa0c03a8cb113e7518d38dc60f834c3f156d4cbe470a8f846985f38",
+    "crates/pricing/src/engine/risk/vegakt.rs": "36598c1f25c06a2bf2d8a82a19293d8f5d80a37587fd32eba204ee301f0916fd",
+    "crates/pricing/src/engine/risk/vegakt_atom_chain.rs": "fbd88eaba74115b8cb6da4bf4986fbc143be23f9b58a8114d6085b19ba4e8987",
+    "crates/pricing/src/engine/risk/vegakt_chain.rs": "8828354f78d0edc546d48195cb989bb2fa34cb04afef1f41ad1c82a5a3d61d3b",
+    "crates/pricing/src/engine/risk/vegakt_convolution.rs": "f0178f33575758230d79d0eeb187e8582c8ae62fed49c9a68d050c0109dfe4f1",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3ac977988640ba86cce3dbbd9a31f000bda25b78aba6cb387a57b31a4027f2e1",
+    "crates/pricing/src/engine/risk/vegakt_initial.rs": "70728da1ce84b418f3380bf9053caff189ca2d56b52eb603f02891453f00ea43",
+    "crates/pricing/src/engine/risk/vegakt_initial_measure.rs": "c423414ac4b1ec9a8d842d128535d70d5f95e6b1ac0ad81910aed9fbdd979c87",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile.rs": "c450da9b73623b9f8fddc7adfeca5423c2d248318c5efe5bc2fd208a3950aaaa",
+    "crates/pricing/src/engine/risk/vegakt_joint.rs": "d7987a733234894774ffd42be8763b9e05728a22758bcda4f2505b7999b0eda3",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "f20d4efaeaae009f689216fbc257b96f9ee3c20941ac86ea5a9eafe640455fc3",
+    "crates/pricing/src/engine/risk/vegakt_paper.rs": "8d87c63ecd296faaceed3652faca09c2ed19a6adb3227f102f8eb7e847ca2234",
+    "crates/pricing/src/engine/risk/vegakt_pricing.rs": "f428f270929fec13642ab87ea26611bb41959ee2410c52225b317a0d20e5cbdc",
+    "crates/pricing/src/engine/risk/vegakt_recovery.rs": "93e730ab228a33ddeb803c9f614da1757705e4d90ba0cecb0dec4a0b449c7664",
+    "crates/pricing/src/engine/risk/vegakt_selection.rs": "4417c2a25674e2e6a03b1111f87ea1ee99da03afd17961e929e9ac2c2165c5a7",
+    "crates/pricing/src/engine/risk/vegakt_smile.rs": "19a7cb9304e94f33d9ac8d0cb92f6a919db0d5256f77328815d5cb0b85b98193",
+    "crates/pricing/src/engine/risk/vegakt_steps.rs": "88fab970c8dfe184cb78eee3cf0169e9cb916ad7f6c6bd2880696e452207c516",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "33cca43b7c17a81b1c2d67a5e9a540d243bb79f7a6920b77a4fcf4311ecb08ba",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pathwise.rs": "c82349789a79aee187210739b76c007234a0c0b5ed57bd2990e5e19391598ead",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "be375917683731c91ed024b91b4ac77c2d4c87d6b2a9edfc7b95b6f825b86ded",
+    "crates/pricing/src/engine/risk/vegakt_terminal_replication.rs": "5c9e1b83c69830c6b495a3a31b897632e585a4ae77dc519820c90203aaa0977e",
+    "crates/pricing/src/engine/risk/vegakt_three_step.rs": "abe7f3f899e51450f265f3d11c699f9d4efeb627e82cd7d3e3577aba783d54f6",
+    "crates/pricing-python/src/vegakt_atom_chain.rs": "ab57521eae4b6498f2c9ea4b55ee7a6852d8c165dc5ad31ce4196002bfcde344",
+    "crates/pricing-python/src/vegakt_chain.rs": "7773c8cbf5c12a59368b35f515ba40899e52c17c6fb1b4788b185c118836f0b5",
+    "crates/pricing-python/src/vegakt_convolution.rs": "cb167825141569680e430c82bc879b9eae2cf6923a1bb20cb226ddefbd06c3da",
+    "crates/pricing-python/src/vegakt_initial_measure.rs": "3710dd79df378660f1ccb6133455ab7f75eec95de488994a16e29be4678928c5",
+    "crates/pricing-python/src/vegakt_initial_smile.rs": "bd2a8d3fb419084d3e69582ae4df9ba2b65de0f9f368ad24d4266a03e7e21670",
+    "crates/pricing-python/src/vegakt_joint.rs": "1acee4e321b1dad1a5f845659e67f41133a4eb71d98425393d95546b248ad787",
+    "crates/pricing-python/src/vegakt_measure.rs": "c3cd20bed4891b2f69a2073cf28eca568b732c9b37d509220767c9e7604045c4",
+    "crates/pricing-python/src/vegakt_selection.rs": "e0864490126d5b54b580a507d66e78bef16a4121c69349de27eaba3f335e3772",
+    "crates/pricing-python/src/vegakt_smile.rs": "7cd8e603dfb89c03968aba69154db2bf965fe6378e110adb8aca479a02e1a94d",
+    "crates/pricing-python/src/vegakt_three_step.rs": "678c084fb72eb6ea5a0243624a79c7859fcc4e10053a5059198790ea0060cb01",
+    "crates/pricing/src/risk/mod.rs": "8d6457c823fe206750b3aca56353490baa9cea5181bc965eb20a6f32f1e2e1bf",
+    "crates/pricing/src/engine/risk/mod.rs": "95337dfd2e99a1a96b25ff6332475b0e1eaa07df5a226abb6062dae7654cc2fd",
+    "crates/pricing/tests/local_vol_three_step_gamma.rs": "806ef5fab7d1f1c80bbbfe17d8dc22fccf01cccc8e49cac9cf9804af89626d4c",
+    "tests/python/test_vega_kt_three_step.py": "04ade079c775581eaae1bd44967c37f8edb4393b4393d4fbae41e581f6eb1083",
+    "backtesting/tests/test_three_step_smile.py": "66c2d6694c891041c58d097055bc4d16a6020fba1752908eee5dd9ced36a8721",
+    "rust_pricing.pyi": "5d5beccc8b4056ba8e0243cf5708e8f5951ddc8b38c30c93dca0e1707bc26fd7",
+    "scripts/smoke_test_wheel.py": "56233e1f86e83fe69da3ba48d50f697147e588bd98d1791eceb0526942e11d1b",
+    "scripts/check_source_archive.py": "ac057590ba66f89c4348b583dd695067177e68dbec7d36739e3d112bafc43992",
+    ".github/workflows/backtesting.yml": "fdafff4e0281f3ea9855b7271fe24b0a22751e6c5bb8bc51e84c47c52a9337f0"
+  },
+  "evidence_sha256": {
+    "benchmark-results/vega-kt-three-step/report.json": "c64b2affe46ebf18330df2208b8234c26a9de35712807d16e25ecede8fc32eb5",
+    "benchmark-results/vega-kt-three-step/controls.json": "226cc8192ca4ac4070e0e5e022c2a4fa1db651df0f3270b266ed91dd15e8ad7e",
+    "benchmark-results/vega-kt-three-step/legacy-after.json": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84",
+    "benchmark-results/vega-kt-joint-smile/legacy-after.json": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84",
+    "benchmark-results/vega-kt-initial-smile/legacy-replay.py": "2014872a65116eca8e98537885e0ea264fc0abf4ca7c203a0e774c8f8c51490e",
+    "fixtures/backtesting/three-step-gamma-policy-v0.1.json": "0807d9cefa13d4ff6fc2d7d2ac3ae761409c273768990ee051dbc11234457cb0",
+    "fixtures/local-vol/three-step-gamma-v0.1.json": "27e015311e415a12f9a6ac7eb60be76a96296db53e6acfb7573f6bbd1b85b328"
+  },
+  "limitations": [
+    "Only the third variance row is recovered. Initial and middle continuation Gamma remain unimplemented for three intervals.",
+    "Earlier two model transitions and quote maturities are frozen when bumping terminal IVs.",
+    "Full cross-quote covariance and full market-IV-chain acceptance are not provided by this API.",
+    "Numerical refinement is a convergence check, not a rigorous total quadrature-error bound.",
+    "Same-path direction SE is conditional on frozen pilot selection and excludes regularization bias.",
+    "No ordinary backtest provider promotion."
+  ]
+}

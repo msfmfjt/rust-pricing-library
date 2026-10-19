@@ -1,0 +1,19 @@
+{
+  "policy_id": "path_gamma_convolution_component_v1",
+  "scope": "Positive-time equation-(3) Gamma recovery from native continuous path-payoff AD; spatially flat LV, zero carry, pseudo-MC. This does not accept full IV buckets or initial Gamma.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "node_counts": [9, 17, 33],
+  "seeds": [7, 41],
+  "samples": 8192,
+  "regularizations": [0.01, 0.001, 0.0001],
+  "statistical_multiplier": 6.0,
+  "local_vega_absolute_tolerance": 0.002,
+  "mass_absolute_tolerance": 0.000002,
+  "solver_absolute_tolerance": 0.000002,
+  "operator_relative_tolerance": 0.000002,
+  "batches": 16,
+  "batch_samples": 512,
+  "batch_first_seed": 2017,
+  "vol_bump": 0.0001,
+  "paired_absolute_tolerance": 0.002
+}

@@ -339,6 +339,8 @@ enum ProductV1 {
         monitoring_dates: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         historical_extremum: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        valuation_date_fixing: Option<f64>,
         payment_date: String,
     },
 }
@@ -787,6 +789,7 @@ impl From<&ProductSpec> for ProductV1 {
                     .map(ToString::to_string)
                     .collect(),
                 historical_extremum: spec.historical_extremum().map(|value| value.get()),
+                valuation_date_fixing: spec.valuation_date_fixing().map(|value| value.get()),
                 payment_date: spec.payment_date().to_string(),
             },
         }
@@ -1308,6 +1311,7 @@ impl TryFrom<RequestV3> for PricingRequest {
                 side,
                 monitoring_dates,
                 historical_extremum,
+                valuation_date_fixing,
                 payment_date,
             } => ProductSpec::FixedLookback(
                 FixedLookbackSpec::new(
@@ -1329,6 +1333,7 @@ impl TryFrom<RequestV3> for PricingRequest {
                     historical_extremum,
                     parse_date_at(&payment_date, "/product/payment_date")?,
                 )
+                .and_then(|spec| spec.with_valuation_date_fixing(valuation_date_fixing))
                 .map_err(|error| domain_at("/product", error))?,
             ),
         };
@@ -1850,6 +1855,8 @@ enum PathStateDiagnosticsV3 {
         future_monitoring_count: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
         historical_extremum: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        valuation_date_fixing: Option<f64>,
     },
 }
 
@@ -2409,10 +2416,12 @@ impl From<PathStateDiagnostics> for PathStateDiagnosticsV3 {
                 past_monitoring_count,
                 future_monitoring_count,
                 historical_extremum,
+                valuation_date_fixing,
             } => Self::FixedLookback {
                 past_monitoring_count,
                 future_monitoring_count,
                 historical_extremum,
+                valuation_date_fixing,
             },
         }
     }
@@ -3410,9 +3419,22 @@ fn path_state_diagnostics_from_wire(
             past_monitoring_count,
             future_monitoring_count,
             historical_extremum,
+            valuation_date_fixing,
         } => Ok(PathStateDiagnostics::FixedLookback {
             past_monitoring_count,
             future_monitoring_count,
+            valuation_date_fixing: valuation_date_fixing
+                .map(|item| {
+                    PositiveF64::new(item, "valuation_date_fixing")
+                        .map(PositiveF64::get)
+                        .map_err(|error| {
+                            domain_at(
+                                "/monte_carlo/diagnostics/path_state/valuation_date_fixing",
+                                error,
+                            )
+                        })
+                })
+                .transpose()?,
             historical_extremum: historical_extremum
                 .map(|item| {
                     PositiveF64::new(item, "historical_extremum")
@@ -3961,6 +3983,16 @@ pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingReq
     {
         return Err(WireError::UnsupportedSchemaFeature {
             feature: "Bass local volatility",
+            schema_version: version,
+        });
+    }
+    if version < 3
+        && serde_json::from_str::<Value>(text).map_err(json)?["product"]
+            .get("valuation_date_fixing")
+            .is_some()
+    {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "Lookback valuation-date fixing",
             schema_version: version,
         });
     }
@@ -5211,6 +5243,7 @@ mod tests {
             side: SideV1::Put,
             monitoring_dates: vec!["2027-09-04".to_owned()],
             historical_extremum: None,
+            valuation_date_fixing: None,
             payment_date: "2027-09-04".to_owned(),
         };
         let barrier_json = serde_json::to_value(barrier).expect("Barrier JSON");
@@ -5218,6 +5251,7 @@ mod tests {
         assert!(barrier_json.get("rebate").is_none());
         assert!(barrier_json.get("historical_hit").is_none());
         assert!(lookback_json.get("historical_extremum").is_none());
+        assert!(lookback_json.get("valuation_date_fixing").is_none());
     }
 
     #[test]

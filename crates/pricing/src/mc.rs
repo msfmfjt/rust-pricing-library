@@ -19,9 +19,10 @@ pub use crate::engine::mc::lsm::{
     value_exercise_policy,
 };
 pub use crate::engine::processes::local_vol::{
-    LOCAL_VOL_LOG_EULER_SCHEME, LocalVolDividendCheckpoint, LocalVolDividendCheckpointSchedule,
-    LocalVolDividendReverseCache, LocalVolError, LocalVolLogEulerPlan, LocalVolPath,
-    LocalVolPostDividendSpot, LocalVolReverseAdjoints, LocalVolStepCache, LocalVolTimeGrid,
+    LOCAL_VOL_LOG_EULER_SCHEME, LocalVolDirectVarianceAdjoint, LocalVolDividendCheckpoint,
+    LocalVolDividendCheckpointSchedule, LocalVolDividendReverseCache, LocalVolError,
+    LocalVolLogEulerPlan, LocalVolPath, LocalVolPayoffReverseAdjoints, LocalVolPostDividendSpot,
+    LocalVolReverseAdjoints, LocalVolStepAdjoint, LocalVolStepCache, LocalVolTimeGrid,
 };
 pub use crate::engine::sampling::qmc::{
     JOE_KUO_DIRECTION_SET, RQMC_SCRAMBLE_ABI, RqmcPlan, RqmcPlanError, RqmcPointError, Scramble32,

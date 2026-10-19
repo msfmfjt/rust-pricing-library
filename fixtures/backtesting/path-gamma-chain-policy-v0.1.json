@@ -1,0 +1,19 @@
+{
+  "policy_id": "multi_step_selected_row_conditional_Gamma_all_reported_quotes_v1",
+  "scope": "Four/six intervals; calibrate only the last interval before each reporting maturity, freeze unreported rows; all five quotes at two/three reported maturities.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "gamma_samples": 4096,
+  "gamma_seeds": [7, 41],
+  "subdivisions": 512,
+  "relative_tolerance": 0.000001,
+  "gamma_relative_standard_error_limit": 0.25,
+  "gamma_bins": [80.0, 90.0, 100.0, 110.0, 120.0],
+  "iv_bumps": [0.00001, 0.000005],
+  "stress_iv_bump": 0.003,
+  "quote_price_tolerance": 0.0000000001,
+  "absolute_tolerance": 0.002,
+  "price_samples": 16384,
+  "price_seeds": [4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008],
+  "sobol_power": 16,
+  "sobol_scrambles": 8
+}

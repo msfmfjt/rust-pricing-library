@@ -1,0 +1,596 @@
+{
+  "document_kind": "two_step_nonflat_gamma_validation_record",
+  "schema_version": 1,
+  "date": "2026-10-05",
+  "status": "passed",
+  "checks": 1914,
+  "failed": 0,
+  "scope": "Fixed Gaussian first marginal; two simulation intervals, nonflat second annual-variance row; zero carry and unit discount.",
+  "full_market_iv_bucket_acceptance": "not_established",
+  "initial_gamma_recovery": "not_implemented",
+  "policy": {
+    "policy_id": "two_step_nonflat_variance_gamma_v1",
+    "scope": "Fixed first Gaussian marginal; two-step nonflat second variance row. No initial Gamma or full IV bucket acceptance.",
+    "products": [
+      "call",
+      "asian",
+      "fixed_asian",
+      "lookback"
+    ],
+    "base_shapes": [
+      "nonflat"
+    ],
+    "base_skew": 0.015,
+    "base_curvature": 0.02,
+    "local_nodes": 33,
+    "quote_log_nodes": [
+      -0.2,
+      -0.1,
+      0.0,
+      0.1,
+      0.2
+    ],
+    "stress_iv_bump": 0.003,
+    "iv_bumps": [
+      1e-05,
+      5e-06
+    ],
+    "batch_samples": 16384,
+    "batch_seeds": [
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008
+    ],
+    "gamma_samples": 524288,
+    "gamma_seeds": [
+      7,
+      41
+    ],
+    "selection": {
+      "candidate_regularizations": [
+        0.01,
+        0.003,
+        0.001,
+        0.0003,
+        0.0001
+      ],
+      "pilot_sampling_units": 262144,
+      "reconstruction_relative_limit": 0.03,
+      "gamma_relative_standard_error_limit": 0.25,
+      "mc_margin_multiplier": 2.0
+    },
+    "quote_price_tolerance": 1e-10,
+    "quadrature_derivative_tolerance": 2e-06,
+    "derivative_absolute_tolerance": 0.002,
+    "bump_refinement_tolerance": 0.002,
+    "statistical_multiplier": 6.0,
+    "algebra_tolerance": 1e-10,
+    "solver_absolute_tolerance": 2e-06,
+    "gamma_quote_absolute_target": 0.002,
+    "gamma_quote_relative_target": 0.01,
+    "identity_absolute_tolerance": 1e-08,
+    "operator_relative_tolerance": 2e-06,
+    "nonflat_profiles": [
+      {
+        "name": "positive_skew",
+        "base_skew": 0.015,
+        "base_curvature": 0.02
+      },
+      {
+        "name": "negative_skew",
+        "base_skew": -0.02,
+        "base_curvature": 0.03
+      }
+    ]
+  },
+  "metrics": {
+    "all_spatial_residuals_retained": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 3.486360505844388e-13
+    },
+    "calibration_tangent_vs_exotic_reference": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 1.9791137109592682e-05
+    },
+    "independent_nonflat_variance_operator": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 4.884981308350689e-14
+    },
+    "independent_price_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 5.9376792371779175e-05
+    },
+    "independent_primal_kkt_recovery": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 7.511641939017544e-08
+    },
+    "initial_gamma_not_silently_flattened": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "nonflat_operator_materially_differs_from_flat_shortcut": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "omitted_tail_budget": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 2.4257973119846645e-31
+    },
+    "paired_native_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 0.3189630392003816
+    },
+    "pathwise_quote_direction_conservation": {
+      "count": 480,
+      "failed": 0,
+      "maximum_observed": 1.1707140677987343e-12
+    },
+    "population_gamma_quote_bias": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 3.375077994860476e-13
+    },
+    "quadrature_refinement_budget": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 5.329070518200751e-15
+    },
+    "recalibrated_native_price_reference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.2803000162006249
+    },
+    "recovered_gamma_vs_independent_price_reference": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 0.6454543230449339
+    },
+    "recovered_gamma_vs_recalibrated_native_price": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 1.0462014210312418
+    },
+    "same_sample_quote_variance_conserved": {
+      "count": 480,
+      "failed": 0,
+      "maximum_observed": 1.4280775071908148e-14
+    },
+    "strongest_pilot_feasible_selection": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "unchanged_heldout_recovery_gate": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "unchanged_quality_verdict": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 0.0
+    },
+    "updated_inverse_noise_gain": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 1.821617180204096e-10
+    },
+    "updated_resolution_trace": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 1.6486190190789785e-10
+    },
+    "variance_ad_vs_independent_conditional_derivative": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 0.3858734115054927
+    }
+  },
+  "maximum_heldout_reconstruction_margin_ratio": 0.02980403420998173,
+  "maximum_heldout_gamma_relative_standard_error": 0.0637664694441811,
+  "heldout_settings": [
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 13.967216215919269,
+        "sensitivity_mc_norm": 0.06028252026211161,
+        "reconstruction_norm": 0.031644245872747195,
+        "reconstruction_mc_norm": 0.026465878857799056,
+        "gamma_norm": 0.7078959347493543,
+        "gamma_mc_norm": 0.04288299728280548,
+        "reconstruction_margin_ratio": 0.006108047535611609,
+        "gamma_relative_standard_error": 0.060578109264024974,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 14.003517578664397,
+        "sensitivity_mc_norm": 0.06037849807553896,
+        "reconstruction_norm": 0.05385991967850696,
+        "reconstruction_mc_norm": 0.026524481128333957,
+        "gamma_norm": 0.7315214332424278,
+        "gamma_mc_norm": 0.042943909235163155,
+        "reconstruction_margin_ratio": 0.007700837401880787,
+        "gamma_relative_standard_error": 0.0587049227591551,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0003,
+      "quality": {
+        "sensitivity_norm": 5.332610463630009,
+        "sensitivity_mc_norm": 0.030844594066810952,
+        "reconstruction_norm": 0.07995582573724347,
+        "reconstruction_mc_norm": 0.006798390584645736,
+        "gamma_norm": 8.872204080462181,
+        "gamma_mc_norm": 0.41791515654037914,
+        "reconstruction_margin_ratio": 0.01774881505846901,
+        "gamma_relative_standard_error": 0.04710387100547947,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0003,
+      "quality": {
+        "sensitivity_norm": 5.358499229282547,
+        "sensitivity_mc_norm": 0.030882208638647587,
+        "reconstruction_norm": 0.08363318992253725,
+        "reconstruction_mc_norm": 0.006814191345561823,
+        "gamma_norm": 9.750988826661969,
+        "gamma_mc_norm": 0.418774340502849,
+        "reconstruction_margin_ratio": 0.01836255279256455,
+        "gamma_relative_standard_error": 0.04294685882090247,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 6.088775016014447,
+        "sensitivity_mc_norm": 0.030046282927849725,
+        "reconstruction_norm": 0.12515039368165057,
+        "reconstruction_mc_norm": 0.013074224133208264,
+        "gamma_norm": 0.8030683212802089,
+        "gamma_mc_norm": 0.021037265623478754,
+        "reconstruction_margin_ratio": 0.025096502129430133,
+        "gamma_relative_standard_error": 0.026196109429322604,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 6.11050887754063,
+        "sensitivity_mc_norm": 0.030083320908794994,
+        "reconstruction_norm": 0.15165917765523584,
+        "reconstruction_mc_norm": 0.013094362458423593,
+        "gamma_norm": 0.8329044765824395,
+        "gamma_mc_norm": 0.021060173468455203,
+        "reconstruction_margin_ratio": 0.02939468473733858,
+        "gamma_relative_standard_error": 0.025285220647233132,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 15.590395426561464,
+        "sensitivity_mc_norm": 0.05677449032797452,
+        "reconstruction_norm": 0.11899133022654777,
+        "reconstruction_mc_norm": 0.02481265114295091,
+        "gamma_norm": 0.7926132289457758,
+        "gamma_mc_norm": 0.04068458820571866,
+        "reconstruction_margin_ratio": 0.010894766779640568,
+        "gamma_relative_standard_error": 0.051329686056125576,
+        "passed": true
+      }
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 15.628282911252619,
+        "sensitivity_mc_norm": 0.056879636842913764,
+        "reconstruction_norm": 0.06110247257968624,
+        "reconstruction_mc_norm": 0.024880000144811475,
+        "gamma_norm": 0.7947725296020729,
+        "gamma_mc_norm": 0.04075003778881445,
+        "reconstruction_margin_ratio": 0.007145721999537734,
+        "gamma_relative_standard_error": 0.0512725796011309,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 13.979505616908684,
+        "sensitivity_mc_norm": 0.06230262680661493,
+        "reconstruction_norm": 0.03195387918081794,
+        "reconstruction_mc_norm": 0.02680527065642089,
+        "gamma_norm": 0.7062429864495818,
+        "gamma_mc_norm": 0.04503462181560447,
+        "reconstruction_margin_ratio": 0.006175751412860238,
+        "gamma_relative_standard_error": 0.0637664694441811,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 14.014357683075183,
+        "sensitivity_mc_norm": 0.062399828695418984,
+        "reconstruction_norm": 0.06109541602168803,
+        "reconstruction_mc_norm": 0.026867451556217368,
+        "gamma_norm": 0.7369553105699863,
+        "gamma_mc_norm": 0.04510146624585872,
+        "reconstruction_margin_ratio": 0.008267384672844191,
+        "gamma_relative_standard_error": 0.061199730294331844,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0003,
+      "quality": {
+        "sensitivity_norm": 5.335539310772502,
+        "sensitivity_mc_norm": 0.03221310244109616,
+        "reconstruction_norm": 0.08791490928994333,
+        "reconstruction_mc_norm": 0.005591515812550534,
+        "gamma_norm": 9.435992957669644,
+        "gamma_mc_norm": 0.4574432741820511,
+        "reconstruction_margin_ratio": 0.018800192468703705,
+        "gamma_relative_standard_error": 0.04847855188469995,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.0003,
+      "quality": {
+        "sensitivity_norm": 5.361249996449025,
+        "sensitivity_mc_norm": 0.032253501218619224,
+        "reconstruction_norm": 0.09022410037524153,
+        "reconstruction_mc_norm": 0.005605957648643249,
+        "gamma_norm": 10.02841075303934,
+        "gamma_mc_norm": 0.458388076146276,
+        "reconstruction_margin_ratio": 0.019150639513226556,
+        "gamma_relative_standard_error": 0.04570894505964975,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 6.092942540398427,
+        "sensitivity_mc_norm": 0.031378507167160855,
+        "reconstruction_norm": 0.12646341531894856,
+        "reconstruction_mc_norm": 0.013309095557707797,
+        "gamma_norm": 0.8229621432450164,
+        "gamma_mc_norm": 0.022400094454644883,
+        "reconstruction_margin_ratio": 0.02538588668171215,
+        "gamma_relative_standard_error": 0.02721886375759549,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 6.112993240658727,
+        "sensitivity_mc_norm": 0.03141858501749268,
+        "reconstruction_norm": 0.15366111837200336,
+        "reconstruction_mc_norm": 0.01332897006629764,
+        "gamma_norm": 0.8556547102904578,
+        "gamma_mc_norm": 0.02242321669052475,
+        "reconstruction_margin_ratio": 0.02980403420998173,
+        "gamma_relative_standard_error": 0.02620591743474776,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 15.84920054824074,
+        "sensitivity_mc_norm": 0.05783866060944772,
+        "reconstruction_norm": 0.10780663511244848,
+        "reconstruction_mc_norm": 0.024941383424053803,
+        "gamma_norm": 0.826113817604012,
+        "gamma_mc_norm": 0.0419980860468148,
+        "reconstruction_margin_ratio": 0.010022510513711853,
+        "gamma_relative_standard_error": 0.05083813531726459,
+        "passed": true
+      }
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "positive_time_policy_passed",
+      "selected_regularization": 0.01,
+      "quality": {
+        "sensitivity_norm": 15.88644124783057,
+        "sensitivity_mc_norm": 0.057951830358155286,
+        "reconstruction_norm": 0.09775249600021084,
+        "reconstruction_mc_norm": 0.025014099170600015,
+        "gamma_norm": 0.8291006379469382,
+        "gamma_mc_norm": 0.04207862066759268,
+        "reconstruction_margin_ratio": 0.00937068210421432,
+        "gamma_relative_standard_error": 0.050752126752416846,
+        "passed": true
+      }
+    }
+  ],
+  "legacy_replay": {
+    "settings": 24,
+    "modes": [
+      "unconstrained",
+      "total",
+      "directions"
+    ],
+    "products": [
+      "call",
+      "asian",
+      "fixed_asian",
+      "lookback"
+    ],
+    "seeds": [
+      7,
+      41
+    ],
+    "byte_identical": true,
+    "scope": "Ordinary pricing JSON and entire atom-chain diagnostic, including full covariance",
+    "sha256": "df5d3377a1d01d40ac7fef3be6ab11e95b647265772c0500e63e40f861e2ab07"
+  },
+  "verification": {
+    "rust_related_tests": 27,
+    "python_vega_kt_tests": 89,
+    "clippy": "passed",
+    "format": "passed",
+    "dependency_direction": "passed",
+    "diff_check": "passed",
+    "remote_ci": "not_run",
+    "wheel_api_contract_tests": 3,
+    "wheel_runtime_contract": "passed"
+  },
+  "native_binary_sha256": "1303225ee9182f681c7a22a7bec3f9c8ec3ae253822ba7af9facd495b6d9e6fe",
+  "source_sha256": {
+    "backtesting/rust_pricing_backtest/discrete_smile.py": "6430d26aa48af36c9db9ae0662f69b42f08af5bbc6ee0a9cff7dc98cd56e3f48",
+    "crates/pricing-python/src/lib.rs": "414f7dc490e100725d7da04186a7090ae40dd58d905086fba9efa93cff9c3de0",
+    "crates/pricing-python/src/vegakt_atom_chain.rs": "ab57521eae4b6498f2c9ea4b55ee7a6852d8c165dc5ad31ce4196002bfcde344",
+    "crates/pricing-python/src/vegakt_chain.rs": "7773c8cbf5c12a59368b35f515ba40899e52c17c6fb1b4788b185c118836f0b5",
+    "crates/pricing-python/src/vegakt_convolution.rs": "cb167825141569680e430c82bc879b9eae2cf6923a1bb20cb226ddefbd06c3da",
+    "crates/pricing-python/src/vegakt_initial_measure.rs": "3710dd79df378660f1ccb6133455ab7f75eec95de488994a16e29be4678928c5",
+    "crates/pricing-python/src/vegakt_measure.rs": "c3cd20bed4891b2f69a2073cf28eca568b732c9b37d509220767c9e7604045c4",
+    "crates/pricing-python/src/vegakt_selection.rs": "e0864490126d5b54b580a507d66e78bef16a4121c69349de27eaba3f335e3772",
+    "crates/pricing-python/src/vegakt_smile.rs": "e7cd8c6b611a316a50aceb16df26e34b7ed3a7ae5a67408e2d2afac64dc99311",
+    "crates/pricing/src/engine/risk/mod.rs": "e955fb19ad6f4afe15ac2e842f1651eb93f7b1a2409c2eff3712d2821356c1e0",
+    "crates/pricing/src/engine/risk/pricing.rs": "a4069fd9a53325c73c3e1b1f5b98fd407b1ab2cd462e7d047b896bfd334811cd",
+    "crates/pricing/src/engine/risk/vegakt_atom_chain.rs": "fbd88eaba74115b8cb6da4bf4986fbc143be23f9b58a8114d6085b19ba4e8987",
+    "crates/pricing/src/engine/risk/vegakt_chain.rs": "8828354f78d0edc546d48195cb989bb2fa34cb04afef1f41ad1c82a5a3d61d3b",
+    "crates/pricing/src/engine/risk/vegakt_convolution.rs": "f0178f33575758230d79d0eeb187e8582c8ae62fed49c9a68d050c0109dfe4f1",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3ac977988640ba86cce3dbbd9a31f000bda25b78aba6cb387a57b31a4027f2e1",
+    "crates/pricing/src/engine/risk/vegakt_initial.rs": "70728da1ce84b418f3380bf9053caff189ca2d56b52eb603f02891453f00ea43",
+    "crates/pricing/src/engine/risk/vegakt_initial_measure.rs": "c423414ac4b1ec9a8d842d128535d70d5f95e6b1ac0ad81910aed9fbdd979c87",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "f20d4efaeaae009f689216fbc257b96f9ee3c20941ac86ea5a9eafe640455fc3",
+    "crates/pricing/src/engine/risk/vegakt_paper.rs": "8d87c63ecd296faaceed3652faca09c2ed19a6adb3227f102f8eb7e847ca2234",
+    "crates/pricing/src/engine/risk/vegakt_pricing.rs": "f428f270929fec13642ab87ea26611bb41959ee2410c52225b317a0d20e5cbdc",
+    "crates/pricing/src/engine/risk/vegakt_recovery.rs": "93e730ab228a33ddeb803c9f614da1757705e4d90ba0cecb0dec4a0b449c7664",
+    "crates/pricing/src/engine/risk/vegakt_selection.rs": "4417c2a25674e2e6a03b1111f87ea1ee99da03afd17961e929e9ac2c2165c5a7",
+    "crates/pricing/src/engine/risk/vegakt_smile.rs": "a9650a0eb83f6e020531222d2affe9ac5bc75e9e566561b331d43d07d93002be",
+    "crates/pricing/src/engine/risk/vegakt_steps.rs": "88fab970c8dfe184cb78eee3cf0169e9cb916ad7f6c6bd2880696e452207c516",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "33cca43b7c17a81b1c2d67a5e9a540d243bb79f7a6920b77a4fcf4311ecb08ba",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pathwise.rs": "c82349789a79aee187210739b76c007234a0c0b5ed57bd2990e5e19391598ead",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "be375917683731c91ed024b91b4ac77c2d4c87d6b2a9edfc7b95b6f825b86ded",
+    "crates/pricing/src/engine/risk/vegakt_terminal_replication.rs": "5c9e1b83c69830c6b495a3a31b897632e585a4ae77dc519820c90203aaa0977e",
+    "crates/pricing/src/risk/mod.rs": "4a708d134e3b7d85ae7984d8ced38d5192c77f0fc41347f7cbc3f690aaa4e3f5",
+    "crates/pricing/src/risk/vegakt_atom_chain.rs": "7266ae096d156d5e02015efe584b9104ba79c9593fa980accf288c45c3ce70a9",
+    "crates/pricing/src/risk/vegakt_chain.rs": "24d0f0237ee02543a6a9447493271621726c0f21a5c0fdda8616b675606b6d21",
+    "crates/pricing/src/risk/vegakt_convolution.rs": "d95b00b6cd964440f625d062024f261d4f5a5af7ea53d8539e30e8fc283b9153",
+    "crates/pricing/src/risk/vegakt_convolution/constraints.rs": "9ef2e8b8f23518bb7193bc112ede9449618c812499a99898e3c7ec8eb9edb8de",
+    "crates/pricing/src/risk/vegakt_convolution/gaussian_variance.rs": "ffe51943af417c4bbef68f20193cf83b53d069c3c12d8017e5e69eab2d7ed51d",
+    "crates/pricing/src/risk/vegakt_initial.rs": "3ce5f25d1b088c5aa234c9b7d4a1d1f64eef142e0b8ed56323c8b49b78e3d7c2",
+    "crates/pricing/src/risk/vegakt_initial_measure.rs": "8700df90f8b3d3901f941755ffd1d33084d3c8c4fec3e70ad5632085ad250caa",
+    "crates/pricing/src/risk/vegakt_measure.rs": "fe01bf125c08f56951f64b58922e3217f8c310a0f577e6c399e173d3fd69d185",
+    "crates/pricing/src/risk/vegakt_selection.rs": "14a124600747f674c93c85d560e466595f4cfbd217328a9fc50200aa928dd4fe",
+    "crates/pricing/src/risk/vegakt_smile.rs": "3d131bd530dd345c37337ac8a4732434f3a1876f2ef78b21cf470ae31dc9c7c9",
+    "crates/pricing/src/risk/vegakt_steps.rs": "33003d58ccdf7a67748a447162cbc8598de6fab01bcdc7dd528d870cabb40100",
+    "crates/pricing/tests/local_vol_nonflat_gamma.rs": "ee340295cb54154550805854ff14f87ec7b5f3ff282dfb188c8cba937c58ea78",
+    "fixtures/backtesting/nonflat-gamma-policy-v0.1.json": "93c9d7ab68a7d0debc0359886eb305957dc1727e1c60f487a692a86fd69e57c0",
+    "fixtures/local-vol/nonflat-variance-gamma-v0.1.json": "970c2105c30acacfb770e11816c91d515493fdcd622af09f41dc043bda9f6447",
+    "rust_pricing.pyi": "21ba143b719053d6bbff37ef2f53ef53b717ae4fa2cdb1dee8d38d62ac3c611e",
+    "scripts/check_discrete_smile_calibration.py": "c7ce77c529b05e343a2ed526c4b6a56395dfdcd439d6b9a2581882d4740e3555",
+    "scripts/check_gamma_quote_conservation.py": "28675468e2538db4576b23fe16e219528bc2ddd4e065a9d8a831a8e7cc43affb",
+    "scripts/check_gamma_selection.py": "ded0c632307ea7126175f2b48dcaf35ce6e4fe7b3a28d19bd8ea479099e255d7",
+    "scripts/check_nonflat_gamma_recovery.py": "9b37c45d4c1677b47063959e6447ba7203ef4adebfafdb52a324ee88825ba4ac",
+    "scripts/check_path_gamma_recovery.py": "f328f1faf45d04b58e21512e72da159e7c9dea0ef1e24cc552b15b32a478df80",
+    "tests/python/test_vega_kt_nonflat_gamma.py": "bcb12fffb4e86c0f2d1b995550f32032eaeb4a2ea6de4a77352cb8657622fb58",
+    "scripts/smoke_test_wheel.py": "89f8c5eec57cfd65af4de1ea40b29817ef3fe3471d49f5d1ecfb480645e259e7",
+    "tests/python/test_wheel_contract.py": "38a12ea755f60b2d5de8a6c18fd4d2a87ea7abb70262e68b61dff2c967a2aa62"
+  },
+  "evidence_sha256": {
+    "benchmark-results/vega-kt-nonflat-gamma/report.json": "a71e080ffbfe0e5df3abce5059d490113b8554876f863042421bcd46896c19a1",
+    "benchmark-results/vega-kt-nonflat-gamma/legacy-before.json": "df5d3377a1d01d40ac7fef3be6ab11e95b647265772c0500e63e40f861e2ab07",
+    "benchmark-results/vega-kt-nonflat-gamma/legacy-after.json": "df5d3377a1d01d40ac7fef3be6ab11e95b647265772c0500e63e40f861e2ab07"
+  },
+  "limitations": [
+    "The two tested smile profiles do not establish acceptance of arbitrary smiles.",
+    "The constrained regularized projection does not identify the whole path-dependent Gamma uniquely.",
+    "Initial Gamma with nonflat continuation is not implemented; the initial variance AD is retained without reinterpretation.",
+    "No general first-marginal smile, multistep recovery, nonzero carry, dividends, barriers, early exercise or full IV-chain acceptance.",
+    "MC direction standard errors retain node covariance within directions, not a full cross-quote covariance matrix.",
+    "Extremely small population constraint bias does not imply equally small Monte Carlo estimation error.",
+    "The maximum spatial margin is close to the fixed 3% threshold; no extrapolation to other models or seeds is implied."
+  ]
+}

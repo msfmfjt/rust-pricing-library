@@ -1,0 +1,884 @@
+{
+  "document_kind": "path_gamma_joint_covariance_validation_record",
+  "schema_version": 1,
+  "date": "2026-10-06",
+  "status": "covariance_passed_composed_precision_incomplete",
+  "checks": 304,
+  "failed": 0,
+  "metrics": {
+    "composed_Gamma_vs_independent_price_difference": {
+      "count": 64,
+      "maximum_observed": 6.206368723212686,
+      "maximum_acceptance_ratio": 0.4468977434410182
+    },
+    "composed_Gamma_vs_native_price_difference": {
+      "count": 64,
+      "maximum_observed": 5.314279899632552,
+      "maximum_acceptance_ratio": 0.4094691514642136
+    },
+    "covariance_diagonal_matches_variance": {
+      "count": 16,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "covariance_of_mean_matches_squared_SE": {
+      "count": 16,
+      "maximum_observed": 7.105427357601002e-15,
+      "maximum_acceptance_ratio": 2.01016288158895e-06
+    },
+    "covariance_positive_semidefinite": {
+      "count": 16,
+      "maximum_observed": 1.3149431824616078e-10,
+      "maximum_acceptance_ratio": 1.4324131503142528e-05
+    },
+    "covariance_symmetric": {
+      "count": 16,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "direct_composed_direction_differences_means": {
+      "count": 16,
+      "maximum_observed": 1.7763568394002505e-15,
+      "maximum_acceptance_ratio": 5.551115123125783e-07
+    },
+    "direct_composed_full_covariance": {
+      "count": 16,
+      "maximum_observed": 8.731149137020111e-11,
+      "maximum_acceptance_ratio": 4.971510398372772e-07
+    },
+    "direct_composed_native_directions_means": {
+      "count": 16,
+      "maximum_observed": 1.3322676295501878e-14,
+      "maximum_acceptance_ratio": 1.20709812032389e-06
+    },
+    "direct_composed_recovered_directions_means": {
+      "count": 16,
+      "maximum_observed": 1.4210854715202004e-14,
+      "maximum_acceptance_ratio": 1.097841424324244e-06
+    },
+    "gamma_chain_passed": {
+      "count": 16,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "native_recovered_difference_cross_covariance": {
+      "count": 16,
+      "maximum_observed": 5.820766091346741e-11,
+      "maximum_acceptance_ratio": 1.0363556235535271e-06
+    },
+    "previous_numerical_fields_exact_replay": {
+      "count": 16,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    }
+  },
+  "composed_precision": {
+    "initial_passed": 10,
+    "initial_failed": 6,
+    "rechecked_passed": 4,
+    "rechecked_failed": 2,
+    "final_passed": 14,
+    "final_failed": 2,
+    "sampling_units": 8192,
+    "subdivisions": 256,
+    "relative_tolerance": 1e-06,
+    "gamma_relative_standard_error_limit": 0.25,
+    "additional_price_comparisons": [
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 0,
+        "observed": 0.056377117298705315,
+        "limit": 0.2915509563801764,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 1,
+        "observed": 1.4592651764775058,
+        "limit": 7.605085623864358,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 2,
+        "observed": 0.49315442279723853,
+        "limit": 1.7263557783690109,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 0,
+        "observed": 0.0023068290200374264,
+        "limit": 0.20713085871961334,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 1,
+        "observed": 1.229462415210927,
+        "limit": 6.590679681458793,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 2,
+        "observed": 0.29631606722663295,
+        "limit": 1.433258498578266,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 0,
+        "observed": 0.09894829314687925,
+        "limit": 0.2903580787943873,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 1,
+        "observed": 0.9761486235558556,
+        "limit": 7.526503103202107,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 2,
+        "observed": 0.060303276276609474,
+        "limit": 1.7108261990232114,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 0,
+        "observed": 0.04487800486821136,
+        "limit": 0.2054328526874175,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 1,
+        "observed": 1.2059513848224344,
+        "limit": 6.499832701330985,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 2,
+        "observed": 0.1365350792939961,
+        "limit": 1.4145056193256025,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 0,
+        "observed": 0.03744531583154176,
+        "limit": 0.2252047550019438,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 1,
+        "observed": 1.0925637378645094,
+        "limit": 5.97759972534523,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 2,
+        "observed": 0.357752940761009,
+        "limit": 1.3597935686524074,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 0,
+        "observed": 0.0025368140898978098,
+        "limit": 0.16503943692115042,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 1,
+        "observed": 0.9729042875093552,
+        "limit": 5.271280570364468,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 2,
+        "observed": 0.22316177680270036,
+        "limit": 1.1421406709849924,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 0,
+        "observed": 0.07088122408641873,
+        "limit": 0.22415977958369127,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 1,
+        "observed": 0.8492358486384589,
+        "limit": 5.916682802456615,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 2,
+        "observed": 0.019569412520812512,
+        "limit": 1.347112551095423,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "native",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 0,
+        "observed": 0.03597272234477478,
+        "limit": 0.16359520343614403,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 1,
+        "observed": 0.968895298993613,
+        "limit": 5.202089108654658,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 2,
+        "observed": 0.11502175143749613,
+        "limit": 1.1270045908459116,
+        "passed": true
+      },
+      {
+        "intervals": 4,
+        "product": "fixed_asian",
+        "seed": 41,
+        "reference": "independent",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 0,
+        "observed": 0.02070970998483368,
+        "limit": 0.29342303984705237,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 1,
+        "observed": 1.4848124413184376,
+        "limit": 7.701382745255099,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 2,
+        "observed": 0.8918308199545454,
+        "limit": 2.135660241822647,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 0,
+        "observed": 0.0032262359675510055,
+        "limit": 0.24032073354788597,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 1,
+        "observed": 0.9129688756081111,
+        "limit": 6.311613940146256,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 2,
+        "observed": 0.39698128956873513,
+        "limit": 1.589302934170052,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 0,
+        "observed": 0.019872351186672965,
+        "limit": 0.24397117453993816,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 1,
+        "observed": 1.314796976820269,
+        "limit": 6.509163822304956,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 2,
+        "observed": 0.7694813721738702,
+        "limit": 1.820573169526062,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "native",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 0,
+        "observed": 0.0030559216299410608,
+        "limit": 0.20594120624832435,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 1,
+        "observed": 0.7589940311100567,
+        "limit": 5.408989125210423,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 2,
+        "observed": 0.32420885721435416,
+        "limit": 1.3554873251676038,
+        "passed": true
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "reference": "independent",
+        "combination": 3,
+        "observed": 0.0,
+        "limit": 0.0,
+        "passed": true
+      }
+    ],
+    "remaining": [
+      {
+        "intervals": 6,
+        "product": "asian",
+        "seed": 7,
+        "status": "validation_failed",
+        "direction_relative_standard_error": 0.17820056582101923,
+        "failed_nodes": [
+          {
+            "row": 3,
+            "node": 11,
+            "difference": 0.002667546337996271,
+            "standard_error": 0.0003325655719276331,
+            "native": 0.0,
+            "gamma": 0.002667546337996271
+          }
+        ]
+      },
+      {
+        "intervals": 6,
+        "product": "fixed_asian",
+        "seed": 7,
+        "status": "validation_failed",
+        "direction_relative_standard_error": 0.17640463456283173,
+        "failed_nodes": [
+          {
+            "row": 3,
+            "node": 11,
+            "difference": 0.0019428061823597354,
+            "standard_error": 0.00025146952730910994,
+            "native": 0.0,
+            "gamma": 0.0019428061823597354
+          }
+        ]
+      }
+    ]
+  },
+  "conditions": [
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 7
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 41
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 7
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 41
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 7
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 41
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 7
+    },
+    {
+      "intervals": 4,
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 41
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 7
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 41
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 7
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 41
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 7
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 41
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 7
+    },
+    {
+      "intervals": 6,
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 41
+    }
+  ],
+  "previous_numerical_replay": {
+    "conditions": 16,
+    "exact": true,
+    "checks_in_previous_report": 2704,
+    "report_sha256": "bbe551992b75cf9b1e698bc05581e2846e7919d07c99b7aad43fe81b89a03da1",
+    "price_reference": "Existing native and independent recalibrated price batches retained under exact numerical replay and price-implementation hash checks; not freshly recalculated."
+  },
+  "covariance": {
+    "layout": "row_major_native_recovered_recovered_minus_native",
+    "dimensions": [
+      30,
+      45
+    ],
+    "sampling_unit": "antithetic_pair_average_or_unpaired_path",
+    "denominator": "N-1 for sample; divide sample covariance by N for mean",
+    "accumulation": "centered covariance; fixed blocks and fixed tree",
+    "accepted_market_outputs": "sample and mean covariance; None on failed estimate; raw diagnostics retained"
+  },
+  "tests": {
+    "rust": 5,
+    "python_path": 8,
+    "companion_smile": 28,
+    "wheel_contract": 5,
+    "total": 46,
+    "clippy": "passed",
+    "format": "passed",
+    "dependency_direction": "passed",
+    "diff_check": "passed",
+    "runtime_wheel": "passed",
+    "source_archive": "passed",
+    "markdown_links": "passed"
+  },
+  "native_binary_sha256": "1cc2857e707c7fe5c2e48f8b2c429b19210acdf8923af0288e984f6107b9000f",
+  "source_sha256": {
+    "backtesting/rust_pricing_backtest/discrete_smile.py": "11159b8b2eb517f37962978b8b84d5ae2989d5f6b776b3d9867a193851ff26d8",
+    "backtesting/rust_pricing_backtest/multi_step_full_smile.py": "8e825b73237f5a2900557917720b0a73a98d4ec515eb1dddb54df47821e5741e",
+    "backtesting/rust_pricing_backtest/multi_step_smile.py": "41ee5d3b0a2eac755ac19d6914b54f5c763c106570ff4588a6c101b93efcd753",
+    "crates/pricing-python/src/lib.rs": "1bc110d54e4328c284bca07a21c883bddccdb37a15bd475681e9eebf9d2b75d4",
+    "crates/pricing-python/src/vegakt_atom_chain.rs": "ab57521eae4b6498f2c9ea4b55ee7a6852d8c165dc5ad31ce4196002bfcde344",
+    "crates/pricing-python/src/vegakt_chain.rs": "7773c8cbf5c12a59368b35f515ba40899e52c17c6fb1b4788b185c118836f0b5",
+    "crates/pricing-python/src/vegakt_convolution.rs": "cb167825141569680e430c82bc879b9eae2cf6923a1bb20cb226ddefbd06c3da",
+    "crates/pricing-python/src/vegakt_initial_measure.rs": "3710dd79df378660f1ccb6133455ab7f75eec95de488994a16e29be4678928c5",
+    "crates/pricing-python/src/vegakt_initial_smile.rs": "bd2a8d3fb419084d3e69582ae4df9ba2b65de0f9f368ad24d4266a03e7e21670",
+    "crates/pricing-python/src/vegakt_initial_three.rs": "80563805cd318936c8ac3b4ca12bb1f09ea053ee9ea337c40f46f4fa1768994f",
+    "crates/pricing-python/src/vegakt_joint.rs": "1acee4e321b1dad1a5f845659e67f41133a4eb71d98425393d95546b248ad787",
+    "crates/pricing-python/src/vegakt_measure.rs": "c3cd20bed4891b2f69a2073cf28eca568b732c9b37d509220767c9e7604045c4",
+    "crates/pricing-python/src/vegakt_middle.rs": "e9d474f2e150d1824bb7fa68d346cb4cde4854b3f69baaf58c36deb064733f0d",
+    "crates/pricing-python/src/vegakt_multi_step.rs": "9c94ea26a326f319dc31e2d6e10e4bf806b89e9a7abaf14b0e4e274e52b2f0f6",
+    "crates/pricing-python/src/vegakt_path_chain.rs": "44850d5823a16d860f31df8698747e780b576ade1a6c992dce16022085c5b383",
+    "crates/pricing-python/src/vegakt_selection.rs": "e0864490126d5b54b580a507d66e78bef16a4121c69349de27eaba3f335e3772",
+    "crates/pricing-python/src/vegakt_smile.rs": "7cd8e603dfb89c03968aba69154db2bf965fe6378e110adb8aca479a02e1a94d",
+    "crates/pricing-python/src/vegakt_three_step.rs": "039016fc72d284710ee6578359bb41c8daf0a8e4c3f71d8dfad84cbadb52402b",
+    "crates/pricing/src/engine/risk/pricing.rs": "a0be3e1a7d957be365827a1a01912e40e30a2b0da636a3b8c3e037a143762167",
+    "crates/pricing/src/engine/risk/vegakt.rs": "36598c1f25c06a2bf2d8a82a19293d8f5d80a37587fd32eba204ee301f0916fd",
+    "crates/pricing/src/engine/risk/vegakt_atom_chain.rs": "fbd88eaba74115b8cb6da4bf4986fbc143be23f9b58a8114d6085b19ba4e8987",
+    "crates/pricing/src/engine/risk/vegakt_chain.rs": "8828354f78d0edc546d48195cb989bb2fa34cb04afef1f41ad1c82a5a3d61d3b",
+    "crates/pricing/src/engine/risk/vegakt_convolution.rs": "f0178f33575758230d79d0eeb187e8582c8ae62fed49c9a68d050c0109dfe4f1",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3ac977988640ba86cce3dbbd9a31f000bda25b78aba6cb387a57b31a4027f2e1",
+    "crates/pricing/src/engine/risk/vegakt_initial.rs": "70728da1ce84b418f3380bf9053caff189ca2d56b52eb603f02891453f00ea43",
+    "crates/pricing/src/engine/risk/vegakt_initial_measure.rs": "c423414ac4b1ec9a8d842d128535d70d5f95e6b1ac0ad81910aed9fbdd979c87",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile.rs": "c450da9b73623b9f8fddc7adfeca5423c2d248318c5efe5bc2fd208a3950aaaa",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile/bound.rs": "4198c3b954230aa67b955843126bafc794f1e103a2f922e800461a1da2cbc3d7",
+    "crates/pricing/src/engine/risk/vegakt_initial_three.rs": "d3de28692aa4bb7a6967979edfd7c3c3779fffa7b2cea40268fca96b2e46bae8",
+    "crates/pricing/src/engine/risk/vegakt_initial_three/bound.rs": "8eb804e7c3d1b036f42c2fdba411f523c07ed1105b658d5b00dfeb08dd5badaa",
+    "crates/pricing/src/engine/risk/vegakt_joint.rs": "d7987a733234894774ffd42be8763b9e05728a22758bcda4f2505b7999b0eda3",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "f20d4efaeaae009f689216fbc257b96f9ee3c20941ac86ea5a9eafe640455fc3",
+    "crates/pricing/src/engine/risk/vegakt_middle.rs": "43b7492cdc2e0670ba0b6067c91398cfbcf18ea6c087630d06f9efbed9d57573",
+    "crates/pricing/src/engine/risk/vegakt_middle/bound.rs": "8eb804e7c3d1b036f42c2fdba411f523c07ed1105b658d5b00dfeb08dd5badaa",
+    "crates/pricing/src/engine/risk/vegakt_multi_step.rs": "328c283732b5defab5c0214e4458ac68cae6087ed9d4b3936a9951d5d33af3fa",
+    "crates/pricing/src/engine/risk/vegakt_multi_step_candidate.rs": "baf601f60340ee42f78b9ee5429ccc7b5a1d6be3156585a648a5fecc59972255",
+    "crates/pricing/src/engine/risk/vegakt_paper.rs": "8d87c63ecd296faaceed3652faca09c2ed19a6adb3227f102f8eb7e847ca2234",
+    "crates/pricing/src/engine/risk/vegakt_path_chain.rs": "70cc4b2ad624bd773165fa381916cc11da5751629aae101ec9fa207e17f5ac6b",
+    "crates/pricing/src/engine/risk/vegakt_path_chain/bound.rs": "77665f63561de2497a197750f6986744aed310dc96071d7e537091bee1f06189",
+    "crates/pricing/src/engine/risk/vegakt_path_chain/measure.rs": "a2b4f3cd34d28887f2633296178c900827d580cc8bd45e0e5364fc93da8172c3",
+    "crates/pricing/src/engine/risk/vegakt_path_chain/statistics.rs": "d20e1a5f827ca7e614cbf57af2f7a67677e93e014dd49deeb0961a3221a61048",
+    "crates/pricing/src/engine/risk/vegakt_pricing.rs": "f428f270929fec13642ab87ea26611bb41959ee2410c52225b317a0d20e5cbdc",
+    "crates/pricing/src/engine/risk/vegakt_recovery.rs": "93e730ab228a33ddeb803c9f614da1757705e4d90ba0cecb0dec4a0b449c7664",
+    "crates/pricing/src/engine/risk/vegakt_selection.rs": "4417c2a25674e2e6a03b1111f87ea1ee99da03afd17961e929e9ac2c2165c5a7",
+    "crates/pricing/src/engine/risk/vegakt_smile.rs": "19a7cb9304e94f33d9ac8d0cb92f6a919db0d5256f77328815d5cb0b85b98193",
+    "crates/pricing/src/engine/risk/vegakt_steps.rs": "88fab970c8dfe184cb78eee3cf0169e9cb916ad7f6c6bd2880696e452207c516",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "33cca43b7c17a81b1c2d67a5e9a540d243bb79f7a6920b77a4fcf4311ecb08ba",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pathwise.rs": "c82349789a79aee187210739b76c007234a0c0b5ed57bd2990e5e19391598ead",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "be375917683731c91ed024b91b4ac77c2d4c87d6b2a9edfc7b95b6f825b86ded",
+    "crates/pricing/src/engine/risk/vegakt_terminal_replication.rs": "5c9e1b83c69830c6b495a3a31b897632e585a4ae77dc519820c90203aaa0977e",
+    "crates/pricing/src/engine/risk/vegakt_three_step.rs": "1a61a4e2144f425a73e8f6a31b0d49893bb2d3effa68c7ad4535d962142f5ca4",
+    "crates/pricing/src/risk/vegakt.rs": "7aa84ed69dd6fc84f9b74a603126a591aac30a0fed0feecd1ed5ff62d2be1f09",
+    "crates/pricing/src/risk/vegakt_atom_chain.rs": "7266ae096d156d5e02015efe584b9104ba79c9593fa980accf288c45c3ce70a9",
+    "crates/pricing/src/risk/vegakt_chain.rs": "24d0f0237ee02543a6a9447493271621726c0f21a5c0fdda8616b675606b6d21",
+    "crates/pricing/src/risk/vegakt_convolution.rs": "9fa509e76d1ee902d6df18e58c286d3769be1de0ebeb34bd103dd15de55c88f8",
+    "crates/pricing/src/risk/vegakt_convolution/constraints.rs": "9ef2e8b8f23518bb7193bc112ede9449618c812499a99898e3c7ec8eb9edb8de",
+    "crates/pricing/src/risk/vegakt_convolution/gaussian_variance.rs": "1bb020a041b52b05d70236226e19ffc9d9e917e54f29731e68864c6ae4cbb3e4",
+    "crates/pricing/src/risk/vegakt_convolution/multi_transition_source.rs": "5baa06d3210afd559788f2f38276ab762fec4f2f93395c3110dfaa46f9623454",
+    "crates/pricing/src/risk/vegakt_convolution/two_transition_source.rs": "36b0f0b31fa0c03a8cb113e7518d38dc60f834c3f156d4cbe470a8f846985f38",
+    "crates/pricing/src/risk/vegakt_initial.rs": "3ce5f25d1b088c5aa234c9b7d4a1d1f64eef142e0b8ed56323c8b49b78e3d7c2",
+    "crates/pricing/src/risk/vegakt_initial_measure.rs": "8700df90f8b3d3901f941755ffd1d33084d3c8c4fec3e70ad5632085ad250caa",
+    "crates/pricing/src/risk/vegakt_initial_smile.rs": "7cd4e86783aa39dd534a113b625e5b1fa9c0c23dd137585e2f4435dcebbb87f9",
+    "crates/pricing/src/risk/vegakt_initial_three.rs": "13d075df24bb8dc29c2f4a1d5ed28af336876eb75aa77fe564d32fe2449293a1",
+    "crates/pricing/src/risk/vegakt_joint.rs": "50614ba8ce505684ab62e647e343285cac4095fb553bafbc665958d7a5b9bfa6",
+    "crates/pricing/src/risk/vegakt_measure.rs": "fe01bf125c08f56951f64b58922e3217f8c310a0f577e6c399e173d3fd69d185",
+    "crates/pricing/src/risk/vegakt_middle.rs": "5d97e2ebb43f2cb0a453d2d85dc92310f933ecf442df204a3237ec2039b17ce7",
+    "crates/pricing/src/risk/vegakt_multi_step.rs": "d746215765318020fc54f874c599f30dca85c25e9fee2ce7a34282d9eb10f552",
+    "crates/pricing/src/risk/vegakt_path_chain.rs": "a4221a93670bf1733e4a4992ef334a8bca362908b3abab3d4acbadf92e2c7be2",
+    "crates/pricing/src/risk/vegakt_selection.rs": "14a124600747f674c93c85d560e466595f4cfbd217328a9fc50200aa928dd4fe",
+    "crates/pricing/src/risk/vegakt_smile.rs": "3d131bd530dd345c37337ac8a4732434f3a1876f2ef78b21cf470ae31dc9c7c9",
+    "crates/pricing/src/risk/vegakt_steps.rs": "33003d58ccdf7a67748a447162cbc8598de6fab01bcdc7dd528d870cabb40100",
+    "crates/pricing/src/risk/vegakt_three_step.rs": "d754321ef739391d2f71d062579573d2cfbdde0720ba09eb68b0dd679175d7a3",
+    "fixtures/backtesting/path-gamma-chain-policy-v0.1.json": "77a991c1769c73829caf802becc823a5d99e939ccf90db6002f27f0954e20e04",
+    "fixtures/local-vol/multi-step-gamma-v0.1.json": "d481fd084b35c6fd1b9e08aa2422c2ca5f5beecc722cc9429cbf4491dcfb7c1b",
+    "rust_pricing.pyi": "e7cdb5cb7c7742d4dad2c58ac397ccfd89a86aaa092ed85e1a905e11737c8c33",
+    "scripts/check_multi_step_gamma_chain.py": "d29afdf835bb5f65665d1a47d04e569ea7da114e32cc73c67e38f0d8ecf27f0d",
+    "scripts/check_path_gamma_covariance.py": "5448f5e84a5c7825d710767fe4396e68e0f8f4afa018fcd185b1798c0e9fc7fe",
+    "scripts/multi_step_cases.py": "efc01c8117781d3d3c757e2be4caf01c0ec62aaa3c108f6fac2f8b7bbc69d387",
+    "scripts/multi_step_reference.py": "7ffe41685b7c436abdd82b81276a9b41c94c6b202c03cfe5b6e0cc49980c33c5",
+    "scripts/check_path_gamma_composed_precision.py": "2b079074004bcf90ff3cafe97f9e040cd1f14972a01cc419daf9ffb336533f41",
+    "tests/python/test_vega_kt_path_covariance.py": "a7e7e4004ce46ca71bd68d6737bf12a8672363ae2ff76000cb506254a170ca98",
+    "tests/python/test_vega_kt_path_chain.py": "f85bfc5493b04ac429dfc69af57b182f590b60dfa35d9978700743afa4d9e6d0",
+    "scripts/check_source_archive.py": "ce17f625a25315a788cfce2811be8086eb464cb07c72997bf974d28030a3988b",
+    ".github/workflows/backtesting.yml": "0d0cd3c5fc3fa16116ba54e76ef05181fdfcf44992e2bf219a9e73d764ba0164"
+  },
+  "evidence_sha256": {
+    "benchmark-results/vega-kt-path-covariance/precision-report.json": "7a20ab457ddc141f541ac81d001ca62b8a36680668b2d62c9591ce425f8d233a",
+    "benchmark-results/vega-kt-path-covariance/precision-validation.log": "cea509b66c95a5a5dc81dd1c53fcfa64ed2a914598032eb7bfe698301e4c97f4",
+    "benchmark-results/vega-kt-path-covariance/precision-probe.log": "1a302e88cd19a6d90a4051e5798d29ba629781b29d812da95d93374be2d3d1a9",
+    "benchmark-results/vega-kt-path-covariance/precision-probe-16k.log": "fe058ebeb55a2746e15b48971216c6f465b5a133956df116308f52be43f79339",
+    "benchmark-results/vega-kt-path-covariance/precision-16k-6-fixed_asian-7.json": "f5a5b91a8f1971cf1f360ca6e6296ea9d9e8eb86e36ffd9084ea9ff35cc6ebe9",
+    "benchmark-results/vega-kt-path-covariance/implementation.diff": "5011bac08360fdc2953220efc77cc9ab3c66e02e2b8030b7a35372d43c2e9f2a",
+    "benchmark-results/vega-kt-path-covariance/report.json": "6641edd95f2d8ad953f2ef6e780f18271d16f02247e121edb01b017a3e650826",
+    "benchmark-results/vega-kt-path-covariance/validation.log": "5b539c8208c451954efd7a9831255ad11f36c57ad08a2a2393aeb114bc3a2e41",
+    "benchmark-results/vega-kt-path-covariance/rust-all-tests.log": "b4880993fdd0a49dc87268f1d81ebef675297e344cbdcc981904dd6cfc41d5aa",
+    "benchmark-results/vega-kt-path-covariance/python-path-tests.log": "a7318e02636908af12a9006b15a3ff245397a3818d425cea921319bc44e1c5a2",
+    "benchmark-results/vega-kt-path-covariance/companion-tests.log": "30a25c5ad15974ab80ea1ad7dace1d0af2003b80c6048478852b468bacc8d40b",
+    "benchmark-results/vega-kt-path-covariance/wheel-tests.log": "39dc3c1a20e8e44a9ef0820c62a27d9fb6fa07e830b64845d4fc84930e886ae0",
+    "benchmark-results/vega-kt-path-covariance/clippy.log": "229f49f8099949e299064c31a887c790e823b996ee1da701a7e7b39304d10218",
+    "benchmark-results/vega-kt-path-covariance/format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmark-results/vega-kt-path-covariance/dependency-direction.log": "b81eff7cb191825aaaa2c2cda4d2c85852a8de42d3a3ac290efb428896ed7110",
+    "benchmark-results/vega-kt-path-covariance/diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmark-results/vega-kt-path-covariance/runtime-wheel.log": "b1317d90e17e9c3cbb72c37f9cf3754aea304054c9b89055a0d99e4e62a9cf74",
+    "benchmark-results/vega-kt-path-covariance/build.log": "e8302f13fe6af082e6a86d311aa944f19e1b462e161f3d7a475f0c3479726518",
+    "benchmark-results/vega-kt-path-covariance/companion-build.log": "6ceea3e02c139af5e00c8c2c201ab06e23439bb8cc443ae4b4cae02389c6ebbf",
+    "benchmark-results/vega-kt-path-covariance/install.log": "dccaad418b047e25c571e570d5df64c161a014e09b279a809711221feb1025a5",
+    "benchmark-results/vega-kt-path-covariance/installed-runtime.json": "7432bfc6a4769c45ecdd7ec492f95affc000a560bfb96bd8b449c8171f4794c0",
+    "benchmark-results/vega-kt-path-covariance/installed-runtime.log": "7432bfc6a4769c45ecdd7ec492f95affc000a560bfb96bd8b449c8171f4794c0",
+    "benchmark-results/vega-kt-path-covariance/source-archive-counts.log": "90183333be1c6776359c25ad6c23200ffb9076003be3c59146d02fedf83004ce",
+    "benchmark-results/vega-kt-path-covariance/source-archive.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmark-results/vega-kt-path-covariance/markdown-links.log": "ee5ad656a7e90ade2bc067db665a73b6986efc200924825cb018277ae9a944b8"
+  },
+  "installed_runtime": {
+    "status": "passed",
+    "native_binary": "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/.venv/lib/python3.13/site-packages/rust_pricing/rust_pricing.cpython-313-darwin.so",
+    "native_binary_sha256": "1cc2857e707c7fe5c2e48f8b2c429b19210acdf8923af0288e984f6107b9000f",
+    "companion_module": "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/.venv/lib/python3.13/site-packages/rust_pricing_backtest/multi_step_full_smile.py",
+    "companion_source_identical": true,
+    "runtime_wheel_contract": "passed",
+    "covariance_checks": [
+      {
+        "samples": 1024,
+        "status": "path_gamma_chain_passed",
+        "covariance_exposed": true
+      },
+      {
+        "samples": 2,
+        "status": "recovery_failed",
+        "covariance_exposed": false
+      }
+    ]
+  },
+  "built_wheels_sha256": {
+    "/tmp/vega-kt-path-covariance-wheel/rust_pricing-0.1.0-cp313-cp313-macosx_11_0_arm64.whl": "0cb55eae8e8fa409519a458e428b782284441c371c1677e6602ffb296f5ec595",
+    "/tmp/vega-kt-path-covariance-companion-wheel/rust_pricing_backtest-0.1.0-py3-none-any.whl": "0c55e5c61b7b8a0a5f1996def62bcc0ba02fc848b68d4a87867bde986ee511bc"
+  },
+  "source_archive_required_files": 524,
+  "source_archive_files": 903,
+  "full_market_iv_bucket_acceptance": "not_established",
+  "limitations": [
+    "Four/six intervals with fixed unreported variance rows and the previously accepted calibration extension.",
+    "Same-product same-sampling-unit direction covariance, not cross-instrument covariance.",
+    "Sample covariance does not cover discretization, calibration or model error.",
+    "Arbitrary cancelling combinations may fail precision gates; evaluate requested combinations directly.",
+    "No carry, dividends, barriers, early exercise or production-provider integration."
+  ],
+  "check_scope": "Covariance identities, exact replay and composed price differences; raw statistics do not override a failed native precision gate."
+}

@@ -21,6 +21,17 @@ class PricingFacadeSmokeTest(unittest.TestCase):
         self.assertFalse(text.startswith("\ufeff"))
         self.assertNotIn("\r\n", text)
 
+    def test_discount_curve_public_evaluation(self):
+        curve = rust_pricing.DiscountCurve(10, [0., 1., 2.], [1., .9, .81])
+        self.assertEqual(curve.discount(0.), 1.)
+        self.assertAlmostEqual(curve.discount(.5), math.sqrt(.9), places=14)
+        self.assertAlmostEqual(curve.discount(3.), .729, places=14)
+        negative_rate = rust_pricing.DiscountCurve(11, [0., 1.], [1., 1.1])
+        self.assertAlmostEqual(negative_rate.discount(.5), math.sqrt(1.1), places=14)
+        for time in (-.1, math.nan, math.inf):
+            with self.subTest(time=time), self.assertRaises(rust_pricing.ValidationError):
+                curve.discount(time)
+
     def test_compile_evaluate_and_serialize(self):
         request = rust_pricing.PricingRequest.from_json(self.request_json)
         self.assertTrue(request.fingerprint.startswith("blake3-256:"))

@@ -1,0 +1,665 @@
+{
+  "document_kind": "three_step_initial_all_maturity_gamma_validation_record",
+  "schema_version": 1,
+  "date": "2026-10-06",
+  "status": "passed",
+  "checks": 1480,
+  "failed": 0,
+  "scope": "Three log-Euler intervals; flat first variance, nonflat middle/terminal; first parallel IV plus five middle and five terminal market quotes.",
+  "full_market_iv_bucket_acceptance": "not_established",
+  "policy": {
+    "policy_id": "three_step_initial_and_all_reachable_IV_gamma_v1",
+    "scope": "Three intervals; initial, middle and terminal Gamma in one parallel first IV and all middle/terminal quote IVs. Retained ten price directions require exact calibration and component replay.",
+    "products": [
+      "call",
+      "asian",
+      "fixed_asian",
+      "lookback"
+    ],
+    "base_shapes": [
+      "nonflat"
+    ],
+    "base_skew": 0.015,
+    "base_curvature": 0.02,
+    "local_nodes": 33,
+    "quote_log_nodes": [
+      -0.2,
+      -0.1,
+      0.0,
+      0.1,
+      0.2
+    ],
+    "stress_iv_bump": 0.003,
+    "iv_bumps": [
+      1e-05,
+      5e-06
+    ],
+    "batch_samples": 16384,
+    "batch_seeds": [
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008
+    ],
+    "gamma_samples": 524288,
+    "gamma_seeds": [
+      7,
+      41
+    ],
+    "selection": {
+      "candidate_regularizations": [
+        0.01,
+        0.003,
+        0.001,
+        0.0003,
+        0.0001
+      ],
+      "pilot_sampling_units": 262144,
+      "reconstruction_relative_limit": 0.03,
+      "gamma_relative_standard_error_limit": 0.25,
+      "mc_margin_multiplier": 2.0
+    },
+    "quote_price_tolerance": 1e-10,
+    "quadrature_derivative_tolerance": 2e-06,
+    "derivative_absolute_tolerance": 0.002,
+    "bump_refinement_tolerance": 0.002,
+    "statistical_multiplier": 6.0,
+    "algebra_tolerance": 1e-10,
+    "solver_absolute_tolerance": 2e-06,
+    "gamma_quote_absolute_target": 0.002,
+    "gamma_quote_relative_target": 0.01,
+    "identity_absolute_tolerance": 1e-08,
+    "operator_relative_tolerance": 2e-06,
+    "nonflat_profiles": [
+      {
+        "name": "positive_skew",
+        "base_skew": 0.015,
+        "base_curvature": 0.02,
+        "third_skew": -0.012,
+        "third_curvature": 0.008
+      },
+      {
+        "name": "negative_skew",
+        "base_skew": -0.02,
+        "base_curvature": 0.03,
+        "third_skew": 0.015,
+        "third_curvature": 0.012
+      }
+    ],
+    "subdivisions": 512,
+    "relative_tolerance": 1e-08,
+    "gamma_bin_boundaries": [
+      80.0,
+      90.0,
+      100.0,
+      110.0,
+      120.0
+    ]
+  },
+  "metrics": {
+    "all_Gamma_population_functional_bias": {
+      "count": 176,
+      "failed": 0,
+      "maximum_observed": 2.4332784676062147e-08,
+      "maximum_acceptance_ratio": 2.0412014617378688e-06
+    },
+    "all_Gamma_vs_independent_recalibrated_prices": {
+      "count": 176,
+      "failed": 0,
+      "maximum_observed": 0.7432181854443067,
+      "maximum_acceptance_ratio": 0.4442262350122107
+    },
+    "all_Gamma_vs_native_recalibrated_prices": {
+      "count": 176,
+      "failed": 0,
+      "maximum_observed": 1.3024112178323577,
+      "maximum_acceptance_ratio": 0.41870462687947985
+    },
+    "all_eleven_same_path_directions_conserved": {
+      "count": 96,
+      "failed": 0,
+      "maximum_observed": 8.270401270212823e-13,
+      "maximum_acceptance_ratio": 8.270401270212824e-05
+    },
+    "all_reachable_market_Gamma_acceptance": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "all_tangent_directions_vs_recalibrated_reference_prices": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.5412914531463e-05,
+      "maximum_acceptance_ratio": 0.0177064572657315
+    },
+    "finite_first_IV_stress_holds_terminal_quotes_independent_prices": {
+      "count": 4,
+      "failed": 0,
+      "maximum_observed": 3.197442310920451e-14,
+      "maximum_acceptance_ratio": 0.0003197442310920451
+    },
+    "first_direction_independent_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 1.3233858453531866e-08,
+      "maximum_acceptance_ratio": 6.616929226765933e-06
+    },
+    "first_direction_paired_native_bump_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 0.00019685046648287852,
+      "maximum_acceptance_ratio": 0.0639892048886519
+    },
+    "first_response_refinement_with_tail": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 3.7867322098120634e-13,
+      "maximum_acceptance_ratio": 0.0003786732209812063
+    },
+    "first_shift_recalibrated_quote_fit": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 5.684341886080802e-14,
+      "maximum_acceptance_ratio": 0.0005684341886080801
+    },
+    "first_terminal_IV_response_identity": {
+      "count": 2,
+      "failed": 0,
+      "maximum_observed": 1.0479930206292313e-15,
+      "maximum_acceptance_ratio": 1.0479930206292312e-06
+    },
+    "independent_initial_Delta_integral_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 7.105427357601002e-14,
+      "maximum_acceptance_ratio": 3.552713678800501e-08
+    },
+    "independent_three_step_price_refinement": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 2.3092638912203256e-14,
+      "maximum_acceptance_ratio": 2.3092638912203256e-06
+    },
+    "initial_Gamma_bin_sum": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "initial_Gamma_vs_independent_Delta_integral": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 6.1477649637708964e-09,
+      "maximum_acceptance_ratio": 0.003073882481885448
+    },
+    "initial_bin_mass_refinement": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.17929532922534e-07,
+      "maximum_acceptance_ratio": 0.00158964766461267
+    },
+    "initial_continuation_price_refinement_allowance": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 1.1298769334469812e-13,
+      "maximum_acceptance_ratio": 5.6493846672349065e-08
+    },
+    "initial_continuation_variance_refinement_allowance": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 2.9481335388024168e-12,
+      "maximum_acceptance_ratio": 1.4740667694012084e-06
+    },
+    "initial_price_refinement_difference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.7836755950593215e-09,
+      "maximum_acceptance_ratio": 0.0018918377975296607
+    },
+    "initial_price_tail_bound": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 1.6676865001111425e-29,
+      "maximum_acceptance_ratio": 5.013246871441667e-24
+    },
+    "initial_price_vs_independent_price": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 2.523075082194737e-10,
+      "maximum_acceptance_ratio": 0.00012615375410973684
+    },
+    "initial_quadrature_price_difference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 3.552713678800501e-15,
+      "maximum_acceptance_ratio": 1.7763568394002505e-09
+    },
+    "initial_quadrature_variance_difference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 2.1316282072803006e-14,
+      "maximum_acceptance_ratio": 1.0658141036401503e-08
+    },
+    "initial_variance_refinement_difference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 9.218720009585013e-08,
+      "maximum_acceptance_ratio": 0.046093600047925065
+    },
+    "initial_variance_tail_bound": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 2.833365884237925e-26,
+      "maximum_acceptance_ratio": 8.698964782436759e-21
+    },
+    "later_market_quotes_held_fixed": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "new_first_direction_native_price_vs_reference": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.08493173577761581,
+      "maximum_acceptance_ratio": 0.1250919063908784
+    },
+    "retained_middle_audit_identical": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_payoff_reference_price": {
+      "count": 8,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_payoff_reference_variance": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_ten_calibrated_requests_identical": {
+      "count": 80,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_ten_market_Gamma_means": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_ten_tangent_columns_identical": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_terminal_pilot_choice": {
+      "count": 16,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    },
+    "retained_terminal_statistics_identical": {
+      "count": 384,
+      "failed": 0,
+      "maximum_observed": 0.0,
+      "maximum_acceptance_ratio": 0.0
+    }
+  },
+  "terminal_quality_maxima": {
+    "reconstruction_margin_ratio": 0.026224832038046632,
+    "gamma_relative_standard_error": 0.08814769444858467
+  },
+  "settings": [
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "positive_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "positive_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "positive_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "positive_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "negative_skew",
+      "product": "call",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "negative_skew",
+      "product": "asian",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "negative_skew",
+      "product": "fixed_asian",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.0001
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 7,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    },
+    {
+      "profile": "negative_skew",
+      "product": "lookback",
+      "seed": 41,
+      "status": "all_reachable_market_gamma_passed",
+      "initial_status": "initial_variance_functional_passed",
+      "middle_status": "middle_variance_functional_passed",
+      "selected_regularization": 0.01
+    }
+  ],
+  "retained_evidence": {
+    "path": "benchmark-results/vega-kt-middle-smile/report.json",
+    "sha256": "f9484ef7cb341e46496e8ed91d988ba4f85d58e8b629b962506b382380219750",
+    "checks": 1344,
+    "fresh_price_difference_coordinates": [
+      0
+    ],
+    "retained_price_difference_coordinates": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ]
+  },
+  "calibrator_prefix_compatibility": {
+    "source": "backtesting/rust_pricing_backtest/three_step_smile.py",
+    "previous_source_sha256": "33603403ca05288a8913fd89c07ffbaef4e764d4bded2c37a2e1823c49f950e6",
+    "previous_source_verified_against_retained_report": true,
+    "existing_calibrator_code_unchanged": true,
+    "only_new_methods_appended": true,
+    "previous_source_bytes": 17015
+  },
+  "failed_gate_controls": {
+    "insufficient_refinement": {
+      "status": "recovery_failed",
+      "estimate": null
+    },
+    "insufficient_MC": {
+      "status": "validation_failed",
+      "estimate": null
+    },
+    "collapsed_first_transition": {
+      "status": "input_rejected",
+      "estimate": null
+    }
+  },
+  "legacy_replay": {
+    "legacy-after.json": {
+      "cases": 40,
+      "byte_identical": true,
+      "sha256": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84"
+    },
+    "three-step-after.json": {
+      "cases": 8,
+      "byte_identical": true,
+      "sha256": "0c7944b6ea92f36866b540d322f8db0296a78226c6d80a4fe4788f368da4b917"
+    }
+  },
+  "tests": {
+    "rust_related": 40,
+    "python_vega_kt": 125,
+    "companion_smile": 22,
+    "wheel_contract": 5,
+    "clippy": "passed",
+    "format": "passed",
+    "dependency_direction": "passed",
+    "diff_check": "passed",
+    "runtime_wheel_contract": "passed",
+    "source_archive": "passed",
+    "installed_runtime": "passed"
+  },
+  "native_binary_sha256": "0fe640d2608050a98f7529bf28c4d3ec11e6926ac919537005d57adb9bdc6603",
+  "source_sha256": {
+    "backtesting/rust_pricing_backtest/discrete_smile.py": "11159b8b2eb517f37962978b8b84d5ae2989d5f6b776b3d9867a193851ff26d8",
+    "backtesting/rust_pricing_backtest/three_step_full_smile.py": "22fd0a5aa33346eafeabd37b5218df6375f4ccebc7a3eda6e63706fcf0a1798e",
+    "backtesting/rust_pricing_backtest/three_step_smile.py": "18bd83926e2be1857f37fdc8ceb6681edcb20436ebf2d020e99c526388640606",
+    "crates/pricing/src/engine/risk/pricing.rs": "40de0f1dc6e642ec05f5abd532c65d0caf3a9ef252f8744fbe9decefa9967b8c",
+    "crates/pricing/src/engine/risk/vegakt.rs": "36598c1f25c06a2bf2d8a82a19293d8f5d80a37587fd32eba204ee301f0916fd",
+    "crates/pricing/src/engine/risk/vegakt_atom_chain.rs": "fbd88eaba74115b8cb6da4bf4986fbc143be23f9b58a8114d6085b19ba4e8987",
+    "crates/pricing/src/engine/risk/vegakt_chain.rs": "8828354f78d0edc546d48195cb989bb2fa34cb04afef1f41ad1c82a5a3d61d3b",
+    "crates/pricing/src/engine/risk/vegakt_convolution.rs": "f0178f33575758230d79d0eeb187e8582c8ae62fed49c9a68d050c0109dfe4f1",
+    "crates/pricing/src/engine/risk/vegakt_density_mass.rs": "3ac977988640ba86cce3dbbd9a31f000bda25b78aba6cb387a57b31a4027f2e1",
+    "crates/pricing/src/engine/risk/vegakt_initial.rs": "70728da1ce84b418f3380bf9053caff189ca2d56b52eb603f02891453f00ea43",
+    "crates/pricing/src/engine/risk/vegakt_initial_measure.rs": "c423414ac4b1ec9a8d842d128535d70d5f95e6b1ac0ad81910aed9fbdd979c87",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile/bound.rs": "4198c3b954230aa67b955843126bafc794f1e103a2f922e800461a1da2cbc3d7",
+    "crates/pricing/src/engine/risk/vegakt_initial_smile.rs": "c450da9b73623b9f8fddc7adfeca5423c2d248318c5efe5bc2fd208a3950aaaa",
+    "crates/pricing/src/engine/risk/vegakt_initial_three/bound.rs": "8eb804e7c3d1b036f42c2fdba411f523c07ed1105b658d5b00dfeb08dd5badaa",
+    "crates/pricing/src/engine/risk/vegakt_initial_three.rs": "d3de28692aa4bb7a6967979edfd7c3c3779fffa7b2cea40268fca96b2e46bae8",
+    "crates/pricing/src/engine/risk/vegakt_joint.rs": "d7987a733234894774ffd42be8763b9e05728a22758bcda4f2505b7999b0eda3",
+    "crates/pricing/src/engine/risk/vegakt_measure.rs": "f20d4efaeaae009f689216fbc257b96f9ee3c20941ac86ea5a9eafe640455fc3",
+    "crates/pricing/src/engine/risk/vegakt_middle/bound.rs": "8eb804e7c3d1b036f42c2fdba411f523c07ed1105b658d5b00dfeb08dd5badaa",
+    "crates/pricing/src/engine/risk/vegakt_middle.rs": "43b7492cdc2e0670ba0b6067c91398cfbcf18ea6c087630d06f9efbed9d57573",
+    "crates/pricing/src/engine/risk/vegakt_paper.rs": "8d87c63ecd296faaceed3652faca09c2ed19a6adb3227f102f8eb7e847ca2234",
+    "crates/pricing/src/engine/risk/vegakt_pricing.rs": "f428f270929fec13642ab87ea26611bb41959ee2410c52225b317a0d20e5cbdc",
+    "crates/pricing/src/engine/risk/vegakt_recovery.rs": "93e730ab228a33ddeb803c9f614da1757705e4d90ba0cecb0dec4a0b449c7664",
+    "crates/pricing/src/engine/risk/vegakt_selection.rs": "4417c2a25674e2e6a03b1111f87ea1ee99da03afd17961e929e9ac2c2165c5a7",
+    "crates/pricing/src/engine/risk/vegakt_smile.rs": "19a7cb9304e94f33d9ac8d0cb92f6a919db0d5256f77328815d5cb0b85b98193",
+    "crates/pricing/src/engine/risk/vegakt_steps.rs": "88fab970c8dfe184cb78eee3cf0169e9cb916ad7f6c6bd2880696e452207c516",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "33cca43b7c17a81b1c2d67a5e9a540d243bb79f7a6920b77a4fcf4311ecb08ba",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pathwise.rs": "c82349789a79aee187210739b76c007234a0c0b5ed57bd2990e5e19391598ead",
+    "crates/pricing/src/engine/risk/vegakt_terminal_pricing.rs": "be375917683731c91ed024b91b4ac77c2d4c87d6b2a9edfc7b95b6f825b86ded",
+    "crates/pricing/src/engine/risk/vegakt_terminal_replication.rs": "5c9e1b83c69830c6b495a3a31b897632e585a4ae77dc519820c90203aaa0977e",
+    "crates/pricing/src/engine/risk/vegakt_three_step.rs": "1a61a4e2144f425a73e8f6a31b0d49893bb2d3effa68c7ad4535d962142f5ca4",
+    "crates/pricing/src/risk/vegakt.rs": "7aa84ed69dd6fc84f9b74a603126a591aac30a0fed0feecd1ed5ff62d2be1f09",
+    "crates/pricing/src/risk/vegakt_atom_chain.rs": "7266ae096d156d5e02015efe584b9104ba79c9593fa980accf288c45c3ce70a9",
+    "crates/pricing/src/risk/vegakt_chain.rs": "24d0f0237ee02543a6a9447493271621726c0f21a5c0fdda8616b675606b6d21",
+    "crates/pricing/src/risk/vegakt_convolution/constraints.rs": "9ef2e8b8f23518bb7193bc112ede9449618c812499a99898e3c7ec8eb9edb8de",
+    "crates/pricing/src/risk/vegakt_convolution/gaussian_variance.rs": "1bb020a041b52b05d70236226e19ffc9d9e917e54f29731e68864c6ae4cbb3e4",
+    "crates/pricing/src/risk/vegakt_convolution/two_transition_source.rs": "36b0f0b31fa0c03a8cb113e7518d38dc60f834c3f156d4cbe470a8f846985f38",
+    "crates/pricing/src/risk/vegakt_convolution.rs": "7f20fac1870815ce47f4cc11d8d42fed0a2893cb98a39635f755c9148a34780a",
+    "crates/pricing/src/risk/vegakt_initial.rs": "3ce5f25d1b088c5aa234c9b7d4a1d1f64eef142e0b8ed56323c8b49b78e3d7c2",
+    "crates/pricing/src/risk/vegakt_initial_measure.rs": "8700df90f8b3d3901f941755ffd1d33084d3c8c4fec3e70ad5632085ad250caa",
+    "crates/pricing/src/risk/vegakt_initial_smile.rs": "7cd4e86783aa39dd534a113b625e5b1fa9c0c23dd137585e2f4435dcebbb87f9",
+    "crates/pricing/src/risk/vegakt_initial_three.rs": "13d075df24bb8dc29c2f4a1d5ed28af336876eb75aa77fe564d32fe2449293a1",
+    "crates/pricing/src/risk/vegakt_joint.rs": "50614ba8ce505684ab62e647e343285cac4095fb553bafbc665958d7a5b9bfa6",
+    "crates/pricing/src/risk/vegakt_measure.rs": "fe01bf125c08f56951f64b58922e3217f8c310a0f577e6c399e173d3fd69d185",
+    "crates/pricing/src/risk/vegakt_middle.rs": "5d97e2ebb43f2cb0a453d2d85dc92310f933ecf442df204a3237ec2039b17ce7",
+    "crates/pricing/src/risk/vegakt_selection.rs": "14a124600747f674c93c85d560e466595f4cfbd217328a9fc50200aa928dd4fe",
+    "crates/pricing/src/risk/vegakt_smile.rs": "3d131bd530dd345c37337ac8a4732434f3a1876f2ef78b21cf470ae31dc9c7c9",
+    "crates/pricing/src/risk/vegakt_steps.rs": "33003d58ccdf7a67748a447162cbc8598de6fab01bcdc7dd528d870cabb40100",
+    "crates/pricing/src/risk/vegakt_three_step.rs": "d754321ef739391d2f71d062579573d2cfbdde0720ba09eb68b0dd679175d7a3",
+    "crates/pricing-python/src/lib.rs": "5c85581bae9c0ce16d36bd55f4dea81027a3bacb433924e98e5976b601912791",
+    "crates/pricing-python/src/vegakt_atom_chain.rs": "ab57521eae4b6498f2c9ea4b55ee7a6852d8c165dc5ad31ce4196002bfcde344",
+    "crates/pricing-python/src/vegakt_chain.rs": "7773c8cbf5c12a59368b35f515ba40899e52c17c6fb1b4788b185c118836f0b5",
+    "crates/pricing-python/src/vegakt_convolution.rs": "cb167825141569680e430c82bc879b9eae2cf6923a1bb20cb226ddefbd06c3da",
+    "crates/pricing-python/src/vegakt_initial_measure.rs": "3710dd79df378660f1ccb6133455ab7f75eec95de488994a16e29be4678928c5",
+    "crates/pricing-python/src/vegakt_initial_smile.rs": "bd2a8d3fb419084d3e69582ae4df9ba2b65de0f9f368ad24d4266a03e7e21670",
+    "crates/pricing-python/src/vegakt_initial_three.rs": "80563805cd318936c8ac3b4ca12bb1f09ea053ee9ea337c40f46f4fa1768994f",
+    "crates/pricing-python/src/vegakt_joint.rs": "1acee4e321b1dad1a5f845659e67f41133a4eb71d98425393d95546b248ad787",
+    "crates/pricing-python/src/vegakt_measure.rs": "c3cd20bed4891b2f69a2073cf28eca568b732c9b37d509220767c9e7604045c4",
+    "crates/pricing-python/src/vegakt_middle.rs": "e9d474f2e150d1824bb7fa68d346cb4cde4854b3f69baaf58c36deb064733f0d",
+    "crates/pricing-python/src/vegakt_selection.rs": "e0864490126d5b54b580a507d66e78bef16a4121c69349de27eaba3f335e3772",
+    "crates/pricing-python/src/vegakt_smile.rs": "7cd8e603dfb89c03968aba69154db2bf965fe6378e110adb8aca479a02e1a94d",
+    "crates/pricing-python/src/vegakt_three_step.rs": "039016fc72d284710ee6578359bb41c8daf0a8e4c3f71d8dfad84cbadb52402b",
+    "fixtures/backtesting/initial-three-gamma-policy-v0.1.json": "deb9832fc7fde8cc900b46c158105436baeafe865f0b802bfd5614f93e67ed5e",
+    "scripts/check_initial_three_gamma.py": "db866e19143c7030fbcc1b6d9affd8b6768d1b3093cec62ec60e45637f9cd24f",
+    "scripts/check_three_step_gamma.py": "524a11ac573d3734429b51a580ad77999a3850dde3e91570fd656913a0a0e8f8",
+    "scripts/initial_three_reference.py": "be37e422794db48798937db9b3c7b9a58a894f01cbd7e8f2f3266ebe07d55d01",
+    "scripts/middle_smile_reference.py": "baa1091ad747d602faa26317c3c0a822a391f5ff61df9079df561b3f28454683",
+    "rust_pricing.pyi": "c7531e9c8e5e6421e339372e47395a03aafc6b37e8b247c943e5e24b57064184",
+    "tests/python/test_vega_kt_initial_three.py": "301e91833baf3481d3d961e7f17c31112c642a636c8d3b5731e489345488cb6d",
+    "tests/python/test_wheel_contract.py": "59bd632e126d03504d71e0a0930c5b8074899dede31ac002b97187eec395d769",
+    "backtesting/tests/test_three_step_full_smile.py": "cc667fcc72b7a49d429aca34ccc62499b323c578eefbf8e06602ca4b5778780d",
+    "crates/pricing/tests/local_vol_initial_three_gamma.rs": "c69a0d8fe2d96e40598fd583dc4a17a9c96f13097c402f98bba8a59437f93de2",
+    "fixtures/local-vol/initial-three-gamma-v0.1.json": "8b73f8b463c3ed1325db95dea36b2d4a2cafc789a23eef791d8c6b9a134e16ff",
+    "scripts/smoke_test_wheel.py": "ffb696ffb4f2dff59531f03e4c58866622153edbfa9c88520d0b1e53f9034418",
+    "scripts/check_source_archive.py": "9a6efb1975147d021f359bd10fe33e50117941d440c6afb52241bc3a92b448c8",
+    ".github/workflows/backtesting.yml": "27897aac7775a889d302b6d00d7ca41dd8f709d4a0ef28a201ab5b97e12515a6",
+    "crates/pricing/src/risk/mod.rs": "c86889bb430be7ff8b71118fdc0fa028496a51389838a5054f0349336fb7c5e9",
+    "crates/pricing/src/engine/risk/mod.rs": "9102729fda5ca7cab55c022d07e2d287edbcf014b9161366859e3a3394319f68"
+  },
+  "evidence_sha256": {
+    "benchmark-results/vega-kt-initial-three/report.json": "8a0c585a03294be3c71968afe97433fe772b267785f856c6dad57f86c62ff9a0",
+    "benchmark-results/vega-kt-initial-three/validation-v2.log": "8003e91a8a2c6429050a0d2881bfa9ce89115d5446eb37681223e7e7435100b7",
+    "benchmark-results/vega-kt-initial-three/controls.json": "220f18beb45660f4015ce131b7c435bacdabf294f1651cf86f81864668453e48",
+    "benchmark-results/vega-kt-initial-three/collapsed-first-control.json": "8398953f114515513494ecf4c5c318ce60007f18ffbbc51a0d580d8c176ba4e3",
+    "benchmark-results/vega-kt-initial-three/unpaired-control.json": "25e46f6cc1a0aaa536966f176089a19c914c757a798f5ccc0cb7f8eb4c774d76",
+    "benchmark-results/vega-kt-initial-three/readout-capacity.json": "5210528fe131546a6d1031e00e26c695337fd9cb0cc55d4daff8a6285321cded",
+    "benchmark-results/vega-kt-initial-three/replay-comparison.json": "d34fc988c365343700a7d916df36ba54be79715e3b640ae1a0691ca333e838b0",
+    "benchmark-results/vega-kt-initial-three/calibrator-prefix-compatibility.json": "85cfed1d5c3b6b828e24ef95dd7132c60803bfc4b8643828dd444b8ec5e118a4",
+    "benchmark-results/vega-kt-initial-three/legacy-after.json": "5aeb7a5eb2c5a4841a6a4c9bec1eb5774b5bf3b0d72f9470292719dac22f5f84",
+    "benchmark-results/vega-kt-initial-three/three-step-after.json": "0c7944b6ea92f36866b540d322f8db0296a78226c6d80a4fe4788f368da4b917",
+    "benchmark-results/vega-kt-initial-three/python-tests-v2.log": "7fee54a17d0903d943f1e602cadb2ec4a200ca5947e40dc8ec3a3834e54637f6",
+    "benchmark-results/vega-kt-initial-three/rust-tests-v2.log": "0c4190bc25b713a000c144ba85c2b9034b9c24556594d22ed9312aae596b96b6",
+    "benchmark-results/vega-kt-initial-three/companion-tests.log": "2eb8683a0917cca8f64ffb17dcfeca2a9666ecbeaa4f1fef52cb2205c8aab7cf",
+    "benchmark-results/vega-kt-initial-three/wheel-tests-v2.log": "fab16da24658849c2f2a6a28e2fe935fa01502e9701300b3971e27aa1c2fc42c",
+    "benchmark-results/vega-kt-initial-three/runtime-wheel-v2.log": "b1317d90e17e9c3cbb72c37f9cf3754aea304054c9b89055a0d99e4e62a9cf74",
+    "benchmark-results/vega-kt-initial-three/dependency-direction.log": "b81eff7cb191825aaaa2c2cda4d2c85852a8de42d3a3ac290efb428896ed7110",
+    "benchmark-results/vega-kt-initial-three/clippy-v2.log": "71f5c461e64f418788df983d2f39490b7ce832f41a0ae5c14c389769ede3ff88",
+    "benchmark-results/vega-kt-initial-three/installed-runtime.json": "d634c91c18c8d484381341762077f13673ee0ad372db9e7cdfd93d6683598bef",
+    "benchmark-results/vega-kt-initial-three/source-archive-counts.log": "4aa7b0c39c4f950291441f56d9815734956f0485f30d39e2d280af6f2d2210c4",
+    "benchmark-results/vega-kt-initial-three/install.log": "16e80953329ad4a816aaac487294765b19f5e127cdcaa31b23ea63dda792915a",
+    "benchmark-results/vega-kt-initial-three/companion-build-local.log": "4443bace5eae5137ce3bdba0e0836cef61a9daf2a210ea5f896363f60fe2cc5c"
+  },
+  "source_archive_required_files": 490,
+  "source_archive_files": 869,
+  "limitations": [
+    "Only a parallel first IV is reachable; first-maturity individual smile quotes remain unsupported.",
+    "Finite Gamma windows; refinement allowances are not rigorous total error bounds.",
+    "SE conditional on terminal pilot selection; deterministic initial/middle errors separate; no cross-quote covariance.",
+    "Ten previously checked price-risk coordinates are retained after exact calibration/component replay, not recomputed as fresh native price differences.",
+    "No arbitrary interval counts, carry/dividends/barriers/early exercise or production provider full-IV acceptance."
+  ],
+  "installed_runtime": {
+    "status": "passed",
+    "native_binary_sha256": "0fe640d2608050a98f7529bf28c4d3ec11e6926ac919537005d57adb9bdc6603",
+    "native_path": "/Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/rust-pricing-library/.venv/lib/python3.13/site-packages/rust_pricing/rust_pricing.cpython-313-darwin.so",
+    "companion_source_matches": true,
+    "tangent_shape": [
+      67,
+      11
+    ],
+    "collapsed_first_transition_rejected": true
+  },
+  "built_wheels_sha256": {
+    "/tmp/vega-kt-initial-three-v2-wheel/rust_pricing-0.1.0-cp313-cp313-macosx_11_0_arm64.whl": "faab3472092a2a44d79c49967e3f4a0fe190d0d0fc315236fd2a2fef5cf4fff9",
+    "/tmp/vega-kt-initial-three-v2-companion-wheel/rust_pricing_backtest-0.1.0-py3-none-any.whl": "8b3dca394abecc0a76d3a42c0fba0ad3f647948146253b1bcdae5ce4ddcc7d37"
+  }
+}

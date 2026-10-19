@@ -1,0 +1,33 @@
+{
+  "policy_id": "two_step_discrete_smile_calibration_v1",
+  "scope": "Fixed first Gaussian marginal; nonlinear terminal quote calibration on two log-Euler intervals; Gamma quote accuracy is a separate, unwaived diagnostic.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "base_shapes": ["flat", "nonflat"],
+  "base_skew": 0.015,
+  "base_curvature": 0.02,
+  "local_nodes": 33,
+  "quote_log_nodes": [-0.2, -0.1, 0.0, 0.1, 0.2],
+  "stress_iv_bump": 0.003,
+  "iv_bumps": [0.00001, 0.000005],
+  "batch_samples": 16384,
+  "batch_seeds": [4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008],
+  "gamma_samples": 131072,
+  "gamma_seeds": [7, 41],
+  "selection": {
+    "candidate_regularizations": [0.01, 0.003, 0.001, 0.0003, 0.0001],
+    "pilot_sampling_units": 262144,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0,
+    "preserve_local_vega_total": true
+  },
+  "quote_price_tolerance": 0.0000000001,
+  "quadrature_derivative_tolerance": 0.000002,
+  "derivative_absolute_tolerance": 0.002,
+  "bump_refinement_tolerance": 0.002,
+  "statistical_multiplier": 6.0,
+  "algebra_tolerance": 0.0000000001,
+  "solver_absolute_tolerance": 0.000002,
+  "gamma_quote_absolute_target": 0.002,
+  "gamma_quote_relative_target": 0.01
+}

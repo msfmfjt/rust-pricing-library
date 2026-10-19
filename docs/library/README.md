@@ -69,6 +69,10 @@ features. Experimental model adapters have separate entry points and limitations
 
 ## Compatibility and operations
 
+- [VegaKT hedging backtesting](vega-kt-backtesting.md): daily research replay,
+  cash ledger with investor capital, cost-basis and nominal/discounted P&L reconciliation, constrained hedge quantities
+  and strategy comparison, with lagged Delta/optional Gamma P&L explanations, fixed-strike IV audits
+  and paired terminal-error scenario statistics, plus offline JSON Schema validation.
 - [Wire-schema compatibility](wire-schema-compatibility.md): accepted request and
   result versions, writer output, migrations and covariance layouts.
 - [Three-crate migration](three-crate-migration.md): Rust dependency changes,

@@ -1,0 +1,95 @@
+{
+  "policy_id": "multi_step_terminal_Gamma_v1",
+  "scope": "Last row only; 4 and 6 intervals with a nonflat first market maturity after two transitions.",
+  "products": [
+    "call",
+    "asian",
+    "fixed_asian",
+    "lookback"
+  ],
+  "base_shapes": [
+    "nonflat"
+  ],
+  "base_skew": 0.015,
+  "base_curvature": 0.02,
+  "local_nodes": 33,
+  "quote_log_nodes": [
+    -0.2,
+    -0.1,
+    0.0,
+    0.1,
+    0.2
+  ],
+  "stress_iv_bump": 0.003,
+  "iv_bumps": [
+    1e-05,
+    5e-06
+  ],
+  "batch_samples": 16384,
+  "batch_seeds": [
+    4001,
+    4002,
+    4003,
+    4004,
+    4005,
+    4006,
+    4007,
+    4008
+  ],
+  "gamma_samples": 524288,
+  "gamma_seeds": [
+    7,
+    41
+  ],
+  "selection": {
+    "candidate_regularizations": [
+      0.01,
+      0.003,
+      0.001,
+      0.0003,
+      0.0001
+    ],
+    "pilot_sampling_units": 262144,
+    "reconstruction_relative_limit": 0.03,
+    "gamma_relative_standard_error_limit": 0.25,
+    "mc_margin_multiplier": 2.0
+  },
+  "quote_price_tolerance": 1e-10,
+  "quadrature_derivative_tolerance": 2e-06,
+  "derivative_absolute_tolerance": 0.002,
+  "bump_refinement_tolerance": 0.002,
+  "statistical_multiplier": 6.0,
+  "algebra_tolerance": 1e-10,
+  "solver_absolute_tolerance": 2e-06,
+  "gamma_quote_absolute_target": 0.002,
+  "gamma_quote_relative_target": 0.01,
+  "identity_absolute_tolerance": 1e-08,
+  "operator_relative_tolerance": 2e-06,
+  "nonflat_profiles": [
+    {
+      "name": "positive_skew",
+      "base_skew": 0.015,
+      "base_curvature": 0.02,
+      "third_skew": -0.012,
+      "third_curvature": 0.008
+    },
+    {
+      "name": "negative_skew",
+      "base_skew": -0.02,
+      "base_curvature": 0.03,
+      "third_skew": 0.015,
+      "third_curvature": 0.012
+    }
+  ],
+  "subdivisions": 512,
+  "relative_tolerance": 1e-08,
+  "gamma_bin_boundaries": [
+    80.0,
+    90.0,
+    100.0,
+    110.0,
+    120.0
+  ],
+  "sobol_power": 16,
+  "sobol_scrambles": 8
+}

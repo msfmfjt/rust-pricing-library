@@ -35,8 +35,6 @@ use crate::engine::plan::simulation::ExactLocalVolContinuousBarrierBridgeEvaluat
 
 use crate::engine::plan::simulation::LocalVolContinuousBarrierBridgeEvaluation;
 
-use crate::engine::plan::simulation::LocalVolPathwise;
-
 use crate::engine::plan::simulation::ExerciseCashflowSelection;
 
 use crate::engine::plan::simulation::LocalVolObservation;
@@ -137,34 +135,6 @@ pub(in crate::engine) fn interpolation_weight(left: f64, right: f64, value: f64)
     } else {
         (value - left) / (right - left)
     }
-}
-
-pub(in crate::engine) fn average_local_vol_pathwise(
-    primary: LocalVolPathwise,
-    mate: LocalVolPathwise,
-) -> Result<LocalVolPathwise, MonteCarloError> {
-    let values =
-        std::array::from_fn(|component| (primary.values[component] + mate.values[component]) * 0.5);
-    let raw_buckets = match (primary.raw_buckets, mate.raw_buckets) {
-        (Some(primary), Some(mate)) => {
-            if primary.len() != mate.len() {
-                return Err(MonteCarloError::MismatchedLocalVolatilityReportingBasis);
-            }
-            Some(
-                primary
-                    .into_iter()
-                    .zip(mate)
-                    .map(|(left, right)| (left + right) * 0.5)
-                    .collect(),
-            )
-        }
-        (None, None) => None,
-        _ => return Err(MonteCarloError::MismatchedLocalVolatilityReportingBasis),
-    };
-    Ok(LocalVolPathwise {
-        values,
-        raw_buckets,
-    })
 }
 
 impl LocalVolRuntime {
@@ -366,7 +336,6 @@ impl SimulationPlan {
             ExactLocalVolContinuousBarrierBridgeEvaluation {
                 path,
                 interval_node_indices: interval_node_indices.into_boxed_slice(),
-                node_interpolations: node_interpolations.into_boxed_slice(),
                 endpoint_touched,
                 dividend_jump_touched,
             },
@@ -461,7 +430,6 @@ impl SimulationPlan {
         Ok(LocalVolContinuousBarrierBridgeEvaluation::Smoothed {
             path: SmoothedContinuousBarrierPath::evaluate(intervals, hit_factors),
             interval_node_indices: interval_node_indices.into_boxed_slice(),
-            node_interpolations: node_interpolations.into_boxed_slice(),
         })
     }
 }

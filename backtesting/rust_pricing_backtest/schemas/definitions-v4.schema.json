@@ -1,0 +1,7857 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:backtesting:definitions:v4",
+  "title": "Hedging backtest wire definitions v4",
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "$comment": "Provider and policy metadata are explicit extension points; JSON values are retained."
+    },
+    "risk_validation": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "rebalance_every",
+        "initial_cash",
+        "cash_floor",
+        "option_position_limit",
+        "option_trade_limit",
+        "stock_position_limit",
+        "stock_trade_limit",
+        "stock_lot",
+        "allow_option_shorts",
+        "allow_stock_shorts",
+        "allow_identical_hedge",
+        "option_fee",
+        "stock_fee",
+        "max_quote_age_seconds",
+        "max_relative_spread",
+        "min_vega",
+        "ridge",
+        "turnover_penalty",
+        "slippage_bps",
+        "solver_tolerance",
+        "solver_iterations",
+        "max_abs_projection_residual",
+        "max_abs_edge_sensitivity",
+        "max_price_standard_error",
+        "max_bucket_standard_error",
+        "target_mark",
+        "end_policy",
+        "numeraire_id",
+        "constraint_mode",
+        "gross_notional_limit",
+        "market_shock_log_moneyness"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "unhedged",
+            "delta",
+            "scalar_vega",
+            "vega_kt"
+          ]
+        },
+        "rebalance_every": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "initial_cash": {
+          "type": "number"
+        },
+        "cash_floor": {
+          "type": "number"
+        },
+        "option_position_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "option_trade_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_position_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_trade_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_lot": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "allow_option_shorts": {
+          "type": "boolean"
+        },
+        "allow_stock_shorts": {
+          "type": "boolean"
+        },
+        "allow_identical_hedge": {
+          "type": "boolean"
+        },
+        "option_fee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_fee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_quote_age_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_relative_spread": {
+          "type": "number",
+          "minimum": 0
+        },
+        "min_vega": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ridge": {
+          "type": "number",
+          "minimum": 0
+        },
+        "turnover_penalty": {
+          "type": "number",
+          "minimum": 0
+        },
+        "slippage_bps": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 10000
+        },
+        "solver_tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "solver_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_abs_projection_residual": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_abs_edge_sensitivity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_price_standard_error": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_bucket_standard_error": {
+          "type": "number",
+          "minimum": 0
+        },
+        "target_mark": {
+          "enum": [
+            "model",
+            "market"
+          ]
+        },
+        "end_policy": {
+          "enum": [
+            "mark_to_market",
+            "liquidate_hedges"
+          ]
+        },
+        "numeraire_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "constraint_mode": {
+          "enum": [
+            "execution_cash",
+            "decision_cash_gross"
+          ]
+        },
+        "gross_notional_limit": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "market_shock_log_moneyness": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "constraint_mode": {
+                "const": "decision_cash_gross"
+              }
+            },
+            "required": [
+              "constraint_mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "gross_notional_limit": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "gross_notional_limit": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "input_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numeraire_id",
+        "constraint_mode",
+        "gross_notional_limit",
+        "market_shock_log_moneyness"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "unhedged",
+            "delta",
+            "scalar_vega",
+            "vega_kt"
+          ]
+        },
+        "rebalance_every": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "initial_cash": {
+          "type": "number"
+        },
+        "cash_floor": {
+          "type": "number"
+        },
+        "option_position_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "option_trade_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_position_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_trade_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_lot": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "allow_option_shorts": {
+          "type": "boolean"
+        },
+        "allow_stock_shorts": {
+          "type": "boolean"
+        },
+        "allow_identical_hedge": {
+          "type": "boolean"
+        },
+        "option_fee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_fee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_quote_age_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_relative_spread": {
+          "type": "number",
+          "minimum": 0
+        },
+        "min_vega": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ridge": {
+          "type": "number",
+          "minimum": 0
+        },
+        "turnover_penalty": {
+          "type": "number",
+          "minimum": 0
+        },
+        "slippage_bps": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 10000
+        },
+        "solver_tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "solver_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_abs_projection_residual": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_abs_edge_sensitivity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_price_standard_error": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_bucket_standard_error": {
+          "type": "number",
+          "minimum": 0
+        },
+        "target_mark": {
+          "enum": [
+            "model",
+            "market"
+          ]
+        },
+        "end_policy": {
+          "enum": [
+            "mark_to_market",
+            "liquidate_hedges"
+          ]
+        },
+        "numeraire_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "constraint_mode": {
+          "enum": [
+            "execution_cash",
+            "decision_cash_gross"
+          ]
+        },
+        "gross_notional_limit": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "market_shock_log_moneyness": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "constraint_mode": {
+                "const": "decision_cash_gross"
+              }
+            },
+            "required": [
+              "constraint_mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "gross_notional_limit": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "gross_notional_limit": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "contract": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_id",
+            "expiry",
+            "strike",
+            "side",
+            "multiplier",
+            "lot",
+            "listed_on",
+            "underlying_id",
+            "currency_id",
+            "settlement_rule",
+            "settlement_fixing_id",
+            "payment_date"
+          ],
+          "properties": {
+            "contract_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "const": "__spot__"
+              }
+            },
+            "expiry": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "enum": [
+                "call",
+                "put"
+              ]
+            },
+            "multiplier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "lot": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "listed_on": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "underlying_id": {
+              "type": "integer"
+            },
+            "currency_id": {
+              "type": "integer"
+            },
+            "settlement_rule": {
+              "enum": [
+                "snapshot_spot",
+                "explicit_fixing"
+              ]
+            },
+            "settlement_fixing_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "payment_date": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "settlement_rule": {
+                    "const": "explicit_fixing"
+                  }
+                },
+                "required": [
+                  "settlement_rule"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_id",
+            "expiry",
+            "strike",
+            "side",
+            "multiplier",
+            "lot",
+            "listed_on",
+            "underlying_id",
+            "currency_id",
+            "settlement_rule",
+            "settlement_fixing_id",
+            "payment_date",
+            "product_type",
+            "observations"
+          ],
+          "properties": {
+            "contract_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "const": "__spot__"
+              }
+            },
+            "expiry": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "enum": [
+                "call",
+                "put"
+              ]
+            },
+            "multiplier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "lot": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "listed_on": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "underlying_id": {
+              "type": "integer"
+            },
+            "currency_id": {
+              "type": "integer"
+            },
+            "settlement_rule": {
+              "const": "path_observations"
+            },
+            "settlement_fixing_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "payment_date": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "product_type": {
+              "enum": [
+                "arithmetic_asian",
+                "fixed_lookback"
+              ]
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/path_observation"
+              },
+              "minItems": 1
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "settlement_rule": {
+                    "const": "explicit_fixing"
+                  }
+                },
+                "required": [
+                  "settlement_rule"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "input_contract": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_id",
+            "expiry",
+            "strike",
+            "listed_on",
+            "settlement_rule",
+            "settlement_fixing_id",
+            "payment_date"
+          ],
+          "properties": {
+            "contract_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "const": "__spot__"
+              }
+            },
+            "expiry": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "enum": [
+                "call",
+                "put"
+              ]
+            },
+            "multiplier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "lot": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "listed_on": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "underlying_id": {
+              "type": "integer"
+            },
+            "currency_id": {
+              "type": "integer"
+            },
+            "settlement_rule": {
+              "enum": [
+                "snapshot_spot",
+                "explicit_fixing"
+              ]
+            },
+            "settlement_fixing_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "payment_date": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "settlement_rule": {
+                    "const": "explicit_fixing"
+                  }
+                },
+                "required": [
+                  "settlement_rule"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_id",
+            "expiry",
+            "strike",
+            "listed_on",
+            "settlement_rule",
+            "settlement_fixing_id",
+            "payment_date",
+            "product_type",
+            "observations"
+          ],
+          "properties": {
+            "contract_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "const": "__spot__"
+              }
+            },
+            "expiry": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "enum": [
+                "call",
+                "put"
+              ]
+            },
+            "multiplier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "lot": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "listed_on": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "underlying_id": {
+              "type": "integer"
+            },
+            "currency_id": {
+              "type": "integer"
+            },
+            "settlement_rule": {
+              "const": "path_observations"
+            },
+            "settlement_fixing_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "payment_date": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "product_type": {
+              "enum": [
+                "arithmetic_asian",
+                "fixed_lookback"
+              ]
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/path_observation"
+              },
+              "minItems": 1
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "settlement_rule": {
+                    "const": "explicit_fixing"
+                  }
+                },
+                "required": [
+                  "settlement_rule"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "settlement_fixing_id": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "quantity",
+        "entry_price",
+        "entry_fee"
+      ],
+      "properties": {
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "entry_price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "entry_fee": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "input_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "quantity",
+        "entry_price"
+      ],
+      "properties": {
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "entry_price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "entry_fee": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "quote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bid",
+        "ask",
+        "observed_at",
+        "available_at"
+      ],
+      "properties": {
+        "bid": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ask": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        }
+      }
+    },
+    "fixing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixing_date",
+        "value",
+        "observed_at",
+        "available_at",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "fixing_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "discount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valuation_date",
+        "factor",
+        "observed_at",
+        "available_at",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "valuation_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "factor": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "numeraire": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_id",
+        "currency_id",
+        "valuation_date",
+        "value",
+        "observed_at",
+        "available_at",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "currency_id": {
+          "type": "integer"
+        },
+        "valuation_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "capital": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flow_id",
+        "effective_at",
+        "amount",
+        "currency_id",
+        "available_at",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "flow_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "effective_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "amount": {
+          "type": "number",
+          "not": {
+            "const": 0
+          }
+        },
+        "currency_id": {
+          "type": "integer"
+        },
+        "available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valuation_date",
+        "maturity_dates",
+        "log_moneyness",
+        "method",
+        "coordinate",
+        "delta_convention",
+        "unit"
+      ],
+      "properties": {
+        "valuation_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "maturity_dates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "log_moneyness": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "coordinate": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "delta_convention": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "unit": {
+          "const": "currency_per_unit_absolute_volatility"
+        }
+      }
+    },
+    "input_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valuation_date",
+        "maturity_dates",
+        "log_moneyness"
+      ],
+      "properties": {
+        "valuation_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "maturity_dates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "log_moneyness": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "coordinate": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "delta_convention": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "unit": {
+          "const": "currency_per_unit_absolute_volatility"
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "at",
+        "spot",
+        "option_quotes",
+        "basis",
+        "surface_available_at",
+        "source",
+        "pricing_requests",
+        "lending_rate",
+        "borrowing_rate",
+        "stock_borrow_rate",
+        "dividend_per_share",
+        "settlement_fixings",
+        "payment_discounts",
+        "numeraire",
+        "external_cashflows"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "spot": {
+          "$ref": "#/$defs/quote"
+        },
+        "option_quotes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/quote"
+          }
+        },
+        "basis": {
+          "$ref": "#/$defs/basis"
+        },
+        "surface_available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "pricing_requests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "contentMediaType": "application/json",
+            "$comment": "JSON-encoded native requests. contentMediaType is annotation, not native schema validation."
+          }
+        },
+        "lending_rate": {
+          "type": "number"
+        },
+        "borrowing_rate": {
+          "type": "number"
+        },
+        "stock_borrow_rate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dividend_per_share": {
+          "type": "number",
+          "minimum": 0
+        },
+        "settlement_fixings": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fixing"
+          }
+        },
+        "payment_discounts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/discount"
+          },
+          "propertyNames": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
+        },
+        "numeraire": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/numeraire"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_cashflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capital"
+          },
+          "minItems": 0
+        }
+      }
+    },
+    "input_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "at",
+        "spot",
+        "option_quotes",
+        "basis",
+        "surface_available_at",
+        "source",
+        "settlement_fixings",
+        "payment_discounts",
+        "numeraire",
+        "external_cashflows"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "spot": {
+          "$ref": "#/$defs/quote"
+        },
+        "option_quotes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/quote"
+          }
+        },
+        "basis": {
+          "$ref": "#/$defs/input_basis"
+        },
+        "surface_available_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "pricing_requests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "contentMediaType": "application/json",
+            "$comment": "JSON-encoded native requests. contentMediaType is annotation, not native schema validation."
+          }
+        },
+        "lending_rate": {
+          "type": "number"
+        },
+        "borrowing_rate": {
+          "type": "number"
+        },
+        "stock_borrow_rate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dividend_per_share": {
+          "type": "number",
+          "minimum": 0
+        },
+        "settlement_fixings": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fixing"
+          }
+        },
+        "payment_discounts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/discount"
+          },
+          "propertyNames": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
+        },
+        "numeraire": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/numeraire"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_cashflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capital"
+          },
+          "minItems": 0
+        }
+      }
+    },
+    "request_v8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_kind",
+        "schema_version",
+        "config",
+        "contracts",
+        "portfolio",
+        "market_history",
+        "code_revision"
+      ],
+      "properties": {
+        "document_kind": {
+          "const": "hedging_backtest_request"
+        },
+        "schema_version": {
+          "const": 8
+        },
+        "config": {
+          "$ref": "#/$defs/input_config"
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input_contract"
+          },
+          "minItems": 1,
+          "contains": {
+            "required": [
+              "product_type"
+            ]
+          }
+        },
+        "portfolio": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input_position"
+          },
+          "minItems": 1
+        },
+        "market_history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input_snapshot"
+          },
+          "minItems": 1
+        },
+        "code_revision": {
+          "type": "string"
+        }
+      }
+    },
+    "order": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_at",
+        "desired",
+        "stock",
+        "status",
+        "kind"
+      ],
+      "properties": {
+        "decision_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "desired": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "stock": {
+          "type": "number"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "filled",
+            "rejected_cash_limit",
+            "rejected_gross_limit"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "rebalance",
+            "precommitted_terminal_liquidation"
+          ]
+        },
+        "fill_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "expired_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "execution_budget": {
+          "$ref": "#/$defs/budget_metrics"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "filled"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "fill_at"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "rejected_cash_limit"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "fill_at"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "rejected_gross_limit"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "fill_at"
+            ]
+          }
+        }
+      ]
+    },
+    "fill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "decision_at",
+        "contract_id",
+        "quantity",
+        "multiplier",
+        "price",
+        "mid",
+        "fee",
+        "cash_change",
+        "execution_cost",
+        "liquidation"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "decision_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "multiplier": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mid": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cash_change": {
+          "type": "number"
+        },
+        "execution_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "liquidation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "settlement_detail": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule",
+            "quantity",
+            "multiplier",
+            "expiry",
+            "payment_date",
+            "underlying_price",
+            "payoff_per_unit"
+          ],
+          "properties": {
+            "rule": {
+              "enum": [
+                "snapshot_spot",
+                "explicit_fixing"
+              ]
+            },
+            "quantity": {
+              "type": "number"
+            },
+            "multiplier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "expiry": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "payment_date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "underlying_price": {
+              "type": "number",
+              "minimum": 0
+            },
+            "payoff_per_unit": {
+              "type": "number",
+              "minimum": 0
+            },
+            "fixing_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "fixing": {
+              "$ref": "#/$defs/fixing"
+            },
+            "fixing_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "snapshot_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "spot_quote": {
+              "$ref": "#/$defs/quote"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "rule": {
+                    "const": "explicit_fixing"
+                  }
+                },
+                "required": [
+                  "rule"
+                ]
+              },
+              "then": {
+                "required": [
+                  "fixing_id",
+                  "fixing",
+                  "fixing_hash"
+                ]
+              },
+              "else": {
+                "required": [
+                  "snapshot_id",
+                  "source",
+                  "spot_quote"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rule",
+            "quantity",
+            "multiplier",
+            "expiry",
+            "payment_date",
+            "product_type",
+            "payoff_per_unit",
+            "observations"
+          ],
+          "properties": {
+            "rule": {
+              "const": "path_observations"
+            },
+            "quantity": {
+              "type": "number"
+            },
+            "multiplier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "expiry": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "payment_date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "product_type": {
+              "enum": [
+                "arithmetic_asian",
+                "fixed_lookback"
+              ]
+            },
+            "payoff_per_unit": {
+              "type": "number",
+              "minimum": 0
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "observation",
+                  "fixing",
+                  "fixing_hash"
+                ],
+                "properties": {
+                  "observation": {
+                    "$ref": "#/$defs/path_observation"
+                  },
+                  "fixing": {
+                    "$ref": "#/$defs/fixing"
+                  },
+                  "fixing_hash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "group",
+        "contract_id",
+        "fixed_at",
+        "payment_date",
+        "amount",
+        "settlement"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "group": {
+          "enum": [
+            "targets",
+            "hedges"
+          ]
+        },
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "fixed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "settlement": {
+          "$ref": "#/$defs/settlement_detail"
+        }
+      }
+    },
+    "claim_mark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "group",
+        "contract_id",
+        "fixed_at",
+        "payment_date",
+        "amount",
+        "settlement",
+        "discount",
+        "discount_hash",
+        "present_value"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "group": {
+          "enum": [
+            "targets",
+            "hedges"
+          ]
+        },
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "fixed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "settlement": {
+          "$ref": "#/$defs/settlement_detail"
+        },
+        "discount": {
+          "$ref": "#/$defs/discount"
+        },
+        "discount_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "present_value": {
+          "type": "number"
+        }
+      }
+    },
+    "settlement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "group",
+        "contract_id",
+        "fixed_at",
+        "payment_date",
+        "amount",
+        "settlement",
+        "at",
+        "event"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "group": {
+          "enum": [
+            "targets",
+            "hedges"
+          ]
+        },
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "fixed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "settlement": {
+          "$ref": "#/$defs/settlement_detail"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "event": {
+          "enum": [
+            "fixed",
+            "fixed_zero",
+            "paid"
+          ]
+        }
+      }
+    },
+    "cashflow": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "contract_id",
+            "amount",
+            "kind"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            "contract_id": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "target_entry",
+                "hedge_trade",
+                "funding",
+                "stock_borrow",
+                "dividend"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "contract_id",
+            "amount",
+            "kind",
+            "settlement"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            "contract_id": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "targets_settlement",
+                "hedges_settlement"
+              ]
+            },
+            "settlement": {
+              "$ref": "#/$defs/settlement_detail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "contract_id",
+            "amount",
+            "kind",
+            "flow_id",
+            "external_cashflow",
+            "external_cashflow_hash",
+            "numeraire_value",
+            "numeraire_hash",
+            "discounted_amount"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            "contract_id": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "kind": {
+              "const": "external_capital"
+            },
+            "flow_id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "external_cashflow": {
+              "$ref": "#/$defs/capital"
+            },
+            "external_cashflow_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "numeraire_value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "numeraire_hash": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "discounted_amount": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "cash",
+        "stock",
+        "target_value",
+        "hedge_value",
+        "stock_value",
+        "receivable_value",
+        "equity",
+        "daily_pnl",
+        "cumulative_pnl",
+        "external_net_cashflow",
+        "cumulative_external_net_cashflow",
+        "delta",
+        "raw_vega_l2",
+        "hedges",
+        "receivables",
+        "fully_settled",
+        "numeraire",
+        "numeraire_hash",
+        "discounted_equity",
+        "discounted_daily_pnl",
+        "discounted_cumulative_pnl",
+        "discounted_external_net_cashflow",
+        "discounted_cumulative_external_cashflow"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "cash": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "target_value": {
+          "type": "number"
+        },
+        "hedge_value": {
+          "type": "number"
+        },
+        "stock_value": {
+          "type": "number"
+        },
+        "receivable_value": {
+          "type": "number"
+        },
+        "equity": {
+          "type": "number"
+        },
+        "daily_pnl": {
+          "type": "number"
+        },
+        "cumulative_pnl": {
+          "type": "number"
+        },
+        "external_net_cashflow": {
+          "type": "number"
+        },
+        "cumulative_external_net_cashflow": {
+          "type": "number"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "raw_vega_l2": {
+          "type": "number",
+          "minimum": 0
+        },
+        "hedges": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "receivables": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/claim_mark"
+          }
+        },
+        "fully_settled": {
+          "type": "boolean"
+        },
+        "numeraire": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/numeraire"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "numeraire_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discounted_equity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discounted_daily_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discounted_cumulative_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discounted_external_net_cashflow": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discounted_cumulative_external_cashflow": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "price",
+        "delta",
+        "buckets",
+        "basis_id",
+        "signed_residual",
+        "pre_projection",
+        "price_standard_error",
+        "edge_sensitivity_abs",
+        "provenance",
+        "bucket_standard_errors",
+        "warning_codes",
+        "native_policy",
+        "payment_date",
+        "payment_scaling_factor",
+        "gamma",
+        "gamma_method",
+        "gamma_spot_bump",
+        "reporting_iv",
+        "reporting_forwards"
+      ],
+      "properties": {
+        "price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "delta": {
+          "type": "number"
+        },
+        "buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "signed_residual": {
+          "type": "number"
+        },
+        "pre_projection": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "price_standard_error": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "edge_sensitivity_abs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "provenance": {
+          "type": "string"
+        },
+        "bucket_standard_errors": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warning_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "native_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payment_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payment_scaling_factor": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "gamma": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gamma_method": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gamma_spot_bump": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reporting_iv": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "minItems": 4
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reporting_forwards": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "minItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "gamma": {
+                "const": null
+              }
+            },
+            "required": [
+              "gamma"
+            ]
+          },
+          "then": {
+            "properties": {
+              "gamma_method": {
+                "type": "null"
+              },
+              "gamma_spot_bump": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reporting_iv": {
+                "const": null
+              }
+            },
+            "required": [
+              "reporting_iv"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reporting_forwards": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "reporting_forwards": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "minItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "risk_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "basis",
+        "basis_id",
+        "target_buckets",
+        "held_buckets",
+        "target_delta",
+        "held_delta",
+        "target_projection_residual_abs",
+        "instruments"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "basis": {
+          "$ref": "#/$defs/basis"
+        },
+        "basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "target_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "held_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "target_delta": {
+          "type": "number"
+        },
+        "held_delta": {
+          "type": "number"
+        },
+        "target_projection_residual_abs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "instruments": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/risk"
+          }
+        },
+        "market_shocks": {
+          "$ref": "#/$defs/held_market_shocks"
+        }
+      }
+    },
+    "solver": {
+      "anyOf": [
+        {
+          "$ref": "urn:rust-pricing-library:backtesting:definitions:v1#/$defs/solver"
+        },
+        {
+          "$ref": "#/$defs/budget_solver"
+        }
+      ]
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "strategy",
+        "candidates"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "strategy": {
+          "enum": [
+            "unhedged",
+            "delta",
+            "scalar_vega",
+            "vega_kt"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "eligible": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "solver": {
+          "$ref": "#/$defs/solver"
+        },
+        "matrix": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 0
+          },
+          "minItems": 0
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "rounded_residual": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "budget": {
+          "$ref": "#/$defs/budget_audit"
+        },
+        "option_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "previous",
+            "lower",
+            "upper",
+            "costs"
+          ],
+          "properties": {
+            "previous": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 0
+            },
+            "lower": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 0
+            },
+            "upper": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 0
+            },
+            "costs": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 0
+            }
+          }
+        },
+        "market_shocks": {
+          "$ref": "#/$defs/proposed_market_shocks"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "strategy": {
+                "enum": [
+                  "scalar_vega",
+                  "vega_kt"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "eligible",
+              "solver",
+              "matrix",
+              "target",
+              "rounded_residual"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "strategy": {
+                "enum": [
+                  "scalar_vega",
+                  "vega_kt"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "market_shocks": {
+                "required": [
+                  "continuous",
+                  "optimizer_input"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "strategy": {
+                "const": "vega_kt"
+              }
+            },
+            "required": [
+              "strategy"
+            ]
+          },
+          "then": {
+            "properties": {
+              "market_shocks": {
+                "properties": {
+                  "objective": {
+                    "const": "fixed_market_iv"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "market_shocks": {
+                "properties": {
+                  "objective": {
+                    "const": "strategy_default"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "option_hedge",
+        "stock",
+        "dividend",
+        "funding",
+        "stock_borrow",
+        "entry_fees",
+        "trading_fees",
+        "spread_slippage"
+      ],
+      "properties": {
+        "target": {
+          "type": "number"
+        },
+        "option_hedge": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "dividend": {
+          "type": "number"
+        },
+        "funding": {
+          "type": "number"
+        },
+        "stock_borrow": {
+          "type": "number"
+        },
+        "entry_fees": {
+          "type": "number"
+        },
+        "trading_fees": {
+          "type": "number"
+        },
+        "spread_slippage": {
+          "type": "number"
+        }
+      }
+    },
+    "discounted_attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pnl_at_current_numeraire",
+        "numeraire_carry",
+        "total",
+        "ledger_pnl",
+        "reconciliation_error",
+        "cumulative_total",
+        "ledger_cumulative_pnl",
+        "cumulative_reconciliation_error",
+        "tolerance",
+        "cumulative_tolerance"
+      ],
+      "properties": {
+        "pnl_at_current_numeraire": {
+          "type": "number"
+        },
+        "numeraire_carry": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "ledger_pnl": {
+          "type": "number"
+        },
+        "reconciliation_error": {
+          "type": "number"
+        },
+        "cumulative_total": {
+          "type": "number"
+        },
+        "ledger_cumulative_pnl": {
+          "type": "number"
+        },
+        "cumulative_reconciliation_error": {
+          "type": "number"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cumulative_tolerance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "pnl_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "target",
+        "option_hedge",
+        "stock",
+        "dividend",
+        "funding",
+        "stock_borrow",
+        "entry_fees",
+        "trading_fees",
+        "spread_slippage",
+        "cumulative",
+        "total",
+        "ledger_pnl",
+        "reconciliation_error",
+        "cumulative_total",
+        "ledger_cumulative_pnl",
+        "cumulative_reconciliation_error",
+        "external_cashflow_reconciliation_error",
+        "tolerance",
+        "cumulative_tolerance",
+        "discounted",
+        "details"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "target": {
+          "type": "number"
+        },
+        "option_hedge": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "dividend": {
+          "type": "number"
+        },
+        "funding": {
+          "type": "number"
+        },
+        "stock_borrow": {
+          "type": "number"
+        },
+        "entry_fees": {
+          "type": "number"
+        },
+        "trading_fees": {
+          "type": "number"
+        },
+        "spread_slippage": {
+          "type": "number"
+        },
+        "cumulative": {
+          "$ref": "#/$defs/components"
+        },
+        "total": {
+          "type": "number"
+        },
+        "ledger_pnl": {
+          "type": "number"
+        },
+        "reconciliation_error": {
+          "type": "number"
+        },
+        "cumulative_total": {
+          "type": "number"
+        },
+        "ledger_cumulative_pnl": {
+          "type": "number"
+        },
+        "cumulative_reconciliation_error": {
+          "type": "number"
+        },
+        "external_cashflow_reconciliation_error": {
+          "type": "number"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cumulative_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "discounted": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/discounted_attribution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_value_change",
+            "hedge_value_change",
+            "stock_value_change",
+            "target_claim_change",
+            "hedge_claim_change",
+            "target_entry_premium",
+            "target_settlement_cash",
+            "hedge_settlement_cash",
+            "option_mid_trade_cash",
+            "stock_mid_trade_cash",
+            "external_net_cashflow"
+          ],
+          "properties": {
+            "target_value_change": {
+              "type": "number"
+            },
+            "hedge_value_change": {
+              "type": "number"
+            },
+            "stock_value_change": {
+              "type": "number"
+            },
+            "target_claim_change": {
+              "type": "number"
+            },
+            "hedge_claim_change": {
+              "type": "number"
+            },
+            "target_entry_premium": {
+              "type": "number"
+            },
+            "target_settlement_cash": {
+              "type": "number"
+            },
+            "hedge_settlement_cash": {
+              "type": "number"
+            },
+            "option_mid_trade_cash": {
+              "type": "number"
+            },
+            "stock_mid_trade_cash": {
+              "type": "number"
+            },
+            "external_net_cashflow": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "cost_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantity",
+        "multiplier",
+        "average_price",
+        "signed_cost"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "number"
+        },
+        "multiplier": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "average_price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "signed_cost": {
+          "type": "number"
+        }
+      }
+    },
+    "cost_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "group",
+        "contract_id",
+        "signed_cost"
+      ],
+      "properties": {
+        "group": {
+          "enum": [
+            "targets",
+            "hedges"
+          ]
+        },
+        "contract_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "signed_cost": {
+          "type": "number"
+        }
+      }
+    },
+    "cost_book": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "positions",
+        "claims",
+        "realized",
+        "spread_slippage"
+      ],
+      "properties": {
+        "positions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targets",
+            "hedges",
+            "stock"
+          ],
+          "properties": {
+            "targets": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/cost_position"
+              }
+            },
+            "hedges": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/cost_position"
+              }
+            },
+            "stock": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/cost_position"
+              }
+            }
+          }
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/cost_claim"
+          }
+        },
+        "realized": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targets",
+            "hedges",
+            "stock"
+          ],
+          "properties": {
+            "targets": {
+              "type": "number"
+            },
+            "hedges": {
+              "type": "number"
+            },
+            "stock": {
+              "type": "number"
+            }
+          }
+        },
+        "spread_slippage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targets",
+            "hedges",
+            "stock"
+          ],
+          "properties": {
+            "targets": {
+              "type": "number"
+            },
+            "hedges": {
+              "type": "number"
+            },
+            "stock": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "cost_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "realized_pnl",
+        "unrealized_pnl",
+        "total_pnl",
+        "daily_realized_pnl",
+        "daily_unrealized_change",
+        "daily_total_pnl",
+        "open_cost",
+        "claim_cost",
+        "market_value",
+        "spread_slippage",
+        "expected_pnl",
+        "daily_reconciliation_error",
+        "cumulative_reconciliation_error"
+      ],
+      "properties": {
+        "realized_pnl": {
+          "type": "number"
+        },
+        "unrealized_pnl": {
+          "type": "number"
+        },
+        "total_pnl": {
+          "type": "number"
+        },
+        "daily_realized_pnl": {
+          "type": "number"
+        },
+        "daily_unrealized_change": {
+          "type": "number"
+        },
+        "daily_total_pnl": {
+          "type": "number"
+        },
+        "open_cost": {
+          "type": "number"
+        },
+        "claim_cost": {
+          "type": "number"
+        },
+        "market_value": {
+          "type": "number"
+        },
+        "spread_slippage": {
+          "type": "number"
+        },
+        "expected_pnl": {
+          "type": "number"
+        },
+        "daily_reconciliation_error": {
+          "type": "number"
+        },
+        "cumulative_reconciliation_error": {
+          "type": "number"
+        }
+      }
+    },
+    "cost_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groups",
+        "cash_realized_components",
+        "realized_pnl",
+        "unrealized_pnl",
+        "total_pnl"
+      ],
+      "properties": {
+        "groups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "option_hedge",
+            "stock"
+          ],
+          "properties": {
+            "target": {
+              "$ref": "#/$defs/cost_group"
+            },
+            "option_hedge": {
+              "$ref": "#/$defs/cost_group"
+            },
+            "stock": {
+              "$ref": "#/$defs/cost_group"
+            }
+          }
+        },
+        "cash_realized_components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dividend",
+            "funding",
+            "stock_borrow",
+            "entry_fees",
+            "trading_fees"
+          ],
+          "properties": {
+            "dividend": {
+              "type": "number"
+            },
+            "funding": {
+              "type": "number"
+            },
+            "stock_borrow": {
+              "type": "number"
+            },
+            "entry_fees": {
+              "type": "number"
+            },
+            "trading_fees": {
+              "type": "number"
+            }
+          }
+        },
+        "realized_pnl": {
+          "type": "number"
+        },
+        "unrealized_pnl": {
+          "type": "number"
+        },
+        "total_pnl": {
+          "type": "number"
+        }
+      }
+    },
+    "cost_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "groups",
+        "cash_realized_components",
+        "realized_pnl",
+        "unrealized_pnl",
+        "total_pnl",
+        "positions",
+        "claims",
+        "daily_realized_pnl",
+        "daily_unrealized_change",
+        "daily_total_pnl",
+        "daily_reconciliation_error",
+        "cumulative_reconciliation_error",
+        "spread_reconciliation_error",
+        "daily_tolerance",
+        "cumulative_tolerance"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "option_hedge",
+            "stock"
+          ],
+          "properties": {
+            "target": {
+              "$ref": "#/$defs/cost_group"
+            },
+            "option_hedge": {
+              "$ref": "#/$defs/cost_group"
+            },
+            "stock": {
+              "$ref": "#/$defs/cost_group"
+            }
+          }
+        },
+        "cash_realized_components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dividend",
+            "funding",
+            "stock_borrow",
+            "entry_fees",
+            "trading_fees"
+          ],
+          "properties": {
+            "dividend": {
+              "type": "number"
+            },
+            "funding": {
+              "type": "number"
+            },
+            "stock_borrow": {
+              "type": "number"
+            },
+            "entry_fees": {
+              "type": "number"
+            },
+            "trading_fees": {
+              "type": "number"
+            }
+          }
+        },
+        "realized_pnl": {
+          "type": "number"
+        },
+        "unrealized_pnl": {
+          "type": "number"
+        },
+        "total_pnl": {
+          "type": "number"
+        },
+        "positions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targets",
+            "hedges",
+            "stock"
+          ],
+          "properties": {
+            "targets": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/cost_position"
+              }
+            },
+            "hedges": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/cost_position"
+              }
+            },
+            "stock": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/cost_position"
+              }
+            }
+          }
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/cost_claim"
+          }
+        },
+        "daily_realized_pnl": {
+          "type": "number"
+        },
+        "daily_unrealized_change": {
+          "type": "number"
+        },
+        "daily_total_pnl": {
+          "type": "number"
+        },
+        "daily_reconciliation_error": {
+          "type": "number"
+        },
+        "cumulative_reconciliation_error": {
+          "type": "number"
+        },
+        "spread_reconciliation_error": {
+          "type": "number"
+        },
+        "daily_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cumulative_tolerance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "greek_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actual_pnl",
+        "unexplained_pnl",
+        "available_greek_pnl",
+        "delta_pnl",
+        "gamma_pnl",
+        "opening_delta",
+        "opening_gamma",
+        "vega_pnl",
+        "gamma_missing_contracts",
+        "gamma_status"
+      ],
+      "properties": {
+        "actual_pnl": {
+          "type": "number"
+        },
+        "unexplained_pnl": {
+          "type": "number"
+        },
+        "available_greek_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delta_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gamma_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opening_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opening_gamma": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vega_pnl": {
+          "type": "null"
+        },
+        "gamma_missing_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "gamma_status": {
+          "enum": [
+            "available",
+            "missing",
+            "no_interval"
+          ]
+        }
+      }
+    },
+    "greek_cumulative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available_greek_pnl",
+        "non_asset_pnl",
+        "unexplained_pnl"
+      ],
+      "properties": {
+        "available_greek_pnl": {
+          "type": "number"
+        },
+        "non_asset_pnl": {
+          "type": "number"
+        },
+        "unexplained_pnl": {
+          "type": "number"
+        }
+      }
+    },
+    "greek_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "from_at",
+        "elapsed_calendar_days",
+        "spot_change",
+        "risk_snapshot_hash",
+        "inventory_snapshot_hash",
+        "delta_convention",
+        "risk_warning_codes",
+        "groups",
+        "available_greek_pnl",
+        "unexplained_pnl",
+        "non_asset_pnl",
+        "total",
+        "ledger_pnl",
+        "reconciliation_error",
+        "cumulative_total",
+        "cumulative_reconciliation_error",
+        "tolerance",
+        "cumulative_tolerance",
+        "non_asset_components",
+        "cumulative",
+        "vega_status"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "from_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elapsed_calendar_days": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spot_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_snapshot_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inventory_snapshot_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delta_convention": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_warning_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "option_hedge",
+            "stock"
+          ],
+          "properties": {
+            "target": {
+              "$ref": "#/$defs/greek_group"
+            },
+            "option_hedge": {
+              "$ref": "#/$defs/greek_group"
+            },
+            "stock": {
+              "$ref": "#/$defs/greek_group"
+            }
+          }
+        },
+        "available_greek_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unexplained_pnl": {
+          "type": "number"
+        },
+        "non_asset_pnl": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "ledger_pnl": {
+          "type": "number"
+        },
+        "reconciliation_error": {
+          "type": "number"
+        },
+        "cumulative_total": {
+          "type": "number"
+        },
+        "cumulative_reconciliation_error": {
+          "type": "number"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cumulative_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "non_asset_components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dividend",
+            "funding",
+            "stock_borrow",
+            "entry_fees",
+            "trading_fees",
+            "spread_slippage"
+          ],
+          "properties": {
+            "dividend": {
+              "type": "number"
+            },
+            "funding": {
+              "type": "number"
+            },
+            "stock_borrow": {
+              "type": "number"
+            },
+            "entry_fees": {
+              "type": "number"
+            },
+            "trading_fees": {
+              "type": "number"
+            },
+            "spread_slippage": {
+              "type": "number"
+            }
+          }
+        },
+        "cumulative": {
+          "$ref": "#/$defs/greek_cumulative"
+        },
+        "vega_status": {
+          "const": "not_computed_risk_and_delta_iv_convention_unvalidated"
+        }
+      }
+    },
+    "iv_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "maturity",
+        "opening_k",
+        "opening_forward",
+        "canonical_strike",
+        "opening_iv",
+        "current_iv",
+        "current_k",
+        "delta_iv",
+        "current_indices",
+        "weights",
+        "status"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maturity": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "opening_k": {
+          "type": "number"
+        },
+        "opening_forward": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "canonical_strike": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opening_iv": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_iv": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_k": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delta_iv": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_indices": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 0,
+          "maxItems": 2
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minItems": 0,
+          "maxItems": 2
+        },
+        "status": {
+          "enum": [
+            "matched",
+            "expired_maturity",
+            "missing_opening_surface",
+            "missing_current_surface",
+            "missing_absolute_maturity",
+            "outside_strike_domain"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "matched"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "delta_iv": {
+                "type": "number"
+              },
+              "current_iv": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "current_indices": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minItems": 1,
+                "maxItems": 2
+              },
+              "weights": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "minItems": 1,
+                "maxItems": 2
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "delta_iv": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "iv_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opening_raw_buckets",
+        "absolute_instrument_buckets",
+        "covered_bucket_dot",
+        "complete_bucket_dot",
+        "covered_absolute_risk",
+        "uncovered_absolute_risk",
+        "absolute_risk_coverage",
+        "status"
+      ],
+      "properties": {
+        "opening_raw_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "absolute_instrument_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 0
+        },
+        "covered_bucket_dot": {
+          "type": "number"
+        },
+        "complete_bucket_dot": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covered_absolute_risk": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uncovered_absolute_risk": {
+          "type": "number",
+          "minimum": 0
+        },
+        "absolute_risk_coverage": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "no_opening_risk",
+            "complete",
+            "partial"
+          ]
+        }
+      }
+    },
+    "iv_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at",
+        "from_at",
+        "application",
+        "pnl_adopted",
+        "blockers",
+        "nodes",
+        "groups",
+        "opening_surface_hash",
+        "current_surface_hash",
+        "opening_basis_id",
+        "current_basis_id",
+        "current_surface_contracts",
+        "opening_surface_contracts",
+        "status"
+      ],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "from_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "application": {
+          "const": "diagnostic_only_not_added_to_greek_pnl"
+        },
+        "pnl_adopted": {
+          "const": false
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/iv_node"
+          },
+          "minItems": 0
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "target": {
+              "$ref": "#/$defs/iv_group"
+            },
+            "option_hedge": {
+              "$ref": "#/$defs/iv_group"
+            }
+          }
+        },
+        "opening_surface_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_surface_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opening_basis_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "current_surface_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "opening_surface_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "status": {
+          "enum": [
+            "no_interval",
+            "unsupported_coordinate",
+            "complete",
+            "partial"
+          ]
+        },
+        "risk_method": {
+          "type": "string"
+        },
+        "delta_convention": {
+          "type": "string"
+        },
+        "matched_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "risk_warning_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "complete",
+                  "partial"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "risk_method",
+              "delta_convention",
+              "matched_nodes",
+              "total_nodes",
+              "risk_warning_codes"
+            ],
+            "properties": {
+              "groups": {
+                "required": [
+                  "target",
+                  "option_hedge"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cash",
+        "stock",
+        "targets",
+        "hedges",
+        "receivables",
+        "next_index",
+        "pending",
+        "external_cashflow_ids",
+        "cost_basis_book",
+        "ledger",
+        "orders",
+        "fills",
+        "cashflows",
+        "risks",
+        "decisions",
+        "settlements",
+        "pnl_components",
+        "cost_basis",
+        "greek_pnl",
+        "iv_alignment",
+        "path_fixings"
+      ],
+      "properties": {
+        "cash": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "targets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "hedges": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "receivables": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/claim"
+          }
+        },
+        "next_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_cashflow_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "cost_basis_book": {
+          "$ref": "#/$defs/cost_book"
+        },
+        "ledger": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ledger"
+          },
+          "minItems": 0
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/order"
+          },
+          "minItems": 0
+        },
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fill"
+          },
+          "minItems": 0
+        },
+        "cashflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cashflow"
+          },
+          "minItems": 0
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk_row"
+          },
+          "minItems": 0
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision"
+          },
+          "minItems": 0
+        },
+        "settlements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/settlement"
+          },
+          "minItems": 0
+        },
+        "pnl_components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pnl_row"
+          },
+          "minItems": 0
+        },
+        "cost_basis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cost_row"
+          },
+          "minItems": 0
+        },
+        "greek_pnl": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/greek_row"
+          },
+          "minItems": 0
+        },
+        "iv_alignment": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/iv_row"
+          },
+          "minItems": 0
+        },
+        "path_fixings": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fixing"
+          }
+        }
+      }
+    },
+    "checkpoint_v10": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "identity_hash",
+        "history_prefix_hash",
+        "state_hash",
+        "state"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 10
+        },
+        "identity_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "history_prefix_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "state_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "state": {
+          "$ref": "#/$defs/state"
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "snapshot_id",
+        "snapshot_index",
+        "attempted_at",
+        "last_completed_at",
+        "state_boundary",
+        "remaining_state",
+        "pending_order"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "message": {
+          "type": "string"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "snapshot_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempted_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+        },
+        "last_completed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state_boundary": {
+          "const": "before_failed_snapshot"
+        },
+        "remaining_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cash",
+            "stock",
+            "targets",
+            "hedges",
+            "receivables"
+          ],
+          "properties": {
+            "cash": {
+              "type": "number"
+            },
+            "stock": {
+              "type": "number"
+            },
+            "targets": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "hedges": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "receivables": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/claim"
+              }
+            }
+          }
+        },
+        "pending_order": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/order"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observations",
+        "passed",
+        "max_abs_daily_difference",
+        "cumulative_difference"
+      ],
+      "properties": {
+        "observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "anyOf": [
+            {
+              "const": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_abs_daily_difference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cumulative_difference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "discounted_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_id",
+        "currency_id",
+        "initial_value",
+        "final_value",
+        "observations",
+        "cumulative_pnl",
+        "external_net_cashflow",
+        "terminal_hedging_error",
+        "reconciliation"
+      ],
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "currency_id": {
+          "type": "integer"
+        },
+        "initial_value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "final_value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cumulative_pnl": {
+          "type": "number"
+        },
+        "external_net_cashflow": {
+          "type": "number"
+        },
+        "terminal_hedging_error": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reconciliation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "passed",
+            "max_abs_daily_difference",
+            "cumulative_difference"
+          ],
+          "properties": {
+            "passed": {
+              "const": true
+            },
+            "max_abs_daily_difference": {
+              "type": "number"
+            },
+            "cumulative_difference": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cumulative_pnl",
+        "daily_mean",
+        "daily_standard_deviation",
+        "daily_rmse",
+        "worst_day",
+        "max_drawdown_currency",
+        "terminal_hedging_error",
+        "receivable_value",
+        "execution_cost",
+        "absolute_traded_value",
+        "target_entry_fees",
+        "stock_borrow_cost",
+        "funding_pnl",
+        "fully_settled",
+        "observations",
+        "outstanding_payments",
+        "scheduled_snapshots",
+        "coverage_fraction",
+        "status",
+        "last_completed_at",
+        "risk_validation_status",
+        "external_capital",
+        "discounted_pnl",
+        "pnl_components",
+        "cost_basis",
+        "pnl_reconciliation",
+        "greek_pnl",
+        "iv_alignment"
+      ],
+      "properties": {
+        "cumulative_pnl": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "daily_mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "daily_standard_deviation": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "daily_rmse": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "worst_day": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_drawdown_currency": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "terminal_hedging_error": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receivable_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "absolute_traded_value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "target_entry_fees": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock_borrow_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "funding_pnl": {
+          "type": "number"
+        },
+        "fully_settled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outstanding_payments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scheduled_snapshots": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "coverage_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "partial",
+            "failed"
+          ]
+        },
+        "last_completed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_validation_status": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "external_capital": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "count",
+            "net_cashflow",
+            "gross_inflows",
+            "gross_outflows"
+          ],
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "net_cashflow": {
+              "type": "number"
+            },
+            "gross_inflows": {
+              "type": "number",
+              "minimum": 0
+            },
+            "gross_outflows": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "discounted_pnl": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/discounted_summary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pnl_components": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/components"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cost_basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cost_summary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pnl_reconciliation": {
+          "$ref": "#/$defs/reconciliation"
+        },
+        "greek_pnl": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope",
+            "observations",
+            "intervals",
+            "intervals_with_complete_gamma",
+            "vega_status",
+            "cumulative",
+            "max_abs_reconciliation_difference",
+            "cumulative_reconciliation_difference"
+          ],
+          "properties": {
+            "scope": {
+              "const": "spot_delta_optional_gamma"
+            },
+            "observations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "intervals": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "intervals_with_complete_gamma": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "vega_status": {
+              "const": "not_computed_risk_and_delta_iv_convention_unvalidated"
+            },
+            "cumulative": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/greek_cumulative"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_abs_reconciliation_difference": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cumulative_reconciliation_difference": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "iv_alignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "observations",
+            "intervals",
+            "intervals_with_all_nodes_matched",
+            "application",
+            "pnl_adopted",
+            "last_status"
+          ],
+          "properties": {
+            "observations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "intervals": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "intervals_with_all_nodes_matched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "application": {
+              "const": "diagnostic_only_not_added_to_greek_pnl"
+            },
+            "pnl_adopted": {
+              "const": false
+            },
+            "last_status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "fully_settled": {
+                "enum": [
+                  false,
+                  null
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "terminal_hedging_error": {
+                "type": "null"
+              },
+              "discounted_pnl": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "properties": {
+                      "terminal_hedging_error": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_kind",
+        "schema_version",
+        "input_schema_version",
+        "config",
+        "contracts",
+        "portfolio",
+        "market_history",
+        "code_revision",
+        "provider",
+        "risk_validation",
+        "implementation_hash",
+        "identity_hash",
+        "history_hash",
+        "full_history_hash",
+        "schedule",
+        "processed_snapshots",
+        "python",
+        "platform",
+        "numpy",
+        "execution",
+        "funding",
+        "failure_policy",
+        "snapshot_commit_policy",
+        "lot_rounding",
+        "settlement_policy",
+        "snapshot_spot_settlement_contracts",
+        "pnl_attribution",
+        "cost_basis_policy",
+        "greek_pnl_policy",
+        "iv_alignment_policy",
+        "external_cashflow_policy",
+        "numeraire_policy",
+        "target_mark",
+        "risk_unit",
+        "optimizer_backend",
+        "path_observation_policy"
+      ],
+      "properties": {
+        "document_kind": {
+          "const": "hedging_backtest_result"
+        },
+        "schema_version": {
+          "const": 12
+        },
+        "input_schema_version": {
+          "const": 8
+        },
+        "config": {
+          "$ref": "#/$defs/config"
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contract"
+          },
+          "minItems": 1
+        },
+        "portfolio": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/position"
+          },
+          "minItems": 1
+        },
+        "market_history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/snapshot"
+          },
+          "minItems": 1
+        },
+        "code_revision": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "risk_validation": {
+          "$ref": "#/$defs/risk_validation"
+        },
+        "implementation_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "identity_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "history_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "full_history_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "schedule": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "processed_snapshots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "python": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "numpy": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "execution": {
+          "const": "next_snapshot_bid_ask"
+        },
+        "funding": {
+          "const": "previous_rate_act365f_continuous"
+        },
+        "failure_policy": {
+          "const": "fail_run"
+        },
+        "snapshot_commit_policy": {
+          "const": "atomic_snapshot_v1"
+        },
+        "lot_rounding": {
+          "const": "eight_ulp_integer_snap_then_toward_zero_with_bounds_v1"
+        },
+        "settlement_policy": {
+          "const": "fix_then_discounted_claim_then_pay_v1"
+        },
+        "snapshot_spot_settlement_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0
+        },
+        "pnl_attribution": {
+          "$ref": "#/$defs/metadata"
+        },
+        "cost_basis_policy": {
+          "$ref": "#/$defs/metadata"
+        },
+        "greek_pnl_policy": {
+          "$ref": "#/$defs/metadata"
+        },
+        "iv_alignment_policy": {
+          "$ref": "#/$defs/metadata"
+        },
+        "external_cashflow_policy": {
+          "$ref": "#/$defs/metadata"
+        },
+        "numeraire_policy": {
+          "$ref": "#/$defs/metadata"
+        },
+        "target_mark": {
+          "enum": [
+            "model",
+            "market"
+          ]
+        },
+        "risk_unit": {
+          "const": "currency_per_unit_absolute_volatility"
+        },
+        "optimizer_backend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "scipy",
+            "numpy"
+          ],
+          "properties": {
+            "policy": {
+              "enum": [
+                "box_l1_coordinate_descent_v1",
+                "decision_quote_cash_gross_delta_neutral_qp_v1"
+              ]
+            },
+            "scipy": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "numpy": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "market_shock_policy": {
+          "$ref": "#/$defs/market_shock_policy"
+        },
+        "path_observation_policy": {
+          "const": {
+            "method": "immutable_dated_path_observations_v1",
+            "missing": "fail_snapshot",
+            "revisions": "reject_after_first_use",
+            "availability": "at_or_before_snapshot",
+            "weighting": "contract_weights_without_renormalization"
+          }
+        }
+      }
+    },
+    "result_v12": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "manifest",
+        "ledger",
+        "orders",
+        "fills",
+        "cashflows",
+        "risks",
+        "decisions",
+        "settlements",
+        "pnl_components",
+        "cost_basis",
+        "greek_pnl",
+        "iv_alignment",
+        "summary",
+        "checkpoint",
+        "failure"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "completed",
+            "partial",
+            "failed"
+          ]
+        },
+        "manifest": {
+          "$ref": "#/$defs/manifest"
+        },
+        "ledger": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ledger"
+          },
+          "minItems": 0
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/order"
+          },
+          "minItems": 0
+        },
+        "fills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fill"
+          },
+          "minItems": 0
+        },
+        "cashflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cashflow"
+          },
+          "minItems": 0
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk_row"
+          },
+          "minItems": 0
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision"
+          },
+          "minItems": 0
+        },
+        "settlements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/settlement"
+          },
+          "minItems": 0
+        },
+        "pnl_components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pnl_row"
+          },
+          "minItems": 0
+        },
+        "cost_basis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cost_row"
+          },
+          "minItems": 0
+        },
+        "greek_pnl": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/greek_row"
+          },
+          "minItems": 0
+        },
+        "iv_alignment": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/iv_row"
+          },
+          "minItems": 0
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "checkpoint": {
+          "$ref": "#/$defs/checkpoint_v10"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/failure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "failure": {
+                "$ref": "#/$defs/failure"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "failure": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "summary": {
+                "properties": {
+                  "status": {
+                    "const": "completed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "partial"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "summary": {
+                "properties": {
+                  "status": {
+                    "const": "partial"
+                  },
+                  "terminal_hedging_error": {
+                    "type": "null"
+                  },
+                  "discounted_pnl": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "properties": {
+                          "terminal_hedging_error": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "summary": {
+                "properties": {
+                  "status": {
+                    "const": "failed"
+                  },
+                  "terminal_hedging_error": {
+                    "type": "null"
+                  },
+                  "discounted_pnl": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "properties": {
+                          "terminal_hedging_error": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "manifest": {
+                "properties": {
+                  "config": {
+                    "properties": {
+                      "market_shock_log_moneyness": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "manifest": {
+                "required": [
+                  "market_shock_policy"
+                ]
+              },
+              "risks": {
+                "items": {
+                  "required": [
+                    "market_shocks"
+                  ]
+                }
+              },
+              "decisions": {
+                "items": {
+                  "required": [
+                    "market_shocks"
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "manifest": {
+                "not": {
+                  "required": [
+                    "market_shock_policy"
+                  ]
+                }
+              },
+              "risks": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "market_shocks"
+                    ]
+                  }
+                }
+              },
+              "decisions": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "market_shocks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ensemble_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "sampling_design",
+        "loss_levels",
+        "confidence_level",
+        "bootstrap_resamples",
+        "bootstrap_seed",
+        "minimum_ci_samples",
+        "minimum_tail_observations",
+        "minimum_baseline_variance"
+      ],
+      "properties": {
+        "metric": {
+          "enum": [
+            "nominal",
+            "discounted"
+          ]
+        },
+        "sampling_design": {
+          "enum": [
+            "dependent_or_unknown",
+            "independent_simulation"
+          ]
+        },
+        "loss_levels": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "confidence_level": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "bootstrap_resamples": {
+          "type": "integer",
+          "minimum": 100
+        },
+        "bootstrap_seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_ci_samples": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "minimum_tail_observations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_baseline_variance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "input_ensemble_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "metric": {
+          "enum": [
+            "nominal",
+            "discounted"
+          ]
+        },
+        "sampling_design": {
+          "enum": [
+            "dependent_or_unknown",
+            "independent_simulation"
+          ]
+        },
+        "loss_levels": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "confidence_level": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "bootstrap_resamples": {
+          "type": "integer",
+          "minimum": 100
+        },
+        "bootstrap_seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_ci_samples": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "minimum_tail_observations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_baseline_variance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "outer_randomness": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "scenario_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "replication_id",
+        "source",
+        "results"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "replication_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "outer_randomness": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/outer_randomness"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "results": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "unhedged": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "delta": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "scalar_vega": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "vega_kt": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        }
+      }
+    },
+    "ensemble_request_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_kind",
+        "schema_version",
+        "config",
+        "scenarios"
+      ],
+      "properties": {
+        "document_kind": {
+          "const": "hedging_backtest_ensemble_request"
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "config": {
+          "$ref": "#/$defs/input_ensemble_config"
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scenario_request"
+          },
+          "minItems": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "config": {
+                "properties": {
+                  "sampling_design": {
+                    "const": "independent_simulation"
+                  }
+                },
+                "required": [
+                  "sampling_design"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "scenarios": {
+                "items": {
+                  "required": [
+                    "outer_randomness"
+                  ],
+                  "properties": {
+                    "outer_randomness": {
+                      "type": "object",
+                      "required": [
+                        "algorithm",
+                        "domain",
+                        "seed"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scenario_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "status",
+        "reason",
+        "terminal_error",
+        "observations",
+        "scheduled_snapshots",
+        "coverage_fraction",
+        "last_completed_at",
+        "failure_code",
+        "execution_cost",
+        "absolute_traded_value",
+        "result_hash"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "unhedged",
+            "delta",
+            "scalar_vega",
+            "vega_kt"
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "missing"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_strategy",
+                "partial",
+                "failed",
+                "unsettled",
+                "metric_unavailable"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "terminal_error": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observations": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scheduled_snapshots": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "coverage_fraction": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_completed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failure_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution_cost": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "absolute_traded_value": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "missing",
+                  "partial",
+                  "failed"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "terminal_error": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scenario_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "replication_id",
+        "source",
+        "outer_randomness",
+        "full_history_hash",
+        "paired",
+        "runs"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "replication_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "outer_randomness": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/outer_randomness"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "full_history_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paired": {
+          "type": "boolean"
+        },
+        "runs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unhedged",
+            "delta",
+            "scalar_vega",
+            "vega_kt"
+          ],
+          "properties": {
+            "unhedged": {
+              "$ref": "#/$defs/scenario_run"
+            },
+            "delta": {
+              "$ref": "#/$defs/scenario_run"
+            },
+            "scalar_vega": {
+              "$ref": "#/$defs/scenario_run"
+            },
+            "vega_kt": {
+              "$ref": "#/$defs/scenario_run"
+            }
+          }
+        }
+      }
+    },
+    "tail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "quantile",
+        "expected_shortfall",
+        "effective_tail_observations",
+        "status",
+        "confidence_intervals",
+        "confidence_interval_reason"
+      ],
+      "properties": {
+        "level": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "quantile": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_shortfall": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effective_tail_observations": {
+          "type": "number",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "unavailable",
+            "reference_only",
+            "estimate"
+          ]
+        },
+        "confidence_intervals": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "quantile",
+                "expected_shortfall"
+              ],
+              "properties": {
+                "quantile": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "expected_shortfall": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence_interval_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "unavailable",
+                  "reference_only"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "confidence_intervals": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "strategy_statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_count",
+        "mean",
+        "standard_deviation",
+        "rmse",
+        "loss_tail",
+        "run_counts",
+        "terminal_eligible_count",
+        "excluded_from_pair_count",
+        "mean_execution_cost_nominal",
+        "mean_absolute_traded_value_nominal",
+        "confidence_intervals",
+        "confidence_interval_reason",
+        "risk_validation"
+      ],
+      "properties": {
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "standard_deviation": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rmse": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loss_tail": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tail"
+          },
+          "minItems": 1
+        },
+        "run_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "completed",
+            "partial",
+            "failed",
+            "missing"
+          ],
+          "properties": {
+            "completed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "partial": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "terminal_eligible_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_from_pair_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mean_execution_cost_nominal": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mean_absolute_traded_value_nominal": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence_intervals": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mean",
+                "standard_deviation",
+                "rmse"
+              ],
+              "properties": {
+                "mean": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "standard_deviation": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rmse": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence_interval_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_validation": {
+          "$ref": "#/$defs/risk_validation"
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "sample_count",
+        "mean_error_difference",
+        "variance_improvement",
+        "variance_improvement_reason",
+        "confidence_intervals",
+        "confidence_interval_reason",
+        "undefined_variance_bootstrap_resamples"
+      ],
+      "properties": {
+        "baseline": {
+          "const": "delta"
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mean_error_difference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "variance_improvement": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "variance_improvement_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence_intervals": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mean_error_difference",
+                "variance_improvement"
+              ],
+              "properties": {
+                "mean_error_difference": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "variance_improvement": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence_interval_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "undefined_variance_bootstrap_resamples": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "variance_interval_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "shared_conditions": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "document_kind",
+            "schema_version",
+            "input_schema_version",
+            "config",
+            "contracts",
+            "portfolio",
+            "code_revision",
+            "provider",
+            "risk_validation",
+            "implementation_hash",
+            "schedule",
+            "python",
+            "platform",
+            "numpy",
+            "execution",
+            "funding",
+            "failure_policy",
+            "snapshot_commit_policy",
+            "lot_rounding",
+            "settlement_policy",
+            "snapshot_spot_settlement_contracts",
+            "pnl_attribution",
+            "cost_basis_policy",
+            "greek_pnl_policy",
+            "iv_alignment_policy",
+            "external_cashflow_policy",
+            "numeraire_policy",
+            "target_mark",
+            "risk_unit",
+            "initial_numeraire",
+            "pricing_controls",
+            "optimizer_backend",
+            "path_observation_policy"
+          ],
+          "properties": {
+            "document_kind": {
+              "const": "hedging_backtest_result"
+            },
+            "schema_version": {
+              "const": 12
+            },
+            "input_schema_version": {
+              "const": 8
+            },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rebalance_every",
+                "initial_cash",
+                "cash_floor",
+                "option_position_limit",
+                "option_trade_limit",
+                "stock_position_limit",
+                "stock_trade_limit",
+                "stock_lot",
+                "allow_option_shorts",
+                "allow_stock_shorts",
+                "allow_identical_hedge",
+                "option_fee",
+                "stock_fee",
+                "max_quote_age_seconds",
+                "max_relative_spread",
+                "min_vega",
+                "ridge",
+                "turnover_penalty",
+                "slippage_bps",
+                "solver_tolerance",
+                "solver_iterations",
+                "max_abs_projection_residual",
+                "max_abs_edge_sensitivity",
+                "max_price_standard_error",
+                "max_bucket_standard_error",
+                "target_mark",
+                "end_policy",
+                "numeraire_id",
+                "constraint_mode",
+                "gross_notional_limit",
+                "market_shock_log_moneyness"
+              ],
+              "properties": {
+                "rebalance_every": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "initial_cash": {
+                  "type": "number"
+                },
+                "cash_floor": {
+                  "type": "number"
+                },
+                "option_position_limit": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "option_trade_limit": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "stock_position_limit": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "stock_trade_limit": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "stock_lot": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "allow_option_shorts": {
+                  "type": "boolean"
+                },
+                "allow_stock_shorts": {
+                  "type": "boolean"
+                },
+                "allow_identical_hedge": {
+                  "type": "boolean"
+                },
+                "option_fee": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "stock_fee": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max_quote_age_seconds": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max_relative_spread": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "min_vega": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "ridge": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "turnover_penalty": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "slippage_bps": {
+                  "type": "number",
+                  "minimum": 0,
+                  "exclusiveMaximum": 10000
+                },
+                "solver_tolerance": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "solver_iterations": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max_abs_projection_residual": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max_abs_edge_sensitivity": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max_price_standard_error": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max_bucket_standard_error": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "target_mark": {
+                  "enum": [
+                    "model",
+                    "market"
+                  ]
+                },
+                "end_policy": {
+                  "enum": [
+                    "mark_to_market",
+                    "liquidate_hedges"
+                  ]
+                },
+                "numeraire_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "constraint_mode": {
+                  "enum": [
+                    "execution_cash",
+                    "decision_cash_gross"
+                  ]
+                },
+                "gross_notional_limit": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "market_shock_log_moneyness": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "uniqueItems": true
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "constraint_mode": {
+                        "const": "decision_cash_gross"
+                      }
+                    },
+                    "required": [
+                      "constraint_mode"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "gross_notional_limit": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "gross_notional_limit": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "contracts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/contract"
+              },
+              "minItems": 1
+            },
+            "portfolio": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/position"
+              },
+              "minItems": 1
+            },
+            "code_revision": {
+              "type": "string"
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "risk_validation": {
+              "$ref": "#/$defs/risk_validation"
+            },
+            "implementation_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "schedule": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "python": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "platform": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "numpy": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "execution": {
+              "const": "next_snapshot_bid_ask"
+            },
+            "funding": {
+              "const": "previous_rate_act365f_continuous"
+            },
+            "failure_policy": {
+              "const": "fail_run"
+            },
+            "snapshot_commit_policy": {
+              "const": "atomic_snapshot_v1"
+            },
+            "lot_rounding": {
+              "const": "eight_ulp_integer_snap_then_toward_zero_with_bounds_v1"
+            },
+            "settlement_policy": {
+              "const": "fix_then_discounted_claim_then_pay_v1"
+            },
+            "snapshot_spot_settlement_contracts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "minItems": 0
+            },
+            "pnl_attribution": {
+              "$ref": "#/$defs/metadata"
+            },
+            "cost_basis_policy": {
+              "$ref": "#/$defs/metadata"
+            },
+            "greek_pnl_policy": {
+              "$ref": "#/$defs/metadata"
+            },
+            "iv_alignment_policy": {
+              "$ref": "#/$defs/metadata"
+            },
+            "external_cashflow_policy": {
+              "$ref": "#/$defs/metadata"
+            },
+            "numeraire_policy": {
+              "$ref": "#/$defs/metadata"
+            },
+            "target_mark": {
+              "enum": [
+                "model",
+                "market"
+              ]
+            },
+            "risk_unit": {
+              "const": "currency_per_unit_absolute_volatility"
+            },
+            "initial_numeraire": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/numeraire"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pricing_controls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "basis",
+                  "requests"
+                ],
+                "properties": {
+                  "basis": {
+                    "$ref": "#/$defs/basis"
+                  },
+                  "requests": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "engine",
+                        "risk",
+                        "model_type",
+                        "grid"
+                      ],
+                      "properties": {
+                        "engine": {
+                          "$ref": "#/$defs/metadata"
+                        },
+                        "risk": {
+                          "$ref": "#/$defs/metadata"
+                        },
+                        "model_type": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        },
+                        "grid": {
+                          "$ref": "#/$defs/metadata"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "minItems": 0
+            },
+            "optimizer_backend": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "policy",
+                "scipy",
+                "numpy"
+              ],
+              "properties": {
+                "policy": {
+                  "enum": [
+                    "box_l1_coordinate_descent_v1",
+                    "decision_quote_cash_gross_delta_neutral_qp_v1"
+                  ]
+                },
+                "scipy": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "numpy": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                }
+              }
+            },
+            "market_shock_policy": {
+              "$ref": "#/$defs/market_shock_policy"
+            },
+            "path_observation_policy": {
+              "const": {
+                "method": "immutable_dated_path_observations_v1",
+                "missing": "fail_snapshot",
+                "revisions": "reject_after_first_use",
+                "availability": "at_or_before_snapshot",
+                "weighting": "contract_weights_without_renormalization"
+              }
+            }
+          }
+        },
+        {
+          "$ref": "urn:rust-pricing-library:backtesting:definitions:v3#/$defs/shared_conditions"
+        }
+      ]
+    },
+    "ensemble_v4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest",
+        "scenarios",
+        "strategies",
+        "comparisons"
+      ],
+      "properties": {
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "document_kind",
+            "schema_version",
+            "config",
+            "status",
+            "scenario_count",
+            "paired_sample_count",
+            "excluded_scenario_count",
+            "distinct_replication_count",
+            "repeated_replication_count",
+            "overlapping_calendar_window_pairs",
+            "paired_scenario_ids",
+            "observation_schedule",
+            "population",
+            "selection_caveat",
+            "independence",
+            "inference_scope",
+            "bootstrap",
+            "tail_method",
+            "loss_sign",
+            "standard_deviation",
+            "interpretation",
+            "risk_validation",
+            "conditions_hash",
+            "input_hash",
+            "implementation_hash",
+            "shared_conditions",
+            "python",
+            "numpy"
+          ],
+          "properties": {
+            "document_kind": {
+              "const": "hedging_backtest_ensemble"
+            },
+            "schema_version": {
+              "const": 4
+            },
+            "config": {
+              "$ref": "#/$defs/ensemble_config"
+            },
+            "status": {
+              "enum": [
+                "complete_cohort",
+                "incomplete_cohort"
+              ]
+            },
+            "scenario_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "paired_sample_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "excluded_scenario_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "distinct_replication_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "repeated_replication_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "overlapping_calendar_window_pairs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "paired_scenario_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "observation_schedule": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"
+              },
+              "minItems": 1
+            },
+            "population": {
+              "const": "intersection_of_four_completed_fully_settled_runs_with_requested_metric"
+            },
+            "selection_caveat": {
+              "const": "complete_case_statistics_can_be_biased_when_runs_fail"
+            },
+            "independence": {
+              "const": "caller_declared_not_inferred_from_dates_or_tested"
+            },
+            "inference_scope": {
+              "const": "outer_scenarios_conditional_on_fixed_pricing_randomness"
+            },
+            "bootstrap": {
+              "const": "paired_scenario_percentile_pcg64_linear_quantiles"
+            },
+            "tail_method": {
+              "const": "empirical_inverse_cdf_and_fractional_upper_tail_integral"
+            },
+            "loss_sign": {
+              "const": "negative_terminal_hedging_error"
+            },
+            "standard_deviation": {
+              "const": "sample_ddof_1"
+            },
+            "interpretation": {
+              "const": "descriptive_statistics_not_numerical_acceptance"
+            },
+            "risk_validation": {
+              "$ref": "#/$defs/risk_validation"
+            },
+            "conditions_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "input_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "implementation_hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "shared_conditions": {
+              "$ref": "#/$defs/shared_conditions"
+            },
+            "python": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "numpy": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scenario_output"
+          },
+          "minItems": 1
+        },
+        "strategies": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unhedged",
+            "delta",
+            "scalar_vega",
+            "vega_kt"
+          ],
+          "properties": {
+            "unhedged": {
+              "$ref": "#/$defs/strategy_statistics"
+            },
+            "delta": {
+              "$ref": "#/$defs/strategy_statistics"
+            },
+            "scalar_vega": {
+              "$ref": "#/$defs/strategy_statistics"
+            },
+            "vega_kt": {
+              "$ref": "#/$defs/strategy_statistics"
+            }
+          }
+        },
+        "comparisons": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unhedged",
+            "scalar_vega",
+            "vega_kt"
+          ],
+          "properties": {
+            "unhedged": {
+              "$ref": "#/$defs/comparison"
+            },
+            "scalar_vega": {
+              "$ref": "#/$defs/comparison"
+            },
+            "vega_kt": {
+              "$ref": "#/$defs/comparison"
+            }
+          }
+        }
+      }
+    },
+    "budget_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cash_after",
+        "gross_notional"
+      ],
+      "properties": {
+        "cash_after": {
+          "type": "number"
+        },
+        "gross_notional": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "budget_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deltas",
+        "target_delta",
+        "stock_previous",
+        "stock_lower",
+        "stock_upper",
+        "cash",
+        "cash_floor",
+        "linear",
+        "spreads",
+        "gross_weights",
+        "fixed_gross",
+        "gross_limit"
+      ],
+      "properties": {
+        "deltas": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "target_delta": {
+          "type": "number"
+        },
+        "stock_previous": {
+          "type": "number"
+        },
+        "stock_lower": {
+          "type": "number"
+        },
+        "stock_upper": {
+          "type": "number"
+        },
+        "cash": {
+          "type": "number"
+        },
+        "cash_floor": {
+          "type": "number"
+        },
+        "linear": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1
+        },
+        "spreads": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "gross_weights": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "fixed_gross": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gross_limit": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "budget_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputs",
+        "rounded",
+        "rounded_delta"
+      ],
+      "properties": {
+        "inputs": {
+          "$ref": "#/$defs/budget_inputs"
+        },
+        "rounded": {
+          "$ref": "#/$defs/budget_metrics"
+        },
+        "rounded_delta": {
+          "type": "number"
+        }
+      }
+    },
+    "budget_solver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantities",
+        "iterations",
+        "rank",
+        "singular_values",
+        "condition_number",
+        "objective_before",
+        "objective_after",
+        "projected_gradient",
+        "stock",
+        "cash_after",
+        "gross_notional",
+        "method",
+        "scipy_version",
+        "kkt_stationarity",
+        "kkt_complementarity",
+        "primal_violation",
+        "objective_scale",
+        "optimizer_status",
+        "optimizer_message",
+        "optimizer_success"
+      ],
+      "properties": {
+        "quantities": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "singular_values": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 0
+        },
+        "condition_number": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "objective_before": {
+          "type": "number",
+          "minimum": 0
+        },
+        "objective_after": {
+          "type": "number",
+          "minimum": 0
+        },
+        "projected_gradient": {
+          "type": "null"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "cash_after": {
+          "type": "number"
+        },
+        "gross_notional": {
+          "type": "number",
+          "minimum": 0
+        },
+        "method": {
+          "const": "decision_quote_cash_gross_delta_neutral_qp_v1"
+        },
+        "scipy_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "kkt_stationarity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "kkt_complementarity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "primal_violation": {
+          "type": "number",
+          "minimum": 0
+        },
+        "objective_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "optimizer_status": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "optimizer_message": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "optimizer_success": {
+          "type": "boolean"
+        }
+      }
+    },
+    "market_shock_policy": {
+      "const": {
+        "method": "nested_log_iv_market_shocks_v1",
+        "strike_policy": "configured_log_forward_moneyness_fixed_for_run",
+        "maturity_policy": "exact_current_snapshot_reporting_maturities",
+        "coordinate": "canonical_f_iv",
+        "objective_application": "vega_kt_strategy_only",
+        "risk_unit": "currency_per_unit_absolute_volatility",
+        "audit_timing": "held_after_fills_and_proposed_after_lot_rounding",
+        "complement_metric": "euclidean_reporting_quote_iv",
+        "hedge_effectiveness": "not_established"
+      }
+    },
+    "shock_complement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "reporting_l2",
+        "covered_l2",
+        "complement_l2",
+        "worst_complement_one_point_pnl",
+        "unit_complement_shock",
+        "complement_buckets",
+        "market_hedge_effectiveness"
+      ],
+      "properties": {
+        "metric": {
+          "const": "euclidean_reporting_quote_iv"
+        },
+        "reporting_l2": {
+          "type": "number",
+          "minimum": 0
+        },
+        "covered_l2": {
+          "type": "number",
+          "minimum": 0
+        },
+        "complement_l2": {
+          "type": "number",
+          "minimum": 0
+        },
+        "worst_complement_one_point_pnl": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit_complement_shock": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "complement_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "market_hedge_effectiveness": {
+          "const": "not_established"
+        }
+      }
+    },
+    "shock_risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "market_buckets",
+        "complement"
+      ],
+      "properties": {
+        "market_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "complement": {
+          "$ref": "#/$defs/shock_complement"
+        }
+      }
+    },
+    "held_market_shocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "map_id",
+        "reporting_basis_id",
+        "market_basis_id",
+        "market_basis",
+        "target",
+        "held"
+      ],
+      "properties": {
+        "map_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reporting_basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "market_basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "market_basis": {
+          "$ref": "#/$defs/basis"
+        },
+        "target": {
+          "$ref": "#/$defs/shock_risk"
+        },
+        "held": {
+          "$ref": "#/$defs/shock_risk"
+        }
+      }
+    },
+    "proposed_market_shocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "map_id",
+        "reporting_basis_id",
+        "market_basis_id",
+        "market_basis",
+        "objective",
+        "proposed",
+        "proposed_reporting_buckets"
+      ],
+      "properties": {
+        "map_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reporting_basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "market_basis_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "market_basis": {
+          "$ref": "#/$defs/basis"
+        },
+        "objective": {
+          "enum": [
+            "fixed_market_iv",
+            "strategy_default"
+          ]
+        },
+        "proposed": {
+          "$ref": "#/$defs/shock_risk"
+        },
+        "proposed_reporting_buckets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 0
+        },
+        "continuous": {
+          "$ref": "#/$defs/shock_risk"
+        },
+        "optimizer_input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "matrix"
+          ],
+          "properties": {
+            "target": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 0
+            },
+            "matrix": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 0
+              },
+              "minItems": 0
+            }
+          }
+        }
+      }
+    },
+    "path_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_date",
+        "fixing_id",
+        "weight"
+      ],
+      "properties": {
+        "observation_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "fixing_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
+}

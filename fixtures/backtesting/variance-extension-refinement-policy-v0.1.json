@@ -1,0 +1,9 @@
+{
+  "policy_id": "all_transition_variance_extension_refinement_v1",
+  "gamma_samples_by_intervals": {"4": 4096, "6": 2048},
+  "tangent_iv_bump": 0.000001,
+  "tangent_absolute_tolerance": 0.00002,
+  "richardson_absolute_tolerance": 0.000002,
+  "baseline_policy": "fixtures/backtesting/variance-extension-policy-v0.1.json",
+  "unchanged_native_thresholds": true
+}
