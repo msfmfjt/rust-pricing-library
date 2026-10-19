@@ -1053,6 +1053,8 @@ REQUIRED_CI_SNIPPETS = {
     "git archive --format=tar.gz --output",
     "python scripts/check_source_archive.py",
     "python scripts/smoke_test_wheel.py",
+    "  python-wheel-linux:",
+    "name: Python wheel / Linux",
     "python scripts/run_benchmark_suite.py",
     "python scripts/check_replay_fixture.py benchmark-results/replay.json",
     "python scripts/check_replay_fixture.py benchmark-results/local-volatility-replay.json",
@@ -1084,7 +1086,7 @@ REQUIRED_CI_SNIPPETS = {
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 5,
+    'python-version: "3.12"': 6,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
     "actions/upload-artifact@v4": 12,

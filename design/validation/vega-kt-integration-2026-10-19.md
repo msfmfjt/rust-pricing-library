@@ -55,6 +55,12 @@ checkout and are not part of the source archive.
 - Replay-audit mutation tests write explicit UTF-8/LF bytes on Windows, so they
   exercise numerical and structural rejection instead of failing early on CRLF
   formatting. The production replay format and byte-comparison gate are unchanged.
+- Linux wheel validation runs as an independent CI job. The prior main run
+  spent about 161 minutes on extended-model accuracy alone, before its Python
+  suite. The expanded 525-test clean-wheel suite now has its own runner and
+  execution budget, while the Rust job retains every numerical acceptance and
+  dependency check. The wheel build and full test commands are unchanged; no
+  cases, sampling budgets or tolerances are reduced.
 
 ## Validation
 
