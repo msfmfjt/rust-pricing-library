@@ -425,6 +425,24 @@ jobs:
           python -m pip install "maturin>=1.9,<2.0"
           python -m maturin build --locked --release --out dist
 
+      - name: Capture native Local Volatility replay for review
+        shell: bash
+        run: |
+          mkdir -p replay-review
+          git rev-parse HEAD > replay-review/source-commit.txt
+          rustc -vV > replay-review/toolchain.txt
+          cargo run --locked --release -p pricing --example replay_local_vol -- replay-review/local-volatility-replay.json
+          cargo run --locked --release -p pricing --example replay_local_vol -- replay-review/local-volatility-replay-repeat.json
+          python -c "from pathlib import Path; p = Path('replay-review'); assert (p / 'local-volatility-replay.json').read_bytes() == (p / 'local-volatility-replay-repeat.json').read_bytes(), 'native replay differs between repeated captures'"
+
+      - name: Retain native replay review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-vol-native-review-${{ matrix.target }}
+          path: replay-review/*
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Build Rust source package
         shell: bash
         run: git archive --format=tar.gz --output "dist/rust-pricing-source-${{ matrix.target }}.tar.gz" HEAD

@@ -52,7 +52,7 @@ pub(crate) fn legendre(order: usize) -> Result<Vec<(f64, f64)>, RiskConfigError>
 }
 
 impl VegaKtConvolutionPlan {
-    /// B[j,k] = E[hat_j(X1) * d Black(S1,K_k,v(X1)*dt)/d v(X1)].
+    /// `B[j,k] = E[hat_j(X1) * d Black(S1,K_k,v(X1)*dt)/d v(X1)]`.
     /// Coordinates are annual VARIANCE nodes, not effective-volatility hats.
     /// Source X1 is exactly N(-V1/2,V1); v is linearly interpolated with flat
     /// boundary extension. This does not assume a Gaussian terminal marginal.
