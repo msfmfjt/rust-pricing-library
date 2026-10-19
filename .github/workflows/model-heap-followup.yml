@@ -35,7 +35,7 @@ jobs:
           ref: ea759bf5d73b06e4c480665e59c7daa37e6667be
           path: baseline
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Check heap evidence accounting
