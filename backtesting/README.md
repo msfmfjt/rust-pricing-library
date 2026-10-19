@@ -103,7 +103,11 @@ same-contract covariance record. See the
 `PathContract` and `PathObservation` bind scheduled observations to sourced
 `SettlementFixing` values. Use `numerical_scope="multi_step_path_gamma"` or
 `--validated-path`; see [accepted scope and replay](../design/validation/local-vol-path-ledger-v0.1.md).
-Used fixings persist across checkpoints. [Lookback fixing-day valuation](../design/validation/local-vol-lookback-fixing-day-v0.1.md)
+Available path fixings persist across checkpoints, including observations for
+candidates that have not yet been quoted. Missing observations fail the snapshot
+when a contract is valued or settled; an unused candidate does not require a
+complete history. Recorded fixings remain immutable.
+[Lookback fixing-day valuation](../design/validation/local-vol-lookback-fixing-day-v0.1.md)
 uses the sourced current-day observation as a fixed value, separate from spot.
 Expiry settles directly from the recorded history.
 

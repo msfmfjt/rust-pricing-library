@@ -454,8 +454,10 @@ def run_backtest(config: BacktestConfig, history: Sequence[Snapshot],
 
         def risk(cid):
             if cid not in risk_cache:
-                r = provider.evaluate(s, master[cid])
                 c = master[cid]
+                if isinstance(c, PathContract):
+                    path_history.observations(c, s)
+                r = provider.evaluate(s, c)
                 require(r.payment_date == c.payment_day or (r.payment_date is None and c.payment_day == c.expiry),
                         "payment_risk_mismatch", f"{cid}: provider must price the contractual payment date")
                 require(r.basis_id == s.basis.basis_id and len(r.buckets) == s.basis.size,

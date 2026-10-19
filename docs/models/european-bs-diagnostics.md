@@ -20,6 +20,14 @@ Each contains the bump-and-revalue estimate and the paired
 `bump_minus_primary` estimate. Method metadata records the Gamma Spot bump, the
 validation Spot and volatility bumps, smile convention, and bump-policy version.
 
+The independent `black_scholes_oracle` and `black_76_oracle` use the market's
+affine discrete-dividend transform. They price the residual lognormal equity
+against the strike net of the cash reserve remaining at expiry, including cash
+reserved for later dividends. A nonpositive adjusted strike gives a linear call
+and a zero put. Both oracles hold cash amounts and carry curves fixed for Greeks:
+Black–Scholes reports Spot Delta/Gamma; Black-76 reports Delta/Gamma with respect
+to the canonical forward. Vega is per unit absolute volatility in both cases.
+
 ## Monte Carlo execution diagnostics
 
 | Field | Meaning |
