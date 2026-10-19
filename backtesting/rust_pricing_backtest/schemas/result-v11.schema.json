@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:backtesting:result-v11",
+  "title": "Hedging backtest result-v11",
+  "$ref": "urn:rust-pricing-library:backtesting:definitions:v3#/$defs/result_v11"
+}

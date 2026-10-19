@@ -1,0 +1,20 @@
+{
+  "policy_id": "backtest_diagnostic_workload_v1",
+  "sessions": 252,
+  "target_contracts": 10,
+  "hedge_candidates": 20,
+  "maturity_nodes": 5,
+  "strike_nodes": 9,
+  "independent_sampling_units": 256,
+  "seed": 7,
+  "worker_threads": 1,
+  "reduction_block_size": 256,
+  "strategy": "vega_kt",
+  "valuation_date": "2026-01-05",
+  "expiry_days": 400,
+  "ridge": 0.0001,
+  "solver_tolerance": 1e-8,
+  "max_relative_spread": 2.0,
+  "min_vega": 0.0,
+  "notes": "Diagnostic capacity measurement only. Synthetic flat-volatility surface, five local time intervals, no numerical acceptance and no approved performance budget. One cold-cache strategy run, including all 30 native instruments per decision date."
+}

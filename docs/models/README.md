@@ -72,3 +72,22 @@ separate from solver termination; this is not an IV or general six-family fitter
 - [Heston IV grid validation and staged recalibration](heston-iv-refinement.md)
 
 - [Heston IV disjoint holdout validation](heston-iv-holdout.md)
+
+[Six-family MC Spot Delta and particle LSV AAD](rough-family-aad-lsv.md) documents the explicit risk coordinates and experimental limits.
+
+[Six-family LSV physical Spot Delta](rough-family-lsv-spot-delta.md) distinguishes fixed leverage from a sticky-relative-local-variance target.
+
+[Additional rough-family market-IV quote risk](rough-family-market-iv.md) includes the discrete Dupire and particle-calibration transpose.
+
+[Explicit rough-family finite-bump MC Gamma](rough-family-gamma.md)
+
+[Pure-SV Heston MC parameter adjoints](heston-mc-parameter-risk.md)
+
+[Pure-SV MC Hurst sensitivity](heston-mc-hurst-risk.md) is available separately.
+
+- [Heston LSV recalibrated parameter risk](heston-lsv-parameter-risk.md)
+
+- [Mixed rough Bergomi eta/rho MC and LSV risk](mixed-bergomi-parameter-risk.md)
+- [Quadratic rough Heston scalar/Hurst MC and recalibrated LSV risk](quadratic-heston-parameter-risk.md).
+
+- [Mixed rough Bergomi weight and Forward Variance Curve risk](mixed-bergomi-shape-risk.md).

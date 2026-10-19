@@ -1,0 +1,2487 @@
+{
+  "document_kind": "two_step_discrete_smile_calibration_record",
+  "schema_version": 1,
+  "date": "2026-10-05",
+  "status": "failed",
+  "calibration_and_consistency_status": "passed",
+  "full_market_iv_bucket_acceptance": "not_established",
+  "calibration_and_consistency_checks": 222,
+  "calibration_and_consistency_failed": 0,
+  "gamma_quote_accuracy_checks": 40,
+  "gamma_quote_accuracy_failed": 30,
+  "unit_tests": {
+    "companion": 223,
+    "new_discrete_smile": 7,
+    "status": "passed"
+  },
+  "remote_ci_executed": false,
+  "policy": {
+    "policy_id": "two_step_discrete_smile_calibration_v1",
+    "scope": "Fixed first Gaussian marginal; nonlinear terminal quote calibration on two log-Euler intervals; Gamma quote accuracy is a separate, unwaived diagnostic.",
+    "products": [
+      "call",
+      "asian",
+      "fixed_asian",
+      "lookback"
+    ],
+    "base_shapes": [
+      "flat",
+      "nonflat"
+    ],
+    "base_skew": 0.015,
+    "base_curvature": 0.02,
+    "local_nodes": 33,
+    "quote_log_nodes": [
+      -0.2,
+      -0.1,
+      0.0,
+      0.1,
+      0.2
+    ],
+    "stress_iv_bump": 0.003,
+    "iv_bumps": [
+      1e-05,
+      5e-06
+    ],
+    "batch_samples": 16384,
+    "batch_seeds": [
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008
+    ],
+    "gamma_samples": 131072,
+    "gamma_seeds": [
+      7,
+      41
+    ],
+    "selection": {
+      "candidate_regularizations": [
+        0.01,
+        0.003,
+        0.001,
+        0.0003,
+        0.0001
+      ],
+      "pilot_sampling_units": 262144,
+      "reconstruction_relative_limit": 0.03,
+      "gamma_relative_standard_error_limit": 0.25,
+      "mc_margin_multiplier": 2.0,
+      "preserve_local_vega_total": true
+    },
+    "quote_price_tolerance": 1e-10,
+    "quadrature_derivative_tolerance": 2e-06,
+    "derivative_absolute_tolerance": 0.002,
+    "bump_refinement_tolerance": 0.002,
+    "statistical_multiplier": 6.0,
+    "algebra_tolerance": 1e-10,
+    "solver_absolute_tolerance": 2e-06,
+    "gamma_quote_absolute_target": 0.002,
+    "gamma_quote_relative_target": 0.01
+  },
+  "checks": [
+    {
+      "check": "quote_tangent_right_inverse",
+      "passed": true,
+      "observed": 6.785647629398456e-16,
+      "limit": 1e-10,
+      "shape": "flat"
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.4210854715202004e-14,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "skew",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.7763568394002505e-14,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "skew",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 6.417977260753105e-12,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "curvature",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 6.3868910160636005e-12,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "curvature",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 4.3362646806599514e-11,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_0",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 2.3305801732931286e-12,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_0",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 3.197442310920451e-14,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_1",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.9243273641222913e-11,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_1",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 8.028022691064507e-12,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_2",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 8.979483823168266e-12,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_2",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.7763568394002505e-14,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_3",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 2.1269874750373674e-11,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_3",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 4.792144459031533e-11,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_4",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 2.5799362646239388e-12,
+      "limit": 1e-10,
+      "shape": "flat",
+      "direction": "quote_4",
+      "sign": -1.0
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "call",
+      "seed": 7
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.11454679202516758,
+      "limit": 1.0,
+      "product": "call",
+      "seed": 7
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 5.0182080713057076e-14,
+      "limit": 2e-06,
+      "product": "call",
+      "seed": 7
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "call",
+      "seed": 41
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.13130781819437126,
+      "limit": 1.0,
+      "product": "call",
+      "seed": 41
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 3.5083047578154947e-14,
+      "limit": 2e-06,
+      "product": "call",
+      "seed": 41
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "asian",
+      "seed": 7
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.0067635080716295405,
+      "limit": 1.0,
+      "product": "asian",
+      "seed": 7
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 2.0479451467991794e-13,
+      "limit": 2e-06,
+      "product": "asian",
+      "seed": 7
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "asian",
+      "seed": 41
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.007016676413938153,
+      "limit": 1.0,
+      "product": "asian",
+      "seed": 41
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 1.9096529912943083e-13,
+      "limit": 2e-06,
+      "product": "asian",
+      "seed": 41
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "fixed_asian",
+      "seed": 7
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.04590337004640049,
+      "limit": 1.0,
+      "product": "fixed_asian",
+      "seed": 7
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 6.811218256075335e-14,
+      "limit": 2e-06,
+      "product": "fixed_asian",
+      "seed": 7
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "fixed_asian",
+      "seed": 41
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.053845568748242235,
+      "limit": 1.0,
+      "product": "fixed_asian",
+      "seed": 41
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 4.835021272242557e-14,
+      "limit": 2e-06,
+      "product": "fixed_asian",
+      "seed": 41
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "lookback",
+      "seed": 7
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.10024745952378726,
+      "limit": 1.0,
+      "product": "lookback",
+      "seed": 7
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 2.3592239273284576e-14,
+      "limit": 2e-06,
+      "product": "lookback",
+      "seed": 7
+    },
+    {
+      "check": "heldout_gamma_recovery_gate",
+      "passed": true,
+      "observed": 0.0,
+      "limit": 0.0,
+      "product": "lookback",
+      "seed": 41
+    },
+    {
+      "check": "gamma_projection_vs_regularized_population",
+      "passed": true,
+      "observed": 0.12518617612818023,
+      "limit": 1.0,
+      "product": "lookback",
+      "seed": 41
+    },
+    {
+      "check": "quote_projection_retains_spatial_residual",
+      "passed": true,
+      "observed": 1.6764367671839864e-14,
+      "limit": 2e-06,
+      "product": "lookback",
+      "seed": 41
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.7763568394002505e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "skew",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.7763568394002505e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "skew",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.5544628711335375,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "skew",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "skew",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.5987211554602254e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "skew",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.5544628710886618,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "skew",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.006587231855265058,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "skew"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-09,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 8.882078322802316e-11,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 8.882078322802316e-11,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.930978112465233e-11,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.930978112465233e-11,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.409739157689273e-11,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.409739157689273e-11,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 5.60535395877082e-10,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "skew"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 5.60535395877082e-10,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "skew"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 2.220446049250313e-11,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "curvature",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 8.881784197001251e-11,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "curvature",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.21703658991238076,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "curvature",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "curvature",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "curvature",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.21703658244235846,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "curvature",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 7.024723475377623e-05,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "curvature"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 2.6201263381153694e-09,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.6532918813390265e-16,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.6532918813390265e-16,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.101183411290508e-09,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.101183411290508e-09,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 1.2056005499472278e-09,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 1.2056005499472278e-09,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 5.387039425652773e-10,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "curvature"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 5.387039425652773e-10,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "curvature"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 4.440892098500626e-11,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_0",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.5987211554602254e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_0",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.24746263420905454,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_0",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_0",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 4.4408920985006256e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_0",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.24729737635559815,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_0",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.1855655988556341,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_0"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.0795808691455022e-07,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 4.440955842370034e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 4.440955842370034e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.5932891773171605e-08,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.5932891773171605e-08,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.009596533625313e-08,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.009596533625313e-08,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.1624399432494954e-08,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "quote_0"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 3.1624399432494954e-08,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "quote_0"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 8.881784197001252e-11,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_1",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 6.217248937900877e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_1",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.19697650922334428,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_1",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800502e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_1",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.0658141036401503e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_1",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.19703599706692237,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_1",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.43066913655544564,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_1"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.9331647393983076e-05,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 6.217343183052412e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 6.217343183052412e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 6.443423275825921e-06,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 6.443423275825921e-06,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.8327717362941485e-06,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.8327717362941485e-06,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.291805767384858e-07,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "quote_1"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.291805767384858e-07,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "quote_1"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.7763568394002484e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_2",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.2434497875801753e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_2",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.1622070617781445,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_2",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800502e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_2",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.9539925233402755e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_2",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.16278297375850503,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_2",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.2436918747719641,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_2"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 5.9218896453216985e-05,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 4.2519943121988035e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 4.2519943121988035e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 1.9738832946814e-05,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 1.9738832946814e-05,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 7.933461606768333e-06,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 7.933461606768333e-06,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 8.722680512107672e-06,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "quote_2"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 8.722680512107672e-06,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "quote_2"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.1102230246251565e-11,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_3",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 6.217248937900877e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_3",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.13158148600937644,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_3",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800502e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_3",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 8.881784197001251e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_3",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.13123211350908184,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_3",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.3417200399737627,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_3"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.9560775221805216e-05,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.6644743647199897e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.6644743647199897e-10,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 6.521500884204556e-06,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 6.521500884204556e-06,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.7375789830585973e-06,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.7375789830585973e-06,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.059397664400109e-06,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "quote_3"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.059397664400109e-06,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "quote_3"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 8.881784197001255e-11,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_4",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 3.1086244689504383e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_4",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.13540502441374583,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_4",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.776356839400251e-10,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_4",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.4210854715202002e-09,
+      "limit": 2e-06,
+      "shape": "flat",
+      "direction": "quote_4",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.135470035897911,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_4",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.23357304784223892,
+      "limit": 1.0,
+      "shape": "flat",
+      "direction": "quote_4"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 4.4306780466740747e-07,
+      "limit": 0.002,
+      "shape": "flat",
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 8.881841689652877e-11,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 7,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 8.881841689652877e-11,
+      "limit": 0.002,
+      "product": "call",
+      "seed": 41,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 5.15714861926142e-08,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 7,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 5.15714861926142e-08,
+      "limit": 0.002,
+      "product": "asian",
+      "seed": 41,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.4897198636075757e-08,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 7,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 2.4897198636075757e-08,
+      "limit": 0.002,
+      "product": "fixed_asian",
+      "seed": 41,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 1.4847700668951802e-07,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 7,
+      "direction": "quote_4"
+    },
+    {
+      "check": "calibration_pullback_vs_exotic_price_difference",
+      "passed": true,
+      "observed": 1.4847700668951802e-07,
+      "limit": 0.002,
+      "product": "lookback",
+      "seed": 41,
+      "direction": "quote_4"
+    },
+    {
+      "check": "quote_tangent_right_inverse",
+      "passed": true,
+      "observed": 1.0545110436860465e-15,
+      "limit": 1e-10,
+      "shape": "nonflat"
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.4210854715202004e-14,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "skew",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 5.329070518200751e-15,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "skew",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 7.006839553014288e-12,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 6.981082378842984e-12,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 3.4583891306283476e-11,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.283417816466681e-12,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.4210854715202004e-14,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.4210854715202004e-14,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.7763568394002505e-14,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.2430056983703253e-11,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.7763568394002505e-14,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 2.0873969219792343e-11,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "sign": -1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 5.329070518200751e-15,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "sign": 1.0
+    },
+    {
+      "check": "nonlinear_quote_fit_independent_quadrature",
+      "passed": true,
+      "observed": 1.6616041875749943e-11,
+      "limit": 1e-10,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "sign": -1.0
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 8.881784197001252e-11,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "skew",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.4210854715202004e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "skew",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.5383321451510373,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "skew",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "skew",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "skew",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.5377588553100477,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "skew",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.02712825803471378,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "skew"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.865174681370263e-09,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "skew"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 3.3306690738754696e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.2932002556935189,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 7.105427357601002e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.29320025883066264,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "curvature",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.007880719219756008,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "curvature"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.2212453270876722e-09,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "curvature"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.7763568394002515e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 9.769962616701378e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.18443018655299837,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.7763568394002505e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 2.1316282072803006e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.184421417218432,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_0",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.11156301584669709,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_0"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.638245095136881e-07,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "quote_0"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.776356839400251e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 3.5527136788005004e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.13414614823863433,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.5527136788005004e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.0658141036401503e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.1343936248459038,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_1",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.3189630392003816,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_1"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.9290391506388005e-05,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "quote_1"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.776356839400251e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.6875389974302377e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.12310500643756947,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.5527136788005004e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.1546319456101628e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.12265810636446357,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_2",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.22012101442333848,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_2"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 5.9376792371779175e-05,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "quote_2"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 1.7763568394002505e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 3.5527136788005004e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.086587679822726,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 3.552713678800501e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.7763568394002503e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.08626930545698389,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_3",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.2858097057886121,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_3"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 1.933317950175706e-05,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "quote_3"
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 8.881784197001263e-11,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "bump": 1e-05
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 8.881784197001251e-10,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "bump": 1e-05
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.20249086854354023,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "bump": 1e-05
+    },
+    {
+      "check": "independent_payoff_quadrature_refinement",
+      "passed": true,
+      "observed": 8.881784197001255e-11,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "bump": 5e-06
+    },
+    {
+      "check": "finite_smile_quotes_match_market_price_response",
+      "passed": true,
+      "observed": 1.2434497875801753e-09,
+      "limit": 2e-06,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "bump": 5e-06
+    },
+    {
+      "check": "native_recalibrated_prices_vs_payoff_reference",
+      "passed": true,
+      "observed": 0.20256667564206554,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_4",
+      "bump": 5e-06
+    },
+    {
+      "check": "paired_native_bump_refinement",
+      "passed": true,
+      "observed": 0.178856695285162,
+      "limit": 1.0,
+      "shape": "nonflat",
+      "direction": "quote_4"
+    },
+    {
+      "check": "independent_reference_bump_refinement",
+      "passed": true,
+      "observed": 5.617728504603292e-07,
+      "limit": 0.002,
+      "shape": "nonflat",
+      "direction": "quote_4"
+    }
+  ],
+  "gamma_quote_checks": [
+    {
+      "product": "call",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.21167341722638006,
+      "limit": 0.002000000000000064,
+      "quote": 0
+    },
+    {
+      "product": "call",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.6086092569143075,
+      "limit": 0.002000000000000094,
+      "quote": 1
+    },
+    {
+      "product": "call",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.8173021188131067,
+      "limit": 0.23783437936006682,
+      "quote": 2
+    },
+    {
+      "product": "call",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.6120208479464563,
+      "limit": 0.0020000000000000608,
+      "quote": 3
+    },
+    {
+      "product": "call",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.2142486324551752,
+      "limit": 0.0020000000000000057,
+      "quote": 4
+    },
+    {
+      "product": "call",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.21167341722638006,
+      "limit": 0.002000000000000064,
+      "quote": 0
+    },
+    {
+      "product": "call",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.6086092569143075,
+      "limit": 0.002000000000000094,
+      "quote": 1
+    },
+    {
+      "product": "call",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.8173021188131067,
+      "limit": 0.23783437936006682,
+      "quote": 2
+    },
+    {
+      "product": "call",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.6120208479464563,
+      "limit": 0.0020000000000000608,
+      "quote": 3
+    },
+    {
+      "product": "call",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.2142486324551752,
+      "limit": 0.0020000000000000057,
+      "quote": 4
+    },
+    {
+      "product": "asian",
+      "seed": 7,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.019094069870638997,
+      "limit": 0.03062199128156852,
+      "quote": 0
+    },
+    {
+      "product": "asian",
+      "seed": 7,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.03881569392700257,
+      "limit": 0.13098600112709305,
+      "quote": 1
+    },
+    {
+      "product": "asian",
+      "seed": 7,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.05160468257470541,
+      "limit": 0.28541727112080206,
+      "quote": 2
+    },
+    {
+      "product": "asian",
+      "seed": 7,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.038947112955249,
+      "limit": 0.1408724853082589,
+      "quote": 3
+    },
+    {
+      "product": "asian",
+      "seed": 7,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.019191686861776525,
+      "limit": 0.034166207217481814,
+      "quote": 4
+    },
+    {
+      "product": "asian",
+      "seed": 41,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.019094069870638997,
+      "limit": 0.03062199128156852,
+      "quote": 0
+    },
+    {
+      "product": "asian",
+      "seed": 41,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.03881569392700257,
+      "limit": 0.13098600112709305,
+      "quote": 1
+    },
+    {
+      "product": "asian",
+      "seed": 41,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.05160468257470541,
+      "limit": 0.28541727112080206,
+      "quote": 2
+    },
+    {
+      "product": "asian",
+      "seed": 41,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.038947112955249,
+      "limit": 0.1408724853082589,
+      "quote": 3
+    },
+    {
+      "product": "asian",
+      "seed": 41,
+      "selected_regularization": 0.0003,
+      "check": "population_gamma_quote_bias",
+      "passed": true,
+      "observed": 0.019191686861776525,
+      "limit": 0.034166207217481814,
+      "quote": 4
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 7,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.12083946716645078,
+      "limit": 0.019271428770051093,
+      "quote": 0
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 7,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.3060759332579739,
+      "limit": 0.08290972100365188,
+      "quote": 1
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 7,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.40141030456558013,
+      "limit": 0.21124326807433222,
+      "quote": 2
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 7,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.30297463024531357,
+      "limit": 0.06360110449862018,
+      "quote": 3
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 7,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.11854418881439988,
+      "limit": 0.011324330480338061,
+      "quote": 4
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 41,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.12083946716645078,
+      "limit": 0.019271428770051093,
+      "quote": 0
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 41,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.3060759332579739,
+      "limit": 0.08290972100365188,
+      "quote": 1
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 41,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.40141030456558013,
+      "limit": 0.21124326807433222,
+      "quote": 2
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 41,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.30297463024531357,
+      "limit": 0.06360110449862018,
+      "quote": 3
+    },
+    {
+      "product": "fixed_asian",
+      "seed": 41,
+      "selected_regularization": 0.003,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.11854418881439988,
+      "limit": 0.011324330480338061,
+      "quote": 4
+    },
+    {
+      "product": "lookback",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.04970564559468693,
+      "limit": 0.011362074486266284,
+      "quote": 0
+    },
+    {
+      "product": "lookback",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.2910512729423105,
+      "limit": 0.03427404200187314,
+      "quote": 1
+    },
+    {
+      "product": "lookback",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.49894807803336505,
+      "limit": 0.18594745541585755,
+      "quote": 2
+    },
+    {
+      "product": "lookback",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.4686480442458194,
+      "limit": 0.030114201563905874,
+      "quote": 3
+    },
+    {
+      "product": "lookback",
+      "seed": 7,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.1864045577260418,
+      "limit": 0.05678098571858104,
+      "quote": 4
+    },
+    {
+      "product": "lookback",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.04970564559468693,
+      "limit": 0.011362074486266284,
+      "quote": 0
+    },
+    {
+      "product": "lookback",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.2910512729423105,
+      "limit": 0.03427404200187314,
+      "quote": 1
+    },
+    {
+      "product": "lookback",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.49894807803336505,
+      "limit": 0.18594745541585755,
+      "quote": 2
+    },
+    {
+      "product": "lookback",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.4686480442458194,
+      "limit": 0.030114201563905874,
+      "quote": 3
+    },
+    {
+      "product": "lookback",
+      "seed": 41,
+      "selected_regularization": 0.01,
+      "check": "population_gamma_quote_bias",
+      "passed": false,
+      "observed": 0.1864045577260418,
+      "limit": 0.05678098571858104,
+      "quote": 4
+    }
+  ],
+  "metrics": {
+    "maximum_verified_quote_price_error_bound": 4.792077845650056e-11,
+    "maximum_market_quote_response_error": 2.1316282072803006e-09,
+    "maximum_calibrated_ad_vs_exotic_price_difference": 1.9738832946814e-05,
+    "maximum_population_gamma_quote_bias": 0.8173021188131067
+  },
+  "native_binary_sha256": "ba331ac2f27c7fb740319af76a8597f45da54f096e91c55ee4b868093fbb426b",
+  "runner_sha256": "c7ce77c529b05e343a2ed526c4b6a56395dfdcd439d6b9a2581882d4740e3555",
+  "evidence": {
+    "path": "benchmark-results/vega-kt-discrete-smile/report.json",
+    "sha256": "a10e423b511f7afa12e2eadc4704b42e4951c2b10adb4e0ccacb24da9b0a7f0a"
+  },
+  "source_sha256": {
+    "backtesting/rust_pricing_backtest/discrete_smile.py": "6430d26aa48af36c9db9ae0662f69b42f08af5bbc6ee0a9cff7dc98cd56e3f48",
+    "backtesting/rust_pricing_backtest/benchmark.py": "2d93f5ad860e66179ba727804cf94640058b7fd642a39862ba8cf6b65d94f3e3",
+    "backtesting/rust_pricing_backtest/rust_adapter.py": "f36f6b78da897a33386dbabda029102688842c2ce8490a4059656c4959432343",
+    "backtesting/rust_pricing_backtest/domain.py": "bd4c15b6a97baf2fa214cd2a4d1e4b7cc63eb8d3e38cd7ef597ade7dbfd10fcf",
+    "backtesting/rust_pricing_backtest/flat_iv.py": "23e4eaa285ccdecc3032da6b3b547ac10eed45753e9906c103ddeb107242eb79",
+    "backtesting/rust_pricing_backtest/market_shocks.py": "4b654061aaf24edff826df5f33bc824e294e724e8bbeba0fda0318bdc55132b1",
+    "backtesting/rust_pricing_backtest/smile_numerics.py": "19ee21f04e1dd83a35237a27be248e2c5c88569d4ba3dba568978f98858df7a9",
+    "backtesting/rust_pricing_backtest/cost_basis.py": "ebe8165c45091478971187388b77b3019898bd60c4cd0c45bd472fddf9dc57e4",
+    "backtesting/rust_pricing_backtest/budget.py": "6150e4fb47476462d5b062329ed930273145519f477b6a2a97af2578112e201c",
+    "backtesting/rust_pricing_backtest/chain_numerics.py": "5b271fa802a957d7248dc01965f60dc387dfebf7f95cbe71b2e625d5f1abce88",
+    "backtesting/rust_pricing_backtest/market_shock_numerics.py": "62dc1d8a9032c9b5f7a8875f509f61036ecfc3f8fb94547cc21211bf6186db6a",
+    "backtesting/rust_pricing_backtest/__init__.py": "af2e734323da27679de8155e88278e2368227dc165ddb756b1aa7937423420c1",
+    "backtesting/rust_pricing_backtest/numeraire.py": "b6c15ffd8d6378189268719e80d8c5c0a38d563fd531afc5e38c8adcf7a9deb5",
+    "backtesting/rust_pricing_backtest/engine.py": "ef260ebd995520ba0be0b516f3580a3ba60a8b0e5552b09d5c7f536cb6a3efce",
+    "backtesting/rust_pricing_backtest/ensemble.py": "8fd10447925b267c999c3c68f13a7649785bddc4071565e07a0d4a97d290849e",
+    "backtesting/rust_pricing_backtest/optimizer.py": "617b74e5a7623978afa6095414ef850b2e24d9f48fd433574a2b51663f1cee1a",
+    "backtesting/rust_pricing_backtest/iv_alignment.py": "6fca037c3fb8ae114592baf99dc275ae456570b618a2e6b0dc1319c5e9e6cf0a",
+    "backtesting/rust_pricing_backtest/__main__.py": "ece021c68f7bbf37282ad58d0d33e386c3911f8dee443135e06c8942921def6a",
+    "backtesting/rust_pricing_backtest/allocation_probe.py": "d6e9a69bc22ec8e1c46e9831aa74913e6c62d6599af5cbb515a60c49c49199dc",
+    "backtesting/rust_pricing_backtest/serialization.py": "01b25a5d9eacf2d751960ce61219a44138c45e4058cd3914ec95ce2393c31f93",
+    "backtesting/rust_pricing_backtest/greeks.py": "90a399e20be98ec4f55e802cce4887a1d3a0c8d0564feea40c69a140873972bf",
+    "backtesting/rust_pricing_backtest/numerics.py": "73557626e9420dece88dd374f1ae56793ea92bbe2f2d738a3abb92b1c6119b40",
+    "backtesting/rust_pricing_backtest/pnl.py": "5b7e9f167b019c3b703a331f2ae3b1ae72d0899b4f265e4a9afccd9d9ed17284",
+    "backtesting/rust_pricing_backtest/validation.py": "1736bc014c0c73810b6641c8f7e84cd5da38401ab1b1afb6778b8e181389959d",
+    "scripts/check_discrete_smile_calibration.py": "c7ce77c529b05e343a2ed526c4b6a56395dfdcd439d6b9a2581882d4740e3555",
+    "scripts/check_path_gamma_recovery.py": "f328f1faf45d04b58e21512e72da159e7c9dea0ef1e24cc552b15b32a478df80",
+    "scripts/check_gamma_selection.py": "ded0c632307ea7126175f2b48dcaf35ce6e4fe7b3a28d19bd8ea479099e255d7",
+    "scripts/check_conservative_gamma_market.py": "47a6d038abe0b262da0e9cbdba8e27a31f5d5926a30f1b591d00ff6b2e250971",
+    "scripts/check_atom_gamma_chain.py": "42e477ca40052b08ce059f08303685ea831000b320ecb7ba4ae6df44ad60fd42",
+    "backtesting/tests/test_discrete_smile.py": "c7a83d56d9ac6d95485239170758c70a2ae97417aa2c846e5d883b6e94401aa0",
+    "fixtures/backtesting/discrete-smile-calibration-policy-v0.1.json": "1dcda369a44250340a74a932918085c9f00a1935563a9ecdee9a417a3d4c899e",
+    ".github/workflows/backtesting.yml": "27c59ddba1b56acf9a8e2aee6f66736eed7767782c1326303b9a13436b9bac6b",
+    "scripts/check_source_archive.py": "c41c1a87357715eae157b62ce5c98f05213160fdba9a4385a37d373c0daf71b1",
+    "design/validation/local-vol-discrete-smile-calibration-v0.1.md": "9b92e9c47f73bfe2ed4455840fe85199d0045895884bde9686a0d0f629fe0551"
+  },
+  "limitations": [
+    "Exactly two simulation intervals, fixed first Gaussian marginal, zero carry and unit discount.",
+    "Only listed terminal quote strikes are fitted; local variance extension depends on the declared norm.",
+    "Nonflat base calibration is tested; native nonflat Gamma recovery is not implemented.",
+    "Gamma quote bias checks are separate and remain failures; diagnostic success does not waive them.",
+    "Gamma quote SE upper bounds use the triangle inequality, not an assumed joint covariance."
+  ]
+}

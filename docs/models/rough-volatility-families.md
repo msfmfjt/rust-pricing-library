@@ -6,7 +6,7 @@
 [Finite-grid refinement](../../design/validation/rough-volatility-refinement.md) ·
 [Factor-price validation](../../design/validation/lifted-heston-factor-prices.md)
 
-**Experimental, price-only extension.** Six families have compiled Rust/Python
+**Experimental extension.** Six families have compiled Rust/Python
 implementations with executable boundary, sampling and finite-grid reference
 tests. These are not accepted production models: the tested two-step prices
 and finite 64/128-step comparisons do not establish continuous-time accuracy
@@ -38,12 +38,16 @@ European vanilla, digital, arithmetic Asian, discrete fixed-strike lookback and
 discretely monitored Barrier payoff routes are inherited from that graph;
 coverage executed specifically for this extension is narrower and is listed in
 the validation record. American exercise, continuous Barriers, smoothing-width
-ladders and all requested Greeks are rejected by the extension or shared graph.
+ladders and generic risk-request flags are rejected by the extension or shared graph.
+Explicit [MC Spot Delta and particle LSV AAD](rough-family-aad-lsv.md)
+are now available through separate methods; they do not add Gamma or market-IV VegaKT.
 
 This MC adapter does **not** implement Fourier pricing (a separate
 [forward-only API](rough-heston-fourier.md) does), model calibration (the separate
-[Heston price-calibration API](heston-calibration.md) does), VIX contracts, SSR calculations, AAD/Greeks, leverage-function
-calibration, stochastic rates, stochastic dividends or multi-asset composition.
+[Heston price-calibration API](heston-calibration.md) does), VIX contracts, SSR calculations, Gamma, market-IV VegaKT, stochastic rates,
+stochastic dividends or multi-asset composition. Explicit fixed-model Spot Delta
+and a separate particle-calibrated LSV/local-variance-adjoint adapter are described
+in [MC Delta and LSV AAD](rough-family-aad-lsv.md).
 A model's support elsewhere in the library does not imply that combination is
 available through this adapter. In particular, using the existing
 `HullWhitePrice` result shape does not imply stochastic-rate support.

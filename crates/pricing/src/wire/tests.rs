@@ -839,6 +839,7 @@ fn absent_optional_product_values_are_omitted_instead_of_serialized_as_null() {
         side: SideV1::Put,
         monitoring_dates: vec!["2027-09-04".to_owned()],
         historical_extremum: None,
+        valuation_date_fixing: None,
         payment_date: "2027-09-04".to_owned(),
     };
     let barrier_json = serde_json::to_value(barrier).expect("Barrier JSON");
@@ -846,6 +847,7 @@ fn absent_optional_product_values_are_omitted_instead_of_serialized_as_null() {
     assert!(barrier_json.get("rebate").is_none());
     assert!(barrier_json.get("historical_hit").is_none());
     assert!(lookback_json.get("historical_extremum").is_none());
+    assert!(lookback_json.get("valuation_date_fixing").is_none());
 }
 
 #[test]

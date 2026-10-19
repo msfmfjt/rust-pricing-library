@@ -38,6 +38,17 @@ Do not combine an optimization with an untested numerical-policy change.
 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
+python3 scripts/check_local_vol_gamma_numerics.py
+python3 scripts/check_local_vol_gamma_recovery.py
+python3 scripts/check_local_vol_vegakt_paper.py
+python3 scripts/check_local_vol_step_adjoints.py
+python3 scripts/check_local_vol_step_recovery.py
+python3 -m unittest discover -s scripts -p test_audit_local_vol_replay.py -v
+python3 scripts/check_local_vol_direct_variance.py
+python3 scripts/check_local_vol_initial_gamma.py
+python3 scripts/check_local_vol_vegakt_chain.py
+python3 scripts/check_local_vol_density_mass.py
+python3 scripts/check_local_vol_weak_chain.py
 python3 scripts/check_path_dependence_reference_fixture.py
 python3 scripts/check_early_exercise_reference_fixture.py
 python3 scripts/check_schemas.py

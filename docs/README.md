@@ -16,3 +16,6 @@ Contributor checks are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 Calculation specifications and diagnostics stay with the library or model they describe:
 they specify observable behavior, conventions, supported inputs and limitations.
 Development plans and historical validation records belong in `design/`.
+
+- [Mixed rough Bergomi weight and Forward Variance Curve risk](models/mixed-bergomi-shape-risk.md).
+- [Quadratic rough Heston scalar/Hurst MC and recalibrated LSV risk](models/quadratic-heston-parameter-risk.md).

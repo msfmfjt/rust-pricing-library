@@ -60,6 +60,9 @@ pub enum RequestValidationError {
     LookbackHistoricalExtremumWithoutPastMonitoring {
         valuation_date: Date,
     },
+    LookbackFixingWithoutValuationDateMonitoring {
+        valuation_date: Date,
+    },
     VegaKtUnsupportedForConstantVolatility,
     RiskUnsupportedForDiscontinuousProduct,
     PayoffSmoothingUnsupportedForProduct,
@@ -137,6 +140,10 @@ impl fmt::Display for RequestValidationError {
             Self::LookbackHistoricalExtremumWithoutPastMonitoring { valuation_date } => write!(
                 formatter,
                 "Lookback historical extremum is only valid when monitoring dates before valuation date {valuation_date} exist"
+            ),
+            Self::LookbackFixingWithoutValuationDateMonitoring { valuation_date } => write!(
+                formatter,
+                "Lookback valuation-date fixing requires a monitoring date equal to valuation date {valuation_date}"
             ),
             Self::VegaKtUnsupportedForConstantVolatility => {
                 write!(formatter, "VegaKT requires a Local Volatility model")

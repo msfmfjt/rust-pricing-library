@@ -56,6 +56,37 @@ pub enum RiskConfigError {
     InvalidVegaKtEquation11Gamma {
         bits: u64,
     },
+    VegaKtRecoveryLengthMismatch {
+        quantity: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+    InvalidVegaKtRecoveryInterval {
+        maturity_bits: u64,
+        delta_t_bits: u64,
+    },
+    VegaKtGammaRowTimeMismatch {
+        expected_bits: u64,
+        actual_bits: u64,
+    },
+    VegaKtProjectionMaturityNotNode {
+        bits: u64,
+    },
+    VegaKtStepLayoutMismatch {
+        quantity: &'static str,
+    },
+    VegaKtStepPathMismatch {
+        step: usize,
+    },
+    VegaKtChainInput {
+        quantity: &'static str,
+    },
+    VegaKtInitialGammaInput {
+        quantity: &'static str,
+    },
+    VegaKtStepShapeOverflow,
+    VegaKtStepNoSamplingUnits,
+    VegaKtStepSamplingUnitMismatch,
     TooFewVegaKtRefinementLevels {
         count: usize,
     },
@@ -224,6 +255,60 @@ impl fmt::Display for RiskConfigError {
             Self::InvalidVegaKtEquation11Gamma { bits } => write!(
                 formatter,
                 "VegaKT equation (11) Local Gamma must be finite; received 0x{bits:016x}"
+            ),
+            Self::VegaKtRecoveryLengthMismatch {
+                quantity,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "VegaKT Gamma recovery {quantity} count {actual} does not match node count {expected}"
+            ),
+            Self::InvalidVegaKtRecoveryInterval {
+                maturity_bits,
+                delta_t_bits,
+            } => write!(
+                formatter,
+                "VegaKT Gamma recovery requires a finite, representably later maturity; source=0x{maturity_bits:016x}, step=0x{delta_t_bits:016x}"
+            ),
+            Self::VegaKtGammaRowTimeMismatch {
+                expected_bits,
+                actual_bits,
+            } => write!(
+                formatter,
+                "VegaKT Gamma rows must be adjacent; expected source 0x{expected_bits:016x}, received 0x{actual_bits:016x}"
+            ),
+            Self::VegaKtProjectionMaturityNotNode { bits } => write!(
+                formatter,
+                "VegaKT equation (9) requires an exact reporting maturity node; received 0x{bits:016x}"
+            ),
+            Self::VegaKtStepLayoutMismatch { quantity } => write!(
+                formatter,
+                "VegaKT step recovery has a mismatched {quantity}"
+            ),
+            Self::VegaKtStepPathMismatch { step } => write!(
+                formatter,
+                "VegaKT step recovery path differs from the compiled plan at step {step}"
+            ),
+            Self::VegaKtChainInput { quantity } => write!(
+                formatter,
+                "Invalid diagnostic VegaKT chain input: {quantity}"
+            ),
+            Self::VegaKtInitialGammaInput { quantity } => write!(
+                formatter,
+                "Invalid conditional initial Gamma input: {quantity}"
+            ),
+            Self::VegaKtStepShapeOverflow => write!(
+                formatter,
+                "VegaKT step recovery layout size overflowed usize"
+            ),
+            Self::VegaKtStepNoSamplingUnits => write!(
+                formatter,
+                "VegaKT step recovery requires at least one independent sampling unit"
+            ),
+            Self::VegaKtStepSamplingUnitMismatch => write!(
+                formatter,
+                "VegaKT step sample must match the declared independent path or antithetic pair unit"
             ),
             Self::TooFewVegaKtRefinementLevels { count } => write!(
                 formatter,

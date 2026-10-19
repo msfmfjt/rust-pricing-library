@@ -9,6 +9,12 @@ not evidence for the isolated merge. The integration check on 2026-10-04
 uses a fresh `main` worktree containing only Bass-LV changes; separate Local
 Volatility paper-VegaKT and backtesting changes are excluded.
 
+The later [full-library validation record](library-full-check-2026-10-03.md)
+documents repairs to the dependency guard, Rustdoc links, wheel API inventory,
+clean-wheel companion test and source-archive coverage reported below. Earlier
+observations are preserved as history; consult that record for subsequent
+release-wheel, replay and repository-wide gate results.
+
 ## Gates
 
 Rust tests in `engine/bass_lv/tests.rs` cover:

@@ -105,18 +105,31 @@ def main() -> None:
             "--disable-pip-version-check",
             "numpy>=2.0,<3.0",
             str(wheel.resolve()),
+            "./backtesting[validation,constraints]",
         ],
         check=True,
     )
     verify_runtime_symbols(python, stub_api, metadata["Version"])
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
+    subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
     subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_lsv_spot_delta.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_market_iv.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_mc_parameter_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_mc_hurst_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/heston_lsv_parameter_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/mixed_bergomi_parameter_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/mixed_bergomi_hurst_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/mixed_bergomi_shape_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/quadratic_heston_parameter_risk.py"], check=True)
+    subprocess.run([str(python), "examples/python/rough_family_gamma_bump.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
     subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
@@ -1084,6 +1097,16 @@ BASS_STUB_API = {
 }
 
 
+VEGA_KT_DIAGNOSTIC_PROPERTIES = {
+    "VegaKtChainDiagnostic": {"policy_label", "raw_buckets", "standard_errors",
+        "hedge_quantities", "scalar_vega", "scalar_standard_error", "maturity_nodes",
+        "log_moneyness_nodes"},
+    "VegaKtTerminalDiagnostic": {"policy_label", "gamma_atoms", "raw_buckets",
+        "hedge_quantities", "scalar_vega", "expected_local_parallel_vega",
+        "maturity_nodes", "log_moneyness_nodes"},
+}
+
+
 def verify_stub_static_shape(tree: ast.Module) -> None:
     imported_names: set[str] = set()
     top_level_names: list[str] = []
@@ -1127,6 +1150,16 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "HestonLsvParameterRisk",
+        "MixedBergomiLsvParameterRisk",
+        "QuadraticHestonLsvParameterRisk",
+        "HestonMcParameterRisk",
+        "MixedBergomiMcParameterRisk",
+        "QuadraticHestonMcParameterRisk",
+        "RoughHestonMcHurstRisk",
+        "RoughVolatilityGamma", "RoughFamilyLsvGamma",
+        "RoughFamilyLsvPlan", "RoughVolatilityDelta", "RoughFamilyLsvDelta",
+        "RoughFamilyLsvMarketIvRiskPlan", "RoughFamilyLsvMarketIvRisk",
         'MarketIvSurface',
         'StochasticDividendContinuousBarrierMarketIvRisk',
 
@@ -1231,6 +1264,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "OptionSide",
         "PricingError",
         "PricingPlan",
+        "AndersenBroadieConfig",
+        "AndersenBroadiePlan",
+        "AndersenBroadieResult",
         "PricingRequest",
         "PricingResult",
         "PricingWarning",
@@ -1271,6 +1307,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "version",
     }
     expected_top_level_names.update(BASS_STUB_API)
+    expected_top_level_names.update(VEGA_KT_DIAGNOSTIC_PROPERTIES)
+    expected_top_level_names.add("VegaKtGammaRecoveryPolicy")
     missing_top_level_names = sorted(expected_top_level_names.difference(top_level_names))
     if missing_top_level_names:
         raise RuntimeError(
@@ -1401,6 +1439,37 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ("HestonLsvParameterRisk", "price"): "LsvPrice",
+        ("MixedBergomiLsvParameterRisk", "price"): "LsvPrice",
+        ("QuadraticHestonLsvParameterRisk", "price"): "LsvPrice",
+        ("RoughFamilyLsvPlan", "evaluate_heston_parameter_risk"): "HestonLsvParameterRisk",
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk"): "MixedBergomiLsvParameterRisk",
+        ("RoughFamilyLsvPlan", "evaluate_quadratic_heston_parameter_risk"): "QuadraticHestonLsvParameterRisk",
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_shape_risk"): "MixedBergomiLsvParameterRisk",
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk_with_hurst"): "MixedBergomiLsvParameterRisk",
+        ('HestonMcParameterRisk', 'price'): 'HullWhitePrice',
+        ('MixedBergomiMcParameterRisk', 'price'): 'HullWhitePrice',
+        ('QuadraticHestonMcParameterRisk', 'price'): 'HullWhitePrice',
+        ('RoughHestonMcHurstRisk', 'price'): 'HullWhitePrice',
+        ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): 'HestonMcParameterRisk',
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk'): 'MixedBergomiMcParameterRisk',
+        ('RoughVolatilityPlan', 'evaluate_quadratic_heston_parameter_risk'): 'QuadraticHestonMcParameterRisk',
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_shape_risk'): 'MixedBergomiMcParameterRisk',
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk_with_hurst'): 'MixedBergomiMcParameterRisk',
+        ('RoughVolatilityPlan', 'evaluate_hurst_risk'): 'RoughHestonMcHurstRisk',
+        ('RoughVolatilityGamma', 'price'): 'HullWhitePrice',
+        ('RoughVolatilityPlan', 'evaluate_gamma_bump'): 'RoughVolatilityGamma',
+        ('RoughFamilyLsvGamma', 'price'): 'LsvPrice',
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_gamma_bump'): 'RoughFamilyLsvGamma',
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_gamma_bump'): 'RoughFamilyLsvGamma',
+
+        ('RoughFamilyLsvPlan', 'market_iv_risk_plan'): 'RoughFamilyLsvMarketIvRiskPlan',
+        ('RoughFamilyLsvMarketIvRiskPlan', 'evaluate'): 'RoughFamilyLsvMarketIvRisk',
+        ('RoughFamilyLsvMarketIvRisk', 'price'): 'LsvPrice',
+
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_delta'): "RoughFamilyLsvDelta",
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_delta'): "RoughFamilyLsvDelta",
+        ("RoughFamilyLsvDelta", "price"): "LsvPrice",
         ('HestonIvRefinementOptions', 'fit_tolerance'): 'float',
         ('HestonIvRefinementOptions', 'grid_tolerance'): 'float',
         ('HestonIvRefinementOptions', 'max_stages'): 'int',
@@ -1494,6 +1563,141 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("HestonLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "parameter_names"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "parameter_names"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "parameter_names"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "parameter_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "parameter_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "parameter_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "direct_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "direct_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "direct_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "calibration_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "calibration_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "calibration_adjoints"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "standard_errors"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "standard_errors"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "standard_errors"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "coordinate"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "coordinate"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "coordinate"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "method"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "method"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "method"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("HestonLsvParameterRisk", "risk_fingerprint"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("MixedBergomiLsvParameterRisk", "risk_fingerprint"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("QuadraticHestonLsvParameterRisk", "risk_fingerprint"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("RoughFamilyLsvPlan", "evaluate_heston_parameter_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['include_hurst'], 'required_keyword_only': [], 'keyword_only_defaults': {'include_hurst': False}},
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("RoughFamilyLsvPlan", "evaluate_quadratic_heston_parameter_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['include_hurst'], 'required_keyword_only': [], 'keyword_only_defaults': {'include_hurst': False}},
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_shape_risk"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ("RoughFamilyLsvPlan", "evaluate_mixed_bergomi_parameter_risk_with_hurst"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughHestonMcHurstRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'parameter_names'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'parameter_names'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'parameter_names'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'parameter_adjoints'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'parameter_adjoints'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'parameter_adjoints'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughHestonMcHurstRisk', 'hurst_sensitivity'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'standard_errors'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'standard_errors'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'standard_errors'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughHestonMcHurstRisk', 'standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughHestonMcHurstRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughHestonMcHurstRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('HestonMcParameterRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('MixedBergomiMcParameterRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('QuadraticHestonMcParameterRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughHestonMcHurstRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_heston_parameter_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_quadratic_heston_parameter_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['include_hurst'], 'required_keyword_only': [], 'keyword_only_defaults': {'include_hurst': False}},
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_shape_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_mixed_bergomi_parameter_risk_with_hurst'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_hurst_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'spot_bump'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'payoff_evaluations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'half_bump_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'bump_difference_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'convention'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'bump_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'gamma_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'half_bump_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityGamma', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_gamma_bump'): {'positional': ['self', 'spot_bump'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'spot_bump'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'payoff_evaluations'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'half_bump_gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'bump_difference_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'gamma'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'convention'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'bump_difference'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'gamma_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'half_bump_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvGamma', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_gamma_bump'): {'positional': ['self', 'spot_bump'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_gamma_bump'): {'positional': ['self', 'spot_bump'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
+        ('RoughFamilyLsvPlan', 'market_iv_risk_plan'): {'positional': ['self', 'surface'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRiskPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRiskPlan', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'maturity_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'log_moneyness_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'implied_volatilities'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'quote_adjoints'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'standard_errors'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_vega'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'risk_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'interpolation'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvMarketIvRisk', 'uncertainty_scope'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
+        ('RoughFamilyLsvPlan', 'evaluate_frozen_leverage_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_sticky_moneyness_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'delta_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'convention'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvDelta', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPathPlan', 'reverse_initial_forward'): {'positional': ['self', 'initial_forward', 'normals', 'state_seeds'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityPlan', 'evaluate_delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'compile'): {'positional': ['target_request', 'model'], 'positional_defaults': {}, 'keyword_only': ['particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace', 'worker_threads', 'reduction_block_size'], 'required_keyword_only': ['particle_count', 'calibration_seed', 'log_bandwidth', 'minimum_effective_samples', 'retain_reverse_trace', 'worker_threads'], 'keyword_only_defaults': {'reduction_block_size': None}},
+        ('RoughFamilyLsvPlan', 'evaluate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'evaluate_local_variance_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'plan_fingerprint'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'time_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'log_moneyness_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'squared_leverage'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'extrapolated_moment_nodes'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughFamilyLsvPlan', 'minimum_effective_samples'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'price'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'delta'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'delta_standard_error'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'method'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+        ('RoughVolatilityDelta', 'coordinate'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
+
         ('StochasticDividendContinuousBarrierPlan', 'evaluate_parallel_market_iv_risk'): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': ['implied_volatility_bump'], 'required_keyword_only': ['implied_volatility_bump'], 'keyword_only_defaults': {}},
         ('MarketIvSurface', 'local_volatility_model'): {'positional': ['self', 'time_nodes', 'log_moneyness_nodes'], 'positional_defaults': {}, 'keyword_only': ['floor', 'cap'], 'required_keyword_only': [], 'keyword_only_defaults': {'floor': 1e-08, 'cap': 4.0}},
         ('MarketIvSurface', '__init__'): {'positional': ['self', 'maturity_nodes', 'log_moneyness_nodes', 'implied_volatilities'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2243,6 +2447,20 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "required_keyword_only": ["worker_threads"],
             "keyword_only_defaults": {"reduction_block_size": None},
         },
+        ("AndersenBroadieConfig", "__init__"): {
+            "positional": ["self", "continuation_inner_paths", "exercise_inner_paths", "inner_seed"],
+            "positional_defaults": {},
+            "keyword_only": [],
+            "required_keyword_only": [],
+            "keyword_only_defaults": {},
+        },
+        ("AndersenBroadiePlan", "compile"): {
+            "positional": ["request", "config"],
+            "positional_defaults": {},
+            "keyword_only": ["worker_threads", "reduction_block_size"],
+            "required_keyword_only": ["worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
         ("PricingRequest", "__init__"): {
             "positional": [
                 "self",
@@ -2387,9 +2605,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 "payment_date",
             ],
             "positional_defaults": {},
-            "keyword_only": ["historical_extremum"],
+            "keyword_only": ["historical_extremum", "valuation_date_fixing"],
             "required_keyword_only": [],
-            "keyword_only_defaults": {"historical_extremum": None},
+            "keyword_only_defaults": {"historical_extremum": None, "valuation_date_fixing": None},
         },
         ("RiskRequest", "__init__"): {
             "positional": ["self"],
@@ -2427,6 +2645,68 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             },
         },
     }
+    expected_signature_shapes.update({
+        ("VegaKtGammaRecoveryPolicy", "__init__"): {
+            "positional": ["self", "candidate_regularizations"], "positional_defaults": {},
+            "keyword_only": ["pilot_sampling_units", "reconstruction_relative_limit",
+                "gamma_relative_standard_error_limit", "mc_margin_multiplier",
+                "preserve_local_vega_total", "local_vega_conservation_directions"],
+            "required_keyword_only": ["pilot_sampling_units", "reconstruction_relative_limit",
+                "gamma_relative_standard_error_limit", "mc_margin_multiplier"],
+            "keyword_only_defaults": {"preserve_local_vega_total": False, "local_vega_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_multi_step_terminal_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_multi_step_gamma_chain_audit"): {
+            "positional": ["self", "variance_rows", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["variance_risk_directions", "subdivisions", "relative_tolerance", "gamma_relative_standard_error_limit", "retain_samples"],
+            "required_keyword_only": ["variance_risk_directions"],
+            "keyword_only_defaults": {"subdivisions": 64, "relative_tolerance": 1e-6, "gamma_relative_standard_error_limit": .25, "retain_samples": False},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_terminal_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+        ("PricingPlan", "evaluate_vega_kt_joint_gamma_audit"): {
+            "positional": ["self", "gamma_strikes", "initial_gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions", "risk_directions", "subdivisions", "relative_tolerance"],
+            "required_keyword_only": ["policy", "variance_conservation_directions", "risk_directions"],
+            "keyword_only_defaults": {"subdivisions": 32768, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_initial_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 512, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_middle_smile_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 512, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_three_step_terminal_readout_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions", "variance_risk_directions"],
+            "required_keyword_only": ["policy", "variance_conservation_directions", "variance_risk_directions"],
+            "keyword_only_defaults": {},
+        },
+        ("PricingPlan", "evaluate_vega_kt_initial_smile_gamma_audit"): {
+            "positional": ["self", "gamma_bin_boundaries"], "positional_defaults": {},
+            "keyword_only": ["subdivisions", "relative_tolerance"], "required_keyword_only": [],
+            "keyword_only_defaults": {"subdivisions": 32768, "relative_tolerance": 1e-8},
+        },
+        ("PricingPlan", "evaluate_vega_kt_two_step_smile_gamma_audit"): {
+            "positional": ["self", "gamma_strikes"], "positional_defaults": {},
+            "keyword_only": ["policy", "variance_conservation_directions"],
+            "required_keyword_only": ["policy"],
+            "keyword_only_defaults": {"variance_conservation_directions": None},
+        },
+    })
     for (class_name, method_name), expected in sorted(expected_signature_shapes.items()):
         if method_name not in class_methods.get(class_name, {}):
             raise RuntimeError(f"wheel stub is missing required member {class_name}.{method_name}")
@@ -2469,6 +2749,23 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "HestonLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
+        "MixedBergomiLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
+        "QuadraticHestonLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
+        'HestonMcParameterRisk': {'price', 'parameter_adjoints', 'parameter_names', 'method', 'coordinate', 'standard_errors', 'risk_fingerprint'},
+        'MixedBergomiMcParameterRisk': {'price', 'parameter_adjoints', 'parameter_names', 'method', 'coordinate', 'standard_errors', 'risk_fingerprint'},
+        'QuadraticHestonMcParameterRisk': {'price', 'parameter_adjoints', 'parameter_names', 'method', 'coordinate', 'standard_errors', 'risk_fingerprint'},
+        'RoughHestonMcHurstRisk': {'price', 'hurst_sensitivity', 'method', 'coordinate', 'standard_error', 'risk_fingerprint'},
+        'RoughVolatilityGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
+        'RoughFamilyLsvGamma': {'spot_bump', 'price', 'payoff_evaluations', 'half_bump_gamma', 'bump_difference_standard_error', 'gamma', 'convention', 'bump_difference', 'gamma_standard_error', 'risk_fingerprint', 'half_bump_standard_error', 'method'},
+
+        'RoughFamilyLsvMarketIvRiskPlan': {'risk_fingerprint', 'evaluate'},
+        'RoughFamilyLsvMarketIvRisk': {'coordinate', 'maturity_nodes', 'uncertainty_scope', 'parallel_vega', 'log_moneyness_nodes', 'price', 'method', 'risk_fingerprint', 'implied_volatilities', 'interpolation', 'quote_adjoints', 'parallel_standard_error', 'standard_errors'},
+
+        "RoughFamilyLsvDelta": {'delta', 'price', 'coordinate', 'convention', 'delta_standard_error', 'method'},
+        'RoughFamilyLsvPlan': {'evaluate_quadratic_heston_parameter_risk', 'evaluate_mixed_bergomi_shape_risk', 'evaluate_mixed_bergomi_parameter_risk_with_hurst', 'evaluate_mixed_bergomi_parameter_risk', 'evaluate_heston_parameter_risk','evaluate_frozen_leverage_gamma_bump', 'evaluate_sticky_moneyness_gamma_bump', 'market_iv_risk_plan', 'evaluate_frozen_leverage_delta', 'evaluate_sticky_moneyness_delta', 'time_nodes', 'plan_fingerprint', 'evaluate_local_variance_risk', 'squared_leverage', 'log_moneyness_nodes', 'minimum_effective_samples', 'extrapolated_moment_nodes', 'compile', 'evaluate'},
+        'RoughVolatilityDelta': {'price', 'delta', 'coordinate', 'method', 'delta_standard_error'},
+
         'MarketIvSurface': {'__init__', 'implied_volatilities', 'maturity_nodes', 'local_volatility_model', 'interpolation', 'log_moneyness_nodes'},
         'StochasticDividendContinuousBarrierMarketIvRisk': {'price', 'standard_error', 'standard_error_per_vol_point', 'vega_per_vol_point', 'risk_fingerprint', 'quote_log_moneyness_nodes', 'interpolation', 'vega', 'quote_maturity_nodes', 'bump_difference_standard_errors', 'recalibration_count', 'implied_volatilities', 'scenario_evaluated_paths', 'vega_standard_errors', 'vega_estimates', 'bump_differences', 'payoff_evaluations', 'implied_volatility_bumps', 'uncertainty_scope', 'method'},
 
@@ -2506,8 +2803,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'ForwardVarianceCurve': {'value', 'constant', 'exponential', 'piecewise_linear'},
         'RoughVolatilityModel': {'mixed_rough_bergomi', 'lifted_heston_from_rough', 'rough_sabr', 'name', 'quadratic_rough_heston', 'lifted_heston', 'rough_heston', 'rfsv'},
         'RoughVolatilityPath': {'forwards', 'latent_states', 'negative_variance_nodes', 'absorbed_forward_steps', 'variances'},
-        'RoughVolatilityPathPlan': {'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
-        'RoughVolatilityPlan': {'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
+        'RoughVolatilityPathPlan': {'reverse_initial_forward', 'plan_fingerprint', 'compile', 'scheme', 'pseudo_shocks', 'evolve_path', 'time_nodes', 'random_dimension'},
+        'RoughVolatilityPlan': {'evaluate_quadratic_heston_parameter_risk', 'evaluate_mixed_bergomi_shape_risk', 'evaluate_mixed_bergomi_parameter_risk_with_hurst', 'evaluate_mixed_bergomi_parameter_risk', 'evaluate_hurst_risk', 'evaluate_heston_parameter_risk', 'evaluate_gamma_bump', 'evaluate_delta', 'plan_fingerprint', 'compile', 'evaluate', 'path_plan', 'time_nodes', 'risky_spot', 'random_dimension'},
         "StochasticDividendHullWhitePlan": {'evaluate_gamma', 'evaluate_correlation_aad', 'evaluate_aad', 'evaluate_hull_white_aad', 'random_factor_count', 'time_nodes', 'plan_fingerprint', 'initial_dividend_claim_values', 'cash_times', 'compile_bs', 'evaluate', 'scheme', 'initial_dividend_forwards', 'risky_spot'},
         "StochasticDividendAadRisk": {'repo_spread_times', 'uncertainty_scope', 'method', 'standard_errors', 'cash_mean_adjoints', 'derivatives', 'initial_volatility_vega_per_vol_point', 'repo_spread_node_dv01', 'discount_node_dv01', 'price', 'parameter_labels', 'discount_times', 'cash_times', 'initial_volatility_vega', 'delta', 'dividend_volatility_vega_per_vol_point'},
         'StochasticDividendGammaRisk': {'delta_change_per_one_percent_spot', 'gamma', 'risk_fingerprint', 'payoff_evaluations', 'gamma_standard_errors', 'delta', 'standard_error', 'delta_standard_error', 'gamma_estimates', 'uncertainty_scope', 'price', 'bump_differences', 'method', 'spot', 'bump_difference_standard_errors', 'spot_bumps'},
@@ -2700,6 +2997,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "__init__",
             "__repr__",
             "curve_id",
+            "discount",
         },
         "DiagnosticEstimate": {
             "__repr__",
@@ -2745,6 +3043,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "lookback_past_monitoring_count",
             "lookback_future_monitoring_count",
             "lookback_historical_extremum",
+            "lookback_valuation_date_fixing",
             "barrier_bridge_abi",
             "barrier_bridge_policy_version",
             "barrier_hit_indicator_mode",
@@ -2875,6 +3174,15 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "local_volatility_from_standard_ssvi_power_law",
         },
         "PricingError": set(),
+        "AndersenBroadieConfig": {
+            "__init__", "__repr__", "continuation_inner_paths", "exercise_inner_paths", "inner_seed",
+        },
+        "AndersenBroadiePlan": {"__repr__", "compile", "evaluate", "plan_fingerprint"},
+        "AndersenBroadieResult": {
+            "__repr__", "lower_bound", "upper_bound", "duality_gap",
+            "price_confidence_interval_95", "policy_fingerprint", "plan_fingerprint",
+            "config", "outer_trajectories", "exercise_date_count",
+        },
         "PricingPlan": {
             "__repr__",
             "compile",
@@ -3051,6 +3359,24 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_class_members.update({
         name: set().union(*parts.values()) for name, parts in BASS_STUB_API.items()
     })
+    expected_class_members.update({
+        name: properties | {"to_dict"} for name, properties in VEGA_KT_DIAGNOSTIC_PROPERTIES.items()
+    })
+    expected_class_members["PricingPlan"].update({
+        "evaluate_vega_kt_chain_diagnostic", "evaluate_vega_kt_terminal_diagnostic",
+        "evaluate_vega_kt_atom_chain_diagnostic", "evaluate_vega_kt_gamma_recovery_audit",
+        "evaluate_vega_kt_initial_gamma_diagnostic", "evaluate_vega_kt_gamma_recovery_diagnostic",
+        "evaluate_vega_kt_two_step_smile_gamma_audit",
+        "evaluate_vega_kt_initial_smile_gamma_audit",
+        "evaluate_vega_kt_joint_gamma_audit",
+        "evaluate_vega_kt_three_step_terminal_gamma_audit",
+        "evaluate_vega_kt_multi_step_terminal_gamma_audit",
+        "evaluate_vega_kt_multi_step_gamma_chain_audit",
+        "evaluate_vega_kt_middle_smile_gamma_audit",
+        "evaluate_vega_kt_three_step_initial_gamma_audit",
+        "evaluate_vega_kt_three_step_terminal_readout_audit",
+    })
+    expected_class_members["VegaKtGammaRecoveryPolicy"] = {"__init__", "to_dict"}
     expected_class_members["Model"].add("bass_local_volatility")
     expected_class_members["PricingPlan"].update({
         "bass_calibration_diagnostics", "bass_projection_diagnostics",
@@ -3083,6 +3409,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ('RoughFamilyLsvPlan', 'compile'),
+
+        ("AndersenBroadiePlan", "compile"),
         ('StochasticDividendContinuousBarrierPlan', "compile_rough_bergomi_lsv"),
         ("HestonIvRefinementOptions", "create"),
         ("HestonCalibrationSsviSurface", "power_law"),
@@ -3162,6 +3491,131 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("HestonLsvParameterRisk", "price"),
+        ("MixedBergomiLsvParameterRisk", "price"),
+        ("QuadraticHestonLsvParameterRisk", "price"),
+        ("HestonLsvParameterRisk", "parameter_names"),
+        ("MixedBergomiLsvParameterRisk", "parameter_names"),
+        ("QuadraticHestonLsvParameterRisk", "parameter_names"),
+        ("HestonLsvParameterRisk", "parameter_adjoints"),
+        ("MixedBergomiLsvParameterRisk", "parameter_adjoints"),
+        ("QuadraticHestonLsvParameterRisk", "parameter_adjoints"),
+        ("HestonLsvParameterRisk", "direct_adjoints"),
+        ("MixedBergomiLsvParameterRisk", "direct_adjoints"),
+        ("QuadraticHestonLsvParameterRisk", "direct_adjoints"),
+        ("HestonLsvParameterRisk", "calibration_adjoints"),
+        ("MixedBergomiLsvParameterRisk", "calibration_adjoints"),
+        ("QuadraticHestonLsvParameterRisk", "calibration_adjoints"),
+        ("HestonLsvParameterRisk", "standard_errors"),
+        ("MixedBergomiLsvParameterRisk", "standard_errors"),
+        ("QuadraticHestonLsvParameterRisk", "standard_errors"),
+        ("HestonLsvParameterRisk", "coordinate"),
+        ("MixedBergomiLsvParameterRisk", "coordinate"),
+        ("QuadraticHestonLsvParameterRisk", "coordinate"),
+        ("HestonLsvParameterRisk", "method"),
+        ("MixedBergomiLsvParameterRisk", "method"),
+        ("QuadraticHestonLsvParameterRisk", "method"),
+        ("HestonLsvParameterRisk", "risk_fingerprint"),
+        ("MixedBergomiLsvParameterRisk", "risk_fingerprint"),
+        ("QuadraticHestonLsvParameterRisk", "risk_fingerprint"),
+
+        ('RoughFamilyLsvMarketIvRiskPlan', 'risk_fingerprint'),
+        ('RoughFamilyLsvMarketIvRisk', 'price'),
+        ('RoughFamilyLsvMarketIvRisk', 'maturity_nodes'),
+        ('RoughFamilyLsvMarketIvRisk', 'log_moneyness_nodes'),
+        ('RoughFamilyLsvMarketIvRisk', 'implied_volatilities'),
+        ('RoughFamilyLsvMarketIvRisk', 'quote_adjoints'),
+        ('RoughFamilyLsvMarketIvRisk', 'standard_errors'),
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_vega'),
+        ('RoughFamilyLsvMarketIvRisk', 'parallel_standard_error'),
+        ('RoughFamilyLsvMarketIvRisk', 'risk_fingerprint'),
+        ('RoughFamilyLsvMarketIvRisk', 'method'),
+        ('RoughFamilyLsvMarketIvRisk', 'coordinate'),
+        ('RoughFamilyLsvMarketIvRisk', 'interpolation'),
+        ('RoughFamilyLsvMarketIvRisk', 'uncertainty_scope'),
+        ('RoughFamilyLsvDelta', 'price'),
+        ('RoughFamilyLsvGamma', 'bump_difference'),
+        ('RoughFamilyLsvGamma', 'bump_difference_standard_error'),
+        ('RoughFamilyLsvGamma', 'convention'),
+        ('RoughFamilyLsvGamma', 'gamma'),
+        ('RoughFamilyLsvGamma', 'gamma_standard_error'),
+        ('RoughFamilyLsvGamma', 'half_bump_gamma'),
+        ('RoughFamilyLsvGamma', 'half_bump_standard_error'),
+        ('RoughFamilyLsvGamma', 'method'),
+        ('RoughFamilyLsvGamma', 'payoff_evaluations'),
+        ('RoughFamilyLsvGamma', 'price'),
+        ('RoughFamilyLsvGamma', 'risk_fingerprint'),
+        ('RoughFamilyLsvGamma', 'spot_bump'),
+        ('HestonMcParameterRisk', 'price'),
+        ('MixedBergomiMcParameterRisk', 'price'),
+        ('QuadraticHestonMcParameterRisk', 'price'),
+        ('RoughHestonMcHurstRisk', 'price'),
+        ('HestonMcParameterRisk', 'parameter_names'),
+        ('MixedBergomiMcParameterRisk', 'parameter_names'),
+        ('QuadraticHestonMcParameterRisk', 'parameter_names'),
+        ('HestonMcParameterRisk', 'parameter_adjoints'),
+        ('MixedBergomiMcParameterRisk', 'parameter_adjoints'),
+        ('QuadraticHestonMcParameterRisk', 'parameter_adjoints'),
+        ('RoughHestonMcHurstRisk', 'hurst_sensitivity'),
+        ('HestonMcParameterRisk', 'standard_errors'),
+        ('MixedBergomiMcParameterRisk', 'standard_errors'),
+        ('QuadraticHestonMcParameterRisk', 'standard_errors'),
+        ('RoughHestonMcHurstRisk', 'standard_error'),
+        ('HestonMcParameterRisk', 'method'),
+        ('MixedBergomiMcParameterRisk', 'method'),
+        ('QuadraticHestonMcParameterRisk', 'method'),
+        ('RoughHestonMcHurstRisk', 'method'),
+        ('HestonMcParameterRisk', 'coordinate'),
+        ('MixedBergomiMcParameterRisk', 'coordinate'),
+        ('QuadraticHestonMcParameterRisk', 'coordinate'),
+        ('RoughHestonMcHurstRisk', 'coordinate'),
+        ('HestonMcParameterRisk', 'risk_fingerprint'),
+        ('MixedBergomiMcParameterRisk', 'risk_fingerprint'),
+        ('QuadraticHestonMcParameterRisk', 'risk_fingerprint'),
+        ('RoughHestonMcHurstRisk', 'risk_fingerprint'),
+        ('RoughVolatilityGamma', 'bump_difference'),
+        ('RoughVolatilityGamma', 'bump_difference_standard_error'),
+        ('RoughVolatilityGamma', 'convention'),
+        ('RoughVolatilityGamma', 'gamma'),
+        ('RoughVolatilityGamma', 'gamma_standard_error'),
+        ('RoughVolatilityGamma', 'half_bump_gamma'),
+        ('RoughVolatilityGamma', 'half_bump_standard_error'),
+        ('RoughVolatilityGamma', 'method'),
+        ('RoughVolatilityGamma', 'payoff_evaluations'),
+        ('RoughVolatilityGamma', 'price'),
+        ('RoughVolatilityGamma', 'risk_fingerprint'),
+        ('RoughVolatilityGamma', 'spot_bump'),
+
+        ('RoughFamilyLsvDelta', 'delta'),
+        ('RoughFamilyLsvDelta', 'delta_standard_error'),
+        ('RoughFamilyLsvDelta', 'convention'),
+        ('RoughFamilyLsvDelta', 'method'),
+        ('RoughFamilyLsvDelta', 'coordinate'),
+        ('RoughFamilyLsvPlan', 'plan_fingerprint'),
+        ('RoughFamilyLsvPlan', 'time_nodes'),
+        ('RoughFamilyLsvPlan', 'log_moneyness_nodes'),
+        ('RoughFamilyLsvPlan', 'squared_leverage'),
+        ('RoughFamilyLsvPlan', 'extrapolated_moment_nodes'),
+        ('RoughFamilyLsvPlan', 'minimum_effective_samples'),
+        ('RoughVolatilityDelta', 'price'),
+        ('RoughVolatilityDelta', 'delta'),
+        ('RoughVolatilityDelta', 'delta_standard_error'),
+        ('RoughVolatilityDelta', 'method'),
+        ('RoughVolatilityDelta', 'coordinate'),
+
+        ("AndersenBroadieConfig", "continuation_inner_paths"),
+        ("AndersenBroadieConfig", "exercise_inner_paths"),
+        ("AndersenBroadieConfig", "inner_seed"),
+        ("AndersenBroadiePlan", "plan_fingerprint"),
+        ("AndersenBroadieResult", "lower_bound"),
+        ("AndersenBroadieResult", "upper_bound"),
+        ("AndersenBroadieResult", "duality_gap"),
+        ("AndersenBroadieResult", "price_confidence_interval_95"),
+        ("AndersenBroadieResult", "policy_fingerprint"),
+        ("AndersenBroadieResult", "plan_fingerprint"),
+        ("AndersenBroadieResult", "config"),
+        ("AndersenBroadieResult", "outer_trajectories"),
+        ("AndersenBroadieResult", "exercise_date_count"),
         ('MarketIvSurface', 'maturity_nodes'),
         ('MarketIvSurface', 'log_moneyness_nodes'),
         ('MarketIvSurface', 'implied_volatilities'),
@@ -3915,6 +4369,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Diagnostics", "lookback_past_monitoring_count"),
         ("Diagnostics", "lookback_future_monitoring_count"),
         ("Diagnostics", "lookback_historical_extremum"),
+        ("Diagnostics", "lookback_valuation_date_fixing"),
         ("Diagnostics", "payoff_fingerprint"),
         ("Diagnostics", "payoff_smoothing_half_width"),
         ("Diagnostics", "payoff_smoothing_dividend_jump_count"),
@@ -4097,6 +4552,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         for method in parts.get("staticmethods", set())
     )
     expected_static_methods.add(("Model", "bass_local_volatility"))
+    expected_properties.update(
+        (name, method) for name, properties in VEGA_KT_DIAGNOSTIC_PROPERTIES.items()
+        for method in properties
+    )
     expected_properties.update(
         (name, method) for name, parts in BASS_STUB_API.items()
         for method in parts.get("properties", set())

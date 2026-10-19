@@ -1,0 +1,19 @@
+{
+  "policy_id": "conditional_initial_gamma_measure_component_v1",
+  "scope": "First positive-time conditional Gamma measure and first-interval local Vega; spatially flat zero carry. Does not establish the full IV hedge.",
+  "products": ["call", "asian", "fixed_asian", "lookback"],
+  "interval_volatilities": [[0.2, 0.2], [0.17, 0.26]],
+  "seeds": [7, 41],
+  "antithetic": [true, false],
+  "samples": 131072,
+  "gamma_bin_boundaries": [70.0, 85.0, 95.0, 100.0, 105.0, 115.0, 135.0],
+  "statistical_multiplier": 6.0,
+  "mass_absolute_tolerance": 0.000002,
+  "vega_absolute_tolerance": 0.002,
+  "identity_absolute_tolerance": 0.0000000001,
+  "quadrature_absolute_tolerance": 0.000000001,
+  "batches": 16,
+  "batch_samples": 512,
+  "batch_first_seed": 2017,
+  "vol_bump": 0.0001
+}

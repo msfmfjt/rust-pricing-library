@@ -10,7 +10,7 @@ use pricing_numerics::{Complex64 as C, NeumaierSum};
 pub struct HestonFourierHurstRisk {
     pub price: HestonFourierPrice,
     pub hurst_sensitivity: f64,
-    /// Absolute Simpson N/N2 difference on [0,cutoff], not a total error bound.
+    /// Absolute Simpson N/N2 difference on `[0,cutoff]`, not a total error bound.
     pub quadrature_difference: f64,
     /// Derivative envelope on [cutoff/2,cutoff], NOT an omitted-tail bound.
     pub tail_indicator: f64,

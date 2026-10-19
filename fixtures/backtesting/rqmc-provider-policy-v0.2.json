@@ -1,0 +1,39 @@
+{
+  "policy_id": "rqmc_path_budget_16_scrambles_v1",
+  "seeds": [
+    100043,
+    100049
+  ],
+  "excluded_seeds": [
+    7,
+    41,
+    104729,
+    130363,
+    100003,
+    100019
+  ],
+  "cases": [
+    "regression_6"
+  ],
+  "engine": {
+    "type": "randomized_quasi_monte_carlo",
+    "points_per_scramble": 256,
+    "scramble_count": 16,
+    "variance_reduction": {
+      "antithetic": true,
+      "brownian_bridge": false
+    }
+  },
+  "base_policy": "fixtures/backtesting/portfolio-market-policy-v0.1.json",
+  "reference_acceptance": "design/validation/vega-kt-portfolio-market-v0.1.json",
+  "current_acceptance": "design/validation/vega-kt-joint-replay-v0.1.json",
+  "worker_threads": 4,
+  "sigma_multiplier": 6.0,
+  "scope": "Freeze before evaluation after 256x16 six-interval Asian hit the native work cap before producing a sample. Six-interval Asian uses 128 points; every other product uses 256. Sixteen scrambles; unchanged integration and precision gates. New seeds exclude all prior numerical experiments. Coupled basis only; all_rows independent acceptance not claimed.",
+  "points_per_scramble_by_instrument": {
+    "asian_call": 128,
+    "asian_put": 128,
+    "fixed_asian_call": 128,
+    "fixed_asian_put": 128
+  }
+}

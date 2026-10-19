@@ -251,6 +251,12 @@ independent training and valuation paths, round-trips the v3 request, and
 evaluates the same Put under Black-Scholes and Local Volatility with
 fixed-policy Greeks and immutable exercise diagnostics.
 
+The [Andersen–Broadie example](examples/python/american_dual.py) adds nested
+simulation to the same LSM request and reports lower/upper price estimates,
+the duality gap and their standard errors. See the
+[primal-dual guide](docs/library/american-dual.md) for the Rust/Python APIs and
+the finite-exercise-grid scope of the bounds.
+
 A Local Volatility/VegaKT valuation example is available at
 [`examples/python/local_vol_vegakt.py`](examples/python/local_vol_vegakt.py).
 It builds Local variance and reporting-IV grids from calibrated eSSVI slices,

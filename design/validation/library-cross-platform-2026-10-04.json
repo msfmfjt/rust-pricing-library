@@ -1,0 +1,500 @@
+{
+  "date_jst": "2026-10-04",
+  "tested_snapshot": {
+    "source_archive": "source.tar.gz",
+    "sha256": "d9f2f626b6e4d5bbe3113acb52c16d2ba4cf446f6438f10aa87d6b2f8cc3e486",
+    "prior_validation": "design/validation/library-full-check-2026-10-03.json",
+    "github_existing_ci": {
+      "run_id": 37127358646,
+      "branch": "feat/stochastic-dividend-hard-barrier-risk",
+      "head": "6b778f740d22e4a811d151a2a3b7ed3b3473cf87",
+      "bass_source_present": false
+    },
+    "repository_is_public": true
+  },
+  "environment": {
+    "platform": "Linux-6.10.14-linuxkit-aarch64-with-glibc2.41",
+    "machine": "aarch64",
+    "python": "3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0]",
+    "source_archive_sha256": "d9f2f626b6e4d5bbe3113acb52c16d2ba4cf446f6438f10aa87d6b2f8cc3e486",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n",
+    "scope": "All nonignored Rust tests and release-wheel Python tests; full ignored extended-model panels are not included.",
+    "wheel": {
+      "name": "rust_pricing-0.1.0-cp313-cp313-manylinux_2_34_aarch64.whl",
+      "sha256": "55a4110a8a71467f9ca66b0d48e8797a3c14d5d24ff9e77ae293682e42434753"
+    },
+    "finished_utc": "2026-10-03T16:38:33.996645+00:00"
+  },
+  "rust": {
+    "passed": 711,
+    "failed": 0,
+    "ignored": 50
+  },
+  "rust_python": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "python_with_extras": {
+    "passed": 199,
+    "skipped": 0
+  },
+  "companion": {
+    "passed": 193,
+    "skipped": 0
+  },
+  "steps": [
+    {
+      "name": "rust-all-features-release",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--release",
+        "--workspace",
+        "--all-features",
+        "--exclude",
+        "pricing-python"
+      ],
+      "started_utc": "2026-10-03T16:28:49.920862+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 233.968
+    },
+    {
+      "name": "rust-python-release",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing-python"
+      ],
+      "started_utc": "2026-10-03T16:32:43.890794+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 78.997
+    },
+    {
+      "name": "all-targets",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "started_utc": "2026-10-03T16:34:02.889133+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 11.885
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_utc": "2026-10-03T16:34:14.775550+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 12.036
+    },
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "started_utc": "2026-10-03T16:34:26.812935+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.83
+    },
+    {
+      "name": "wheel-build",
+      "command": [
+        "/out/venv/bin/python",
+        "-m",
+        "maturin",
+        "build",
+        "--locked",
+        "--release",
+        "--out",
+        "/out/wheels"
+      ],
+      "started_utc": "2026-10-03T16:34:27.643785+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 61.67
+    },
+    {
+      "name": "wheel-smoke",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/smoke_test_wheel.py",
+        "/out/wheels/rust_pricing-0.1.0-cp313-cp313-manylinux_2_34_aarch64.whl"
+      ],
+      "started_utc": "2026-10-03T16:35:29.315746+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 64.696
+    },
+    {
+      "name": "optional-dependencies",
+      "command": [
+        "/work/source/.wheel-smoke-venv/bin/python",
+        "-m",
+        "pip",
+        "install",
+        "./backtesting[validation,constraints]"
+      ],
+      "started_utc": "2026-10-03T16:36:34.011884+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 8.428
+    },
+    {
+      "name": "python-all-extras",
+      "command": [
+        "/work/source/.wheel-smoke-venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-v"
+      ],
+      "started_utc": "2026-10-03T16:36:42.440520+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 46.506
+    },
+    {
+      "name": "companion",
+      "command": [
+        "/work/source/.wheel-smoke-venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "backtesting/tests",
+        "-v"
+      ],
+      "started_utc": "2026-10-03T16:37:28.946087+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 6.47
+    },
+    {
+      "name": "check_local_vol_gamma_numerics",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_local_vol_gamma_numerics.py"
+      ],
+      "started_utc": "2026-10-03T16:37:35.421741+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.04
+    },
+    {
+      "name": "check_local_vol_gamma_recovery",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_local_vol_gamma_recovery.py"
+      ],
+      "started_utc": "2026-10-03T16:37:35.462620+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.031
+    },
+    {
+      "name": "check_local_vol_reference_fixture",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_local_vol_reference_fixture.py"
+      ],
+      "started_utc": "2026-10-03T16:37:35.494343+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.018
+    },
+    {
+      "name": "check_local_vol_step_adjoints",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_local_vol_step_adjoints.py"
+      ],
+      "started_utc": "2026-10-03T16:37:35.512294+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.353
+    },
+    {
+      "name": "check_local_vol_step_recovery",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_local_vol_step_recovery.py"
+      ],
+      "started_utc": "2026-10-03T16:37:35.866648+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.304
+    },
+    {
+      "name": "check_local_vol_vegakt_paper",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_local_vol_vegakt_paper.py"
+      ],
+      "started_utc": "2026-10-03T16:37:36.170954+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.497
+    },
+    {
+      "name": "check_path_dependence_reference_fixture",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_path_dependence_reference_fixture.py"
+      ],
+      "started_utc": "2026-10-03T16:37:36.668267+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.019
+    },
+    {
+      "name": "check_early_exercise_reference_fixture",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_early_exercise_reference_fixture.py"
+      ],
+      "started_utc": "2026-10-03T16:37:36.687373+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.017
+    },
+    {
+      "name": "check_schemas",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_schemas.py"
+      ],
+      "started_utc": "2026-10-03T16:37:36.705118+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.037
+    },
+    {
+      "name": "check_markdown_links",
+      "command": [
+        "/out/venv/bin/python",
+        "scripts/check_markdown_links.py"
+      ],
+      "started_utc": "2026-10-03T16:37:36.742227+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.056
+    },
+    {
+      "name": "replay-european_bs-1",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_european_bs",
+        "--",
+        "/out/linux/european_bs-1.json"
+      ],
+      "started_utc": "2026-10-03T16:37:36.798605+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 39.687
+    },
+    {
+      "name": "replay-european_bs-2",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_european_bs",
+        "--",
+        "/out/linux/european_bs-2.json"
+      ],
+      "started_utc": "2026-10-03T16:38:16.486122+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.085
+    },
+    {
+      "name": "replay-european_bs-repeatability",
+      "status": "passed",
+      "exact_bytes": true,
+      "sha256": "a1d9f5811164fbae00e8714cabea0e3f618f2396fc1e0c9473010307299a910a",
+      "frozen_platform_fixture": false
+    },
+    {
+      "name": "replay-local_vol-1",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_local_vol",
+        "--",
+        "/out/linux/local_vol-1.json"
+      ],
+      "started_utc": "2026-10-03T16:38:16.572954+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 5.887
+    },
+    {
+      "name": "replay-local_vol-2",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_local_vol",
+        "--",
+        "/out/linux/local_vol-2.json"
+      ],
+      "started_utc": "2026-10-03T16:38:22.460551+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.089
+    },
+    {
+      "name": "replay-local_vol-repeatability",
+      "status": "passed",
+      "exact_bytes": true,
+      "sha256": "7a5385784a2ffc2ea8b2cbeae3402392a6a33a1082900c23d725594c64621e0a",
+      "frozen_platform_fixture": false
+    },
+    {
+      "name": "replay-path_dependence-1",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_path_dependence",
+        "--",
+        "/out/linux/path_dependence-1.json"
+      ],
+      "started_utc": "2026-10-03T16:38:22.550908+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 5.704
+    },
+    {
+      "name": "replay-path_dependence-2",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_path_dependence",
+        "--",
+        "/out/linux/path_dependence-2.json"
+      ],
+      "started_utc": "2026-10-03T16:38:28.255369+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.086
+    },
+    {
+      "name": "replay-path_dependence-repeatability",
+      "status": "passed",
+      "exact_bytes": true,
+      "sha256": "79a4ff54ed84fce40332df1727fc74068102761951ae4388bb71b3f85e6fa51a",
+      "frozen_platform_fixture": false
+    },
+    {
+      "name": "replay-early_exercise-1",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_early_exercise",
+        "--",
+        "/out/linux/early_exercise-1.json"
+      ],
+      "started_utc": "2026-10-03T16:38:28.342303+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 5.595
+    },
+    {
+      "name": "replay-early_exercise-2",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--release",
+        "-p",
+        "pricing",
+        "--example",
+        "replay_early_exercise",
+        "--",
+        "/out/linux/early_exercise-2.json"
+      ],
+      "started_utc": "2026-10-03T16:38:33.938240+00:00",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.057
+    },
+    {
+      "name": "replay-early_exercise-repeatability",
+      "status": "passed",
+      "exact_bytes": true,
+      "sha256": "2214a0af8388ddcd41162497bcfc11e9107bd1c55dbec4d82492f749c3ee975c",
+      "frozen_platform_fixture": false
+    }
+  ],
+  "replay_scope": "Two same-platform executions match byte-for-byte; no Linux frozen baseline added.",
+  "ignored_extended_tests_rerun": false,
+  "windows_native_validation": "Not executed; publication consent pending.",
+  "published_branch": false,
+  "replay_candidate_audit": {
+    "tests_passed": 8,
+    "script_sha256": "4ffcdc2eff445200ad51f32a21c850cabe6e5486dd9173f47a7cebef46508d1a",
+    "golden_files_modified": false,
+    "paper_vegakt_accepted": false
+  }
+}

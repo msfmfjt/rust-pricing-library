@@ -622,6 +622,11 @@ mod tests {
         assert_eq!(report.estimates().len(), 6);
         assert_eq!(report.raw_buckets().len(), 6);
         assert_eq!(
+            report.policy_label(),
+            "local_vol_node_allocation_diagnostic_v1"
+        );
+        assert_eq!(report.truncation_order(), "not_applicable");
+        assert_eq!(
             report.full_bucket_covariance().expect("covariance").len(),
             36
         );
@@ -2248,6 +2253,138 @@ mod tests {
     }
 
     #[test]
+    fn local_vol_allocation_audits_exclusions_and_rejects_corrupted_buckets() {
+        use crate::engine::risk::local_vol_allocation::allocate_local_vol_nodes;
+        use crate::mc::DeterministicStatistics;
+
+        let risk = RiskRequest::new(
+            false,
+            None,
+            true,
+            Some(
+                VegaKtConfig::new(
+                    vec!["2027-03-05".parse().unwrap(), "2027-09-04".parse().unwrap()],
+                    vec![-1.0, 0.0, 1.0],
+                    0.5,
+                    false,
+                )
+                .unwrap(),
+            ),
+            SmileDynamics::StickyLogMoneyness,
+            None,
+            None,
+        )
+        .unwrap();
+        let request = price_only_request_with_model(
+            constant_local_vol_model_with_reporting_basis(),
+            2,
+            false,
+            risk,
+        );
+        let mut plan = SimulationPlan::compile(&request, policy(1)).unwrap();
+        // Exercise the retained node-allocation reporter with its own audit;
+        // this test supplies hand-authored local-node samples, not Gamma atoms.
+        plan.terminal_vega_kt = None;
+        let runtime = plan.local_volatility.as_ref().unwrap();
+        // t=0 sums to 5. Positive-time inactive tails sum to -1 + 5.
+        // The active center contributions are +7 and -5, independently known.
+        let (buckets, audit) =
+            allocate_local_vol_nodes(runtime, &[2.0, -1.0, 4.0, -3.0, 7.0, 2.0, 4.0, -5.0, 1.0])
+                .unwrap();
+        assert_eq!(audit.initial_time, 5.0);
+        assert_eq!(audit.density_excluded, 4.0);
+        assert_eq!(buckets, vec![0.0, 7.0, 0.0, 0.0, -5.0, 0.0]);
+        let mut statistics = [DeterministicStatistics::from_ordered_values_two_pass(&[0.0, 0.0]);
+            crate::engine::plan::simulation::PATHWISE_COMPONENTS];
+        statistics[VEGA] = DeterministicStatistics::from_ordered_values_two_pass(&[11.0, 11.0]);
+        let samples = [buckets.clone(), buckets].concat();
+        let report = plan
+            .build_vega_kt_result(
+                runtime,
+                &statistics,
+                2,
+                &[1.0, 2.0],
+                &samples,
+                &[audit, audit],
+            )
+            .unwrap();
+        assert_eq!(report.projection().signed_residual().get(), 9.0);
+        assert_eq!(report.projection().pre_projection().get(), 11.0);
+        // Previously the report fabricated a residual from total minus buckets,
+        // so this corruption would have been reported as perfectly reconciled.
+        let mut corrupted = samples;
+        corrupted[1] += 1.0;
+        assert!(
+            plan.build_vega_kt_result(
+                runtime,
+                &statistics,
+                2,
+                &[1.0, 2.0],
+                &corrupted,
+                &[audit, audit]
+            )
+            .is_err()
+        );
+        assert!(
+            plan.build_vega_kt_result(runtime, &statistics, 2, &[1.0, 2.0], &corrupted, &[audit])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn local_vol_bucket_sum_does_not_scale_with_inverse_strike_grid_spacing() {
+        let valuation: Date = "2026-09-04".parse().expect("valuation");
+        let dates: Vec<Date> = vec![
+            "2027-03-05".parse().expect("first maturity"),
+            "2027-09-04".parse().expect("expiry"),
+        ];
+        let times: Vec<f64> = dates
+            .iter()
+            .map(|date| DayCountConvention::Act365F.year_fraction(valuation, *date))
+            .collect();
+        let mut totals = Vec::new();
+        for nodes in [vec![-0.4, 0.0, 0.4], vec![-0.4, -0.2, 0.0, 0.2, 0.4]] {
+            let model = ModelSpec::LocalVolatility(
+                LocalVolatilitySpec::from_explicit_grid(
+                    vec![0.0, times[0], times[1]],
+                    nodes.clone(),
+                    vec![0.04; 3 * nodes.len()],
+                    1.0e-8,
+                    1.0,
+                )
+                .expect("local grid")
+                .with_reporting_iv_basis(
+                    LocalVolatilityReportingBasis::new(
+                        times.clone(),
+                        nodes.clone(),
+                        vec![0.2; 2 * nodes.len()],
+                    )
+                    .expect("reporting basis"),
+                ),
+            );
+            let risk = RiskRequest::new(
+                false,
+                None,
+                true,
+                Some(VegaKtConfig::new(dates.clone(), nodes, 1.0e-300, false).expect("KT")),
+                SmileDynamics::StickyLogMoneyness,
+                None,
+                None,
+            )
+            .expect("risk");
+            let request = price_only_request_with_model(model, 1024, true, risk);
+            let result = price_pseudo_monte_carlo(&request, policy(1)).expect("valuation");
+            let report = result.pricing_result.risks.vega_kt.expect("KT");
+            let sum: f64 = report.raw_buckets().iter().map(|x| x.get()).sum();
+            totals.push(sum);
+        }
+        assert!(totals[0].abs() > 1.0);
+        assert!((totals[0] - totals[1]).abs() < 1.0e-10, "{totals:?}");
+        // This conservation regression does not certify paper VegaKT. The
+        // independent backtesting panel also checks total Vega and residuals.
+    }
+
+    #[test]
     fn local_vol_rqmc_vega_kt_uses_between_scramble_bucket_uncertainty() {
         let risk = RiskRequest::new(
             false,
@@ -2726,82 +2863,106 @@ mod tests {
             vec![expiry],
             risk.clone(),
         );
-        let engine = EngineConfig::PseudoMonteCarlo(
-            PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true)).unwrap(),
-        );
-        let vanilla = ProductSpec::ArithmeticAsian(
-            ArithmeticAsianSpec::new(
-                UnderlyingId::new(1),
+        // Both terminal estimators must preserve resolved Barrier parity:
+        // zero carry selects pathwise risk; nonzero carry selects replication.
+        for rate in [0.0, 0.03] {
+            let market = MarketContext::Equity(EquityMarket::new(
                 CurrencyId::new(1),
-                100.0,
-                2.0,
-                OptionSide::Call,
-                vec![AsianObservation::unknown(expiry, 1.0).unwrap()],
-                expiry,
-            )
-            .unwrap(),
-        );
-        let reference = PricingRequest::new(
-            base.valuation_date(),
-            vanilla,
-            base.market().clone(),
-            base.model().clone(),
-            engine,
-            risk.clone(),
-        )
-        .unwrap();
-        let reference = SimulationPlan::compile(&reference, policy(1))
-            .unwrap()
-            .execute()
-            .unwrap();
-        let buckets = reference
-            .pricing_result
-            .risks
-            .vega_kt
-            .as_ref()
-            .unwrap()
-            .raw_buckets();
-        assert!(buckets.iter().any(|b| b.get().abs() > 0.0));
-        for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
-            for hit in [false, true] {
-                let product = BarrierSpec::new(
+                EquityForward::new(
                     UnderlyingId::new(1),
-                    CurrencyId::new(1),
-                    expiry,
-                    100.0,
-                    100.0,
-                    2.0,
-                    OptionSide::Call,
-                    BarrierDirection::Up,
-                    style,
-                    BarrierMonitoring::Continuous,
-                    if hit { vec![past, expiry] } else { vec![past] },
-                    Some(7.0),
-                    expiry,
-                )
-                .unwrap()
-                .with_historical_hit(hit);
-                let request = PricingRequest::new(
-                    base.valuation_date(),
-                    ProductSpec::Barrier(product),
-                    base.market().clone(),
-                    base.model().clone(),
-                    engine,
-                    risk.clone(),
-                )
-                .unwrap();
-                let actual = SimulationPlan::compile(&request, policy(1))
-                    .unwrap()
-                    .execute()
+                    PositiveF64::new(100.0, "spot").unwrap(),
+                    curve(1, rate),
+                    curve(2, 0.0),
+                ),
+            ));
+            for side in [OptionSide::Call, OptionSide::Put] {
+                for engine in [
+                    EngineConfig::PseudoMonteCarlo(
+                        PseudoMcConfig::new(29, 64, VarianceReduction::new(true, true)).unwrap(),
+                    ),
+                    EngineConfig::RandomizedQuasiMonteCarlo(
+                        RqmcConfig::new(64, 4, 29, VarianceReduction::new(true, true)).unwrap(),
+                    ),
+                ] {
+                    let vanilla = ProductSpec::ArithmeticAsian(
+                        ArithmeticAsianSpec::new(
+                            UnderlyingId::new(1),
+                            CurrencyId::new(1),
+                            100.0,
+                            2.0,
+                            side,
+                            vec![AsianObservation::unknown(expiry, 1.0).unwrap()],
+                            expiry,
+                        )
+                        .unwrap(),
+                    );
+                    let reference = PricingRequest::new(
+                        base.valuation_date(),
+                        vanilla,
+                        market.clone(),
+                        base.model().clone(),
+                        engine,
+                        risk.clone(),
+                    )
                     .unwrap();
-                let actual = actual.pricing_result.risks.vega_kt.unwrap();
-                for (a, b) in actual.raw_buckets().iter().zip(buckets) {
-                    let expected = if (style == BarrierStyle::KnockIn) == hit {
-                        b.get()
-                    } else {
-                        0.0
-                    };
-                    assert!((a.get() - expected).abs() < 1e-12);
+                    let reference = SimulationPlan::compile(&reference, policy(1)).unwrap();
+                    assert_eq!(reference.terminal_vega_kt.is_some(), rate == 0.0);
+                    assert_eq!(
+                        reference.terminal_replication_vega_kt.is_some(),
+                        rate != 0.0
+                    );
+                    let reference = reference.execute().unwrap();
+                    let buckets = reference
+                        .pricing_result
+                        .risks
+                        .vega_kt
+                        .as_ref()
+                        .unwrap()
+                        .raw_buckets();
+                    assert!(buckets.iter().any(|b| b.get().abs() > 0.0));
+                    for style in [BarrierStyle::KnockIn, BarrierStyle::KnockOut] {
+                        for hit in [false, true] {
+                            let product = BarrierSpec::new(
+                                UnderlyingId::new(1),
+                                CurrencyId::new(1),
+                                expiry,
+                                100.0,
+                                100.0,
+                                2.0,
+                                side,
+                                BarrierDirection::Up,
+                                style,
+                                BarrierMonitoring::Continuous,
+                                if hit { vec![past, expiry] } else { vec![past] },
+                                Some(7.0),
+                                expiry,
+                            )
+                            .unwrap()
+                            .with_historical_hit(hit);
+                            let request = PricingRequest::new(
+                                base.valuation_date(),
+                                ProductSpec::Barrier(product),
+                                market.clone(),
+                                base.model().clone(),
+                                engine,
+                                risk.clone(),
+                            )
+                            .unwrap();
+                            let actual = SimulationPlan::compile(&request, policy(1))
+                                .unwrap()
+                                .execute()
+                                .unwrap();
+                            let actual = actual.pricing_result.risks.vega_kt.unwrap();
+                            for (a, b) in actual.raw_buckets().iter().zip(buckets) {
+                                let expected = if (style == BarrierStyle::KnockIn) == hit {
+                                    b.get()
+                                } else {
+                                    0.0
+                                };
+                                assert!((a.get() - expected).abs() < 1e-12);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -4236,6 +4397,7 @@ mod tests {
                 past_monitoring_count: 1,
                 future_monitoring_count: 1,
                 historical_extremum: Some(92.0),
+                valuation_date_fixing: None,
             })
         );
     }

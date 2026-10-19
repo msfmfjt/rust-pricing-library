@@ -36,3 +36,11 @@ impl PathReverse for HullWhiteRecordedPath<'_> {
         self.reverse(seeds)
     }
 }
+
+impl PathReverse for super::rough_volatility::RoughFamilyLsvPath {
+    type Adjoints = super::rough_volatility::RoughFamilyLsvAdjoints;
+    type Error = LsvError;
+    fn path_pullback(&self, seeds: &[f64]) -> Result<Self::Adjoints, LsvError> {
+        self.reverse(seeds)
+    }
+}

@@ -8,6 +8,12 @@ pub(super) trait CalibratedModel: Clone + std::fmt::Debug + Send + Sync {
     const SCHEME: &'static str;
     /// Independent Gaussian blocks per time step in the pricing layout.
     const RANDOM_BLOCKS: usize;
+    fn random_dimension(&self, steps: usize) -> usize {
+        Self::RANDOM_BLOCKS * steps
+    }
+    fn brownian_block_count(&self) -> usize {
+        Self::RANDOM_BLOCKS
+    }
     fn surface(&self) -> &LsvLeverageSurface;
     fn config(&self) -> &LsvParticleConfig;
     fn target(&self) -> &LocalVarianceGrid;

@@ -31,6 +31,7 @@ pub use plan::{
     PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,
 };
 pub mod core;
+pub mod dual;
 pub mod market;
 pub mod mc;
 pub mod models;

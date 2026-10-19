@@ -1,0 +1,12 @@
+{
+  "policy_id": "put_lookback_known_kink_refinement_v1",
+  "baseline_policy": "fixtures/backtesting/variance-extension-put-policy-v0.1.json",
+  "gamma_bin_rule": "standard_spot_bins_plus_minimum_of_strike_historical_extremum_and_valuation_date_fixing_for_Put_Lookback",
+  "recomputed_products": ["lookback_past"],
+  "subdivisions": 512,
+  "relative_tolerance": 0.000001,
+  "gamma_relative_standard_error_limit": 0.25,
+  "unchanged_samples": true,
+  "unchanged_native_binary": true,
+  "full_market_iv_bucket_acceptance": "not_established"
+}

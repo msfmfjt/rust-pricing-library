@@ -1,0 +1,9 @@
+{
+  "policy_id": "flat_baseline_continuous_dupire_discrete_skew_probe_v1",
+  "time_steps": [2, 4, 8, 16, 32],
+  "seeds": [3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008],
+  "samples": 16384,
+  "iv_skew_bump": 0.0001,
+  "statistical_multiplier": 6.0,
+  "absolute_tolerance": 0.002
+}

@@ -1,0 +1,20 @@
+{
+  "role": "exploratory_in_sample_not_independent_acceptance_no_provider_promotion",
+  "seeds": [100003],
+  "settings": {
+    "bridge_256x16": {
+      "type": "randomized_quasi_monte_carlo",
+      "points_per_scramble": 256,
+      "scramble_count": 16,
+      "variance_reduction": {"antithetic": true, "brownian_bridge": true}
+    },
+    "direct_1024x12": {
+      "type": "randomized_quasi_monte_carlo",
+      "points_per_scramble": 1024,
+      "scramble_count": 12,
+      "variance_reduction": {"antithetic": true, "brownian_bridge": false}
+    }
+  },
+  "unchanged_precision": {"subdivisions": 512, "relative_tolerance": 0.000001, "gamma_relative_standard_error_limit": 0.25, "max_joint_bucket_standard_error": 10},
+  "budget": {"max_continuation_work": 10000000000, "european_compiled_opcodes": 7, "six_interval_continuation_row_sum": 21, "variance_nodes": 33, "gamma_bins": 6}
+}

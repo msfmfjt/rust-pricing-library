@@ -1,0 +1,12 @@
+{
+  "policy_id": "local_allocation_initial_time_probe_v1",
+  "base_policy": "numerical-policy-v0.1.json",
+  "seeds": [7, 41, 97],
+  "time_steps": [2, 4, 8, 16],
+  "sampling_units": 4096,
+  "strike_nodes": 17,
+  "local_volatility_bumps": [0.00001, 0.00005],
+  "relative_tolerance": 0.005,
+  "absolute_tolerance": 0.0000001,
+  "description": "Diagnose omitted initial local-grid sensitivity using first-row-only CRN repricing. This is a derivative of the explicitly supplied local variance grid, NOT a market-IV perturbation or paper VegaKT acceptance."
+}

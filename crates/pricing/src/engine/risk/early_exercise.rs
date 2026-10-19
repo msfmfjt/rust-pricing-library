@@ -8,7 +8,8 @@ use crate::engine::plan::simulation::{
     EarlyExerciseRuntime, LocalVolRuntime, PATHWISE_COMPONENTS, PRICE, SimulationPlan,
     bucket_sample_capacity,
 };
-use crate::engine::processes::local_vol_valuation::average_local_vol_pathwise;
+use crate::engine::risk::local_vol_allocation::LocalVolAllocationAuditSum;
+use crate::engine::risk::local_vol_allocation::average_local_vol_pathwise;
 use crate::engine::risk::report::{
     empty_risk_diagnostics, estimate_from_statistics, extrapolation_warnings,
 };
@@ -486,6 +487,7 @@ impl SimulationPlan {
         let bump_runtimes = self.local_vol_bump_runtimes()?;
         let mut values = Vec::with_capacity(unit_count);
         let mut price_samples = Vec::with_capacity(unit_count);
+        let mut allocation_audits = Vec::with_capacity(unit_count);
         let mut raw_bucket_samples =
             Vec::with_capacity(bucket_sample_capacity(unit_count, bucket_count));
         for sampling_unit in 0..independent_units {
@@ -524,6 +526,11 @@ impl SimulationPlan {
             } else {
                 primary
             };
+            allocation_audits.push(
+                pathwise
+                    .allocation_audit
+                    .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?,
+            );
             price_samples.push(pathwise.values[PRICE]);
             raw_bucket_samples.extend(
                 pathwise
@@ -545,6 +552,7 @@ impl SimulationPlan {
             independent_units,
             &price_samples,
             &raw_bucket_samples,
+            &allocation_audits,
         )?;
         Ok((statistics, report))
     }
@@ -596,12 +604,14 @@ impl SimulationPlan {
         let bump_runtimes = self.local_vol_bump_runtimes()?;
         let mut replicate_values = Vec::with_capacity(scramble_count);
         let mut price_samples = Vec::with_capacity(scramble_count);
+        let mut allocation_audits = Vec::with_capacity(scramble_count);
         let mut raw_bucket_samples =
             Vec::with_capacity(bucket_sample_capacity(scramble_count, bucket_count));
         for scramble in 0..engine.scramble_count().get() {
             let scramble_index = usize::try_from(scramble).expect("u32 fits usize");
             let mut component_sums = [pricing_numerics::NeumaierSum::new(); PATHWISE_COMPONENTS];
             let mut bucket_sums = vec![pricing_numerics::NeumaierSum::new(); bucket_count];
+            let mut audit_sum = LocalVolAllocationAuditSum::default();
             for point in 0..engine.points_per_scramble().get() {
                 let point_index =
                     usize::try_from(point).map_err(|_| LsmNumericalError::MatrixShapeOverflow)?;
@@ -640,6 +650,11 @@ impl SimulationPlan {
                 for (sum, value) in component_sums.iter_mut().zip(pathwise.values) {
                     sum.add(value);
                 }
+                audit_sum.add(
+                    pathwise
+                        .allocation_audit
+                        .ok_or(MonteCarloError::MissingLocalVolatilityReportingBasis)?,
+                );
                 for (sum, value) in bucket_sums.iter_mut().zip(
                     pathwise
                         .raw_buckets
@@ -651,6 +666,7 @@ impl SimulationPlan {
             let replicate: [f64; PATHWISE_COMPONENTS] = std::array::from_fn(|component| {
                 component_sums[component].total() / engine.points_per_scramble().get() as f64
             });
+            allocation_audits.push(audit_sum.mean(engine.points_per_scramble().get()));
             price_samples.push(replicate[PRICE]);
             raw_bucket_samples.extend(
                 bucket_sums
@@ -673,6 +689,7 @@ impl SimulationPlan {
             independent_units,
             &price_samples,
             &raw_bucket_samples,
+            &allocation_audits,
         )?;
         Ok((statistics, report))
     }

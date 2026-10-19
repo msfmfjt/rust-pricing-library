@@ -128,6 +128,7 @@ pub enum PathStateDiagnostics {
         past_monitoring_count: u32,
         future_monitoring_count: u32,
         historical_extremum: Option<f64>,
+        valuation_date_fixing: Option<f64>,
     },
 }
 
@@ -183,6 +184,7 @@ impl PathStateDiagnostics {
                     past_monitoring_count,
                     future_monitoring_count,
                     historical_extremum: lookback.historical_extremum().map(PositiveF64::get),
+                    valuation_date_fixing: lookback.valuation_date_fixing().map(PositiveF64::get),
                 })
             }
             ProductSpec::EuropeanVanilla(_)

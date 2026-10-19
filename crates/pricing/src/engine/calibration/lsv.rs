@@ -7,6 +7,11 @@
 //! of calibration particles. Reverse differentiation includes the conditional
 //! expectation estimator, rather than freezing it under a Dupire variance bump.
 
+mod rough_families;
+pub use rough_families::{
+    CalibratedRoughFamilyLsv, calibrate_rough_family_lsv, calibrate_rough_family_lsv_parallel,
+};
+
 use super::capabilities::CalibrationReverse;
 use crate::engine::processes::lsv::*;
 use crate::engine::processes::rough_lsv::{ROUGH_RANDOM_BLOCKS, RoughBergomiLsvPlan, RoughKernel};
@@ -59,6 +64,13 @@ trait ParticleDriver: Sync {
     fn random_blocks(&self) -> usize;
     /// Zero vol of vol: the conditional moments are exactly one.
     fn trivial(&self) -> bool;
+    /// Existing Bergomi multipliers start at one. General base variances may not.
+    fn initial_moments(&self) -> [f64; 3] {
+        [1.0; 3]
+    }
+    fn allows_zero_multiplier(&self) -> bool {
+        false
+    }
     fn multiplier(&self, state: Self::State, particle: usize, row: usize) -> f64;
     fn step(&self, dt: f64) -> Result<Self::Step, LsvError>;
     /// Evolves the factor state after the particle's spot step with normal z.
@@ -397,7 +409,18 @@ fn calibrate<D: ParticleDriver>(
     for r in 0..nt {
         let a = map_indexed(executor, np, |i| driver.multiplier(factors[i], i, r));
         for (i, &v) in a.iter().enumerate() {
-            valid(v.powi(4), "particle_fourth_moment", i, true)?;
+            valid(
+                v.powi(4),
+                "particle_fourth_moment",
+                i,
+                !driver.allows_zero_multiplier(),
+            )?;
+            if v < 0.0 {
+                return Err(LsvError::InvalidInput {
+                    field: "negative_particle_multiplier",
+                    index: i,
+                });
+            }
         }
         let key = |entry: &mut (f64, usize)| entry.0 = (states[entry.1] / initial_f).ln();
         let order = |a: &(f64, usize), b: &(f64, usize)| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1));
@@ -413,11 +436,16 @@ fn calibrate<D: ParticleDriver>(
         }
         let node_moments = |(j, &x): (usize, &f64)| {
             if r == 0 || driver.trivial() {
+                let [second, third, fourth] = if r == 0 {
+                    driver.initial_moments()
+                } else {
+                    [1.0; 3]
+                };
                 return (
                     LsvConditionalMoments {
-                        second: 1.0,
-                        third: 1.0,
-                        fourth: 1.0,
+                        second,
+                        third,
+                        fourth,
                         effective_samples: np as f64,
                         source_node: j,
                         extrapolated: false,
@@ -524,7 +552,9 @@ fn calibrate<D: ParticleDriver>(
                     RandomDomain::LsvCalibration,
                 ));
                 let lookup = surface.lookup_row_from(r, (*state / initial_f).ln(), cell);
-                *state = advance(*state, lookup.value * a[i] * a[i], dt, z, r, i)?;
+                if !(driver.allows_zero_multiplier() && a[i] == 0.0) {
+                    *state = advance(*state, lookup.value * a[i] * a[i], dt, z, r, i)?;
+                }
                 *factor_state = driver.advance(transition, *factor_state, i, r, z)?;
                 Ok(())
             };
@@ -720,7 +750,14 @@ impl Calibration {
                         r as u32,
                         RandomDomain::LsvCalibration,
                     ));
-                    let lb = *bar * next * (-0.5 * dt + dt.sqrt() * z / (2.0 * q.sqrt())) * a2;
+                    // At a zero base variance the asset step is the identity for
+                    // every positive leverage. Its leverage derivative is zero,
+                    // not the indeterminate product 0 * (1 / sqrt(0)).
+                    let lb = if a2 == 0.0 {
+                        0.0
+                    } else {
+                        *bar * next * (-0.5 * dt + dt.sqrt() * z / (2.0 * q.sqrt())) * a2
+                    };
                     lookup.transpose(lb, &mut lbar);
                     *bar = *bar * next / f + lb * lookup.derivative_log_f / f;
                 }

@@ -271,6 +271,20 @@ impl PyRoughVolatilityPathPlan {
             .map(|inner| PyRoughVolatilityPath { inner })
             .map_err(pricing_exception)
     }
+    fn reverse_initial_forward(
+        &self,
+        py: Python<'_>,
+        initial_forward: f64,
+        normals: Vec<f64>,
+        state_seeds: Vec<f64>,
+    ) -> PyResult<f64> {
+        py.detach(|| {
+            self.inner
+                .evolve_recorded_path(initial_forward, &normals)?
+                .reverse_initial_forward(&state_seeds)
+        })
+        .map_err(pricing_exception)
+    }
     fn pseudo_shocks(&self, py: Python<'_>, seed: u64, path: u64) -> Vec<f64> {
         py.detach(|| {
             self.inner
@@ -302,6 +316,16 @@ pub struct PyRoughVolatilityPlan {
 }
 #[pymethods]
 impl PyRoughVolatilityPlan {
+    fn evaluate_gamma_bump(
+        &self,
+        py: Python<'_>,
+        spot_bump: f64,
+    ) -> PyResult<PyRoughVolatilityGamma> {
+        py.detach(|| self.inner.evaluate_gamma_bump(spot_bump))
+            .map(|inner| PyRoughVolatilityGamma { inner })
+            .map_err(pricing_exception)
+    }
+
     #[staticmethod]
     #[pyo3(signature=(request, model, *, maximum_step, worker_threads, reduction_block_size=None))]
     fn compile(
@@ -337,6 +361,62 @@ impl PyRoughVolatilityPlan {
     fn plan_fingerprint(&self) -> String {
         self.inner.plan_fingerprint().to_string()
     }
+    fn evaluate_hurst_risk(&self, py: Python<'_>) -> PyResult<PyRoughHestonMcHurstRisk> {
+        py.detach(|| self.inner.evaluate_hurst_risk())
+            .map(|inner| PyRoughHestonMcHurstRisk { inner })
+            .map_err(pricing_exception)
+    }
+    /// Finite-grid QRH scalar risk; optional Hurst uses the left derivative at 1/2.
+    #[pyo3(signature = (*, include_hurst=false))]
+    fn evaluate_quadratic_heston_parameter_risk(
+        &self,
+        py: Python<'_>,
+        include_hurst: bool,
+    ) -> PyResult<PyQuadraticHestonMcParameterRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_quadratic_heston_parameter_risk(include_hurst)
+        })
+        .map(|inner| PyQuadraticHestonMcParameterRisk { inner })
+        .map_err(pricing_exception)
+    }
+    fn evaluate_mixed_bergomi_shape_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiMcParameterRisk> {
+        py.detach(|| self.inner.evaluate_mixed_bergomi_shape_risk())
+            .map(|inner| PyMixedBergomiMcParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_mixed_bergomi_parameter_risk(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiMcParameterRisk> {
+        py.detach(|| self.inner.evaluate_mixed_bergomi_parameter_risk())
+            .map(|inner| PyMixedBergomiMcParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_mixed_bergomi_parameter_risk_with_hurst(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyMixedBergomiMcParameterRisk> {
+        py.detach(|| {
+            self.inner
+                .evaluate_mixed_bergomi_parameter_risk_with_hurst()
+        })
+        .map(|inner| PyMixedBergomiMcParameterRisk { inner })
+        .map_err(pricing_exception)
+    }
+    fn evaluate_heston_parameter_risk(&self, py: Python<'_>) -> PyResult<PyHestonMcParameterRisk> {
+        py.detach(|| self.inner.evaluate_heston_parameter_risk())
+            .map(|inner| PyHestonMcParameterRisk { inner })
+            .map_err(pricing_exception)
+    }
+    fn evaluate_delta(&self, py: Python<'_>) -> PyResult<PyRoughVolatilityDelta> {
+        py.detach(|| self.inner.evaluate_delta())
+            .map(|inner| PyRoughVolatilityDelta { inner })
+            .map_err(pricing_exception)
+    }
     #[getter]
     fn risky_spot(&self) -> f64 {
         self.inner.risky_spot()
@@ -346,5 +426,258 @@ impl PyRoughVolatilityPlan {
         PyRoughVolatilityPathPlan {
             inner: self.inner.path_plan().clone(),
         }
+    }
+}
+
+#[pyclass(frozen, name = "RoughVolatilityDelta", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughVolatilityDelta {
+    inner: pricing::rough_volatility::RoughVolatilityDelta,
+}
+#[pymethods]
+impl PyRoughVolatilityDelta {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> f64 {
+        self.inner.delta
+    }
+    #[getter]
+    fn delta_standard_error(&self) -> f64 {
+        self.inner.delta_standard_error
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "physical_spot_fixed_model_fixed_cash_dividends"
+    }
+}
+
+#[pyclass(frozen, name = "RoughVolatilityGamma", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughVolatilityGamma {
+    inner: pricing::rough_volatility::RoughVolatilityGamma,
+}
+#[pymethods]
+impl PyRoughVolatilityGamma {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn gamma(&self) -> f64 {
+        self.inner.gamma
+    }
+    #[getter]
+    fn gamma_standard_error(&self) -> f64 {
+        self.inner.gamma_standard_error
+    }
+    #[getter]
+    fn half_bump_gamma(&self) -> f64 {
+        self.inner.half_bump_gamma
+    }
+    #[getter]
+    fn half_bump_standard_error(&self) -> f64 {
+        self.inner.half_bump_standard_error
+    }
+    #[getter]
+    fn bump_difference(&self) -> f64 {
+        self.inner.bump_difference
+    }
+    #[getter]
+    fn bump_difference_standard_error(&self) -> f64 {
+        self.inner.bump_difference_standard_error
+    }
+    #[getter]
+    fn spot_bump(&self) -> f64 {
+        self.inner.spot_bump
+    }
+    #[getter]
+    fn payoff_evaluations(&self) -> u128 {
+        self.inner.payoff_evaluations
+    }
+    #[getter]
+    fn convention(&self) -> &'static str {
+        self.inner.convention
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "HestonMcParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyHestonMcParameterRisk {
+    inner: pricing::rough_volatility::HestonMcParameterRisk,
+}
+#[pymethods]
+impl PyHestonMcParameterRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<&'static str> {
+        pricing::rough_volatility::HESTON_MC_PARAMETER_NAMES.to_vec()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "fixed_kernel_heston_scalar_parameters"
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "RoughHestonMcHurstRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyRoughHestonMcHurstRisk {
+    inner: pricing::rough_volatility::RoughHestonMcHurstRisk,
+}
+#[pymethods]
+impl PyRoughHestonMcHurstRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn hurst_sensitivity(&self) -> f64 {
+        self.inner.hurst_sensitivity
+    }
+    #[getter]
+    fn standard_error(&self) -> f64 {
+        self.inner.standard_error
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "rough_heston_hurst_fixed_scalar_parameters"
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "MixedBergomiMcParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyMixedBergomiMcParameterRisk {
+    inner: pricing::rough_volatility::MixedBergomiMcParameterRisk,
+}
+#[pymethods]
+impl PyMixedBergomiMcParameterRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<String> {
+        self.inner.parameter_names.to_vec()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        if self.inner.method.contains("shape-vjp") {
+            "mixed_bergomi_simplex_weights_and_forward_variance"
+        } else if self
+            .inner
+            .parameter_names
+            .last()
+            .is_some_and(|name| name == "hurst")
+        {
+            "mixed_bergomi_eta_rho_hurst_fixed_weights_and_xi"
+        } else {
+            "mixed_bergomi_eta_rho_fixed_kernel_weights_and_xi"
+        }
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
+    }
+}
+
+#[pyclass(frozen, name = "QuadraticHestonMcParameterRisk", skip_from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PyQuadraticHestonMcParameterRisk {
+    inner: pricing::rough_volatility::QuadraticHestonMcParameterRisk,
+}
+#[pymethods]
+impl PyQuadraticHestonMcParameterRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn parameter_names(&self) -> Vec<String> {
+        self.inner.parameter_names.to_vec()
+    }
+    #[getter]
+    fn parameter_adjoints(&self) -> Vec<f64> {
+        self.inner.parameter_adjoints.to_vec()
+    }
+    #[getter]
+    fn standard_errors(&self) -> Vec<f64> {
+        self.inner.standard_errors.to_vec()
+    }
+    #[getter]
+    fn method(&self) -> &'static str {
+        self.inner.method
+    }
+    #[getter]
+    fn coordinate(&self) -> &'static str {
+        "quadratic_heston_scalar_parameters_optional_hurst"
+    }
+    #[getter]
+    fn risk_fingerprint(&self) -> String {
+        self.inner.risk_fingerprint.to_string()
     }
 }

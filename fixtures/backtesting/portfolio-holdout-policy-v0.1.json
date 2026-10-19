@@ -1,0 +1,10 @@
+{
+  "policy_id": "declared_markets_unused_seeds_v1",
+  "seeds": [104729, 130363],
+  "base_policy": "fixtures/backtesting/portfolio-market-policy-v0.1.json",
+  "reference_acceptance": "design/validation/vega-kt-portfolio-market-v0.1.json",
+  "current_acceptance": "design/validation/vega-kt-joint-replay-v0.1.json",
+  "worker_threads": 4,
+  "sigma_multiplier": 6.0,
+  "scope": "New randomizations of the six existing markets only. All original precision settings and absolute tolerances are unchanged. Independent prices and bump differences are reused from sealed evidence; they do not depend on the native seed. Native failures are retained and never replaced by tuned reruns."
+}
