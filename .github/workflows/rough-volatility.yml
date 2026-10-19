@@ -75,7 +75,7 @@ jobs:
           } 2>&1 | tee rough-volatility.log
       - name: Retain numerical evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-volatility-${{ matrix.os }}
           path: rough-volatility.log
@@ -104,7 +104,7 @@ jobs:
           } 2>&1 | tee rough-volatility-refinement.log
       - name: Retain refinement evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-volatility-refinement-${{ matrix.os }}
           path: rough-volatility-refinement.log

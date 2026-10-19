@@ -56,7 +56,7 @@ jobs:
           } 2>&1 | tee heston-mc-hurst-risk.log
       - name: Retain Hurst evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heston-mc-hurst-risk-${{ matrix.os }}
           path: heston-mc-hurst-risk.log
@@ -72,7 +72,7 @@ jobs:
           } 2>&1 | tee heston-mc-parameter-risk.log
       - name: Retain numerical evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heston-mc-parameter-risk-${{ matrix.os }}
           path: heston-mc-parameter-risk.log

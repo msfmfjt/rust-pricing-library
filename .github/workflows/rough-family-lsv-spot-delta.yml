@@ -55,7 +55,7 @@ jobs:
           } 2>&1 | tee rough-family-lsv-spot-delta.log
       - name: Retain numerical evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-family-lsv-spot-delta-${{ matrix.os }}
           path: rough-family-lsv-spot-delta.log

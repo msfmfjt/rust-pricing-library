@@ -144,7 +144,7 @@ jobs:
       - name: Validate Put extension providers and mixed-side ledgers
         if: always()
         run: OPENBLAS_NUM_THREADS=1 python scripts/check_extension_put_provider.py --reference-report benchmark-results/vega-kt-extension-put/refined-numerical-report.json --output benchmark-results/vega-kt-extension-put/provider-report.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: vega-kt-numerical-acceptance
@@ -198,7 +198,7 @@ jobs:
         env:
           OPENBLAS_NUM_THREADS: "1"
         run: python scripts/check_portfolio_market.py --case ${{ matrix.case }} --output benchmark-results/vega-kt-portfolio-market/${{ matrix.case }}.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: vega-kt-market-${{ matrix.case }}

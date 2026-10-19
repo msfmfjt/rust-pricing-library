@@ -58,7 +58,7 @@ jobs:
         run: python scripts/profile_model_heap_followup.py ../baseline . ../heap-followup-results --original-directory ../original-profiles
       - name: Retain complete heap evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: model-heap-followup-linux
           path: |

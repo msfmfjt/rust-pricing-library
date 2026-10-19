@@ -46,7 +46,7 @@ jobs:
           python scripts/compare_heston_calibration_solvers.py 2>&1 | tee heston-calibration-solvers.log
       - name: Retain optimizer comparison
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heston-calibration-solvers
           path: heston-calibration-solvers.log
@@ -79,7 +79,7 @@ jobs:
           } 2>&1 | tee heston-calibration.log
       - name: Retain calibration evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heston-calibration-${{ matrix.os }}
           path: heston-calibration.log

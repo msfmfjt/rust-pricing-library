@@ -60,7 +60,7 @@ jobs:
           } 2>&1 | tee heston-iv-calibration.log
       - name: Retain IV calibration evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heston-iv-calibration-${{ matrix.os }}
           path: heston-iv-calibration.log

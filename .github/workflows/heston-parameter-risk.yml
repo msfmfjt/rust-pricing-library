@@ -64,7 +64,7 @@ jobs:
           } 2>&1 | tee heston-parameter-risk.log
       - name: Retain numerical evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: heston-parameter-risk-${{ matrix.os }}
           path: heston-parameter-risk.log

@@ -64,7 +64,7 @@ jobs:
             rustc -vV
             cargo test --locked --release -p pricing --test mixed_bergomi_parameter_risk -- --include-ignored --nocapture
           } 2>&1 | tee mixed-bergomi-parameter-risk.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mixed-bergomi-parameter-risk-${{ matrix.os }}
@@ -79,7 +79,7 @@ jobs:
             rustc -vV
             cargo test --locked --release -p pricing --test mixed_bergomi_hurst_risk -- --include-ignored --nocapture
           } 2>&1 | tee mixed-bergomi-hurst-risk.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mixed-bergomi-hurst-risk-${{ matrix.os }}
@@ -97,7 +97,7 @@ jobs:
             rustc -vV
             cargo test --locked --release -p pricing --test mixed_bergomi_shape_risk -- --include-ignored --nocapture
           } 2>&1 | tee mixed-bergomi-shape-risk.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mixed-bergomi-shape-risk-${{ matrix.os }}

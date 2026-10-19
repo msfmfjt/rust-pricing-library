@@ -53,7 +53,7 @@ jobs:
         run: cargo test --locked --release -p pricing --lib lsv_path_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-path-refinement.log
       - name: Retain risk and refinement evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stochastic-dividend-risk-${{ matrix.os }}
           path: |
@@ -94,7 +94,7 @@ jobs:
         run: cargo test --locked --release -p pricing --test rough_lsv_calibration_reference -- --nocapture 2>&1 | tee stochastic-dividend-independent-calibration.log
       - name: Retain Barrier smoothing evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-dividend-barrier-smoothing-${{ matrix.os }}
           path: |
@@ -143,7 +143,7 @@ jobs:
         run: python tests/python/test_rough_lsv_calibration_reference.py 2>&1 | tee stochastic-dividend-independent-calibration-numpy.log
       - name: Retain independent reference evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-dividend-survival-reference-linux
           path: |
@@ -186,7 +186,7 @@ jobs:
         run: python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results
       - name: Retain scaling evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: model-scaling-linux
           path: |
@@ -239,7 +239,7 @@ jobs:
         run: python scripts/compare_model_boundaries.py ../baseline . ../model-boundary-results
       - name: Retain paired model evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: model-boundary-comparison-linux
           path: |
@@ -371,7 +371,7 @@ jobs:
 
       - name: Retain extended model risk evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extended-model-risk-${{ matrix.os }}
           path: extended-model-risk.log
@@ -390,7 +390,7 @@ jobs:
 
       - name: Retain extended model accuracy evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extended-model-accuracy-${{ matrix.os }}
           path: extended-model-accuracy.log
@@ -461,7 +461,7 @@ jobs:
           python -c "from pathlib import Path; p = Path('replay-review'); assert (p / 'local-volatility-replay.json').read_bytes() == (p / 'local-volatility-replay-repeat.json').read_bytes(), 'native replay differs between repeated captures'"
 
       - name: Retain native replay review evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: local-vol-native-review-${{ matrix.target }}
           path: replay-review/*
@@ -482,7 +482,7 @@ jobs:
         run: python scripts/run_benchmark_suite.py
 
       - name: Retain replay candidates for review
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: replay-candidate-${{ matrix.target }}
           path: benchmark-results/*-replay.json
@@ -504,7 +504,7 @@ jobs:
         run: python scripts/check_benchmark_reports.py benchmark-results
 
       - name: Retain private wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist/*.whl
@@ -512,7 +512,7 @@ jobs:
           retention-days: 14
 
       - name: Retain Rust source package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-pricing-source-${{ matrix.target }}
           path: dist/rust-pricing-source-${{ matrix.target }}.tar.gz
@@ -520,7 +520,7 @@ jobs:
           retention-days: 14
 
       - name: Retain benchmark baseline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-${{ matrix.target }}
           path: benchmark-results/*.json

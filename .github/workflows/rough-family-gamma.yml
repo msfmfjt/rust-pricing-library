@@ -48,7 +48,7 @@ jobs:
           } 2>&1 | tee rough-family-gamma.log
       - name: Retain numerical evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-family-gamma-${{ matrix.os }}
           path: rough-family-gamma.log
