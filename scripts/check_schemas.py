@@ -111,8 +111,11 @@ ALLOWED_SCHEMA_KEYWORDS = {
     "$schema",
     "additionalProperties",
     "allOf",
+    "anyOf",
     "const",
     "dependentRequired",
+    "else",
+    "enum",
     "exclusiveMaximum",
     "exclusiveMinimum",
     "format",
@@ -1545,6 +1548,19 @@ def check_v3_artifacts() -> None:
         require(migration["original_schema_version"] == original and migration["current_schema_version"] == 3 and migration["migration_ids"] == migration_ids, f"{name}: migration metadata mismatch")
 
 
+def check_specification_artifacts() -> None:
+    from build_specification_schema import OUTPUT, schema_text
+    require(OUTPUT.exists(), "missing pricing specification schema")
+    require(OUTPUT.read_text() == schema_text(), "pricing specification schema is stale")
+    schema = json.loads(OUTPUT.read_text())
+    check_text_file_encoding(OUTPUT.read_bytes(), OUTPUT, "schema")
+    check_refs(schema, OUTPUT)
+    check_no_json_null(schema, OUTPUT)
+    check_schema_keywords(schema, OUTPUT)
+    check_no_unstructured_objects(schema, OUTPUT)
+    check_strict_objects(schema, OUTPUT)
+
+
 def main() -> int:
     try:
         actual = set(SCHEMA_ROOT.glob("*.schema.json"))
@@ -1562,6 +1578,7 @@ def main() -> int:
             check_golden(document_kind, path)
         check_v2_artifacts()
         check_v3_artifacts()
+        check_specification_artifacts()
     except SchemaError as exc:
         print(f"schema check failed: {exc}", file=sys.stderr)
         return 1

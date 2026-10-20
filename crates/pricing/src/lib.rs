@@ -37,6 +37,13 @@ pub mod mc;
 pub mod models;
 pub mod product;
 pub mod risk;
+pub use api::specification::{
+    EquityModelSpec, PricingModelSpec, PricingNumerics, PricingSpecification, RateModelSpec,
+    SpecificationValidationError, VolatilityFactorSpec,
+};
+pub use engine::risk::specification::{
+    CompiledPricingSpecification, SpecificationOutput, SpecificationResult,
+};
 pub use request::PricingRequest;
 pub use result::{
     ConfidenceInterval, Diagnostics, Estimate, EstimatorKind, MigrationProvenance, PricingResult,
@@ -47,10 +54,11 @@ pub use result::{
 };
 pub use wire::{
     Fingerprint, JsonLimits, MigrationRegistry, WireError, current_request_schema,
-    current_result_schema, fingerprint_request, monte_carlo_result_to_json,
-    monte_carlo_result_to_pretty_json, parse_monte_carlo_result_json, parse_request_json,
-    parse_result_json, request_to_json, request_to_pretty_json, result_to_json,
-    result_to_pretty_json,
+    current_result_schema, current_specification_schema, fingerprint_request,
+    fingerprint_specification, monte_carlo_result_to_json, monte_carlo_result_to_pretty_json,
+    parse_monte_carlo_result_json, parse_request_json, parse_result_json, parse_specification_json,
+    request_to_json, request_to_pretty_json, result_to_json, result_to_pretty_json,
+    specification_to_json, specification_to_pretty_json,
 };
 
 /// Returns the public facade version.

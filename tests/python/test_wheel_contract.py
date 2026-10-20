@@ -18,6 +18,26 @@ class WheelContractTests(unittest.TestCase):
         api = gate.exported_stub_api(stub)
         self.assertIn("BassMarketIvModel", api["symbols"])
         self.assertIn("bass_local_volatility", api["class_members"]["Model"])
+        for name in ("PricingSpecification", "CompiledPricingSpecification", "SpecificationResult", "specification_json_schema"):
+            self.assertIn(name, api["symbols"])
+
+    def test_specification_contract_preserves_explicit_policy_and_typed_results(self):
+        original = ast.parse((ROOT / "rust_pricing.pyi").read_text())
+        for mutation in ("implicit_policy", "wrong_compile_return", "untyped_native_result"):
+            tree = copy.deepcopy(original)
+            cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PricingSpecification")
+            if mutation == "implicit_policy":
+                method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "from_request")
+                method.args.kw_defaults[0] = ast.Constant(value=1)
+            elif mutation == "wrong_compile_return":
+                method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "compile")
+                method.returns = ast.Name(id="PricingPlan", ctx=ast.Load())
+            else:
+                cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "SpecificationResult")
+                method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "native_result")
+                method.returns = ast.Name(id="object", ctx=ast.Load())
+            with self.subTest(mutation=mutation), self.assertRaises(RuntimeError):
+                gate.verify_stub_static_shape(tree)
 
     def test_nonflat_gamma_contract_requires_explicit_variance_directions(self):
         original = ast.parse((ROOT / "rust_pricing.pyi").read_text())

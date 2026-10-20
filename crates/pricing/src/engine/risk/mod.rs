@@ -10,6 +10,7 @@ pub(crate) mod pathwise_local_vol;
 pub(crate) mod pricing;
 pub(crate) mod report;
 pub(crate) mod rough_volatility;
+pub(crate) mod specification;
 pub(crate) mod stochastic_dividends;
 pub(crate) mod stochastic_volatility;
 pub(crate) mod valuation;
