@@ -18,3 +18,9 @@ for name in ['standard_risk', 'multi_asset_bs', 'multi_asset_joint',
     for risk in report.risks[:2]:
         print(' ', risk.name, risk.unit, risk.method, risk.calibration)
     print(' ', type(result.native_result).__name__)
+    # Reuse the realized calibration when selecting the price operation.
+    price_plan = plan.with_operation('evaluate')
+    assert price_plan.plan_fingerprint == plan.plan_fingerprint
+    assert price_plan.capability_for('evaluate').status == 'supported'
+    assert price_plan.task.to_json() == task.with_operation('evaluate').to_json()
+    assert price_plan.evaluate().report.value == report.value

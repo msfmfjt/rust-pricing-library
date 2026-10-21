@@ -29,8 +29,53 @@ responsibility. A source query never claims these have passed.
 
 Known rejection reasons include `dedicated_risk_api`, `discontinuous_payoff`,
 `reverse_trace_required` and `invalid_gamma_bump`. A source selected for price
-can inspect another operation without compiling it. A compiled task inspects
-its saved operation; changing the operation creates a new immutable task.
+can inspect another operation without compiling it. A compiled task uses
+`capability()` for its saved operation and `capability_for(operation)` for another
+operation against the same realized plan.
+
+## Reuse compilation and calibration
+
+Use `CompiledPricingTask.with_operation(...)` to select another operation while
+sharing the compiled native plan, calibrated surfaces and retained reverse traces:
+
+```python
+task = rp.PricingTask.from_source(source, operation="evaluate")
+price_plan = task.compile()
+price = price_plan.evaluate()
+if price_plan.capability_for("local_variance_risk").status == "supported":
+    risk_plan = price_plan.with_operation("local_variance_risk")
+    risk = risk_plan.evaluate()
+    assert risk_plan.plan_fingerprint == price_plan.plan_fingerprint
+    saved_risk_task = risk_plan.task.to_json()
+```
+
+In Rust the same methods accept `PricingOperation`; `task()` returns the selected
+replayable task. `PricingTask::with_operation` only selects a source operation,
+and its subsequent `compile()` builds a fresh plan. Use the method on an already
+compiled task when reuse is intended.
+
+Selection returns a new immutable handle. It shares source and plan ownership,
+so dropping the original handle is safe. Different operations and Gamma bumps
+have their own task fingerprints and reports while retaining the same native
+plan identity. The selected `task` can be serialized and compiled independently
+for replay; no compiled state is added to the wire format.
+
+Source prerequisites and native preflight run on every selection. Missing reverse
+traces, discontinuous payoffs or inadmissible Gamma bumps remain errors; selection
+does not enable traces or change inputs. In Python, failures of these source/native
+checks use the existing `compile` error stage and selected operation; invalid
+operation labels or argument combinations retain validation errors. A failed selection
+leaves the original plan usable. Change source inputs, seeds, grids or execution
+policy by creating and compiling a new source task.
+
+This is explicit ownership within a process, with no global cache, eviction policy
+or cross-source fingerprint lookup. Cloning a Rust compiled task shares its native
+plan. Evaluation still owns separate path/risk workspaces and runs the selected
+native algorithm, including any required calibration pullbacks or bump work.
+Selection itself performs no compilation/calibration; it still validates the
+operation and computes its task fingerprint. Concurrent operations on shared
+handles preserve deterministic reduction and existing sampling-error semantics.
+The sharing boundary is recorded in [ADR 0034](../../design/adr/0034-compiled-task-reuse.md).
 
 ## Operations and supported compositions
 

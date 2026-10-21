@@ -1,4 +1,6 @@
 //! Immutable inputs for the native single-asset, basket and dividend adapters.
+use std::sync::Arc;
+
 use crate::core::Date;
 use crate::market::{CorrelationTermStructure, EquityMarket};
 use crate::mc::{EngineConfig, ExecutionPolicy};
@@ -368,7 +370,7 @@ impl From<StochasticDividendSpecification> for PricingSource {
 /// A replayable calculation includes the operation, not just the price inputs.
 #[derive(Clone, Debug)]
 pub struct PricingTask {
-    source: PricingSource,
+    source: Arc<PricingSource>,
     operation: PricingOperation,
 }
 impl PricingTask {
@@ -376,7 +378,21 @@ impl PricingTask {
         source: impl Into<PricingSource>,
         operation: PricingOperation,
     ) -> Result<Self, SpecificationValidationError> {
-        let source = source.into();
+        Self::from_shared_source(Arc::new(source.into()), operation)
+    }
+    /// Select another operation while sharing the immutable source inputs.
+    /// Compilation remains explicit; use the compiled task's `with_operation`
+    /// to reuse an existing native plan and its calibration.
+    pub fn with_operation(
+        &self,
+        operation: PricingOperation,
+    ) -> Result<Self, SpecificationValidationError> {
+        Self::from_shared_source(Arc::clone(&self.source), operation)
+    }
+    fn from_shared_source(
+        source: Arc<PricingSource>,
+        operation: PricingOperation,
+    ) -> Result<Self, SpecificationValidationError> {
         let capability = source.capability(operation);
         if capability.status == CapabilityStatus::Unsupported {
             return Err(SpecificationValidationError::UnsupportedOperation {
