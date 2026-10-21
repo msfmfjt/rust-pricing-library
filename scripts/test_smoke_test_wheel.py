@@ -20,6 +20,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WheelRunnerTests(unittest.TestCase):
+    def test_typed_source_contract_rejects_annotation_defaults_and_shape_drift(self):
+        source = (ROOT / "rust_pricing.pyi").read_text()
+        for before, after in [
+            ("models: Sequence[Model], correlation: CorrelationSchedule", "models: Sequence[float], correlation: CorrelationSchedule"),
+            ("equity: EquityModelSpec, *, rates: RateModelSpec | None = None", "equity: EquityModelSpec, rates: RateModelSpec | None = None"),
+            ("retain_reverse_trace: bool = False", "retain_reverse_trace: bool = True"),
+            ("source: PricingSpecification | MultiAssetSpecification | StochasticDividendSpecification", "source: PricingSpecification"),
+            ("def rough_bergomi(model: RoughBergomiModel) -> VolatilityFactorSpec", "def rough_bergomi(model: RoughBergomiModel) -> Model"),
+        ]:
+            with self.subTest(before=before), self.assertRaises(RuntimeError):
+                wheel.verify_stub_static_shape(ast.parse(source.replace(before, after)))
+
     def test_additive_risk_and_error_contracts_reject_missing_or_changed_types(self):
         source = (ROOT / "rust_pricing.pyi").read_text()
         wheel.verify_stub_static_shape(ast.parse(source))

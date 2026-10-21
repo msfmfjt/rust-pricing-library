@@ -14,6 +14,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing-python/src/source_config.rs",
+    "crates/pricing-python/src/pricing_source.rs",
+    "tests/python/test_typed_pricing_sources.py",
+    "examples/python/typed_pricing_sources.py",
+    "docs/library/typed-python-sources.md",
+    "design/adr/0032-typed-python-source-construction.md",
     "crates/pricing/src/api/source.rs",
     "crates/pricing/src/api/valuation_report.rs",
     "crates/pricing/src/engine/risk/source.rs",

@@ -30,7 +30,8 @@ The [Python type stub](../../rust_pricing.pyi) lists the typed entry points.
 
 Use [pricing specifications](pricing-specification.md) to save complete model
 compositions, calibration inputs and numerical settings and rebuild them through
-one Rust/Python entry point. The guide lists supported combinations and extension
+one Rust/Python entry point. [Typed Python construction](typed-python-sources.md)
+composes these inputs without JSON. The guide lists supported combinations and extension
 rules; the [Python example](../../examples/python/pricing_specification.py)
 demonstrates replay.
 

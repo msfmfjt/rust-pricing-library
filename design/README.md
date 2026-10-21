@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0032: Typed Python source construction](adr/0032-typed-python-source-construction.md)
+
 - [0030: Complete tasks, capability queries and common reports](adr/0030-pricing-task-capability-report.md),
 - [ADR 0031: Typed risk coordinates and structured Python failures](adr/0031-typed-risk-parameters-python-errors.md)
   with a [usage and extension guide](../docs/library/pricing-tasks.md).
