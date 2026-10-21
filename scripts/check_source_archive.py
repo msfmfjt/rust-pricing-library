@@ -1066,7 +1066,7 @@ REQUIRED_CI_SNIPPETS = {
     'python-version: "3.12"',
     "target: aarch64-apple-darwin",
     "target: x86_64-pc-windows-msvc",
-    "actions/upload-artifact@v4",
+    "actions/upload-artifact@v7",
     "name: replay-candidate-${{ matrix.target }}",
     "name: local-vol-native-review-${{ matrix.target }}",
     "git rev-parse HEAD > replay-review/source-commit.txt",
@@ -1090,7 +1090,7 @@ REQUIRED_CI_SNIPPET_COUNTS = {
     'python-version: "3.12"': 6,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v4": 12,
+    "actions/upload-artifact@v7": 12,
     "retention-days: 14": 10,
 }
 

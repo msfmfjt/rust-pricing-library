@@ -21,7 +21,7 @@ fn invalid(py: Python<'_>, error: impl ToString) -> PyErr {
     )
 }
 
-#[pyclass(frozen, name = "ForwardVarianceCurve", skip_from_py_object)]
+#[pyclass(frozen, name = "ForwardVarianceCurve")]
 #[derive(Clone, Debug)]
 pub struct PyForwardVarianceCurve {
     inner: ForwardVarianceCurve,
@@ -51,7 +51,7 @@ impl PyForwardVarianceCurve {
     }
 }
 
-#[pyclass(frozen, name = "RoughVolatilityModel", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughVolatilityModel")]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityModel {
     pub(super) inner: RoughVolatilityModel,
@@ -214,7 +214,7 @@ impl PyRoughVolatilityModel {
     }
 }
 
-#[pyclass(frozen, name = "RoughVolatilityPath", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughVolatilityPath")]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityPath {
     inner: RoughVolatilityPath,
@@ -243,7 +243,7 @@ impl PyRoughVolatilityPath {
     }
 }
 
-#[pyclass(frozen, name = "RoughVolatilityPathPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughVolatilityPathPlan")]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityPathPlan {
     inner: RoughVolatilityPathPlan,
@@ -309,7 +309,7 @@ impl PyRoughVolatilityPathPlan {
     }
 }
 
-#[pyclass(frozen, name = "RoughVolatilityPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughVolatilityPlan")]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityPlan {
     inner: RoughVolatilityPricingPlan,
@@ -429,7 +429,7 @@ impl PyRoughVolatilityPlan {
     }
 }
 
-#[pyclass(frozen, name = "RoughVolatilityDelta", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughVolatilityDelta")]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityDelta {
     inner: pricing::rough_volatility::RoughVolatilityDelta,
@@ -460,7 +460,7 @@ impl PyRoughVolatilityDelta {
     }
 }
 
-#[pyclass(frozen, name = "RoughVolatilityGamma", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughVolatilityGamma")]
 #[derive(Clone, Debug)]
 pub struct PyRoughVolatilityGamma {
     inner: pricing::rough_volatility::RoughVolatilityGamma,
@@ -519,7 +519,7 @@ impl PyRoughVolatilityGamma {
     }
 }
 
-#[pyclass(frozen, name = "HestonMcParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonMcParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyHestonMcParameterRisk {
     inner: pricing::rough_volatility::HestonMcParameterRisk,
@@ -558,7 +558,7 @@ impl PyHestonMcParameterRisk {
     }
 }
 
-#[pyclass(frozen, name = "RoughHestonMcHurstRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughHestonMcHurstRisk")]
 #[derive(Clone, Debug)]
 pub struct PyRoughHestonMcHurstRisk {
     inner: pricing::rough_volatility::RoughHestonMcHurstRisk,
@@ -593,7 +593,7 @@ impl PyRoughHestonMcHurstRisk {
     }
 }
 
-#[pyclass(frozen, name = "MixedBergomiMcParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "MixedBergomiMcParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMixedBergomiMcParameterRisk {
     inner: pricing::rough_volatility::MixedBergomiMcParameterRisk,
@@ -643,7 +643,7 @@ impl PyMixedBergomiMcParameterRisk {
     }
 }
 
-#[pyclass(frozen, name = "QuadraticHestonMcParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "QuadraticHestonMcParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyQuadraticHestonMcParameterRisk {
     inner: pricing::rough_volatility::QuadraticHestonMcParameterRisk,

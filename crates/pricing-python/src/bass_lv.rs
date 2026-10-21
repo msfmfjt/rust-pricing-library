@@ -27,7 +27,7 @@ fn error(py: Python<'_>, e: BassError) -> PyErr {
     }
 }
 
-#[pyclass(frozen, name = "BassMarginal", skip_from_py_object)]
+#[pyclass(frozen, name = "BassMarginal")]
 #[derive(Clone, Debug)]
 pub struct PyBassMarginal {
     inner: BassMarginal,
@@ -120,7 +120,7 @@ impl PyBassMarginal {
     }
 }
 
-#[pyclass(frozen, name = "BassSurfaceDiagnostics", skip_from_py_object, get_all)]
+#[pyclass(frozen, name = "BassSurfaceDiagnostics", get_all)]
 #[derive(Clone, Debug)]
 pub struct PyBassSurfaceDiagnostics {
     lower_tail_probability: f64,
@@ -144,7 +144,7 @@ impl From<&BassSurfaceDiagnostics> for PyBassSurfaceDiagnostics {
         }
     }
 }
-#[pyclass(frozen, name = "BassMarginalProjection", skip_from_py_object)]
+#[pyclass(frozen, name = "BassMarginalProjection")]
 #[derive(Clone, Debug)]
 pub struct PyBassMarginalProjection {
     inner: BassMarginalProjection,
@@ -163,7 +163,7 @@ impl PyBassMarginalProjection {
     }
 }
 
-#[pyclass(frozen, name = "BassLvConfig", skip_from_py_object, get_all)]
+#[pyclass(frozen, name = "BassLvConfig", get_all)]
 #[derive(Clone, Debug)]
 pub struct PyBassLvConfig {
     grid_points: usize,
@@ -204,12 +204,7 @@ impl PyBassLvConfig {
     }
 }
 
-#[pyclass(
-    frozen,
-    name = "BassCalibrationDiagnostics",
-    skip_from_py_object,
-    get_all
-)]
+#[pyclass(frozen, name = "BassCalibrationDiagnostics", get_all)]
 #[derive(Clone, Debug)]
 pub struct PyBassCalibrationDiagnostics {
     start_time: f64,
@@ -237,7 +232,7 @@ impl From<&BassCalibrationDiagnostics> for PyBassCalibrationDiagnostics {
         }
     }
 }
-#[pyclass(frozen, name = "BassEstimate", skip_from_py_object, get_all)]
+#[pyclass(frozen, name = "BassEstimate", get_all)]
 #[derive(Clone, Debug)]
 pub struct PyBassEstimate {
     price: f64,
@@ -256,7 +251,7 @@ impl From<BassEstimate> for PyBassEstimate {
     }
 }
 
-#[pyclass(frozen, name = "BassLvModel", skip_from_py_object)]
+#[pyclass(frozen, name = "BassLvModel")]
 #[derive(Clone, Debug)]
 pub struct PyBassLvModel {
     inner: BassLvModel,
@@ -328,7 +323,7 @@ impl PyBassLvModel {
     }
 }
 
-#[pyclass(frozen, name = "BassSimulationPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "BassSimulationPlan")]
 #[derive(Clone, Debug)]
 pub struct PyBassSimulationPlan {
     inner: BassSimulationPlan,

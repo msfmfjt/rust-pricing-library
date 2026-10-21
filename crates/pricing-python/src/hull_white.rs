@@ -27,7 +27,7 @@ fn validate_cash_option(py: Python<'_>, value: Option<&str>) -> PyResult<()> {
     }
 }
 
-#[pyclass(frozen, name = "RoughBergomiModel", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughBergomiModel")]
 #[derive(Clone, Debug)]
 pub struct PyRoughBergomiModel {
     pub(super) inner: RoughBergomi,
@@ -61,7 +61,7 @@ impl PyRoughBergomiModel {
     }
 }
 
-#[pyclass(frozen, name = "HullWhiteModel", skip_from_py_object)]
+#[pyclass(frozen, name = "HullWhiteModel")]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteModel {
     pub(crate) inner: HullWhite1Factor,
@@ -120,7 +120,7 @@ impl PyHullWhiteModel {
     }
 }
 
-#[pyclass(frozen, name = "HullWhiteLsvTarget", skip_from_py_object)]
+#[pyclass(frozen, name = "HullWhiteLsvTarget")]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteLsvTarget {
     pub(crate) inner: HullWhiteLsvTarget,
@@ -242,7 +242,7 @@ impl PyHullWhiteLsvTarget {
     }
 }
 
-#[pyclass(frozen, name = "HullWhiteEquityPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "HullWhiteEquityPlan")]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteEquityPlan {
     inner: HullWhiteEquityPricingPlan,
@@ -661,7 +661,7 @@ impl PyHullWhiteEquityPlan {
     }
 }
 
-#[pyclass(frozen, name = "HullWhitePrice", skip_from_py_object)]
+#[pyclass(frozen, name = "HullWhitePrice")]
 #[derive(Clone, Debug)]
 pub struct PyHullWhitePrice {
     pub(super) inner: HullWhitePrice,
@@ -714,7 +714,7 @@ impl PyHullWhitePrice {
     }
 }
 
-#[pyclass(frozen, name = "HullWhiteAadRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "HullWhiteAadRisk")]
 #[derive(Clone, Debug)]
 pub struct PyHullWhiteAadRisk {
     pub(super) inner: HullWhiteAadRisk,

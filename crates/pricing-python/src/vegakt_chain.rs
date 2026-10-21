@@ -3,7 +3,7 @@ use pricing::risk::{VegaKtChainDiagnostic, VegaKtStepMoment, VegaKtStepSamplingU
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-#[pyclass(frozen, name = "VegaKtChainDiagnostic", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtChainDiagnostic")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtChainDiagnostic {
     pub(crate) inner: VegaKtChainDiagnostic,

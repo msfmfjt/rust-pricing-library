@@ -5,7 +5,7 @@ use pricing::models::RoughBergomi;
 use pricing::multi_asset::MultiAssetRoughLsvConfig;
 use pyo3::prelude::*;
 
-#[pyclass(frozen, name = "MultiAssetRoughLsvConfig", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetRoughLsvConfig")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetRoughLsvConfig {
     pub(crate) inner: MultiAssetRoughLsvConfig,
