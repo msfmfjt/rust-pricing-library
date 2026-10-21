@@ -4,7 +4,7 @@ use pricing::market::{MARKET_IV_INTERPOLATION, MarketIvSurface};
 use pricing::models::{LocalVolatilitySpec, ModelSpec};
 use pyo3::prelude::*;
 
-#[pyclass(frozen, name = "MarketIvSurface", skip_from_py_object)]
+#[pyclass(frozen, name = "MarketIvSurface")]
 #[derive(Clone, Debug)]
 pub struct PyMarketIvSurface {
     pub(crate) inner: MarketIvSurface,

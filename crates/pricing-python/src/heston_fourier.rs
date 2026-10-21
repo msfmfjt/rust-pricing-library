@@ -21,7 +21,7 @@ fn failure(py: Python<'_>, error: FourierError) -> PyErr {
         _ => pricing_exception(error),
     }
 }
-#[pyclass(frozen, name = "HestonFourierPrice", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierPrice")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierPrice {
     inner: HestonFourierPrice,
@@ -46,7 +46,7 @@ impl PyHestonFourierPrice {
     }
 }
 /// Frozen forward-only Greeks; the model, maturity, strike and discount stay fixed.
-#[pyclass(frozen, name = "HestonFourierGreeks", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierGreeks")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierGreeks {
     inner: HestonFourierGreeks,
@@ -88,7 +88,7 @@ impl PyHestonFourierGreeks {
         self.inner.gamma_tail_indicator
     }
 }
-#[pyclass(frozen, name = "HestonFourierPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierPlan")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierPlan {
     inner: HestonFourierPlan,
@@ -168,7 +168,7 @@ impl PyHestonFourierPlan {
     }
 }
 
-#[pyclass(frozen, name = "HestonParameterSensitivities", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonParameterSensitivities")]
 #[derive(Clone, Debug)]
 pub struct PyHestonParameterSensitivities {
     inner: HestonParameterSensitivities,
@@ -197,7 +197,7 @@ impl PyHestonParameterSensitivities {
     }
 }
 
-#[pyclass(frozen, name = "HestonFourierParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierParameterRisk {
     inner: HestonFourierParameterRisk,
@@ -230,7 +230,7 @@ impl PyHestonFourierParameterRisk {
     }
 }
 
-#[pyclass(frozen, name = "HestonFourierParameterRiskPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierParameterRiskPlan")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierParameterRiskPlan {
     inner: HestonFourierParameterRiskPlan,
@@ -263,7 +263,7 @@ impl PyHestonFourierParameterRiskPlan {
     }
 }
 
-#[pyclass(frozen, name = "HestonFourierHurstRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierHurstRisk")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierHurstRisk {
     inner: HestonFourierHurstRisk,
@@ -289,7 +289,7 @@ impl PyHestonFourierHurstRisk {
         self.inner.tail_indicator
     }
 }
-#[pyclass(frozen, name = "HestonFourierHurstRiskPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonFourierHurstRiskPlan")]
 #[derive(Clone, Debug)]
 pub struct PyHestonFourierHurstRiskPlan {
     inner: HestonFourierHurstRiskPlan,

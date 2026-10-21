@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "parent_sha256": "e61d8d6f1fc40484ca708ffd59b9ccbbe2127cf0f1a4b010ba2397db59a01f7c",
+  "parent_sha256": "6f972619b3750bc1537ecc1da3a21d91528f3d8db614763b7bf0b5eacf089f31",
   "protocol": {
     "time_steps": 32,
     "integration_intervals": 256,

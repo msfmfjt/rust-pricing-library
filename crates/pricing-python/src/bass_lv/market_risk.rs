@@ -4,7 +4,7 @@ use pricing::bass_lv::{
 };
 use pricing::market::MarketIvSurface;
 
-#[pyclass(frozen, name = "BassMarketIvModel", skip_from_py_object)]
+#[pyclass(frozen, name = "BassMarketIvModel")]
 #[derive(Clone, Debug)]
 pub struct PyBassMarketIvModel {
     inner: BassMarketIvModel,
@@ -88,7 +88,7 @@ impl PyBassMarketIvModel {
     }
 }
 
-#[pyclass(frozen, name = "BassVegaKtScenarioDiagnostics", skip_from_py_object)]
+#[pyclass(frozen, name = "BassVegaKtScenarioDiagnostics")]
 #[derive(Clone, Debug)]
 pub struct PyBassVegaKtScenarioDiagnostics {
     inner: BassVegaKtScenarioDiagnostics,
@@ -122,7 +122,7 @@ impl PyBassVegaKtScenarioDiagnostics {
     }
 }
 
-#[pyclass(frozen, name = "BassVegaKtRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "BassVegaKtRisk")]
 #[derive(Clone, Debug)]
 pub struct PyBassVegaKtRisk {
     inner: BassVegaKtRisk,
@@ -187,7 +187,7 @@ impl PyBassVegaKtRisk {
     }
 }
 
-#[pyclass(frozen, name = "BassVegaKtRiskPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "BassVegaKtRiskPlan")]
 #[derive(Clone, Debug)]
 pub struct PyBassVegaKtRiskPlan {
     inner: BassVegaKtRiskPlan,

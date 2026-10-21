@@ -7,7 +7,7 @@ use pricing::multi_asset::{
 };
 use pyo3::prelude::*;
 
-#[pyclass(frozen, name = "MultiAssetLsvConfig", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetLsvConfig")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetLsvConfig {
     pub(crate) inner: MultiAssetLsvConfig,
@@ -77,7 +77,7 @@ impl PyMultiAssetLsvConfig {
     }
 }
 
-#[pyclass(frozen, name = "MultiAssetLsv2FactorConfig", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetLsv2FactorConfig")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetLsv2FactorConfig {
     pub(crate) inner: MultiAssetLsv2FactorConfig,
@@ -167,7 +167,7 @@ impl PyMultiAssetLsv2FactorConfig {
     }
 }
 
-#[pyclass(frozen, name = "MultiAssetLsvCalibration", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetLsvCalibration")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetLsvCalibration {
     #[pyo3(get)]
@@ -238,7 +238,7 @@ impl PyMultiAssetLsvCalibration {
     }
 }
 
-#[pyclass(frozen, name = "MultiAssetLsvRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetLsvRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetLsvRisk {
     pub(crate) inner: MultiAssetLsvRisk,

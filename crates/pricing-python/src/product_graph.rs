@@ -37,7 +37,7 @@ fn graph_date(
         validation_exception(py, issue)
     })
 }
-#[pyclass(frozen, name = "GraphProduct", skip_from_py_object)]
+#[pyclass(frozen, name = "GraphProduct")]
 #[derive(Clone, Debug)]
 pub struct PyGraphProduct {
     pub(crate) inner: GraphProduct,
@@ -80,7 +80,7 @@ impl PyGraphProduct {
     }
 }
 
-#[pyclass(name = "SourceGraphBuilder", skip_from_py_object)]
+#[pyclass(name = "SourceGraphBuilder")]
 #[derive(Clone, Debug)]
 pub struct PySourceGraphBuilder {
     inner: SourceGraphBuilder,

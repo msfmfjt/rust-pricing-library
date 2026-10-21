@@ -38,7 +38,7 @@ fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
 }
 
 /// Buehler discrete cash dividends; deterministic rates and price-only requests.
-#[pyclass(frozen, name = "StochasticDividendPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendPlan")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendPlan {
     inner: StochasticDividendPricingPlan,
@@ -668,7 +668,7 @@ impl PyStochasticDividendPlan {
     }
 }
 
-#[pyclass(frozen, name = "StochasticDividendPrice", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendPrice")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendPrice {
     pub(super) inner: StochasticDividendPrice,
@@ -708,11 +708,7 @@ impl PyStochasticDividendPrice {
 }
 
 /// 2F Bergomi correlation risk with selective residual-LSV recalibration.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvBergomi2FactorCorrelationRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorCorrelationRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
     pub(super) inner: StochasticDividendLsvBergomi2FactorCorrelationRisk,
@@ -772,11 +768,7 @@ impl PyStochasticDividendLsvBergomi2FactorCorrelationRisk {
 }
 
 /// Full-recalibration 2F Bergomi parameter risk for residual-equity LSV.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvBergomi2FactorRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvBergomi2FactorRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomi2FactorRisk {
     pub(super) inner: StochasticDividendLsvBergomi2FactorRisk,
@@ -832,11 +824,7 @@ impl PyStochasticDividendLsvBergomi2FactorRisk {
 }
 
 /// 1F Bergomi correlation risk with selective residual-LSV recalibration.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvCorrelationRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvCorrelationRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvCorrelationRisk {
     pub(super) inner: StochasticDividendLsvCorrelationRisk,
@@ -888,11 +876,7 @@ impl PyStochasticDividendLsvCorrelationRisk {
 }
 
 /// Rough Bergomi correlation risk with selective residual-LSV recalibration.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvRoughBergomiCorrelationRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvRoughBergomiCorrelationRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvRoughBergomiCorrelationRisk {
     pub(super) inner: StochasticDividendLsvRoughBergomiCorrelationRisk,
@@ -944,11 +928,7 @@ impl PyStochasticDividendLsvRoughBergomiCorrelationRisk {
 }
 
 /// Full-recalibration rough Bergomi parameter risk for residual-equity LSV.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvRoughBergomiRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvRoughBergomiRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvRoughBergomiRisk {
     pub(super) inner: StochasticDividendLsvRoughBergomiRisk,
@@ -1000,7 +980,7 @@ impl PyStochasticDividendLsvRoughBergomiRisk {
 }
 
 /// Full-recalibration 1F Bergomi parameter risk for residual-equity LSV.
-#[pyclass(frozen, name = "StochasticDividendLsvBergomiRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendLsvBergomiRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvBergomiRisk {
     pub(super) inner: StochasticDividendLsvBergomiRisk,
@@ -1052,11 +1032,7 @@ impl PyStochasticDividendLsvBergomiRisk {
 }
 
 /// Buehler dividend-model parameter risk with fixed residual-LSV calibration.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLsvDividendModelRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLsvDividendModelRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvDividendModelRisk {
     pub(super) inner: StochasticDividendLsvDividendModelRisk,
@@ -1116,7 +1092,7 @@ impl PyStochasticDividendLsvDividendModelRisk {
 }
 
 /// Spot/cash/curve risk with scale-invariant residual-LSV re-anchoring.
-#[pyclass(frozen, name = "StochasticDividendLsvMarketRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendLsvMarketRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvMarketRisk {
     pub(super) inner: StochasticDividendLsvMarketRisk,
@@ -1196,7 +1172,7 @@ impl PyStochasticDividendLsvMarketRisk {
 }
 
 /// Physical-Spot Delta with the residual-equity LSV surface re-anchored.
-#[pyclass(frozen, name = "StochasticDividendLsvSpotRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendLsvSpotRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLsvSpotRisk {
     pub(super) inner: StochasticDividendLsvSpotRisk,
@@ -1232,11 +1208,7 @@ impl PyStochasticDividendLsvSpotRisk {
 }
 
 /// Recalibration-aware risk to residual-equity Dupire Local-variance nodes.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendLocalVarianceRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendLocalVarianceRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendLocalVarianceRisk {
     pub(super) inner: StochasticDividendLocalVarianceRisk,
@@ -1280,7 +1252,7 @@ impl PyStochasticDividendLocalVarianceRisk {
 }
 
 /// First-order reverse at fixed grid; method and labels identify active parameters/correlations.
-#[pyclass(frozen, name = "StochasticDividendAadRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendAadRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendAadRisk {
     pub(super) inner: StochasticDividendAadRisk,
@@ -1356,7 +1328,7 @@ impl PyStochasticDividendAadRisk {
 }
 
 /// Paired finite-bump Gamma; sampling error excludes bump/grid/smoothing bias.
-#[pyclass(frozen, name = "StochasticDividendGammaRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendGammaRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendGammaRisk {
     pub(super) inner: StochasticDividendGammaRisk,

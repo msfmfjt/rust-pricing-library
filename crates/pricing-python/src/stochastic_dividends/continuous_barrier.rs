@@ -14,11 +14,7 @@ use pricing::stochastic_dividends::{
 /// Rough-LSV continuous Barrier approximation. Uses left-frozen
 /// physical log-Spot variance, stochastic reserve and separate cash jumps.
 /// Sampling errors exclude calibration uncertainty and time-grid bias.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendContinuousBarrierPlan",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendContinuousBarrierPlan")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierPlan {
     inner: StochasticDividendContinuousBarrierPlan,
@@ -246,11 +242,7 @@ impl PyStochasticDividendContinuousBarrierPlan {
 }
 
 /// Finite-bump Spot risk of the bridge approximation, with paired sampling errors.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendContinuousBarrierSpotRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendContinuousBarrierSpotRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierSpotRisk {
     inner: StochasticDividendContinuousBarrierSpotRisk,
@@ -332,11 +324,7 @@ fn spot_bump(
 }
 
 /// Finite-bump Gamma of the bridge approximation, with paired sampling errors.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendContinuousBarrierGammaRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendContinuousBarrierGammaRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierGammaRisk {
     inner: StochasticDividendContinuousBarrierGammaRisk,
@@ -410,8 +398,7 @@ impl PyStochasticDividendContinuousBarrierGammaRisk {
 /// Paired parallel residual Local-volatility risk, including particle recalibration.
 #[pyclass(
     frozen,
-    name = "StochasticDividendContinuousBarrierLocalVolatilityRisk",
-    skip_from_py_object
+    name = "StochasticDividendContinuousBarrierLocalVolatilityRisk"
 )]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierLocalVolatilityRisk {
@@ -490,8 +477,7 @@ impl PyStochasticDividendContinuousBarrierLocalVolatilityRisk {
 /// Selected original target node risks with paired sum errors.
 #[pyclass(
     frozen,
-    name = "StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk",
-    skip_from_py_object
+    name = "StochasticDividendContinuousBarrierBucketedLocalVolatilityRisk"
 )]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk {
@@ -596,11 +582,7 @@ impl PyStochasticDividendContinuousBarrierBucketedLocalVolatilityRisk {
 }
 
 /// Reporting-only IV basis projection, with paired sampling errors.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendContinuousBarrierReportingIvRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendContinuousBarrierReportingIvRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierReportingIvRisk {
     inner: StochasticDividendContinuousBarrierReportingIvRisk,
@@ -748,11 +730,7 @@ impl PyStochasticDividendContinuousBarrierReportingIvRisk {
 }
 
 /// Paired parallel residual-forward quote IV risk, with full Dupire/LSV rebuild.
-#[pyclass(
-    frozen,
-    name = "StochasticDividendContinuousBarrierMarketIvRisk",
-    skip_from_py_object
-)]
+#[pyclass(frozen, name = "StochasticDividendContinuousBarrierMarketIvRisk")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierMarketIvRisk {
     inner: StochasticDividendContinuousBarrierMarketIvRisk,
@@ -847,8 +825,7 @@ impl PyStochasticDividendContinuousBarrierMarketIvRisk {
 /// Selected retained quote-IV risks with paired sum errors.
 #[pyclass(
     frozen,
-    name = "StochasticDividendContinuousBarrierBucketedMarketIvRisk",
-    skip_from_py_object
+    name = "StochasticDividendContinuousBarrierBucketedMarketIvRisk"
 )]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendContinuousBarrierBucketedMarketIvRisk {

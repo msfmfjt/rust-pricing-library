@@ -17,7 +17,7 @@ fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
 }
 
 /// Pure SV with deterministic market curves and escrowed discrete dividends.
-#[pyclass(frozen, name = "StochasticVolatilityPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticVolatilityPlan")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticVolatilityPlan {
     inner: StochasticVolatilityPricingPlan,

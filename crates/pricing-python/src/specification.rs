@@ -17,7 +17,7 @@ fn wire_exception(py: Python<'_>, error: &WireError) -> PyErr {
     validation_exception(py, issue)
 }
 
-#[pyclass(frozen, name = "PricingSpecification", skip_from_py_object)]
+#[pyclass(frozen, name = "PricingSpecification")]
 #[derive(Clone, Debug)]
 pub struct PyPricingSpecification {
     inner: PricingSpecification,
@@ -77,7 +77,7 @@ impl PyPricingSpecification {
     }
 }
 
-#[pyclass(frozen, name = "CompiledPricingSpecification", skip_from_py_object)]
+#[pyclass(frozen, name = "CompiledPricingSpecification")]
 #[derive(Clone, Debug)]
 pub struct PyCompiledPricingSpecification {
     inner: CompiledPricingSpecification,
@@ -99,7 +99,7 @@ impl PyCompiledPricingSpecification {
     }
 }
 
-#[pyclass(frozen, name = "SpecificationResult", skip_from_py_object)]
+#[pyclass(frozen, name = "SpecificationResult")]
 #[derive(Clone, Debug)]
 pub struct PySpecificationResult {
     inner: SpecificationResult,
