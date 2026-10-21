@@ -55,7 +55,7 @@ class FourierReferenceGuards(unittest.TestCase):
             mutated = copy.deepcopy(self.expected)
             mutated['rough_transforms'][0]['log_transform'][0] = value
             candidates.append(mutated)
-        for key in ['rough_transforms', 'markov_transforms', 'prices']:
+        for key in ['rough_transforms', 'markov_transforms', 'prices', 'rough_prices']:
             mutated = copy.deepcopy(self.expected)
             mutated[key].pop()
             candidates.append(mutated)
@@ -69,6 +69,21 @@ class FourierReferenceGuards(unittest.TestCase):
             candidates.append(mutated)
         mutated = copy.deepcopy(self.expected)
         mutated['prices'][0]['call'] += .001
+        candidates.append(mutated)
+        for field in ['call', 'reference_time_change', 'reference_inversion_change']:
+            for value in [float('nan'), float('inf'), '0', False]:
+                mutated = copy.deepcopy(self.expected)
+                mutated['rough_prices'][0][field] = value
+                candidates.append(mutated)
+            mutated = copy.deepcopy(self.expected)
+            mutated['rough_prices'][0][field] += 1e-4
+            candidates.append(mutated)
+        for key in self.expected['rough_price_protocol']:
+            mutated = copy.deepcopy(self.expected)
+            mutated['rough_price_protocol'][key] *= 2
+            candidates.append(mutated)
+        mutated = copy.deepcopy(self.expected)
+        mutated['rough_prices'][0]['hurst'] += 1e-10
         candidates.append(mutated)
         for i, value in enumerate(candidates):
             with self.subTest(i=i), self.assertRaises(ValueError):

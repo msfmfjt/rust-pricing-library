@@ -213,6 +213,53 @@ fn markov_transforms_and_prices_match_independent_odes_and_p1p2() {
 }
 
 #[test]
+#[ignore = "independent fractional Adams price references; release CI"]
+fn rough_prices_match_independent_fractional_adams_references() {
+    let r = reference();
+    let protocol = &r["rough_price_protocol"];
+    let rows = r["rough_prices"].as_array().unwrap();
+    assert_eq!(rows.len(), 6);
+    let config = cfg(
+        protocol["time_steps"].as_u64().unwrap().try_into().unwrap(),
+        protocol["integration_intervals"]
+            .as_u64()
+            .unwrap()
+            .try_into()
+            .unwrap(),
+        protocol["cutoff"].as_f64().unwrap(),
+    );
+    let forward = r["forward"].as_f64().unwrap();
+    let discount = r["discount"].as_f64().unwrap();
+    for h in [0.1, 0.3] {
+        let plan = HestonFourierPlan::compile(rough(h).into(), 1.0, config).unwrap();
+        let selected: Vec<_> = rows
+            .iter()
+            .filter(|row| row["hurst"].as_f64().unwrap() == h)
+            .collect();
+        assert_eq!(selected.len(), 3);
+        for row in selected {
+            assert_eq!(row["maturity"].as_f64().unwrap(), 1.0);
+            let strike = row["strike"].as_f64().unwrap();
+            let expected = row["call"].as_f64().unwrap();
+            let got = plan.price(forward, strike, discount).unwrap();
+            println!(
+                "rough-adams H={h} T=1 K={strike} price={:.12} reference={expected:.12} gap={:.9e} reference_time_change={:.9e} reference_inversion_change={:.9e}",
+                got.call,
+                got.call - expected,
+                row["reference_time_change"].as_f64().unwrap(),
+                row["reference_inversion_change"].as_f64().unwrap(),
+            );
+            close(
+                got.call,
+                expected,
+                protocol["price_abs_tolerance"].as_f64().unwrap(),
+            );
+            close(got.call - got.put, discount * (forward - strike), 2e-13);
+        }
+    }
+}
+
+#[test]
 fn heston_boundary_factor_splitting_and_stiff_lift() {
     let h = rough(0.5);
     let p = HestonFourierPlan::compile(h.clone().into(), 1.0, cfg(128, 128, 32.0)).unwrap();

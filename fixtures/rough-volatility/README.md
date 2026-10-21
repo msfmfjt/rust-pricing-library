@@ -99,11 +99,17 @@ explicit `--write` option and requires review; CI only verifies retained values.
 
 `fourier.json` stores twelve fractional log transforms from a 70-digit power
 series (orders 120 and 180), eight Markov transform rows cross-checked against
-independent adaptive ODEs, and twelve vanilla prices from P1/P2 inversion.
+independent adaptive ODEs, twelve Markov vanilla prices from P1/P2 inversion,
+and six one-year rough-Heston call prices from an explicit fractional Adams
+predictor/corrector with a separately integrated terminal functional.
 Heston uses its closed characteristic function; finite lifts use an independent
-ODE. Price inversion is independent of the production half-moment/Simpson
-method. Cutoffs 200/300 are compared before retaining a reference. These
-reference calculations never import the production extension.
+ODE. Their P1/P2 price inversion is independent of the production
+half-moment/Simpson method, with cutoffs 200/300 compared before retaining a
+reference. The additional rough-price rows use the half-moment/Simpson form,
+but a different Riccati solver and terminal integration. They retain PR #123's
+original 2,048/4,096-step and frequency-grid cross-checks and 0.003 currency-unit
+production comparison budget. These reference calculations never import the
+production extension, and their finite differences are not exact-price bounds.
 
 ```shell
 python scripts/check_heston_fourier.py
