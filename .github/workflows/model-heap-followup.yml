@@ -1,4 +1,4 @@
-name: Model heap follow-up
+name: S7 historical heap replay
 
 on:
   workflow_dispatch: {}
@@ -20,16 +20,21 @@ concurrency:
 
 jobs:
   heap:
-    name: Repeated AAD heap / Linux
+    name: Pinned S7 AAD heap replay / Linux
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - name: Check out candidate
+      - name: Check out current replay tooling
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: tooling
+      - name: Check out original S7 candidate
+        uses: actions/checkout@v7
+        with:
+          ref: 5886ac6834676ea6c10cd89aa087a58c81625ae6
           path: candidate
-      - name: Check out baseline
+      - name: Check out original S7 baseline
         uses: actions/checkout@v7
         with:
           ref: ea759bf5d73b06e4c480665e59c7daa37e6667be
@@ -39,10 +44,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Check heap evidence accounting
-        working-directory: candidate
+        working-directory: tooling
         run: python -m unittest discover -s scripts -p test_profile_model_heap_followup.py -v
       - name: Download original complete profiles
-        if: hashFiles('candidate/design/validation/local-correlation-heap-followup-2026-09-22.json') == ''
+        if: hashFiles('tooling/design/validation/local-correlation-heap-followup-2026-09-22.json') == ''
         uses: actions/download-artifact@v8
         with:
           name: model-scaling-linux
@@ -53,9 +58,9 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y valgrind time
-      - name: Compare all peak stacks and repeat original workload
-        working-directory: candidate
-        run: python scripts/profile_model_heap_followup.py ../baseline . ../heap-followup-results --original-directory ../original-profiles
+      - name: Replay original S7 pair and compare all peak stacks
+        working-directory: tooling
+        run: python scripts/profile_model_heap_followup.py ../baseline ../candidate ../heap-followup-results --original-directory ../original-profiles
       - name: Retain complete heap evidence
         if: always()
         uses: actions/upload-artifact@v7
