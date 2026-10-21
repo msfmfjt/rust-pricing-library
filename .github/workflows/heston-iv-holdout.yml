@@ -8,6 +8,8 @@ on:
       - 'scripts/*heston*py'
       - 'scripts/check_source_archive.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - 'tests/python/test_heston_iv_holdout.py'
       - 'examples/python/heston_iv_holdout.py'
       - 'docs/models/heston-iv-holdout.md'

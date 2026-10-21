@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0033: Modular wheel gates and installed API signatures](adr/0033-wheel-api-contracts.md)
+
 - [ADR 0032: Typed Python source construction](adr/0032-typed-python-source-construction.md)
 
 - [0030: Complete tasks, capability queries and common reports](adr/0030-pricing-task-capability-report.md),

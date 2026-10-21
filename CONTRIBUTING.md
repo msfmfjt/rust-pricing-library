@@ -57,6 +57,8 @@ python3 scripts/check_specification_json_schema.py
 python3 scripts/check_product_graph_json_schema.py
 python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
+python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
+python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
 cargo fmt --all --check
@@ -99,6 +101,26 @@ retrying or skipping it. To reproduce one group with an existing wheel:
 ```bash
 python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --group providers
 ```
+
+The CLI delegates archive/metadata checks, static API contracts, and installed
+runtime checks to `scripts/wheel_validation`. Independent frozen API expectations
+live in its `contracts` package, grouped by domain with each class's members,
+signatures and return constraints together. When extending an API, update its
+domain record and the module exports; do not regenerate expectations from the
+implementation or stub. Existing partial annotation contracts remain in force;
+new or changed declarations should freeze input and return annotations explicitly.
+
+Every declared callable (including constructors and special methods, excluding
+property getters) is also checked against the installed wheel using
+`inspect.signature`. Argument names/order, positional-only and keyword-only
+boundaries, required arguments and typed defaults must agree. Only the implicit
+instance receiver is normalized. Missing signatures, opaque defaults and
+variadic catch-all signatures fail validation. PyO3 exposes constructors on the
+class itself; use an explicit `text_signature` when a Rust constant's default is
+otherwise shown as `...`, with a behavior test that confirms the native default.
+Runtime annotations are not supplied by PyO3, so independent static contracts and
+native conformance tests still check types and semantics. See
+[ADR 0033](design/adr/0033-wheel-api-contracts.md) for the coverage boundaries.
 
 Extended-model changes must preserve the independent price, seed-dispersion and
 refinement gates in the [extended-model accuracy panel](design/validation/extended-model-accuracy.md).

@@ -6,6 +6,8 @@ on:
       - 'fixtures/rough-volatility/**'
       - 'scripts/*heston_iv_calibration*.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - 'scripts/check_source_archive.py'
       - 'tests/python/test_heston_iv_calibration.py'
       - 'examples/python/heston_iv_calibration.py'
