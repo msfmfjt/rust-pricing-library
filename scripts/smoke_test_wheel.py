@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import base64
+from collections import Counter
 import csv
 from email.message import Message
 from email.parser import Parser
@@ -13,9 +15,12 @@ import os
 from pathlib import PurePosixPath
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
+import time
 import tomllib
+import unittest
 from urllib.parse import unquote
 import uuid
 import venv
@@ -48,10 +53,41 @@ EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {
     "pricing": {"pricing-numerics"},
     "pricing-python": {"pricing"},
 }
+TEST_DIRECTORY = Path("tests/python")
+NAMED_TEST_GROUPS = {
+    "custom-basis": frozenset({"test_vega_kt_custom_basis_provider.py"}),
+    "providers": frozenset({
+        "test_vega_kt_coupled_basis_provider.py",
+        "test_vega_kt_extension_provider.py",
+        "test_vega_kt_extension_put_provider.py",
+    }),
+}
+TEST_GROUPS = ("all", *NAMED_TEST_GROUPS, "remaining")
 
 
-def main() -> None:
-    wheel = selected_wheel()
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("wheel", nargs="?", help="wheel path (default: the single wheel in dist)")
+    parser.add_argument("--phase", choices=("full", "package", "validation"), default="full",
+                        help="full: package and all validation; package: install and verify only")
+    parser.add_argument("--group", choices=TEST_GROUPS, default="all",
+                        help="validation group; examples run with all or remaining")
+    args = parser.parse_args(argv)
+    if args.phase != "validation" and args.group != "all":
+        parser.error("--group requires --phase validation")
+    return args
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_arguments(argv)
+    wheel = selected_wheel(args.wheel)
+    python = prepare_wheel(wheel)
+    if args.phase != "package":
+        run_validation(python, args.group)
+
+
+def prepare_wheel(wheel: Path) -> Path:
+    """Keep every archive, metadata, install and runtime check common to all phases."""
     expected_metadata = expected_project_metadata()
     expected_readme_payload = Path("README.md").read_text("utf-8") + "\n"
     locked_packages = locked_registry_packages()
@@ -110,6 +146,10 @@ def main() -> None:
         check=True,
     )
     verify_runtime_symbols(python, stub_api, metadata["Version"])
+    return python
+
+
+def run_examples(python: Path) -> None:
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
     subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
@@ -148,31 +188,131 @@ def main() -> None:
     subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_dividend_continuous_barrier.py"], check=True)
     subprocess.run([str(python), "examples/python/rough_dividend_market_iv.py"], check=True)
+
+
+def discover_test_modules(test_directory: Path = TEST_DIRECTORY) -> list[str]:
+    modules = sorted(path.name for path in test_directory.glob("test*.py") if path.is_file())
+    if not modules:
+        raise RuntimeError(f"no test modules found in {test_directory}")
+    if any(not Path(name).stem.isidentifier() for name in modules):
+        raise RuntimeError("test module filenames must be valid Python identifiers")
+    return modules
+
+
+def select_test_modules(modules: list[str], group: str) -> list[str]:
+    if group not in TEST_GROUPS:
+        raise ValueError(f"unknown test group: {group}")
+    if len(set(modules)) != len(modules):
+        raise RuntimeError("duplicate test modules")
+    named = set().union(*NAMED_TEST_GROUPS.values())
+    missing = named.difference(modules)
+    if missing:
+        raise RuntimeError(f"named test modules are missing: {sorted(missing)}")
+    if group == "all":
+        selected = modules
+    elif group == "remaining":
+        selected = [name for name in modules if name not in named]
+    else:
+        selected = [name for name in modules if name in NAMED_TEST_GROUPS[group]]
+    if not selected:
+        raise RuntimeError(f"test group is empty: {group}")
+    return selected
+
+
+def verify_test_inventory(test_directory: Path, modules: list[str]) -> dict[str, int]:
+    """Compare multisets, including duplicate IDs, without running any test bodies."""
+    def test_ids(suite: unittest.TestSuite):
+        for test in suite:
+            if isinstance(test, unittest.TestSuite):
+                yield from test_ids(test)
+            else:
+                yield test.id()
+
+    def inventory(pattern: str) -> Counter[str]:
+        loader = unittest.TestLoader()
+        suite = loader.discover(str(test_directory), pattern=pattern)
+        if loader.errors:
+            raise RuntimeError("test discovery failed:\n" + "\n".join(loader.errors))
+        return Counter(test_ids(suite))
+
+    original = inventory("test*.py")
+    combined: Counter[str] = Counter()
+    counts = {}
+    for module in modules:
+        ids = inventory(module)
+        if not ids:
+            raise RuntimeError(f"test module is empty: {module}")
+        counts[module] = ids.total()
+        combined.update(ids)
+    if not original or original != combined:
+        raise RuntimeError(
+            "module test inventory differs from full discovery: "
+            f"missing={dict(original - combined)}, extra={dict(combined - original)}"
+        )
+    print(f"wheel-smoke inventory: {len(modules)} modules / {original.total()} tests; "
+          "test-ID Counter matches full discovery", flush=True)
+    return counts
+
+
+def run_validation(python: Path, group: str) -> None:
+    modules = discover_test_modules()
+    selected = select_test_modules(modules, group)
+    # Import-only discovery has its own process so it cannot retain module caches
+    # or class state in any of the actual test processes.
+    code = (
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "from scripts.smoke_test_wheel import verify_test_inventory\n"
+        "verify_test_inventory(Path(sys.argv[1]), json.loads(sys.argv[2]))\n"
+    )
     subprocess.run(
-        [
-            str(python),
-            "-m",
-            "unittest",
-            "discover",
-            "-s",
-            "tests/python",
-            "-v",
-        ],
+        [str(python), "-X", "faulthandler", "-c", code,
+         str(TEST_DIRECTORY), json.dumps(modules)],
         check=True,
     )
+    print(f"wheel-smoke group={group}: {len(selected)} modules", flush=True)
+    if group in ("all", "remaining"):
+        run_examples(python)
+    run_test_modules(python, selected)
 
 
-def selected_wheel() -> Path:
-    if len(sys.argv) == 2:
-        wheel = Path(sys.argv[1])
+def run_test_modules(python: Path, modules: list[str],
+                     test_directory: Path = TEST_DIRECTORY) -> None:
+    if not modules:
+        raise RuntimeError("no test modules selected")
+    failures = []
+    for module in modules:
+        print(f"wheel-smoke start module={module}", flush=True)
+        started = time.monotonic()
+        command = [str(python), "-X", "faulthandler", "-m", "unittest", "discover",
+                   "-s", str(test_directory), "-p", module, "-v"]
+        try:
+            returncode = subprocess.run(command, check=False).returncode
+        except OSError as error:
+            returncode = 1
+            print(f"wheel-smoke launch error module={module}: {error}", flush=True)
+        elapsed = time.monotonic() - started
+        detail = f"exit={returncode}"
+        if returncode < 0:
+            try:
+                detail += f" signal={signal.Signals(-returncode).name}"
+            except ValueError:
+                detail += f" signal={-returncode}"
+        print(f"wheel-smoke finish module={module} elapsed={elapsed:.3f}s {detail}", flush=True)
+        if returncode:
+            failures.append(f"{module} ({detail})")
+    if failures:
+        raise RuntimeError("wheel test modules failed: " + "; ".join(failures))
+
+
+def selected_wheel(wheel_argument: str | None = None) -> Path:
+    if wheel_argument is not None:
+        wheel = Path(wheel_argument)
         if not wheel.is_file():
             raise RuntimeError(f"wheel does not exist: {wheel}")
         if wheel.suffix != ".whl":
             raise RuntimeError(f"expected a .whl file, got: {wheel}")
         return wheel
-    if len(sys.argv) != 1:
-        raise RuntimeError("usage: smoke_test_wheel.py [wheel]")
-
     wheels = sorted(Path("dist").glob("*.whl"))
     if len(wheels) != 1:
         raise RuntimeError(f"expected exactly one wheel in dist, found {len(wheels)}")
