@@ -170,15 +170,15 @@ class ExtensionProviderTests(unittest.TestCase):
         for code,snapshot,contract in cases:
             fresh=provider()
             with self.subTest(code=code),self.assertRaisesRegex(BacktestError,code):fresh.evaluate(snapshot,contract)
-            self.assertFalse(fresh._cache);self.assertFalse(fresh._shared);self.assertFalse(fresh._gamma_audits)
+            self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
         market=deepcopy(self.providers['all_rows'].gamma_audit(s,c)['market_gamma'])
         failed=deepcopy(market);failed.update(status='validation_failed',estimate=None,market_mean_covariance=None)
         fresh=provider()
         with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=failed):
             out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],[c],[Position('target',-1.,5.)],fresh,on_error='return')
         self.assertEqual(out.failure['code'],'multi_step_gamma_acceptance_failure')
-        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(out.ledger);self.assertFalse(fresh._cache)
-        self.assertFalse(fresh._shared);self.assertFalse(fresh._gamma_audits)
+        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(out.ledger);self.assertFalse(fresh._cache.results)
+        self.assertIsNone(fresh._cache.shared)
         with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=market):
             self.assertEqual(fresh.evaluate(s,c),self.providers['all_rows'].evaluate(s,c))
         detached=fresh.gamma_audit(s,c);detached['market_gamma']['estimate'][0]['mean']=1e30
@@ -191,7 +191,7 @@ class ExtensionProviderTests(unittest.TestCase):
         fresh=provider();out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],[c],[Position('target',-1.,5.)],fresh,on_error='return')
         self.assertEqual(out.status,'failed');self.assertEqual(out.failure['code'],'native_pricing_failure')
         self.assertIn('budget',out.failure['message'])
-        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(fresh._cache);self.assertFalse(fresh._shared)
+        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
         self.evidence['failures'].append(dict(kind='real_native_resource_limit',failure=out.failure,orders=len(out.orders)))
 
     def test_f_cli_selects_explicit_extension(self):

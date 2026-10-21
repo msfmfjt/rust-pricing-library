@@ -16,6 +16,7 @@ from rust_pricing_backtest.domain import fingerprint
 from rust_pricing_backtest.multi_step_extension import MultiStepExtensionCalibrator
 from rust_pricing_backtest.multi_step_provider import check_sampling, validation
 from rust_pricing_backtest.portfolio_market_risk import sampling_covariance, evaluate_portfolio
+from rust_pricing_backtest.provider_cache import BoundedCache
 from rust_pricing_backtest.quote_control import POLICY, CONTROL_ID, virtual_request, adjust_report
 
 
@@ -79,14 +80,53 @@ class QuoteControlTests(unittest.TestCase):
     def test_cached_rejected_native_audit_still_blocks_release(self):
         key = fingerprint(dict(request=self.base, tangent=self.tangent.tolist(), subdivisions=512,
             relative_tolerance=1e-6, gamma_relative_standard_error_limit=.25, workers=1))
-        cache = {key: dict(audit=dict(status='validation_failed', estimate=None,
-                                     recovery_passed=True, validation_passed=False), risk=None)}
+        rejected = dict(status='validation_failed', estimate=None, recovery_passed=True, validation_passed=False)
+        cache = BoundedCache(1)
+        cache[key] = dict(audit=rejected, risk=None)
         native = SimpleNamespace(PricingPlan=Mock(), PricingRequest=Mock())
         with patch.dict(sys.modules, {'rust_pricing': native}):
             with self.assertRaisesRegex(BacktestError, 'portfolio_gamma_failure'):
                 evaluate_portfolio({'target':self.base}, {'target':-1.}, _native_cache=cache)
             native.PricingPlan.compile.assert_not_called()
             native.PricingRequest.from_json.assert_not_called()
+            cache['other-request'] = dict(audit=rejected, risk=None)
+            native.PricingPlan.compile.return_value.evaluate_vega_kt_multi_step_gamma_chain_audit.return_value = rejected
+            for _ in range(2):
+                with self.assertRaisesRegex(BacktestError, 'portfolio_gamma_failure'):
+                    evaluate_portfolio({'target': self.base}, {'target': -1.}, _native_cache=cache)
+            native.PricingPlan.compile.assert_called_once()
+            self.assertEqual(len(cache), 1)
+
+    def test_native_cache_reuses_only_the_active_complete_snapshot(self):
+        from rust_pricing_backtest.quote_control import portfolio
+        compiled = []
+        def native(requests, quantities, *, _native_cache, **kwargs):
+            for cid, request in requests.items():
+                key = fingerprint(request)
+                if key not in _native_cache:
+                    compiled.append(cid)
+                    _native_cache[key] = dict(audit={'contract': cid})
+            return {'status': 'synthetic_wiring_only'}
+        module = SimpleNamespace(__file__=__file__)
+        with patch.dict(sys.modules, {'rust_pricing': module}):
+            provider = RustPricingProvider(numerical_scope='multi_step_extension_gamma',
+                variance_extension='all_rows', sampling_policy=POLICY, cache_max_entries=3)
+        requests = {cid: deepcopy(self.base) for cid in ('lower', 'upper')}
+        requests['lower']['product']['strike'] = 95.
+        requests['upper']['product']['strike'] = 105.
+        with patch('rust_pricing_backtest.quote_control.evaluate_portfolio', new=native), \
+                patch('rust_pricing_backtest.quote_control.adjust_report', side_effect=lambda report, _: report):
+            first = {'id': 'same-id', 'market': 1}
+            portfolio(provider, first, requests)
+            portfolio(provider, first, requests)
+            self.assertEqual(len(compiled), 3)
+            portfolio(provider, {'id': 'same-id', 'market': 2}, requests)
+            self.assertEqual(len(compiled), 6)
+            self.assertEqual(len(provider._quote_control_cache), 3)
+            provider.clear_cache()
+            self.assertFalse(provider._quote_control_cache)
+            portfolio(provider, first, requests)
+            self.assertEqual(len(compiled), 9)
 
     def test_control_rolls_with_current_spot_and_is_detached(self):
         before = deepcopy(self.base); moved = deepcopy(self.base); moved['market']['spot'] = 103.

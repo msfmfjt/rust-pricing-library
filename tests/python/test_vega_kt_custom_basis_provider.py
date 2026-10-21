@@ -130,7 +130,7 @@ class CustomBasisProviderTests(unittest.TestCase):
                 with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=failed):
                     out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],[c],[Position('target',-1.,5.)],fresh,on_error='return')
                 self.assertEqual(out.failure['code'],code);self.assertFalse(out.orders);self.assertFalse(out.fills)
-                self.assertFalse(fresh._cache);self.assertFalse(fresh._shared);self.assertFalse(fresh._gamma_audits)
+                self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
                 with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=market):
                     self.assertEqual(fresh.evaluate(s,c),pr.evaluate(s,c))
                 detached=fresh.gamma_audit(s,c);detached['basis_construction']['parameter_scales'][0][0]=999.
@@ -154,7 +154,7 @@ class CustomBasisProviderTests(unittest.TestCase):
                                  (dict(variance_reduction={'antithetic':False}),'extension_provider_scope')):
                 p=json.loads(s.pricing_requests['target']);p['engine'].update(changes)
                 with self.assertRaisesRegex(BacktestError,code): pr.evaluate(replace(s,pricing_requests={'target':json.dumps(p)}),c)
-            self.assertFalse(pr._cache);self.assertFalse(pr._shared)
+            self.assertFalse(pr._cache.results);self.assertIsNone(pr._cache.shared)
 
     def test_e_cli_selects_named_policy(self):
         from rust_pricing_backtest.__main__ import main

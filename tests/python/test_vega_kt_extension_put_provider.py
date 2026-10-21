@@ -154,7 +154,7 @@ class PutExtensionProviderTests(unittest.TestCase):
         with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=failed):
             out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],[c],[Position('target',-1.,5.)],fresh,on_error='return')
         self.assertEqual(out.failure['code'],'multi_step_gamma_acceptance_failure');self.assertFalse(out.orders);self.assertFalse(out.fills)
-        self.assertFalse(fresh._cache);self.assertFalse(fresh._shared);self.assertFalse(fresh._gamma_audits)
+        self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
         with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=market):
             self.assertEqual(fresh.evaluate(s,c),self.providers['all_rows'].evaluate(s,c))
         self.evidence['failures'].append(dict(code=out.failure['code'],orders=len(out.orders),retry_exact=True))

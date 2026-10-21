@@ -25,6 +25,30 @@ from rust_pricing_backtest.ensemble import ScenarioResults, aggregate_scenarios
 
 
 class NativeBacktestTests(unittest.TestCase):
+    def test_cache_eviction_and_clear_preserve_native_risks(self):
+        provider = RustPricingProvider(diagnostic_only=True, cache_max_entries=1)
+        first = self.history[0]
+        expected = provider.evaluate(first, self.contracts[0])
+        for snapshot in self.history[:-1]:
+            fresh = RustPricingProvider(diagnostic_only=True)
+            for contract in self.contracts:
+                self.assertEqual(provider.evaluate(snapshot, contract), fresh.evaluate(snapshot, contract))
+                self.assertLessEqual(len(provider._cache.results), 1)
+        self.assertEqual(provider.evaluate(first, self.contracts[0]), expected)
+        provider.clear_cache()
+        self.assertEqual(provider.evaluate(first, self.contracts[0]), expected)
+
+    def test_fresh_resume_with_different_cache_capacity_is_exact(self):
+        cfg = BacktestConfig(strategy='delta', ridge=1e-4)
+        positions = [Position('target', -1., 1.)]
+        provider = RustPricingProvider(diagnostic_only=True, cache_max_entries=1)
+        full = run_backtest(cfg, self.history, self.contracts, positions, provider)
+        provider.clear_cache()
+        partial = run_backtest(cfg, self.history, self.contracts, positions, provider, stop_after=2)
+        resumed = run_backtest(**load_input(input_json(full)),
+            provider=RustPricingProvider(diagnostic_only=True, cache_max_entries=3), checkpoint=partial.checkpoint)
+        self.assertEqual(resumed.to_json(), full.to_json())
+
     def test_fixed_market_shocks_native_replay_audits_and_resume(self):
         cfg = BacktestConfig(ridge=1e-4, market_shock_log_moneyness=(-.1, .1))
         provider = RustPricingProvider(diagnostic_only=True)
