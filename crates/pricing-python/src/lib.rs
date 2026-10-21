@@ -70,7 +70,7 @@ create_exception!(rust_pricing, ValidationError, PyValueError);
 create_exception!(rust_pricing, PricingError, PyRuntimeError);
 
 /// One immutable, structured validation issue.
-#[pyclass(frozen, name = "ValidationIssue", skip_from_py_object)]
+#[pyclass(frozen, name = "ValidationIssue")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyValidationIssue {
     pointer: String,
@@ -236,7 +236,7 @@ impl PyValidationIssue {
 }
 
 /// Validated, immutable valuation request and replay serialization boundary.
-#[pyclass(frozen, name = "PricingRequest", skip_from_py_object)]
+#[pyclass(frozen, name = "PricingRequest")]
 #[derive(Clone, Debug)]
 pub struct PyPricingRequest {
     inner: PricingRequest,
@@ -302,7 +302,7 @@ impl PyPricingRequest {
 }
 
 /// Compiled immutable execution plan that can be evaluated repeatedly.
-#[pyclass(frozen, name = "PricingPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "PricingPlan")]
 #[derive(Clone, Debug)]
 pub struct PyPricingPlan {
     inner: PricingPlan,
@@ -730,7 +730,7 @@ impl PyPricingPlan {
 }
 
 /// Adjacent current-minus-previous differences in raw mathematical units.
-#[pyclass(frozen, name = "WidthLadderDifference", skip_from_py_object)]
+#[pyclass(frozen, name = "WidthLadderDifference")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyWidthLadderDifference {
     inner: WidthLadderDifference,
@@ -764,7 +764,7 @@ impl PyWidthLadderDifference {
 }
 
 /// One complete, labelled smoothing-width valuation.
-#[pyclass(frozen, name = "WidthLadderEntry", skip_from_py_object)]
+#[pyclass(frozen, name = "WidthLadderEntry")]
 #[derive(Clone, Debug)]
 pub struct PyWidthLadderEntry {
     inner: WidthLadderEntry,
@@ -797,7 +797,7 @@ impl PyWidthLadderEntry {
 }
 
 /// Primary result plus complete results at every requested ladder width.
-#[pyclass(frozen, name = "WidthLadderResult", skip_from_py_object)]
+#[pyclass(frozen, name = "WidthLadderResult")]
 #[derive(Clone, Debug)]
 pub struct PyWidthLadderResult {
     inner: WidthLadderResult,
@@ -828,14 +828,14 @@ impl PyWidthLadderResult {
 }
 
 /// Immutable Price, Greeks, uncertainty, replay, and diagnostic result.
-#[pyclass(frozen, name = "PricingResult", skip_from_py_object)]
+#[pyclass(frozen, name = "PricingResult")]
 #[derive(Clone, Debug)]
 pub struct PyPricingResult {
     inner: MonteCarloPrice,
 }
 
 /// One risk estimate in raw and market-scaled units.
-#[pyclass(frozen, name = "RiskEstimate", skip_from_py_object)]
+#[pyclass(frozen, name = "RiskEstimate")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyRiskEstimate {
     inner: RiskEstimate,
@@ -873,7 +873,7 @@ impl PyRiskEstimate {
 }
 
 /// One VegaKT bucket coordinate in maturity/log-moneyness space.
-#[pyclass(frozen, name = "VegaKtCoordinate", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtCoordinate")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtCoordinate {
     inner: VegaKtResultCoordinate,
@@ -907,7 +907,7 @@ impl PyVegaKtCoordinate {
 }
 
 /// One VegaKT bucket estimate with raw and market-scaled units.
-#[pyclass(frozen, name = "VegaKtBucketEstimate", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtBucketEstimate")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtBucketEstimate {
     inner: VegaKtResultBucketEstimate,
@@ -945,7 +945,7 @@ impl PyVegaKtBucketEstimate {
 }
 
 /// Reporting-edge sensitivity diagnostics for VegaKT projection.
-#[pyclass(frozen, name = "VegaKtReportingStats", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtReportingStats")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtReportingStats {
     inner: VegaKtResultReportingStats,
@@ -983,7 +983,7 @@ impl PyVegaKtReportingStats {
 }
 
 /// Projection summary used to reconcile VegaKT buckets with scalar vega.
-#[pyclass(frozen, name = "VegaKtProjection", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtProjection")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtProjection {
     inner: VegaKtResultProjection,
@@ -1023,7 +1023,7 @@ impl PyVegaKtProjection {
 }
 
 /// Residual diagnostics for the VegaKT active reporting domain.
-#[pyclass(frozen, name = "VegaKtResidualDiagnostics", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtResidualDiagnostics")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtResidualDiagnostics {
     inner: VegaKtResultResidualDiagnostics,
@@ -1079,7 +1079,7 @@ impl PyVegaKtResidualDiagnostics {
 }
 
 /// Full VegaKT bucket report attached to a pricing result when requested.
-#[pyclass(frozen, name = "VegaKtResult", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtResult")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtResult {
     inner: VegaKtResult,

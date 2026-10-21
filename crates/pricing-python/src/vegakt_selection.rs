@@ -4,7 +4,7 @@ use pricing::risk::{
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-#[pyclass(frozen, name = "VegaKtGammaRecoveryPolicy", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtGammaRecoveryPolicy")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtGammaRecoveryPolicy {
     pub(crate) inner: VegaKtGammaRecoveryPolicy,

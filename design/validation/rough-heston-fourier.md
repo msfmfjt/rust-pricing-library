@@ -175,3 +175,59 @@ Resource limits and small diagnostic numbers do not constitute production
 admission. Broad stressed parameter regions, short expiries/far-wing prices,
 positive-leverage moment boundaries and overall performance remain further
 validation work.
+
+## Additional independent rough-price coverage (2026-10-21)
+
+The original record above describes the adopted Fourier implementation. Six
+additional rough-Heston call references are retained from draft PR #123 at
+`b41b767d2b17e1445f9fd53f877632bda110a170`, with their original numeric values,
+reference grids and comparison budgets. This imports validation evidence only:
+the adopted `HestonFourierConfig` / `HestonFourierPlan` API, Riccati solver,
+Black control, Greeks and calibration routes are unchanged.
+
+The new `rough_prices` rows in `fourier.json` use H=.1/.3, T=1, F=100, D=.97
+and K=80/100/120, with the same five scalar model parameters as the original
+panel. `scripts/check_heston_fourier.py` recomputes these values using an explicit
+fractional Adams predictor/corrector. It uses neither the production implicit
+quadratic root nor the production final trapezoidal integral of psi. Instead,
+it integrates the piecewise-linear Riccati forcing against
+`g0(T-s) = v0 + kappa*theta*(T-s)^alpha/Gamma(alpha+1)` analytically. The source
+is the [earlier independent reference implementation](https://github.com/msfmfjt/rust-pricing-library/blob/b41b767d2b17e1445f9fd53f877632bda110a170/scripts/check_heston_fourier_reference.py).
+
+Before comparison with the retained values, the reference calculation checks
+2,048 versus 4,096 time steps at 1,024 Fourier intervals and cutoff 160. It then
+compares the 4,096-step result with 2,560 intervals and cutoff 200. The original
+absolute reference-change caps remain **1e-4** for time refinement and **2e-7**
+for inversion changes. The retained time/inversion changes are checked too,
+with the original 2e-9 platform-rounding allowance. Reference regeneration is
+still explicit; the default checker and CI do not rewrite the fixture.
+
+The Rust test `rough_prices_match_independent_fractional_adams_references` uses
+1,024 time steps, 1,024 Fourier intervals and cutoff 160 and preserves the
+original **0.003 currency-unit** price comparison budget. It also checks
+put-call parity. The existing release CI command includes this ignored test
+and retains its six per-price comparisons in `heston-fourier.log`. Existing
+Markov reference tolerances, MC budgets and tests remain unchanged. Fixture
+guards reject missing or corrupted rough-price rows, their reference changes,
+and any changes to the new fixed protocol.
+
+This adds a price check using a different fractional Riccati discretization;
+it does not make the references exact. The reference and production inversions
+both use the half-moment/Black-control/Simpson form, so no independent inversion
+formula is claimed for these six rows. Time-grid, inversion and reference bias
+remain possible. Six selected strike/model cases do not certify a full rough
+price surface or stressed parameter regions.
+
+The local integration recheck used Linux x86_64, Rust 1.98.1, CPython 3.12.14,
+NumPy 2.3.5, SciPy 1.17.0 and mpmath 1.4.1. The additional release test passed
+all six call-price comparisons and parity checks. Its maximum absolute price
+gap was **2.869437389e-6** (H=.1, K=100); the largest retained reference time
+change was 6.699395678e-6. These are price units, not implied-volatility basis
+points. All four reference/packaging guard tests passed in 139.077 seconds,
+including a fresh recomputation of the existing and added references and a
+check that the retained fixture was not rewritten. Existing fixture fields
+and numerical protocols were also compared with the parent commit and were
+unchanged.
+The five existing fast Fourier integration tests also passed in release mode.
+The existing full Monte Carlo acceptance panel remains a separate release CI
+check; it was not rerun as part of this validation-only integration.

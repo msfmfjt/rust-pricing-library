@@ -19,7 +19,7 @@ fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
         ),
     )
 }
-#[pyclass(frozen, name = "StochasticDividendHullWhitePlan", skip_from_py_object)]
+#[pyclass(frozen, name = "StochasticDividendHullWhitePlan")]
 #[derive(Clone, Debug)]
 pub struct PyStochasticDividendHullWhitePlan {
     inner: StochasticDividendHullWhitePricingPlan,

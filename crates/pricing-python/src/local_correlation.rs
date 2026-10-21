@@ -11,7 +11,7 @@ use pricing::multi_asset::{
 };
 use pyo3::prelude::*;
 
-#[pyclass(frozen, name = "LocalCorrelationConfig", skip_from_py_object)]
+#[pyclass(frozen, name = "LocalCorrelationConfig")]
 #[derive(Clone, Debug)]
 pub struct PyLocalCorrelationConfig {
     pub(crate) inner: LocalCorrelationConfig,
@@ -148,7 +148,7 @@ impl PyLocalCorrelationConfig {
     }
 }
 
-#[pyclass(frozen, name = "LocalCorrelationCalibration", skip_from_py_object)]
+#[pyclass(frozen, name = "LocalCorrelationCalibration")]
 #[derive(Clone, Debug)]
 pub struct PyLocalCorrelationCalibration {
     pub(crate) inner: LocalCorrelationCalibration,
@@ -285,7 +285,7 @@ impl PyLocalCorrelationCalibration {
     }
 }
 
-#[pyclass(frozen, name = "LocalCorrelationRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "LocalCorrelationRisk")]
 #[derive(Clone, Debug)]
 pub struct PyLocalCorrelationRisk {
     pub(crate) inner: LocalCorrelationRisk,

@@ -29,7 +29,7 @@ use pyo3::types::PyString;
 use crate::{PyValidationIssue, validation_exception};
 
 /// Immutable log-linear discount-factor curve with flat-forward extrapolation.
-#[pyclass(frozen, name = "DiscountCurve", skip_from_py_object)]
+#[pyclass(frozen, name = "DiscountCurve")]
 #[derive(Clone, Debug)]
 pub struct PyDiscountCurve {
     pub(crate) inner: Arc<LogLinearDiscountCurve>,
@@ -71,7 +71,7 @@ impl PyDiscountCurve {
 }
 
 /// Immutable discrete dividend event.
-#[pyclass(frozen, name = "DividendEvent", skip_from_py_object)]
+#[pyclass(frozen, name = "DividendEvent")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyDividendEvent {
     pub(crate) inner: DividendEvent,
@@ -179,7 +179,7 @@ impl PyDividendEvent {
 }
 
 /// Immutable Asian observation row.
-#[pyclass(frozen, name = "AsianObservation", skip_from_py_object)]
+#[pyclass(frozen, name = "AsianObservation")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyAsianObservation {
     pub(crate) inner: AsianObservation,
@@ -255,7 +255,7 @@ impl PyAsianObservation {
 }
 
 /// Immutable eSSVI slice used to materialize Local Volatility grids.
-#[pyclass(frozen, name = "EssviSlice", skip_from_py_object)]
+#[pyclass(frozen, name = "EssviSlice")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyEssviSlice {
     pub(crate) inner: EssviSlice,
@@ -302,7 +302,7 @@ impl PyEssviSlice {
 }
 
 /// Immutable product specification built through named factory methods.
-#[pyclass(frozen, name = "Product", skip_from_py_object)]
+#[pyclass(frozen, name = "Product")]
 #[derive(Clone, Debug)]
 pub struct PyProduct {
     pub(crate) inner: ProductSpec,
@@ -533,7 +533,7 @@ impl PyProduct {
 }
 
 /// Immutable market context built through named factory methods.
-#[pyclass(frozen, name = "Market", skip_from_py_object)]
+#[pyclass(frozen, name = "Market")]
 #[derive(Clone, Debug)]
 pub struct PyMarket {
     pub(crate) inner: MarketContext,
@@ -583,7 +583,7 @@ impl PyMarket {
 }
 
 /// Immutable pricing-model specification.
-#[pyclass(frozen, name = "Model", skip_from_py_object)]
+#[pyclass(frozen, name = "Model")]
 #[derive(Clone, Debug)]
 pub struct PyModel {
     pub(crate) inner: ModelSpec,
@@ -868,7 +868,7 @@ impl PyModel {
 }
 
 /// Immutable Monte Carlo engine configuration.
-#[pyclass(frozen, name = "Engine", skip_from_py_object)]
+#[pyclass(frozen, name = "Engine")]
 #[derive(Clone, Debug)]
 pub struct PyEngine {
     pub(crate) inner: EngineConfig,
@@ -930,7 +930,7 @@ impl PyEngine {
 }
 
 /// Immutable Least-Squares Monte Carlo training configuration.
-#[pyclass(frozen, name = "LsmConfig", skip_from_py_object)]
+#[pyclass(frozen, name = "LsmConfig")]
 #[derive(Clone, Debug)]
 pub struct PyLsmConfig {
     pub(crate) inner: LsmConfig,
@@ -1047,7 +1047,7 @@ impl PyLsmConfig {
 }
 
 /// Requested Greeks and deterministic AAD/bump execution controls.
-#[pyclass(frozen, name = "RiskRequest", skip_from_py_object)]
+#[pyclass(frozen, name = "RiskRequest")]
 #[derive(Clone, Debug)]
 pub struct PyRiskRequest {
     pub(crate) inner: RiskRequest,

@@ -1,4 +1,4 @@
-# S7: repeated-AAD peak-heap follow-up
+# S7: historical repeated-AAD peak-heap replay
 
 Date: 2026-09-22. Follows the [reverse-buffer measurement](local-correlation-moment-workspace.md)
 on PR #81.
@@ -26,24 +26,41 @@ These are grouped stacks, not unique allocation-site identities. Original
 point indices and source frames remain available to inspect any grouping.
 Both bytes and block deltas must sum exactly to the process-peak difference.
 
-The same pinned baseline and unchanged public-API benchmark are built in clean
-release directories with thin LTO, one codegen unit and debug level 1. Five
-fresh-process pairs alternate baseline/candidate execution order. Each process
+The original baseline `ea759bf5d73b06e4c480665e59c7daa37e6667be` and candidate
+`5886ac6834676ea6c10cd89aa087a58c81625ae6` are built in clean release directories
+with the unchanged public-API benchmark, thin LTO, one codegen unit and debug
+level 1. Both source commits are checked, and their `Cargo.lock` and Rust
+toolchain files must match. Five fresh-process pairs alternate baseline/candidate
+execution order. Each process
 uses one worker, eight steps, 128 particles, 512 independent pricing units and
 two assets, constructs one plan, then runs AAD twice without warmup. Output
 checksums must match the original pair exactly. This is a DHAT heap experiment,
 with no native elapsed-time inference.
 
-The [separate workflow](../../.github/workflows/model-heap-followup.yml) leaves
-the parent's full price run active. It has read-only repository/actions access
-to recover the original artifact. Once the resulting record is committed, its
-complete original peak points make that analysis independent of artifact expiry.
-Fresh repetitions continue to retain complete profiles and logs as CI artifacts.
+The [separate workflow](../../.github/workflows/model-heap-followup.yml) runs
+the accounting tests and measurement script from a current-head tooling checkout,
+alongside separate checkouts of the two original source commits. It records the
+tooling commit, tree and script SHA-256 in the report. This is a historical S7
+replay; it does not measure current-head production performance. The parent's
+full price run remains separate.
+
+The workflow has read-only repository/actions access to recover the original
+artifact. A retained record, once committed, is read from the current tooling
+checkout so that its complete original peak points can make the analysis
+independent of artifact expiry. Until then, the original artifact is required.
+Fresh repetitions retain complete profiles and logs as CI artifacts.
 
 The accounting tests exercise a thirteenth peak point, corrupted end-heap
-totals, regrouped call stacks and signed byte/block conservation. No production
-Rust, numerical threshold, seed, benchmark request, schema or replay fixture
+totals, regrouped call stacks, signed byte/block conservation, rejected source
+commits/build-input mismatches, current-tooling retained evidence and the three
+checkout roles. No production Rust, numerical threshold, seed, benchmark request,
+schema or replay fixture
 changes are part of this follow-up.
+
+The 2026-10-21 maintenance change fixes the candidate to the original S7 commit
+so that later dependency updates cannot change the historical comparison. The
+equal-lockfile, equal-toolchain and exact output-checksum requirements remain in
+force; this replay supplies no acceptance result for later production changes.
 
 ## Status
 

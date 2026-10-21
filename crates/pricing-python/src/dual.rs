@@ -10,7 +10,7 @@ use crate::diagnostics::PyDiagnosticEstimate;
 use crate::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
 
 /// Inner rollout counts and seed, separate from LSM training and outer evaluation.
-#[pyclass(frozen, name = "AndersenBroadieConfig", skip_from_py_object)]
+#[pyclass(frozen, name = "AndersenBroadieConfig")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyAndersenBroadieConfig {
     inner: AndersenBroadieConfig,
@@ -56,7 +56,7 @@ impl PyAndersenBroadieConfig {
 }
 
 /// Immutable, repeatable dual plan for a price-only AmericanVanilla request.
-#[pyclass(frozen, name = "AndersenBroadiePlan", skip_from_py_object)]
+#[pyclass(frozen, name = "AndersenBroadiePlan")]
 #[derive(Clone, Debug)]
 pub struct PyAndersenBroadiePlan {
     inner: AndersenBroadiePlan,
@@ -104,7 +104,7 @@ impl PyAndersenBroadiePlan {
 }
 
 /// Statistical bounds conditional on the fitted policy and declared exercise grid.
-#[pyclass(frozen, name = "AndersenBroadieResult", skip_from_py_object)]
+#[pyclass(frozen, name = "AndersenBroadieResult")]
 #[derive(Clone, Debug)]
 pub struct PyAndersenBroadieResult {
     inner: AndersenBroadieResult,

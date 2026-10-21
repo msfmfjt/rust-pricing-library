@@ -13,7 +13,7 @@ use pyo3::prelude::*;
 use crate::format_fingerprint;
 
 /// A deterministic warning emitted by a completed valuation.
-#[pyclass(frozen, name = "PricingWarning", skip_from_py_object)]
+#[pyclass(frozen, name = "PricingWarning")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PyPricingWarning {
     code: String,
@@ -43,7 +43,7 @@ impl PyPricingWarning {
 }
 
 /// One statistical estimate used by risk validation diagnostics.
-#[pyclass(frozen, name = "DiagnosticEstimate", skip_from_py_object)]
+#[pyclass(frozen, name = "DiagnosticEstimate")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyDiagnosticEstimate {
     estimate: Estimate,
@@ -94,7 +94,7 @@ impl PyDiagnosticEstimate {
 }
 
 /// CRN bump validation diagnostics for one requested risk.
-#[pyclass(frozen, name = "RiskValidation", skip_from_py_object)]
+#[pyclass(frozen, name = "RiskValidation")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyRiskValidation {
     validation: RiskValidation,
@@ -107,7 +107,7 @@ impl PyRiskValidation {
 }
 
 /// One structured warning emitted while fitting an exercise-date regression.
-#[pyclass(frozen, name = "LsmWarning", skip_from_py_object)]
+#[pyclass(frozen, name = "LsmWarning")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyLsmWarning {
     warning: LsmWarning,
@@ -135,7 +135,7 @@ impl PyLsmWarning {
 }
 
 /// Fitted population scaling for one LSM state variable.
-#[pyclass(frozen, name = "LsmFeatureScaling", skip_from_py_object)]
+#[pyclass(frozen, name = "LsmFeatureScaling")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyLsmFeatureScaling {
     scaling: FeatureScaling,
@@ -170,7 +170,7 @@ impl PyLsmFeatureScaling {
 }
 
 /// Immutable fitted decision model for one non-terminal exercise date.
-#[pyclass(frozen, name = "ExerciseDecisionDiagnostics", skip_from_py_object)]
+#[pyclass(frozen, name = "ExerciseDecisionDiagnostics")]
 #[derive(Clone, Debug)]
 pub struct PyExerciseDecisionDiagnostics {
     decision: ExerciseDecisionModel,
@@ -283,7 +283,7 @@ fn regression_slice<T: Copy>(
 }
 
 /// Training diagnostics for one non-terminal exercise date.
-#[pyclass(frozen, name = "ExerciseRegressionDiagnostics", skip_from_py_object)]
+#[pyclass(frozen, name = "ExerciseRegressionDiagnostics")]
 #[derive(Clone, Debug)]
 pub struct PyExerciseRegressionDiagnostics {
     diagnostics: ExerciseRegressionDiagnostics,
@@ -318,7 +318,7 @@ impl PyExerciseRegressionDiagnostics {
 }
 
 /// Complete immutable LSM training and out-of-sample exercise diagnostics.
-#[pyclass(frozen, name = "EarlyExerciseDiagnostics", skip_from_py_object)]
+#[pyclass(frozen, name = "EarlyExerciseDiagnostics")]
 #[derive(Clone, Debug)]
 pub struct PyEarlyExerciseDiagnostics {
     diagnostics: EarlyExerciseDiagnostics,
@@ -506,7 +506,7 @@ impl PyRiskValidation {
 }
 
 /// Immutable replay and numerical diagnostics for a Monte Carlo result.
-#[pyclass(frozen, name = "Diagnostics", skip_from_py_object)]
+#[pyclass(frozen, name = "Diagnostics")]
 #[derive(Clone, Debug)]
 pub struct PyDiagnostics {
     master_seed: u64,

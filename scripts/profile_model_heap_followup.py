@@ -1,7 +1,7 @@
-"""Explain whole-process AAD heap peaks using every live allocation stack.
+"""Replay the original S7 AAD heap pair using every live allocation stack.
 
-Read the original S7 pair, then repeat only the base/two-evaluation workload.
-No production code or benchmark behavior is changed by this measurement.
+Current tooling repeats the pinned historical base/two-evaluation workload.
+This measurement does not assess current-head production performance.
 """
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from profile_model_scaling import BASE, profile
 ORIGINAL_RUN = 35708535272
 ORIGINAL_BASELINE = "ea759bf5d73b06e4c480665e59c7daa37e6667be"
 ORIGINAL_CANDIDATE = "5886ac6834676ea6c10cd89aa087a58c81625ae6"
+TOOLING_ROOT = Path(__file__).resolve().parents[1]
 RETAINED = Path("design/validation/local-correlation-heap-followup-2026-09-22.json")
 METRICS = {"allocated_bytes": "tb", "allocation_blocks": "tbk",
            "peak_heap_bytes": "gb", "blocks_at_peak": "gbk",
@@ -96,11 +97,14 @@ def compare_peak(baseline, candidate, frames):
             "groups": sorted(differences, key=lambda d: abs(d["bytes_delta"]), reverse=True)}
 
 
-def original_pair(directory, candidate, frames):
-    retained = candidate / RETAINED
+def original_pair(directory, frames):
+    retained = TOOLING_ROOT / RETAINED
     if retained.is_file():
         previous = json.loads(retained.read_text())
         assert previous["original"]["run_id"] == ORIGINAL_RUN
+        assert previous["original"]["baseline"]["source"]["commit"] == ORIGINAL_BASELINE
+        assert previous["original"]["candidate"]["source"]["commit"] == ORIGINAL_CANDIDATE
+        assert previous["original"]["baseline"]["checksum"] == previous["original"]["candidate"]["checksum"]
         assert not frames
         frames.update({frame: i for i, frame in enumerate(previous["frames"])})
         result = previous["original"]
@@ -131,6 +135,16 @@ def original_pair(directory, candidate, frames):
     return result
 
 
+def validate_replay_sources(roots, sources):
+    for label, expected in [("baseline", ORIGINAL_BASELINE), ("candidate", ORIGINAL_CANDIDATE)]:
+        if sources[label]["commit"] != expected:
+            raise ValueError(f"{label} must be the original S7 commit {expected}")
+    if sources["baseline"]["cargo_lock_sha256"] != sources["candidate"]["cargo_lock_sha256"]:
+        raise ValueError("original S7 Cargo.lock files must match")
+    if (roots["baseline"] / "rust-toolchain.toml").read_bytes() != (roots["candidate"] / "rust-toolchain.toml").read_bytes():
+        raise ValueError("original S7 toolchain files must match")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("baseline", type=Path)
@@ -148,27 +162,29 @@ def main():
     frames = {}
     report = {"schema_version": 1, "baseline": {}, "candidate": {}, "pairs": [],
               "metadata": {"platform": platform.platform(), "cpu": command(["lscpu"]),
-                           "rustc": command(["rustc", "-vV"]), "cargo": command(["cargo", "-V"]),
+                           "rustc": command(["rustc", "-vV"], roots["candidate"]),
+                           "cargo": command(["cargo", "-V"], roots["candidate"]),
                            "valgrind": command(["valgrind", "--version"]),
                            "runner_run_id": os.environ.get("GITHUB_RUN_ID"),
+                           "tooling_commit": command(["git", "rev-parse", "HEAD"], TOOLING_ROOT),
+                           "tooling_tree": command(["git", "rev-parse", "HEAD^{tree}"], TOOLING_ROOT),
+                           "tooling_script_sha256": digest(Path(__file__).resolve()),
                            "example_sha256": digest(roots["candidate"] / EXAMPLE),
                            "settings": list(BASE), "phase": "aad", "repeats": 2,
                            "rounds": args.rounds, "warmups": 0,
                            "profile": "release; thin LTO; codegen-units=1; debug=1",
                            "environment": {k: v for k, v in os.environ.items() if k in ["RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RAYON_NUM_THREADS"] or k.startswith("CARGO_PROFILE_")},
-                           "scope": "whole DHAT process; one plan and two AAD evaluations; no timing inference",
+                           "scope": "pinned historical S7 replay; whole DHAT process; one plan and two AAD evaluations; no current-head performance or timing inference",
                            "frame_storage": "symbol/source frames, with load addresses and executable directories omitted",
                            "comparison": "all live-at-global-peak points; group call stacks ignoring source line offsets and generated impl numbers; point indices retain original source locations"}}
     try:
-        report["original"] = original_pair(args.original_directory, roots["candidate"], frames)
-        print("Original peak bytes delta:", report["original"]["comparison"]["bytes_delta"], flush=True)
         for label, root in roots.items():
             report[label] = {"commit": command(["git", "rev-parse", "HEAD"], root),
                              "tree": command(["git", "rev-parse", "HEAD^{tree}"], root),
                              "cargo_lock_sha256": digest(root / "Cargo.lock")}
-        assert report["baseline"]["commit"] == ORIGINAL_BASELINE
-        assert report["baseline"]["cargo_lock_sha256"] == report["candidate"]["cargo_lock_sha256"]
-        assert (roots["baseline"] / "rust-toolchain.toml").read_bytes() == (roots["candidate"] / "rust-toolchain.toml").read_bytes()
+        validate_replay_sources(roots, report)
+        report["original"] = original_pair(args.original_directory, frames)
+        print("Original peak bytes delta:", report["original"]["comparison"]["bytes_delta"], flush=True)
         shutil.copy2(roots["candidate"] / EXAMPLE, roots["baseline"] / EXAMPLE)
         binaries = {}
         for label, root in roots.items():

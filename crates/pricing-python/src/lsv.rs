@@ -6,7 +6,7 @@ use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
 use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pyo3::prelude::*;
 
-#[pyclass(frozen, name = "BergomiLsvPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "BergomiLsvPlan")]
 #[derive(Clone, Debug)]
 pub struct PyBergomiLsvPlan {
     inner: BergomiLsvPricingPlan,
@@ -107,7 +107,7 @@ impl PyBergomiLsvPlan {
     }
 }
 
-#[pyclass(frozen, name = "Bergomi2FactorLsvPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "Bergomi2FactorLsvPlan")]
 #[derive(Clone, Debug)]
 pub struct PyBergomi2FactorLsvPlan {
     inner: BergomiLsvPricingPlan<Bergomi2Factor>,
@@ -218,7 +218,7 @@ impl PyBergomi2FactorLsvPlan {
 
 /// Deterministic-rate rough Bergomi LSV. `vol_of_vol` is eta, the coefficient
 /// of log variance, as for `RoughBergomiModel`.
-#[pyclass(frozen, name = "RoughBergomiLsvPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughBergomiLsvPlan")]
 #[derive(Clone, Debug)]
 pub struct PyRoughBergomiLsvPlan {
     inner: RoughBergomiLsvPricingPlan,
@@ -319,7 +319,7 @@ impl PyRoughBergomiLsvPlan {
     }
 }
 
-#[pyclass(frozen, name = "LsvPrice", skip_from_py_object)]
+#[pyclass(frozen, name = "LsvPrice")]
 #[derive(Clone, Debug)]
 pub struct PyLsvPrice {
     pub(super) inner: LsvPrice,
@@ -360,7 +360,7 @@ impl PyLsvPrice {
     }
 }
 
-#[pyclass(frozen, name = "LsvLocalVarianceRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "LsvLocalVarianceRisk")]
 #[derive(Clone, Debug)]
 pub struct PyLsvLocalVarianceRisk {
     inner: LsvLocalVarianceRisk,
@@ -399,7 +399,7 @@ impl PyLsvLocalVarianceRisk {
     }
 }
 
-#[pyclass(frozen, name = "RoughFamilyLsvPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughFamilyLsvPlan")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvPlan {
     inner: pricing::rough_volatility::RoughFamilyLsvPricingPlan,
@@ -593,7 +593,7 @@ impl PyRoughFamilyLsvPlan {
     }
 }
 
-#[pyclass(frozen, name = "RoughFamilyLsvDelta", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughFamilyLsvDelta")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvDelta {
     inner: pricing::rough_volatility::RoughFamilyLsvDelta,
@@ -628,7 +628,7 @@ impl PyRoughFamilyLsvDelta {
     }
 }
 
-#[pyclass(frozen, name = "RoughFamilyLsvMarketIvRiskPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughFamilyLsvMarketIvRiskPlan")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvMarketIvRiskPlan {
     inner: pricing::rough_volatility::RoughFamilyLsvMarketIvRiskPlan,
@@ -646,7 +646,7 @@ impl PyRoughFamilyLsvMarketIvRiskPlan {
     }
 }
 
-#[pyclass(frozen, name = "RoughFamilyLsvMarketIvRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughFamilyLsvMarketIvRisk")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvMarketIvRisk {
     inner: pricing::rough_volatility::RoughFamilyLsvMarketIvRisk,
@@ -709,7 +709,7 @@ impl PyRoughFamilyLsvMarketIvRisk {
     }
 }
 
-#[pyclass(frozen, name = "RoughFamilyLsvGamma", skip_from_py_object)]
+#[pyclass(frozen, name = "RoughFamilyLsvGamma")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvGamma {
     inner: pricing::rough_volatility::RoughFamilyLsvGamma,
@@ -768,7 +768,7 @@ impl PyRoughFamilyLsvGamma {
     }
 }
 
-#[pyclass(frozen, name = "HestonLsvParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonLsvParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyHestonLsvParameterRisk {
     inner: pricing::rough_volatility::HestonLsvParameterRisk,
@@ -819,7 +819,7 @@ impl PyHestonLsvParameterRisk {
     }
 }
 
-#[pyclass(frozen, name = "MixedBergomiLsvParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "MixedBergomiLsvParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMixedBergomiLsvParameterRisk {
     inner: pricing::rough_volatility::MixedBergomiLsvParameterRisk,
@@ -881,7 +881,7 @@ impl PyMixedBergomiLsvParameterRisk {
     }
 }
 
-#[pyclass(frozen, name = "QuadraticHestonLsvParameterRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "QuadraticHestonLsvParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyQuadraticHestonLsvParameterRisk {
     inner: pricing::rough_volatility::QuadraticHestonLsvParameterRisk,

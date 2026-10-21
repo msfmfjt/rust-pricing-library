@@ -19,7 +19,7 @@ from check_heston_iv_calibration import implied
 ROOT = Path(__file__).resolve().parents[1]
 FILE = ROOT/'fixtures/rough-volatility/iv-holdout.json'
 PARENT = ROOT/'fixtures/rough-volatility/iv-calibration.json'
-PARENT_SHA = 'e61d8d6f1fc40484ca708ffd59b9ccbbe2127cf0f1a4b010ba2397db59a01f7c'
+PARENT_SHA = '6f972619b3750bc1537ecc1da3a21d91528f3d8db614763b7bf0b5eacf089f31'
 PROTOCOL = dict(time_steps=128, integration_intervals=512, cutoff=128.,
     max_iterations=60, max_evaluations=100, residual_tolerance=2e-6,
     interpolation_fit_tolerance=5e-4, extrapolation_fit_tolerance=5e-3,

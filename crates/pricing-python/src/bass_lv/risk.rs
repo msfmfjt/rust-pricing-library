@@ -3,7 +3,7 @@ use pricing::bass_lv::{
     BassDeterministicMappingRisk, BassMappingBump, BassMappingRisk, BassMappingRiskPlan,
 };
 
-#[pyclass(frozen, name = "BassMappingBump", skip_from_py_object)]
+#[pyclass(frozen, name = "BassMappingBump")]
 #[derive(Clone, Debug)]
 pub struct PyBassMappingBump {
     pub(super) inner: BassMappingBump,
@@ -34,7 +34,7 @@ impl PyBassMappingBump {
     }
 }
 
-#[pyclass(frozen, name = "BassMappingRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "BassMappingRisk")]
 #[derive(Clone, Debug)]
 pub struct PyBassMappingRisk {
     inner: BassMappingRisk,
@@ -55,7 +55,7 @@ impl PyBassMappingRisk {
     }
 }
 
-#[pyclass(frozen, name = "BassDeterministicMappingRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "BassDeterministicMappingRisk")]
 #[derive(Clone, Debug)]
 pub struct PyBassDeterministicMappingRisk {
     inner: BassDeterministicMappingRisk,
@@ -72,7 +72,7 @@ impl PyBassDeterministicMappingRisk {
     }
 }
 
-#[pyclass(frozen, name = "BassMappingRiskPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "BassMappingRiskPlan")]
 #[derive(Clone, Debug)]
 pub struct PyBassMappingRiskPlan {
     pub(super) inner: BassMappingRiskPlan,

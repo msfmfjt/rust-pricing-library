@@ -4,7 +4,7 @@ use pricing::mc::hull_white::CalibratedHullWhiteLsv;
 use pricing::multi_asset::{MultiAssetHullWhiteCurveRisk, MultiAssetHullWhiteLsvRisk};
 use pyo3::prelude::*;
 
-#[pyclass(frozen, name = "MultiAssetHullWhiteCalibration", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetHullWhiteCalibration")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetHullWhiteCalibration {
     #[pyo3(get)]
@@ -60,7 +60,7 @@ impl PyMultiAssetHullWhiteCalibration {
     }
 }
 
-#[pyclass(frozen, name = "MultiAssetHullWhiteLsvRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetHullWhiteLsvRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetHullWhiteLsvRisk {
     pub(crate) inner: MultiAssetHullWhiteLsvRisk,
@@ -109,7 +109,7 @@ impl PyMultiAssetHullWhiteLsvRisk {
     }
 }
 
-#[pyclass(frozen, name = "MultiAssetHullWhiteCurveRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetHullWhiteCurveRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetHullWhiteCurveRisk {
     pub(crate) inner: MultiAssetHullWhiteCurveRisk,

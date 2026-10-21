@@ -62,12 +62,17 @@ class JointPortfolioTests(unittest.TestCase):
 
     def test_identical_opposite_instruments_cancel_risk_and_error(self):
         p=model(4,'call',samples=4096)
-        r=evaluate_portfolio({'long':p,'short':deepcopy(p)},{'long':2.5,'short':-2.5},worker_threads=4)
+        r=evaluate_portfolio({'long':p,'short':deepcopy(p)},{'long':2.5,'short':-2.5},worker_threads=4,retain_samples=True)
+        cube=np.array(r['sampling_unit_values'])
+        np.testing.assert_array_equal(cube[:,0,:],cube[:,1,:])
         np.testing.assert_array_equal(r['net_buckets'],0.)
         np.testing.assert_array_equal(r['net_bucket_standard_errors'],0.)
         self.assertEqual(r['net_price'],0.)
         c=np.array(r['market_sample_covariance'])
-        np.testing.assert_array_equal(c[:10,:10],c[:10,10:])
+        q=cube.shape[2]-1
+        # BLAS may reduce identical covariance blocks in different orders.
+        # The underlying samples and the net cancellation remain bitwise exact.
+        np.testing.assert_allclose(c[:q,:q],c[:q,q:],rtol=1e-12,atol=1e-12)
         for field in ('master_seed','independent_sampling_units'):
             changed=deepcopy(p);changed['engine'][field]+=1
             with self.assertRaisesRegex(ValueError,'portfolio_stream_mismatch'):
