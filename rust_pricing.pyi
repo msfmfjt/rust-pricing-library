@@ -1177,6 +1177,10 @@ class StochasticDividendLocalVarianceRisk:
 
 
 class StochasticDividendAadRisk:
+    @property
+    def parameter_kinds(self) -> list[str]: ...
+    @property
+    def parameter_units(self) -> list[str]: ...
     """Raw first derivatives; sigma0 Vega is not market-IV VegaKT."""
     @property
     def price(self) -> StochasticDividendPrice: ...
@@ -1327,6 +1331,10 @@ class HullWhitePrice:
 
 
 class HullWhiteAadRisk:
+    @property
+    def parameter_kinds(self) -> list[str]: ...
+    @property
+    def parameter_units(self) -> list[str]: ...
     """Finite hybrid AAD at fixed model parameters and paired-target coordinates."""
     @property
     def vega_kt_raw(self) -> list[float] | None: ...
@@ -1522,10 +1530,23 @@ class ValidationIssue:
 
 
 class ValidationError(ValueError):
+    code: str
+    stage: Literal["parse", "validation", "compile", "calibrate", "evaluate", "serialize"]
+    field: str | None
+    operation: str | None
+    reason: str | None
+    causes: list[str]
     issues: list[ValidationIssue]
 
 
-class PricingError(RuntimeError): ...
+class PricingError(RuntimeError):
+    code: str
+    stage: Literal["parse", "validation", "compile", "calibrate", "evaluate", "serialize"]
+    field: str | None
+    operation: str | None
+    reason: str | None
+    causes: list[str]
+
 
 
 class PricingWarning:

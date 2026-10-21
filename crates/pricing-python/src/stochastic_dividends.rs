@@ -74,7 +74,7 @@ impl PyStochasticDividendPlan {
             StochasticDividendPricingPlan::compile_bs(&request, model, maximum_step, policy)
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
@@ -117,7 +117,7 @@ impl PyStochasticDividendPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
@@ -168,7 +168,7 @@ impl PyStochasticDividendPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
@@ -225,7 +225,7 @@ impl PyStochasticDividendPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
 
     #[staticmethod]
@@ -291,7 +291,7 @@ impl PyStochasticDividendPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
 
     #[staticmethod]
@@ -349,7 +349,7 @@ impl PyStochasticDividendPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
 
     #[staticmethod]
@@ -393,7 +393,7 @@ impl PyStochasticDividendPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyStochasticDividendPrice> {
         py.detach(|| self.inner.evaluate())
@@ -1259,6 +1259,22 @@ pub struct PyStochasticDividendAadRisk {
 }
 #[pymethods]
 impl PyStochasticDividendAadRisk {
+    #[getter]
+    fn parameter_kinds(&self) -> Vec<&'static str> {
+        self.inner
+            .parameter_kinds
+            .iter()
+            .map(|k| k.as_str())
+            .collect()
+    }
+    #[getter]
+    fn parameter_units(&self) -> Vec<&'static str> {
+        self.inner
+            .parameter_kinds
+            .iter()
+            .map(|k| k.unit().as_str())
+            .collect()
+    }
     #[getter]
     fn price(&self) -> PyStochasticDividendPrice {
         PyStochasticDividendPrice {

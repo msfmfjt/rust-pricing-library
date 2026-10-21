@@ -10,6 +10,8 @@ use crate::engine::processes::stochastic_dividends::reverse::ReverseContext;
 pub struct StochasticDividendAadRisk {
     pub price: StochasticDividendPrice,
     pub parameter_labels: Box<[String]>,
+    /// Native differentiation coordinates, in exactly the same order as labels/derivatives.
+    pub parameter_kinds: Box<[crate::RiskParameterKind]>,
     pub derivatives: Box<[f64]>,
     /// MC: independent (possibly antithetic) units. RQMC: scramble means only.
     /// Neither includes time-discretization or parameter uncertainty.
@@ -234,6 +236,7 @@ impl StochasticDividendPricingPlan {
                 scheme: self.scheme(),
             },
             parameter_labels: context.labels.into_boxed_slice(),
+            parameter_kinds: context.parameter_kinds.into_boxed_slice(),
             derivatives: means[1..].into(),
             standard_errors: errors[1..].into(),
             cash_times: context.cash_times.into_boxed_slice(),

@@ -40,30 +40,32 @@ impl PyPricingSpecification {
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size).map_err(|e| {
-            wire_exception(
-                py,
-                &WireError::DomainAt {
-                    pointer: "/numerics".into(),
-                    message: e.to_string(),
-                },
-            )
+            let error = WireError::DomainAt {
+                pointer: "/numerics".into(),
+                message: e.to_string(),
+            };
+            let mut issue = PyValidationIssue::wire(&error, "pricing_specification");
+            issue.schema_version = 2;
+            issue.error_metadata = errors::ErrorMetadata::from_error(&e, errors::Stage::Validation);
+            validation_exception(py, issue)
         })?;
         Ok(Self {
             inner: PricingSpecification::from_request(request.inner.clone(), policy),
         })
     }
     fn to_json(&self) -> PyResult<String> {
-        pricing::specification_to_json(&self.inner).map_err(pricing_exception)
+        pricing::specification_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
     fn to_pretty_json(&self) -> PyResult<String> {
-        pricing::specification_to_pretty_json(&self.inner).map_err(pricing_exception)
+        pricing::specification_to_pretty_json(&self.inner)
+            .map_err(crate::errors::serialize_exception)
     }
     #[getter]
     fn fingerprint(&self) -> PyResult<String> {
         self.inner
             .fingerprint()
             .map(|f| f.to_string())
-            .map_err(pricing_exception)
+            .map_err(crate::errors::serialize_exception)
     }
     fn compile(&self, py: Python<'_>) -> PyResult<PyCompiledPricingSpecification> {
         py.detach(|| self.inner.compile())
@@ -135,7 +137,11 @@ impl PySpecificationResult {
             SpecificationOutput::LocalStochasticVolatility(p) => {
                 Py::new(py, lsv::PyLsvPrice { inner: p.clone() })?.into_any()
             }
-            _ => return Err(pricing_exception("unknown specification result variant")),
+            _ => {
+                return Err(crate::errors::internal_exception(
+                    "unknown specification result variant",
+                ));
+            }
         })
     }
 }

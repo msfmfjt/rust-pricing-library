@@ -15,6 +15,8 @@ pub struct HullWhiteAadRisk {
     /// log-DF pillars, row-major local variance, row-major forward log density,
     /// optional row-major market IV and parallel market IV.
     pub parameter_labels: Box<[String]>,
+    /// Native differentiation coordinates, in exactly the same order as labels/derivatives.
+    pub parameter_kinds: Box<[crate::RiskParameterKind]>,
     pub derivatives: Box<[f64]>,
     /// Same order as derivatives. Only independent RQMC scrambles; conditional
     /// on the realized calibration and its fixed discrete branch decisions.
@@ -392,8 +394,11 @@ impl HullWhiteEquityPricingPlan {
                 )
             }
         };
+        use crate::RiskParameterKind as K;
         let mut labels = vec!["spot".to_owned()];
+        let mut kinds = vec![K::Spot];
         if context.is_bs {
+            kinds.push(K::Volatility);
             labels.push(
                 if self.path.is_direct_stochastic_volatility() {
                     "initial_volatility"
@@ -403,19 +408,26 @@ impl HullWhiteEquityPricingPlan {
                 .to_owned(),
             );
         }
-        for (name, count) in [
+        for (name, count, kind) in [
             (
                 "discount_log_df",
                 self.market.discount_curve().times().len(),
+                K::LogDiscountFactor,
             ),
             (
                 "dividend_log_df",
                 self.market.dividend_curve().times().len(),
+                K::LogDiscountFactor,
             ),
-            ("local_variance", context.leverage_count),
-            ("forward_log_density", context.leverage_count),
+            ("local_variance", context.leverage_count, K::LocalVariance),
+            (
+                "forward_log_density",
+                context.leverage_count,
+                K::ForwardLogDensity,
+            ),
         ] {
             labels.extend((0..count).map(|i| format!("{name}[{i}]")));
+            kinds.extend(std::iter::repeat_n(kind, count));
         }
         let market_iv = self
             .market_iv_target
@@ -426,6 +438,10 @@ impl HullWhiteEquityPricingPlan {
                 (0..surface.implied_volatilities().len()).map(|i| format!("market_iv[{i}]")),
             );
             labels.push("parallel_market_iv".to_owned());
+            kinds.extend(std::iter::repeat_n(
+                K::Volatility,
+                surface.implied_volatilities().len() + 1,
+            ));
         }
         let price = HullWhitePrice {
             value: price_stats.sum().total() / units as f64,
@@ -441,6 +457,7 @@ impl HullWhiteEquityPricingPlan {
         Ok(HullWhiteAadRisk {
             price,
             parameter_labels: labels.into(),
+            parameter_kinds: kinds.into(),
             derivatives: derivatives.into(),
             standard_errors,
             discount_times: self.market.discount_curve().times().into(),

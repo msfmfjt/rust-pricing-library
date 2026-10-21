@@ -1617,6 +1617,21 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     if duplicates:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
+    error_attributes = {
+        "code": "str",
+        "stage": "Literal['parse', 'validation', 'compile', 'calibrate', 'evaluate', 'serialize']",
+        "field": "str | None", "operation": "str | None", "reason": "str | None",
+        "causes": "list[str]",
+    }
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name in ("PricingError", "ValidationError"):
+            annotations = {member.target.id: ast.unparse(member.annotation)
+                           for member in node.body if isinstance(member, ast.AnnAssign)
+                           and isinstance(member.target, ast.Name)}
+            expected = error_attributes | ({"issues": "list[ValidationIssue]"} if node.name == "ValidationError" else {})
+            if annotations != expected:
+                raise RuntimeError(f"wheel type stub {node.name} error attributes changed")
+
     expected_top_level_names = {
         'PricingCapability', 'PricingTask', 'CompiledPricingTask', 'PricingTaskResult', 'ReportedRisk', 'ValuationReport',
         'pricing_task_json_schema', 'valuation_report_json_schema',
@@ -2059,6 +2074,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
  ('SourceGraphBuilder', 'negate'): 'int',
  ('SourceGraphBuilder', 'spot'): 'int',
  ('SourceGraphBuilder', 'subtract'): 'int'})
+    for class_name in ("HullWhiteAadRisk", "StochasticDividendAadRisk"):
+        for name in ("parameter_kinds", "parameter_units"):
+            method = class_methods[class_name].get(name)
+            if method is None or ast.unparse(method.returns) != "list[str]":
+                raise RuntimeError(f"wheel type stub {class_name}.{name} return contract changed")
+            if function_signature_shape(method) != {"positional": ["self"], "positional_defaults": {}, "keyword_only": [], "keyword_only_defaults": {}, "required_keyword_only": []}:
+                raise RuntimeError(f"wheel type stub {class_name}.{name} signature changed")
     for class_name, contract in PRICING_TASK_CONTRACT.items():
         for name, member in contract["members"].items():
             method = class_methods.get(class_name, {}).get(name)
@@ -4045,6 +4067,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "bass_vega_scenario_diagnostics",
     })
     expected_class_members.update({name: set(contract["members"]) for name, contract in PRICING_TASK_CONTRACT.items()})
+    for name in ("HullWhiteAadRisk", "StochasticDividendAadRisk"):
+        expected_class_members[name].update({"parameter_kinds", "parameter_units"})
     unexpected_classes = sorted(set(class_members).difference(expected_class_members))
     if unexpected_classes:
         raise RuntimeError(f"wheel type stub has unexpected classes: {unexpected_classes}")
@@ -5240,6 +5264,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     })
     expected_static_methods.update((name, member) for name, contract in PRICING_TASK_CONTRACT.items() for member, spec in contract["members"].items() if "staticmethod" in spec["decorators"])
     expected_properties.update((name, member) for name, contract in PRICING_TASK_CONTRACT.items() for member, spec in contract["members"].items() if "property" in spec["decorators"])
+    expected_properties.update((name, member) for name in ("HullWhiteAadRisk", "StochasticDividendAadRisk") for member in ("parameter_kinds", "parameter_units"))
     for class_name, method_name in sorted(expected_static_methods):
         decorators = decorator_names(class_methods[class_name][method_name])
         if "staticmethod" not in decorators:

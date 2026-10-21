@@ -149,6 +149,17 @@ provide errors across independent scramble estimates. The report copies native
 estimates and available errors without recomputing sampling reductions.
 The existing typed `vega_kt` payload retains its covariance and diagnostics.
 
+Native Hull–White and stochastic-dividend AAD results also carry ordered
+`RiskParameterKind` values in Rust (`parameter_kinds`) and expose
+`parameter_kinds` / `parameter_units` snapshots in Python. These align with
+`parameter_labels` and `derivatives`. Units come from the native differentiation
+coordinates, never from the spelling of the display labels. The report rejects
+inconsistent metadata lengths. Explicit model-parameter sensitivities retain
+their native unit convention; vol-of-vol is not market-IV Vega.
+
+Failures expose [structured Python error metadata](python-errors.md), including
+the selected task operation and a capability reason for source-preflight rejection.
+
 The report JSON is a normalized reporting contract. It is not a serialization
 of every native diagnostic or a compiled plan. Full diagnostics remain in
 `PricingTaskResult.native_result` and are recovered by executing the saved task.

@@ -48,7 +48,7 @@ impl PyStochasticVolatilityPlan {
             StochasticVolatilityPricingPlan::compile_bergomi(&request, factor, maximum_step, policy)
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
@@ -85,7 +85,7 @@ impl PyStochasticVolatilityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     #[staticmethod]
     #[pyo3(signature=(request, rough_model, *, maximum_step, worker_threads, reduction_block_size=None))]
@@ -110,7 +110,7 @@ impl PyStochasticVolatilityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyHullWhitePrice> {
         py.detach(|| self.inner.evaluate())

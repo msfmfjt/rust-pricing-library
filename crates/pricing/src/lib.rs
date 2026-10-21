@@ -47,8 +47,8 @@ pub use api::specification::{
     SpecificationValidationError, VolatilityFactorSpec,
 };
 pub use api::valuation_report::{
-    CalibrationTreatment, ReportAxis, ReportedRisk, SensitivityUnit, UncertaintyScope,
-    ValuationReport,
+    CalibrationTreatment, ReportAxis, ReportedRisk, RiskParameterKind, SensitivityUnit,
+    UncertaintyScope, ValuationReport,
 };
 pub use engine::risk::source::{
     CompiledPricingTask, PricingTaskError, PricingTaskOutput, PricingTaskResult,

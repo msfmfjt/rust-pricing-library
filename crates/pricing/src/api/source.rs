@@ -379,7 +379,10 @@ impl PricingTask {
         let source = source.into();
         let capability = source.capability(operation);
         if capability.status == CapabilityStatus::Unsupported {
-            return Err(invalid("operation", capability.detail));
+            return Err(SpecificationValidationError::UnsupportedOperation {
+                reason: capability.reason,
+                detail: capability.detail,
+            });
         }
         Ok(Self { source, operation })
     }

@@ -417,6 +417,9 @@ fn source_error(error: SpecificationValidationError) -> WireError {
             domain_at(format!("/{}", field.replace('.', "/")), message)
         }
         SpecificationValidationError::Request(e) => domain_at("/", e),
+        SpecificationValidationError::UnsupportedOperation { detail, .. } => {
+            domain_at("/operation", detail)
+        }
     }
 }
 impl From<&PricingSpecification> for SpecificationV1 {

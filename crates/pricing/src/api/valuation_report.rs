@@ -30,6 +30,64 @@ pub enum SensitivityUnit {
     CurrencyPerVolatilityPoint,
     CurrencyPerBasisPoint,
 }
+
+/// Differentiation coordinate supplied by the native risk producer.
+/// Display labels are deliberately independent of this classification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum RiskParameterKind {
+    Spot,
+    Volatility,
+    LocalVariance,
+    LogDiscountFactor,
+    ForwardLogDensity,
+    CashMean,
+    /// A unit change in the named native parameter (not market-IV Vega).
+    ModelParameter,
+}
+impl RiskParameterKind {
+    #[must_use]
+    pub const fn unit(self) -> SensitivityUnit {
+        match self {
+            Self::Spot => SensitivityUnit::CurrencyPerSpot,
+            Self::Volatility => SensitivityUnit::CurrencyPerUnitVolatility,
+            Self::LocalVariance => SensitivityUnit::CurrencyPerVariance,
+            Self::LogDiscountFactor => SensitivityUnit::CurrencyPerLogDiscountFactor,
+            Self::ForwardLogDensity => SensitivityUnit::CurrencyPerLogDensity,
+            Self::CashMean | Self::ModelParameter => SensitivityUnit::CurrencyPerUnitParameter,
+        }
+    }
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Spot => "spot",
+            Self::Volatility => "volatility",
+            Self::LocalVariance => "local_variance",
+            Self::LogDiscountFactor => "log_discount_factor",
+            Self::ForwardLogDensity => "forward_log_density",
+            Self::CashMean => "cash_mean",
+            Self::ModelParameter => "model_parameter",
+        }
+    }
+}
+impl SensitivityUnit {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CurrencyPerSpot => "currency_per_spot",
+            Self::CurrencyPerSpotSquared => "currency_per_spot_squared",
+            Self::CurrencyPerUnitVolatility => "currency_per_unit_volatility",
+            Self::CurrencyPerVariance => "currency_per_variance",
+            Self::CurrencyPerLogDiscountFactor => "currency_per_log_discount_factor",
+            Self::CurrencyPerLogDensity => "currency_per_log_density",
+            Self::CurrencyPerUnitParameter => "currency_per_unit_parameter",
+            Self::CurrencyPerOnePercentSpot => "currency_per_one_percent_spot",
+            Self::CurrencyPerOnePercentSpotSquared => "currency_per_one_percent_spot_squared",
+            Self::CurrencyPerVolatilityPoint => "currency_per_volatility_point",
+            Self::CurrencyPerBasisPoint => "currency_per_basis_point",
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportAxis {
     pub name: String,

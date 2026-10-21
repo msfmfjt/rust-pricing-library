@@ -477,7 +477,7 @@ impl PyMultiAssetPlan {
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyMultiAssetPrice> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyMultiAssetPrice { inner })
-            .map_err(|e| pricing_exception(e.to_string()))
+            .map_err(pricing_exception)
     }
     #[pyo3(signature=(*,gamma_relative_bump=None))]
     fn evaluate_aad(
@@ -491,7 +491,7 @@ impl PyMultiAssetPlan {
             })
         })
         .map(|inner| PyMultiAssetPrice { inner })
-        .map_err(|e| pricing_exception(e.to_string()))
+        .map_err(pricing_exception)
     }
     #[getter]
     fn fingerprint(&self) -> &str {

@@ -9,6 +9,24 @@ use super::rough::reverse::RoughParameterReverse;
 use super::*;
 use crate::models::hull_white_dividends::transpose_log_curve;
 
+pub(in crate::engine) fn basic_parameter_kinds(
+    cash: usize,
+    discount: usize,
+    repo: usize,
+) -> Vec<crate::RiskParameterKind> {
+    use crate::RiskParameterKind as K;
+    let mut kinds = vec![
+        K::Spot,
+        K::Volatility,
+        K::ModelParameter,
+        K::ModelParameter,
+        K::Volatility,
+    ];
+    kinds.extend(std::iter::repeat_n(K::CashMean, cash));
+    kinds.extend(std::iter::repeat_n(K::LogDiscountFactor, discount + repo));
+    kinds
+}
+
 #[derive(Clone, Debug)]
 struct NodeJacobian {
     equity: Vec<f64>,
@@ -21,6 +39,7 @@ struct NodeJacobian {
 /// schedule order and both curves' original pillar order (including fixed t=0).
 pub(in crate::engine) struct ReverseContext {
     pub labels: Vec<String>,
+    pub parameter_kinds: Vec<crate::RiskParameterKind>,
     pub cash_times: Vec<f64>,
     pub discount_times: Vec<f64>,
     pub repo_spread_times: Vec<f64>,
@@ -63,6 +82,7 @@ impl ReverseContext {
         );
         labels.extend((0..p.times().len()).map(|i| format!("discount_log_df[{i}]")));
         labels.extend((0..q.times().len()).map(|i| format!("repo_spread_log_df[{i}]")));
+        let parameter_kinds = basic_parameter_kinds(events.len(), p.times().len(), q.times().len());
         let width = labels.len();
         let po = 5 + events.len();
         let qo = po + p.times().len();
@@ -122,6 +142,7 @@ impl ReverseContext {
         transpose_log_curve(p, payment, 1.0, &mut payment_weights[po..qo])?;
         Ok(Self {
             labels,
+            parameter_kinds,
             cash_times,
             discount_times,
             repo_spread_times,
@@ -148,6 +169,8 @@ impl ReverseContext {
         let prepared = RoughParameterReverse::new(kernel, &path.times)?;
         self.labels
             .extend(["rough_hurst", "rough_vol_of_vol"].map(str::to_owned));
+        self.parameter_kinds
+            .extend([crate::RiskParameterKind::ModelParameter; 2]);
         self.payment_weights.resize(self.labels.len(), 0.0);
         self.rough = Some(prepared);
         Ok(())
@@ -170,6 +193,10 @@ impl ReverseContext {
         )?;
         self.labels
             .extend(prepared.labels().iter().map(|s| (*s).to_owned()));
+        self.parameter_kinds.extend(std::iter::repeat_n(
+            crate::RiskParameterKind::ModelParameter,
+            prepared.labels().len(),
+        ));
         self.payment_weights.resize(self.labels.len(), 0.0);
         self.bergomi = Some(prepared);
         Ok(())
@@ -194,6 +221,9 @@ impl ReverseContext {
             self.correlation_start = Some(self.labels.len());
             self.labels
                 .extend(RoughCorrelationReverse::LABELS.map(str::to_owned));
+            self.parameter_kinds.extend(
+                [crate::RiskParameterKind::ModelParameter; RoughCorrelationReverse::LABELS.len()],
+            );
             self.rough_correlation = Some(prepared);
         } else if let Some(kernel) = &path.bergomi {
             // Check the instantaneous domain before the existing model-risk scope.
@@ -202,10 +232,16 @@ impl ReverseContext {
             self.correlation_start = Some(self.labels.len());
             self.labels
                 .extend(prepared.labels().iter().map(|s| (*s).to_owned()));
+            self.parameter_kinds.extend(std::iter::repeat_n(
+                crate::RiskParameterKind::ModelParameter,
+                prepared.labels().len(),
+            ));
             self.correlation = Some(prepared);
         } else {
             self.correlation_start = Some(self.labels.len());
             self.labels.push("equity_dividend_correlation".into());
+            self.parameter_kinds
+                .push(crate::RiskParameterKind::ModelParameter);
         }
         self.payment_weights.resize(self.labels.len(), 0.0);
         Ok(())

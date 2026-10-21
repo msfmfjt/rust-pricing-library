@@ -14,6 +14,7 @@ fn invalid(py: Python<'_>, error: impl std::fmt::Display) -> PyErr {
     );
     let mut issue = issue;
     issue.schema_version = 1;
+    issue.error_metadata.stage = errors::Stage::Validation;
     validation_exception(py, issue)
 }
 fn wire_error(py: Python<'_>, error: WireError) -> PyErr {
@@ -51,16 +52,17 @@ impl PyGraphProduct {
             .map_err(|e| wire_error(py, e))
     }
     fn to_json(&self) -> PyResult<String> {
-        pricing::product_graph_to_json(&self.inner).map_err(pricing_exception)
+        pricing::product_graph_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
     fn to_pretty_json(&self) -> PyResult<String> {
-        pricing::product_graph_to_pretty_json(&self.inner).map_err(pricing_exception)
+        pricing::product_graph_to_pretty_json(&self.inner)
+            .map_err(crate::errors::serialize_exception)
     }
     #[getter]
     fn fingerprint(&self) -> PyResult<String> {
         pricing::fingerprint_product_graph(&self.inner)
             .map(|f| f.to_string())
-            .map_err(pricing_exception)
+            .map_err(crate::errors::serialize_exception)
     }
     #[getter]
     fn currency_id(&self) -> u16 {

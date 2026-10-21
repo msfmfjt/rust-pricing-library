@@ -38,7 +38,17 @@ impl fmt::Display for MultiAssetError {
         }
     }
 }
-impl Error for MultiAssetError {}
+impl Error for MultiAssetError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Core(e) => Some(e),
+            Self::Market(e) => Some(e),
+            Self::Graph(e) => Some(e),
+            Self::Correlation(e) => Some(e),
+            Self::Invalid(_) | Self::Numerical(_) => None,
+        }
+    }
+}
 macro_rules! conversion {
     ($source:ty, $variant:ident) => {
         impl From<$source> for MultiAssetError {
