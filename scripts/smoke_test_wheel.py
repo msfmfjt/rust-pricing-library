@@ -151,6 +151,7 @@ def prepare_wheel(wheel: Path) -> Path:
 
 def run_examples(python: Path) -> None:
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
+    subprocess.run([str(python), "examples/python/pricing_specification.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
     subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
@@ -1290,6 +1291,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "PricingSpecification", "CompiledPricingSpecification", "SpecificationResult",
+        "specification_json_schema",
         "HestonLsvParameterRisk",
         "MixedBergomiLsvParameterRisk",
         "QuadraticHestonLsvParameterRisk",
@@ -1579,6 +1582,18 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_return_names = {
+        ("PricingSpecification", "from_json"): "PricingSpecification",
+        ("PricingSpecification", "from_request"): "PricingSpecification",
+        ("PricingSpecification", "to_json"): "str",
+        ("PricingSpecification", "to_pretty_json"): "str",
+        ("PricingSpecification", "fingerprint"): "str",
+        ("PricingSpecification", "compile"): "CompiledPricingSpecification",
+        ("CompiledPricingSpecification", "specification_fingerprint"): "str",
+        ("CompiledPricingSpecification", "plan_fingerprint"): "str",
+        ("CompiledPricingSpecification", "evaluate"): "SpecificationResult",
+        ("SpecificationResult", "value"): "float",
+        ("SpecificationResult", "standard_error"): "float",
+        ("SpecificationResult", "specification_fingerprint"): "str",
         ("HestonLsvParameterRisk", "price"): "LsvPrice",
         ("MixedBergomiLsvParameterRisk", "price"): "LsvPrice",
         ("QuadraticHestonLsvParameterRisk", "price"): "LsvPrice",
@@ -1703,6 +1718,16 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_signature_shapes = {
+        ("PricingSpecification", "from_json"): {
+            "positional": ["json"], "positional_defaults": {}, "keyword_only": [],
+            "required_keyword_only": [], "keyword_only_defaults": {},
+        },
+        ("PricingSpecification", "from_request"): {
+            "positional": ["request"], "positional_defaults": {},
+            "keyword_only": ["worker_threads", "reduction_block_size"],
+            "required_keyword_only": ["worker_threads"],
+            "keyword_only_defaults": {"reduction_block_size": None},
+        },
         ("HestonLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ("MixedBergomiLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
         ("QuadraticHestonLsvParameterRisk", "price"): {'positional': ['self'], 'positional_defaults': {}, 'keyword_only': [], 'required_keyword_only': [], 'keyword_only_defaults': {}},
@@ -2847,6 +2872,17 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "keyword_only_defaults": {"variance_conservation_directions": None},
         },
     })
+    expected_signature_shapes.update({
+        (name, member): {
+            "positional": ["self"], "positional_defaults": {}, "keyword_only": [],
+            "required_keyword_only": [], "keyword_only_defaults": {},
+        }
+        for name, members in {
+            "PricingSpecification": {"to_json", "to_pretty_json", "fingerprint", "compile"},
+            "CompiledPricingSpecification": {"specification_fingerprint", "plan_fingerprint", "evaluate"},
+            "SpecificationResult": {"value", "standard_error", "specification_fingerprint", "native_result"},
+        }.items() for member in members
+    })
     for (class_name, method_name), expected in sorted(expected_signature_shapes.items()):
         if method_name not in class_methods.get(class_name, {}):
             raise RuntimeError(f"wheel stub is missing required member {class_name}.{method_name}")
@@ -2858,6 +2894,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_top_level_signature_shapes = {
+        "specification_json_schema": {
+            "positional": [], "positional_defaults": {}, "keyword_only": [],
+            "required_keyword_only": [], "keyword_only_defaults": {},
+        },
         "request_json_schema": {
             "positional": [],
             "positional_defaults": {},
@@ -2889,6 +2929,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "PricingSpecification": {"from_json", "from_request", "to_json", "to_pretty_json", "fingerprint", "compile"},
+        "CompiledPricingSpecification": {"specification_fingerprint", "plan_fingerprint", "evaluate"},
+        "SpecificationResult": {"value", "standard_error", "specification_fingerprint", "native_result"},
         "HestonLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
         "MixedBergomiLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
         "QuadraticHestonLsvParameterRisk": {'parameter_adjoints', 'price', 'standard_errors', 'coordinate', 'direct_adjoints', 'method', 'risk_fingerprint', 'parameter_names', 'calibration_adjoints'},
@@ -3549,6 +3592,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("PricingSpecification", "from_json"),
+        ("PricingSpecification", "from_request"),
         ('RoughFamilyLsvPlan', 'compile'),
 
         ("AndersenBroadiePlan", "compile"),
@@ -3631,6 +3676,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("PricingSpecification", "fingerprint"),
+        ("CompiledPricingSpecification", "specification_fingerprint"),
+        ("CompiledPricingSpecification", "plan_fingerprint"),
+        ("SpecificationResult", "value"),
+        ("SpecificationResult", "standard_error"),
+        ("SpecificationResult", "specification_fingerprint"),
+        ("SpecificationResult", "native_result"),
         ("HestonLsvParameterRisk", "price"),
         ("MixedBergomiLsvParameterRisk", "price"),
         ("QuadraticHestonLsvParameterRisk", "price"),
@@ -4717,6 +4769,10 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 f"wheel type stub {class_name}.{method_name} must be a property"
             )
     actual_static_methods = decorated_members(class_methods, "staticmethod")
+    if ast.unparse(class_methods["SpecificationResult"]["native_result"].returns) != "PricingResult | HullWhitePrice | LsvPrice":
+        raise RuntimeError("wheel type stub SpecificationResult.native_result must preserve native result types")
+    if function_return_name(top_level_functions["specification_json_schema"]) != "str":
+        raise RuntimeError("wheel type stub specification_json_schema must return str")
     if actual_static_methods != expected_static_methods:
         raise RuntimeError(
             "wheel type stub staticmethod set changed: "

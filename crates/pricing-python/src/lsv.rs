@@ -322,7 +322,7 @@ impl PyRoughBergomiLsvPlan {
 #[pyclass(frozen, name = "LsvPrice")]
 #[derive(Clone, Debug)]
 pub struct PyLsvPrice {
-    inner: LsvPrice,
+    pub(super) inner: LsvPrice,
 }
 #[pymethods]
 impl PyLsvPrice {
