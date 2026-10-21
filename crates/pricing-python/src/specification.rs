@@ -25,6 +25,30 @@ pub struct PyPricingSpecification {
 
 #[pymethods]
 impl PyPricingSpecification {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &builders::PyProduct,
+        market: &builders::PyMarket,
+        model: &source_config::PyPricingModelSpec,
+        engine: &builders::PyEngine,
+        risk: &builders::PyRiskRequest,
+        numerics: &source_config::PyPricingNumerics,
+    ) -> PyResult<Self> {
+        PricingSpecification::new(
+            builders::date_from_python(py, valuation_date, "/valuation_date")?,
+            product.inner.clone(),
+            market.inner.clone(),
+            model.inner.clone(),
+            engine.inner,
+            risk.inner.clone(),
+            numerics.inner.clone(),
+        )
+        .map(|inner| Self { inner })
+        .map_err(source_config::invalid)
+    }
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         pricing::parse_specification_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)

@@ -19,9 +19,11 @@ mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
 mod multi_asset_rough;
+mod pricing_source;
 mod pricing_task;
 mod product_graph;
 mod rough_volatility;
+mod source_config;
 mod specification;
 mod stochastic_dividend_hull_white;
 mod stochastic_dividends;
@@ -1583,6 +1585,8 @@ fn result_json_schema() -> &'static str {
 #[pymodule]
 fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     specification::register(module)?;
+    source_config::register(module)?;
+    pricing_source::register(module)?;
     pricing_task::register(module)?;
     product_graph::register(module)?;
     module.add_class::<bass_lv::PyBassMarginal>()?;

@@ -154,6 +154,7 @@ def run_examples(python: Path) -> None:
     subprocess.run([str(python), "examples/python/pricing_specification.py"], check=True)
     subprocess.run([str(python), "examples/python/product_graph.py"], check=True)
     subprocess.run([str(python), "examples/python/pricing_task.py"], check=True)
+    subprocess.run([str(python), "examples/python/typed_pricing_sources.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
     subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
@@ -1118,6 +1119,74 @@ def exported_stub_api(stub: bytes) -> dict[str, object]:
 
 
 # Frozen task/report public contract, independent of the stub under test.
+
+# Independently frozen declarations: never derive this contract from rust_pricing.pyi.
+TYPED_SOURCE_DECLARATIONS = '''
+class VolatilityFactorSpec:
+    """Bergomi driver composition, independent of a calibration or pricing plan."""
+    @staticmethod
+    def bergomi(mean_reversion: float, vol_of_vol: float, correlation: float) -> VolatilityFactorSpec: ...
+    @staticmethod
+    def bergomi_two_factor(mean_reversions: Sequence[float], vol_of_vol: float, mixing_weight: float, spot_correlations: Sequence[float], factor_correlation: float) -> VolatilityFactorSpec: ...
+    @staticmethod
+    def rough_bergomi(model: RoughBergomiModel) -> VolatilityFactorSpec: ...
+
+class LsvParticleConfig:
+    def __init__(self, *, particle_count: int, calibration_seed: int, log_bandwidth: float, minimum_effective_samples: float, retain_reverse_trace: bool = False) -> None: ...
+
+class EquityModelSpec:
+    @staticmethod
+    def standard(model: Model) -> EquityModelSpec: ...
+    @staticmethod
+    def stochastic_volatility(initial_volatility: float, factor: VolatilityFactorSpec) -> EquityModelSpec: ...
+    @staticmethod
+    def local_stochastic_volatility(target: Model, factor: VolatilityFactorSpec, particles: LsvParticleConfig, *, forward_density: HullWhiteLsvTarget | None = None) -> EquityModelSpec: ...
+    @staticmethod
+    def rough_volatility(model: RoughVolatilityModel) -> EquityModelSpec: ...
+    @staticmethod
+    def rough_local_stochastic_volatility(target: Model, model: RoughVolatilityModel, particles: LsvParticleConfig) -> EquityModelSpec: ...
+
+class RateModelSpec:
+    @staticmethod
+    def deterministic() -> RateModelSpec: ...
+    @staticmethod
+    def hull_white(model: HullWhiteModel, *, equity_rate_correlation: float, vol_rate_correlations: Sequence[float] | None = None) -> RateModelSpec: ...
+
+class PricingModelSpec:
+    def __init__(self, equity: EquityModelSpec, *, rates: RateModelSpec | None = None) -> None: ...
+
+class PricingNumerics:
+    """Source controls; required grids and model compatibility are validated on composition."""
+    def __init__(self, *, worker_threads: int, reduction_block_size: int | None = None, maximum_step: float | None = None, lsm: LsmConfig | None = None) -> None: ...
+
+class BuehlerDividendModel:
+    """Cash-reserve dynamics; expected cash events remain part of Market."""
+    def __init__(self, *, mean_reversion: float, equity_linkage: float, dividend_volatility: float, equity_dividend_correlation: float) -> None: ...
+
+class MultiAssetHullWhiteConfig:
+    def __init__(self, rate_model: HullWhiteModel, rate_correlations: Sequence[float], *, lsv_targets: Sequence[HullWhiteLsvTarget | None] | None = None) -> None: ...
+
+class MultiAssetModelSpec:
+    def __init__(self, models: Sequence[Model], correlation: CorrelationSchedule, *, lsv: Sequence[MultiAssetLsvConfig | MultiAssetLsv2FactorConfig | MultiAssetRoughLsvConfig | None] | None = None, driver_correlations: Sequence[Sequence[Sequence[float]]] | None = None, hull_white: MultiAssetHullWhiteConfig | None = None, local_correlation: LocalCorrelationConfig | None = None) -> None: ...
+
+class MultiAssetSpecification:
+    def __init__(self, valuation_date: DateLike, product: GraphProduct, markets: Sequence[Market], model: MultiAssetModelSpec, engine: Engine, *, maximum_step: float, worker_threads: int, reduction_block_size: int | None = None) -> None: ...
+
+class StochasticDividendSpecification:
+    def __init__(self, equity: PricingSpecification, dividends: BuehlerDividendModel, *, maximum_step: float, volatility_correlations: Sequence[float] | None = None, rate_correlation: float | None = None) -> None: ...
+
+class PricingSpecification:
+    def __init__(self, valuation_date: DateLike, product: Product, market: Market, model: PricingModelSpec, engine: Engine, risk: RiskRequest, numerics: PricingNumerics) -> None: ...
+
+class PricingTask:
+    @staticmethod
+    def from_source(source: PricingSpecification | MultiAssetSpecification | StochasticDividendSpecification, *, operation: Literal["evaluate", "aad", "local_variance_risk"] = "evaluate", gamma_relative_bump: float | None = None) -> PricingTask: ...
+'''
+TYPED_SOURCE_METHODS = {
+    cls.name: {method.name: method for method in cls.body if isinstance(method, ast.FunctionDef)}
+    for cls in ast.parse(TYPED_SOURCE_DECLARATIONS).body
+}
+
 PRICING_TASK_CONTRACT = {'CompiledPricingTask': {'members': {'capability': {'decorators': set(),
                                                     'return': 'PricingCapability',
                                                     'signature': {'keyword_only': [],
@@ -1794,6 +1863,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "result_json_schema",
         "version",
     }
+    expected_top_level_names.update(TYPED_SOURCE_METHODS)
     expected_top_level_names.update(BASS_STUB_API)
     expected_top_level_names.update(VEGA_KT_DIAGNOSTIC_PROPERTIES)
     expected_top_level_names.add("VegaKtGammaRecoveryPolicy")
@@ -2081,6 +2151,13 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
                 raise RuntimeError(f"wheel type stub {class_name}.{name} return contract changed")
             if function_signature_shape(method) != {"positional": ["self"], "positional_defaults": {}, "keyword_only": [], "keyword_only_defaults": {}, "required_keyword_only": []}:
                 raise RuntimeError(f"wheel type stub {class_name}.{name} signature changed")
+    for class_name, methods in TYPED_SOURCE_METHODS.items():
+        for name, expected in methods.items():
+            actual = class_methods.get(class_name, {}).get(name)
+            if (actual is None or ast.dump(actual.args) != ast.dump(expected.args)
+                    or ast.dump(actual.returns) != ast.dump(expected.returns)
+                    or decorator_names(actual) != decorator_names(expected)):
+                raise RuntimeError(f"wheel type stub {class_name}.{name} typed source contract changed")
     for class_name, contract in PRICING_TASK_CONTRACT.items():
         for name, member in contract["members"].items():
             method = class_methods.get(class_name, {}).get(name)
@@ -4067,6 +4144,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         "bass_vega_scenario_diagnostics",
     })
     expected_class_members.update({name: set(contract["members"]) for name, contract in PRICING_TASK_CONTRACT.items()})
+    for name, methods in TYPED_SOURCE_METHODS.items():
+        expected_class_members.setdefault(name, set()).update(methods)
     for name in ("HullWhiteAadRisk", "StochasticDividendAadRisk"):
         expected_class_members[name].update({"parameter_kinds", "parameter_units"})
     unexpected_classes = sorted(set(class_members).difference(expected_class_members))
@@ -5265,6 +5344,9 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
     expected_static_methods.update((name, member) for name, contract in PRICING_TASK_CONTRACT.items() for member, spec in contract["members"].items() if "staticmethod" in spec["decorators"])
     expected_properties.update((name, member) for name, contract in PRICING_TASK_CONTRACT.items() for member, spec in contract["members"].items() if "property" in spec["decorators"])
     expected_properties.update((name, member) for name in ("HullWhiteAadRisk", "StochasticDividendAadRisk") for member in ("parameter_kinds", "parameter_units"))
+    expected_static_methods.update((name, method) for name, methods in TYPED_SOURCE_METHODS.items()
+                                   for method, declaration in methods.items()
+                                   if "staticmethod" in decorator_names(declaration))
     for class_name, method_name in sorted(expected_static_methods):
         decorators = decorator_names(class_methods[class_name][method_name])
         if "staticmethod" not in decorators:

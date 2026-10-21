@@ -75,6 +75,20 @@ pub struct PyPricingTask {
 #[pymethods]
 impl PyPricingTask {
     #[staticmethod]
+    #[pyo3(signature=(source, *, operation="evaluate", gamma_relative_bump=None))]
+    fn from_source(
+        source: &Bound<'_, PyAny>,
+        operation: &str,
+        gamma_relative_bump: Option<f64>,
+    ) -> PyResult<Self> {
+        PricingTask::new(
+            pricing_source::extract_source(source)?,
+            self::operation(operation, gamma_relative_bump)?,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
+    }
+    #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         pricing::parse_pricing_task_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
             .map(|inner| Self { inner })

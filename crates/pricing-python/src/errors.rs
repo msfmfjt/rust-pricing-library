@@ -130,6 +130,18 @@ pub(crate) fn capability_reason(reason: CapabilityReason) -> &'static str {
 
 type Classification<'a> = (&'static str, Option<&'a str>, Option<&'static str>);
 fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
+    if let Some(e) = error.downcast_ref::<pricing::core::CoreError>() {
+        use pricing::core::CoreError as E;
+        return match e {
+            E::NonFiniteNumber { field, .. }
+            | E::NumberNotPositive { field, .. }
+            | E::NumberNegative { field, .. } => ("invalid_number", Some(field), None),
+            E::EmptyInput { field }
+            | E::InvalidOrdering { field }
+            | E::InvalidWeights { field } => ("invalid_configuration", Some(field), None),
+            _ => ("invalid_core_input", None, None),
+        };
+    }
     if let Some(e) = error.downcast_ref::<pricing::bass_lv::BassError>() {
         use pricing::bass_lv::BassError as E;
         return match e {

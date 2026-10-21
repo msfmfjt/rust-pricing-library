@@ -109,8 +109,8 @@ restored_report = rp.ValuationReport.from_json(saved_report)
 
 Use `task.with_operation("aad", gamma_relative_bump=0.01)` for a basket,
 or `task.with_operation("local_variance_risk")` for a supported LSV source.
-Multi-asset/dividend inputs are currently constructed in Python through the
-strict JSON contract; the typed configurations in Rust remain available.
+Use `PricingTask.from_source(source)` with typed single-asset, multi-asset or
+stochastic-dividend inputs; see [typed Python construction](typed-python-sources.md).
 Python objects are immutable, collection getters return owned snapshots, and
 compilation/evaluation release the GIL. The [stub](../../rust_pricing.pyi) freezes
 public signatures; JSON errors identify the task or report document kind.

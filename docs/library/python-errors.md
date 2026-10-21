@@ -39,6 +39,8 @@ Selected codes supported by the shared adapters:
 | `unsupported_operation` | Source preflight rejected the requested operation; inspect `reason` (for example `reverse_trace_required` or `invalid_gamma_bump`). |
 | `unsupported_risk_for_model` | Native risk preflight rejected the model/payoff combination. |
 | `invalid_configuration`, `invalid_execution_policy` | Invalid source or execution inputs; inspect `field`. |
+| `invalid_number` | A scalar violates its native finite/positive/nonnegative constraint; `field` retains the Rust identifier. |
+| `invalid_core_input` | Another typed core input error; preserve the original message. |
 | `invalid_multi_asset_input`, `invalid_correlation` | Invalid basket input or correlation structure. |
 | `resource_limit` | JSON, grid, reduction or RQMC capacity limit; not a retry instruction. |
 | `calibration_error` | A calibration/optimizer failure. |
