@@ -108,7 +108,7 @@
     "ssvi_fit_eta": 0.35,
     "ssvi_fit_gamma": 0.5
   },
-  "parent_sha256": "8e47af65d9262c5a29f321199a0c2629b3e1a50a77c6bfc674a75dc5ba4db1ad",
+  "parent_sha256": "6294bab0b3216b77b96dfce64308a3f1a414d0b3afe5ef351efaa0c1983fa333",
   "black": [
     {
       "maturity": 0.1,
