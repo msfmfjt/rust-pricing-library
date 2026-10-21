@@ -102,6 +102,39 @@ input schedule to resume. CLI `--checkpoint` accepts the saved file. Processed
 history, code, provider binary or configuration changes invalidate the checkpoint.
 Unprocessed market values may change; the session schedule remains fixed.
 
+## Provider cache lifetime
+
+`RustPricingProvider` retains one active snapshot, identified by its complete
+content hash rather than its ID or date alone. Starting a valuation on another
+snapshot replaces the cached risks, Gamma audits, shared-surface guard and
+quote-control native samples. Returning to an earlier snapshot recomputes its
+risks and audits using the usual numerical gates. Within the active snapshot,
+market/reporting-surface consistency is checked before reuse and again before a
+new result is published, including when contracts are evaluated concurrently.
+
+The optional constructor keyword `cache_max_entries=128` limits each of two LRU
+caches: paired risk/Gamma-audit entries, and native quote-control audit/sample
+entries. It must be a positive integer. A risk and its audit are evicted together;
+entry eviction does not discard the active snapshot's shared-surface guard.
+This bounds retained entry counts, not bytes or temporary numerical workspaces.
+Large grids and sample matrices still require memory proportional to their size.
+Small capacities can cause repeated native evaluations, including the virtual
+quote control. Eviction does not truncate samples, change their pairing or bypass
+acceptance gates. Cached rejected native audits still reject; evicted ones are
+recomputed and checked again.
+
+Call `provider.clear_cache()` to release retained state when a run finishes or
+before reusing the provider for another batch. Existing returned risks and
+detached audits remain valid. In-flight calls keep their own snapshot state until
+completion and cannot refill a replacement cache. Independent histories should
+use separate providers to avoid displacing one another's cached work.
+
+Cache contents are never serialized, and cache capacity is not part of the
+numerical provider identity. Fresh providers and different capacities can resume
+the same checkpoint under the existing implementation/input compatibility rules.
+The implementation change itself still invalidates older implementation hashes.
+See [ADR 0036](../../design/adr/0036-backtest-provider-cache.md).
+
 ## Failure reports and recovery
 
 Expected market, risk-quality, solver and native pricing errors stop replay.

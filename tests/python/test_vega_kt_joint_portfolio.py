@@ -11,6 +11,7 @@ sys.path[:0]=[str(ROOT/'scripts'),str(ROOT/'backtesting')]
 from multi_step_cases import model
 from rust_pricing_backtest.multi_step_extension import MultiStepExtensionCalibrator
 from rust_pricing_backtest.portfolio_market_risk import evaluate_portfolio
+from rust_pricing_backtest.provider_cache import BoundedCache
 from test_vega_kt_selection import remove_plan_fingerprints
 
 
@@ -62,7 +63,14 @@ class JointPortfolioTests(unittest.TestCase):
 
     def test_identical_opposite_instruments_cancel_risk_and_error(self):
         p=model(4,'call',samples=4096)
-        r=evaluate_portfolio({'long':p,'short':deepcopy(p)},{'long':2.5,'short':-2.5},worker_threads=4,retain_samples=True)
+        cache = BoundedCache(1)
+        requests = {'long': p, 'short': deepcopy(p)}
+        quantities = {'long': 2.5, 'short': -2.5}
+        r=evaluate_portfolio(requests, quantities, worker_threads=4, retain_samples=True, _native_cache=cache)
+        self.assertEqual(len(cache), 1)
+        cache['another-request'] = {}  # Force native sample/audit eviction.
+        self.assertEqual(evaluate_portfolio(requests, quantities, worker_threads=4,
+                         retain_samples=True, _native_cache=cache), r)
         np.testing.assert_array_equal(r['net_buckets'],0.)
         np.testing.assert_array_equal(r['net_bucket_standard_errors'],0.)
         self.assertEqual(r['net_price'],0.)

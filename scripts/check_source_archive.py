@@ -14,6 +14,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "backtesting/rust_pricing_backtest/provider_cache.py",
+    "backtesting/tests/test_provider_cache.py",
+    "design/adr/0036-backtest-provider-cache.md",
     "crates/pricing/src/api/calibration_report.rs",
     "crates/pricing/src/engine/risk/calibration_report.rs",
     "crates/pricing/tests/calibration_report.rs",

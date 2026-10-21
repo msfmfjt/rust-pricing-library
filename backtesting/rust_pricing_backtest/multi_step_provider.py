@@ -35,7 +35,7 @@ def implementation_identity(extension=None, basis_policy=None):
     # A checkpoint binds the Python calibration and policy, as well as the native
     # binary already identified by RustPricingProvider. Upgrades cannot resume it.
     root = Path(__file__).parent
-    names = ("multi_step_provider.py", "rust_adapter.py", "multi_step_full_smile.py",
+    names = ("multi_step_provider.py", "rust_adapter.py", "provider_cache.py", "multi_step_full_smile.py",
              "multi_step_smile.py", "discrete_smile.py", "path_history.py", "domain.py")
     if extension is not None or basis_policy is not None:
         names += ("multi_step_extension.py",)
@@ -144,7 +144,7 @@ def check_sampling(engine, intervals, extended, sampling_policy=None, product_ty
                 "extension_provider_scope", "antithetic sampling required")
 
 
-def evaluate(provider, payload, snapshot, contract):
+def evaluate(provider, payload, snapshot, contract, *, _cache=None):
     """Return Risk only after calibration, Gamma and native-AD checks all pass."""
     basis = snapshot.basis
     extension = provider.variance_extension
@@ -177,7 +177,7 @@ def evaluate(provider, payload, snapshot, contract):
     try:
         if provider.sampling_policy == "rqmc_quote_control_512x24":
             from .quote_control import evaluate as evaluate_controlled
-            return evaluate_controlled(provider, payload, snapshot, contract)
+            return evaluate_controlled(provider, payload, snapshot, contract, _cache=_cache)
         original = rp.PricingRequest.from_json(json.dumps(payload, allow_nan=False))
         # Value and frozen-grid Delta retain their ordinary estimator. Removing
         # VegaKT avoids running the older diagnostic allocation as a side effect.

@@ -4,8 +4,10 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from threading import RLock
 
 from .domain import BacktestError, Risk, data, fingerprint, require
+from .provider_cache import SnapshotCache
 
 EXTENSION_SCOPES = ("multi_step_extension_gamma", "multi_step_extension_put_gamma")
 CUSTOM_BASIS_SCOPE = "multi_step_custom_basis_gamma"
@@ -33,7 +35,10 @@ class RustPricingProvider:
     """
 
     def __init__(self, *, diagnostic_only=False, worker_threads=1, reduction_block_size=256,
-                 numerical_scope=None, variance_extension=None, variance_basis_policy=None, sampling_policy=None):
+                 numerical_scope=None, variance_extension=None, variance_basis_policy=None, sampling_policy=None,
+                 cache_max_entries=128):
+        require(type(cache_max_entries) is int and cache_max_entries > 0, "invalid_provider_cache",
+                "cache_max_entries must be a positive integer")
         require(numerical_scope in (None, "p0_terminal_replication", *MULTI_STEP_SCOPES), "unsupported_numerical_scope",
                 "choose an explicitly accepted numerical scope")
         require(variance_extension in ("all_rows", "linear_time") if numerical_scope in EXTENSION_SCOPES
@@ -78,11 +83,25 @@ class RustPricingProvider:
         if sampling_policy == "rqmc_quote_control_512x24":
             from .portfolio_market_risk import implementation_identity as portfolio_identity
             self._identity += ":quote_control=" + portfolio_identity()
-        self._cache = {}
-        self._shared = {}
-        self._gamma_audits = {}
-        self._quote_control_cache = {}
-        self._quote_control_snapshot = None
+        self._cache_max_entries = cache_max_entries
+        self._cache_lock = RLock()
+        self._cache = SnapshotCache(None, cache_max_entries)
+
+    def clear_cache(self):
+        """Release retained risks, audits and samples; keep numerical settings."""
+        with self._cache_lock:
+            self._cache = SnapshotCache(None, self._cache_max_entries)
+
+    def _snapshot_cache(self, snapshot_hash):
+        with self._cache_lock:
+            if self._cache.snapshot_hash != snapshot_hash:
+                self._cache = SnapshotCache(snapshot_hash, self._cache_max_entries)
+            return self._cache
+
+    @property
+    def _quote_control_cache(self):
+        # Retained for the existing read-only pilot/continuation audit exporters.
+        return self._cache.native
 
     @property
     def identity(self):
@@ -119,8 +138,8 @@ class RustPricingProvider:
         from copy import deepcopy
         require(self.numerical_scope in MULTI_STEP_SCOPES, "unsupported_numerical_scope",
                 "Gamma audits require the multi-step scope")
-        self.evaluate(snapshot, contract)
-        return deepcopy(self._gamma_audits[fingerprint({"snapshot": snapshot, "contract": contract})])
+        _, audit = self._evaluate(snapshot, contract)
+        return deepcopy(audit)
 
     def joint_market_risk(self, snapshot, contracts, risks):
         """Joint estimation covariance for the same accepted decision risks."""
@@ -148,6 +167,9 @@ class RustPricingProvider:
             raise BacktestError("joint_native_failure", str(error)) from error
 
     def evaluate(self, snapshot, contract):
+        return self._evaluate(snapshot, contract)[0]
+
+    def _evaluate(self, snapshot, contract):
         basis = snapshot.basis
         require(basis.method == "lv_paper_decomposition" and basis.coordinate == "canonical_f_iv"
                 and basis.delta_convention == "frozen_local_variance_grid",
@@ -199,19 +221,17 @@ class RustPricingProvider:
                               "density_threshold": request_basis.get("relative_density_threshold"),
                               **({"model": model} if self.numerical_scope in MULTI_STEP_SCOPES else {})})
         snapshot_hash = fingerprint(snapshot)
-        require(snapshot_hash not in self._shared or self._shared[snapshot_hash] == shared,
-                "surface_mismatch", "instruments do not share the same market/reporting surface")
+        cache = self._snapshot_cache(snapshot_hash)
+        cache.check_surface(shared)
         key = fingerprint({"snapshot": snapshot_hash, "contract": contract, "request": payload})
-        if key in self._cache:
-            return self._cache[key]
+        cached = cache.results.get(key)
+        if cached is not None:
+            return cached
         if self.numerical_scope in MULTI_STEP_SCOPES:
             from .multi_step_provider import evaluate
-            value, audit = evaluate(self, payload, snapshot, contract)
-            self._shared[snapshot_hash] = shared
-            self._gamma_audits[fingerprint({"snapshot": snapshot, "contract": contract})] = audit
-            self._cache[key] = value
-            return value
-        self._shared[snapshot_hash] = shared
+            value, audit = evaluate(self, payload, snapshot, contract, _cache=cache)
+            cache.store(key, shared, value, audit)
+            return value, audit
         payment_scale = 1.0
         payment_provenance = None
         try:
@@ -286,5 +306,5 @@ class RustPricingProvider:
                      gamma_method=result.diagnostics.gamma_method if result.gamma_raw is not None else None,
                      gamma_spot_bump=result.diagnostics.gamma_spot_bump if result.gamma_raw is not None else None,
                      reporting_iv=tuple(x.implied_volatility for x in kt.coordinates), reporting_forwards=forwards)
-        self._cache[key] = value
-        return value
+        cache.store(key, shared, value)
+        return value, None

@@ -164,7 +164,7 @@ class MultiStepProviderTests(unittest.TestCase):
         self.assertEqual(out.status,'failed')
         self.assertEqual(out.failure['code'],'multi_step_gamma_acceptance_failure')
         self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(out.ledger)
-        self.assertFalse(fresh._cache);self.assertFalse(fresh._gamma_audits);self.assertFalse(fresh._shared)
+        self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
         accepted = self.provider.gamma_audit(s,cs[0])['market_gamma']
         with patch('rust_pricing_backtest.multi_step_provider.evaluate_multi_step_market_gamma',return_value=accepted):
             self.assertEqual(fresh.evaluate(s,cs[0]),self.provider.evaluate(s,cs[0]))
@@ -202,7 +202,7 @@ class MultiStepProviderTests(unittest.TestCase):
             out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],cs,
                 [Position('target',-1.,0.)],fresh,on_error='return')
         self.assertEqual(out.failure['code'],'multi_step_gamma_acceptance_failure')
-        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(fresh._cache)
+        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(fresh._cache.results)
         self.assertEqual(captured[0]['status'],'recovery_failed')
         self.assertIsNone(captured[0]['estimate'])
         self.assertIsNone(captured[0]['market_mean_covariance'])
@@ -223,6 +223,20 @@ class MultiStepProviderTests(unittest.TestCase):
         self.assertNotEqual(self.provider.gamma_audit(s,cs[0])['market_gamma']['estimate'][0]['mean'],1e30)
         with self.assertRaisesRegex(BacktestError,'unsupported_numerical_scope'):
             RustPricingProvider(diagnostic_only=True).gamma_audit(s,cs[0])
+
+    def test_cache_eviction_preserves_native_gamma_audit_and_covariance(self):
+        _, s, contracts = self.panels[0]
+        fresh = RustPricingProvider(numerical_scope='multi_step_gamma', worker_threads=4, cache_max_entries=1)
+        risk = fresh.evaluate(s, contracts[0])
+        audit = fresh.gamma_audit(s, contracts[0])
+        fresh.evaluate(s, contracts[1])
+        self.assertEqual(fresh.gamma_audit(s, contracts[0]), audit)
+        fresh.evaluate(replace(s, snapshot_id='another-snapshot'), contracts[1])
+        self.assertEqual(fresh.evaluate(s, contracts[0]), risk)
+        self.assertEqual(fresh.gamma_audit(s, contracts[0]), audit)
+        fresh.clear_cache()
+        self.assertEqual(fresh.gamma_audit(s, contracts[0]), audit)
+        self.assertEqual(len(fresh._cache.results), 1)
 
     def test_cli_selects_the_new_explicit_scope(self):
         from rust_pricing_backtest.__main__ import main

@@ -105,28 +105,25 @@ def adjust_report(native, requests):
     return result
 
 
-def portfolio(provider, snapshot, requests):
+def portfolio(provider, snapshot, requests, *, _cache=None):
     require(CONTROL_ID not in requests and 1 <= len(requests) <= 31,
             'quote_control_scope', 'one virtual slot and at most 31 actual contracts required')
-    # This cache is bounded to a single snapshot and is never serialized or
-    # populated from saved evidence. A resumed provider recomputes native risk.
-    snapshot_hash = fingerprint(snapshot)
-    if provider._quote_control_snapshot != snapshot_hash:
-        provider._quote_control_cache.clear()
-        provider._quote_control_snapshot = snapshot_hash
+    # Hold this snapshot's cache locally across native calls. A concurrent call
+    # on another date must not mix or repopulate the provider's new cache.
+    cache = _cache if _cache is not None else provider._snapshot_cache(fingerprint(snapshot))
     augmented = deepcopy(requests)
     augmented[CONTROL_ID] = virtual_request(requests[min(requests)])
     require(all(virtual_request(p) == augmented[CONTROL_ID] for p in requests.values()),
             'quote_control_scope', 'instruments must share the same exact control')
     native = evaluate_portfolio(augmented, {cid: 0. for cid in augmented}, extension='all_rows',
-        worker_threads=provider.worker_threads, retain_samples=True, _native_cache=provider._quote_control_cache)
+        worker_threads=provider.worker_threads, retain_samples=True, _native_cache=cache.native)
     return adjust_report(native, augmented)
 
 
-def evaluate(provider, payload, snapshot, contract):
+def evaluate(provider, payload, snapshot, contract, *, _cache=None):
     from .multi_step_provider import validation
     cid = contract.contract_id
-    report = portfolio(provider, snapshot, {cid: payload})
+    report = portfolio(provider, snapshot, {cid: payload}, _cache=_cache)
     item = report['instruments'][cid]; raw = report['audits'][cid]
     expected = [dict(maturity=(d-snapshot.basis.valuation_date).days/365., log_moneyness=k)
                 for d in snapshot.basis.maturity_dates for k in snapshot.basis.log_moneyness]
