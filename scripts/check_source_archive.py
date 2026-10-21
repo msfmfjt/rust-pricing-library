@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import PurePosixPath
 from pathlib import Path
+import re
 import sys
 import tarfile
 import tomllib
@@ -869,6 +870,7 @@ REQUIRED_FILES = {
     "scripts/profile_model_heap_followup.py",
     "scripts/test_profile_model_heap_followup.py",
     "design/validation/local-correlation-heap-followup.md",
+    "design/validation/local-correlation-heap-followup-2026-10-21.json",
     "docs/README.md",
     "docs/library/README.md",
     "docs/models/README.md",
@@ -975,6 +977,7 @@ REQUIRED_FILES = {
     "scripts/check_source_archive.py",
     "scripts/run_benchmark_suite.py",
     "scripts/smoke_test_wheel.py",
+    "scripts/test_smoke_test_wheel.py",
     "benchmarks/python_european_bs.py",
     "examples/python/european_bs.py",
     "examples/python/american_lsm.py",
@@ -1052,6 +1055,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_schemas.py",
     "python scripts/check_specification_json_schema.py",
     "python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v",
+    "python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
     "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
@@ -1106,11 +1110,40 @@ REQUIRED_CI_SNIPPETS = {
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 6,
+    'python-version: "3.12"': 7,
     "python -m maturin build --locked --release --out dist": 2,
-    "python scripts/smoke_test_wheel.py": 2,
-    "actions/upload-artifact@v7": 12,
-    "retention-days: 14": 10,
+    "python scripts/smoke_test_wheel.py": 3,
+    "python scripts/smoke_test_wheel.py --phase package": 2,
+    "actions/upload-artifact@v7": 13,
+    "actions/download-artifact@v8": 1,
+    "retention-days: 14": 11,
+}
+
+REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
+    "python-wheel-linux": (
+        "run: python scripts/smoke_test_wheel.py --phase package",
+        "name: rust-pricing-x86_64-unknown-linux-gnu-cp312\n          path: dist/*.whl",
+    ),
+    "supported-wheels": (
+        "run: python scripts/smoke_test_wheel.py --phase package",
+        "name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist/*.whl",
+        "run: python scripts/run_benchmark_suite.py",
+    ),
+    "wheel-validation": (
+        "needs: [python-wheel-linux, supported-wheels]",
+        "fail-fast: false",
+        "os: [ubuntu-24.04, macos-15, windows-2025]",
+        "group: [custom-basis, providers, remaining]",
+        "- os: ubuntu-24.04\n            target: x86_64-unknown-linux-gnu",
+        "- os: macos-15\n            target: aarch64-apple-darwin",
+        "- os: windows-2025\n            target: x86_64-pc-windows-msvc",
+        "uses: actions/download-artifact@v8\n        with:\n"
+        "          name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist",
+        "run: python scripts/smoke_test_wheel.py --phase validation --group ${{ matrix.group }}",
+    ),
+    "rough-dividend-smoothing": (
+        "timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}",
+    ),
 }
 
 REQUIRED_README_SNIPPETS = {
@@ -1777,6 +1810,26 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                 f"{archive}: CI workflow must contain {snippet!r} "
                 f"{expected_count} times, found {actual_count}"
             )
+    for job_name, snippets in REQUIRED_WHEEL_CI_JOB_SNIPPETS.items():
+        match = re.search(
+            rf"^  {re.escape(job_name)}:\n(.*?)(?=^  [\w-]+:\n|\Z)",
+            workflow,
+            re.MULTILINE | re.DOTALL,
+        )
+        if match is None:
+            raise SystemExit(f"{archive}: CI workflow is missing job {job_name}")
+        job = match.group(1)
+        missing = [snippet for snippet in snippets if snippet not in job]
+        if missing:
+            raise SystemExit(f"{archive}: CI job {job_name} is missing gates: {missing}")
+        if job_name == "wheel-validation":
+            forbidden = ("exclude:", "continue-on-error:", "actions/upload-artifact@")
+            found = [snippet for snippet in forbidden if snippet in job]
+            if found:
+                raise SystemExit(
+                    f"{archive}: wheel validation must run all groups, propagate failures "
+                    f"and reuse producer artifacts; found: {found}"
+                )
 
 
 def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:

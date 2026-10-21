@@ -63,16 +63,30 @@ class JointPortfolioTests(unittest.TestCase):
     def test_identical_opposite_instruments_cancel_risk_and_error(self):
         p=model(4,'call',samples=4096)
         r=evaluate_portfolio({'long':p,'short':deepcopy(p)},{'long':2.5,'short':-2.5},worker_threads=4,retain_samples=True)
-        cube=np.array(r['sampling_unit_values'])
-        np.testing.assert_array_equal(cube[:,0,:],cube[:,1,:])
         np.testing.assert_array_equal(r['net_buckets'],0.)
         np.testing.assert_array_equal(r['net_bucket_standard_errors'],0.)
         self.assertEqual(r['net_price'],0.)
+        samples=np.array(r['sampling_unit_values'])
+        self.assertEqual(samples.shape,(4096,2,11))
+        np.testing.assert_array_equal(samples[:,0,:],samples[:,1,:])
+        n,_,width=samples.shape;q=width-1
+        flat=samples[:,:,1:].reshape(n,-1)
+        centered=flat-flat.mean(axis=0)
+        np.testing.assert_array_equal(centered[:,:q],centered[:,q:])
         c=np.array(r['market_sample_covariance'])
-        q=cube.shape[2]-1
-        # BLAS may reduce identical covariance blocks in different orders.
-        # The underlying samples and the net cancellation remain bitwise exact.
-        np.testing.assert_allclose(c[:q,:q],c[:q,q:],rtol=1e-12,atol=1e-12)
+        self.assertEqual(c.shape,(20,20))
+        # BLAS may sum identical dot products differently in different blocks.
+        # Each length-n dot product/division has error <= gamma_(n+1) *
+        # sum(abs(products))/(n-1). Bound both blocks with gamma_(n+2),
+        # and inflate the computed absolute-product sum by its own error.
+        u=np.finfo(float).eps/2
+        gamma=np.nextafter((n+2)*u/(1-(n+2)*u),np.inf)
+        magnitude=np.abs(centered[:,:q])
+        scale=magnitude.T@magnitude/(n-1)
+        scale_upper=np.nextafter(scale/np.nextafter(1-gamma,0.),np.inf)
+        bound=np.nextafter(2*gamma*scale_upper,np.inf)
+        self.assertTrue(np.all(np.abs(c[:q,:q]-c[:q,q:])<=bound),
+                        'identical-instrument covariance blocks exceed dot-product roundoff bound')
         for field in ('master_seed','independent_sampling_units'):
             changed=deepcopy(p);changed['engine'][field]+=1
             with self.assertRaisesRegex(ValueError,'portfolio_stream_mismatch'):

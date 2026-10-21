@@ -23,7 +23,7 @@ ORIGINAL_RUN = 35708535272
 ORIGINAL_BASELINE = "ea759bf5d73b06e4c480665e59c7daa37e6667be"
 ORIGINAL_CANDIDATE = "5886ac6834676ea6c10cd89aa087a58c81625ae6"
 TOOLING_ROOT = Path(__file__).resolve().parents[1]
-RETAINED = Path("design/validation/local-correlation-heap-followup-2026-09-22.json")
+RETAINED = Path("design/validation/local-correlation-heap-followup-2026-10-21.json")
 METRICS = {"allocated_bytes": "tb", "allocation_blocks": "tbk",
            "peak_heap_bytes": "gb", "blocks_at_peak": "gbk",
            "end_heap_bytes": "eb", "blocks_at_end": "ebk"}

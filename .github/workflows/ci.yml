@@ -74,7 +74,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}
     defaults:
       run:
         shell: bash
@@ -316,6 +316,9 @@ jobs:
       - name: Check Bergomi diagnostic evidence parser
         run: python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v
 
+      - name: Check wheel smoke runner
+        run: python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v
+
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
 
@@ -422,8 +425,16 @@ jobs:
           python -m pip install "maturin>=1.9,<2.0" "numpy>=2.0,<3.0"
           python -m maturin build --locked --release --out dist
 
-      - name: Smoke-test Python API
-        run: python scripts/smoke_test_wheel.py
+      - name: Check wheel package and runtime contract
+        run: python scripts/smoke_test_wheel.py --phase package
+
+      - name: Retain Linux test wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-pricing-x86_64-unknown-linux-gnu-cp312
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
 
   supported-wheels:
     name: Wheel / ${{ matrix.target }}
@@ -483,8 +494,8 @@ jobs:
       - name: Check Rust source package
         run: python scripts/check_source_archive.py "dist/rust-pricing-source-${{ matrix.target }}.tar.gz"
 
-      - name: Test wheel in clean environment
-        run: python scripts/smoke_test_wheel.py
+      - name: Check wheel package and runtime contract
+        run: python scripts/smoke_test_wheel.py --phase package
 
       - name: Run baseline benchmarks
         run: python scripts/run_benchmark_suite.py
@@ -534,3 +545,38 @@ jobs:
           path: benchmark-results/*.json
           if-no-files-found: error
           retention-days: 14
+
+  wheel-validation:
+    name: Wheel validation / ${{ matrix.target }} / ${{ matrix.group }}
+    needs: [python-wheel-linux, supported-wheels]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        group: [custom-basis, providers, remaining]
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download built wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: rust-pricing-${{ matrix.target }}-cp312
+          path: dist
+
+      - name: Run installed-wheel validation group
+        run: python scripts/smoke_test_wheel.py --phase validation --group ${{ matrix.group }}
