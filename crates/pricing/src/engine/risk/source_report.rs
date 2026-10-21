@@ -8,6 +8,7 @@ pub(super) fn build(
     fingerprint: Fingerprint,
     plan_fingerprint: String,
     out: &PricingTaskOutput,
+    calibration_diagnostics: Vec<ReportedCalibration>,
 ) -> Result<ValuationReport, WireError> {
     let (engine, currency, ids, seeds) = source_metadata(task.source());
     let (value, error, units, paths) = match out {
@@ -100,6 +101,7 @@ pub(super) fn build(
             UncertaintyScope::ConditionalOnCalibration
         },
         calibration_seeds: seeds,
+        calibration_diagnostics: Some(calibration_diagnostics),
         risks: Vec::new(),
         vega_kt: None,
     };
@@ -718,6 +720,7 @@ mod tests {
             task.fingerprint().unwrap(),
             original.plan_fingerprint().into(),
             &result.native_result,
+            original.calibration_diagnostics().unwrap().to_vec(),
         )
         .unwrap();
         for (before, after) in original.risks().iter().zip(renamed.risks()) {
@@ -751,6 +754,7 @@ mod tests {
                 task.fingerprint().unwrap(),
                 result.report.plan_fingerprint().into(),
                 &output,
+                result.report.calibration_diagnostics().unwrap().to_vec(),
             )
             .unwrap_err();
             assert!(

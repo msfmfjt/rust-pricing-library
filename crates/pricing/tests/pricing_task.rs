@@ -729,6 +729,78 @@ fn mixed_lsv_shared_rates_and_joint_calibration_are_complete_sources() {
                 PricingTaskOutput::MultiAsset(Box::new(expected)),
                 "mode={mode} hw={hybrid} joint={joint} rqmc={rqmc}"
             );
+            let blocks = result.report.calibration_diagnostics().unwrap();
+            assert_eq!(blocks.len(), if joint { 2 } else { 1 });
+            let block = blocks.last().unwrap();
+            let values = |name: &str| {
+                &block
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == name)
+                    .unwrap()
+                    .values
+            };
+            if let Some(c) = native.local_correlation_calibration() {
+                assert_eq!(block.kind, CalibrationKind::LocalCorrelation);
+                assert_eq!(block.underlying_ids, vec![1, 2]);
+                assert_eq!(block.seed, Some(c.config().particles.seed()));
+                assert_eq!(block.axes[0].values, c.time_nodes());
+                assert_eq!(block.axes[1].values, c.log_nodes());
+                let rows = c.diagnostics();
+                assert_eq!(
+                    *values("effective_samples"),
+                    rows.iter().map(|r| r.effective_samples).collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    *values("raw_mixing"),
+                    rows.iter().map(|r| r.raw_mixing).collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    *values("projected"),
+                    rows.iter()
+                        .map(|r| f64::from(r.projected))
+                        .collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    *values("fallback"),
+                    rows.iter()
+                        .map(|r| f64::from(r.fallback))
+                        .collect::<Vec<_>>()
+                );
+                assert_eq!(
+                    *values("attained_variance"),
+                    rows.iter().map(|r| r.attained_variance).collect::<Vec<_>>()
+                );
+            } else {
+                assert_eq!(block.underlying_ids, vec![1]);
+                assert_eq!(block.seed, Some(74));
+                let expected = if hybrid {
+                    assert_eq!(block.kind, CalibrationKind::HullWhiteLsv);
+                    native.hull_white_lsv_calibrations()[0]
+                        .unwrap()
+                        .diagnostics
+                        .iter()
+                        .map(|r| r.minimum_effective_samples)
+                        .collect::<Vec<_>>()
+                } else if mode == 0 {
+                    assert_eq!(block.kind, CalibrationKind::ParticleLsv);
+                    native.lsv_calibrations()[0]
+                        .unwrap()
+                        .diagnostics()
+                        .iter()
+                        .map(|r| r.minimum_effective_samples)
+                        .collect::<Vec<_>>()
+                } else {
+                    assert_eq!(block.kind, CalibrationKind::ParticleLsv);
+                    native.lsv_two_factor_calibrations()[0]
+                        .unwrap()
+                        .diagnostics()
+                        .iter()
+                        .map(|r| r.minimum_effective_samples)
+                        .collect::<Vec<_>>()
+                };
+                assert_eq!(*values("minimum_effective_samples"), expected);
+            }
             assert_eq!(
                 result.report.uncertainty_scope(),
                 UncertaintyScope::ConditionalOnCalibration

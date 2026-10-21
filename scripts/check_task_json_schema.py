@@ -15,12 +15,14 @@ def main():
     subprocess.run([sys.executable, str(ROOT / 'scripts/build_task_schemas.py'), '--check'], check=True)
     validators = {}
     count = 0
-    for kind, filename in [('task', 'pricing_task'), ('report', 'valuation_report')]:
-        schema = json.loads((ROOT / f'schemas/{kind}-v1/{filename}.schema.json').read_text())
+    for kind, directory, filename in [('task', 'task-v1', 'pricing_task'),
+                                      ('report', 'report-v1', 'valuation_report'),
+                                      ('report_v2', 'report-v2', 'valuation_report')]:
+        schema = json.loads((ROOT / f'schemas/{directory}/{filename}.schema.json').read_text())
         Draft202012Validator.check_schema(schema)
         validator = Draft202012Validator(schema, format_checker=FormatChecker())
         validators[kind] = validator
-        for fixture in sorted((ROOT / f'fixtures/{kind}-v1').glob('*.golden.json')):
+        for fixture in sorted((ROOT / f'fixtures/{directory}').glob('*.golden.json')):
             validator.validate(json.loads(fixture.read_text()))
             count += 1
     task = json.loads((ROOT / 'fixtures/task-v1/multi_asset_joint.golden.json').read_text())
@@ -62,6 +64,29 @@ def main():
         (['risks', 0, 'method'], ''), (['risks', 0, 'calibration'], 'ignored'),
     ]:
         reject('report', report, path, value)
+    current = json.loads((ROOT / 'fixtures/report-v2/multi_asset_joint.golden.json').read_text())
+    for path, value in [
+        (['schema_version'], 1), (['schema_version'], 3),
+        (['calibration_diagnostics'], None),
+        (['calibration_diagnostics', 0, 'kind'], 'unknown'),
+        (['calibration_diagnostics', 0, 'seed'], -1),
+        (['calibration_diagnostics', 0, 'underlying_ids'], [1, 1]),
+        (['calibration_diagnostics', 0, 'axes', 0, 'values'], []),
+        (['calibration_diagnostics', 0, 'metrics'], []),
+        (['calibration_diagnostics', 0, 'metrics', 0, 'values'], []),
+        (['calibration_diagnostics', 0, 'metrics', 0, 'unit'], 'unknown'),
+        (['calibration_diagnostics', 0, 'metrics', 0, 'convention'], ''),
+        (['calibration_diagnostics', 0, 'metrics', 0, 'extra'], 1),
+    ]:
+        reject('report_v2', current, path, value)
+    for unit, value in [('count', -1), ('count', 0.5), ('count', 2**54), ('indicator', 2)]:
+        changed = copy.deepcopy(current)
+        changed['calibration_diagnostics'][0]['metrics'][0]['unit'] = unit
+        reject('report_v2', changed, ['calibration_diagnostics', 0, 'metrics', 0, 'values', 0], value)
+    migrated = copy.deepcopy(report)
+    migrated['schema_version'] = 2
+    validators['report_v2'].validate(migrated)
+    assert not validators['report'].is_valid(current)
     legacy = Draft202012Validator(json.loads((ROOT / 'schemas/v3/pricing_request.schema.json').read_text()))
     assert not legacy.is_valid(task)
     print(f'Task/report schemas: {count} fixtures, {rejected} rejections and legacy separation passed')

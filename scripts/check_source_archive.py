@@ -14,6 +14,14 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/api/calibration_report.rs",
+    "crates/pricing/src/engine/risk/calibration_report.rs",
+    "crates/pricing/tests/calibration_report.rs",
+    "tests/python/test_calibration_report.py",
+    "schemas/report-v2/valuation_report.schema.json",
+    "fixtures/report-v2/multi_asset_joint.golden.json",
+    "docs/library/calibration-reports.md",
+    "design/adr/0035-calibration-report-diagnostics.md",
     "crates/pricing/tests/pricing_task_reuse.rs",
     "tests/python/test_pricing_task_reuse.py",
     "design/adr/0034-compiled-task-reuse.md",

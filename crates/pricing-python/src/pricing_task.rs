@@ -1,8 +1,8 @@
 //! Thin adapters over complete Rust tasks and common reports.
 use crate::*;
 use pricing::{
-    CapabilityStatus, PricingCapability, PricingOperation, PricingTask, PricingTaskOutput,
-    ReportedRisk, ValuationReport,
+    CalibrationMetric, CapabilityStatus, PricingCapability, PricingOperation, PricingTask,
+    PricingTaskOutput, ReportedCalibration, ReportedRisk, ValuationReport,
 };
 
 fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
@@ -26,6 +26,7 @@ fn wire_error(py: Python<'_>, error: &WireError, kind: &'static str) -> PyErr {
             schema_version: version,
             ..
         } => *version,
+        _ if kind == "valuation_report" => 2,
         _ => 1,
     };
     validation_exception(py, issue)
@@ -337,6 +338,66 @@ impl PyReportedRisk {
         }
     }
 }
+#[pyclass(frozen, name = "CalibrationMetric")]
+#[derive(Clone, Debug)]
+pub struct PyCalibrationMetric {
+    inner: CalibrationMetric,
+}
+#[pymethods]
+impl PyCalibrationMetric {
+    #[getter]
+    fn name(&self) -> &str {
+        &self.inner.name
+    }
+    #[getter]
+    fn values(&self) -> Vec<f64> {
+        self.inner.values.clone()
+    }
+    #[getter]
+    fn unit(&self) -> &'static str {
+        self.inner.unit.as_str()
+    }
+    #[getter]
+    fn convention(&self) -> &str {
+        &self.inner.convention
+    }
+}
+#[pyclass(frozen, name = "ReportedCalibration")]
+#[derive(Clone, Debug)]
+pub struct PyReportedCalibration {
+    inner: ReportedCalibration,
+}
+#[pymethods]
+impl PyReportedCalibration {
+    #[getter]
+    fn kind(&self) -> &'static str {
+        self.inner.kind.as_str()
+    }
+    #[getter]
+    fn underlying_ids(&self) -> Vec<u32> {
+        self.inner.underlying_ids.clone()
+    }
+    #[getter]
+    fn seed(&self) -> Option<u64> {
+        self.inner.seed
+    }
+    #[getter]
+    fn axes(&self) -> Vec<(String, Vec<f64>)> {
+        self.inner
+            .axes
+            .iter()
+            .map(|a| (a.name.clone(), a.values.clone()))
+            .collect()
+    }
+    #[getter]
+    fn metrics(&self) -> Vec<PyCalibrationMetric> {
+        self.inner
+            .metrics
+            .iter()
+            .map(|m| PyCalibrationMetric { inner: m.clone() })
+            .collect()
+    }
+}
 #[pyclass(frozen, name = "ValuationReport")]
 #[derive(Clone, Debug)]
 pub struct PyValuationReport {
@@ -416,6 +477,15 @@ impl PyValuationReport {
         self.inner.calibration_seeds().to_vec()
     }
     #[getter]
+    fn calibration_diagnostics(&self) -> Option<Vec<PyReportedCalibration>> {
+        self.inner.calibration_diagnostics().map(|blocks| {
+            blocks
+                .iter()
+                .map(|b| PyReportedCalibration { inner: b.clone() })
+                .collect()
+        })
+    }
+    #[getter]
     fn risks(&self) -> Vec<PyReportedRisk> {
         self.inner
             .risks()
@@ -444,6 +514,8 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCompiledPricingTask>()?;
     module.add_class::<PyPricingTaskResult>()?;
     module.add_class::<PyReportedRisk>()?;
+    module.add_class::<PyCalibrationMetric>()?;
+    module.add_class::<PyReportedCalibration>()?;
     module.add_class::<PyValuationReport>()?;
     module.add_function(wrap_pyfunction!(pricing_task_json_schema, module)?)?;
     module.add_function(wrap_pyfunction!(valuation_report_json_schema, module)?)?;

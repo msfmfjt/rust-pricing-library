@@ -601,3 +601,23 @@ CLASSES = {'BuehlerDividendModel': {'bases': [],
                                                                        'VolatilityFactorSpec:\n'
                                                                        '    ...',
                                                         'kind': 'staticmethod'}}}}
+
+CLASSES['CalibrationMetric'] = {"bases": [], "members": {
+    'name': {"kind": "property", "declaration": '@property\ndef name(self) -> str: ...'},
+    'values': {"kind": "property", "declaration": '@property\ndef values(self) -> list[float]: ...'},
+    'unit': {"kind": "property", "declaration": '@property\ndef unit(self) -> Literal["dimensionless", "count", "indicator", "time", "variance", "equity_coordinate", "brownian_coordinate"]: ...'},
+    'convention': {"kind": "property", "declaration": '@property\ndef convention(self) -> str: ...'},
+}}
+
+CLASSES['ReportedCalibration'] = {"bases": [], "members": {
+    'kind': {"kind": "property", "declaration": '@property\ndef kind(self) -> Literal["particle_lsv", "hull_white_lsv", "local_correlation", "bass_fixed_point", "bass_surface_projection"]: ...'},
+    'underlying_ids': {"kind": "property", "declaration": '@property\ndef underlying_ids(self) -> list[int]: ...'},
+    'seed': {"kind": "property", "declaration": '@property\ndef seed(self) -> int | None: ...'},
+    'axes': {"kind": "property", "declaration": '@property\ndef axes(self) -> list[tuple[str, list[float]]]: ...'},
+    'metrics': {"kind": "property", "declaration": '@property\ndef metrics(self) -> list[CalibrationMetric]: ...'},
+}}
+
+CLASSES["ValuationReport"]["members"]["calibration_diagnostics"] = {
+    "kind": "property",
+    "declaration": "@property\ndef calibration_diagnostics(self) -> list[ReportedCalibration] | None: ...",
+}

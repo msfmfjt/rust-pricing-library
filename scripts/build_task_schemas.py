@@ -35,7 +35,28 @@ def build():
     rd['reported_risk']=obj(dict(name={'type':'string','minLength':1},underlying_ids=array(u32,0),axes=array(ref('report_axis'),0),values=array(number),standard_errors=array(nn),unit={'enum':['currency_per_'+u for u in unit_names]},method={'type':'string','minLength':1},calibration={'enum':['not_applicable','recalibrated','fixed_calibration','fixed_exercise_policy']},convention={'type':'string','minLength':1}),optional=('standard_errors',))
     report=obj(dict(document_kind={'const':'valuation_report'},schema_version={'const':1},task_fingerprint=ref('fingerprint'),plan_fingerprint=ref('fingerprint'),library_version={'type':'string','minLength':1},platform={'type':'string','minLength':1},currency_id={'type':'integer','minimum':0,'maximum':65535},value=number,standard_error=nn,estimator=ref('estimator'),independent_sampling_units={'type':'integer','minimum':1,'maximum':2**64-1},evaluated_paths={'type':'string','pattern':'^[1-9][0-9]{0,38}$'},uncertainty_scope={'enum':['pricing_sampling','conditional_on_calibration','conditional_on_exercise_policy']},calibration_seeds=array(u64,0),risks=array(ref('reported_risk'),0),vega_kt=ref('vega_kt_report')),optional=('vega_kt',))
     report.update({'$schema':'https://json-schema.org/draft/2020-12/schema','$id':'https://rust-pricing-library.dev/schemas/report-v1/valuation_report.schema.json','title':'Common valuation report v1','$defs':rd})
-    return {'schemas/task-v1/pricing_task.schema.json':task,'schemas/report-v1/valuation_report.schema.json':report}
+    report_v2 = copy.deepcopy(report)
+    report_v2['properties']['schema_version'] = {'const': 2}
+    report_v2['$id'] = 'https://rust-pricing-library.dev/schemas/report-v2/valuation_report.schema.json'
+    report_v2['title'] = 'Common valuation report v2'
+    text = {'type': 'string', 'minLength': 1}
+    units = ['dimensionless', 'count', 'indicator', 'time', 'variance', 'equity_coordinate', 'brownian_coordinate']
+    metric = obj(dict(name=text, values=array(number), unit={'enum': units}, convention=text))
+    metric['allOf'] = [
+        {'if': {'properties': {'unit': {'const': 'count'}}},
+         'then': {'properties': {'values': array({'type': 'integer', 'minimum': 0, 'maximum': 2**53})}}},
+        {'if': {'properties': {'unit': {'const': 'indicator'}}},
+         'then': {'properties': {'values': array({'enum': [0, 1]})}}},
+    ]
+    report_v2['$defs']['calibration_metric'] = metric
+    report_v2['$defs']['reported_calibration'] = obj(dict(
+        kind={'enum': ['particle_lsv', 'hull_white_lsv', 'local_correlation', 'bass_fixed_point', 'bass_surface_projection']},
+        underlying_ids={**array(u32), 'uniqueItems': True}, seed=u64,
+        axes=array(ref('report_axis'), 0), metrics=array(ref('calibration_metric'))), optional=('seed',))
+    report_v2['properties']['calibration_diagnostics'] = array(ref('reported_calibration'), 0)
+    return {'schemas/task-v1/pricing_task.schema.json':task,
+            'schemas/report-v1/valuation_report.schema.json':report,
+            'schemas/report-v2/valuation_report.schema.json':report_v2}
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--check',action='store_true');args=parser.parse_args()

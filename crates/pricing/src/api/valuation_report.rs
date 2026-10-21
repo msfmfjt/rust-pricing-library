@@ -122,6 +122,9 @@ pub struct ValuationReport {
     pub(crate) evaluated_paths: u128,
     pub(crate) uncertainty_scope: UncertaintyScope,
     pub(crate) calibration_seeds: Vec<u64>,
+    /// None for a historical report without diagnostics; Some([]) for a fresh
+    /// report with no applicable calibration. These states are distinct.
+    pub(crate) calibration_diagnostics: Option<Vec<crate::ReportedCalibration>>,
     pub(crate) risks: Vec<ReportedRisk>,
     /// Existing typed VegaKT contract, including its covariance layout and units.
     pub(crate) vega_kt: Option<VegaKtResult>,
@@ -174,6 +177,10 @@ impl ValuationReport {
     #[must_use]
     pub fn calibration_seeds(&self) -> &[u64] {
         &self.calibration_seeds
+    }
+    #[must_use]
+    pub fn calibration_diagnostics(&self) -> Option<&[crate::ReportedCalibration]> {
+        self.calibration_diagnostics.as_deref()
     }
     #[must_use]
     pub fn risks(&self) -> &[ReportedRisk] {
@@ -238,6 +245,9 @@ impl ValuationReport {
                     "invalid or duplicate risk coordinate, shape, value or uncertainty",
                 ));
             }
+        }
+        if let Some(blocks) = &self.calibration_diagnostics {
+            super::calibration_report::validate(blocks)?;
         }
         Ok(())
     }

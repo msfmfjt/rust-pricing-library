@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0035: Calibration diagnostics in common reports](adr/0035-calibration-report-diagnostics.md)
+
 - [ADR 0034: Reuse compiled pricing tasks across operations](adr/0034-compiled-task-reuse.md)
 
 - [ADR 0033: Modular wheel gates and installed API signatures](adr/0033-wheel-api-contracts.md)

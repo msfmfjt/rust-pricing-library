@@ -60,6 +60,53 @@ fn replay(s: &PricingSpecification) {
     assert_eq!(original.plan_fingerprint(), saved.plan_fingerprint());
     assert_eq!(original.evaluate().unwrap(), saved.evaluate().unwrap());
 }
+fn assert_particle_report(
+    s: &PricingSpecification,
+    rows: &[pricing::mc::lsv::LsvCalibrationRowDiagnostics],
+) {
+    let result = pricing::PricingTask::new(s.clone(), pricing::PricingOperation::Evaluate)
+        .unwrap()
+        .compile()
+        .unwrap()
+        .evaluate()
+        .unwrap();
+    let blocks = result.report.calibration_diagnostics().unwrap();
+    assert_eq!(blocks.len(), 1);
+    let block = &blocks[0];
+    assert_eq!(block.kind, pricing::CalibrationKind::ParticleLsv);
+    assert_eq!(block.seed, Some(particles().seed()));
+    assert_eq!(block.underlying_ids, vec![s.product().underlying().get()]);
+    assert_eq!(
+        block.axes[0].values,
+        rows.iter().map(|r| r.time).collect::<Vec<_>>()
+    );
+    for (name, expected) in [
+        (
+            "minimum_effective_samples",
+            rows.iter()
+                .map(|r| r.minimum_effective_samples)
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "extrapolated_nodes",
+            rows.iter().map(|r| r.extrapolated_nodes as f64).collect(),
+        ),
+        (
+            "particle_mean_f",
+            rows.iter().map(|r| r.particle_mean_f).collect(),
+        ),
+    ] {
+        assert_eq!(
+            block
+                .metrics
+                .iter()
+                .find(|m| m.name == name)
+                .unwrap()
+                .values,
+            expected
+        );
+    }
+}
 fn factors() -> Vec<VolatilityFactorSpec> {
     vec![
         VolatilityFactorSpec::Bergomi(Bergomi1Factor::new(1.2, 0.3, -0.4).unwrap()),
@@ -275,12 +322,13 @@ fn lsv_factors_retain_targets_particles_and_native_diagnostics() {
     let t = target(&d);
     let r = local_request(&t);
     for f in factors() {
-        let (plain_hash, plain_value, hybrid, count) = match f {
+        let (plain_hash, plain_value, plain_rows, hybrid, count) = match f {
             VolatilityFactorSpec::Bergomi(f) => {
                 let p = BergomiLsvPricingPlan::compile(&r, f, particles(), policy()).unwrap();
                 (
                     p.plan_fingerprint(),
                     p.evaluate().unwrap(),
+                    p.calibration().diagnostics().to_vec(),
                     HullWhiteEquityPricingPlan::compile_lsv(
                         &r,
                         &d,
@@ -299,6 +347,7 @@ fn lsv_factors_retain_targets_particles_and_native_diagnostics() {
                 (
                     p.plan_fingerprint(),
                     p.evaluate().unwrap(),
+                    p.calibration().diagnostics().to_vec(),
                     HullWhiteEquityPricingPlan::compile_lsv_two_factor(
                         &r,
                         &d,
@@ -318,6 +367,7 @@ fn lsv_factors_retain_targets_particles_and_native_diagnostics() {
                 (
                     p.plan_fingerprint(),
                     p.evaluate().unwrap(),
+                    p.calibration().diagnostics().to_vec(),
                     HullWhiteEquityPricingPlan::compile_rough_lsv(
                         &r,
                         &d,
@@ -343,6 +393,7 @@ fn lsv_factors_retain_targets_particles_and_native_diagnostics() {
             RateModelSpec::Deterministic,
             None,
         );
+        assert_particle_report(&s, &plain_rows);
         assert_eq!(s.compile().unwrap().plan_fingerprint(), plain_hash);
         assert_eq!(
             s.compile().unwrap().evaluate().unwrap().output,
@@ -367,6 +418,57 @@ fn lsv_factors_retain_targets_particles_and_native_diagnostics() {
             s.compile().unwrap().evaluate().unwrap().output,
             SpecificationOutput::Hybrid(hybrid.evaluate().unwrap())
         );
+        let report = pricing::PricingTask::new(s.clone(), pricing::PricingOperation::Evaluate)
+            .unwrap()
+            .compile()
+            .unwrap()
+            .evaluate()
+            .unwrap()
+            .report;
+        let blocks = report.calibration_diagnostics().unwrap();
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].kind, pricing::CalibrationKind::HullWhiteLsv);
+        let rows = &hybrid.calibration().unwrap().diagnostics;
+        assert_eq!(
+            blocks[0].axes[0].values,
+            rows.iter().map(|r| r.time).collect::<Vec<_>>()
+        );
+        for (name, expected) in [
+            (
+                "minimum_effective_samples",
+                rows.iter()
+                    .map(|r| r.minimum_effective_samples)
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                "fallback_nodes",
+                rows.iter().map(|r| r.fallback_nodes as f64).collect(),
+            ),
+            (
+                "mean_relative_discount",
+                rows.iter().map(|r| r.mean_relative_discount).collect(),
+            ),
+            (
+                "mean_discounted_normalized_equity",
+                rows.iter()
+                    .map(|r| r.mean_discounted_normalized_equity)
+                    .collect(),
+            ),
+            (
+                "maximum_rate_correction",
+                rows.iter().map(|r| r.maximum_rate_correction).collect(),
+            ),
+        ] {
+            assert_eq!(
+                blocks[0]
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == name)
+                    .unwrap()
+                    .values,
+                expected
+            );
+        }
         replay(&s);
     }
 }
@@ -418,6 +520,7 @@ fn all_rough_families_replay_direct_and_calibrated_prices() {
             s.compile().unwrap().evaluate().unwrap().output,
             SpecificationOutput::LocalStochasticVolatility(native.evaluate().unwrap())
         );
+        assert_particle_report(&s, native.calibration().diagnostics());
         replay(&s);
     }
 }

@@ -37,6 +37,9 @@ pub mod mc;
 pub mod models;
 pub mod product;
 pub mod risk;
+pub use api::calibration_report::{
+    CalibrationKind, CalibrationMetric, DiagnosticUnit, ReportedCalibration,
+};
 pub use api::source::{
     CapabilityReason, CapabilityStatus, MultiAssetModelSpec, MultiAssetSpecification,
     PricingCapability, PricingOperation, PricingSource, PricingTask,
