@@ -41,6 +41,7 @@ stable numerical-branch counts.
 | --- | --- |
 | Library usage, APIs, diagnostics and compatibility | [Library guide](docs/library/README.md) |
 | Complete model inputs, JSON replay and common compilation | [Pricing specifications](docs/library/pricing-specification.md) |
+| Custom payoffs and cash-flow source replay | [Product graphs](docs/library/product-graphs.md) |
 | Supported financial products | [Product reference](docs/products/README.md) |
 | Models, calibration, simulation and risk conventions | [Model reference](docs/models/README.md) |
 | Requirements, architecture, ADRs, roadmaps and acceptance evidence | [Design and development records](design/README.md) |

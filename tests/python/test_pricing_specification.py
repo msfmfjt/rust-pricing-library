@@ -85,7 +85,7 @@ class PricingSpecificationTests(unittest.TestCase):
 
     def test_schema_is_self_contained_and_errors_identify_the_source_document(self):
         schema = json.loads(rp.specification_json_schema())
-        self.assertEqual(schema, json.loads((ROOT / "schemas/specification-v1/pricing_specification.schema.json").read_text()))
+        self.assertEqual(schema, json.loads((ROOT / "schemas/specification-v2/pricing_specification.schema.json").read_text()))
         self.assertEqual(schema["properties"]["document_kind"]["const"], "pricing_specification")
         base = fixture("bergomi_hull_white")
         for name in ["version", "ignored", "step", "risk", "initial_volatility", "correlation"]:
@@ -107,7 +107,7 @@ class PricingSpecificationTests(unittest.TestCase):
                 rp.PricingSpecification.from_json(json.dumps(value)).compile()
             issue = caught.exception.issues[0]
             self.assertEqual(issue.document_kind, "pricing_specification")
-            self.assertEqual(issue.schema_version, 99 if name == "version" else 1)
+            self.assertEqual(issue.schema_version, 99 if name == "version" else 2)
 
     def test_model_and_execution_changes_change_source_fingerprint(self):
         value = fixture("bergomi_hull_white")

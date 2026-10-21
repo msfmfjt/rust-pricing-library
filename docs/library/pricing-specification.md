@@ -103,15 +103,19 @@ No universal result-wire format is introduced in this step.
 
 ## JSON identity and compatibility
 
-The document kind is `pricing_specification`, with its own schema version `1`.
-The [self-contained Draft 2020-12 schema](../../schemas/specification-v1/pricing_specification.schema.json)
+The document kind is `pricing_specification`. The current writer uses version
+`2`, adding [generic product graphs](product-graphs.md); the reader also accepts
+v1 built-in products and normalizes them to v2. The v1 schema and fixtures remain
+frozen. The [current Draft 2020-12 schema](../../schemas/specification-v2/pricing_specification.schema.json)
 is also exposed by `current_specification_schema()` and
 `specification_json_schema()`. Existing request/result v1/v2/v3 readers,
 writers, fixtures and fingerprint domains are unchanged. The old request
 reader deliberately rejects the new document kind.
 
 The source fingerprint hashes a canonical, domain-separated representation of
-the complete source, including explicit worker count and reduction-block size.
+the complete source, including explicit worker count and reduction-block size. The source fingerprint
+version is now 2, so importing a v1 source changes its source fingerprint;
+financial inputs and native plan fingerprints are preserved.
 It is distinct from the unchanged native plan fingerprint. JSON whitespace and
 key order have no effect. Changes to model parameters, calibration inputs,
 market data, seeds or numerical settings change the source identity.

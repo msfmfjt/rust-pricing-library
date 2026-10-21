@@ -114,6 +114,7 @@ impl SimulationPlan {
             _ => Vec::new(),
         };
         let payoff_graph = match (product, request.risk().payoff_smoothing()) {
+            (ProductSpec::Graph(graph), _) => compile_graph_cashflows(graph, request)?,
             (ProductSpec::Digital(digital), Some(PayoffSmoothing::CompactC2 { half_width })) => {
                 digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
             }
@@ -577,4 +578,41 @@ pub(in crate::engine) fn build_plan_fingerprint(
     hasher.update(&checkpoint_policy.version().to_be_bytes());
     hasher.update(&checkpoint_policy.resolved_interval().get().to_be_bytes());
     Fingerprint::from_bytes(*hasher.finalize().as_bytes())
+}
+
+/// Deterministic discounting is lowered once, before the numerical kernels.
+/// The existing executor applies the final payment discount to this aggregate.
+fn compile_graph_cashflows(
+    product: &crate::product::GraphProduct,
+    request: &PricingRequest,
+) -> Result<crate::product::SourceGraph, MonteCarloError> {
+    use crate::product::{SourceGraphBuilder, SourceOpcode};
+    let source = product.source_graph();
+    if source.outputs().len() == 1 {
+        return Ok(source.clone());
+    }
+    let curve = request.market().equity().forward().discount_curve();
+    let fraction = |date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), date);
+    let final_discount = curve
+        .evaluate(fraction(product.last_payment_date()))?
+        .discount;
+    let mut builder = SourceGraphBuilder::from_graph(source);
+    let mut sum = None;
+    for (&output, &payment) in source.outputs().iter().zip(product.payment_dates()) {
+        let value = if payment == product.last_payment_date() {
+            output
+        } else {
+            let ratio =
+                builder.literal(curve.evaluate(fraction(payment))?.discount / final_discount)?;
+            builder.push(SourceOpcode::Multiply {
+                left: output,
+                right: ratio,
+            })?
+        };
+        sum = Some(match sum {
+            None => value,
+            Some(left) => builder.push(SourceOpcode::Add { left, right: value })?,
+        });
+    }
+    Ok(builder.finish(vec![sum.expect("validated nonempty cash flows")]))
 }

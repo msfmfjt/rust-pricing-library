@@ -180,7 +180,7 @@ impl HullWhiteEquityPricingPlan {
             }
             .into());
         };
-        let base = compile_base(request, policy)?;
+        let base = compile_base(request, policy, &rates)?;
         let expiry = expiry_time(request);
         let mut events = base.hybrid_observation_times().to_vec();
         events.push(expiry);
@@ -402,7 +402,7 @@ impl HullWhiteEquityPricingPlan {
             }
             .into());
         }
-        let base = compile_base(request, policy)?;
+        let base = compile_base(request, policy, &rates)?;
         let expiry = expiry_time(request);
         for &t in base
             .hybrid_observation_times()
@@ -764,7 +764,13 @@ fn matching_target_grid(
 fn compile_base(
     request: &PricingRequest,
     policy: ExecutionPolicy,
+    rates: &HullWhite1Factor,
 ) -> Result<SimulationPlan, MonteCarloError> {
+    if rates.volatilities().iter().any(|v| *v != 0.0)
+        && matches!(request.product(), crate::product::ProductSpec::Graph(graph) if graph.has_multiple_payment_dates())
+    {
+        return Err(HullWhiteError::Unsupported { feature: "multiple graph payment dates in the single-asset Hull-White adapter; use MultiAssetPricingPlan" }.into());
+    }
     let risk = request.risk();
     if risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some() {
         return Err(HullWhiteError::Unsupported {

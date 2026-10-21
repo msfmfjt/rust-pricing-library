@@ -310,6 +310,13 @@ pub struct PyProduct {
 
 #[pymethods]
 impl PyProduct {
+    #[staticmethod]
+    fn from_graph(graph: &crate::product_graph::PyGraphProduct) -> Self {
+        Self {
+            inner: ProductSpec::Graph(graph.inner.clone()),
+        }
+    }
+
     /// Build a European vanilla call or put.
     #[staticmethod]
     fn european_vanilla(
@@ -1530,6 +1537,7 @@ fn barrier_monitoring(py: Python<'_>, value: &str) -> PyResult<BarrierMonitoring
 
 const fn product_name(product: &ProductSpec) -> &'static str {
     match product {
+        ProductSpec::Graph(_) => "graph",
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
         ProductSpec::AmericanVanilla(_) => "american_vanilla",
         ProductSpec::Digital(_) => "digital",

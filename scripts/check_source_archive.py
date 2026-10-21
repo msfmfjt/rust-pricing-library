@@ -13,6 +13,21 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/product/graph_product.rs",
+    "crates/pricing/src/wire/product_graph.rs",
+    "crates/pricing-python/src/product_graph.rs",
+    "crates/pricing/tests/product_graph.rs",
+    "tests/python/test_product_graph.py",
+    "scripts/build_product_graph_schema.py",
+    "scripts/check_product_graph_json_schema.py",
+    "schemas/product-graph-v1/product_graph.schema.json",
+    "schemas/specification-v2/pricing_specification.schema.json",
+    "fixtures/product-graph-v1/coupon_and_capped_call.golden.json",
+    "fixtures/specification-v2/product_graph.golden.json",
+    "examples/python/product_graph.py",
+    "docs/library/product-graphs.md",
+    "design/adr/0029-product-graph-source.md",
+
     "crates/pricing/src/api/specification.rs",
     "crates/pricing/src/engine/risk/specification.rs",
     "crates/pricing/src/wire/specification.rs",

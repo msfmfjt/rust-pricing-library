@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub(crate) mod graph;
+mod graph_product;
 mod smoothing;
 mod spec;
 
@@ -13,6 +14,7 @@ pub use crate::product::graph::{
     GraphError, GraphFingerprint, GraphLimitPolicy, SourceGraph, SourceGraphBuilder, SourceNode,
     SourceOpcode,
 };
+pub use graph_product::{GraphProduct, GraphProductError};
 pub use smoothing::{CompactC2Smoothing, SmoothingBinaryDerivatives, SmoothingDerivatives};
 pub use spec::{
     AmericanVanillaSpec, ArithmeticAsianSpec, AsianObservation, AsianObservationValue,

@@ -66,6 +66,13 @@ impl StochasticDividendHullWhitePricingPlan {
         if expiry <= 0.0 || payment < expiry {
             return Err(invalid("positive_horizon_and_payment").into());
         }
+        if rates.volatilities().iter().any(|v| *v != 0.0)
+            && matches!(request.product(), crate::product::ProductSpec::Graph(graph) if graph.has_multiple_payment_dates())
+        {
+            return Err(MonteCarloError::UnsupportedModel {
+                model: "multiple graph payment dates with stochastic rates",
+            });
+        }
         let base = SimulationPlan::compile_hybrid_base(request, policy)?;
         let market = request.market().equity().forward();
         let mut times = base.hybrid_observation_times().to_vec();

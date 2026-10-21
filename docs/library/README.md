@@ -87,3 +87,6 @@ features. Experimental model adapters have separate entry points and limitations
   timing commands, host metadata and interpretation.
 
 Required contributor checks are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+Use [product graphs](product-graphs.md) to build custom cash flows with the same
+Rust, Python and JSON source representation.

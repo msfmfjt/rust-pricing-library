@@ -105,6 +105,7 @@ EXPECTED_SCHEMA_TOP_LEVEL_KEYS = [
     "$defs",
 ]
 ALLOWED_SCHEMA_KEYWORDS = {
+    "uniqueItems",
     "$defs",
     "$id",
     "$ref",
@@ -1561,6 +1562,20 @@ def check_specification_artifacts() -> None:
     check_strict_objects(schema, OUTPUT)
 
 
+def check_product_graph_artifacts() -> None:
+    from build_product_graph_schema import schemas
+    for path, schema in schemas().items():
+        require(path.exists(), f"missing graph schema: {path}")
+        expected = json.dumps(schema, indent=2, ensure_ascii=False) + "\n"
+        require(path.read_text() == expected, f"graph schema is stale: {path}")
+        check_text_file_encoding(path.read_bytes(), path, "schema")
+        check_refs(schema, path)
+        check_no_json_null(schema, path)
+        check_schema_keywords(schema, path)
+        check_no_unstructured_objects(schema, path)
+        check_strict_objects(schema, path)
+
+
 def main() -> int:
     try:
         actual = set(SCHEMA_ROOT.glob("*.schema.json"))
@@ -1579,6 +1594,7 @@ def main() -> int:
         check_v2_artifacts()
         check_v3_artifacts()
         check_specification_artifacts()
+        check_product_graph_artifacts()
     except SchemaError as exc:
         print(f"schema check failed: {exc}", file=sys.stderr)
         return 1

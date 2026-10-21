@@ -206,6 +206,19 @@ pub struct PyMultiAssetProduct {
 #[pymethods]
 impl PyMultiAssetProduct {
     #[staticmethod]
+    fn from_graph(graph: &crate::product_graph::PyGraphProduct) -> Self {
+        Self {
+            inner: MultiAssetProduct::from_product_graph(graph.inner.clone()),
+        }
+    }
+    fn to_graph(&self, py: Python<'_>) -> PyResult<crate::product_graph::PyGraphProduct> {
+        self.inner
+            .to_product_graph()
+            .map(|inner| crate::product_graph::PyGraphProduct { inner })
+            .map_err(|e| invalid(py, e))
+    }
+
+    #[staticmethod]
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(underlying_ids,weights,scales,side,strike,expiry,payment_date,*,currency_id=1,notional=1.0,smoothing_half_width=None))]
     fn basket(

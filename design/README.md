@@ -28,6 +28,8 @@ documents the public API migration.
 
 - [0028: Complete pricing source specifications](adr/0028-pricing-specification.md),
   with a [usage and extension guide](../docs/library/pricing-specification.md).
+- [0029: Generic product graph source](adr/0029-product-graph-source.md),
+  with a [usage and extension guide](../docs/library/product-graphs.md).
 
 - [0027: Andersen–Broadie bounds](adr/0027-american-dual.md), with
   [validation evidence](validation/american-dual.md).

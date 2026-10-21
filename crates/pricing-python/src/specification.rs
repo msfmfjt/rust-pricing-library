@@ -7,8 +7,12 @@ use pricing::{
 fn wire_exception(py: Python<'_>, error: &WireError) -> PyErr {
     let mut issue = PyValidationIssue::wire(error, "pricing_specification");
     issue.schema_version = match error {
-        WireError::UnsupportedSchemaVersion(version) => *version,
-        _ => 1,
+        WireError::UnsupportedSchemaVersion(version)
+        | WireError::UnsupportedSchemaFeature {
+            schema_version: version,
+            ..
+        } => *version,
+        _ => 2,
     };
     validation_exception(py, issue)
 }
@@ -67,7 +71,7 @@ impl PyPricingSpecification {
             .map_err(|e| {
                 let mut issue = PyValidationIssue::compile(&e);
                 issue.document_kind = "pricing_specification".into();
-                issue.schema_version = 1;
+                issue.schema_version = 2;
                 validation_exception(py, issue)
             })
     }

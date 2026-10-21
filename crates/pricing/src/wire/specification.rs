@@ -420,7 +420,7 @@ impl From<&PricingSpecification> for SpecificationV1 {
         let policy = s.numerics().execution_policy;
         Self {
             document_kind: KIND.into(),
-            schema_version: 1,
+            schema_version: 2,
             valuation_date: legacy.valuation_date,
             product: legacy.product,
             market: legacy.market,
@@ -449,10 +449,16 @@ pub fn parse_specification_json(
             actual: header.document_kind,
         });
     }
-    if header.schema_version != 1 {
+    if !matches!(header.schema_version, 1 | 2) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let value: SpecificationV1 = serde_json::from_str(text).map_err(json)?;
+    if header.schema_version == 1 && matches!(&value.product, ProductV1::Graph { .. }) {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "graph products require pricing_specification v2",
+            schema_version: 1,
+        });
+    }
     let model = value.model.into_domain()?;
     let policy = ExecutionPolicy::new(
         value.numerics.worker_threads,
@@ -496,11 +502,11 @@ pub fn specification_to_pretty_json(source: &PricingSpecification) -> Result<Str
 pub fn fingerprint_specification(source: &PricingSpecification) -> Result<Fingerprint, WireError> {
     let value = serde_json::to_value(SpecificationV1::from(source)).map_err(json)?;
     let mut bytes = b"pricing/specification\0".to_vec();
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
+    bytes.extend_from_slice(&2_u32.to_be_bytes());
     encode_value(&value, &mut bytes)?;
     Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
 }
 #[must_use]
 pub fn current_specification_schema() -> &'static str {
-    include_str!("../../../../schemas/specification-v1/pricing_specification.schema.json")
+    include_str!("../../../../schemas/specification-v2/pricing_specification.schema.json")
 }

@@ -470,6 +470,7 @@ impl FixedLookbackSpec {
 impl ProductSpec {
     pub fn source_graph(&self, valuation_date: Date) -> Result<SourceGraph, GraphError> {
         match self {
+            Self::Graph(spec) => Ok(spec.source_graph().clone()),
             Self::EuropeanVanilla(spec) => spec.source_graph(),
             Self::AmericanVanilla(spec) => spec.source_graph(),
             Self::Digital(spec) => spec.source_graph(),
