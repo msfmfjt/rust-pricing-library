@@ -3,7 +3,7 @@ use pricing::risk::VegaKtTerminalDiagnostic;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-#[pyclass(frozen, name = "VegaKtTerminalDiagnostic", skip_from_py_object)]
+#[pyclass(frozen, name = "VegaKtTerminalDiagnostic")]
 #[derive(Clone, Debug)]
 pub struct PyVegaKtTerminalDiagnostic {
     pub(crate) inner: VegaKtTerminalDiagnostic,

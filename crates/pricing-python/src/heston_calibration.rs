@@ -34,7 +34,7 @@ fn parameter(py: Python<'_>, name: &str) -> PyResult<P> {
         _ => Err(invalid(py, "unknown Heston calibration parameter")),
     }
 }
-#[pyclass(frozen, name = "HestonCalibrationQuote", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonCalibrationQuote")]
 #[derive(Clone, Debug)]
 pub struct PyHestonCalibrationQuote {
     inner: HestonCalibrationQuote,
@@ -94,7 +94,7 @@ impl PyHestonCalibrationQuote {
         self.inner.is_call
     }
 }
-#[pyclass(frozen, name = "HestonCalibrationVariable", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonCalibrationVariable")]
 #[derive(Clone, Debug)]
 pub struct PyHestonCalibrationVariable {
     pub(super) inner: HestonCalibrationVariable,
@@ -129,7 +129,7 @@ impl PyHestonCalibrationVariable {
         self.inner.scale
     }
 }
-#[pyclass(frozen, name = "HestonCalibrationEvaluation", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonCalibrationEvaluation")]
 #[derive(Clone, Debug)]
 pub struct PyHestonCalibrationEvaluation {
     inner: HestonCalibrationEvaluation,
@@ -162,7 +162,7 @@ impl PyHestonCalibrationEvaluation {
         self.inner.tail_indicators.clone()
     }
 }
-#[pyclass(frozen, name = "HestonCalibrationResult", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonCalibrationResult")]
 #[derive(Clone, Debug)]
 pub struct PyHestonCalibrationResult {
     inner: HestonCalibrationResult,
@@ -239,7 +239,7 @@ impl PyHestonCalibrationResult {
         self.inner.optimizer.accepted_objectives.clone()
     }
 }
-#[pyclass(frozen, name = "HestonCalibrationProblem", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonCalibrationProblem")]
 #[derive(Clone, Debug)]
 pub struct PyHestonCalibrationProblem {
     inner: HestonCalibrationProblem,

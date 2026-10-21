@@ -43,7 +43,7 @@ fn termination(py: Python<'_>, s: &str) -> PyResult<MemoryTermination> {
     }
 }
 
-#[pyclass(frozen, name = "CorrelationSchedule", skip_from_py_object)]
+#[pyclass(frozen, name = "CorrelationSchedule")]
 #[derive(Clone, Debug)]
 pub struct PyCorrelationSchedule {
     pub(crate) inner: CorrelationTermStructure,
@@ -167,7 +167,7 @@ impl PyCorrelationSchedule {
             .collect()
     }
 }
-#[pyclass(frozen, name = "AutocallObservation", skip_from_py_object)]
+#[pyclass(frozen, name = "AutocallObservation")]
 #[derive(Clone, Debug)]
 pub struct PyAutocallObservation {
     inner: AutocallObservation,
@@ -198,7 +198,7 @@ impl PyAutocallObservation {
         })
     }
 }
-#[pyclass(frozen, name = "MultiAssetProduct", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetProduct")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetProduct {
     inner: MultiAssetProduct,
@@ -339,7 +339,7 @@ impl PyMultiAssetProduct {
         self.inner.underlyings().iter().map(|u| u.get()).collect()
     }
 }
-#[pyclass(frozen, name = "MultiAssetPlan", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetPlan")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetPlan {
     inner: MultiAssetPricingPlan,
@@ -547,7 +547,7 @@ impl PyMultiAssetPlan {
         self.inner.lsv_transition_covariances()
     }
 }
-#[pyclass(frozen, name = "MultiAssetRisk", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetRisk {
     inner: MultiAssetRisk,
@@ -608,7 +608,7 @@ impl PyMultiAssetRisk {
             .collect()
     }
 }
-#[pyclass(frozen, name = "MultiAssetPrice", skip_from_py_object)]
+#[pyclass(frozen, name = "MultiAssetPrice")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetPrice {
     inner: MultiAssetPrice,

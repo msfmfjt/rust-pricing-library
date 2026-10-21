@@ -26,7 +26,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check first-order reverse
         run: cargo test --locked --release -p pricing --test stochastic_dividend_risk -- --nocapture 2>&1 | tee stochastic-dividend-risk.log
       - name: Check Hull-White dividend risk
@@ -53,7 +53,7 @@ jobs:
         run: cargo test --locked --release -p pricing --lib lsv_path_refinement_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-path-refinement.log
       - name: Retain risk and refinement evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stochastic-dividend-risk-${{ matrix.os }}
           path: |
@@ -79,7 +79,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check fixed-grid Barrier smoothing widths
         run: cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-barrier-smoothing.log
       - name: Check exact-limit and multi-step hard Barrier references
@@ -94,7 +94,7 @@ jobs:
         run: cargo test --locked --release -p pricing --test rough_lsv_calibration_reference -- --nocapture 2>&1 | tee stochastic-dividend-independent-calibration.log
       - name: Retain Barrier smoothing evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-dividend-barrier-smoothing-${{ matrix.os }}
           path: |
@@ -115,8 +115,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install reference dependency
@@ -143,7 +143,7 @@ jobs:
         run: python tests/python/test_rough_lsv_calibration_reference.py 2>&1 | tee stochastic-dividend-independent-calibration-numpy.log
       - name: Retain independent reference evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-dividend-survival-reference-linux
           path: |
@@ -164,17 +164,17 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate
       - name: Check out S6 with corrected price reference
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ea759bf5d73b06e4c480665e59c7daa37e6667be
           path: baseline
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install heap profiler
@@ -186,7 +186,7 @@ jobs:
         run: python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results
       - name: Retain scaling evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: model-scaling-linux
           path: |
@@ -206,7 +206,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Check independent escrowed BS-HW reference
         run: cargo test --locked --release -p pricing --test extended_model_acceptance single_asset::gaussian_hull_white_independent_price_reference -- --ignored --exact --nocapture
 
@@ -217,17 +217,17 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate
       - name: Check out pre-extraction baseline
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: 738c020180b343a229ee20aa5acc236dbcd11d88
           path: baseline
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install heap profiler
@@ -239,7 +239,7 @@ jobs:
         run: python scripts/compare_model_boundaries.py ../baseline . ../model-boundary-results
       - name: Retain paired model evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: model-boundary-comparison-linux
           path: |
@@ -260,10 +260,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -307,6 +307,9 @@ jobs:
 
       - name: Check JSON schemas
         run: python scripts/check_schemas.py
+
+      - name: Check Bergomi diagnostic evidence parser
+        run: python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v
 
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
@@ -357,7 +360,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run extended model risk acceptance
         shell: bash
@@ -371,7 +374,7 @@ jobs:
 
       - name: Retain extended model risk evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extended-model-risk-${{ matrix.os }}
           path: extended-model-risk.log
@@ -390,7 +393,7 @@ jobs:
 
       - name: Retain extended model accuracy evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extended-model-accuracy-${{ matrix.os }}
           path: extended-model-accuracy.log
@@ -402,10 +405,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -431,10 +434,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -461,7 +464,7 @@ jobs:
           python -c "from pathlib import Path; p = Path('replay-review'); assert (p / 'local-volatility-replay.json').read_bytes() == (p / 'local-volatility-replay-repeat.json').read_bytes(), 'native replay differs between repeated captures'"
 
       - name: Retain native replay review evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: local-vol-native-review-${{ matrix.target }}
           path: replay-review/*
@@ -482,7 +485,7 @@ jobs:
         run: python scripts/run_benchmark_suite.py
 
       - name: Retain replay candidates for review
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: replay-candidate-${{ matrix.target }}
           path: benchmark-results/*-replay.json
@@ -504,7 +507,7 @@ jobs:
         run: python scripts/check_benchmark_reports.py benchmark-results
 
       - name: Retain private wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist/*.whl
@@ -512,7 +515,7 @@ jobs:
           retention-days: 14
 
       - name: Retain Rust source package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-pricing-source-${{ matrix.target }}
           path: dist/rust-pricing-source-${{ matrix.target }}.tar.gz
@@ -520,7 +523,7 @@ jobs:
           retention-days: 14
 
       - name: Retain benchmark baseline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-${{ matrix.target }}
           path: benchmark-results/*.json

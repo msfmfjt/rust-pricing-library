@@ -23,8 +23,8 @@ jobs:
   references:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install independent integration dependencies
@@ -44,7 +44,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check factor elimination and public estimates
         run: cargo test --locked -p pricing --test lifted_heston_factor_prices
       - name: Check minimal-feature factor elimination
@@ -59,7 +59,7 @@ jobs:
           } 2>&1 | tee lifted-heston-factor-prices.log
       - name: Retain factor-price evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lifted-heston-factor-prices-${{ matrix.os }}
           path: lifted-heston-factor-prices.log

@@ -9,7 +9,7 @@ use pricing::rough_volatility::{
     LeastSquaresTermination,
 };
 use pyo3::prelude::*;
-#[pyclass(frozen, name = "HestonIvCalibrationQuote", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvCalibrationQuote")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvCalibrationQuote {
     inner: HestonIvCalibrationQuote,
@@ -69,7 +69,7 @@ impl PyHestonIvCalibrationQuote {
         self.inner.is_call
     }
 }
-#[pyclass(frozen, name = "HestonIvCalibrationEvaluation", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvCalibrationEvaluation")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvCalibrationEvaluation {
     inner: HestonIvCalibrationEvaluation,
@@ -110,7 +110,7 @@ impl PyHestonIvCalibrationEvaluation {
         self.inner.price_tail_indicators.clone()
     }
 }
-#[pyclass(frozen, name = "HestonIvCalibrationResult", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvCalibrationResult")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvCalibrationResult {
     pub(super) inner: HestonIvCalibrationResult,
@@ -187,7 +187,7 @@ impl PyHestonIvCalibrationResult {
         self.inner.optimizer.accepted_objectives.clone()
     }
 }
-#[pyclass(frozen, name = "HestonIvCalibrationProblem", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvCalibrationProblem")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvCalibrationProblem {
     pub(super) inner: HestonIvCalibrationProblem,
@@ -329,7 +329,7 @@ impl PyHestonIvCalibrationProblem {
 }
 
 /// Immutable standard SSVI surface for generating OTM IV calibration targets.
-#[pyclass(frozen, name = "HestonCalibrationSsviSurface", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonCalibrationSsviSurface")]
 #[derive(Clone, Debug)]
 pub struct PyHestonCalibrationSsviSurface {
     inner: StandardSsvi,

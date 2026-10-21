@@ -376,5 +376,77 @@
     "mc_combined_budget": 0.1,
     "mc_se_cap": 0.015,
     "mc_rough_h01_steps": 1024
+  },
+  "rough_prices": [
+    {
+      "hurst": 0.1,
+      "maturity": 1.0,
+      "strike": 80.0,
+      "call": 21.206245543349766,
+      "reference_time_change": 1.9805401763051123e-07,
+      "reference_inversion_change": 3.552713678800501e-15
+    },
+    {
+      "hurst": 0.1,
+      "maturity": 1.0,
+      "strike": 100.0,
+      "call": 7.876369530751362,
+      "reference_time_change": -2.0723246212384083e-06,
+      "reference_inversion_change": 5.329070518200751e-15
+    },
+    {
+      "hurst": 0.1,
+      "maturity": 1.0,
+      "strike": 120.0,
+      "call": 1.5977518976993448,
+      "reference_time_change": -6.699395678211317e-06,
+      "reference_inversion_change": 5.995204332975845e-15
+    },
+    {
+      "hurst": 0.3,
+      "maturity": 1.0,
+      "strike": 80.0,
+      "call": 21.1656670743952,
+      "reference_time_change": 5.962586868690778e-08,
+      "reference_inversion_change": -3.552713678800501e-15
+    },
+    {
+      "hurst": 0.3,
+      "maturity": 1.0,
+      "strike": 100.0,
+      "call": 7.881147951561119,
+      "reference_time_change": -2.723025822604086e-07,
+      "reference_inversion_change": -1.7763568394002505e-15
+    },
+    {
+      "hurst": 0.3,
+      "maturity": 1.0,
+      "strike": 120.0,
+      "call": 1.631878854691514,
+      "reference_time_change": -1.1004937603420473e-06,
+      "reference_inversion_change": -2.4424906541753444e-15
+    }
+  ],
+  "rough_price_protocol": {
+    "price_abs_tolerance": 0.003,
+    "time_steps": 1024,
+    "integration_intervals": 1024,
+    "cutoff": 160.0,
+    "reference_time_steps": [
+      2048,
+      4096
+    ],
+    "reference_fourier_grids": [
+      [
+        1024,
+        160.0
+      ],
+      [
+        2560,
+        200.0
+      ]
+    ],
+    "reference_time_change_cap": 0.0001,
+    "reference_inversion_change_cap": 2e-07
   }
 }

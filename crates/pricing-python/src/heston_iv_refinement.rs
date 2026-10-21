@@ -20,7 +20,7 @@ pub(super) fn refinement_failure(
     }
 }
 
-#[pyclass(frozen, name = "HestonIvRefinementOptions", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvRefinementOptions")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvRefinementOptions {
     pub(super) inner: HestonIvRefinementOptions,
@@ -56,7 +56,7 @@ impl PyHestonIvRefinementOptions {
         self.inner.max_stages
     }
 }
-#[pyclass(frozen, name = "HestonIvGridValidation", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvGridValidation")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvGridValidation {
     pub(super) inner: HestonIvGridValidation,
@@ -128,7 +128,7 @@ impl PyHestonIvGridValidation {
         self.inner.plan_compilations
     }
 }
-#[pyclass(frozen, name = "HestonIvRefinementStage", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvRefinementStage")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvRefinementStage {
     inner: HestonIvRefinementStage,
@@ -154,7 +154,7 @@ impl PyHestonIvRefinementStage {
         }
     }
 }
-#[pyclass(frozen, name = "HestonIvRefinementResult", skip_from_py_object)]
+#[pyclass(frozen, name = "HestonIvRefinementResult")]
 #[derive(Clone, Debug)]
 pub struct PyHestonIvRefinementResult {
     pub(super) inner: HestonIvRefinementResult,

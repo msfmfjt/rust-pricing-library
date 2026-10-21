@@ -19,8 +19,8 @@ jobs:
   contracts:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s scripts -p 'test_rough_family_gamma_contract.py'
@@ -35,7 +35,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cargo test --locked -p pricing --test rough_family_gamma_bump
       - run: cargo test --locked --no-default-features -p pricing --test rough_family_gamma_bump
       - name: Execute finite-bump controls and independent Black limits
@@ -48,7 +48,7 @@ jobs:
           } 2>&1 | tee rough-family-gamma.log
       - name: Retain numerical evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rough-family-gamma-${{ matrix.os }}
           path: rough-family-gamma.log

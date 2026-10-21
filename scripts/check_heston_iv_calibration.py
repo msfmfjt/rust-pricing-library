@@ -45,7 +45,7 @@ def implied(price, f, k, d, t, call=True):
     return brentq(lambda sigma: black(f,k,d,t,sigma,call)-price,
                   1e-8, 8/math.sqrt(t), xtol=1e-14)
 
-PARENT_SHA256 = '8e47af65d9262c5a29f321199a0c2629b3e1a50a77c6bfc674a75dc5ba4db1ad'
+PARENT_SHA256 = '6294bab0b3216b77b96dfce64308a3f1a414d0b3afe5ef351efaa0c1983fa333'
 
 def references():
     if hashlib.sha256(PARENT.read_bytes()).hexdigest()!=PARENT_SHA256:
