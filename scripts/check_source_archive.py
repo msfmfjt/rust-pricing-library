@@ -14,6 +14,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/tests/pricing_task_reuse.rs",
+    "tests/python/test_pricing_task_reuse.py",
+    "design/adr/0034-compiled-task-reuse.md",
     "scripts/wheel_validation/__init__.py",
     "scripts/wheel_validation/archive.py",
     "scripts/wheel_validation/ast_helpers.py",

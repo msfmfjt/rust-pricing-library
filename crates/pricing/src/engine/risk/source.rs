@@ -1,4 +1,6 @@
 //! Compile/evaluate once at the facade boundary; native numerical loops are reused.
+use std::sync::Arc;
+
 use crate::hull_white::HullWhiteAadRisk;
 use crate::lsv::LsvLocalVarianceRisk;
 use crate::multi_asset::{
@@ -67,18 +69,19 @@ pub enum PricingTaskOutput {
     StochasticDividendLocalVarianceRisk(Box<StochasticDividendLocalVarianceRisk>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum TaskBackend {
     SingleAsset(CompiledPricingSpecification),
     MultiAsset(Box<MultiAssetPricingPlan>),
     Dividend(Box<StochasticDividendPricingPlan>),
     DividendHullWhite(Box<StochasticDividendHullWhitePricingPlan>),
 }
+
 #[derive(Clone, Debug)]
 pub struct CompiledPricingTask {
     task: PricingTask,
     fingerprint: Fingerprint,
-    backend: TaskBackend,
+    backend: Arc<TaskBackend>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct PricingTaskResult {
@@ -153,13 +156,7 @@ impl PricingTask {
             }
             PricingSource::StochasticDividend(s) => compile_dividend(s)?,
         };
-        let compiled = CompiledPricingTask {
-            task: self.clone(),
-            fingerprint: self.fingerprint()?,
-            backend,
-        };
-        compiled.validate_operation()?;
-        Ok(compiled)
+        CompiledPricingTask::from_backend(self.clone(), Arc::new(backend))
     }
 }
 
@@ -255,6 +252,33 @@ fn compile_dividend(s: &StochasticDividendSpecification) -> Result<TaskBackend, 
 }
 
 impl CompiledPricingTask {
+    fn from_backend(
+        task: PricingTask,
+        backend: Arc<TaskBackend>,
+    ) -> Result<Self, PricingTaskError> {
+        let compiled = Self {
+            fingerprint: task.fingerprint()?,
+            task,
+            backend,
+        };
+        compiled.validate_operation(compiled.operation())?;
+        Ok(compiled)
+    }
+    /// Create an immutable task for another supported operation on the same
+    /// native plan. No compilation or calibration is performed. Source and
+    /// realized native preflight both apply; missing reverse traces are errors.
+    pub fn with_operation(&self, operation: PricingOperation) -> Result<Self, PricingTaskError> {
+        let task = self
+            .task
+            .with_operation(operation)
+            .map_err(PricingTaskError::Validation)?;
+        Self::from_backend(task, Arc::clone(&self.backend))
+    }
+    /// Replayable source and selected operation, without compiled state.
+    #[must_use]
+    pub fn task(&self) -> &PricingTask {
+        &self.task
+    }
     #[must_use]
     pub fn operation(&self) -> PricingOperation {
         self.task.operation()
@@ -265,7 +289,7 @@ impl CompiledPricingTask {
     }
     #[must_use]
     pub fn plan_fingerprint(&self) -> String {
-        match &self.backend {
+        match self.backend.as_ref() {
             TaskBackend::SingleAsset(p) => p.plan_fingerprint().to_string(),
             TaskBackend::MultiAsset(p) => format!("blake3-256:{}", p.fingerprint()),
             TaskBackend::Dividend(p) => p.plan_fingerprint().to_string(),
@@ -274,24 +298,34 @@ impl CompiledPricingTask {
     }
     #[must_use]
     pub fn capability(&self) -> PricingCapability {
-        match self.validate_operation() {
+        self.capability_for(self.operation())
+    }
+    /// Query another operation against the source and realized native plan.
+    /// Does not compile, calibrate or execute pricing/risk paths.
+    #[must_use]
+    pub fn capability_for(&self, operation: PricingOperation) -> PricingCapability {
+        let source = self.task.source().capability(operation);
+        if source.status == CapabilityStatus::Unsupported {
+            return source;
+        }
+        match self.validate_operation(operation) {
             Ok(()) => PricingCapability::new(
-                self.task.operation(),
+                operation,
                 CapabilityStatus::Supported,
                 None,
                 "compiled source and native operation preflight passed; numerical evaluation can still fail",
             ),
             Err(e) => PricingCapability::new(
-                self.task.operation(),
+                operation,
                 CapabilityStatus::Unsupported,
                 Some(CapabilityReason::NativePreflightRequired),
                 e.to_string(),
             ),
         }
     }
-    fn validate_operation(&self) -> Result<(), PricingTaskError> {
+    fn validate_operation(&self, operation: PricingOperation) -> Result<(), PricingTaskError> {
         use PricingOperation as O;
-        match (&self.backend, self.task.operation()) {
+        match (self.backend.as_ref(), operation) {
             (_, O::Evaluate) => Ok(()),
             (TaskBackend::SingleAsset(p), operation) => {
                 p.validate_operation(operation).map_err(Into::into)
@@ -323,8 +357,8 @@ impl CompiledPricingTask {
     }
     pub fn evaluate(&self) -> Result<PricingTaskResult, PricingTaskError> {
         use PricingOperation as O;
-        self.validate_operation()?;
-        let output = match (&self.backend, self.task.operation()) {
+        self.validate_operation(self.operation())?;
+        let output = match (self.backend.as_ref(), self.operation()) {
             (TaskBackend::SingleAsset(p), operation) => p.evaluate_operation(operation)?,
             (TaskBackend::MultiAsset(p), O::Evaluate) => {
                 PricingTaskOutput::MultiAsset(Box::new(p.evaluate()?))
@@ -366,5 +400,35 @@ impl CompiledPricingTask {
             report,
             native_result: output,
         })
+    }
+}
+
+#[cfg(test)]
+mod reuse_tests {
+    use super::*;
+
+    #[test]
+    fn cloned_and_reselected_tasks_share_the_realized_plan() {
+        let task = parse_pricing_task_json(
+            include_bytes!("../../../../../fixtures/task-v1/multi_asset_joint.golden.json"),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        let risk = task.compile().unwrap();
+        let price = risk.with_operation(PricingOperation::Evaluate).unwrap();
+        let cloned = price.clone();
+        // Output equality alone cannot detect an accidental recalibration or
+        // deep clone. These must own the same realized calibration allocation.
+        assert!(Arc::ptr_eq(&risk.backend, &price.backend));
+        assert!(Arc::ptr_eq(&price.backend, &cloned.backend));
+        assert!(std::ptr::eq(task.source(), price.task().source()));
+        assert!(std::ptr::eq(price.task().source(), cloned.task().source()));
+        assert_ne!(risk.task_fingerprint(), price.task_fingerprint());
+        assert_eq!(risk.plan_fingerprint(), price.plan_fingerprint());
+        drop(risk);
+        drop(price);
+        drop(task);
+        assert_eq!(cloned.capability().status, CapabilityStatus::Supported);
+        assert!(cloned.evaluate().is_ok());
     }
 }

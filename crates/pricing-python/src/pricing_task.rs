@@ -110,12 +110,10 @@ impl PyPricingTask {
     }
     #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
     fn with_operation(&self, operation: &str, gamma_relative_bump: Option<f64>) -> PyResult<Self> {
-        PricingTask::new(
-            self.inner.source().clone(),
-            self::operation(operation, gamma_relative_bump)?,
-        )
-        .map(|inner| Self { inner })
-        .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
+        self.inner
+            .with_operation(self::operation(operation, gamma_relative_bump)?)
+            .map(|inner| Self { inner })
+            .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
     }
     #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
     fn capability(
@@ -163,6 +161,38 @@ pub struct PyCompiledPricingTask {
 }
 #[pymethods]
 impl PyCompiledPricingTask {
+    #[getter]
+    fn task(&self) -> PyPricingTask {
+        PyPricingTask {
+            inner: self.inner.task().clone(),
+        }
+    }
+    /// Select an operation using this plan's existing compilation and calibration.
+    #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
+    fn with_operation(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+        gamma_relative_bump: Option<f64>,
+    ) -> PyResult<Self> {
+        let selected = self::operation(operation, gamma_relative_bump)?;
+        py.detach(|| self.inner.with_operation(selected))
+            .map(|inner| Self { inner })
+            .map_err(|e| errors::exception(e, errors::Stage::Compile, Some(operation)))
+    }
+    /// Inspect source prerequisites and the realized plan's native preflight.
+    #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
+    fn capability_for(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+        gamma_relative_bump: Option<f64>,
+    ) -> PyResult<PyPricingCapability> {
+        let selected = self::operation(operation, gamma_relative_bump)?;
+        Ok(PyPricingCapability {
+            inner: py.detach(|| self.inner.capability_for(selected)),
+        })
+    }
     #[getter]
     fn task_fingerprint(&self) -> String {
         self.inner.task_fingerprint().to_string()

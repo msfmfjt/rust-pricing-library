@@ -187,6 +187,22 @@ class RuntimeContractTests(unittest.TestCase):
 
 
 class FrozenContractTests(unittest.TestCase):
+    def test_compiled_operation_selection_preserves_typed_boundaries(self):
+        source = (ROOT / 'rust_pricing.pyi').read_text()
+        start = source.index('class CompiledPricingTask:')
+        end = source.index('class PricingTaskResult:')
+        for before, after in [
+            ('def task(self) -> PricingTask', 'def task(self) -> object'),
+            ('def with_operation(self, operation:', 'def with_operation(self, selected:'),
+            ('*, gamma_relative_bump:', 'gamma_relative_bump:'),
+            ('-> CompiledPricingTask:', '-> PricingTask:'),
+            ('float | None = None', 'float | None = 0.01'),
+        ]:
+            changed = source[:start] + source[start:end].replace(before, after) + source[end:]
+            self.assertNotEqual(source, changed)
+            with self.subTest(after=after), self.assertRaises(RuntimeError):
+                verify_stub_static_shape(ast.parse(changed))
+
     def test_manifest_covers_every_declared_non_property_callable(self):
         stub = (ROOT / 'rust_pricing.pyi').read_bytes()
         expected = set()

@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0034: Reuse compiled pricing tasks across operations](adr/0034-compiled-task-reuse.md)
+
 - [ADR 0033: Modular wheel gates and installed API signatures](adr/0033-wheel-api-contracts.md)
 
 - [ADR 0032: Typed Python source construction](adr/0032-typed-python-source-construction.md)
