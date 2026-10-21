@@ -85,6 +85,20 @@ Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
 tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
 mismatches before installation.
 
+The default smoke command runs all package checks, examples and discovered
+Python tests. CI builds each platform wheel once, runs `--phase package`, and
+passes the same wheel artifact to three `--phase validation` jobs. Their
+`--group` values are `custom-basis`, `providers` and `remaining`; every group is
+required on Linux, macOS and Windows. New test modules automatically join
+`remaining`. Examples run with `remaining` (or `all`). Each module runs in a
+separate Python process with fault diagnostics enabled; tests within the module
+keep their shared class state. A failed test or process fails its job without
+retrying or skipping it. To reproduce one group with an existing wheel:
+
+```bash
+python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --group providers
+```
+
 Extended-model changes must preserve the independent price, seed-dispersion and
 refinement gates in the [extended-model accuracy panel](design/validation/extended-model-accuracy.md).
 The heavy panels run explicitly in release mode on all three Rust CI platforms;

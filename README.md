@@ -289,10 +289,17 @@ direction/scramble checksums, bump validation policy fields, and CRN bump
 validation estimates for requested Greeks.
 
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
-platforms as short-lived workflow artifacts. Each wheel is installed into a
-fresh virtual environment before the Python API smoke suite runs. CI also
-retains a source archive for the exact commit, including the locked Rust
-dependency metadata required to consume the Rust crates privately.
+platforms as short-lived workflow artifacts, plus a Linux wheel for CI
+validation. Each platform builds its wheel once and checks the package and
+runtime contract in a fresh virtual environment. Three validation jobs per
+platform reuse that wheel: the custom basis provider, the coupled/extension
+providers, and all remaining Python test modules plus examples. All three
+groups must pass. Each test module runs in its own Python process, preserving
+state within the module while releasing it before the next module. The default
+`python scripts/smoke_test_wheel.py` command still runs the full package,
+example and Python test checks locally. CI also retains a source archive for
+each MVP target at the exact commit, including the locked Rust dependency
+metadata required to consume the Rust crates privately.
 
 The [benchmark baseline protocol](docs/library/benchmarking.md) records native
 Rust and installed-wheel Python timings and the host/build metadata required to
