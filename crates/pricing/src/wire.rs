@@ -44,13 +44,20 @@ use crate::{
 const DOCUMENT_REQUEST: &str = "pricing_request";
 mod product_graph;
 mod specification;
+mod valuation_report;
 pub use product_graph::{
     current_product_graph_schema, fingerprint_product_graph, parse_product_graph_json,
     product_graph_to_json, product_graph_to_pretty_json,
 };
 pub use specification::{
-    current_specification_schema, fingerprint_specification, parse_specification_json,
-    specification_to_json, specification_to_pretty_json,
+    current_pricing_task_schema, current_specification_schema, fingerprint_pricing_task,
+    fingerprint_specification, parse_pricing_task_json, parse_specification_json,
+    pricing_task_to_json, pricing_task_to_pretty_json, specification_to_json,
+    specification_to_pretty_json,
+};
+pub use valuation_report::{
+    current_valuation_report_schema, parse_valuation_report_json, valuation_report_to_json,
+    valuation_report_to_pretty_json,
 };
 const DOCUMENT_RESULT: &str = "pricing_result";
 const MIGRATION_REQUEST_V1_TO_V2: &str = "pricing_request/v1-to-v2";
@@ -1354,73 +1361,9 @@ impl TryFrom<RequestV3> for PricingRequest {
                 .map_err(|error| domain_at("/product", error))?,
             ),
         };
-        let market = match value.market {
-            MarketV1::Equity {
-                currency_id,
-                underlying_id,
-                spot,
-                discount_curve,
-                dividend_curve,
-                discrete_dividends,
-            } => {
-                let discount = Arc::new(curve_from_wire(discount_curve, "/market/discount_curve")?);
-                let dividend = Arc::new(curve_from_wire(dividend_curve, "/market/dividend_curve")?);
-                let underlying = UnderlyingId::new(underlying_id);
-                let spot = PositiveF64::new(spot, "spot")
-                    .map_err(|error| domain_at("/market/spot", error))?;
-                let forward = if discrete_dividends.is_empty() {
-                    EquityForward::new(underlying, spot, discount, dividend)
-                } else {
-                    EquityForward::with_discrete_dividends(
-                        underlying,
-                        spot,
-                        discount,
-                        dividend,
-                        discrete_dividends
-                            .into_iter()
-                            .enumerate()
-                            .map(|(index, event)| {
-                                dividend_event_from_wire(
-                                    event,
-                                    format!("/market/discrete_dividends/{index}"),
-                                )
-                            })
-                            .collect::<Result<Vec<_>, _>>()?,
-                    )
-                    .map_err(|error| domain_at("/market/discrete_dividends", error))?
-                };
-                MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
-            }
-        };
+        let market = market_from_wire(value.market)?;
         let model = model_from_wire(value.model)?;
-        let engine = match value.engine {
-            EngineV1::PseudoMonteCarlo {
-                master_seed,
-                independent_sampling_units,
-                variance_reduction,
-            } => EngineConfig::PseudoMonteCarlo(
-                PseudoMcConfig::new(
-                    master_seed,
-                    independent_sampling_units,
-                    variance_reduction.into(),
-                )
-                .map_err(|error| domain_at("/engine", error))?,
-            ),
-            EngineV1::RandomizedQuasiMonteCarlo {
-                points_per_scramble,
-                scramble_count,
-                master_scramble_seed,
-                variance_reduction,
-            } => EngineConfig::RandomizedQuasiMonteCarlo(
-                RqmcConfig::new(
-                    points_per_scramble,
-                    scramble_count,
-                    master_scramble_seed,
-                    variance_reduction.into(),
-                )
-                .map_err(|error| domain_at("/engine", error))?,
-            ),
-        };
+        let engine = engine_from_wire(value.engine)?;
         let lsm = value.lsm.map(lsm_from_wire).transpose()?;
         let risk = risk_from_wire(value.risk)?;
         PricingRequest::new_with_lsm(valuation_date, product, market, model, engine, risk, lsm)
@@ -4445,4 +4388,76 @@ fn require_legacy_product(request: &PricingRequest) -> Result<(), WireError> {
         });
     }
     Ok(())
+}
+
+fn market_from_wire(value: MarketV1) -> Result<MarketContext, WireError> {
+    Ok(match value {
+        MarketV1::Equity {
+            currency_id,
+            underlying_id,
+            spot,
+            discount_curve,
+            dividend_curve,
+            discrete_dividends,
+        } => {
+            let discount = Arc::new(curve_from_wire(discount_curve, "/market/discount_curve")?);
+            let dividend = Arc::new(curve_from_wire(dividend_curve, "/market/dividend_curve")?);
+            let underlying = UnderlyingId::new(underlying_id);
+            let spot =
+                PositiveF64::new(spot, "spot").map_err(|error| domain_at("/market/spot", error))?;
+            let forward = if discrete_dividends.is_empty() {
+                EquityForward::new(underlying, spot, discount, dividend)
+            } else {
+                EquityForward::with_discrete_dividends(
+                    underlying,
+                    spot,
+                    discount,
+                    dividend,
+                    discrete_dividends
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, event)| {
+                            dividend_event_from_wire(
+                                event,
+                                format!("/market/discrete_dividends/{index}"),
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .map_err(|error| domain_at("/market/discrete_dividends", error))?
+            };
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
+        }
+    })
+}
+
+fn engine_from_wire(value: EngineV1) -> Result<EngineConfig, WireError> {
+    Ok(match value {
+        EngineV1::PseudoMonteCarlo {
+            master_seed,
+            independent_sampling_units,
+            variance_reduction,
+        } => EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                master_seed,
+                independent_sampling_units,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/engine", error))?,
+        ),
+        EngineV1::RandomizedQuasiMonteCarlo {
+            points_per_scramble,
+            scramble_count,
+            master_scramble_seed,
+            variance_reduction,
+        } => EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                points_per_scramble,
+                scramble_count,
+                master_scramble_seed,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/engine", error))?,
+        ),
+    })
 }

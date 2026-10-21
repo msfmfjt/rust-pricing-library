@@ -363,7 +363,7 @@ impl PyLsvPrice {
 #[pyclass(frozen, name = "LsvLocalVarianceRisk")]
 #[derive(Clone, Debug)]
 pub struct PyLsvLocalVarianceRisk {
-    inner: LsvLocalVarianceRisk,
+    pub(super) inner: LsvLocalVarianceRisk,
 }
 #[pymethods]
 impl PyLsvLocalVarianceRisk {

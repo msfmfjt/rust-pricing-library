@@ -50,6 +50,9 @@ impl RoughFamilyLsvPricingPlan {
     pub fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
         self.core.evaluate()
     }
+    pub(crate) fn validate_source_local_variance(&self) -> Result<(), MonteCarloError> {
+        self.core.validate_source_local_variance()
+    }
     pub fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
         self.core.evaluate_local_variance_risk()
     }

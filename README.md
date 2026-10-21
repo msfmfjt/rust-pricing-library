@@ -41,6 +41,7 @@ stable numerical-branch counts.
 | --- | --- |
 | Library usage, APIs, diagnostics and compatibility | [Library guide](docs/library/README.md) |
 | Complete model inputs, JSON replay and common compilation | [Pricing specifications](docs/library/pricing-specification.md) |
+| Capability queries, common risk reports and complete basket/dividend replay | [Pricing tasks](docs/library/pricing-tasks.md) |
 | Custom payoffs and cash-flow source replay | [Product graphs](docs/library/product-graphs.md) |
 | Supported financial products | [Product reference](docs/products/README.md) |
 | Models, calibration, simulation and risk conventions | [Model reference](docs/models/README.md) |
@@ -208,6 +209,7 @@ python3 scripts/check_early_exercise_reference_fixture.py
 python3 scripts/check_schemas.py
 python3 -m pip install "jsonschema>=4.18,<5"
 python3 scripts/check_specification_json_schema.py
+python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz

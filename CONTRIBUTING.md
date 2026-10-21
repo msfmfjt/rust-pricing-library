@@ -55,6 +55,7 @@ python3 scripts/check_schemas.py
 python3 -m pip install "jsonschema>=4.18,<5"
 python3 scripts/check_specification_json_schema.py
 python3 scripts/check_product_graph_json_schema.py
+python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz

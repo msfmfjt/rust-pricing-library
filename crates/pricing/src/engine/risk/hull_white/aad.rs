@@ -270,7 +270,7 @@ impl HullWhiteEquityPricingPlan {
     /// First-order reverse at fixed HW/Bergomi parameters, correlations, payout
     /// amounts, grid axes and paired target coordinates. LSV includes the finite
     /// particle recalibration and requires retain_reverse_trace=true at compile.
-    pub fn evaluate_aad(&self) -> Result<HullWhiteAadRisk, MonteCarloError> {
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "HW discontinuous payoff requires explicit smoothing",
@@ -286,6 +286,13 @@ impl HullWhiteEquityPricingPlan {
                     e => e.into(),
                 })?;
         }
+        Ok(())
+    }
+    /// First-order reverse at fixed HW/Bergomi parameters, correlations, payout
+    /// amounts, grid axes and paired target coordinates. LSV includes the finite
+    /// particle recalibration and requires retain_reverse_trace=true at compile.
+    pub fn evaluate_aad(&self) -> Result<HullWhiteAadRisk, MonteCarloError> {
+        self.validate_source_aad()?;
         let context = Context::new(self)?;
         let executor = DeterministicExecutor::new(self.policy)?;
         let width = context.width();

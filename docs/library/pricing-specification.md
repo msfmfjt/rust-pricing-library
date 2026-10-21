@@ -24,8 +24,9 @@ The selected backend's product, correlation, resource and numerical restrictions
 still apply. For example, rough SABR LSV requires beta one, and a correlation
 matrix must be positive semidefinite. These remain compiler checks. This API
 does not broaden any model's numerical acceptance or production support status.
-Existing specialized risk, stochastic-dividend, multi-asset and dual-bound APIs
-remain separate entry points.
+[Complete pricing tasks](pricing-tasks.md) add shared capability queries,
+supported native risk operations and full multi-asset/dividend source replay.
+Specialized risk and dual-bound APIs also remain directly available.
 
 The constructor rejects an unsupported composition, missing or unused step,
 inconsistent Hull–White LSV target, extension Greeks, extension LSM, and unused
@@ -99,7 +100,8 @@ The exact public signatures are in [rust_pricing.pyi](../../rust_pricing.pyi).
 `SpecificationOutput` retains the corresponding native values; its `Hybrid`
 variant also carries the existing pure-SV `HullWhitePrice`. LSV standard error
 is conditional on the realized calibration and excludes calibration noise.
-No universal result-wire format is introduced in this step.
+The separate [task report contract](pricing-tasks.md#risk-and-uncertainty-meaning)
+adds a common report-wire format alongside these native results.
 
 ## JSON identity and compatibility
 

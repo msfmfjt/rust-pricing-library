@@ -34,6 +34,10 @@ one Rust/Python entry point. The guide lists supported combinations and extensio
 rules; the [Python example](../../examples/python/pricing_specification.py)
 demonstrates replay.
 
+Use [complete pricing tasks](pricing-tasks.md) for capability/preflight queries,
+shared risk reports with explicit units and uncertainty, and complete
+multi-asset or stochastic-dividend source replay.
+
 Generate the Rust API reference from the repository root with:
 
 ```shell
