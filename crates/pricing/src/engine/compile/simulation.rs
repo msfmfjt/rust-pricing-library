@@ -114,6 +114,7 @@ impl SimulationPlan {
             _ => Vec::new(),
         };
         let payoff_graph = match (product, request.risk().payoff_smoothing()) {
+            (ProductSpec::Graph(graph), _) => compile_graph_cashflows(graph, request)?,
             (ProductSpec::Digital(digital), Some(PayoffSmoothing::CompactC2 { half_width })) => {
                 digital.smoothed_source_graph(CompactC2Smoothing::from_positive(half_width))?
             }
@@ -132,6 +133,49 @@ impl SimulationPlan {
             _ => product.source_graph(request.valuation_date())?,
         };
         let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
+        let mut cashflow_discount_adjoints = Vec::new();
+        if let ProductSpec::Graph(graph) = product
+            && graph.has_multiple_payment_dates()
+        {
+            let curve = market_forward.discount_curve();
+            let fraction =
+                |date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), date);
+            let slots = payoff
+                .source_to_slot()
+                .iter()
+                .copied()
+                .collect::<std::collections::BTreeMap<_, _>>();
+            for (&output, &payment) in graph
+                .source_graph()
+                .outputs()
+                .iter()
+                .zip(graph.payment_dates())
+            {
+                if payment == graph.last_payment_date() {
+                    continue;
+                }
+                let discounted_amount = curve.evaluate(fraction(payment))?.discount;
+                let mut weights = vec![0.0; curve.times().len()];
+                crate::models::hull_white_dividends::transpose_log_curve(
+                    curve,
+                    fraction(payment),
+                    discounted_amount,
+                    &mut weights,
+                )?;
+                crate::models::hull_white_dividends::transpose_log_curve(
+                    curve,
+                    fraction(graph.last_payment_date()),
+                    -discounted_amount,
+                    &mut weights,
+                )?;
+                cashflow_discount_adjoints.push(
+                    crate::engine::plan::simulation::CashflowDiscountAdjoint {
+                        value_slot: slots[&output] as usize,
+                        log_df_weights: weights.into_boxed_slice(),
+                    },
+                );
+            }
+        }
         let observations = payoff.terminal_observations();
         for (underlying, _) in &observations {
             if *underlying != product.underlying() {
@@ -489,6 +533,14 @@ impl SimulationPlan {
         } else {
             plan_fingerprint
         };
+        let plan_fingerprint = if cashflow_discount_adjoints.is_empty() {
+            plan_fingerprint
+        } else {
+            let mut hash = blake3::Hasher::new();
+            hash.update(plan_fingerprint.as_bytes());
+            hash.update(b"graph-cashflow-discount-pullback-v1");
+            Fingerprint::from_bytes(*hash.finalize().as_bytes())
+        };
         let mut compiled = Self {
             bass,
             valuation_date: request.valuation_date(),
@@ -501,6 +553,7 @@ impl SimulationPlan {
             volatility,
             total_variance,
             payoff,
+            cashflow_discount_adjoints: cashflow_discount_adjoints.into_boxed_slice(),
             observation_dates: observation_dates.into_boxed_slice(),
             observation_times: observation_times.into_boxed_slice(),
             observation_forwards: observation_forwards.into_boxed_slice(),
@@ -577,4 +630,41 @@ pub(in crate::engine) fn build_plan_fingerprint(
     hasher.update(&checkpoint_policy.version().to_be_bytes());
     hasher.update(&checkpoint_policy.resolved_interval().get().to_be_bytes());
     Fingerprint::from_bytes(*hasher.finalize().as_bytes())
+}
+
+/// Deterministic discounting is lowered once, before the numerical kernels.
+/// The existing executor applies the final payment discount to this aggregate.
+fn compile_graph_cashflows(
+    product: &crate::product::GraphProduct,
+    request: &PricingRequest,
+) -> Result<crate::product::SourceGraph, MonteCarloError> {
+    use crate::product::{SourceGraphBuilder, SourceOpcode};
+    let source = product.source_graph();
+    if source.outputs().len() == 1 {
+        return Ok(source.clone());
+    }
+    let curve = request.market().equity().forward().discount_curve();
+    let fraction = |date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), date);
+    let final_discount = curve
+        .evaluate(fraction(product.last_payment_date()))?
+        .discount;
+    let mut builder = SourceGraphBuilder::from_graph(source);
+    let mut sum = None;
+    for (&output, &payment) in source.outputs().iter().zip(product.payment_dates()) {
+        let value = if payment == product.last_payment_date() {
+            output
+        } else {
+            let ratio =
+                builder.literal(curve.evaluate(fraction(payment))?.discount / final_discount)?;
+            builder.push(SourceOpcode::Multiply {
+                left: output,
+                right: ratio,
+            })?
+        };
+        sum = Some(match sum {
+            None => value,
+            Some(left) => builder.push(SourceOpcode::Add { left, right: value })?,
+        });
+    }
+    Ok(builder.finish(vec![sum.expect("validated nonempty cash flows")]))
 }

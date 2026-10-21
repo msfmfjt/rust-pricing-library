@@ -52,6 +52,11 @@ pub(in crate::engine) struct HullWhiteReverseContext {
     payment_weights: Vec<f64>,
 }
 impl HullWhiteReverseContext {
+    pub fn discount_range(&self) -> std::ops::Range<usize> {
+        let start = 5 + self.cash_times.len();
+        start..start + self.discount_times.len()
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         path: &StochasticDividendHullWhitePathPlan,

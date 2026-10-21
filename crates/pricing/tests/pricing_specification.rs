@@ -524,7 +524,7 @@ fn unsupported_ignored_or_malformed_inputs_are_rejected() {
     );
     let good = wire(&s);
     for (pointer, value) in [
-        ("/schema_version", json!(2)),
+        ("/schema_version", json!(3)),
         ("/document_kind", json!("pricing_request")),
         ("/numerics/worker_threads", json!(0)),
         ("/numerics/maximum_step", json!(0)),
@@ -665,7 +665,8 @@ fn golden_sources_replay_and_bounded_reader_rejects_excessive_input() {
         limits = JsonLimits::DEFAULT;
         limits.max_nesting_depth = 2;
         assert!(parse_specification_json(text.as_bytes(), limits).is_err());
-        let expected: Value = serde_json::from_str(text).unwrap();
+        let mut expected: Value = serde_json::from_str(text).unwrap();
+        expected["schema_version"] = json!(2);
         assert_eq!(wire(&s), expected);
     }
 }

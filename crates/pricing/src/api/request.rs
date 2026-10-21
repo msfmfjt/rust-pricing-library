@@ -53,6 +53,31 @@ impl PricingRequest {
         risk: RiskRequest,
         lsm: Option<LsmConfig>,
     ) -> Result<Self, RequestValidationError> {
+        if let ProductSpec::Graph(graph) = &product {
+            if graph.underlyings().len() != 1 {
+                return Err(RequestValidationError::InvalidGraphProduct(
+                    "a single-asset request requires exactly one graph underlying; use MultiAssetPricingPlan for multiple assets",
+                ));
+            }
+            if graph
+                .payment_dates()
+                .iter()
+                .any(|date| *date < valuation_date)
+            {
+                return Err(RequestValidationError::InvalidGraphProduct(
+                    "graph contains a payment before valuation",
+                ));
+            }
+            if graph
+                .observations()
+                .iter()
+                .any(|(_, date)| *date < valuation_date)
+            {
+                return Err(RequestValidationError::InvalidGraphProduct(
+                    "past graph observations must be replaced by known literal fixings",
+                ));
+            }
+        }
         if product.currency() != market.currency() {
             return Err(RequestValidationError::CurrencyMismatch {
                 product: product.currency(),

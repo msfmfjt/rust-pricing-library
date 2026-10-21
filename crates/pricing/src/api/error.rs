@@ -16,6 +16,7 @@ use crate::WireError;
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RequestValidationError {
+    InvalidGraphProduct(&'static str),
     CurrencyMismatch {
         product: CurrencyId,
         market: CurrencyId,
@@ -72,6 +73,7 @@ pub enum RequestValidationError {
 impl fmt::Display for RequestValidationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidGraphProduct(message) => formatter.write_str(message),
             Self::CurrencyMismatch { product, market } => write!(
                 formatter,
                 "product currency {product} does not match market currency {market}"

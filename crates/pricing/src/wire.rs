@@ -42,7 +42,12 @@ use crate::{
 };
 
 const DOCUMENT_REQUEST: &str = "pricing_request";
+mod product_graph;
 mod specification;
+pub use product_graph::{
+    current_product_graph_schema, fingerprint_product_graph, parse_product_graph_json,
+    product_graph_to_json, product_graph_to_pretty_json,
+};
 pub use specification::{
     current_specification_schema, fingerprint_specification, parse_specification_json,
     specification_to_json, specification_to_pretty_json,
@@ -281,6 +286,9 @@ struct RequestV1 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum ProductV1 {
+    Graph {
+        graph: product_graph::GraphProductV1,
+    },
     EuropeanVanilla {
         underlying_id: u32,
         currency_id: u16,
@@ -707,6 +715,9 @@ impl From<&PricingRequest> for RequestV3 {
 impl From<&ProductSpec> for ProductV1 {
     fn from(product: &ProductSpec) -> Self {
         match product {
+            ProductSpec::Graph(product) => Self::Graph {
+                graph: product.into(),
+            },
             ProductSpec::EuropeanVanilla(spec) => Self::EuropeanVanilla {
                 underlying_id: spec.underlying().get(),
                 currency_id: spec.currency().get(),
@@ -1120,6 +1131,7 @@ impl TryFrom<RequestV3> for PricingRequest {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_REQUEST)?;
         let valuation_date = parse_date_at(&value.valuation_date, "/valuation_date")?;
         let product = match value.product {
+            ProductV1::Graph { graph } => ProductSpec::Graph(graph.into_domain("/product/graph")?),
             ProductV1::EuropeanVanilla {
                 underlying_id,
                 currency_id,
@@ -3953,9 +3965,11 @@ fn non_negative_finite_at(value: f64, pointer: impl Into<String>) -> Result<f64,
 }
 
 pub fn request_to_json(request: &PricingRequest) -> Result<String, WireError> {
+    require_legacy_product(request)?;
     serialize(&RequestV3::from(request), false)
 }
 pub fn request_to_pretty_json(request: &PricingRequest) -> Result<String, WireError> {
+    require_legacy_product(request)?;
     serialize(&RequestV3::from(request), true)
 }
 pub fn result_to_json(result: &PricingResult) -> Result<String, WireError> {
@@ -3985,6 +3999,12 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
     let text = validate_and_decode(input, limits)?;
     let version = validate_envelope(text, DOCUMENT_REQUEST)?;
+    if serde_json::from_str::<Value>(text).map_err(json)?["product"]["type"] == "graph" {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "graph products require pricing_specification v2",
+            schema_version: version,
+        });
+    }
     if version < 3
         && serde_json::from_str::<Value>(text).map_err(json)?["model"]["type"]
             == "bass_local_volatility"
@@ -4080,6 +4100,15 @@ pub fn parse_monte_carlo_result_json(
 }
 
 pub fn fingerprint_request(request: &PricingRequest) -> Result<Fingerprint, WireError> {
+    if matches!(request.product(), ProductSpec::Graph(_)) {
+        let mut value = serde_json::to_value(RequestV3::from(request)).map_err(json)?;
+        value["document_kind"] = Value::String("graph_pricing_input".into());
+        value["schema_version"] = Value::from(1);
+        let mut bytes = b"pricing/graph_request\0".to_vec();
+        bytes.extend_from_slice(&1_u32.to_be_bytes());
+        encode_value(&value, &mut bytes)?;
+        return Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()));
+    }
     let value = serde_json::to_value(RequestV3::from(request)).map_err(json)?;
     fingerprint_request_value(&value, SchemaVersion::CURRENT.get())
 }
@@ -4407,3 +4436,13 @@ pub const fn current_result_schema() -> &'static str {
 
 #[cfg(test)]
 mod tests;
+
+fn require_legacy_product(request: &PricingRequest) -> Result<(), WireError> {
+    if matches!(request.product(), ProductSpec::Graph(_)) {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "graph products require pricing_specification v2",
+            schema_version: SchemaVersion::CURRENT.get(),
+        });
+    }
+    Ok(())
+}

@@ -152,6 +152,7 @@ def prepare_wheel(wheel: Path) -> Path:
 def run_examples(python: Path) -> None:
     subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
     subprocess.run([str(python), "examples/python/pricing_specification.py"], check=True)
+    subprocess.run([str(python), "examples/python/product_graph.py"], check=True)
     subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
     subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
     subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
@@ -1291,6 +1292,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         raise RuntimeError(f"wheel type stub has duplicate top-level definitions: {duplicates}")
 
     expected_top_level_names = {
+        "GraphProduct", "SourceGraphBuilder", "product_graph_json_schema",
         "PricingSpecification", "CompiledPricingSpecification", "SpecificationResult",
         "specification_json_schema",
         "HestonLsvParameterRisk",
@@ -1709,6 +1711,26 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("HestonFourierHurstRisk", "tail_indicator"): "float",
         ("ValidationIssue", "phase"): "ValidationPhase",
     }
+    expected_return_names.update({('GraphProduct', 'currency_id'): 'int',
+ ('GraphProduct', 'fingerprint'): 'str',
+ ('GraphProduct', 'from_json'): 'GraphProduct',
+ ('GraphProduct', 'to_json'): 'str',
+ ('GraphProduct', 'to_pretty_json'): 'str',
+ ('MultiAssetProduct', 'from_graph'): 'MultiAssetProduct',
+ ('MultiAssetProduct', 'to_graph'): 'GraphProduct',
+ ('Product', 'from_graph'): 'Product',
+ ('SourceGraphBuilder', 'add'): 'int',
+ ('SourceGraphBuilder', 'barrier_hit_state'): 'int',
+ ('SourceGraphBuilder', 'divide'): 'int',
+ ('SourceGraphBuilder', 'finish'): 'GraphProduct',
+ ('SourceGraphBuilder', 'indicator'): 'int',
+ ('SourceGraphBuilder', 'literal'): 'int',
+ ('SourceGraphBuilder', 'maximum'): 'int',
+ ('SourceGraphBuilder', 'minimum'): 'int',
+ ('SourceGraphBuilder', 'multiply'): 'int',
+ ('SourceGraphBuilder', 'negate'): 'int',
+ ('SourceGraphBuilder', 'spot'): 'int',
+ ('SourceGraphBuilder', 'subtract'): 'int'})
     for (class_name, method_name), expected in sorted(expected_return_names.items()):
         actual = function_return_name(class_methods.get(class_name, {}).get(method_name))
         if actual != expected:
@@ -2883,6 +2905,121 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "SpecificationResult": {"value", "standard_error", "specification_fingerprint", "native_result"},
         }.items() for member in members
     })
+    expected_signature_shapes.update({('GraphProduct', 'currency_id'): {'keyword_only': [],
+                                   'keyword_only_defaults': {},
+                                   'positional': ['self'],
+                                   'positional_defaults': {},
+                                   'required_keyword_only': []},
+ ('GraphProduct', 'fingerprint'): {'keyword_only': [],
+                                   'keyword_only_defaults': {},
+                                   'positional': ['self'],
+                                   'positional_defaults': {},
+                                   'required_keyword_only': []},
+ ('GraphProduct', 'from_json'): {'keyword_only': [],
+                                 'keyword_only_defaults': {},
+                                 'positional': ['json'],
+                                 'positional_defaults': {},
+                                 'required_keyword_only': []},
+ ('GraphProduct', 'payment_dates'): {'keyword_only': [],
+                                     'keyword_only_defaults': {},
+                                     'positional': ['self'],
+                                     'positional_defaults': {},
+                                     'required_keyword_only': []},
+ ('GraphProduct', 'to_json'): {'keyword_only': [],
+                               'keyword_only_defaults': {},
+                               'positional': ['self'],
+                               'positional_defaults': {},
+                               'required_keyword_only': []},
+ ('GraphProduct', 'to_pretty_json'): {'keyword_only': [],
+                                      'keyword_only_defaults': {},
+                                      'positional': ['self'],
+                                      'positional_defaults': {},
+                                      'required_keyword_only': []},
+ ('GraphProduct', 'underlying_ids'): {'keyword_only': [],
+                                      'keyword_only_defaults': {},
+                                      'positional': ['self'],
+                                      'positional_defaults': {},
+                                      'required_keyword_only': []},
+ ('MultiAssetProduct', 'from_graph'): {'keyword_only': [],
+                                       'keyword_only_defaults': {},
+                                       'positional': ['graph'],
+                                       'positional_defaults': {},
+                                       'required_keyword_only': []},
+ ('MultiAssetProduct', 'to_graph'): {'keyword_only': [],
+                                     'keyword_only_defaults': {},
+                                     'positional': ['self'],
+                                     'positional_defaults': {},
+                                     'required_keyword_only': []},
+ ('Product', 'from_graph'): {'keyword_only': [],
+                             'keyword_only_defaults': {},
+                             'positional': ['graph'],
+                             'positional_defaults': {},
+                             'required_keyword_only': []},
+ ('SourceGraphBuilder', '__init__'): {'keyword_only': [],
+                                      'keyword_only_defaults': {},
+                                      'positional': ['self'],
+                                      'positional_defaults': {},
+                                      'required_keyword_only': []},
+ ('SourceGraphBuilder', 'add'): {'keyword_only': [],
+                                 'keyword_only_defaults': {},
+                                 'positional': ['self', 'left', 'right'],
+                                 'positional_defaults': {},
+                                 'required_keyword_only': []},
+ ('SourceGraphBuilder', 'barrier_hit_state'): {'keyword_only': [],
+                                               'keyword_only_defaults': {},
+                                               'positional': ['self', 'previous', 'hit_weight'],
+                                               'positional_defaults': {},
+                                               'required_keyword_only': []},
+ ('SourceGraphBuilder', 'divide'): {'keyword_only': [],
+                                    'keyword_only_defaults': {},
+                                    'positional': ['self', 'numerator', 'denominator'],
+                                    'positional_defaults': {},
+                                    'required_keyword_only': []},
+ ('SourceGraphBuilder', 'finish'): {'keyword_only': ['currency_id', 'underlying_ids'],
+                                    'keyword_only_defaults': {},
+                                    'positional': ['self', 'outputs', 'payment_dates'],
+                                    'positional_defaults': {},
+                                    'required_keyword_only': ['currency_id', 'underlying_ids']},
+ ('SourceGraphBuilder', 'indicator'): {'keyword_only': ['smoothing_half_width'],
+                                       'keyword_only_defaults': {'smoothing_half_width': None},
+                                       'positional': ['self', 'input'],
+                                       'positional_defaults': {},
+                                       'required_keyword_only': []},
+ ('SourceGraphBuilder', 'literal'): {'keyword_only': [],
+                                     'keyword_only_defaults': {},
+                                     'positional': ['self', 'value'],
+                                     'positional_defaults': {},
+                                     'required_keyword_only': []},
+ ('SourceGraphBuilder', 'maximum'): {'keyword_only': ['smoothing_half_width'],
+                                     'keyword_only_defaults': {'smoothing_half_width': None},
+                                     'positional': ['self', 'left', 'right'],
+                                     'positional_defaults': {},
+                                     'required_keyword_only': []},
+ ('SourceGraphBuilder', 'minimum'): {'keyword_only': ['smoothing_half_width'],
+                                     'keyword_only_defaults': {'smoothing_half_width': None},
+                                     'positional': ['self', 'left', 'right'],
+                                     'positional_defaults': {},
+                                     'required_keyword_only': []},
+ ('SourceGraphBuilder', 'multiply'): {'keyword_only': [],
+                                      'keyword_only_defaults': {},
+                                      'positional': ['self', 'left', 'right'],
+                                      'positional_defaults': {},
+                                      'required_keyword_only': []},
+ ('SourceGraphBuilder', 'negate'): {'keyword_only': [],
+                                    'keyword_only_defaults': {},
+                                    'positional': ['self', 'input'],
+                                    'positional_defaults': {},
+                                    'required_keyword_only': []},
+ ('SourceGraphBuilder', 'spot'): {'keyword_only': ['pre_dividend'],
+                                  'keyword_only_defaults': {'pre_dividend': False},
+                                  'positional': ['self', 'underlying_id', 'observation_date'],
+                                  'positional_defaults': {},
+                                  'required_keyword_only': []},
+ ('SourceGraphBuilder', 'subtract'): {'keyword_only': [],
+                                      'keyword_only_defaults': {},
+                                      'positional': ['self', 'left', 'right'],
+                                      'positional_defaults': {},
+                                      'required_keyword_only': []}})
     for (class_name, method_name), expected in sorted(expected_signature_shapes.items()):
         if method_name not in class_methods.get(class_name, {}):
             raise RuntimeError(f"wheel stub is missing required member {class_name}.{method_name}")
@@ -2894,6 +3031,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_top_level_signature_shapes = {
+        "product_graph_json_schema": {"positional": [], "positional_defaults": {}, "keyword_only": [], "required_keyword_only": [], "keyword_only_defaults": {}},
         "specification_json_schema": {
             "positional": [], "positional_defaults": {}, "keyword_only": [],
             "required_keyword_only": [], "keyword_only_defaults": {},
@@ -2929,6 +3067,8 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_class_members = {
+        "GraphProduct": {'from_json', 'underlying_ids', 'to_pretty_json', 'fingerprint', 'payment_dates', 'to_json', 'currency_id'},
+        "SourceGraphBuilder": {'spot', 'barrier_hit_state', 'divide', 'multiply', 'add', 'literal', 'negate', 'minimum', '__init__', 'subtract', 'finish', 'maximum', 'indicator'},
         "PricingSpecification": {"from_json", "from_request", "to_json", "to_pretty_json", "fingerprint", "compile"},
         "CompiledPricingSpecification": {"specification_fingerprint", "plan_fingerprint", "evaluate"},
         "SpecificationResult": {"value", "standard_error", "specification_fingerprint", "native_result"},
@@ -3030,7 +3170,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         'MultiAssetLsvRisk': {'time_nodes', 'log_moneyness_nodes', 'node_adjoints', 'standard_errors', 'method'},
         'CorrelationSchedule': {'matrices', 'maximum_adjustments', 'lower_factors', 'ranks', 'zero_pivots', 'effective_dates', 'pivots', '__init__', 'underlying_ids', 'raw_matrices'},
         'AutocallObservation': {'__init__'},
-        'MultiAssetProduct': {'underlying_ids', 'basket', 'worst_of', 'autocallable'},
+        'MultiAssetProduct': {'from_graph', 'to_graph', 'underlying_ids', 'basket', 'worst_of', 'autocallable'},
         'MultiAssetPlan': {'local_correlation_calibration', 'has_hull_white', 'hull_white_calibrations', 'random_factor_count', 'lsv_calibrations', 'lsv_driver_correlations', 'lsv_transition_covariances', 'evaluate_aad', 'correlation_entry_indices', 'compile', 'time_nodes', 'evaluate', 'fingerprint', 'underlying_ids'},
         'MultiAssetRisk': {'hull_white_lsv', 'lsv_local_variance', 'underlying_id', 'delta_per_one_percent_spot', 'bs_vega_per_vol_point', 'local_variance_time_nodes', 'bs_vega', 'local_variance', 'delta', 'local_variance_log_moneyness_nodes'},
         'MultiAssetPrice': {'local_correlation_risk', 'hull_white_curve_risk', 'lsv_leverage_boundary_counts', 'local_variance_boundary_counts', 'price', 'scramble_checksum', 'value', 'standard_error', 'evaluated_paths', 'reduction_block_size', 'risks', 'gamma_relative_bump', 'worker_threads', 'fingerprint', 'gamma', 'direction_checksum', 'underlying_ids'},
@@ -3431,6 +3571,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             "message",
         },
         "Product": {
+            "from_graph",
             "__repr__",
             "arithmetic_asian",
             "american_vanilla",
@@ -3592,6 +3733,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
             )
 
     expected_static_methods = {
+        ("GraphProduct", "from_json"), ("Product", "from_graph"), ("MultiAssetProduct", "from_graph"),
         ("PricingSpecification", "from_json"),
         ("PricingSpecification", "from_request"),
         ('RoughFamilyLsvPlan', 'compile'),
@@ -3676,6 +3818,7 @@ def verify_stub_static_shape(tree: ast.Module) -> None:
         ("Product", "fixed_lookback"),
     }
     expected_properties = {
+        ("GraphProduct", "fingerprint"), ("GraphProduct", "currency_id"), ("GraphProduct", "underlying_ids"), ("GraphProduct", "payment_dates"),
         ("PricingSpecification", "fingerprint"),
         ("CompiledPricingSpecification", "specification_fingerprint"),
         ("CompiledPricingSpecification", "plan_fingerprint"),
