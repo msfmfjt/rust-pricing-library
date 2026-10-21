@@ -284,11 +284,24 @@ impl StochasticDividendPricingPlan {
                 .zip(&states)
                 .map(|(node, state)| node.spots(*state))
                 .collect::<Result<Vec<_>, _>>()?;
-            let (payoff, seeds) = self
-                .base
-                .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
+            let mut discount_adjoints = if self.base.cashflow_discount_adjoints.is_empty() {
+                Vec::new()
+            } else {
+                vec![0.0; context.discount_times.len()]
+            };
+            let (payoff, seeds) = self.base.hybrid_spot_payoff_market_adjoints(
+                self.path.times(),
+                &spots,
+                &mut discount_adjoints,
+            )?;
             out[0] += payoff;
-            let reverse = context.pullback(&self.path, &shocks, &states, &seeds, payoff)?;
+            let mut reverse = context.pullback(&self.path, &shocks, &states, &seeds, payoff)?;
+            for (bar, correction) in reverse[context.discount_range()]
+                .iter_mut()
+                .zip(discount_adjoints)
+            {
+                *bar += correction;
+            }
             for (target, source) in out[1..].iter_mut().zip(reverse) {
                 *target += source;
             }

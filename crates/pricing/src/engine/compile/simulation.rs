@@ -133,6 +133,49 @@ impl SimulationPlan {
             _ => product.source_graph(request.valuation_date())?,
         };
         let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
+        let mut cashflow_discount_adjoints = Vec::new();
+        if let ProductSpec::Graph(graph) = product
+            && graph.has_multiple_payment_dates()
+        {
+            let curve = market_forward.discount_curve();
+            let fraction =
+                |date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), date);
+            let slots = payoff
+                .source_to_slot()
+                .iter()
+                .copied()
+                .collect::<std::collections::BTreeMap<_, _>>();
+            for (&output, &payment) in graph
+                .source_graph()
+                .outputs()
+                .iter()
+                .zip(graph.payment_dates())
+            {
+                if payment == graph.last_payment_date() {
+                    continue;
+                }
+                let discounted_amount = curve.evaluate(fraction(payment))?.discount;
+                let mut weights = vec![0.0; curve.times().len()];
+                crate::models::hull_white_dividends::transpose_log_curve(
+                    curve,
+                    fraction(payment),
+                    discounted_amount,
+                    &mut weights,
+                )?;
+                crate::models::hull_white_dividends::transpose_log_curve(
+                    curve,
+                    fraction(graph.last_payment_date()),
+                    -discounted_amount,
+                    &mut weights,
+                )?;
+                cashflow_discount_adjoints.push(
+                    crate::engine::plan::simulation::CashflowDiscountAdjoint {
+                        value_slot: slots[&output] as usize,
+                        log_df_weights: weights.into_boxed_slice(),
+                    },
+                );
+            }
+        }
         let observations = payoff.terminal_observations();
         for (underlying, _) in &observations {
             if *underlying != product.underlying() {
@@ -490,6 +533,14 @@ impl SimulationPlan {
         } else {
             plan_fingerprint
         };
+        let plan_fingerprint = if cashflow_discount_adjoints.is_empty() {
+            plan_fingerprint
+        } else {
+            let mut hash = blake3::Hasher::new();
+            hash.update(plan_fingerprint.as_bytes());
+            hash.update(b"graph-cashflow-discount-pullback-v1");
+            Fingerprint::from_bytes(*hash.finalize().as_bytes())
+        };
         let mut compiled = Self {
             bass,
             valuation_date: request.valuation_date(),
@@ -502,6 +553,7 @@ impl SimulationPlan {
             volatility,
             total_variance,
             payoff,
+            cashflow_discount_adjoints: cashflow_discount_adjoints.into_boxed_slice(),
             observation_dates: observation_dates.into_boxed_slice(),
             observation_times: observation_times.into_boxed_slice(),
             observation_forwards: observation_forwards.into_boxed_slice(),

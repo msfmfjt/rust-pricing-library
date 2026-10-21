@@ -1,6 +1,8 @@
 """Public arbitrary-product construction, ownership, replay and pricing parity."""
 import copy
+from datetime import date
 import json
+import math
 from pathlib import Path
 import unittest
 import rust_pricing as rp
@@ -154,6 +156,74 @@ class ProductGraphTests(unittest.TestCase):
             self.assertEqual(issue.pointer, '/product/observation_date')
         self.assertEqual(json.loads(rp.product_graph_json_schema()),
                          json.loads((ROOT / 'schemas/product-graph-v1/product_graph.schema.json').read_text()))
+
+
+    def test_multiple_payment_curve_aad_includes_discount_ratio_pullback(self):
+        from test_stochastic_dividends import compile_plan as dividends
+        from test_stochastic_dividend_hull_white import compile_plan as dividend_hw
+        for family in ('sv', 'hw', 'lsv', 'dividends', 'dividend_hw'):
+            for qmc in (False, True):
+                # LSV calibration requires a live observation and a grid ending
+                # at that observation; the other engines also cover constants.
+                for observed in ((True,) if family == 'lsv' else (False, True)):
+                    with self.subTest(family=family, qmc=qmc, observed=observed):
+                        b = rp.SourceGraphBuilder()
+                        first = b.literal(-3.)
+                        amount = (b.multiply(b.spot(1, '2027-03-05'), b.literal(.1))
+                                  if observed else b.literal(10.))
+                        # Repeated output, payment at valuation, interpolation and
+                        # extrapolation beyond the last discount-curve pillar.
+                        graph = b.finish([first, amount, amount],
+                            ['2026-09-04', '2027-03-05', '2028-03-04'],
+                            currency_id=2, underlying_ids=[1])
+                        def plan(pillar=None, shift=0., workers=1):
+                            dfs = [1., .985, .95]
+                            if pillar is not None:
+                                dfs[pillar] *= math.exp(shift)
+                            target = (rp.HullWhiteLsvTarget.flat(.2,
+                                [0., .2, .25, (date(2027, 3, 5) - date(2026, 9, 4)).days / 365.],
+                                [-1., 0., 1.]) if family == 'lsv' else None)
+                            request = rp.PricingRequest('2026-09-04', rp.Product.from_graph(graph),
+                                rp.Market.equity(2, 1, 100.,
+                                    rp.DiscountCurve(10, [0., .25, 1.], dfs),
+                                    rp.DiscountCurve(11, [0., 1.], [1., .98]),
+                                    discrete_dividends=[rp.DividendEvent.fixed_cash(1, .2, 4.),
+                                                       rp.DividendEvent.fixed_cash(2, 1.4, 3.)]),
+                                target.model if family == 'lsv' else rp.Model.black_scholes(.2),
+                                (rp.Engine.randomized_quasi_monte_carlo(16, 612, scramble_count=4,
+                                     antithetic=True, brownian_bridge=True) if qmc else
+                                 rp.Engine.pseudo_monte_carlo(612, 32, antithetic=True)), rp.RiskRequest())
+                            common = dict(worker_threads=workers, reduction_block_size=16)
+                            rates = rp.HullWhiteModel(.2, [0.], [0.])
+                            if family == 'sv':
+                                return rp.StochasticVolatilityPlan.compile_bergomi(request,
+                                    mean_reversion=.7, vol_of_vol=.3, correlation=-.4,
+                                    maximum_step=.25, **common)
+                            if family == 'hw':
+                                return rp.HullWhiteEquityPlan.compile_bs(request, rates,
+                                    equity_rate_correlation=0., maximum_step=.25, **common)
+                            if family == 'lsv':
+                                return rp.HullWhiteEquityPlan.compile_lsv(request, target, rates,
+                                    vol_mean_reversion=.7, vol_of_vol=.2, equity_vol_correlation=-.4,
+                                    equity_rate_correlation=0., vol_rate_correlation=0., particle_count=64,
+                                    calibration_seed=91, log_bandwidth=.5, minimum_effective_samples=2.,
+                                    retain_reverse_trace=True, **common)
+                            if family == 'dividends':
+                                return dividends(request, maximum_step=.25, **common)
+                            return dividend_hw(request, rate_volatilities=[0.], maximum_step=.25, **common)
+                        compiled = plan()
+                        risk = compiled.evaluate_aad()
+                        self.assertEqual(risk.price.value, compiled.evaluate().value)
+                        for pillar in (1, 2):
+                            index = risk.parameter_labels.index(f'discount_log_df[{pillar}]')
+                            for h in (1e-5, 1e-6):
+                                fd = (plan(pillar, h).evaluate().value - plan(pillar, -h).evaluate().value)/(2*h)
+                                self.assertAlmostEqual(risk.derivatives[index], fd, delta=2e-6)
+                        replay = plan(workers=3).evaluate_aad()
+                        self.assertEqual(risk.derivatives, replay.derivatives)
+                        self.assertEqual(risk.standard_errors, replay.standard_errors)
+                        if not observed and risk.standard_errors is not None:
+                            self.assertTrue(all(abs(e) < 1e-10 for e in risk.standard_errors))
 
 if __name__ == '__main__':
     unittest.main()

@@ -31,6 +31,12 @@ zero; the existing multi-asset facade retains its per-cash-flow implementation.
 Explicit smooth opcodes control smoothing. A live hard indicator rejects
 pathwise Greeks. Do not infer early-exercise or continuous-barrier semantics.
 
+Discount ratios are market-dependent compiled coefficients. Retain their
+log-discount-factor pullbacks with the original cash-flow tape slots and reuse
+the payoff forward values during curve AAD. Add each contribution before
+sample/scramble reduction so curve-risk statistics include cash-flow covariance.
+Keep these coefficients and pullbacks out of the source contract.
+
 ## Wire and reproducibility impact
 
 - Introduce strict `product_graph` v1 source JSON and fingerprint domain.
@@ -42,6 +48,9 @@ pathwise Greeks. Do not infer early-exercise or continuous-barrier semantics.
 - Preserve legacy request/result v1–v3 schemas, fixtures and built-in request/
   native-plan identities. Reject graphs at legacy request JSON boundaries.
   Use a separate internal graph-request identity for native plan/result replay.
+- Tag multiple-payment-date single-asset compiled plans with
+  `graph-cashflow-discount-pullback-v1` to identify the curve-AAD behavior without
+  changing graph source or single-payment-date plan identities.
 - Save no compiled state. Multi-asset product replay does not claim to save the
   separate markets, correlations or model/calibration settings.
 - Add no runtime dependency and retain the three-crate dependency direction.
@@ -51,7 +60,9 @@ pathwise Greeks. Do not infer early-exercise or continuous-barrier semantics.
 ## Verification and extension boundary
 
 Compare graph vanilla price, Delta and Vega with native builders under MC/RQMC;
-test multi-payment discounting and sampling statistics, stochastic-rate guards,
+test multi-payment discounting and sampling statistics, analytic fixed-cash-flow
+curve AAD and finite-difference curve AAD across SV, LSV, Hull–White and stochastic
+dividend adapters under MC/RQMC, stochastic-rate guards,
 multi-asset conversion, immutable Python construction, strict rejection and
 source/result replay. Keep schemas, fixtures, documentation, wheel/stub contracts
 and source archives in existing CI gates. New primitives or observation laws

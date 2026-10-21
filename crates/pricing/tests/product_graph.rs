@@ -514,3 +514,62 @@ fn constant_cashflows_and_shared_output_covariance_use_each_payment_discount() {
             < 1e-12
     );
 }
+
+#[test]
+fn fixed_cashflow_curve_aad_matches_discounted_cashflow_derivatives() {
+    use pricing::core::DayCountConvention;
+    use pricing::market::DiscountCurve;
+    let r = base(false);
+    let dates = [r.valuation_date(), date("2027-03-05"), date("2028-03-04")];
+    let amounts = [3.0, 10.0, 20.0];
+    let mut b = SourceGraphBuilder::new();
+    let outputs = amounts.iter().map(|&v| b.literal(v).unwrap()).collect();
+    let graph = GraphProduct::new(
+        r.product().currency(),
+        vec![r.product().underlying()],
+        b.finish(outputs),
+        dates.to_vec(),
+    )
+    .unwrap();
+    let mut expected_value = 0.0;
+    let mut expected_curve = 0.0;
+    for (d, amount) in dates.into_iter().zip(amounts) {
+        let t = DayCountConvention::Act365F.year_fraction(r.valuation_date(), d);
+        let pv = amount
+            * r.market()
+                .equity()
+                .forward()
+                .discount_curve()
+                .discount(t)
+                .unwrap();
+        expected_value += pv;
+        // The fixture has fixed log P(0)=0 and its only movable pillar at t=1.
+        // This also checks flat-forward extrapolation beyond that pillar.
+        expected_curve += t * pv;
+    }
+    for engine in [
+        r.engine(),
+        EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(8, 4, 91, VarianceReduction::new(true, true)).unwrap(),
+        ),
+    ] {
+        let request = replace(&r, ProductSpec::Graph(graph.clone()), engine);
+        let plan =
+            pricing::stochastic_volatility::StochasticVolatilityPricingPlan::compile_bergomi(
+                &request,
+                Bergomi1Factor::new(1.0, 0.3, -0.4).unwrap(),
+                0.25,
+                policy(),
+            )
+            .unwrap();
+        let risk = plan.evaluate_aad().unwrap();
+        assert!((risk.price.value - expected_value).abs() < 1e-12);
+        assert!((risk.discount_log_df_adjoints()[1] - expected_curve).abs() < 1e-12);
+        assert_eq!(risk.discount_log_df_adjoints()[0], 0.0);
+        assert_eq!(risk.delta(), 0.0);
+        assert_eq!(risk.vega(), Some(0.0));
+        if let Some(errors) = risk.standard_errors {
+            assert!(errors.iter().all(|e| e.abs() < 1e-12));
+        }
+    }
+}

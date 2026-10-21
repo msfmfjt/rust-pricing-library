@@ -270,9 +270,16 @@ impl StochasticDividendHullWhitePricingPlan {
                     .collect::<Result<Vec<_>, _>>()?,
                 _ => Vec::new(),
             };
-            let (payoff, payoff_seeds) = self
-                .base
-                .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
+            let mut discount_adjoints = if self.base.cashflow_discount_adjoints.is_empty() {
+                Vec::new()
+            } else {
+                vec![0.0; context.discount_times.len()]
+            };
+            let (payoff, payoff_seeds) = self.base.hybrid_spot_payoff_market_adjoints(
+                self.path.times(),
+                &spots,
+                &mut discount_adjoints,
+            )?;
             let terminal = states.last().ok_or(invalid("terminal_state"))?;
             let relative = self.payment_constant
                 * (-terminal.integrated_rate_factor()
@@ -285,13 +292,19 @@ impl StochasticDividendHullWhitePricingPlan {
                 .iter()
                 .map(|(post, pre)| (relative * post, relative * pre))
                 .collect::<Vec<_>>();
-            let reverse = context.pullback(
+            let mut reverse = context.pullback(
                 &self.path,
                 &shocks,
                 &states,
                 &discounted_seeds,
                 discounted_payoff,
             )?;
+            for (bar, correction) in reverse[context.discount_range()]
+                .iter_mut()
+                .zip(discount_adjoints)
+            {
+                *bar += relative * correction;
+            }
             for (target, source) in out[1..].iter_mut().zip(reverse) {
                 *target += source;
             }

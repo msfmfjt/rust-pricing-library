@@ -33,6 +33,11 @@ pub(in crate::engine) struct ReverseContext {
     correlation_start: Option<usize>,
 }
 impl ReverseContext {
+    pub fn discount_range(&self) -> std::ops::Range<usize> {
+        let start = 5 + self.cash_times.len();
+        start..start + self.discount_times.len()
+    }
+
     pub fn new(
         path: &StochasticDividendPathPlan,
         market: &EquityForward,

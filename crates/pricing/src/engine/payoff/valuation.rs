@@ -34,6 +34,17 @@ impl SimulationPlan {
         times: &[f64],
         spots: &[(f64, Option<f64>)],
     ) -> Result<(f64, Vec<(f64, f64)>), MonteCarloError> {
+        self.hybrid_spot_payoff_market_adjoints(times, spots, &mut [])
+    }
+
+    /// Also reverse market-dependent cash-flow discount ratios into log-DF
+    /// pillars. Reuse the same forward values and payoff reverse on each path.
+    pub(in crate::engine) fn hybrid_spot_payoff_market_adjoints(
+        &self,
+        times: &[f64],
+        spots: &[(f64, Option<f64>)],
+        discount_adjoints: &mut [f64],
+    ) -> Result<(f64, Vec<(f64, f64)>), MonteCarloError> {
         if times.len() != spots.len() {
             return Err(crate::models::HullWhiteError::InvalidInput {
                 field: "hybrid_spot_count",
@@ -68,10 +79,18 @@ impl SimulationPlan {
                     }
                 })
         };
-        let payoff = self.payoff.evaluate_single_with_observation_adjoints(
-            |u, d| at(u, d, false),
-            |u, d| at(u, d, true),
-        )?;
+        let (payoff, values) = self
+            .payoff
+            .evaluate_output_with_observation_adjoints_and_values(
+                0,
+                |u, d| at(u, d, false),
+                |u, d| at(u, d, true),
+            )?;
+        for cashflow in &self.cashflow_discount_adjoints {
+            for (bar, weight) in discount_adjoints.iter_mut().zip(&cashflow.log_df_weights) {
+                *bar += values[cashflow.value_slot] * weight;
+            }
+        }
         let mut seeds = vec![(0.0, 0.0); times.len()];
         for (pre, underlying, date, value) in payoff
             .terminal_adjoints

@@ -70,6 +70,14 @@ executor applies the final payment discount. Means, variance and pathwise risks
 therefore use the aggregate cash flow on each sampled path, retaining covariance
 between cash flows. No new numerical kernel or dispatch in path loops is added.
 
+Curve AAD also differentiates the compile-time discount ratios. The compiler
+retains each cash-flow amount's tape slot and the ratio's log-discount-factor
+weights; evaluation reuses the existing payoff forward values to add this
+market contribution before sampling statistics are reduced. This includes
+shared and constant-folded outputs, payments at valuation, interpolation and
+extrapolation, and preserves covariance in curve-risk standard errors. These
+weights are compiled state and are never saved in the product source.
+
 A live hard indicator rejects pathwise risk requests. Use an explicit smoothed
 indicator when that approximation is intended; hard min/max retain their
 existing almost-everywhere derivative convention. Existing model-specific risk
@@ -109,6 +117,11 @@ Graph source fingerprints ignore JSON formatting and node declaration order
 (nodes serialize by ID), but retain node IDs, dead nodes, underlying order,
 output order, payment dates and smoothing parameters. They identify source
 data, not mathematical equivalence of arbitrary expressions.
+
+Single-asset compiled plans with multiple payment dates include the
+`graph-cashflow-discount-pullback-v1` fingerprint tag for the curve-AAD behavior.
+This does not change graph source identities, built-in plan identities or
+single-payment-date graph plan identities.
 
 ## Extending products
 
