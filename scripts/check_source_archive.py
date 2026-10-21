@@ -1033,6 +1033,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_path_dependence_reference_fixture.py",
     "python scripts/check_early_exercise_reference_fixture.py",
     "python scripts/check_schemas.py",
+    "python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
     "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",

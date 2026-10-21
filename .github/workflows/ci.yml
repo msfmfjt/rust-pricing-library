@@ -308,6 +308,9 @@ jobs:
       - name: Check JSON schemas
         run: python scripts/check_schemas.py
 
+      - name: Check Bergomi diagnostic evidence parser
+        run: python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v
+
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
 

@@ -66,6 +66,9 @@ cargo test --locked -p pricing --test bergomi_calibration_quality
 python3 -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v
 ```
 
+The ordinary three-platform Rust CI job also runs the lightweight Python
+parser tests. The source-archive gate requires this command to remain present.
+
 Two expensive numerical gates are ignored by default. Run them explicitly
 with a release build, serial test selection and complete stdout/stderr capture.
 For Bash, preserve the producer's exit status through `tee`:
