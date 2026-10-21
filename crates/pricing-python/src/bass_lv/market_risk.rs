@@ -42,7 +42,7 @@ impl PyBassMarketIvModel {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Calibrate))
     }
     #[getter]
     fn model(&self) -> PyBassLvModel {
@@ -73,7 +73,7 @@ impl PyBassMarketIvModel {
     fn bumped(&self, py: Python<'_>, shifts: Vec<f64>) -> PyResult<Self> {
         py.detach(|| self.inner.bumped(&shifts))
             .map(|inner| Self { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(observation_times,*,bump_size=1e-4))]
     fn compile_vega_kt(
@@ -84,7 +84,7 @@ impl PyBassMarketIvModel {
     ) -> PyResult<PyBassVegaKtRiskPlan> {
         py.detach(|| self.inner.compile_vega_kt(observation_times, bump_size))
             .map(|inner| PyBassVegaKtRiskPlan { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Compile))
     }
 }
 
@@ -239,7 +239,7 @@ impl PyBassVegaKtRiskPlan {
                 .price_european(strike, is_call, paths, seed, discount_factor)
         })
         .map(|inner| PyBassVegaKtRisk { inner })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(strike,*,is_call=true,paths=100_000,seed=0,discount_factor=1.0))]
     fn price_asian(
@@ -256,6 +256,6 @@ impl PyBassVegaKtRiskPlan {
                 .price_asian(strike, is_call, paths, seed, discount_factor)
         })
         .map(|inner| PyBassVegaKtRisk { inner })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
 }

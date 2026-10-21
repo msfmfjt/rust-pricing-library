@@ -162,22 +162,24 @@ pub(super) fn build(
             &mut report,
             &ids,
             &r.parameter_labels,
+            &r.parameter_kinds,
             &r.derivatives,
             r.standard_errors.as_deref(),
             r.method,
             calibrated,
             "native escrowed equity coordinates; fixed model parameters, correlations, dates and grid; target derivatives include retained calibration",
-        ),
+        )?,
         PricingTaskOutput::StochasticDividendRisk(r) => labeled(
             &mut report,
             &ids,
             &r.parameter_labels,
+            &r.parameter_kinds,
             &r.derivatives,
             Some(&r.standard_errors),
             r.method,
             CalibrationTreatment::NotApplicable,
             "physical Spot; initial volatility of residual equity; Q-mean cash dividends; fixed correlations, rates parameters, dates and grid",
-        ),
+        )?,
         PricingTaskOutput::LocalVarianceRisk(r) => block(
             &mut report,
             "local_variance",
@@ -345,29 +347,24 @@ fn labeled(
     r: &mut ValuationReport,
     ids: &[u32],
     labels: &[String],
+    kinds: &[RiskParameterKind],
     values: &[f64],
     errors: Option<&[f64]>,
     method: &str,
     calibration: CalibrationTreatment,
     convention: &str,
-) {
+) -> Result<(), WireError> {
+    if labels.len() != kinds.len()
+        || labels.len() != values.len()
+        || errors.is_some_and(|e| e.len() != values.len())
+    {
+        return Err(WireError::DomainAt {
+            pointer: "/report/risks".into(),
+            message: "native risk labels, kinds, values and errors must have matching lengths"
+                .into(),
+        });
+    }
     for (i, label) in labels.iter().enumerate() {
-        let unit = if label == "spot" {
-            SensitivityUnit::CurrencyPerSpot
-        } else if label.contains("volatility")
-            || label.starts_with("market_iv[")
-            || label == "parallel_market_iv"
-        {
-            SensitivityUnit::CurrencyPerUnitVolatility
-        } else if label.starts_with("local_variance[") {
-            SensitivityUnit::CurrencyPerVariance
-        } else if label.contains("log_df[") {
-            SensitivityUnit::CurrencyPerLogDiscountFactor
-        } else if label.starts_with("forward_log_density[") {
-            SensitivityUnit::CurrencyPerLogDensity
-        } else {
-            SensitivityUnit::CurrencyPerUnitParameter
-        };
         block(
             r,
             label,
@@ -375,12 +372,13 @@ fn labeled(
             vec![],
             &values[i..i + 1],
             errors.map(|e| &e[i..i + 1]),
-            unit,
+            kinds[i].unit(),
             method,
             calibration,
             convention,
         );
     }
+    Ok(())
 }
 fn multi_asset(r: &mut ValuationReport, p: &MultiAssetPrice, calibration: CalibrationTreatment) {
     use SensitivityUnit as U;
@@ -673,4 +671,91 @@ fn estimates(
         calibration,
         convention,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dividend() -> (PricingTask, PricingTaskResult) {
+        let task = crate::parse_pricing_task_json(
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../fixtures/task-v1/stochastic_dividend_bs.golden.json"
+            )),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        let result = task.compile().unwrap().evaluate().unwrap();
+        (task, result)
+    }
+
+    #[test]
+    fn display_labels_cannot_change_units_or_estimates() {
+        let (task, mut result) = dividend();
+        let original = result.report.clone();
+        let PricingTaskOutput::StochasticDividendRisk(risk) = &mut result.native_result else {
+            panic!("AAD expected")
+        };
+        assert_eq!(
+            &risk.parameter_kinds[..5],
+            &[
+                RiskParameterKind::Spot,
+                RiskParameterKind::Volatility,
+                RiskParameterKind::ModelParameter,
+                RiskParameterKind::ModelParameter,
+                RiskParameterKind::Volatility,
+            ]
+        );
+        // Deliberately misleading display labels: the old classifier swapped units.
+        risk.parameter_labels[0] = "volatility".into();
+        risk.parameter_labels[1] = "spot".into();
+        for (i, label) in risk.parameter_labels.iter_mut().enumerate().skip(2) {
+            *label = format!("display_{i}");
+        }
+        let renamed = build(
+            &task,
+            task.fingerprint().unwrap(),
+            original.plan_fingerprint().into(),
+            &result.native_result,
+        )
+        .unwrap();
+        for (before, after) in original.risks().iter().zip(renamed.risks()) {
+            assert_eq!(before.unit, after.unit);
+            assert_eq!(before.values, after.values);
+            assert_eq!(before.standard_errors, after.standard_errors);
+        }
+        assert_eq!(renamed.risks()[0].unit, SensitivityUnit::CurrencyPerSpot);
+        assert_eq!(
+            renamed.risks()[1].unit,
+            SensitivityUnit::CurrencyPerUnitVolatility
+        );
+    }
+
+    #[test]
+    fn inconsistent_native_metadata_is_rejected_before_indexing() {
+        let (task, result) = dividend();
+        for field in 0..4 {
+            let mut output = result.native_result.clone();
+            let PricingTaskOutput::StochasticDividendRisk(risk) = &mut output else {
+                unreachable!()
+            };
+            match field {
+                0 => risk.parameter_kinds = risk.parameter_kinds[1..].into(),
+                1 => risk.parameter_labels = risk.parameter_labels[1..].into(),
+                2 => risk.derivatives = risk.derivatives[1..].into(),
+                _ => risk.standard_errors = risk.standard_errors[1..].into(),
+            }
+            let error = build(
+                &task,
+                task.fingerprint().unwrap(),
+                result.report.plan_fingerprint().into(),
+                &output,
+            )
+            .unwrap_err();
+            assert!(
+                matches!(error, WireError::DomainAt { pointer, .. } if pointer == "/report/risks")
+            );
+        }
+    }
 }

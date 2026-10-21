@@ -20,7 +20,7 @@ pub(super) fn invalid(py: Python<'_>, message: impl ToString) -> PyErr {
 pub(super) fn failure(py: Python<'_>, e: HestonCalibrationError) -> PyErr {
     match e {
         HestonCalibrationError::InvalidInput(_) => invalid(py, e),
-        _ => pricing_exception(e),
+        _ => crate::errors::exception(e, crate::errors::Stage::Calibrate, None),
     }
 }
 fn parameter(py: Python<'_>, name: &str) -> PyResult<P> {

@@ -54,7 +54,7 @@ impl PyBergomiLsvPlan {
         let request = target_request.inner.clone();
         py.detach(|| BergomiLsvPricingPlan::compile(&request, factor, particles, policy))
             .map(|inner| Self { inner })
-            .map_err(pricing_exception)
+            .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
         py.detach(|| self.inner.evaluate())
@@ -163,7 +163,7 @@ impl PyBergomi2FactorLsvPlan {
         let request = target_request.inner.clone();
         py.detach(|| BergomiLsvPricingPlan::compile(&request, factor, particles, policy))
             .map(|inner| Self { inner })
-            .map_err(pricing_exception)
+            .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
         py.detach(|| self.inner.evaluate())
@@ -266,7 +266,7 @@ impl PyRoughBergomiLsvPlan {
         let request = target_request.inner.clone();
         py.detach(|| RoughBergomiLsvPricingPlan::compile(&request, model, particles, policy))
             .map(|inner| Self { inner })
-            .map_err(pricing_exception)
+            .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
         py.detach(|| self.inner.evaluate())
@@ -520,7 +520,7 @@ impl PyRoughFamilyLsvPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     fn market_iv_risk_plan(
         &self,
@@ -530,7 +530,7 @@ impl PyRoughFamilyLsvPlan {
         let source = surface.inner.clone();
         py.detach(|| self.inner.market_iv_risk_plan(source))
             .map(|inner| PyRoughFamilyLsvMarketIvRiskPlan { inner })
-            .map_err(pricing_exception)
+            .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyLsvPrice> {
         py.detach(|| self.inner.evaluate())

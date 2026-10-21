@@ -99,6 +99,10 @@ impl PricingNumerics {
 #[non_exhaustive]
 pub enum SpecificationValidationError {
     Request(RequestValidationError),
+    UnsupportedOperation {
+        reason: Option<crate::CapabilityReason>,
+        detail: String,
+    },
     Invalid {
         field: &'static str,
         message: String,
@@ -108,6 +112,7 @@ impl fmt::Display for SpecificationValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Request(error) => error.fmt(f),
+            Self::UnsupportedOperation { detail, .. } => write!(f, "operation: {detail}"),
             Self::Invalid { field, message } => write!(f, "{field}: {message}"),
         }
     }
@@ -116,7 +121,7 @@ impl Error for SpecificationValidationError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Request(e) => Some(e),
-            Self::Invalid { .. } => None,
+            Self::Invalid { .. } | Self::UnsupportedOperation { .. } => None,
         }
     }
 }

@@ -6,6 +6,7 @@ mod bass_lv;
 mod builders;
 mod diagnostics;
 mod dual;
+mod errors;
 mod heston_calibration;
 mod heston_fourier;
 mod heston_iv_calibration;
@@ -73,7 +74,7 @@ create_exception!(rust_pricing, PricingError, PyRuntimeError);
 
 /// One immutable, structured validation issue.
 #[pyclass(frozen, name = "ValidationIssue")]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct PyValidationIssue {
     pointer: String,
     phase: String,
@@ -81,7 +82,20 @@ pub struct PyValidationIssue {
     document_kind: String,
     code: String,
     message: String,
+    // Additional exception metadata; the historical ValidationIssue contract is unchanged.
+    error_metadata: errors::ErrorMetadata,
 }
+impl PartialEq for PyValidationIssue {
+    fn eq(&self, other: &Self) -> bool {
+        self.pointer == other.pointer
+            && self.phase == other.phase
+            && self.schema_version == other.schema_version
+            && self.document_kind == other.document_kind
+            && self.code == other.code
+            && self.message == other.message
+    }
+}
+impl Eq for PyValidationIssue {}
 
 impl PyValidationIssue {
     fn request_schema_version() -> u32 {
@@ -135,6 +149,7 @@ impl PyValidationIssue {
             document_kind: document_kind.into(),
             code: code.into(),
             message: error.to_string(),
+            error_metadata: errors::ErrorMetadata::from_error(error, errors::Stage::Parse),
         }
     }
 
@@ -146,6 +161,7 @@ impl PyValidationIssue {
             document_kind: Self::request_document_kind().into(),
             code: "plan_compile_error".into(),
             message: error.to_string(),
+            error_metadata: errors::ErrorMetadata::from_error(error, errors::Stage::Compile),
         }
     }
 
@@ -154,13 +170,20 @@ impl PyValidationIssue {
         code: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
+        let pointer = pointer.into();
+        let code = code.into();
+        let error_metadata = errors::ErrorMetadata::domain(
+            code.clone(),
+            (!pointer.is_empty()).then(|| pointer.clone()),
+        );
         Self {
-            pointer: pointer.into(),
+            pointer,
             phase: "domain".into(),
             schema_version: Self::request_schema_version(),
             document_kind: Self::request_document_kind().into(),
-            code: code.into(),
+            code,
             message: message.into(),
+            error_metadata,
         }
     }
 }
@@ -281,18 +304,18 @@ impl PyPricingRequest {
     }
 
     fn to_json(&self) -> PyResult<String> {
-        request_to_json(&self.inner).map_err(pricing_exception)
+        request_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     fn to_pretty_json(&self) -> PyResult<String> {
-        request_to_pretty_json(&self.inner).map_err(pricing_exception)
+        request_to_pretty_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     #[getter]
     fn fingerprint(&self) -> PyResult<String> {
         fingerprint_request(&self.inner)
             .map(|fingerprint| fingerprint.to_string())
-            .map_err(pricing_exception)
+            .map_err(crate::errors::serialize_exception)
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -1403,11 +1426,11 @@ impl PyPricingResult {
     }
 
     fn to_json(&self) -> PyResult<String> {
-        monte_carlo_result_to_json(&self.inner).map_err(pricing_exception)
+        monte_carlo_result_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     fn to_pretty_json(&self) -> PyResult<String> {
-        monte_carlo_result_to_pretty_json(&self.inner).map_err(pricing_exception)
+        monte_carlo_result_to_pretty_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     fn __repr__(&self) -> String {
@@ -1521,15 +1544,17 @@ fn vega_kt_unit_name(value: VegaKtResultUnit) -> &'static str {
 
 pub(crate) fn validation_exception(py: Python<'_>, issue: PyValidationIssue) -> PyErr {
     let message = issue.message.clone();
-    let error = ValidationError::new_err(message);
-    if let Ok(issue) = Py::new(py, issue) {
-        let _ = error.value(py).setattr("issues", vec![issue]);
+    let error = issue
+        .error_metadata
+        .attach(py, ValidationError::new_err(message), None);
+    match Py::new(py, issue).and_then(|issue| error.value(py).setattr("issues", vec![issue])) {
+        Ok(()) => error,
+        Err(e) => e,
     }
-    error
 }
 
-fn pricing_exception(error: impl ToString) -> PyErr {
-    PricingError::new_err(error.to_string())
+fn pricing_exception(error: impl std::error::Error + 'static) -> PyErr {
+    errors::exception(error, errors::Stage::Evaluate, None)
 }
 
 /// Returns the Rust facade version exposed by the Python module.

@@ -1,8 +1,8 @@
 //! Thin adapters over complete Rust tasks and common reports.
 use crate::*;
 use pricing::{
-    CapabilityReason, CapabilityStatus, PricingCapability, PricingOperation, PricingTask,
-    PricingTaskOutput, ReportedRisk, ValuationReport,
+    CapabilityStatus, PricingCapability, PricingOperation, PricingTask, PricingTaskOutput,
+    ReportedRisk, ValuationReport,
 };
 
 fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
@@ -12,9 +12,10 @@ fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
             gamma_relative_bump,
         }),
         ("local_variance_risk", None) => Ok(PricingOperation::LocalVarianceRisk),
-        _ => Err(PyValueError::new_err(
-            "operation must be evaluate, aad or local_variance_risk; Gamma bump belongs to aad",
-        )),
+        _ => Err(Python::attach(|py| {
+            errors::ErrorMetadata::domain("invalid_operation", Some("operation".into())).attach(
+                py, PyValueError::new_err("operation must be evaluate, aad or local_variance_risk; Gamma bump belongs to aad"), Some(name))
+        })),
     }
 }
 fn wire_error(py: Python<'_>, error: &WireError, kind: &'static str) -> PyErr {
@@ -38,12 +39,7 @@ pub struct PyPricingCapability {
 impl PyPricingCapability {
     #[getter]
     fn operation(&self) -> &'static str {
-        match self.inner.operation {
-            PricingOperation::Evaluate => "evaluate",
-            PricingOperation::Aad { .. } => "aad",
-            PricingOperation::LocalVarianceRisk => "local_variance_risk",
-            _ => "unknown",
-        }
+        errors::operation_name(self.inner.operation)
     }
     #[getter]
     fn gamma_relative_bump(&self) -> Option<f64> {
@@ -64,17 +60,7 @@ impl PyPricingCapability {
     }
     #[getter]
     fn reason(&self) -> Option<&'static str> {
-        self.inner.reason.map(|r| match r {
-            CapabilityReason::CompilationRequired => "compilation_required",
-            CapabilityReason::NativePreflightRequired => "native_preflight_required",
-            CapabilityReason::DedicatedRiskApi => "dedicated_risk_api",
-            CapabilityReason::ModelCombination => "model_combination",
-            CapabilityReason::DiscontinuousPayoff => "discontinuous_payoff",
-            CapabilityReason::ReverseTraceRequired => "reverse_trace_required",
-            CapabilityReason::InvalidGammaBump => "invalid_gamma_bump",
-            CapabilityReason::InvalidSource => "invalid_source",
-            _ => "unknown",
-        })
+        self.inner.reason.map(errors::capability_reason)
     }
     #[getter]
     fn detail(&self) -> &str {
@@ -106,7 +92,7 @@ impl PyPricingTask {
             self::operation(operation, gamma_relative_bump)?,
         )
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
     }
     #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
     fn with_operation(&self, operation: &str, gamma_relative_bump: Option<f64>) -> PyResult<Self> {
@@ -115,7 +101,7 @@ impl PyPricingTask {
             self::operation(operation, gamma_relative_bump)?,
         )
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
     }
     #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
     fn capability(
@@ -131,22 +117,29 @@ impl PyPricingTask {
         })
     }
     fn to_json(&self) -> PyResult<String> {
-        pricing::pricing_task_to_json(&self.inner).map_err(pricing_exception)
+        pricing::pricing_task_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
     fn to_pretty_json(&self) -> PyResult<String> {
-        pricing::pricing_task_to_pretty_json(&self.inner).map_err(pricing_exception)
+        pricing::pricing_task_to_pretty_json(&self.inner)
+            .map_err(crate::errors::serialize_exception)
     }
     #[getter]
     fn fingerprint(&self) -> PyResult<String> {
         self.inner
             .fingerprint()
             .map(|f| f.to_string())
-            .map_err(pricing_exception)
+            .map_err(crate::errors::serialize_exception)
     }
     fn compile(&self, py: Python<'_>) -> PyResult<PyCompiledPricingTask> {
         py.detach(|| self.inner.compile())
             .map(|inner| PyCompiledPricingTask { inner })
-            .map_err(pricing_exception)
+            .map_err(|e| {
+                errors::exception(
+                    e,
+                    errors::Stage::Compile,
+                    Some(errors::operation_name(self.inner.operation())),
+                )
+            })
     }
 }
 #[pyclass(frozen, name = "CompiledPricingTask")]
@@ -172,7 +165,13 @@ impl PyCompiledPricingTask {
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyPricingTaskResult> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyPricingTaskResult { inner })
-            .map_err(pricing_exception)
+            .map_err(|e| {
+                errors::exception(
+                    e,
+                    errors::Stage::Evaluate,
+                    Some(errors::operation_name(self.inner.operation())),
+                )
+            })
     }
 }
 #[pyclass(frozen, name = "PricingTaskResult")]
@@ -236,7 +235,7 @@ impl PyPricingTaskResult {
                 },
             )?
             .into_any(),
-            _ => return Err(pricing_exception("unknown task output")),
+            _ => return Err(crate::errors::internal_exception("unknown task output")),
         })
     }
 }
@@ -281,21 +280,7 @@ impl PyReportedRisk {
     }
     #[getter]
     fn unit(&self) -> &'static str {
-        use pricing::SensitivityUnit as U;
-        match self.inner.unit {
-            U::CurrencyPerSpot => "currency_per_spot",
-            U::CurrencyPerSpotSquared => "currency_per_spot_squared",
-            U::CurrencyPerUnitVolatility => "currency_per_unit_volatility",
-            U::CurrencyPerVariance => "currency_per_variance",
-            U::CurrencyPerLogDiscountFactor => "currency_per_log_discount_factor",
-            U::CurrencyPerLogDensity => "currency_per_log_density",
-            U::CurrencyPerUnitParameter => "currency_per_unit_parameter",
-            U::CurrencyPerOnePercentSpot => "currency_per_one_percent_spot",
-            U::CurrencyPerOnePercentSpotSquared => "currency_per_one_percent_spot_squared",
-            U::CurrencyPerVolatilityPoint => "currency_per_volatility_point",
-            U::CurrencyPerBasisPoint => "currency_per_basis_point",
-            _ => "unknown",
-        }
+        self.inner.unit.as_str()
     }
     #[getter]
     fn calibration(&self) -> &'static str {
@@ -322,10 +307,11 @@ impl PyValuationReport {
             .map_err(|e| wire_error(py, &e, "valuation_report"))
     }
     fn to_json(&self) -> PyResult<String> {
-        pricing::valuation_report_to_json(&self.inner).map_err(pricing_exception)
+        pricing::valuation_report_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
     fn to_pretty_json(&self) -> PyResult<String> {
-        pricing::valuation_report_to_pretty_json(&self.inner).map_err(pricing_exception)
+        pricing::valuation_report_to_pretty_json(&self.inner)
+            .map_err(crate::errors::serialize_exception)
     }
     #[getter]
     fn value(&self) -> f64 {

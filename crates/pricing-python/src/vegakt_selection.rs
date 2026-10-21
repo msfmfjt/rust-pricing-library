@@ -41,7 +41,18 @@ impl PyVegaKtGammaRecoveryPolicy {
             }
         })
         .map(|inner| Self { inner })
-        .map_err(|e| crate::ValidationError::new_err(e.to_string()))
+        .map_err(|e| {
+            Python::attach(|py| {
+                crate::validation_exception(
+                    py,
+                    crate::PyValidationIssue::domain(
+                        "/risk",
+                        "invalid_risk_configuration",
+                        e.to_string(),
+                    ),
+                )
+            })
+        })
     }
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         policy_dict(py, &self.inner)

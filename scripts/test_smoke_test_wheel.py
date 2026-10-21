@@ -2,6 +2,7 @@
 
 from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
+import ast
 import io
 import json
 from pathlib import Path
@@ -19,6 +20,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WheelRunnerTests(unittest.TestCase):
+    def test_additive_risk_and_error_contracts_reject_missing_or_changed_types(self):
+        source = (ROOT / "rust_pricing.pyi").read_text()
+        wheel.verify_stub_static_shape(ast.parse(source))
+        for before, after in [
+            ("    causes: list[str]", "    causes: str"),
+            ("    reason: str | None\n", ""),
+            ("def parameter_kinds(self) -> list[str]", "def parameter_kinds(self) -> str"),
+            ("def parameter_units(self) -> list[str]", "def parameter_units(self, value: str) -> list[str]"),
+        ]:
+            with self.subTest(before=before), self.assertRaises(RuntimeError):
+                wheel.verify_stub_static_shape(ast.parse(source.replace(before, after)))
+
     def test_cli_keeps_full_default_and_rejects_invalid_group_use(self):
         args = wheel.parse_arguments([])
         self.assertEqual((args.wheel, args.phase, args.group), (None, "full", "all"))

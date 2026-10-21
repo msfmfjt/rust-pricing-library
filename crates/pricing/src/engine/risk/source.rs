@@ -93,10 +93,12 @@ impl PricingTask {
     pub fn compile(&self) -> Result<CompiledPricingTask, PricingTaskError> {
         let capability = self.source().capability(self.operation());
         if capability.status == CapabilityStatus::Unsupported {
-            return Err(PricingTaskError::Validation(crate::api::source::invalid(
-                "operation",
-                capability.detail,
-            )));
+            return Err(PricingTaskError::Validation(
+                SpecificationValidationError::UnsupportedOperation {
+                    reason: capability.reason,
+                    detail: capability.detail,
+                },
+            ));
         }
         let backend = match self.source() {
             PricingSource::SingleAsset(s) => TaskBackend::SingleAsset(s.compile()?),
@@ -253,6 +255,10 @@ fn compile_dividend(s: &StochasticDividendSpecification) -> Result<TaskBackend, 
 }
 
 impl CompiledPricingTask {
+    #[must_use]
+    pub fn operation(&self) -> PricingOperation {
+        self.task.operation()
+    }
     #[must_use]
     pub fn task_fingerprint(&self) -> Fingerprint {
         self.fingerprint

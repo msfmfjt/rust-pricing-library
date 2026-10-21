@@ -184,11 +184,22 @@ impl StochasticDividendHullWhitePricingPlan {
             return Err(invalid("risk_estimator").into());
         }
         let mut parameter_labels = context.labels.clone();
+        let mut parameter_kinds = context.parameter_kinds.clone();
         if let Some(rate_context) = &rate_context {
             parameter_labels.extend_from_slice(rate_context.labels());
+            // Native order: mean reversion, then the rate-volatility knots.
+            parameter_kinds.push(crate::RiskParameterKind::ModelParameter);
+            parameter_kinds.extend(std::iter::repeat_n(
+                crate::RiskParameterKind::Volatility,
+                rate_context.labels().len() - 1,
+            ));
         }
         if let Some(correlation_context) = &correlation_context {
             parameter_labels.extend(correlation_context.labels().iter().map(|s| (*s).to_owned()));
+            parameter_kinds.extend(std::iter::repeat_n(
+                crate::RiskParameterKind::ModelParameter,
+                correlation_context.labels().len(),
+            ));
         }
         Ok(StochasticDividendAadRisk {
             price: StochasticDividendPrice {
@@ -200,6 +211,7 @@ impl StochasticDividendHullWhitePricingPlan {
                 scheme: self.scheme(),
             },
             parameter_labels: parameter_labels.into_boxed_slice(),
+            parameter_kinds: parameter_kinds.into_boxed_slice(),
             derivatives: means[1..].into(),
             standard_errors: errors[1..].into(),
             cash_times: context.cash_times.into_boxed_slice(),
