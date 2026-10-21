@@ -187,6 +187,19 @@ class RuntimeContractTests(unittest.TestCase):
 
 
 class FrozenContractTests(unittest.TestCase):
+    def test_calibration_diagnostics_keep_typed_immutable_snapshots(self):
+        source = (ROOT / 'rust_pricing.pyi').read_text()
+        for before, after in [
+            ('def calibration_diagnostics(self) -> list[ReportedCalibration] | None', 'def calibration_diagnostics(self) -> list[ReportedCalibration]'),
+            ('def metrics(self) -> list[CalibrationMetric]', 'def metrics(self) -> list[object]'),
+            ('def seed(self) -> int | None', 'def seed(self) -> int'),
+            ('"dimensionless", "count", "indicator"', '"dimensionless", "count", "bool"'),
+        ]:
+            changed = source.replace(before, after)
+            self.assertNotEqual(source, changed)
+            with self.subTest(after=after), self.assertRaises(RuntimeError):
+                verify_stub_static_shape(ast.parse(changed))
+
     def test_compiled_operation_selection_preserves_typed_boundaries(self):
         source = (ROOT / 'rust_pricing.pyi').read_text()
         start = source.index('class CompiledPricingTask:')

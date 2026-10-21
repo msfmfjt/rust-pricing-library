@@ -17,6 +17,10 @@ for name in ['standard_risk', 'multi_asset_bs', 'multi_asset_joint',
     print(name, report.value, report.standard_error, report.uncertainty_scope)
     for risk in report.risks[:2]:
         print(' ', risk.name, risk.unit, risk.method, risk.calibration)
+    for calibration in report.calibration_diagnostics or []:
+        print(' ', calibration.kind, calibration.underlying_ids, calibration.seed)
+        for metric in calibration.metrics[:2]:
+            print('   ', metric.name, metric.unit, metric.values)
     print(' ', type(result.native_result).__name__)
     # Reuse the realized calibration when selecting the price operation.
     price_plan = plan.with_operation('evaluate')

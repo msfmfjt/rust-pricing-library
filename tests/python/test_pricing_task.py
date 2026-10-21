@@ -144,7 +144,7 @@ class PricingTaskTests(unittest.TestCase):
             ('pricing_task', original, rp.PricingTask, [(['schema_version'], 2),
                 (['unknown'], 1), (['source', 'numerics', 'maximum_step'], 0),
                 (['source', 'lsv', 0], None)]),
-            ('valuation_report', report, rp.ValuationReport, [(['schema_version'], 2),
+            ('valuation_report', report, rp.ValuationReport, [(['schema_version'], 3),
                 (['standard_error'], -1), (['evaluated_paths'], '0001'),
                 (['risks', 0, 'values'], [1., 2.]), (['risks', 0, 'standard_errors'], []),
                 (['risks', 0, 'standard_errors'], None), (['risks', 0, 'unknown'], 1)]),
@@ -162,12 +162,15 @@ class PricingTaskTests(unittest.TestCase):
             with self.assertRaises(rp.ValidationError):
                 cls.from_json(duplicate)
         for name, export in [('task-v1/pricing_task', rp.pricing_task_json_schema),
-                             ('report-v1/valuation_report', rp.valuation_report_json_schema)]:
+                             ('report-v2/valuation_report', rp.valuation_report_json_schema)]:
             self.assertEqual(json.loads(export()), json.loads((ROOT / f'schemas/{name}.schema.json').read_text()))
         saved = (ROOT / 'fixtures/report-v1/multi_asset_joint.golden.json').read_text()
         restored = rp.ValuationReport.from_json(saved)
         self.assertEqual(restored.task_fingerprint, rp.PricingTask.from_json(fixture('multi_asset_joint')).fingerprint)
-        self.assertEqual(json.loads(saved), json.loads(restored.to_json()))
+        migrated = json.loads(saved)
+        migrated['schema_version'] = 2
+        self.assertIsNone(restored.calibration_diagnostics)
+        self.assertEqual(migrated, json.loads(restored.to_json()))
 
 
 if __name__ == '__main__':

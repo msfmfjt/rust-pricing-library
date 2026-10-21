@@ -1,4 +1,5 @@
 //! Risk implementation.
+pub(crate) mod calibration_report;
 pub(crate) mod dual;
 pub(crate) mod early_exercise;
 pub(crate) mod hull_white;

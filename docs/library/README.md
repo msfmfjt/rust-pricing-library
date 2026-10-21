@@ -38,6 +38,8 @@ demonstrates replay.
 Use [complete pricing tasks](pricing-tasks.md) for capability/preflight queries,
 shared risk reports with explicit units and uncertainty, and complete
 multi-asset or stochastic-dividend source replay.
+Inspect and save [calibration diagnostics](calibration-reports.md) through the
+same report, with explicit seeds, coordinates and availability.
 
 Use [structured Python errors](python-errors.md) to distinguish invalid inputs,
 unsupported operations, resource limits and numerical failures in batch work.

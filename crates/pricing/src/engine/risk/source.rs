@@ -395,6 +395,19 @@ impl CompiledPricingTask {
             self.fingerprint,
             self.plan_fingerprint(),
             &output,
+            match (self.backend.as_ref(), self.task.source()) {
+                (TaskBackend::SingleAsset(p), PricingSource::SingleAsset(s)) => {
+                    p.calibration_diagnostics(s)
+                }
+                (TaskBackend::MultiAsset(p), PricingSource::MultiAsset(s)) => {
+                    super::calibration_report::multi_asset(p, s)
+                }
+                (TaskBackend::Dividend(p), PricingSource::StochasticDividend(s)) => {
+                    p.calibration_diagnostics(s.equity().product().underlying().get())
+                }
+                (TaskBackend::DividendHullWhite(_), _) => Vec::new(),
+                _ => unreachable!("compiled source/backend pairing"),
+            },
         )?;
         Ok(PricingTaskResult {
             report,

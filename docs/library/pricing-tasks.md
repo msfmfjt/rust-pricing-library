@@ -164,7 +164,8 @@ public signatures; JSON errors identify the task or report document kind.
 
 `ValuationReport` includes task and plan fingerprints, library version, platform,
 currency, price and standard error, estimator, independent sampling units,
-evaluated paths, calibration seeds, uncertainty scope and typed risk blocks.
+evaluated paths, calibration seeds, uncertainty scope, typed risk blocks and
+[retained calibration diagnostics](calibration-reports.md).
 Each block has a name, ordered underlying IDs, Cartesian coordinate axes,
 row-major values, optional standard errors, a typed unit, native method,
 calibration treatment and fixed-input/coordinate convention.
@@ -206,20 +207,24 @@ Failures expose [structured Python error metadata](python-errors.md), including
 the selected task operation and a capability reason for source-preflight rejection.
 
 The report JSON is a normalized reporting contract. It is not a serialization
-of every native diagnostic or a compiled plan. Full diagnostics remain in
-`PricingTaskResult.native_result` and are recovered by executing the saved task.
+of every native diagnostic or a compiled plan. Selected retained calibration
+diagnostics are copied from the compiled plan into the common report. Additional
+diagnostics remain on native plans/results and are recovered by executing the saved task.
 For a single-asset task, that native value is the existing `SpecificationResult`
 (and its own `native_result` in Python); other task variants return their native
 price/risk object directly.
 
 ## JSON versions and replay identity
 
-The independent document kinds are `pricing_task` v1 and `valuation_report` v1.
+The current independent document kinds are `pricing_task` v1 and `valuation_report` v2.
 Their [task schema](../../schemas/task-v1/pricing_task.schema.json) and
-[report schema](../../schemas/report-v1/valuation_report.schema.json) are exported
+[report schema](../../schemas/report-v2/valuation_report.schema.json) are exported
 by `pricing_task_json_schema()` / `valuation_report_json_schema()` in Python
 and `current_pricing_task_schema()` / `current_valuation_report_schema()` in Rust.
-Schemas describe the current writer. Nested single-asset source readers also
+Schemas describe the current writer. The report reader also accepts v1 and
+normalizes it to v2, retaining unavailable calibration diagnostics as an absent
+field. Existing v1-only report consumers must upgrade for newly written reports.
+Nested single-asset source readers also
 accept specification v1 and normalize it to v2.
 
 Optional object fields are omitted; ordered optional configurations use

@@ -1,0 +1,782 @@
+{
+  "document_kind": "valuation_report",
+  "schema_version": 2,
+  "task_fingerprint": "blake3-256:82d9661d216cabd2622d4edb1ae7f6ba2fdfd29354c8a6a7009bee0e41faac16",
+  "plan_fingerprint": "blake3-256:65aea19d77eef0e36eb76b4354fbda4cf5786357a4d98eaf92fbbf234130614a",
+  "library_version": "0.1.0",
+  "platform": "x86_64-linux",
+  "currency_id": 1,
+  "value": 5.943320726799044,
+  "standard_error": 0.9194548960288208,
+  "estimator": {
+    "type": "randomized_quasi_monte_carlo"
+  },
+  "independent_sampling_units": 4,
+  "evaluated_paths": "128",
+  "uncertainty_scope": "conditional_on_calibration",
+  "calibration_seeds": [
+    74,
+    513
+  ],
+  "calibration_diagnostics": [
+    {
+      "kind": "hull_white_lsv",
+      "underlying_ids": [
+        1
+      ],
+      "seed": 74,
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            0.5,
+            1.0
+          ]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "minimum_effective_samples",
+          "values": [
+            32.0,
+            30.822713037402618,
+            2.6400334499081444
+          ],
+          "unit": "dimensionless",
+          "convention": "Native minimum discounted-kernel ESS, with the native analytic initial-row convention."
+        },
+        {
+          "name": "fallback_nodes",
+          "values": [
+            0.0,
+            2.0,
+            1.0
+          ],
+          "unit": "count",
+          "convention": "Native number of nodes using fallback in each calibration row."
+        },
+        {
+          "name": "mean_relative_discount",
+          "values": [
+            1.0,
+            1.0002029642380414,
+            1.0003502066972938
+          ],
+          "unit": "dimensionless",
+          "convention": "Native mean of the stochastic discount factor relative to the initial discount curve."
+        },
+        {
+          "name": "mean_discounted_normalized_equity",
+          "values": [
+            1.0,
+            1.0025717921026176,
+            0.9720268254104113
+          ],
+          "unit": "equity_coordinate",
+          "convention": "Native mean of relative discount times normalized equity; retains the native equity scale."
+        },
+        {
+          "name": "maximum_rate_correction",
+          "values": [
+            0.0,
+            0.00003844254921665777,
+            0.00005492059246990531
+          ],
+          "unit": "variance",
+          "convention": "Native maximum absolute rate correction across each row's target nodes."
+        }
+      ]
+    },
+    {
+      "kind": "local_correlation",
+      "underlying_ids": [
+        1,
+        2
+      ],
+      "seed": 513,
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "name": "log_basket",
+          "values": [
+            -0.8,
+            0.0,
+            0.8
+          ]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "endpoint_variance_0",
+          "values": [
+            0.024000000000000105,
+            0.024000000000000105,
+            0.024000000000000105,
+            0.024529119549203917,
+            0.02352574384886962,
+            0.022762292608925695,
+            0.02409587917452512,
+            0.02398263083919509,
+            0.02414431800566955
+          ],
+          "unit": "variance",
+          "convention": "Native conditional variance at the first correlation endpoint, before rate correction."
+        },
+        {
+          "name": "endpoint_variance_1",
+          "values": [
+            0.038000000000000006,
+            0.038000000000000006,
+            0.038000000000000006,
+            0.03848636200073926,
+            0.03704439337958775,
+            0.0358946190874198,
+            0.03785327578812241,
+            0.03760030895129238,
+            0.03773619932906814
+          ],
+          "unit": "variance",
+          "convention": "Native conditional variance at the second correlation endpoint, before rate correction."
+        },
+        {
+          "name": "target_variance",
+          "values": [
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03
+          ],
+          "unit": "variance",
+          "convention": "Native effective relative basket target variance."
+        },
+        {
+          "name": "attained_variance",
+          "values": [
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
+            0.03
+          ],
+          "unit": "variance",
+          "convention": "Native attained basket variance after projection, including rate correction."
+        },
+        {
+          "name": "rate_correction",
+          "values": [
+            0.0,
+            0.0,
+            0.0,
+            4.114255833034052e-11,
+            -0.00016385402598790603,
+            0.0,
+            6.7938526637964405e-15,
+            -0.00011618109041275307,
+            0.0
+          ],
+          "unit": "variance",
+          "convention": "Native stochastic-rate correction included in attained variance."
+        },
+        {
+          "name": "raw_mixing",
+          "values": [
+            0.42857142857142405,
+            0.42857142857142405,
+            0.42857142857142405,
+            0.3919743049997465,
+            0.49103352831469255,
+            0.5511367237882024,
+            0.4291597452117266,
+            0.450410870394191,
+            0.4308220366999395
+          ],
+          "unit": "dimensionless",
+          "convention": "Native unprojected correlation mixing coefficient; may be outside [0,1]."
+        },
+        {
+          "name": "effective_samples",
+          "values": [
+            64.0,
+            64.0,
+            64.0,
+            14.50663648751857,
+            63.84736852749629,
+            7.098174906196562,
+            17.48928388771218,
+            63.47502878933324,
+            11.23948552115251
+          ],
+          "unit": "dimensionless",
+          "convention": "Native kernel ESS at the original node before donor fallback; not comparable to donor-only LSV minima."
+        },
+        {
+          "name": "source_node",
+          "values": [
+            0.0,
+            1.0,
+            2.0,
+            0.0,
+            1.0,
+            2.0,
+            0.0,
+            1.0,
+            2.0
+          ],
+          "unit": "count",
+          "convention": "Zero-based donor index on this row's log_basket axis."
+        },
+        {
+          "name": "fallback",
+          "values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "unit": "indicator",
+          "convention": "One when the native node uses a different donor, zero otherwise."
+        },
+        {
+          "name": "projected",
+          "values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "unit": "indicator",
+          "convention": "One when native feasibility handling projected the mixing coefficient, zero otherwise."
+        },
+        {
+          "name": "unidentifiable",
+          "values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "unit": "indicator",
+          "convention": "One when the native endpoint variance span is unidentifiable, zero otherwise."
+        }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "name": "delta.raw",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.25024671875510346
+      ],
+      "standard_errors": [
+        0.011956862815674332
+      ],
+      "unit": "currency_per_spot",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "delta.market_scaled",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.25024671875510346
+      ],
+      "standard_errors": [
+        0.011956862815674332
+      ],
+      "unit": "currency_per_one_percent_spot",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "delta.raw",
+      "underlying_ids": [
+        2
+      ],
+      "axes": [],
+      "values": [
+        0.2499522833030313
+      ],
+      "standard_errors": [
+        0.008127442361727967
+      ],
+      "unit": "currency_per_spot",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "delta.market_scaled",
+      "underlying_ids": [
+        2
+      ],
+      "axes": [],
+      "values": [
+        0.2499522833030313
+      ],
+      "standard_errors": [
+        0.008127442361727967
+      ],
+      "unit": "currency_per_one_percent_spot",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "discount_log_df",
+      "underlying_ids": [],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            2.0
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        -22.038289739507213
+      ],
+      "standard_errors": [
+        0.0,
+        0.7984339445391768
+      ],
+      "unit": "currency_per_log_discount_factor",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "discount_dv01",
+      "underlying_ids": [],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            2.0
+          ]
+        }
+      ],
+      "values": [
+        -0.0,
+        0.004407657947901443
+      ],
+      "standard_errors": [
+        0.0,
+        0.00015968678890783538
+      ],
+      "unit": "currency_per_basis_point",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "signed price change for +1bp continuously compounded zero-rate pillar"
+    },
+    {
+      "name": "repo_spread_log_df",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            2.0
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        12.512335937755171
+      ],
+      "standard_errors": [
+        0.0,
+        0.5978431407837165
+      ],
+      "unit": "currency_per_log_discount_factor",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "repo_spread_log_df",
+      "underlying_ids": [
+        2
+      ],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            2.0
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        12.497614165151566
+      ],
+      "standard_errors": [
+        0.0,
+        0.40637211808639845
+      ],
+      "unit": "currency_per_log_discount_factor",
+      "method": "aad_reverse",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "basket_local_variance",
+      "underlying_ids": [],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "name": "log_moneyness",
+          "values": [
+            -0.8,
+            0.0,
+            0.8
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        86.92543567574742,
+        0.0,
+        3.215711247732158,
+        52.93989799406094,
+        7.411039441590632,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "standard_errors": [
+        0.0,
+        42.592029738566076,
+        0.0,
+        2.2376127443834455,
+        77.15981763850431,
+        19.796683206087785,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "unit": "currency_per_variance",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "joint_asset_target",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.0,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "name": "log_moneyness",
+          "values": [
+            -0.8,
+            0.0,
+            0.8
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        -13.078933498220914,
+        0.0,
+        -0.2543665561822436,
+        -4.834497784851667,
+        -0.43444940879300387,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "standard_errors": [
+        0.0,
+        22.867224457396805,
+        0.0,
+        2.561236610358498,
+        29.83558037535708,
+        1.3607982734458433,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "unit": "currency_per_variance",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "joint_asset_target",
+      "underlying_ids": [
+        2
+      ],
+      "axes": [],
+      "values": [
+        -8.30341591441717
+      ],
+      "standard_errors": [
+        11.470950454368614
+      ],
+      "unit": "currency_per_unit_volatility",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "basket_hw.forward_log_density",
+      "underlying_ids": [],
+      "axes": [
+        {
+          "name": "native_parameter_index",
+          "values": [
+            0.0,
+            1.0,
+            2.0,
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            7.0,
+            8.0
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -0.002668026155140423,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "standard_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0038886439034788037,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "unit": "currency_per_log_density",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "joint_asset_hw.forward_log_density",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [
+        {
+          "name": "native_parameter_index",
+          "values": [
+            0.0,
+            1.0,
+            2.0,
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            7.0,
+            8.0
+          ]
+        }
+      ],
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.00007545752584273529,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "standard_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0004568404977024369,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "unit": "currency_per_log_density",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "joint_asset_hw.market_iv.raw",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "name": "log_moneyness",
+          "values": [
+            -0.8,
+            0.0,
+            0.8
+          ]
+        }
+      ],
+      "values": [
+        0.0991065866861241,
+        7.241618766287033,
+        0.09910658668612446,
+        -0.2034932449457949,
+        -14.330745026458068,
+        -0.3475595270344031
+      ],
+      "standard_errors": [
+        0.31056004266007675,
+        7.713213770910096,
+        0.3105600426600766,
+        2.048989288286798,
+        13.294896283250504,
+        1.0886386187566746
+      ],
+      "unit": "currency_per_unit_volatility",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "joint_asset_hw.market_iv.market_scaled",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [
+        {
+          "name": "time",
+          "values": [
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "name": "log_moneyness",
+          "values": [
+            -0.8,
+            0.0,
+            0.8
+          ]
+        }
+      ],
+      "values": [
+        0.000991065866861241,
+        0.07241618766287033,
+        0.0009910658668612446,
+        -0.002034932449457949,
+        -0.1433074502645807,
+        -0.003475595270344031
+      ],
+      "standard_errors": [
+        0.0031056004266007678,
+        0.07713213770910096,
+        0.003105600426600766,
+        0.020489892882867983,
+        0.13294896283250504,
+        0.010886386187566746
+      ],
+      "unit": "currency_per_volatility_point",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    },
+    {
+      "name": "joint_asset_hw.parallel_market_iv",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        -7.4419658587789845
+      ],
+      "standard_errors": [
+        7.526092001155316
+      ],
+      "unit": "currency_per_unit_volatility",
+      "method": "local-correlation-joint-discounted-particle-reverse-v1",
+      "calibration": "recalibrated",
+      "convention": "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy"
+    }
+  ]
+}
