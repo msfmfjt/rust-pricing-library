@@ -7,6 +7,8 @@ on:
       - 'fixtures/rough-volatility/fourier-greeks.json'
       - 'scripts/*heston_fourier*.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - 'scripts/check_source_archive.py'
       - 'tests/python/test_heston_fourier_greeks.py'
       - 'examples/python/heston_fourier_greeks.py'

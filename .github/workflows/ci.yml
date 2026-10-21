@@ -321,6 +321,9 @@ jobs:
       - name: Check wheel smoke runner
         run: python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v
 
+      - name: Check wheel API signature validation
+        run: python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v
+
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
 
