@@ -47,7 +47,7 @@ jobs:
         working-directory: tooling
         run: python -m unittest discover -s scripts -p test_profile_model_heap_followup.py -v
       - name: Download original complete profiles
-        if: hashFiles('tooling/design/validation/local-correlation-heap-followup-2026-09-22.json') == ''
+        if: hashFiles('tooling/design/validation/local-correlation-heap-followup-2026-10-21.json') == ''
         uses: actions/download-artifact@v8
         with:
           name: model-scaling-linux
