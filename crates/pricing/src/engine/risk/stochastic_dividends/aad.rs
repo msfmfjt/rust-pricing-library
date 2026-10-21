@@ -103,10 +103,7 @@ impl StochasticDividendPricingPlan {
         self.evaluate_aad_scope(AadScope::Correlation)
     }
 
-    fn evaluate_aad_scope(
-        &self,
-        scope: AadScope,
-    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
         if self.path.is_lsv() {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend residual LSV requires a recalibration-aware reverse",
@@ -117,6 +114,13 @@ impl StochasticDividendPricingPlan {
                 model: "stochastic-dividend discontinuous payoff requires explicit smoothing",
             });
         }
+        Ok(())
+    }
+    fn evaluate_aad_scope(
+        &self,
+        scope: AadScope,
+    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.validate_source_aad()?;
         let mut context = ReverseContext::new(&self.path, &self.market, self.payment_time)?;
         match scope {
             AadScope::Basic => {}

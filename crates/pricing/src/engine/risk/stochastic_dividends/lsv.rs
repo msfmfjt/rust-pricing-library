@@ -482,7 +482,7 @@ impl StochasticDividendPricingPlan {
         )?)?)
     }
 
-    fn lsv_local_variance_samples(&self) -> Result<LsvLocalVarianceSamples, MonteCarloError> {
+    pub(crate) fn validate_source_local_variance(&self) -> Result<(), MonteCarloError> {
         let lsv = self
             .lsv
             .as_ref()
@@ -498,6 +498,11 @@ impl StochasticDividendPricingPlan {
         // price-only calibration without its reverse trace.
         lsv.validate_reverse()?;
 
+        Ok(())
+    }
+    fn lsv_local_variance_samples(&self) -> Result<LsvLocalVarianceSamples, MonteCarloError> {
+        self.validate_source_local_variance()?;
+        let lsv = self.lsv.as_ref().expect("validated LSV");
         let leverage_count = self
             .path
             .lsv_surface()

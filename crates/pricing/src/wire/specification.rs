@@ -8,7 +8,12 @@ use crate::{
 };
 
 mod rough;
+mod task;
 use rough::RoughModelV1;
+pub use task::{
+    current_pricing_task_schema, fingerprint_pricing_task, parse_pricing_task_json,
+    pricing_task_to_json, pricing_task_to_pretty_json,
+};
 const KIND: &str = "pricing_specification";
 
 #[derive(Serialize, Deserialize)]
@@ -453,7 +458,19 @@ pub fn parse_specification_json(
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let value: SpecificationV1 = serde_json::from_str(text).map_err(json)?;
-    if header.schema_version == 1 && matches!(&value.product, ProductV1::Graph { .. }) {
+    specification_from_wire(value)
+}
+fn specification_from_wire(value: SpecificationV1) -> Result<PricingSpecification, WireError> {
+    if value.document_kind != KIND {
+        return Err(WireError::WrongDocumentKind {
+            expected: KIND,
+            actual: value.document_kind,
+        });
+    }
+    if !matches!(value.schema_version, 1 | 2) {
+        return Err(WireError::UnsupportedSchemaVersion(value.schema_version));
+    }
+    if value.schema_version == 1 && matches!(&value.product, ProductV1::Graph { .. }) {
         return Err(WireError::UnsupportedSchemaFeature {
             feature: "graph products require pricing_specification v2",
             schema_version: 1,

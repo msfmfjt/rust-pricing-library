@@ -82,6 +82,10 @@ impl MultiAssetPricingPlan {
         self.run(None)
     }
     pub fn evaluate_aad(&self, config: MultiAssetRiskConfig) -> Result<MultiAssetPrice, E> {
+        self.validate_aad(config)?;
+        self.run(Some(config))
+    }
+    pub(crate) fn validate_aad(&self, config: MultiAssetRiskConfig) -> Result<(), E> {
         if let Some(c) = &self.local_correlation {
             c.validate_calibration_reverse()?;
         }
@@ -132,7 +136,7 @@ impl MultiAssetPricingPlan {
                 "AAD of discontinuous payoffs requires explicit smoothing",
             ));
         }
-        self.run(Some(config))
+        Ok(())
     }
     fn run(&self, risk: Option<MultiAssetRiskConfig>) -> Result<MultiAssetPrice, E> {
         let layout = Layout::new(self, risk);

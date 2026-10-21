@@ -39,15 +39,19 @@ impl StochasticDividendHullWhitePricingPlan {
         self.evaluate_aad_scope(AadScope::Correlations)
     }
 
-    fn evaluate_aad_scope(
-        &self,
-        scope: AadScope,
-    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "HW stochastic-dividend discontinuous payoff requires explicit smoothing",
             });
         }
+        Ok(())
+    }
+    fn evaluate_aad_scope(
+        &self,
+        scope: AadScope,
+    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.validate_source_aad()?;
         let context = HullWhiteReverseContext::new(
             &self.path,
             &self.market,

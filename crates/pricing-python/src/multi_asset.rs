@@ -624,7 +624,7 @@ impl PyMultiAssetRisk {
 #[pyclass(frozen, name = "MultiAssetPrice")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetPrice {
-    inner: MultiAssetPrice,
+    pub(super) inner: MultiAssetPrice,
 }
 #[pymethods]
 impl PyMultiAssetPrice {

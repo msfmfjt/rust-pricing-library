@@ -20,7 +20,7 @@ fn wire_exception(py: Python<'_>, error: &WireError) -> PyErr {
 #[pyclass(frozen, name = "PricingSpecification")]
 #[derive(Clone, Debug)]
 pub struct PyPricingSpecification {
-    inner: PricingSpecification,
+    pub(super) inner: PricingSpecification,
 }
 
 #[pymethods]
@@ -102,7 +102,7 @@ impl PyCompiledPricingSpecification {
 #[pyclass(frozen, name = "SpecificationResult")]
 #[derive(Clone, Debug)]
 pub struct PySpecificationResult {
-    inner: SpecificationResult,
+    pub(super) inner: SpecificationResult,
 }
 #[pymethods]
 impl PySpecificationResult {
