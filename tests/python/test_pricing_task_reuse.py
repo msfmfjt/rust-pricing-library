@@ -79,6 +79,29 @@ class CompiledTaskReuseTests(unittest.TestCase):
         self.assertEqual(compiled.evaluate().report.to_json(), before)
         self.assertEqual(compiled.capability().operation, 'evaluate')
 
+    def test_unrepresentable_gamma_is_rejected_before_evaluation(self):
+        for name in ('multi_asset_bs', 'multi_asset_joint'):
+            original = task(name).with_operation('evaluate')
+            compiled = original.compile()
+            before = compiled.evaluate().report.to_json()
+            for bump in (float.fromhex('0x0.0000000000001p-1022'), 1e-18):
+                with self.subTest(source=name, bump=bump):
+                    kwargs = {'gamma_relative_bump': bump}
+                    self.assertEqual(original.capability('aad', **kwargs).status, 'conditional')
+                    capability = compiled.capability_for('aad', **kwargs)
+                    self.assertEqual((capability.status, capability.reason),
+                                     ('unsupported', 'native_preflight_required'))
+                    self.assertIn('unrepresentable Gamma Spot bump', capability.detail)
+                    with self.assertRaises(rp.PricingError) as reused:
+                        compiled.with_operation('aad', **kwargs)
+                    with self.assertRaises(rp.PricingError) as fresh:
+                        original.with_operation('aad', **kwargs).compile()
+                    self.assertEqual(reused.exception.stage, 'compile')
+                    self.assertEqual(reused.exception.operation, 'aad')
+                    self.assertEqual(str(reused.exception), str(fresh.exception))
+            self.assertEqual(compiled.evaluate().report.to_json(), before)
+            self.assertEqual(compiled.capability_for('aad').status, 'supported')
+
     def test_native_preflight_remains_required_for_a_new_operation(self):
         value = document('multi_asset_bs')
         value['operation'] = {'type': 'evaluate'}
