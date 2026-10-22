@@ -74,6 +74,47 @@ class StructuredErrorTests(unittest.TestCase):
         self.assert_metadata(caught.exception, "invalid_correlation", "compile", "correlation", operation="evaluate")
         self.assertTrue(caught.exception.causes)
 
+    def test_task_domain_errors_locate_the_nested_source(self):
+        cases = [
+            ('standard_risk', '/source/specification/numerics/worker_threads', 0,
+             '/source/specification/numerics'),
+            ('stochastic_dividend_bs', '/source/equity/market/spot', -1.,
+             '/source/equity/market/spot'),
+            ('multi_asset_bs', '/source/models/1/volatility', -.2,
+             '/source/models/1/volatility'),
+            ('multi_asset_bs', '/source/markets/1/spot', -1.,
+             '/source/markets/1/spot'),
+            ('multi_asset_joint', '/source/lsv/0/value/particles/particle_count', 0,
+             '/source/lsv/0/value/particles'),
+            ('multi_asset_joint', '/source/hull_white/lsv_targets/0/value/log_densities', [],
+             '/source/hull_white/lsv_targets/0/value'),
+        ]
+
+        def locate(document, keys):
+            for key in keys:
+                document = document[int(key)] if isinstance(document, list) else document[key]
+            return document
+
+        for name, path, bad, expected in cases:
+            with self.subTest(source=name, path=path):
+                document = task_document(name)
+                keys = path.strip('/').split('/')
+                parent = locate(document, keys[:-1])
+                parent[int(keys[-1]) if isinstance(parent, list) else keys[-1]] = bad
+                with self.assertRaises(rp.ValidationError) as caught:
+                    rp.PricingTask.from_json(json.dumps(document))
+                error = caught.exception
+                self.assert_metadata(error, 'invalid_domain_value', 'parse', expected)
+                self.assertEqual(error.issues[0].pointer, expected)
+                self.assertIsNotNone(locate(document, expected.strip('/').split('/')))
+
+        # The standalone source keeps its own document-relative location.
+        source = task_document('standard_risk')['source']['specification']
+        source['numerics']['worker_threads'] = 0
+        with self.assertRaises(rp.ValidationError) as caught:
+            rp.PricingSpecification.from_json(json.dumps(source))
+        self.assert_metadata(caught.exception, 'invalid_domain_value', 'parse', '/numerics')
+
     def test_legacy_compile_exception_and_validation_issue_contract_remain(self):
         source = rp.PricingSpecification.from_json(json.dumps(task_document("standard_risk")["source"]["specification"]))
         # Obtain a legacy request with the same inputs, then reject the execution policy.

@@ -10,6 +10,39 @@ use crate::{
 };
 const TASK_KIND: &str = "pricing_task";
 
+// Reused source readers report paths relative to their own document. Preserve
+// that detail when embedding them in a task, without reclassifying the error.
+fn in_source(error: WireError, prefix: &str) -> WireError {
+    match error {
+        WireError::DomainAt { pointer, message } => WireError::DomainAt {
+            pointer: if pointer.is_empty() || pointer == "/" {
+                prefix.to_owned()
+            } else {
+                format!("{prefix}{pointer}")
+            },
+            message,
+        },
+        other => other,
+    }
+}
+
+fn basket_source_error(error: SpecificationValidationError) -> WireError {
+    match error {
+        SpecificationValidationError::Invalid { field, message } => {
+            // The domain's model configuration is flattened across models,
+            // LSV, correlations and rates in the task document.
+            let pointer = match field {
+                "maximum_step" => "/source/numerics/maximum_step",
+                "market" => "/source/markets",
+                "product" => "/source/product",
+                _ => "/source",
+            };
+            domain_at(pointer, message)
+        }
+        other => in_source(source_error(other), "/source"),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TaskV1 {
@@ -178,7 +211,7 @@ impl From<&CorrelationTermStructure> for CorrelationV1 {
     }
 }
 impl CorrelationV1 {
-    fn into_domain(self) -> Result<CorrelationTermStructure, WireError> {
+    fn into_domain(self, pointer: &str) -> Result<CorrelationTermStructure, WireError> {
         let t = self.tolerances;
         CorrelationTermStructure::new(
             self.underlying_ids
@@ -187,9 +220,16 @@ impl CorrelationV1 {
                 .collect(),
             self.entries
                 .into_iter()
-                .map(|e| {
+                .enumerate()
+                .map(|(i, e)| {
                     Ok((
-                        parse_date_at(&e.date, "/correlation/entries/date")?,
+                        parse_date_at(&e.date, "/correlation/entries/date").map_err(|e| {
+                            rebase(
+                                e,
+                                "/correlation/entries/date",
+                                &format!("{pointer}/entries/{i}/date"),
+                            )
+                        })?,
                         e.matrix,
                     ))
                 })
@@ -203,7 +243,7 @@ impl CorrelationV1 {
                 zero_pivot_rel_tol: t.zero_pivot_rel_tol,
             },
         )
-        .map_err(|e| domain_at("/correlation", e))
+        .map_err(|e| domain_at(pointer, e))
     }
 }
 impl From<&MultiAssetBergomiLsvConfig> for MarginalV1 {
@@ -227,19 +267,31 @@ impl From<&MultiAssetBergomiLsvConfig> for MarginalV1 {
     }
 }
 impl MarginalV1 {
-    fn into_domain(self) -> Result<MultiAssetBergomiLsvConfig, WireError> {
-        let particles = self.particles.into_domain()?;
-        Ok(match self.factor.into_domain()? {
-            VolatilityFactorSpec::Bergomi(factor) => {
-                MultiAssetLsvConfig { factor, particles }.into()
-            }
-            VolatilityFactorSpec::BergomiTwoFactor(factor) => {
-                MultiAssetLsv2FactorConfig { factor, particles }.into()
-            }
-            VolatilityFactorSpec::RoughBergomi(factor) => {
-                MultiAssetRoughLsvConfig { factor, particles }.into()
-            }
-        })
+    fn into_domain(self, pointer: &str) -> Result<MultiAssetBergomiLsvConfig, WireError> {
+        let particles = self.particles.into_domain().map_err(|e| {
+            rebase(
+                e,
+                "/model/equity/particles",
+                &format!("{pointer}/particles"),
+            )
+        })?;
+        Ok(
+            match self
+                .factor
+                .into_domain()
+                .map_err(|e| rebase(e, "/model/equity/factor", &format!("{pointer}/factor")))?
+            {
+                VolatilityFactorSpec::Bergomi(factor) => {
+                    MultiAssetLsvConfig { factor, particles }.into()
+                }
+                VolatilityFactorSpec::BergomiTwoFactor(factor) => {
+                    MultiAssetLsv2FactorConfig { factor, particles }.into()
+                }
+                VolatilityFactorSpec::RoughBergomi(factor) => {
+                    MultiAssetRoughLsvConfig { factor, particles }.into()
+                }
+            },
+        )
     }
 }
 impl From<&MultiAssetHullWhiteConfig> for BasketRatesV1 {
@@ -265,12 +317,24 @@ impl BasketRatesV1 {
                 self.volatility_times,
                 self.volatilities,
             )
-            .map_err(|e| domain_at("/hull_white", e))?,
+            .map_err(|e| domain_at("/source/hull_white", e))?,
             rate_correlations: self.rate_correlations,
             lsv_targets: self
                 .lsv_targets
                 .into_iter()
-                .map(|t| t.into_option().map(DensityV1::into_domain).transpose())
+                .enumerate()
+                .map(|(i, t)| {
+                    t.into_option()
+                        .map(DensityV1::into_domain)
+                        .transpose()
+                        .map_err(|e| {
+                            rebase(
+                                e,
+                                "/model/equity/forward_density",
+                                &format!("/source/hull_white/lsv_targets/{i}/value"),
+                            )
+                        })
+                })
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -308,8 +372,16 @@ impl LocalCorrelationV1 {
             LocalCorrelationConfig {
                 basket_weights: self.basket_weights,
                 target,
-                second_correlation: self.second_correlation.into_domain()?,
-                particles: self.particles.into_domain()?,
+                second_correlation: self
+                    .second_correlation
+                    .into_domain("/source/local_correlation/second_correlation")?,
+                particles: self.particles.into_domain().map_err(|e| {
+                    rebase(
+                        e,
+                        "/model/equity/particles",
+                        "/source/local_correlation/particles",
+                    )
+                })?,
                 feasibility: match self.feasibility {
                     FeasibilityV1::Reject => LocalCorrelationFeasibility::Reject,
                     FeasibilityV1::ProjectAndReport => {
@@ -323,7 +395,14 @@ impl LocalCorrelationV1 {
                 hull_white_target: self
                     .hull_white_target
                     .map(DensityV1::into_domain)
-                    .transpose()?,
+                    .transpose()
+                    .map_err(|e| {
+                        rebase(
+                            e,
+                            "/model/equity/forward_density",
+                            "/source/local_correlation/hull_white_target",
+                        )
+                    })?,
             },
         ))
     }
@@ -389,9 +468,10 @@ impl From<&PricingTask> for TaskV1 {
 impl TaskV1 {
     fn into_domain(self) -> Result<PricingTask, WireError> {
         let source = match self.source {
-            SourceV1::SingleAsset { specification } => {
-                PricingSource::SingleAsset(specification_from_wire(specification)?)
-            }
+            SourceV1::SingleAsset { specification } => PricingSource::SingleAsset(
+                specification_from_wire(specification)
+                    .map_err(|e| in_source(e, "/source/specification"))?,
+            ),
             SourceV1::StochasticDividend {
                 equity,
                 dividends: d,
@@ -400,7 +480,7 @@ impl TaskV1 {
                 maximum_step,
             } => PricingSource::StochasticDividend(
                 StochasticDividendSpecification::new(
-                    specification_from_wire(equity)?,
+                    specification_from_wire(equity).map_err(|e| in_source(e, "/source/equity"))?,
                     BuehlerDividendModel::new(
                         d.mean_reversion,
                         d.equity_linkage,
@@ -412,7 +492,7 @@ impl TaskV1 {
                     rate_correlation,
                     maximum_step,
                 )
-                .map_err(source_error)?,
+                .map_err(|e| in_source(source_error(e), "/source"))?,
             ),
             SourceV1::MultiAsset {
                 valuation_date,
@@ -430,13 +510,22 @@ impl TaskV1 {
                 let mut m = MultiAssetModelSpec::new(
                     models
                         .into_iter()
-                        .map(model_from_wire)
+                        .enumerate()
+                        .map(|(i, m)| {
+                            model_from_wire(m)
+                                .map_err(|e| rebase(e, "/model", &format!("/source/models/{i}")))
+                        })
                         .collect::<Result<_, _>>()?,
-                    correlation.into_domain()?,
+                    correlation.into_domain("/source/correlation")?,
                 );
                 m.lsv = lsv
                     .into_iter()
-                    .map(|x| x.into_option().map(MarginalV1::into_domain).transpose())
+                    .enumerate()
+                    .map(|(i, x)| {
+                        x.into_option()
+                            .map(|m| m.into_domain(&format!("/source/lsv/{i}/value")))
+                            .transpose()
+                    })
                     .collect::<Result<_, _>>()?;
                 m.driver_correlations = driver_correlations;
                 m.hull_white = hull_white.map(BasketRatesV1::into_domain).transpose()?;
@@ -449,10 +538,17 @@ impl TaskV1 {
                         product.into_domain("/source/product")?,
                         markets
                             .into_iter()
-                            .map(|m| market_from_wire(m).map(|m| m.equity().clone()))
+                            .enumerate()
+                            .map(|(i, m)| {
+                                market_from_wire(m)
+                                    .map(|m| m.equity().clone())
+                                    .map_err(|e| {
+                                        rebase(e, "/market", &format!("/source/markets/{i}"))
+                                    })
+                            })
                             .collect::<Result<_, _>>()?,
                         m,
-                        engine_from_wire(engine)?,
+                        engine_from_wire(engine).map_err(|e| in_source(e, "/source"))?,
                         ExecutionPolicy::new(
                             numerics.worker_threads,
                             Some(numerics.reduction_block_size),
@@ -462,7 +558,7 @@ impl TaskV1 {
                             domain_at("/source/numerics/maximum_step", "required basket step")
                         })?,
                     )
-                    .map_err(source_error)?,
+                    .map_err(basket_source_error)?,
                 )
             }
         };
