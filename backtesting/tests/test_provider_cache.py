@@ -39,6 +39,9 @@ class ProviderCacheTests(unittest.TestCase):
         native = SimpleNamespace(__file__=__file__, PricingError=RuntimeError)
         module = patch.dict('sys.modules', {'rust_pricing': native})
         module.start(); self.addCleanup(module.stop)
+        # These synthetic cache tests do not exercise the native boundary.
+        contract = patch('rust_pricing_backtest.native_contract.validate_native_api')
+        contract.start(); self.addCleanup(contract.stop)
         self.calls = []
         evaluation = patch('rust_pricing_backtest.multi_step_provider.evaluate', new=self.price)
         evaluation.start(); self.addCleanup(evaluation.stop)

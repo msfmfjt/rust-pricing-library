@@ -36,7 +36,7 @@ def implementation_identity(extension=None, basis_policy=None):
     # A checkpoint binds the Python calibration and policy, as well as the native
     # binary already identified by RustPricingProvider. Upgrades cannot resume it.
     root = Path(__file__).parent
-    names = ("multi_step_provider.py", "rust_adapter.py", "provider_cache.py", "task_adapter.py", "multi_step_full_smile.py",
+    names = ("multi_step_provider.py", "rust_adapter.py", "provider_cache.py", "task_adapter.py", "native_contract.py", "multi_step_full_smile.py",
              "multi_step_smile.py", "discrete_smile.py", "path_history.py", "domain.py")
     if extension is not None or basis_policy is not None:
         names += ("multi_step_extension.py",)

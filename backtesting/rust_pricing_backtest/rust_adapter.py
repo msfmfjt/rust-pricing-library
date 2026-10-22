@@ -9,7 +9,7 @@ from threading import RLock
 
 from .domain import BacktestError, Risk, data, fingerprint, require
 from .provider_cache import SnapshotCache
-from . import task_adapter
+from . import native_contract, task_adapter
 
 EXTENSION_SCOPES = ("multi_step_extension_gamma", "multi_step_extension_put_gamma")
 CUSTOM_BASIS_SCOPE = "multi_step_custom_basis_gamma"
@@ -81,10 +81,18 @@ class RustPricingProvider:
         require(diagnostic_only is True or numerical_scope is not None, "unvalidated_vega_kt",
                 "native LV paper decomposition has not passed independent acceptance; "
                 "diagnostic_only=True is required for investigation")
-        import rust_pricing as rp
         require(worker_threads >= 1 and reduction_block_size >= 1, "invalid_provider", "positive execution settings required")
+        rp = native_contract.load_native(
+            multi_step=numerical_scope in MULTI_STEP_SCOPES,
+            joint=numerical_scope in (*EXTENSION_SCOPES, CUSTOM_BASIS_SCOPE),
+            quote_control=sampling_policy == "rqmc_quote_control_512x24")
         module = getattr(rp, "rust_pricing", rp)
-        binary_hash = hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()
+        try:
+            binary_hash = hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()
+        except (AttributeError, TypeError, ValueError, OSError) as error:
+            raise BacktestError("unsupported_native_version",
+                                "native module file is unavailable for binary provenance; "
+                                "install/rebuild the native wheel for this companion package") from error
         identity = f"rust_pricing_lv_v5:{numerical_scope}:{binary_hash}:{worker_threads}:{reduction_block_size}"
         if numerical_scope in MULTI_STEP_SCOPES:
             from .multi_step_provider import implementation_identity
@@ -286,7 +294,6 @@ class RustPricingProvider:
         try:
             request = self.rp.PricingRequest.from_json(raw)
             curve = self.rp.DiscountCurve(**m["discount_curve"])
-            require(hasattr(curve, "discount"), "unsupported_native_version", "rebuild the native library for reporting forwards")
             # This adapter rejects dividends. F(T)=spot/D(T) uses the same public
             # curve as the native forward normalizer, at absolute basis dates.
             discounts = tuple(curve.discount((d-basis.valuation_date).days/365.) for d in basis.maturity_dates)

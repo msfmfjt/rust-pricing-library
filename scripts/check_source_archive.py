@@ -14,6 +14,10 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "backtesting/rust_pricing_backtest/native_contract.py",
+    "backtesting/tests/test_native_contract.py",
+    "tests/python/test_backtest_native_contract.py",
+    "design/adr/0039-native-provider-compatibility.md",
     "design/adr/0038-immutable-provider-configuration.md",
     "backtesting/rust_pricing_backtest/task_adapter.py",
     "backtesting/tests/test_task_adapter.py",
