@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -221,7 +222,8 @@ class SelectionTests(unittest.TestCase):
 
 
 class ExecutionTests(unittest.TestCase):
-    def execute(self, argv, *, selected=2, exit_code=0, report=None, inventory=None, unsharded=None):
+    def execute(self, argv, *, selected=2, exit_code=0, report=None, inventory=None, unsharded=None,
+                execution_error=None):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             args = runner.parse_args(argv)
@@ -238,6 +240,8 @@ class ExecutionTests(unittest.TestCase):
                 return "fixture-head\n" if "rev-parse" in command else ""
 
             def run(command, **kwargs):
+                if execution_error is not None:
+                    raise execution_error
                 output = Path(next(item.split("=", 1)[1] for item in command if item.startswith("--output=")))
                 destination = output / "mutants.out"
                 destination.mkdir()
@@ -258,6 +262,111 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual((code, record["status"], calls), (0, "passed", 1))
         code, record, calls = self.execute(["smoke", "--list"])
         self.assertEqual((code, record["status"], calls), (0, "listed_only", 0))
+
+    def test_hard_termination_keeps_a_nonpassing_checkpoint(self):
+        # Exit from inside a subprocess without finally/exception handlers.
+        # This models a CI deadline/host kill, not a handled Ctrl-C.
+        child = '''
+import json, os, sys
+from pathlib import Path
+from unittest.mock import patch
+sys.path.insert(0, sys.argv[1])
+import run_mutation_tests as runner
+root, stage = Path(sys.argv[2]), sys.argv[3]
+def capture(command, cwd):
+    if command[:3] == ["cargo", "mutants", "--version"]:
+        return f"cargo-mutants {runner.CARGO_MUTANTS_VERSION}"
+    if "--list" in command:
+        if stage == "selecting":
+            os._exit(143)
+        return json.dumps([{"name": "fixture.rs:1: replace first"}])
+    return "fixture-head" if "rev-parse" in command else ""
+def execute(*args, **kwargs):
+    os._exit(143)
+with patch.object(runner, "capture", side_effect=capture), \\
+     patch.object(runner.subprocess, "run", side_effect=execute):
+    runner.run(runner.parse_args(["smoke"]), root)
+'''
+        for stage in ("selecting", "running"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                result = subprocess.run(
+                    [sys.executable, "-c", child, str(Path(runner.__file__).parent), temporary, stage],
+                    capture_output=True, encoding="utf-8", timeout=20,
+                )
+                self.assertEqual(result.returncode, 143, result.stderr)
+                output = next((Path(temporary) / "target/mutation").iterdir())
+                record = json.loads((output / "run.json").read_text())
+                self.assertEqual(record["status"], stage)
+                self.assertEqual(record["head"], "fixture-head")
+                self.assertTrue(record["started_at"])
+                self.assertIn("--baseline=run", record["command"])
+                self.assertNotIn("finished_at", record)
+                self.assertNotIn("runner_exit_code", record)
+                self.assertNotIn("counts", record)
+                if stage == "running":
+                    self.assertEqual(record["selected"], 1)
+                    self.assertEqual(len(json.loads((output / "selected.json").read_text())), 1)
+
+    def test_handled_interruptions_and_errors_finish_with_a_failure_status(self):
+        for error, expected_code, status in ((KeyboardInterrupt(), 130, "interrupted"),
+                                              (OSError("tool unavailable"), 1, "error")):
+            with self.subTest(status=status):
+                code, record, _ = self.execute(["smoke"], execution_error=error)
+                self.assertEqual((code, record["status"], record["runner_exit_code"]),
+                                 (expected_code, status, expected_code))
+                self.assertLessEqual(record["started_at"], record["finished_at"])
+                self.assertNotIn("counts", record)
+
+    def test_interrupted_checkpoint_write_preserves_the_previous_valid_json(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            before, after = {"status": "selecting"}, {"status": "running", "selected": 2}
+            runner.save_record(output, before)
+            write_text = Path.write_text
+
+            def partial_write(path, text, **kwargs):
+                write_text(path, text[:5], **kwargs)
+                raise KeyboardInterrupt
+
+            with patch.object(Path, "write_text", partial_write), self.assertRaises(KeyboardInterrupt):
+                runner.save_record(output, after)
+            self.assertEqual(json.loads((output / "run.json").read_text()), before)
+            runner.save_record(output, after)
+            self.assertEqual(json.loads((output / "run.json").read_text()), after)
+            self.assertFalse((output / "run.json.tmp").exists())
+
+    def test_outstanding_results_preserve_timeout_and_build_failure(self):
+        report = completed_report() | {"caught": 0, "timeout": 1, "unviable": 1}
+        report["outcomes"][1].update(summary="Timeout", phase_results=phase_results("Timeout"),
+                                     log_path="log/first.log", diff_path="diff/first.diff")
+        report["outcomes"][2].update(summary="Unviable",
+                                     phase_results=phase_results(build_status={"Failure": 101}),
+                                     log_path="log/second.log", diff_path="diff/second.diff")
+        code, record, _ = self.execute(["smoke"], report=report, exit_code=3)
+        self.assertEqual((code, record["status"]), (3, "failed"))
+        self.assertEqual(record["runner_exit_code"], 3)
+        self.assertEqual(record["counts"]["caught"], 0)
+        self.assertEqual([(entry["outcome"], entry["phase"]) for entry in record["outstanding"]],
+                         [("Timeout", "Test"), ("Unviable", "Build")])
+        self.assertEqual(record["outstanding"][0]["log_path"], "log/first.log")
+        self.assertEqual(record["outstanding"][1]["diff_path"], "diff/second.diff")
+
+    def test_summary_limits_visible_rows_without_dropping_retained_failures(self):
+        entries = [{"name": f"fixture.rs:{i}: replace `a | b`\nwith false", "outcome": "MissedMutant",
+                    "phase": "Test", "log_path": f"log/{i}.log", "diff_path": f"diff/{i}.diff"}
+                   for i in range(25)]
+        record = {"scope": "full", "status": "failed", "selected": 25, "outstanding": entries}
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.dict(runner.os.environ, {"GITHUB_STEP_SUMMARY": ""}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            output = Path(temporary)
+            runner.write_summary(output, record)
+            self.assertEqual(json.loads((output / "run.json").read_text())["outstanding"], entries)
+            summary = (output / "summary.md").read_text()
+            self.assertEqual(summary.count("| MissedMutant |"), 20)
+            self.assertIn("Showing 20 of 25", summary)
+            self.assertIn("`` fixture.rs:0: replace `a \\| b` with false ``", summary)
+            self.assertNotIn("fixture.rs:24:", summary)
 
     def test_empty_changed_diff_is_explicit_and_empty_smoke_is_error(self):
         code, record, calls = self.execute(["changed", "--base", "fixture"], selected=0)

@@ -101,7 +101,9 @@ selection and CLI behavior in addition to the runner's unit tests.
 Every invocation creates a fresh directory under `target/mutation/` containing:
 
 - `run.json`: scope, source HEAD, dirty-worktree status, actual command, tool
-  version, selection count, completion state and process exit code.
+  version, selection count, completion state and process exit code. Completed,
+  validated reports also list every missed/timeout/unviable identity, its last
+  execution phase and its log/patch paths relative to `mutants.out/`.
 - `selected.json`: the complete selected mutation inventory; `changes.diff` and
   `merge-base.txt` for incremental runs.
 - `mutants.out/`: upstream outcomes, individual patches and build/test logs.
@@ -110,6 +112,22 @@ Every invocation creates a fresh directory under `target/mutation/` containing:
 CI uploads these directories even on failure, with 14-day retention. Local dirty
 worktrees are identified as such; only a clean committed checkout pins the tested
 source completely. `--list` records `listed_only`, never a passing test result.
+
+The runner writes `run.json` before tool discovery, before inventory selection,
+before execution and before result validation. Each checkpoint replaces the
+previous JSON atomically. This retains the available command/source/selection
+information if a CI deadline or host termination prevents normal cleanup.
+`preparing`, `selecting`, `running` and `validating` are **last recorded stages**,
+not proof that a process is still alive or that the run completed. An unfinished
+record has no `finished_at` or `runner_exit_code` and cannot establish a pass.
+Normal and handled-interruption exits retain both timestamps and the runner
+exit code; a handled keyboard interrupt records `interrupted` and exit 130.
+
+For completed, validated results, `summary.md` and the CI summary show up to
+20 outstanding mutations, with missed mutations first and timeout/build-failure
+phases distinguished. The limit applies only to display; `run.json` retains the
+entire list, and raw logs/patches remain in `mutants.out/`. Unvalidated or partial
+outcomes do not receive a validated failure list.
 
 Survivors, timeouts, baseline failures and tool errors fail the job. The runner
 also rejects incomplete counts, missing baseline tests and check-only output,
@@ -150,8 +168,11 @@ The [date/calendar follow-up](../../design/validation/mutation-calendar-2026-10-
 adds boundary and calendar-contract tests, fixes a Modified Following year/month
 comparison, and records all 135 generated mutations. It distinguishes the zero
 remaining survivors from five nonterminating mutations and eight unviable builds.
-These diagnostic unit-only runs are narrower than the runner's `full` scope,
-which continues to include the downstream pricing tests.
+The [execution-evidence follow-up](../../design/validation/mutation-reporting-2026-10-22.md)
+verifies abrupt-termination checkpoints and complete failure lists, and runs the
+normal changed-line gate against both Rust crates and their downstream tests.
+The numerical and date/calendar diagnostic unit-only surveys are narrower than
+the runner's `full` scope, which includes the downstream pricing tests.
 
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:

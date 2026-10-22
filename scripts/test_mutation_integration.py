@@ -65,15 +65,24 @@ class InstalledToolTests(unittest.TestCase):
                     record_path = next((root / f"target/{name}").glob("*/run.json"))
                     record = json.loads(record_path.read_text())
                     self.assertEqual(code, expected_exit, captured.getvalue())
+                    self.assertEqual(record["runner_exit_code"], code)
+                    self.assertLessEqual(record["started_at"], record["finished_at"])
                     self.assertGreater(record["selected"], 0)
                     if name == "caught":
                         self.assertEqual(record["status"], "passed")
                         self.assertEqual(record["counts"]["caught"], record["selected"])
+                        self.assertEqual(record["outstanding"], [])
                     elif name == "missed":
                         self.assertEqual(record["status"], "failed")
                         self.assertEqual(record["counts"]["missed"], record["selected"])
+                        self.assertEqual(len(record["outstanding"]), record["selected"])
+                        for entry in record["outstanding"]:
+                            self.assertEqual((entry["outcome"], entry["phase"]), ("MissedMutant", "Test"))
+                            self.assertTrue((record_path.parent / "mutants.out" / entry["log_path"]).is_file())
+                            self.assertTrue((record_path.parent / "mutants.out" / entry["diff_path"]).is_file())
                     else:
                         self.assertNotEqual(record["status"], "passed")
+                        self.assertNotIn("outstanding", record)
 
             # Fewer than 100 mutants exist in this fixture. An empty shard is
             # an explicit no-op only when the unsharded selection is valid and

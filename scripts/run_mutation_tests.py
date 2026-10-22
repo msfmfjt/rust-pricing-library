@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -180,8 +181,31 @@ def check_outcomes(report: dict, selected: list[dict], expected_packages: tuple[
     return counts
 
 
+def save_record(output: Path, record: dict) -> None:
+    """Keep the last complete checkpoint if the process stops during a write."""
+    temporary = output / "run.json.tmp"
+    temporary.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(output / "run.json")
+
+
+def outstanding_results(report: dict) -> list[dict]:
+    """Summarize only evidence already accepted by check_outcomes."""
+    order = {"MissedMutant": 0, "Timeout": 1, "Unviable": 2}
+    results = []
+    for entry in report["outcomes"]:
+        if entry["summary"] in order:
+            results.append({
+                "name": entry["scenario"]["Mutant"]["name"],
+                "outcome": entry["summary"],
+                "phase": entry["phase_results"][-1]["phase"],
+                "log_path": entry.get("log_path"),
+                "diff_path": entry.get("diff_path"),
+            })
+    return sorted(results, key=lambda item: (order[item["outcome"]], item["name"]))
+
+
 def write_summary(output: Path, record: dict) -> None:
-    (output / "run.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    save_record(output, record)
     lines = ["## Rust mutation testing", "", f"Scope: `{record['scope']}`",
              f"Status: **{record['status']}**", f"Selected mutants: {record.get('selected', 'unknown')}"]
     if "counts" in record:
@@ -193,6 +217,20 @@ def write_summary(output: Path, record: dict) -> None:
         lines += ["", "No applicable changed-line mutants; this is not whole-library coverage."]
     elif record["status"] == "empty_shard":
         lines += ["", "This shard is empty; the unsharded selection is nonempty. Review all shards."]
+    outstanding = record.get("outstanding", [])
+    if outstanding:
+        lines += ["", "| Outcome | Phase | Mutation |", "| --- | --- | --- |"]
+        for item in outstanding[:20]:
+            # Mutation names come from source text. Escape table syntax and
+            # use a code delimiter longer than any run of backticks in a name.
+            name = item["name"].replace("\n", " ").replace("\r", " ").replace("|", "\\|")
+            delimiter = "`"
+            while delimiter in name:
+                delimiter += "`"
+            lines.append(f"| {item['outcome']} | {item['phase']} | {delimiter} {name} {delimiter} |")
+        if len(outstanding) > 20:
+            lines += ["", f"Showing 20 of {len(outstanding)} outstanding mutations."]
+        lines += ["", "The full list and log/patch paths are in `run.json`; paths are relative to `mutants.out/`."]
     lines += ["", "Timeouts and unviable builds are not counted as caught mutants.", ""]
     summary = "\n".join(lines)
     (output / "summary.md").write_text(summary, encoding="utf-8")
@@ -207,10 +245,12 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
     parent.mkdir(parents=True, exist_ok=True)
     # Never let an interrupted or failed invocation reuse old successful evidence.
     output = Path(tempfile.mkdtemp(prefix=f"{args.scope}-", dir=parent))
-    record = {"scope": args.scope, "status": "error", "tool_version": CARGO_MUTANTS_VERSION}
+    record = {"scope": args.scope, "status": "preparing", "tool_version": CARGO_MUTANTS_VERSION,
+              "started_at": datetime.now(timezone.utc).isoformat()}
     print(f"Mutation evidence: {output}", flush=True)
     code = 1
     try:
+        save_record(output, record)
         actual = capture(["cargo", "mutants", "--version"], root).strip()
         if actual != f"cargo-mutants {CARGO_MUTANTS_VERSION}":
             raise ValueError(f"Install cargo-mutants {CARGO_MUTANTS_VERSION}; found {actual!r}")
@@ -219,6 +259,8 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
         options = selection_args(args, root, output)
         command = ["cargo", "mutants", *options, f"--output={output}"]
         record["command"] = command
+        record["status"] = "selecting"
+        save_record(output, record)
         selection = capture([*command, "--list", "--json"], root)
         # 27.1.0 prints no JSON at all when --in-diff removes every mutant.
         # capture(check=True) has already distinguished tool failure from this.
@@ -226,6 +268,7 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
         mutation_names(selected)
         (output / "selected.json").write_text(json.dumps(selected, indent=2) + "\n", encoding="utf-8")
         record["selected"] = len(selected)
+        save_record(output, record)
         if args.list:
             record["status"] = "listed_only"
             code = 0
@@ -244,22 +287,30 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
                 record["status"] = "no_mutants"
             code = 0
         else:
+            record["status"] = "running"
+            save_record(output, record)
             code = subprocess.run(command, cwd=root, check=False).returncode
             record["cargo_mutants_exit_code"] = code
+            record["status"] = "validating"
+            save_record(output, record)
             report_path = output / "mutants.out" / "outcomes.json"
             report = json.loads(report_path.read_text(encoding="utf-8"))
             expected_packages = ("pricing",) if args.scope == "smoke" else PACKAGES
             record["counts"] = check_outcomes(report, selected, expected_packages)
+            record["outstanding"] = outstanding_results(report)
             if code == 0 and (report["missed"] or report["timeout"]):
                 code = 1
             record["status"] = "passed" if code == 0 else "failed"
     except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+        record["status"] = "error"
         record["error"] = str(error)
         code = code or 1
     except KeyboardInterrupt:
         record["status"] = "interrupted"
         code = 130
     finally:
+        record["finished_at"] = datetime.now(timezone.utc).isoformat()
+        record["runner_exit_code"] = code if code >= 0 else 128 - code
         write_summary(output, record)
     return code if code >= 0 else 128 - code
 
