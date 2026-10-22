@@ -179,7 +179,7 @@ impl LocalCorrelationCalibration {
                 return Err(E::Invalid("nonfinite discounted local correlation moments"));
             }
             if projected && self.config.feasibility == LocalCorrelationFeasibility::Reject {
-                return Err(E::numerical(format!(
+                return Err(E::Numerical(format!(
                     "infeasible joint local correlation target at time {}, log basket {}: target {}, correction {}, endpoints [{}, {}]",
                     self.times[row], x, variance, correction, a, b
                 )));

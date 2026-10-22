@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0040: Preserve typed multi-asset numerical causes](adr/0040-multi-asset-error-sources.md)
+
 - [ADR 0038: Immutable backtest provider configuration](adr/0038-immutable-provider-configuration.md)
 - [ADR 0039: Native provider API compatibility](adr/0039-native-provider-compatibility.md)
 
@@ -84,6 +86,7 @@ documents the public API migration.
 - [Typed API and task validation review, 2026-10-22](validation/typed-api-task-validation-review-2026-10-22.md)
 - [Model, calibration and HW quote-risk boundary review, 2026-10-22](validation/hw-market-iv-boundary-review-2026-10-22.md)
 - [Numerical execution and allocation-error review, 2026-10-22](validation/executor-resource-review-2026-10-22.md)
+- [Multi-asset error-boundary review, 2026-10-22](validation/multi-asset-error-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump

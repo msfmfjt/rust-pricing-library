@@ -55,6 +55,7 @@ Selected codes supported by the shared adapters:
 | `non_finite_state`, `non_finite_total_variance`, `graph_error` | A numerical path, variance or payoff-graph failure. |
 | `invalid_json`, `unsupported_schema_version`, `invalid_domain_value` | Parsing/schema/domain validation failures. |
 | `pricing_error` | A native failure without a more specific mapping. Preserve the message and causes. |
+| `multi_asset_numerical_error` | A basket numerical diagnostic with no recognized typed cause. Preserve the message and causes. |
 
 Codes are extensible; handle unknown codes by retaining the failed calculation.
 Messages and cause strings are diagnostics, not stable dispatch keys. Historical
@@ -64,12 +65,24 @@ Messages and cause strings are diagnostics, not stable dispatch keys. Historical
 keep their existing contracts.
 
 An execution request whose reduction-block table cannot be reserved fails during
-evaluation before any sampling callback runs. Single-asset and stochastic-dividend
-task adapters retain `code == "resource_limit"` and `field == "reduction_blocks"`.
-The experimental multi-asset adapter currently wraps executor errors as
-`multi_asset_numerical_error`; it still raises a catchable `PricingError`. This
+evaluation before any sampling callback runs. Single-asset, multi-asset and
+stochastic-dividend task adapters retain `code == "resource_limit"` and
+`field == "reduction_blocks"`. This
 allocation check does not impose a new sampling-count or block-size cap, nor
 guarantee that all subsequent allocations will fit in memory.
+
+Basket numerical wrappers preserve their native sources: RQMC dimension limits
+report `resource_limit` / `effective_dimension`, failed LSV calibration nodes
+report `calibration_error`, and runtime payoff failures report `graph_error` /
+`product`. Evaluation causes retain the failed sampling-unit context. Legacy
+text-only diagnostics and unrecognized numerical causes retain the generic
+`multi_asset_numerical_error` code; messages are never parsed to choose a code.
+
+`MultiAssetPlan.compile()` keeps its historical `ValidationError` class and
+`issues` payload. Failures returned by the native compiler now carry
+`stage == "compile"` and the same cause classification as `PricingTask.compile()`.
+Argument validation before the native compiler still reports `validation`.
+The common-task API continues to raise `PricingError` for native compile failures.
 
 See [complete pricing tasks](pricing-tasks.md) for capability queries before
 compilation and [the type stub](../../rust_pricing.pyi) for attribute types.
