@@ -1,0 +1,1308 @@
+{
+  "date": "2026-10-22",
+  "base_commit": "2513e9edbb6c0a218f0b007e4d24b8d9b0f691cb",
+  "rust_version": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "scope": "All 952 pricing-numerics production mutations; pricing-numerics nonignored unit tests only; no downstream integration or Python coverage",
+  "runs": {
+    "before": {
+      "command": [
+        "cargo",
+        "mutants",
+        "--package=pricing-numerics",
+        "--test-package=pricing-numerics",
+        "--cargo-arg=--lib",
+        "--baseline=run",
+        "--no-shuffle",
+        "--jobs=2",
+        "--timeout=20",
+        "--build-timeout=600",
+        "--output=/tmp/pricing-numerics-before-confirmed"
+      ],
+      "source_head": "2513e9edbb6c0a218f0b007e4d24b8d9b0f691cb",
+      "file_sha256": {
+        "crates/pricing-numerics/src/complex.rs": "920149fb49a32ea9bc4e54871a386772529e0d128d75247d07214a8ac3d000b0",
+        "crates/pricing-numerics/src/correlation.rs": "82ecbf50ba2a11ff2bf24f10dd872499afaff3b3654909f156100f81f0fd469d",
+        "crates/pricing-numerics/src/fractional.rs": "4fe463538b7b86073b6dd210035ef5efbacda3c53e7f7ada2efa1371189fe7d0",
+        "crates/pricing-numerics/src/least_squares.rs": "138b7c8286257a4c6bd49542088bffb92e0ccfd2abb8b28d9d9210070a93e0e3",
+        "crates/pricing-numerics/src/lib.rs": "3a2b9ca9664cda9a76947b859750a9d1fc43a11b082611e8853c3b66c432a5b3",
+        "crates/pricing-numerics/src/normal.rs": "2417ccdfc0d93a49477cf61913e9053e1b784848bac02888b8e13d491d37d217",
+        "crates/pricing-numerics/src/reduction.rs": "696dcbcc63986543029f17c468383ed845c144883e7a2ed5ea33070f07bb8292"
+      },
+      "test_scope": "pricing-numerics unit tests only",
+      "environment": {
+        "CARGO_PROFILE_TEST_DEBUG": "0"
+      },
+      "exit_code": 3,
+      "selected": 952,
+      "counts": {
+        "total_mutants": 952,
+        "caught": 741,
+        "missed": 201,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "start_time": "2026-10-22T18:19:15.302838712Z",
+      "end_time": "2026-10-22T18:22:16.271921865Z",
+      "cargo_mutants_version": "27.1.0",
+      "complete": true,
+      "outstanding": [
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"\""
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:33:9: replace <impl fmt::Display for CorrelationError>::fmt -> fmt::Result with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"xyzzy\""
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:65:9: replace CorrelationFactor::compile -> Result<Self, CorrelationError> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:73:53: replace || with && in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:73:59: replace < with == in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:73:59: replace < with <= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:89:25: replace > with >= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:94:71: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:95:30: replace > with >= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:98:34: replace * with / in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:98:55: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:103:25: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:108:50: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:108:50: replace + with * in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:110:61: replace * with + in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:110:61: replace * with / in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:111:76: replace * with / in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:112:39: replace || with && in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:126:44: replace < with <= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:129:22: replace > with >= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:134:24: replace + with * in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:137:40: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:137:59: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:139:40: replace + with - in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:140:26: replace > with >= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:148:64: replace > with >= in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:164:34: replace - with + in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:164:34: replace - with / in CorrelationFactor::compile"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:183:9: replace CorrelationFactor::dimension -> usize with 0"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:183:9: replace CorrelationFactor::dimension -> usize with 1"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:186:9: replace CorrelationFactor::raw -> &[f64] with Vec::leak(Vec::new())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:186:9: replace CorrelationFactor::raw -> &[f64] with Vec::leak(vec![0.0])"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:186:9: replace CorrelationFactor::raw -> &[f64] with Vec::leak(vec![1.0])"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/correlation.rs:186:9: replace CorrelationFactor::raw -> &[f64] with Vec::leak(vec![-1.0])"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:195:9: replace CorrelationFactor::diagnostics -> &CorrelationDiagnostics with Box::leak(Box::new(Default::default()))"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:13:29: replace > with == in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:13:29: replace > with >= in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:15:25: replace < with <= in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:13: replace + with - in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:19: replace / with % in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:19: replace / with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:32: replace + with - in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:32: replace + with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:38: replace / with % in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:38: replace / with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:51: replace + with - in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:51: replace + with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:57: replace / with % in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:57: replace / with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:70: replace + with - in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:70: replace + with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:76: replace / with % in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:76: replace / with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:89: replace + with - in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:44:89: replace + with * in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:45:77: replace * with + in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:45:77: replace * with / in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:45:68: replace * with + in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:45:68: replace * with / in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:47:14: replace > with >= in standard_normal_cdf"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:41:13: replace < with <= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with -= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with *= in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:14: replace / with % in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:9: delete - in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:72:78: replace || with && in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:72:58: replace || with && in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:83:31: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:85:57: replace + with * in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:85:62: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:51: replace - with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:51: replace - with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:31: replace + with - in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:31: replace + with * in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:18: replace + with * in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:36: replace - with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:36: replace - with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:57: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:87:57: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:94:25: replace || with && in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:94:30: replace == with != in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:97:52: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:97:29: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:97:29: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:98:33: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:98:33: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:98:28: replace - with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:65: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:42: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:42: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:36: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:36: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:31: replace - with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:99:89: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with == in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with > in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:105:38: replace + with - in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:109:27: replace / with % in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:109:34: replace * with + in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:109:27: replace / with * in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:109:34: replace * with / in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:27: replace && with || in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:50: replace + with - in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:128:9: replace <impl PartialEq for SimpsonPanel>::eq -> bool with true"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:128:9: replace <impl PartialEq for SimpsonPanel>::eq -> bool with false"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:128:37: replace && with || in <impl PartialEq for SimpsonPanel>::eq"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:128:21: replace == with != in <impl PartialEq for SimpsonPanel>::eq"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:134:9: replace <impl PartialOrd for SimpsonPanel>::partial_cmp -> Option<std::cmp::Ordering> with Some(Default::default())"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:139:9: replace <impl Ord for SimpsonPanel>::cmp -> std::cmp::Ordering with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:183:63: replace * with + in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:183:63: replace * with / in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:183:58: replace + with - in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:183:58: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:190:25: replace > with == in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:190:25: replace > with < in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:190:25: replace > with >= in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:201:24: replace || with && in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:204:80: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:81: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with - in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:207:22: delete - in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:19:9: replace Complex64::abs -> f64 with 0.0"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:19:9: replace Complex64::abs -> f64 with -1.0"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:23:9: replace Complex64::is_finite -> bool with true"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:23:29: replace && with || in Complex64::is_finite"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:27:28: delete - in Complex64::conj"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:54:9: replace <impl Add for Complex64>::add -> Self with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:54:27: replace + with - in <impl Add for Complex64>::add"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:54:27: replace + with * in <impl Add for Complex64>::add"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:54:43: replace + with - in <impl Add for Complex64>::add"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:54:43: replace + with * in <impl Add for Complex64>::add"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:60:9: replace <impl Sub for Complex64>::sub -> Self with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:81:9: replace <impl Mul<f64> for Complex64>::mul -> Self with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:81:27: replace * with + in <impl Mul<f64> for Complex64>::mul"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:81:27: replace * with / in <impl Mul<f64> for Complex64>::mul"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:81:40: replace * with + in <impl Mul<f64> for Complex64>::mul"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:81:40: replace * with / in <impl Mul<f64> for Complex64>::mul"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/complex.rs:97:22: replace / with % in <impl Div for Complex64>::div"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:98:68: replace / with % in <impl Div for Complex64>::div"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/complex.rs:98:68: replace / with * in <impl Div for Complex64>::div"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:38:9: replace LeastSquaresOptions::validate -> Result<(), &'static str> with Ok(())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:39:13: replace || with && in LeastSquaresOptions::validate"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:51:13: replace || with && in LeastSquaresOptions::validate"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:50:33: replace || with && in LeastSquaresOptions::validate"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:51:37: replace > with == in LeastSquaresOptions::validate"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:51:37: replace > with >= in LeastSquaresOptions::validate"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:95:9: replace <impl fmt::Display for LeastSquaresError<E>>::fmt -> fmt::Result with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:109:9: replace || with && in checked_cost"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:109:30: replace > with == in checked_cost"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:109:30: replace > with >= in checked_cost"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:24: replace > with == in blocked"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:24: replace > with < in blocked"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:24: replace > with >= in blocked"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:53: replace < with <= in blocked"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:157:30: replace + with - in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:157:45: replace + with - in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:160:29: replace || with && in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:165:29: replace + with - in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:165:29: replace + with * in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:165:25: replace * with / in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:171:29: replace + with - in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:171:29: replace + with * in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:171:25: replace * with / in cholesky_solve"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:177:29: replace + with - in cholesky_solve"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/least_squares.rs:197:5: replace bounded_least_squares -> Result<LeastSquaresResult, LeastSquaresError<E>> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:201:25: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:201:15: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:201:20: replace > with == in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:201:20: replace > with >= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:215:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:214:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:213:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:212:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:211:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:210:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:209:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:208:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:213:18: replace < with == in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:213:18: replace < with <= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:214:18: replace > with == in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:214:18: replace > with >= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:215:38: replace / with % in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:215:38: replace / with * in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:215:27: replace - with + in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:215:27: replace - with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:254:20: replace > with == in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:254:20: replace > with >= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:257:20: replace += with *= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:263:35: replace && with || in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:53: replace + with - in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:53: replace + with * in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:49: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:21: replace + with - in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:17: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:48: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with += in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with /= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:289:41: replace / with * in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:289:33: replace - with + in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:289:33: replace - with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:294:21: replace += with *= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:298:26: replace += with *= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:299:25: replace *= with += in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:304:29: replace < with <= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:311:30: replace += with *= in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:312:29: replace *= with += in bounded_least_squares"
+        }
+      ],
+      "by_file": {
+        "crates/pricing-numerics/src/lib.rs": {
+          "MissedMutant": 2
+        },
+        "crates/pricing-numerics/src/correlation.rs": {
+          "MissedMutant": 32,
+          "Unviable": 2,
+          "CaughtMutant": 126
+        },
+        "crates/pricing-numerics/src/normal.rs": {
+          "CaughtMutant": 46,
+          "MissedMutant": 25
+        },
+        "crates/pricing-numerics/src/reduction.rs": {
+          "CaughtMutant": 179,
+          "Unviable": 1,
+          "Timeout": 1
+        },
+        "crates/pricing-numerics/src/fractional.rs": {
+          "CaughtMutant": 151,
+          "MissedMutant": 59,
+          "Timeout": 2,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/complex.rs": {
+          "MissedMutant": 18,
+          "CaughtMutant": 80,
+          "Unviable": 1
+        },
+        "crates/pricing-numerics/src/least_squares.rs": {
+          "MissedMutant": 65,
+          "CaughtMutant": 159,
+          "Unviable": 1
+        }
+      },
+      "baseline_test_commands": [
+        [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      ],
+      "source_state": "Clean base commit",
+      "unit_test_count": 23,
+      "outcomes_sha256": "ce428ec61ea97fcf790f9f794dfe40baec8513dbb713e03349d331b8b54cd1e3",
+      "inventory_sha256": "739ecd9da2baf02aeb70c377793cfb09f0d7aaa571a2e7d07786dfbfbd170066"
+    },
+    "after": {
+      "command": [
+        "cargo",
+        "mutants",
+        "--package=pricing-numerics",
+        "--test-package=pricing-numerics",
+        "--cargo-arg=--lib",
+        "--baseline=run",
+        "--no-shuffle",
+        "--jobs=2",
+        "--timeout=20",
+        "--build-timeout=600",
+        "--output=/tmp/pricing-numerics-after-final"
+      ],
+      "source_head": "2513e9edbb6c0a218f0b007e4d24b8d9b0f691cb",
+      "file_sha256": {
+        "crates/pricing-numerics/src/complex.rs": "d0f76ffcc5c4186f4e46756f4a572b4b3541cb19e0e137b72313020b8e8355df",
+        "crates/pricing-numerics/src/correlation.rs": "91927497f63e5cc4cf0de8937a9025c04d2df06d920aa114294db9cb0add0df1",
+        "crates/pricing-numerics/src/fractional.rs": "41810043c0366318b318bf97ff518372b1368fbb0c2bf541d002c567ce969408",
+        "crates/pricing-numerics/src/least_squares.rs": "66406092c640b54be26694825781078a8431ab9a7de7ef7cf97a28da53700d29",
+        "crates/pricing-numerics/src/lib.rs": "3a2b9ca9664cda9a76947b859750a9d1fc43a11b082611e8853c3b66c432a5b3",
+        "crates/pricing-numerics/src/normal.rs": "2804b735e08e6812d0fe852283c3b643dde187b4d1ef88995b6a748ae8ddf8a4",
+        "crates/pricing-numerics/src/reduction.rs": "696dcbcc63986543029f17c468383ed845c144883e7a2ed5ea33070f07bb8292"
+      },
+      "test_scope": "pricing-numerics unit tests only",
+      "environment": {
+        "CARGO_PROFILE_TEST_DEBUG": "0"
+      },
+      "exit_code": 3,
+      "selected": 952,
+      "counts": {
+        "total_mutants": 952,
+        "caught": 912,
+        "missed": 30,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "start_time": "2026-10-22T18:24:25.403456496Z",
+      "end_time": "2026-10-22T18:28:08.236969557Z",
+      "cargo_mutants_version": "27.1.0",
+      "complete": true,
+      "outstanding": [
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"\""
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:65:9: replace CorrelationFactor::compile -> Result<Self, CorrelationError> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"xyzzy\""
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:195:9: replace CorrelationFactor::diagnostics -> &CorrelationDiagnostics with Box::leak(Box::new(Default::default()))"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:15:25: replace < with <= in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:47:14: replace > with >= in standard_normal_cdf"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:41:13: replace < with <= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with -= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with *= in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:14: replace / with % in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:9: delete - in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:83:31: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:94:25: replace || with && in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with == in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with > in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:27: replace && with || in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:50: replace + with - in fractional_ou_correlation"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:134:9: replace <impl PartialOrd for SimpsonPanel>::partial_cmp -> Option<std::cmp::Ordering> with Some(Default::default())"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:139:9: replace <impl Ord for SimpsonPanel>::cmp -> std::cmp::Ordering with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:190:25: replace > with >= in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:201:24: replace || with && in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:204:80: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:81: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with - in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/complex.rs:97:22: replace / with % in <impl Div for Complex64>::div"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:24: replace > with >= in blocked"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:53: replace < with <= in blocked"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/least_squares.rs:197:5: replace bounded_least_squares -> Result<LeastSquaresResult, LeastSquaresError<E>> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:209:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:263:35: replace && with || in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:53: replace + with - in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:49: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:21: replace + with - in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:17: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with += in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with /= in bounded_least_squares"
+        }
+      ],
+      "by_file": {
+        "crates/pricing-numerics/src/lib.rs": {
+          "MissedMutant": 2
+        },
+        "crates/pricing-numerics/src/correlation.rs": {
+          "CaughtMutant": 158,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/normal.rs": {
+          "CaughtMutant": 69,
+          "MissedMutant": 2
+        },
+        "crates/pricing-numerics/src/reduction.rs": {
+          "CaughtMutant": 179,
+          "Unviable": 1,
+          "Timeout": 1
+        },
+        "crates/pricing-numerics/src/fractional.rs": {
+          "CaughtMutant": 194,
+          "MissedMutant": 16,
+          "Timeout": 2,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/complex.rs": {
+          "CaughtMutant": 98,
+          "Unviable": 1
+        },
+        "crates/pricing-numerics/src/least_squares.rs": {
+          "CaughtMutant": 214,
+          "MissedMutant": 10,
+          "Unviable": 1
+        }
+      },
+      "baseline_test_commands": [
+        [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      ],
+      "source_state": "Base plus added tests; exact numerical source hashes below match the published files",
+      "unit_test_count": 47,
+      "outcomes_sha256": "bb889af08249af3200160ad565d064dde7735f53f051cf0e8ccb404877b2ad41",
+      "inventory_sha256": "084403661fdefdf7020a64cd6797c21c4fcfc6c844c4ca4c56e83f8e6bb0edd0"
+    }
+  },
+  "outcome_transitions": [
+    {
+      "before": "CaughtMutant",
+      "after": "CaughtMutant",
+      "count": 741
+    },
+    {
+      "before": "MissedMutant",
+      "after": "CaughtMutant",
+      "count": 171
+    },
+    {
+      "before": "MissedMutant",
+      "after": "MissedMutant",
+      "count": 30
+    },
+    {
+      "before": "Timeout",
+      "after": "Timeout",
+      "count": 3
+    },
+    {
+      "before": "Unviable",
+      "after": "Unviable",
+      "count": 7
+    }
+  ],
+  "references": {
+    "mpmath_version": "1.3.0",
+    "decimal_precision": 80,
+    "normal": [
+      {
+        "x": "0.5",
+        "pdf": "0.3520653267642994777746804415965176531103",
+        "cdf_negative_x": "0.3085375387259868963622953893916622601164"
+      },
+      {
+        "x": "2.5",
+        "pdf": "0.01752830049356853736215832216674858614851",
+        "cdf_negative_x": "0.006209665325776135166978104574192221127898"
+      },
+      {
+        "x": "7",
+        "pdf": "0.000000000009134720408364593342868613916794233023",
+        "cdf_negative_x": "0.000000000001279812543885835004383623690780832998033"
+      },
+      {
+        "x": "7.1",
+        "pdf": "0.000000000004513543677205509568347927551603378678386",
+        "cdf_negative_x": "6.237844463331575105220134813307977555529e-13"
+      },
+      {
+        "x": "8",
+        "pdf": "5.05227108353689228795018461551083466035e-15",
+        "cdf_negative_x": "6.220960574271784123515995172588188422489e-16"
+      },
+      {
+        "x": "10",
+        "pdf": "7.694598626706419346339033580041877235359e-23",
+        "cdf_negative_x": "7.619853024160526065973343251599308363504e-24"
+      },
+      {
+        "x": "20",
+        "pdf": "5.520948362159763189582735682787000953833e-88",
+        "cdf_negative_x": "2.753624118606233695075622780857465332807e-89"
+      },
+      {
+        "x": "37",
+        "pdf": "2.120006551524605626852045477107199373242e-298",
+        "cdf_negative_x": "5.725571222524576822683192548273201656433e-300"
+      }
+    ],
+    "fractional_ou": [
+      {
+        "hurst": "0.1",
+        "lag": "0.01",
+        "correlation": "0.5664453348491846298429010202251761981978"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "1",
+        "correlation": "0.09415265574292779844561793942561556355237"
+      },
+      {
+        "hurst": "0.4",
+        "lag": "3",
+        "correlation": "-0.00763344838325431432603755472283145585596"
+      },
+      {
+        "hurst": "0.1",
+        "lag": "10",
+        "correlation": "-0.002936858825762870585391532615361289072421"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "64",
+        "correlation": "-0.0005514727717999759400609987617356440821095"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "80",
+        "correlation": "-0.000394471027930615585495751184140333680629"
+      }
+    ]
+  },
+  "reference_generator_sha256": "cccb0586c44f1ffb5693b42c6a8da335b0304e055ebb16eb2e5ca2025025407d",
+  "discarded_capture": "Initial target/mutation-numerics-before capture was incomplete (949/952 outcomes and no end_time); no result from it is used in this comparison."
+}

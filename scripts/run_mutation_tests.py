@@ -83,8 +83,31 @@ def check_outcomes(report: dict, selected: int, expected_packages: tuple[str, ..
     if sum(counts[name] for name in names[1:]) != selected:
         raise ValueError("Mutation outcome counts do not reconcile")
     outcomes = report.get("outcomes", [])
+    summaries = {"CaughtMutant": "caught", "MissedMutant": "missed", "Timeout": "timeout",
+                 "Unviable": "unviable", "Success": "success"}
+    observed = dict.fromkeys(names[1:], 0)
+    identities = set()
+    if not isinstance(outcomes, list):
+        raise ValueError("Invalid mutation outcome records")
+    for entry in outcomes:
+        if not isinstance(entry, dict):
+            raise ValueError("Invalid mutation outcome record")
+        scenario = entry.get("scenario")
+        if scenario == "Baseline":
+            continue
+        mutant = scenario.get("Mutant") if isinstance(scenario, dict) else None
+        identity = mutant.get("name") if isinstance(mutant, dict) else None
+        if not isinstance(identity, str) or not identity or identity in identities:
+            raise ValueError("Missing or duplicate mutation identity")
+        category = summaries.get(entry.get("summary"))
+        if category is None:
+            raise ValueError("Unknown mutation outcome")
+        identities.add(identity)
+        observed[category] += 1
+    if len(identities) != selected or any(observed[name] != counts[name] for name in observed):
+        raise ValueError("Mutation records do not match aggregate counts")
     baselines = [entry for entry in outcomes if entry.get("scenario") == "Baseline"]
-    if not baselines or any(entry.get("summary") != "Success" for entry in baselines):
+    if len(baselines) != 1 or baselines[0].get("summary") != "Success":
         raise ValueError("Unmutated baseline did not pass")
     if any(not any(phase.get("phase") == "Test" for phase in entry.get("phase_results", []))
            for entry in baselines):

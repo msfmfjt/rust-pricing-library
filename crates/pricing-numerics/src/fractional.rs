@@ -221,6 +221,100 @@ mod tests {
     use super::*;
 
     #[test]
+    fn fractional_ou_matches_independent_infinite_interval_quadrature() {
+        // 80-digit mpmath tanh-sinh integration of the covariance integral,
+        // without the implementation's sin^2 substitution or tail cutoff.
+        // Regenerate with scripts/generate_numerics_mutation_references.py.
+        for (hurst, lag, expected) in [
+            (0.1, 0.01, 0.566_445_334_849_184_6),
+            (0.25, 1.0, 0.094_152_655_742_927_8),
+            (0.4, 3.0, -0.007_633_448_383_254_314),
+            (0.1, 10.0, -0.002_936_858_825_762_870_6),
+            (0.25, 64.0, -0.000_551_472_771_799_975_9),
+            (0.25, 80.0, -0.000_394_471_027_930_615_6),
+        ] {
+            let actual = fractional_ou_correlation(hurst, lag).unwrap();
+            assert!(
+                (actual - expected).abs() < 2e-12,
+                "H={hurst}, lag={lag}: {actual}"
+            );
+        }
+    }
+
+    #[test]
+    fn fractional_domains_are_checked_before_special_cases() {
+        for invalid in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -1.0,
+            0.0,
+            0.5_f64.next_up(),
+        ] {
+            for lag in [0.0, 1.0] {
+                assert_eq!(fractional_ou_correlation(invalid, lag), None);
+            }
+        }
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            for hurst in [0.1, 0.5] {
+                assert_eq!(fractional_ou_correlation(hurst, invalid), None);
+            }
+        }
+        for invalid in [
+            0.5_f64.next_down(),
+            2.0_f64.next_up(),
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ] {
+            assert_eq!(gamma_half_to_two(invalid), None);
+            assert_eq!(digamma_half_to_two(invalid), None);
+        }
+    }
+
+    #[test]
+    fn adaptive_quadrature_matches_integrals_and_rejects_nonfinite_samples() {
+        // Exact polynomial integral on an asymmetric interval checks the
+        // quadrature independently of the fractional OU model.
+        let cubic = |x: f64| 3.0 * x * x + 2.0 * x + 1.0;
+        assert_eq!(adaptive_simpson(&cubic, 1.0, 3.0, 1e-12), Some(36.0));
+        assert_eq!(
+            adaptive_simpson(&|_| panic!("zero-width interval sampled"), 2.0, 2.0, 1e-12),
+            Some(0.0)
+        );
+        let integral = adaptive_simpson(&|x: f64| x.exp(), 1.0, 3.0, 1e-12).unwrap();
+        assert!((integral - (3.0_f64.exp() - 1.0_f64.exp())).abs() < 2e-12);
+        for nonfinite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(adaptive_simpson(&|_| nonfinite, 0.0, 1.0, 1e-12), None);
+        }
+    }
+
+    #[test]
+    fn quadrature_panel_order_is_total_and_breaks_ties_by_insertion_order() {
+        let panel = |error, serial| SimpsonPanel {
+            interval: [0.0, 1.0],
+            values: [0.0; 5],
+            estimate: 0.0,
+            error,
+            depth: 0,
+            serial,
+        };
+        let first = panel(0.25, 0);
+        let later = panel(0.25, 1);
+        let larger = panel(0.5, 2);
+        assert_eq!(first, first.clone());
+        assert_ne!(first, later);
+        assert_ne!(first, panel(0.5, 0));
+        assert_eq!(first.partial_cmp(&later), Some(std::cmp::Ordering::Greater));
+        assert_eq!(first.partial_cmp(&first), Some(std::cmp::Ordering::Equal));
+        let mut heap = std::collections::BinaryHeap::from([later, larger, first]);
+        assert_eq!(heap.pop().unwrap().serial, 2);
+        assert_eq!(heap.pop().unwrap().serial, 0);
+        assert_eq!(heap.pop().unwrap().serial, 1);
+        assert!(heap.is_empty());
+    }
+
+    #[test]
     fn digamma_constants_recurrence_and_domain() {
         let euler = 0.577_215_664_901_532_9;
         for (x, expected) in [

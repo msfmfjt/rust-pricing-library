@@ -348,6 +348,519 @@ mod tests {
             n
         ]
     }
+
+    #[test]
+    fn option_domains_and_inclusive_limits_are_validated_independently() {
+        for (max_iterations, max_evaluations) in [(0, 150), (10_001, 150), (100, 0), (100, 10_002)]
+        {
+            assert!(
+                LeastSquaresOptions {
+                    max_iterations,
+                    max_evaluations,
+                    ..Default::default()
+                }
+                .validate()
+                .is_err()
+            );
+        }
+        for (max_iterations, max_evaluations) in [(1, 1), (10_000, 10_001)] {
+            assert!(
+                LeastSquaresOptions {
+                    max_iterations,
+                    max_evaluations,
+                    ..Default::default()
+                }
+                .validate()
+                .is_ok()
+            );
+        }
+        for index in 0..4 {
+            for invalid in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+                let mut options = LeastSquaresOptions::default();
+                let fields = [
+                    &mut options.residual_tolerance,
+                    &mut options.gradient_tolerance,
+                    &mut options.step_tolerance,
+                    &mut options.initial_damping,
+                ];
+                *fields[index] = invalid;
+                assert!(options.validate().is_err(), "option {index}: {invalid}");
+            }
+        }
+        assert!(
+            LeastSquaresOptions {
+                initial_damping: 1e12,
+                ..Default::default()
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            LeastSquaresOptions {
+                initial_damping: 1e12_f64.next_up(),
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn invalid_variables_fail_before_evaluating_the_model() {
+        let valid = vars(1)[0];
+        let mut cases = vec![
+            (-3.0_f64.next_up(), valid),
+            (3.0_f64.next_up(), valid),
+            (
+                0.0,
+                LeastSquaresVariable {
+                    lower: 1.0,
+                    upper: 1.0,
+                    ..valid
+                },
+            ),
+            (
+                0.0,
+                LeastSquaresVariable {
+                    lower: 2.0,
+                    upper: 1.0,
+                    ..valid
+                },
+            ),
+            (
+                0.0,
+                LeastSquaresVariable {
+                    scale: 0.0,
+                    ..valid
+                },
+            ),
+            (
+                0.0,
+                LeastSquaresVariable {
+                    scale: -1.0,
+                    ..valid
+                },
+            ),
+            (
+                0.0,
+                LeastSquaresVariable {
+                    scale: f64::MIN_POSITIVE,
+                    ..valid
+                },
+            ),
+            (
+                0.0,
+                LeastSquaresVariable {
+                    lower: -f64::MAX,
+                    upper: f64::MAX,
+                    ..valid
+                },
+            ),
+        ];
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            cases.push((invalid, valid));
+            cases.push((
+                0.0,
+                LeastSquaresVariable {
+                    lower: invalid,
+                    ..valid
+                },
+            ));
+            cases.push((
+                0.0,
+                LeastSquaresVariable {
+                    upper: invalid,
+                    ..valid
+                },
+            ));
+            cases.push((
+                0.0,
+                LeastSquaresVariable {
+                    scale: invalid,
+                    ..valid
+                },
+            ));
+        }
+        for (initial, variable) in cases {
+            let result = bounded_least_squares(
+                &[initial],
+                &[variable],
+                LeastSquaresOptions::default(),
+                |_| -> Result<LeastSquaresEvaluation, ()> {
+                    panic!("invalid input reached the model: {initial}, {variable:?}")
+                },
+            );
+            assert!(matches!(result, Err(LeastSquaresError::InvalidInput(_))));
+        }
+        for (initial, variables) in [
+            (vec![], vars(0)),
+            (vec![0.0; 33], vars(33)),
+            (vec![0.0], vars(2)),
+        ] {
+            let result = bounded_least_squares(
+                &initial,
+                &variables,
+                LeastSquaresOptions::default(),
+                |_| -> Result<LeastSquaresEvaluation, ()> {
+                    panic!("invalid variable count reached the model")
+                },
+            );
+            assert!(matches!(result, Err(LeastSquaresError::InvalidInput(_))));
+        }
+    }
+
+    #[test]
+    fn inclusive_input_limits_and_finite_scaled_widths_are_accepted() {
+        for (initial, variables) in [
+            (vec![-3.0], vars(1)),
+            (vec![3.0], vars(1)),
+            (vec![0.0; 32], vars(32)),
+            (
+                vec![0.5],
+                vec![LeastSquaresVariable {
+                    lower: 0.0,
+                    upper: 1.0,
+                    scale: 1.0,
+                }],
+            ),
+            (
+                vec![0.0],
+                vec![LeastSquaresVariable {
+                    scale: f64::MAX,
+                    ..vars(1)[0]
+                }],
+            ),
+            (
+                vec![1e308],
+                vec![LeastSquaresVariable {
+                    lower: 1e308,
+                    upper: 1.1e308,
+                    scale: 1e308,
+                }],
+            ),
+        ] {
+            let n = initial.len();
+            let result =
+                bounded_least_squares(&initial, &variables, LeastSquaresOptions::default(), |_| {
+                    Ok::<_, ()>(LeastSquaresEvaluation {
+                        residuals: vec![0.0; 4096],
+                        jacobian: vec![0.0; 4096 * n],
+                    })
+                })
+                .unwrap();
+            assert_eq!(
+                result.termination,
+                LeastSquaresTermination::ResidualTolerance
+            );
+            assert_eq!(result.parameters, initial);
+            assert_eq!(result.evaluations, 1);
+            assert_eq!(result.iterations, 0);
+        }
+    }
+
+    #[test]
+    fn evaluation_errors_preserve_their_category() {
+        for evaluation in [
+            LeastSquaresEvaluation {
+                residuals: vec![],
+                jacobian: vec![],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![0.0; 4097],
+                jacobian: vec![0.0; 4097],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![1.0],
+                jacobian: vec![],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![f64::NAN],
+                jacobian: vec![1.0],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![1.0],
+                jacobian: vec![f64::INFINITY],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![f64::MAX],
+                jacobian: vec![1.0],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![2.0],
+                jacobian: vec![f64::MAX],
+            },
+            LeastSquaresEvaluation {
+                residuals: vec![1.0],
+                jacobian: vec![1e200],
+            },
+        ] {
+            let result =
+                bounded_least_squares(&[0.0], &vars(1), LeastSquaresOptions::default(), |_| {
+                    Ok::<_, ()>(evaluation.clone())
+                });
+            assert!(matches!(
+                result,
+                Err(LeastSquaresError::InvalidEvaluation(_))
+            ));
+        }
+        let result =
+            bounded_least_squares(&[0.0], &vars(1), LeastSquaresOptions::default(), |_| {
+                Err("model domain")
+            });
+        assert!(matches!(
+            &result,
+            Err(LeastSquaresError::InitialEvaluation("model domain"))
+        ));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "initial least-squares evaluation: model domain"
+        );
+        for error in [
+            LeastSquaresError::<&str>::InvalidInput("bad bounds"),
+            LeastSquaresError::InvalidEvaluation("bad residual"),
+        ] {
+            assert!(!error.to_string().is_empty());
+        }
+        let mut calls = 0;
+        let result =
+            bounded_least_squares(&[0.0], &vars(1), LeastSquaresOptions::default(), |_| {
+                calls += 1;
+                let rows = if calls == 1 { 1 } else { 2 };
+                Ok::<_, ()>(LeastSquaresEvaluation {
+                    residuals: vec![1.0; rows],
+                    jacobian: vec![1.0; rows],
+                })
+            });
+        assert_eq!(calls, 2);
+        assert!(matches!(
+            result,
+            Err(LeastSquaresError::InvalidEvaluation(_))
+        ));
+    }
+
+    #[test]
+    fn solves_a_coupled_three_variable_problem_with_known_solution() {
+        // Four independent linear observations of (1, -1, 2).
+        let mut variables = vars(3);
+        variables[1].scale = 2.0;
+        variables[2].scale = 0.5;
+        let mut calls = 0;
+        let result =
+            bounded_least_squares(&[0.0; 3], &variables, LeastSquaresOptions::default(), |x| {
+                calls += 1;
+                Ok::<_, ()>(LeastSquaresEvaluation {
+                    residuals: vec![
+                        2.0 * x[0] + x[1] + x[2] - 3.0,
+                        x[0] + 3.0 * x[1] - x[2] + 4.0,
+                        x[0] + 2.0 * x[2] - 5.0,
+                        2.0 * x[0] - x[1] + x[2] - 5.0,
+                    ],
+                    jacobian: vec![2.0, 1.0, 1.0, 1.0, 3.0, -1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 1.0],
+                })
+            })
+            .unwrap();
+        assert_eq!(
+            result.termination,
+            LeastSquaresTermination::ResidualTolerance
+        );
+        for (actual, expected) in result.parameters.iter().zip([1.0, -1.0, 2.0]) {
+            assert!((actual - expected).abs() < 1e-6);
+        }
+        assert!(result.evaluation.residuals.iter().all(|r| r.abs() <= 1e-6));
+        assert_eq!(result.accepted_objectives[0], 37.5);
+        assert!(result.accepted_objectives.windows(2).all(|w| w[1] < w[0]));
+        assert_eq!(result.evaluations, calls);
+        assert_eq!(result.evaluations, result.iterations + 1);
+        assert_eq!(result.rejected_evaluations, 0);
+        assert_eq!(result.invalid_evaluations, 0);
+    }
+
+    #[test]
+    fn linear_solve_matches_an_independent_system_and_rejects_invalid_pivots() {
+        // A * [1, 2, 3] = [-20, -43, 192]. Checking the solve directly catches
+        // wrong steps that an outer optimizer can compensate for later.
+        let solution = cholesky_solve(
+            vec![4.0, 12.0, -16.0, 12.0, 37.0, -43.0, -16.0, -43.0, 98.0],
+            vec![-20.0, -43.0, 192.0],
+        )
+        .unwrap();
+        for (actual, expected) in solution.iter().zip([1.0, 2.0, 3.0]) {
+            assert!((actual - expected).abs() < 1e-13);
+        }
+        for pivot in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(cholesky_solve(vec![pivot], vec![1.0]), None);
+        }
+        assert_eq!(
+            cholesky_solve(vec![1.0, 2.0, 2.0, 1.0], vec![1.0, 1.0]),
+            None
+        );
+    }
+
+    #[test]
+    fn persistently_rejected_trials_terminate_without_claiming_a_fit() {
+        for domain_errors in [false, true] {
+            let mut calls = 0;
+            let result = bounded_least_squares(
+                &[0.0],
+                &vars(1),
+                LeastSquaresOptions {
+                    initial_damping: 1e12,
+                    step_tolerance: 1e-30,
+                    ..Default::default()
+                },
+                |_| {
+                    calls += 1;
+                    if domain_errors && calls > 1 {
+                        return Err(());
+                    }
+                    Ok(LeastSquaresEvaluation {
+                        residuals: vec![1.0],
+                        jacobian: vec![1.0],
+                    })
+                },
+            )
+            .unwrap();
+            assert_eq!(result.termination, LeastSquaresTermination::NoProgress);
+            assert_eq!(result.parameters, [0.0]);
+            assert_eq!(result.accepted_objectives, [0.5]);
+            // The final allowed damping is 1e16; five failed trials starting
+            // from 1e12 exhaust that range, independently of the model domain.
+            assert_eq!(result.iterations, 5);
+            assert_eq!(result.evaluations, 6);
+            assert_eq!(calls, 6);
+            assert_eq!(result.rejected_evaluations, 5);
+            assert_eq!(
+                result.invalid_evaluations,
+                if domain_errors { 5 } else { 0 }
+            );
+        }
+    }
+
+    #[test]
+    fn iteration_and_evaluation_budgets_stop_after_the_promised_work() {
+        for (max_iterations, max_evaluations, termination) in [
+            (1, 5, LeastSquaresTermination::MaxIterations),
+            (5, 2, LeastSquaresTermination::MaxEvaluations),
+        ] {
+            let mut calls = 0;
+            let result = bounded_least_squares(
+                &[0.0],
+                &vars(1),
+                LeastSquaresOptions {
+                    max_iterations,
+                    max_evaluations,
+                    ..Default::default()
+                },
+                |x| {
+                    calls += 1;
+                    Ok::<_, ()>(LeastSquaresEvaluation {
+                        residuals: vec![x[0] - 1.0],
+                        jacobian: vec![1.0],
+                    })
+                },
+            )
+            .unwrap();
+            assert_eq!(result.termination, termination);
+            assert_eq!(result.iterations, 1);
+            assert_eq!(result.evaluations, 2);
+            assert_eq!(calls, 2);
+        }
+    }
+
+    #[test]
+    fn equal_cost_and_invalid_trials_are_rejected_and_counted() {
+        for domain_errors in [false, true] {
+            let mut calls = 0;
+            let result = bounded_least_squares(
+                &[0.0],
+                &vars(1),
+                LeastSquaresOptions {
+                    max_evaluations: 4,
+                    ..Default::default()
+                },
+                |_| {
+                    calls += 1;
+                    if domain_errors && calls > 1 {
+                        return Err(());
+                    }
+                    Ok(LeastSquaresEvaluation {
+                        residuals: vec![1.0],
+                        jacobian: vec![1.0],
+                    })
+                },
+            )
+            .unwrap();
+            assert_eq!(result.termination, LeastSquaresTermination::MaxEvaluations);
+            assert_eq!(result.parameters, [0.0]);
+            assert_eq!(result.objective, 0.5);
+            assert_eq!(result.accepted_objectives, [0.5]);
+            assert_eq!(result.iterations, 3);
+            assert_eq!(result.evaluations, 4);
+            assert_eq!(calls, 4);
+            assert_eq!(result.rejected_evaluations, 3);
+            assert_eq!(
+                result.invalid_evaluations,
+                if domain_errors { 3 } else { 0 }
+            );
+        }
+    }
+
+    #[test]
+    fn lower_bound_stationarity_and_scaled_step_tolerance_are_distinct() {
+        let variable = LeastSquaresVariable {
+            lower: -1.0,
+            ..vars(1)[0]
+        };
+        let result =
+            bounded_least_squares(&[0.0], &[variable], LeastSquaresOptions::default(), |x| {
+                Ok::<_, ()>(LeastSquaresEvaluation {
+                    residuals: vec![x[0] + 2.0],
+                    jacobian: vec![1.0],
+                })
+            })
+            .unwrap();
+        assert_eq!(
+            result.termination,
+            LeastSquaresTermination::ProjectedGradientTolerance
+        );
+        assert_eq!(result.parameters, [-1.0]);
+        assert_eq!(result.objective, 0.5);
+        assert_eq!(result.projected_gradient_norm, 0.0);
+
+        for (step_tolerance, termination, evaluations, parameter) in [
+            (0.25, LeastSquaresTermination::StepTolerance, 1, 1.0),
+            (
+                0.25_f64.next_down(),
+                LeastSquaresTermination::MaxEvaluations,
+                2,
+                1.5,
+            ),
+        ] {
+            let result = bounded_least_squares(
+                &[1.0],
+                &[LeastSquaresVariable {
+                    scale: 2.0,
+                    ..variable
+                }],
+                LeastSquaresOptions {
+                    initial_damping: 1.0,
+                    step_tolerance,
+                    max_evaluations: 2,
+                    ..Default::default()
+                },
+                |x| {
+                    Ok::<_, ()>(LeastSquaresEvaluation {
+                        residuals: vec![x[0] - 2.0],
+                        jacobian: vec![1.0],
+                    })
+                },
+            )
+            .unwrap();
+            assert_eq!(result.termination, termination);
+            assert_eq!(result.evaluations, evaluations);
+            assert_eq!(result.parameters, [parameter]);
+        }
+    }
     #[test]
     fn rosenbrock_and_scaled_coordinates() {
         let run = |scale: f64| {

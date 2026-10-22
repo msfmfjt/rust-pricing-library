@@ -111,6 +111,10 @@ are not counted as killed mutations. A nonempty selection with no testable
 outcomes fails. Empty incremental selection is a limited no-op, not 100% coverage.
 See the upstream [exit code definitions](https://mutants.rs/exit-codes.html).
 
+Aggregate counts must agree with the individual outcome records. Missing or
+duplicate mutation names, unknown outcomes, multiple baselines and an unfinished
+report are errors, even if the reported totals or console summary look successful.
+
 Investigate survivors by adding independent boundary, invariant or analytical
 reference tests. Keep the existing precision budgets, RNG settings and replay
 requirements. For equivalent mutants, record a specific rationale before adding
@@ -120,3 +124,20 @@ timeout and a failed survey, not a caught-mutant result.
 
 The [initial validation record](../../design/validation/mutation-testing-2026-10-22.md)
 reports the measured pilot scope and known limitations.
+The [numerical follow-up](../../design/validation/mutation-numerics-2026-10-22.md)
+extends the unit-test survey to all seven source files in `pricing-numerics`.
+These diagnostic unit-only runs are narrower than the runner's `full` scope,
+which continues to include the downstream pricing tests.
+
+The normal-tail and fractional-OU unit tests embed independent high-precision
+reference values. To regenerate those values in a development Python environment:
+
+```bash
+python -m pip install 'mpmath==1.3.0'
+python scripts/generate_numerics_mutation_references.py
+```
+
+This optional generator uses 80 decimal digits, `erfc` for Gaussian tails and
+adaptive tanh-sinh integration over the infinite interval for fractional OU.
+It is not required by Rust tests or the mutation CI, and does not assert a passing
+test result by itself. The validation record retains the generated values.

@@ -21,7 +21,9 @@ def completed_report():
         "outcomes": [{"scenario": "Baseline", "summary": "Success",
                       "phase_results": [{"phase": "Build"}, {"phase": "Test", "argv": [
                           "cargo", "test", "--package=pricing@0.1.0", "--package=pricing-numerics",
-                      ]}]}],
+                      ]}]},
+                     {"scenario": {"Mutant": {"name": "fixture.rs:1: replace first"}}, "summary": "CaughtMutant"},
+                     {"scenario": {"Mutant": {"name": "fixture.rs:2: replace second"}}, "summary": "CaughtMutant"}],
     }
 
 
@@ -49,7 +51,20 @@ class OutcomeTests(unittest.TestCase):
 
     def test_missed_and_timeout_are_separate_from_caught(self):
         report = completed_report() | {"caught": 0, "missed": 1, "timeout": 1}
+        report["outcomes"][1]["summary"] = "MissedMutant"
+        report["outcomes"][2]["summary"] = "Timeout"
         self.assertEqual(runner.check_outcomes(report, 2)["caught"], 0)
+
+    def test_aggregate_success_cannot_hide_missing_duplicate_or_wrong_records(self):
+        report = completed_report()
+        baseline, first, second = report["outcomes"]
+        for outcomes in ([baseline], [baseline, first, first],
+                         [baseline, first, second | {"summary": "MissedMutant"}],
+                         [baseline, first, second | {"summary": "Unknown"}],
+                         [baseline, first, {"scenario": "Unexpected", "summary": "CaughtMutant"}],
+                         [baseline, first, None], [baseline, baseline, first, second], None):
+            with self.subTest(outcomes=outcomes), self.assertRaises(ValueError):
+                runner.check_outcomes(report | {"outcomes": outcomes}, 2)
 
 
 class SelectionTests(unittest.TestCase):
