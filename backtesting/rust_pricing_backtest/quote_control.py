@@ -142,4 +142,4 @@ def evaluate(provider, payload, snapshot, contract, *, _cache=None):
         warning_codes=('fixed_market_quote_control', 'sampling_error_excludes_calibration_discretization'))
     return risk, dict(document_kind='multi_step_provider_audit', schema_version=1, status='passed',
         provenance=provenance, risk_provenance=risk.provenance, validation=accepted,
-        controlled_market_report=report, covariance_scope='paired_same_snapshot_sampling_units')
+        controlled_market_report=report, covariance_scope='paired_same_snapshot_sampling_units'), None

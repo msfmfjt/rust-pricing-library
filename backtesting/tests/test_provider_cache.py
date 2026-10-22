@@ -11,7 +11,7 @@ from unittest.mock import patch
 import weakref
 
 from rust_pricing_backtest import (BacktestError, Contract, Quote, Risk, RiskBasis,
-                                  RustPricingProvider, Snapshot)
+                                  RustPricingProvider, Snapshot, PricingEvidence)
 from rust_pricing_backtest.domain import fingerprint
 
 
@@ -48,7 +48,32 @@ class ProviderCacheTests(unittest.TestCase):
         self.calls.append(key)
         _cache.native[key] = dict(audit=dict(marker=key))
         return (Risk(5., .5, (1., 2., 3., 4.), snapshot.basis.basis_id, provenance=key),
-                dict(marker=key, nested=dict(values=[1., 2.])))
+                dict(marker=key, nested=dict(values=[1., 2.])),
+                PricingEvidence(key, key, contract.payment_day, 1., 'ordinary_price_and_greeks'))
+
+    def test_evidence_shares_cache_lifetime_and_acceptance(self):
+        p = self.provider(1); s = self.snapshot; a, b, _ = self.contracts
+        evidence = p.pricing_evidence(s, a)
+        expected = evidence
+        self.assertIs(p.pricing_evidence(s, a), evidence)
+        p.evaluate(s, a)
+        self.assertEqual(len(self.calls), 1)
+        old = weakref.ref(evidence)
+        p.evaluate(s, b)
+        self.assertEqual(len(p._cache.results), 1)
+        # Caller-held evidence remains usable, independently of provider state.
+        self.assertEqual(evidence.task, fingerprint(dict(snapshot=s, contract=a)))
+        self.assertEqual(p.pricing_evidence(s, a), expected)
+        self.assertEqual(len(self.calls), 3)
+        del evidence, expected
+        self.assertIsNone(old())
+        old = weakref.ref(p.pricing_evidence(s, a))
+        p.clear_cache()
+        self.assertIsNone(old())
+        with patch('rust_pricing_backtest.multi_step_provider.evaluate', side_effect=BacktestError('rejected', 'gate')):
+            with self.assertRaisesRegex(BacktestError, 'rejected'):
+                p.pricing_evidence(s, a)
+        self.assertFalse(p._cache.results)
 
     def provider(self, capacity=2):
         return RustPricingProvider(numerical_scope='multi_step_gamma', cache_max_entries=capacity)

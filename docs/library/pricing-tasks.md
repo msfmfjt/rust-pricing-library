@@ -9,6 +9,11 @@ The [Python example](../../examples/python/pricing_task.py) runs the
 [complete task fixtures](../../fixtures/task-v1). The design and compatibility
 impact are recorded in [ADR 0030](../../design/adr/0030-pricing-task-capability-report.md).
 
+The [backtest provider](vega-kt-backtesting.md#common-taskreport-evidence) uses
+common tasks for ordinary valuation and exposes replayable `PricingEvidence`.
+Its ledger retains narrower model/risk acceptance rules; dedicated Gamma-chain
+and paired-sample reports remain authoritative for those operations.
+
 ## Query before executing
 
 Source `capability(operation)` performs pure inspection: it does not calibrate,

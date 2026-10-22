@@ -102,19 +102,65 @@ input schedule to resume. CLI `--checkpoint` accepts the saved file. Processed
 history, code, provider binary or configuration changes invalidate the checkpoint.
 Unprocessed market values may change; the session schedule remains fixed.
 
+## Common task/report evidence
+
+The ordinary native valuation in `RustPricingProvider` runs through
+`PricingSpecification.from_request` and `PricingTask`, then converts the
+`ValuationReport` into the ledger's `Risk`. The conversion checks currency,
+underlying identity, scalar shape, raw units, calibration semantics and
+pricing-sampling uncertainty. Existing request, product, Local Volatility,
+fixed-grid Delta, reporting-coordinate and numerical acceptance checks still
+apply. This bridge does not extend the ledger to every model supported by the
+[common task API](pricing-tasks.md).
+
+```python
+risk = provider.evaluate(snapshot, contract)
+evidence = provider.pricing_evidence(snapshot, contract)
+if evidence is not None:
+    task_json = evidence.task.to_json()
+    report_json = evidence.report.to_json()
+    replay = evidence.task.compile().evaluate().report
+    assert replay.to_json() == report_json
+```
+
+`PricingEvidence` is an immutable record containing the actual task, its full
+common report, `payment_date`, `payment_scaling_factor` and `scope`. The accessor
+uses the same acceptance path and cache entry as `evaluate`; a failed valuation
+does not release evidence. Cache hits do not compile another task. The evidence
+contains source and output, with no retained compiled plan. Native warnings and
+Gamma bump diagnostics remain available to the ledger conversion.
+
+| Provider path | Evidence scope | Risk coverage |
+| --- | --- | --- |
+| Diagnostic or accepted P0 | `requested_risks` | Ordinary price/Greeks and native VegaKT, including its available covariance and projection metadata |
+| Accepted multi-step Gamma | `ordinary_price_and_greeks` | Ordinary price/Greeks; accepted market-IV Gamma-chain buckets and same-product covariance remain in `gamma_audit` |
+| Quote-control sampling policy | `None` | Dedicated paired-sample report in `gamma_audit`; no substitute common task is evaluated |
+
+Common reports are the unadjusted native outputs. For deterministic delayed
+payment, multiply monetary values, raw Greeks and their standard errors by
+`payment_scaling_factor` to obtain the corresponding ledger values; multiply
+covariances by its square. Coordinates, implied volatilities and forward levels
+are not scaled. The task itself remains independently replayable at its original
+payoff date. Per-contract reports never establish cross-instrument covariance;
+the existing `joint_market_risk` path and its gates remain authoritative.
+
+Evidence is opt-in in-memory output, not a new ledger or checkpoint field.
+Existing serialized schemas and `RiskProvider` implementations are unchanged.
+See [ADR 0037](../../design/adr/0037-backtest-task-report-bridge.md).
+
 ## Provider cache lifetime
 
 `RustPricingProvider` retains one active snapshot, identified by its complete
 content hash rather than its ID or date alone. Starting a valuation on another
-snapshot replaces the cached risks, Gamma audits, shared-surface guard and
+snapshot replaces the cached risks, task/report evidence, Gamma audits, shared-surface guard and
 quote-control native samples. Returning to an earlier snapshot recomputes its
 risks and audits using the usual numerical gates. Within the active snapshot,
 market/reporting-surface consistency is checked before reuse and again before a
 new result is published, including when contracts are evaluated concurrently.
 
 The optional constructor keyword `cache_max_entries=128` limits each of two LRU
-caches: paired risk/Gamma-audit entries, and native quote-control audit/sample
-entries. It must be a positive integer. A risk and its audit are evicted together;
+caches: risk/task-evidence/Gamma-audit entries, and native quote-control audit/sample
+entries. It must be a positive integer. A risk, its evidence and audit are evicted together;
 entry eviction does not discard the active snapshot's shared-surface guard.
 This bounds retained entry counts, not bytes or temporary numerical workspaces.
 Large grids and sample matrices still require memory proportional to their size.
@@ -125,7 +171,7 @@ recomputed and checked again.
 
 Call `provider.clear_cache()` to release retained state when a run finishes or
 before reusing the provider for another batch. Existing returned risks and
-detached audits remain valid. In-flight calls keep their own snapshot state until
+evidence and detached audits remain valid. In-flight calls keep their own snapshot state until
 completion and cannot refill a replacement cache. Independent histories should
 use separate providers to avoid displacing one another's cached work.
 
