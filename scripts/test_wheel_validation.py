@@ -253,7 +253,7 @@ class ArchiveIntegrationTests(unittest.TestCase):
     @staticmethod
     def sources():
         paths = set(archive.REQUIRED_WHEEL_SMOKE_SNIPPETS)
-        paths.update(str(path.relative_to(ROOT)) for path in (ROOT / '.github/workflows').glob('*.yml'))
+        paths.update(path.relative_to(ROOT).as_posix() for path in (ROOT / '.github/workflows').glob('*.yml'))
         return {path: (ROOT / path).read_text() for path in paths}
 
     @staticmethod

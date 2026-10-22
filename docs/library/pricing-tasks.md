@@ -32,6 +32,13 @@ for differentiability, reverse traces and Gamma bumps. Covariance, resource,
 realized calibration and numerical acceptance remain the existing compiler's
 responsibility. A source query never claims these have passed.
 
+Compiled basket Gamma preflight also checks that the requested bump produces
+distinct, finite Spot values using the evaluator's arithmetic. A positive bump
+inside `(0, 1)` can still be too small to move Spot in floating point. Such a
+selection returns `unsupported` with `native_preflight_required`; compiling or
+reselecting that operation fails before pricing paths are generated. A failed
+selection leaves the original compiled task usable.
+
 Known rejection reasons include `dedicated_risk_api`, `discontinuous_payoff`,
 `reverse_trace_required` and `invalid_gamma_bump`. A source selected for price
 can inspect another operation without compiling it. A compiled task uses

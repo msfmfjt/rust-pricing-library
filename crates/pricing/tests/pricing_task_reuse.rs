@@ -140,6 +140,53 @@ fn failed_selection_preserves_native_preflight_and_the_original_plan() {
 }
 
 #[test]
+fn unrepresentable_gamma_bumps_fail_native_preflight_before_pricing() {
+    for name in ["multi_asset_bs", "multi_asset_joint"] {
+        let task = fixture(name)
+            .with_operation(PricingOperation::Evaluate)
+            .unwrap();
+        let compiled = task.compile().unwrap();
+        let before = compiled.evaluate().unwrap();
+        for bump in [f64::from_bits(1), f64::MIN_POSITIVE, 1e-18] {
+            let operation = PricingOperation::Aad {
+                gamma_relative_bump: Some(bump),
+            };
+            assert_eq!(
+                task.source().capability(operation).status,
+                CapabilityStatus::Conditional
+            );
+            let capability = compiled.capability_for(operation);
+            assert_eq!(
+                capability.status,
+                CapabilityStatus::Unsupported,
+                "{name}: bump={bump}"
+            );
+            assert_eq!(
+                capability.reason,
+                Some(CapabilityReason::NativePreflightRequired)
+            );
+            assert!(
+                capability
+                    .detail
+                    .contains("unrepresentable Gamma Spot bump")
+            );
+            let reused = compiled.with_operation(operation).unwrap_err();
+            let fresh = task
+                .with_operation(operation)
+                .unwrap()
+                .compile()
+                .unwrap_err();
+            assert_eq!(reused.to_string(), fresh.to_string());
+        }
+        assert_eq!(compiled.evaluate().unwrap(), before);
+        assert_eq!(
+            compiled.capability_for(AAD).status,
+            CapabilityStatus::Supported
+        );
+    }
+}
+
+#[test]
 fn source_prerequisites_cannot_be_upgraded_by_reusing_a_plan() {
     let mut value: Value =
         serde_json::from_str(&pricing_task_to_json(&fixture("stochastic_dividend_lsv")).unwrap())
