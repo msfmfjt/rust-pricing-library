@@ -221,17 +221,80 @@ mod tests {
     use super::*;
 
     #[test]
+    fn quadrature_accepts_an_exact_error_budget_without_extra_subdivision() {
+        let calls = std::cell::Cell::new(0);
+        // For 1920*x^4 on [0,1], the two Simpson estimates are 400 and
+        // 385, so the Richardson correction is -1 and the integral is 384.
+        let value = adaptive_simpson(
+            &|x| {
+                calls.set(calls.get() + 1);
+                1920.0 * x.powi(4)
+            },
+            0.0,
+            1.0,
+            1.0,
+        );
+        assert_eq!(value, Some(384.0));
+        assert_eq!(
+            calls.get(),
+            5,
+            "an already-met error budget must not refine"
+        );
+    }
+
+    #[test]
+    fn quadrature_stops_at_the_depth_budget_on_an_unresolved_jump() {
+        let value = adaptive_simpson(&|x| if x < 1.0 / 3.0 { 0.0 } else { 1.0 }, 0.0, 1.0, 1e-16);
+        assert_eq!(
+            value, None,
+            "a jump requiring more than 40 levels must fail"
+        );
+    }
+
+    #[test]
+    fn equal_error_panels_refine_in_insertion_order() {
+        let calls = std::cell::RefCell::new(Vec::new());
+        let value = adaptive_simpson(
+            &|x| {
+                calls.borrow_mut().push(x);
+                1920.0 * x.powi(4)
+            },
+            0.0,
+            1.0,
+            1e-5,
+        );
+        assert_eq!(value, Some(384.0));
+        // Constant fourth derivative gives equal Simpson errors on equal
+        // intervals. The depth-four new nodes must therefore visit the
+        // earlier (left) panels first, including ties between siblings.
+        let at_depth_four: Vec<_> = calls
+            .borrow()
+            .iter()
+            .copied()
+            .filter(|x| {
+                let index = x * 64.0;
+                index == index.round() && (index as u32) % 2 == 1
+            })
+            .collect();
+        assert_eq!(at_depth_four.len(), 32);
+        assert!(at_depth_four.windows(2).all(|w| w[0] < w[1]));
+    }
+
+    #[test]
     fn fractional_ou_matches_independent_infinite_interval_quadrature() {
         // 80-digit mpmath tanh-sinh integration of the covariance integral,
         // without the implementation's sin^2 substitution or tail cutoff.
         // Regenerate with scripts/generate_numerics_mutation_references.py.
         for (hurst, lag, expected) in [
+            (0.025, 0.1, 0.085_239_497_770_992_44),
             (0.1, 0.01, 0.566_445_334_849_184_6),
+            (0.25, 1e-24, 0.999_999_999_998_871_6),
             (0.25, 1.0, 0.094_152_655_742_927_8),
             (0.4, 3.0, -0.007_633_448_383_254_314),
             (0.1, 10.0, -0.002_936_858_825_762_870_6),
             (0.25, 64.0, -0.000_551_472_771_799_975_9),
             (0.25, 80.0, -0.000_394_471_027_930_615_6),
+            (0.25, 100_000.0, -8.920_620_584_109_088e-9),
         ] {
             let actual = fractional_ou_correlation(hurst, lag).unwrap();
             assert!(

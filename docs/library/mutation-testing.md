@@ -126,6 +126,10 @@ The [initial validation record](../../design/validation/mutation-testing-2026-10
 reports the measured pilot scope and known limitations.
 The [numerical follow-up](../../design/validation/mutation-numerics-2026-10-22.md)
 extends the unit-test survey to all seven source files in `pricing-numerics`.
+The [survivor triage](../../design/validation/mutation-triage-2026-10-22.md)
+adds analytical solver and quadrature boundary tests, reducing missed mutations
+from 30 to 11. It records the remaining precision/equivalence arguments and
+unresolved guard without excluding them or presenting the survey as passing.
 These diagnostic unit-only runs are narrower than the runner's `full` scope,
 which continues to include the downstream pricing tests.
 

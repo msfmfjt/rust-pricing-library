@@ -82,6 +82,7 @@ documents the public API migration.
 
 - [Rust mutation-testing rollout, 2026-10-22](validation/mutation-testing-2026-10-22.md)
 - [Numerical mutation-testing follow-up, 2026-10-22](validation/mutation-numerics-2026-10-22.md)
+- [Numerical mutation survivor triage, 2026-10-22](validation/mutation-triage-2026-10-22.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)

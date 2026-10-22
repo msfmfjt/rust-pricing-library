@@ -338,6 +338,143 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_zero_gradient_at_a_bound_can_move_inward_through_coupling() {
+        for sign in [-1.0, 1.0] {
+            let variables = [
+                LeastSquaresVariable {
+                    lower: if sign > 0.0 { 0.0 } else { -3.0 },
+                    upper: if sign > 0.0 { 3.0 } else { 0.0 },
+                    scale: 1.0,
+                },
+                LeastSquaresVariable {
+                    lower: -3.0,
+                    upper: 3.0,
+                    scale: 1.0,
+                },
+            ];
+            // The unconstrained solution is (sign, 0). At (0, 2*sign),
+            // gradient[0] is exactly zero, but the coupled Newton step moves
+            // that coordinate inward. Freezing it leaves an O(1) residual.
+            let result = bounded_least_squares(
+                &[0.0, 2.0 * sign],
+                &variables,
+                LeastSquaresOptions {
+                    max_evaluations: 2,
+                    ..Default::default()
+                },
+                |x| {
+                    Ok::<_, ()>(LeastSquaresEvaluation {
+                        residuals: vec![x[0] + x[1] - sign, x[0] - sign],
+                        jacobian: vec![1.0, 1.0, 1.0, 0.0],
+                    })
+                },
+            )
+            .unwrap();
+            assert_eq!(result.termination, LeastSquaresTermination::MaxEvaluations);
+            assert!(result.objective < 1e-4);
+            assert!(sign * result.parameters[0] > 0.9);
+            assert!(result.parameters[1].abs() < 0.1);
+        }
+    }
+
+    #[test]
+    fn an_outward_active_variable_does_not_couple_into_the_free_step() {
+        let variables = [
+            LeastSquaresVariable {
+                lower: -3.0,
+                upper: 1.0,
+                scale: 1.0,
+            },
+            LeastSquaresVariable {
+                lower: -10.0,
+                upper: 10.0,
+                scale: 1.0,
+            },
+        ];
+        // On x <= 1 the constrained optimum is (1, 3), with cost 1/2.
+        // One free-coordinate step must approach it without retrying an
+        // indefinite matrix that incorrectly retains the active coupling.
+        let result = bounded_least_squares(
+            &[1.0, 0.0],
+            &variables,
+            LeastSquaresOptions {
+                max_iterations: 1,
+                ..Default::default()
+            },
+            |x| {
+                Ok::<_, ()>(LeastSquaresEvaluation {
+                    residuals: vec![x[0] + x[1] - 4.0, x[0] - 2.0],
+                    jacobian: vec![1.0, 1.0, 1.0, 0.0],
+                })
+            },
+        )
+        .unwrap();
+        assert_eq!(result.termination, LeastSquaresTermination::MaxIterations);
+        assert_eq!(result.parameters[0], 1.0);
+        assert!((result.parameters[1] - 3.0).abs() < 0.01);
+        assert!(result.objective < 0.501);
+        assert_eq!(result.evaluations, 2);
+    }
+
+    #[test]
+    fn damped_step_matches_an_independent_diagonal_ridge_problem() {
+        // J=diag(2,3), r=(2,3), damping=1: lambda=max diag(J'J)=9.
+        // Minimizing ||r+J*s||^2 + 9||s||^2 gives s=(-4/13,-1/2),
+        // hence x_new=(9/13,1/2). This checks the numerical step itself,
+        // independently of later iterations compensating for a wrong solve.
+        let result = bounded_least_squares(
+            &[1.0, 1.0],
+            &vars(2),
+            LeastSquaresOptions {
+                initial_damping: 1.0,
+                max_evaluations: 2,
+                ..Default::default()
+            },
+            |x| {
+                Ok::<_, ()>(LeastSquaresEvaluation {
+                    residuals: vec![2.0 * x[0], 3.0 * x[1]],
+                    jacobian: vec![2.0, 0.0, 0.0, 3.0],
+                })
+            },
+        )
+        .unwrap();
+        assert_eq!(result.termination, LeastSquaresTermination::MaxEvaluations);
+        assert!((result.parameters[0] - 9.0 / 13.0).abs() < 5e-16);
+        assert!((result.parameters[1] - 0.5).abs() < 5e-16);
+    }
+
+    #[test]
+    fn failed_factorizations_exhaust_damping_without_model_trials() {
+        let mut calls = 0;
+        // The finite Gram diagonal is 1e300. Multiplying it by the allowed
+        // initial damping overflows; each factorization must fail safely.
+        let result = bounded_least_squares(
+            &[0.0],
+            &vars(1),
+            LeastSquaresOptions {
+                initial_damping: 1e12,
+                ..Default::default()
+            },
+            |_| {
+                calls += 1;
+                Ok::<_, ()>(LeastSquaresEvaluation {
+                    residuals: vec![1.0],
+                    jacobian: vec![1e150],
+                })
+            },
+        )
+        .unwrap();
+        assert_eq!(result.termination, LeastSquaresTermination::NoProgress);
+        assert_eq!(result.parameters, [0.0]);
+        assert_eq!(result.objective, 0.5);
+        assert_eq!(result.iterations, 5);
+        assert_eq!(result.evaluations, 1);
+        assert_eq!(calls, 1);
+        assert_eq!(result.rejected_evaluations, 0);
+        assert_eq!(result.invalid_evaluations, 0);
+    }
     fn vars(n: usize) -> Vec<LeastSquaresVariable> {
         vec![
             LeastSquaresVariable {

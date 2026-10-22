@@ -23,6 +23,8 @@ REQUIRED_FILES = {
     "design/validation/mutation-testing-2026-10-22.md",
     "design/validation/mutation-numerics-2026-10-22.md",
     "design/validation/mutation-numerics-2026-10-22.json",
+    "design/validation/mutation-triage-2026-10-22.md",
+    "design/validation/mutation-triage-2026-10-22.json",
     "scripts/generate_numerics_mutation_references.py",
     "backtesting/rust_pricing_backtest/native_contract.py",
     "backtesting/tests/test_native_contract.py",
