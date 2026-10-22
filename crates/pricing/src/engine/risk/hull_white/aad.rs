@@ -288,6 +288,9 @@ impl HullWhiteEquityPricingPlan {
                     e => e.into(),
                 })?;
         }
+        if let Some(target) = &self.market_iv_target {
+            target.validate_market_iv_reverse()?;
+        }
         Ok(())
     }
     /// First-order reverse at fixed HW/Bergomi parameters, correlations, payout
