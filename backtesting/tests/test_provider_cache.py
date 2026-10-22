@@ -78,6 +78,93 @@ class ProviderCacheTests(unittest.TestCase):
     def provider(self, capacity=2):
         return RustPricingProvider(numerical_scope='multi_step_gamma', cache_max_entries=capacity)
 
+    def test_configuration_is_read_only_before_and_after_cache_use(self):
+        p = self.provider(); s = self.snapshot; c = self.contracts[0]
+        changes = dict(diagnostic_only=True, numerical_scope='p0_terminal_replication',
+                       worker_threads=4, reduction_block_size=128, cache_max_entries=1,
+                       variance_extension='all_rows', variance_basis_policy='row_hats',
+                       sampling_policy='rqmc_256x16', identity='different', rp=SimpleNamespace())
+        original = {name: getattr(p, name) for name in changes}
+        validation = p.validation
+        for phase in ('fresh', 'cached', 'cleared'):
+            with self.subTest(phase=phase):
+                for name, value in changes.items():
+                    with self.subTest(name=name):
+                        with self.assertRaises(AttributeError):
+                            setattr(p, name, value)
+                        with self.assertRaises(AttributeError):
+                            delattr(p, name)
+                self.assertEqual({name: getattr(p, name) for name in changes}, original)
+                self.assertEqual(p.validation, validation)
+                if phase == 'fresh':
+                    expected = p.evaluate(s, c)
+                else:
+                    self.assertEqual(p.evaluate(s, c), expected)
+                if phase == 'cached':
+                    p.clear_cache()
+        self.assertEqual(len(self.calls), 2)
+
+    def test_reinitialization_cannot_replace_settings_or_clear_live_results(self):
+        p = self.provider(); s = self.snapshot; c = self.contracts[0]
+        risk = p.evaluate(s, c); evidence = p.pricing_evidence(s, c)
+        identity, validation, cache = p.identity, p.validation, p._cache
+        with self.assertRaisesRegex(AttributeError, 'create a new RustPricingProvider'):
+            p.__init__(numerical_scope='p0_terminal_replication', worker_threads=2)
+        self.assertEqual((p.identity, p.validation), (identity, validation))
+        self.assertIs(p._cache, cache)
+        self.assertIs(p.evaluate(s, c), risk)
+        self.assertIs(p.pricing_evidence(s, c), evidence)
+        self.assertEqual(len(self.calls), 1)
+
+    def test_new_provider_keeps_requested_policy_and_execution_settings(self):
+        cases = [dict(diagnostic_only=True), dict(numerical_scope='p0_terminal_replication'),
+                 dict(numerical_scope='multi_step_gamma'), dict(numerical_scope='multi_step_path_gamma')]
+        for scope in ('multi_step_extension_gamma', 'multi_step_extension_put_gamma'):
+            for extension in ('all_rows', 'linear_time'):
+                cases.append(dict(numerical_scope=scope, variance_extension=extension))
+        for basis in ('row_hats', 'weighted_time_hats', 'coupled_row_hats'):
+            cases.append(dict(numerical_scope='multi_step_custom_basis_gamma', variance_basis_policy=basis))
+        cases.append(dict(numerical_scope='multi_step_extension_gamma', variance_extension='all_rows',
+                          sampling_policy='rqmc_quote_control_512x24'))
+        for kwargs in cases:
+            with self.subTest(settings=kwargs):
+                p = RustPricingProvider(**kwargs, worker_threads=3, reduction_block_size=256, cache_max_entries=1)
+                for key, value in kwargs.items():
+                    self.assertEqual(getattr(p, key), value)
+                self.assertEqual((p.worker_threads, p.reduction_block_size, p.cache_max_entries), (3, 256, 1))
+                self.assertFalse(p._cache.results)
+                identity, validation = p.identity, p.validation
+                p.clear_cache()
+                self.assertEqual((p.identity, p.validation), (identity, validation))
+                self.assertEqual(p.identity, RustPricingProvider(**kwargs, worker_threads=3, cache_max_entries=8).identity)
+                self.assertNotEqual(p.identity, RustPricingProvider(**kwargs, worker_threads=2).identity)
+
+    def test_inflight_evaluation_keeps_its_settings_and_identity(self):
+        p = self.provider(); s = self.snapshot; c = self.contracts[0]
+        before = (p.numerical_scope, p.worker_threads, p.reduction_block_size, p.identity)
+        entered, release = Event(), Event()
+        observed = []
+        def calculate(*args, **kwargs):
+            entered.set()
+            if not release.wait(timeout=10):
+                raise RuntimeError('test did not release pricing')
+            observed.append((p.numerical_scope, p.worker_threads, p.reduction_block_size, p.identity))
+            return self.price(*args, **kwargs)
+        with patch('rust_pricing_backtest.multi_step_provider.evaluate', new=calculate), ThreadPoolExecutor(1) as pool:
+            future = pool.submit(p.evaluate, s, c)
+            try:
+                self.assertTrue(entered.wait(timeout=10))
+                for name, value in (('numerical_scope', 'p0_terminal_replication'),
+                                    ('worker_threads', 2), ('reduction_block_size', 128)):
+                    with self.assertRaises(AttributeError):
+                        setattr(p, name, value)
+            finally:
+                release.set()
+            risk = future.result(timeout=10)
+        self.assertEqual(observed, [before])
+        self.assertIs(p.evaluate(s, c), risk)
+        self.assertEqual(len(self.calls), 1)
+
     def test_same_snapshot_hits_and_detached_audits(self):
         p = self.provider(); s = self.snapshot; c = self.contracts[0]
         risk = p.evaluate(s, c)

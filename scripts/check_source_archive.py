@@ -14,6 +14,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "design/adr/0038-immutable-provider-configuration.md",
     "backtesting/rust_pricing_backtest/task_adapter.py",
     "backtesting/tests/test_task_adapter.py",
     "design/adr/0037-backtest-task-report-bridge.md",
