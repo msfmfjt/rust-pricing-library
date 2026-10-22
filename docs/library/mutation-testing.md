@@ -28,6 +28,13 @@ skipped by cargo-mutants. There is no blanket arithmetic/error-path exclusion or
 percentage threshold. Filters on `full` and `changed` select **mutations**, not
 tests; selecting only `pricing-numerics` still runs `pricing` tests.
 
+The pinned tool has its own generation limits: it does not visit methods named
+`new` inside an `impl` or a trait. For example, `Date::new` and `Calendar::new`
+are absent from the generated inventory even when their files are selected.
+Keep explicit constructor/domain tests, and inspect the inventory before
+claiming coverage of a whole API. A complete run of all generated mutations
+does not mean every production expression was mutated.
+
 Normal Rust tests marked `#[ignore]` remain ignored. Heavy statistical and
 installed-wheel acceptance jobs continue to run in ordinary CI. Python bindings
 and the Python backtesting package are **not mutation-tested** by this workflow:
@@ -139,6 +146,10 @@ unresolved guard without excluding them or presenting the survey as passing.
 The [evidence-integrity follow-up](../../design/validation/mutation-evidence-integrity-2026-10-22.md)
 verifies selection identity and execution-phase checks against real reports,
 injected inconsistencies and the installed tool.
+The [date/calendar follow-up](../../design/validation/mutation-calendar-2026-10-22.md)
+adds boundary and calendar-contract tests, fixes a Modified Following year/month
+comparison, and records all 135 generated mutations. It distinguishes the zero
+remaining survivors from five nonterminating mutations and eight unviable builds.
 These diagnostic unit-only runs are narrower than the runner's `full` scope,
 which continues to include the downstream pricing tests.
 
