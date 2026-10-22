@@ -2,9 +2,21 @@
 
 from collections import OrderedDict
 from collections.abc import MutableMapping
+from dataclasses import dataclass
 from threading import RLock
+from typing import TYPE_CHECKING
 
-from .domain import require
+from .domain import Risk, require
+
+if TYPE_CHECKING:
+    from .task_adapter import PricingEvidence
+
+
+@dataclass(frozen=True)
+class CachedValuation:
+    risk: Risk
+    audit: dict | None = None
+    pricing_evidence: 'PricingEvidence | None' = None
 
 
 class BoundedCache(MutableMapping):
@@ -56,10 +68,12 @@ class SnapshotCache:
             require(self.shared is None or self.shared == shared, "surface_mismatch",
                     "instruments do not share the same market/reporting surface")
 
-    def store(self, key, shared, risk, audit=None):
+    def store(self, key, shared, risk, audit=None, pricing_evidence=None):
         with self._lock:
             # Another contract can finish while this one releases the GIL in
             # native pricing. Check again before publishing either result.
             self.check_surface(shared)
             self.shared = shared
-            self.results[key] = (risk, audit)
+            result = CachedValuation(risk, audit, pricing_evidence)
+            self.results[key] = result
+            return result

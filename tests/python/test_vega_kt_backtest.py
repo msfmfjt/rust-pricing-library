@@ -1,6 +1,6 @@
 """Native-adapter integration, also discovered by the installed-wheel smoke suite."""
 
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from datetime import date, datetime, timedelta, timezone
 import json
 import importlib.util
@@ -12,7 +12,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backtesting"))
@@ -25,6 +25,48 @@ from rust_pricing_backtest.ensemble import ScenarioResults, aggregate_scenarios
 
 
 class NativeBacktestTests(unittest.TestCase):
+    def test_task_report_evidence_is_replayable_and_cached(self):
+        from rust_pricing_backtest import PricingEvidence, task_adapter
+        provider = RustPricingProvider(diagnostic_only=True, cache_max_entries=1)
+        s, c = self.history[0], self.contracts[0]
+        requests = dict(s.pricing_requests)
+        request = json.loads(requests[c.contract_id])
+        request['risk']['vega_kt']['full_bucket_covariance'] = True
+        requests[c.contract_id] = json.dumps(request)
+        s = replace(s, pricing_requests=requests)
+        with patch.object(task_adapter, 'evaluate_request', wraps=task_adapter.evaluate_request) as evaluate:
+            risk = provider.evaluate(s, c)
+            evidence = provider.pricing_evidence(s, c)
+            self.assertIs(provider.pricing_evidence(s, c), evidence)
+            evaluate.assert_called_once()
+        self.assertIsInstance(evidence, PricingEvidence)
+        self.assertEqual(evidence.scope, 'requested_risks')
+        self.assertEqual(evidence.payment_date, c.payment_day)
+        self.assertEqual(evidence.payment_scaling_factor, 1.)
+        self.assertEqual(evidence.report.value, risk.price)
+        direct = self.rp.PricingPlan.compile(self.rp.PricingRequest.from_json(s.pricing_requests[c.contract_id]),
+                                           worker_threads=1, reduction_block_size=256).evaluate()
+        self.assertIsNotNone(evidence.report.vega_kt.full_bucket_covariance)
+        self.assertEqual(json.loads(evidence.report.to_json())['vega_kt'], json.loads(direct.to_json())['risks']['vega_kt'])
+        task_json, report_json = evidence.task.to_json(), evidence.report.to_json()
+        replay = self.rp.PricingTask.from_json(task_json).compile().evaluate().report
+        self.assertEqual(replay.to_json(), report_json)
+        with self.assertRaises(FrozenInstanceError):
+            evidence.scope = 'ordinary_price_and_greeks'
+        with self.assertRaises(AttributeError):
+            evidence.report.value = -1.
+        with self.assertRaises(AttributeError):
+            evidence.task.operation = 'aad'
+        blocks = evidence.report.risks
+        blocks.clear()
+        self.assertEqual(evidence.report.to_json(), report_json)
+        provider.evaluate(s, self.contracts[1])
+        rebuilt = provider.pricing_evidence(s, c)
+        self.assertEqual(rebuilt.task.to_json(), task_json)
+        self.assertEqual(rebuilt.report.to_json(), report_json)
+        provider.clear_cache()
+        self.assertEqual(provider.pricing_evidence(s, c).report.to_json(), report_json)
+
     def test_cache_eviction_and_clear_preserve_native_risks(self):
         provider = RustPricingProvider(diagnostic_only=True, cache_max_entries=1)
         first = self.history[0]
@@ -265,10 +307,11 @@ class NativeBacktestTests(unittest.TestCase):
         provider = RustPricingProvider(diagnostic_only=True)
         provider.rp = SimpleNamespace(PricingRequest=self.rp.PricingRequest, PricingError=self.rp.PricingError,
                                       DiscountCurve=self.rp.DiscountCurve,
-                                      PricingPlan=SimpleNamespace(compile=Mock(side_effect=self.rp.PricingError("injected numerical failure"))))
+                                      PricingSpecification=self.rp.PricingSpecification,
+                                      PricingTask=SimpleNamespace(from_specification=Mock(side_effect=self.rp.PricingError("injected numerical failure"))))
         with self.assertRaisesRegex(BacktestError, "native_pricing_failure"):
             provider.evaluate(self.history[0], self.contracts[0])
-        provider.rp.PricingPlan.compile.side_effect = RuntimeError("unexpected bug")
+        provider.rp.PricingTask.from_specification.side_effect = RuntimeError("unexpected bug")
         with self.assertRaisesRegex(RuntimeError, "unexpected bug"):
             provider.evaluate(self.history[0], self.contracts[0])
 
@@ -357,6 +400,12 @@ class NativeBacktestTests(unittest.TestCase):
         self.assertIsNone(immediate.bucket_standard_errors)
         self.assertIsNone(delayed.bucket_standard_errors)
         self.assertNotEqual(delayed.provenance, immediate.provenance)
+        evidence = provider.pricing_evidence(history[0], contracts[0])
+        self.assertEqual(evidence.payment_date, delayed.payment_date)
+        self.assertEqual(evidence.payment_scaling_factor, delayed.payment_scaling_factor)
+        self.assertEqual(evidence.report.value, immediate.price)
+        self.assertEqual(evidence.report.value * evidence.payment_scaling_factor, delayed.price)
+        self.assertEqual(evidence.report.standard_error * evidence.payment_scaling_factor, delayed.price_standard_error)
 
     def test_delayed_payment_curve_mismatch_and_missing_factor_rejected(self):
         contracts, history = self.delayed_payment_case()

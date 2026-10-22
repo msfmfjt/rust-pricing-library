@@ -8,6 +8,7 @@ from threading import RLock
 
 from .domain import BacktestError, Risk, data, fingerprint, require
 from .provider_cache import SnapshotCache
+from . import task_adapter
 
 EXTENSION_SCOPES = ("multi_step_extension_gamma", "multi_step_extension_put_gamma")
 CUSTOM_BASIS_SCOPE = "multi_step_custom_basis_gamma"
@@ -88,7 +89,7 @@ class RustPricingProvider:
         self._cache = SnapshotCache(None, cache_max_entries)
 
     def clear_cache(self):
-        """Release retained risks, audits and samples; keep numerical settings."""
+        """Release retained risks, task reports, audits and samples."""
         with self._cache_lock:
             self._cache = SnapshotCache(None, self._cache_max_entries)
 
@@ -138,8 +139,15 @@ class RustPricingProvider:
         from copy import deepcopy
         require(self.numerical_scope in MULTI_STEP_SCOPES, "unsupported_numerical_scope",
                 "Gamma audits require the multi-step scope")
-        _, audit = self._evaluate(snapshot, contract)
-        return deepcopy(audit)
+        return deepcopy(self._evaluate(snapshot, contract).audit)
+
+    def pricing_evidence(self, snapshot, contract) -> task_adapter.PricingEvidence | None:
+        """Return immutable task/report evidence after normal risk acceptance.
+
+        Quote-control risk uses its dedicated paired-sample report and returns
+        None here. No substitute task is compiled solely to manufacture evidence.
+        """
+        return self._evaluate(snapshot, contract).pricing_evidence
 
     def joint_market_risk(self, snapshot, contracts, risks):
         """Joint estimation covariance for the same accepted decision risks."""
@@ -167,7 +175,7 @@ class RustPricingProvider:
             raise BacktestError("joint_native_failure", str(error)) from error
 
     def evaluate(self, snapshot, contract):
-        return self._evaluate(snapshot, contract)[0]
+        return self._evaluate(snapshot, contract).risk
 
     def _evaluate(self, snapshot, contract):
         basis = snapshot.basis
@@ -229,9 +237,8 @@ class RustPricingProvider:
             return cached
         if self.numerical_scope in MULTI_STEP_SCOPES:
             from .multi_step_provider import evaluate
-            value, audit = evaluate(self, payload, snapshot, contract, _cache=cache)
-            cache.store(key, shared, value, audit)
-            return value, audit
+            value, audit, evidence = evaluate(self, payload, snapshot, contract, _cache=cache)
+            return cache.store(key, shared, value, audit, evidence)
         payment_scale = 1.0
         payment_provenance = None
         try:
@@ -256,14 +263,16 @@ class RustPricingProvider:
                 payment_provenance = {"request": request.fingerprint, "payment_date": contract.payment_day,
                                       "expiry_discount": expiry_df, "payment_discount": data(discount),
                                       "policy": "deterministic_curve_payment_ratio_v1"}
-            result = self.rp.PricingPlan.compile(request, worker_threads=self.worker_threads,
-                                               reduction_block_size=self.reduction_block_size).evaluate()
+            valuation = task_adapter.evaluate_request(self.rp, request, worker_threads=self.worker_threads,
+                                                       reduction_block_size=self.reduction_block_size)
         except BacktestError:
             raise
         except (ValueError, self.rp.PricingError) as error:
             raise BacktestError("native_pricing_failure", f"{contract.contract_id}: {error}") from error
-        kt = result.vega_kt
-        require(kt is not None and result.delta_raw is not None, "missing_risk", contract.contract_id)
+        report, result = valuation.report, valuation.native
+        delta, gamma = task_adapter.ordinary_greeks(report, contract)
+        kt = report.vega_kt
+        require(kt is not None, "missing_risk", contract.contract_id)
         require(kt.raw_unit == basis.unit, "unit_mismatch", kt.raw_unit)
         expected = [((d - basis.valuation_date).days / 365.0, k) for d in basis.maturity_dates for k in basis.log_moneyness]
         actual = [(x.maturity, x.log_moneyness) for x in kt.coordinates]
@@ -286,25 +295,24 @@ class RustPricingProvider:
                                    reporting['implied_volatilities'][row*width:(row+1)*width]))
             call = black_scholes_call(snapshot.spot.mid, contract.strike, t, sigma, -math.log(expiry_df)/t)['price']
             reference = call if contract.side == 'call' else call-snapshot.spot.mid+contract.strike*expiry_df
-            require(abs(result.value-reference) <= 6*result.standard_error+0.002,
+            require(abs(report.value-reference) <= 6*report.standard_error+0.002,
                     "native_market_calibration_failure",
-                    f"{contract.contract_id}: model price {result.value} vs market replication {reference}")
+                    f"{contract.contract_id}: model price {report.value} vs market replication {reference}")
         stats = kt.projection.reporting_stats
         variances = [b.sample_variance for b in kt.estimates]
-        errors = tuple(math.sqrt(v / result.independent_sampling_units) for v in variances) if all(v is not None for v in variances) else None
-        value = Risk(result.value * payment_scale, result.delta_raw * payment_scale,
+        errors = tuple(math.sqrt(v / report.independent_sampling_units) for v in variances) if all(v is not None for v in variances) else None
+        value = Risk(report.value * payment_scale, delta.values[0] * payment_scale,
                      tuple(x * payment_scale for x in kt.raw_buckets), basis.basis_id,
                      kt.projection.signed_residual * payment_scale, kt.projection.pre_projection * payment_scale,
-                     result.standard_error * payment_scale,
+                     report.standard_error * payment_scale,
                      (abs(stats.left_edge_sensitivity) + abs(stats.right_edge_sensitivity)) * payment_scale,
                      fingerprint(payment_provenance) if payment_provenance else request.fingerprint,
                      tuple(x * payment_scale for x in errors) if errors is not None else None,
                      (("p0_terminal_replication" if self.numerical_scope else "unvalidated_vega_kt"),
                       *(w.code for w in result.warnings)),
                      native_policy=kt.policy_label, payment_date=contract.payment_day, payment_scaling_factor=payment_scale,
-                     gamma=result.gamma_raw * payment_scale if result.gamma_raw is not None else None,
-                     gamma_method=result.diagnostics.gamma_method if result.gamma_raw is not None else None,
-                     gamma_spot_bump=result.diagnostics.gamma_spot_bump if result.gamma_raw is not None else None,
+                     gamma=gamma.values[0] * payment_scale if gamma is not None else None,
+                     gamma_method=gamma.method if gamma is not None else None,
+                     gamma_spot_bump=result.diagnostics.gamma_spot_bump if gamma is not None else None,
                      reporting_iv=tuple(x.implied_volatility for x in kt.coordinates), reporting_forwards=forwards)
-        cache.store(key, shared, value)
-        return value, None
+        return cache.store(key, shared, value, pricing_evidence=valuation.evidence(contract, payment_scale=payment_scale))

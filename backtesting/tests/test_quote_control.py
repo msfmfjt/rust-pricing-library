@@ -1,5 +1,6 @@
 """Contract exclusion, covariance and fail-closed control boundaries."""
 from copy import deepcopy
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -11,7 +12,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT/'scripts'))
 from multi_step_cases import model
-from rust_pricing_backtest import BacktestError, RustPricingProvider
+from rust_pricing_backtest import BacktestError, Contract, Quote, RiskBasis, RustPricingProvider, Snapshot
 from rust_pricing_backtest.domain import fingerprint
 from rust_pricing_backtest.multi_step_extension import MultiStepExtensionCalibrator
 from rust_pricing_backtest.multi_step_provider import check_sampling, validation
@@ -96,6 +97,32 @@ class QuoteControlTests(unittest.TestCase):
                     evaluate_portfolio({'target': self.base}, {'target': -1.}, _native_cache=cache)
             native.PricingPlan.compile.assert_called_once()
             self.assertEqual(len(cache), 1)
+
+    def test_control_uses_dedicated_report_without_compiling_substitute_evidence(self):
+        from rust_pricing_backtest.quote_control import evaluate
+        native, requests, _ = self.fixture()
+        report = adjust_report(native, requests)
+        start = date.fromisoformat(self.base['valuation_date'])
+        at = datetime.combine(start, datetime.min.time(), timezone.utc)
+        basis = RiskBasis(start, tuple(date.fromisoformat(d) for d in self.base['risk']['vega_kt']['maturity_nodes']),
+                          tuple(self.base['risk']['vega_kt']['log_forward_moneyness_nodes']))
+        snapshot = Snapshot('control', at, Quote(100., 100., at, at), {}, basis, at, 'synthetic_control_wiring')
+        contract = Contract('lower', basis.maturity_dates[-1], 95.)
+        report['coordinate_order'] = [dict(maturity=(d-start).days/365., log_moneyness=k)
+                                      for d in basis.maturity_dates for k in basis.log_moneyness]
+        report['instruments']['lower'].update(frozen_grid_delta=.5, gamma=None, gamma_method=None, gamma_spot_bump=None)
+        report['audits']['lower']['native_price'] = dict(standard_error=.1)
+        provider = SimpleNamespace(identity='synthetic', numerical_scope='multi_step_extension_gamma',
+                                   variance_extension='all_rows')
+        with patch('rust_pricing_backtest.quote_control.portfolio', return_value=report) as portfolio, \
+                patch('rust_pricing_backtest.task_adapter.evaluate_request') as common:
+            risk, audit, evidence = evaluate(provider, requests['lower'], snapshot, contract)
+        portfolio.assert_called_once()
+        common.assert_not_called()
+        self.assertIsNone(evidence)
+        self.assertEqual(risk.buckets, tuple(report['instruments']['lower']['buckets']))
+        self.assertEqual(audit['controlled_market_report'], report)
+        self.assertEqual(audit['covariance_scope'], 'paired_same_snapshot_sampling_units')
 
     def test_native_cache_reuses_only_the_active_complete_snapshot(self):
         from rust_pricing_backtest.quote_control import portfolio

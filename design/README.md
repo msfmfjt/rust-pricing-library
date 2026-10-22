@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0037: Connect backtests to common tasks and reports](adr/0037-backtest-task-report-bridge.md)
+
 - [ADR 0036: Bound backtest provider cache lifetime](adr/0036-backtest-provider-cache.md)
 
 - [ADR 0035: Calibration diagnostics in common reports](adr/0035-calibration-report-diagnostics.md)

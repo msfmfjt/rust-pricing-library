@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .domain import BacktestError, Risk, fingerprint, require
 from .multi_step_full_smile import evaluate_multi_step_market_gamma
+from . import task_adapter
 
 
 SCOPE = "multi_step_gamma"
@@ -35,7 +36,7 @@ def implementation_identity(extension=None, basis_policy=None):
     # A checkpoint binds the Python calibration and policy, as well as the native
     # binary already identified by RustPricingProvider. Upgrades cannot resume it.
     root = Path(__file__).parent
-    names = ("multi_step_provider.py", "rust_adapter.py", "provider_cache.py", "multi_step_full_smile.py",
+    names = ("multi_step_provider.py", "rust_adapter.py", "provider_cache.py", "task_adapter.py", "multi_step_full_smile.py",
              "multi_step_smile.py", "discrete_smile.py", "path_history.py", "domain.py")
     if extension is not None or basis_policy is not None:
         names += ("multi_step_extension.py",)
@@ -184,8 +185,10 @@ def evaluate(provider, payload, snapshot, contract, *, _cache=None):
         ordinary = deepcopy(payload)
         ordinary["risk"].pop("vega_kt", None)
         ordinary["risk"]["vega"] = False
-        result = rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(ordinary, allow_nan=False)),
-            worker_threads=provider.worker_threads, reduction_block_size=256).evaluate()
+        valuation = task_adapter.evaluate_request(rp, rp.PricingRequest.from_json(json.dumps(ordinary, allow_nan=False)),
+            worker_threads=provider.worker_threads, reduction_block_size=256)
+        report, result = valuation.report, valuation.native
+        delta, gamma = task_adapter.ordinary_greeks(report, contract)
         evaluator = evaluate_multi_step_market_gamma
         evaluator_args = {}
         construction = None
@@ -210,7 +213,7 @@ def evaluate(provider, payload, snapshot, contract, *, _cache=None):
     require(market["status"] == "path_gamma_chain_passed" and market["estimate"] is not None
             and audit["recovery_passed"] and audit["validation_passed"],
             "multi_step_gamma_acceptance_failure", f"{contract.contract_id}: {market['status']}; no hedge risk released")
-    require(result.delta_raw is not None and math.isclose(result.value, audit["native_price"]["mean"], rel_tol=1e-12, abs_tol=1e-12),
+    require(math.isclose(report.value, audit["native_price"]["mean"], rel_tol=1e-12, abs_tol=1e-12),
             "multi_step_price_mismatch", "Gamma audit must use the ordinary pricing distribution")
     expected = [dict(maturity=t, log_moneyness=k) for t in maturities for k in basis.log_moneyness]
     require(market["coordinate_order"] == expected and len(market["estimate"]) == basis.size,
@@ -227,19 +230,20 @@ def evaluate(provider, payload, snapshot, contract, *, _cache=None):
     provenance = dict(original_request=original.fingerprint, provider=provider.identity,
                       snapshot=fingerprint(snapshot), contract=fingerprint(contract), market_gamma=fingerprint(market))
     accepted = validation(provider.numerical_scope, extension, basis_policy, provider.sampling_policy)
-    value = Risk(result.value, result.delta_raw, buckets, basis.basis_id,
-                 pre_projection=math.fsum(buckets), price_standard_error=result.standard_error,
+    value = Risk(report.value, delta.values[0], buckets, basis.basis_id,
+                 pre_projection=math.fsum(buckets), price_standard_error=report.standard_error,
                  provenance=fingerprint(provenance), bucket_standard_errors=errors,
                  warning_codes=(provider.numerical_scope, "variance_basis_"+basis_policy if basis_policy is not None else
                                 "variance_extension_"+extension if extension is not None else "fixed_unreported_variance_rows", "cross_instrument_covariance_not_established",
                                 *(w.code for w in result.warnings)),
                  native_policy=accepted["native_policy"], payment_date=contract.payment_day,
-                 gamma=result.gamma_raw, gamma_method=result.diagnostics.gamma_method if result.gamma_raw is not None else None,
-                 gamma_spot_bump=result.diagnostics.gamma_spot_bump if result.gamma_raw is not None else None,
+                 gamma=gamma.values[0] if gamma is not None else None, gamma_method=gamma.method if gamma is not None else None,
+                 gamma_spot_bump=result.diagnostics.gamma_spot_bump if gamma is not None else None,
                  reporting_iv=tuple(reporting["implied_volatilities"]),
                  reporting_forwards=tuple(snapshot.spot.mid for _ in maturities))
-    return value, dict(document_kind="multi_step_provider_audit", schema_version=1, status="passed",
+    audit = dict(document_kind="multi_step_provider_audit", schema_version=1, status="passed",
                        provenance=provenance, risk_provenance=value.provenance,
                        validation=accepted, market_gamma=market,
                        covariance_scope="same_contract_same_sampling_unit_only",
                        **({"variance_basis_policy": basis_policy, "basis_construction": construction} if construction is not None else {}))
+    return value, audit, valuation.evidence(contract, scope='ordinary_price_and_greeks')

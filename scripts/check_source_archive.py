@@ -14,6 +14,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "backtesting/rust_pricing_backtest/task_adapter.py",
+    "backtesting/tests/test_task_adapter.py",
+    "design/adr/0037-backtest-task-report-bridge.md",
     "backtesting/rust_pricing_backtest/provider_cache.py",
     "backtesting/tests/test_provider_cache.py",
     "design/adr/0036-backtest-provider-cache.md",

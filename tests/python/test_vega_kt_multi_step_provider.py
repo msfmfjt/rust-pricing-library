@@ -229,6 +229,12 @@ class MultiStepProviderTests(unittest.TestCase):
         fresh = RustPricingProvider(numerical_scope='multi_step_gamma', worker_threads=4, cache_max_entries=1)
         risk = fresh.evaluate(s, contracts[0])
         audit = fresh.gamma_audit(s, contracts[0])
+        evidence = fresh.pricing_evidence(s, contracts[0])
+        self.assertEqual(evidence.scope, 'ordinary_price_and_greeks')
+        self.assertIsNone(evidence.report.vega_kt)
+        self.assertEqual(evidence.report.value, risk.price)
+        self.assertEqual(next(r for r in evidence.report.risks if r.name == 'delta.raw').values, [risk.delta])
+        self.assertEqual(evidence.task.compile().evaluate().report.to_json(), evidence.report.to_json())
         fresh.evaluate(s, contracts[1])
         self.assertEqual(fresh.gamma_audit(s, contracts[0]), audit)
         fresh.evaluate(replace(s, snapshot_id='another-snapshot'), contracts[1])
@@ -237,6 +243,7 @@ class MultiStepProviderTests(unittest.TestCase):
         fresh.clear_cache()
         self.assertEqual(fresh.gamma_audit(s, contracts[0]), audit)
         self.assertEqual(len(fresh._cache.results), 1)
+        self.assertEqual(fresh.pricing_evidence(s, contracts[0]).report.to_json(), evidence.report.to_json())
 
     def test_cli_selects_the_new_explicit_scope(self):
         from rust_pricing_backtest.__main__ import main
