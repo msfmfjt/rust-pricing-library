@@ -63,5 +63,13 @@ Messages and cause strings are diagnostics, not stable dispatch keys. Historical
 `invalid_execution_policy` code. Issue equality, dictionaries and schema metadata
 keep their existing contracts.
 
+An execution request whose reduction-block table cannot be reserved fails during
+evaluation before any sampling callback runs. Single-asset and stochastic-dividend
+task adapters retain `code == "resource_limit"` and `field == "reduction_blocks"`.
+The experimental multi-asset adapter currently wraps executor errors as
+`multi_asset_numerical_error`; it still raises a catchable `PricingError`. This
+allocation check does not impose a new sampling-count or block-size cap, nor
+guarantee that all subsequent allocations will fit in memory.
+
 See [complete pricing tasks](pricing-tasks.md) for capability queries before
 compilation and [the type stub](../../rust_pricing.pyi) for attribute types.
