@@ -191,36 +191,50 @@ impl ValuationReport {
         self.vega_kt.as_ref()
     }
     pub(crate) fn validate(&self) -> Result<(), WireError> {
-        let invalid = |message: &str| WireError::DomainAt {
-            pointer: "/report".into(),
+        let invalid = |pointer: &str, message: &str| WireError::DomainAt {
+            pointer: pointer.into(),
             message: message.into(),
         };
-        if !self.value.is_finite()
-            || !self.standard_error.is_finite()
-            || self.standard_error < 0.0
-            || self.independent_sampling_units == 0
-            || self.evaluated_paths == 0
-        {
-            return Err(invalid(
-                "finite price, nonnegative error and positive sampling counts are required",
-            ));
+        for (pointer, invalid_value) in [
+            ("/value", !self.value.is_finite()),
+            (
+                "/standard_error",
+                !self.standard_error.is_finite() || self.standard_error < 0.0,
+            ),
+            (
+                "/independent_sampling_units",
+                self.independent_sampling_units == 0,
+            ),
+            ("/evaluated_paths", self.evaluated_paths == 0),
+        ] {
+            if invalid_value {
+                return Err(invalid(
+                    pointer,
+                    "finite price, nonnegative error and positive sampling counts are required",
+                ));
+            }
         }
-        if self.library_version.is_empty()
-            || self.platform.is_empty()
-            || self
-                .plan_fingerprint
-                .strip_prefix("blake3-256:")
-                .is_none_or(|hex| {
-                    hex.len() != 64
-                        || !hex
-                            .bytes()
-                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-                })
-        {
-            return Err(invalid("invalid replay metadata"));
+        for (pointer, invalid_metadata) in [
+            ("/library_version", self.library_version.is_empty()),
+            ("/platform", self.platform.is_empty()),
+            (
+                "/plan_fingerprint",
+                self.plan_fingerprint
+                    .strip_prefix("blake3-256:")
+                    .is_none_or(|hex| {
+                        hex.len() != 64
+                            || !hex
+                                .bytes()
+                                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                    }),
+            ),
+        ] {
+            if invalid_metadata {
+                return Err(invalid(pointer, "invalid replay metadata"));
+            }
         }
         let mut identities = std::collections::HashSet::new();
-        for r in &self.risks {
+        for (i, r) in self.risks.iter().enumerate() {
             let count = r
                 .axes
                 .iter()
@@ -242,6 +256,7 @@ impl ValuationReport {
                 })
             {
                 return Err(invalid(
+                    &format!("/risks/{i}"),
                     "invalid or duplicate risk coordinate, shape, value or uncertainty",
                 ));
             }

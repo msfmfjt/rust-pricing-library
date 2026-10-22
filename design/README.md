@@ -87,6 +87,7 @@ documents the public API migration.
 - [Model, calibration and HW quote-risk boundary review, 2026-10-22](validation/hw-market-iv-boundary-review-2026-10-22.md)
 - [Numerical execution and allocation-error review, 2026-10-22](validation/executor-resource-review-2026-10-22.md)
 - [Multi-asset error-boundary review, 2026-10-22](validation/multi-asset-error-review-2026-10-22.md)
+- [Valuation-report error-location review, 2026-10-22](validation/valuation-report-pointer-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump

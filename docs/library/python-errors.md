@@ -28,6 +28,13 @@ specification's execution-policy error points to
 source object when several inputs are involved. Standalone specification errors
 remain relative to the standalone specification document.
 
+For `ValuationReport.from_json`, domain-error pointers are relative to the
+report document itself. Invalid scalar/replay metadata identifies its field,
+such as `/standard_error` or `/plan_fingerprint`. Invalid or duplicate risk
+coordinates identify the affected block, such as `/risks/1`, because shape and
+identity checks can involve several fields. There is no `/report` container in
+either report v1 or v2. The exception's `field` and issue's `pointer` agree.
+
 ```python
 import rust_pricing as rp
 
