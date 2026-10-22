@@ -135,7 +135,9 @@ class QuoteControlTests(unittest.TestCase):
                     _native_cache[key] = dict(audit={'contract': cid})
             return {'status': 'synthetic_wiring_only'}
         module = SimpleNamespace(__file__=__file__)
-        with patch.dict(sys.modules, {'rust_pricing': module}):
+        # Synthetic cache wiring; native API conformance is tested separately.
+        with patch.dict(sys.modules, {'rust_pricing': module}), \
+                patch('rust_pricing_backtest.native_contract.validate_native_api'):
             provider = RustPricingProvider(numerical_scope='multi_step_extension_gamma',
                 variance_extension='all_rows', sampling_policy=POLICY, cache_max_entries=3)
         requests = {cid: deepcopy(self.base) for cid in ('lower', 'upper')}

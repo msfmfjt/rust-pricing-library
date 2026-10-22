@@ -137,6 +137,41 @@ older source hashes under the existing rules.
 This changes no ledger/checkpoint schema or numerical acceptance policy.
 See [ADR 0038](../../design/adr/0038-immutable-provider-configuration.md).
 
+## Native wheel compatibility
+
+Constructing `RustPricingProvider` now checks the installed native API before
+hashing its binary, creating caches or doing numerical work. A matching
+`rust-pricing==0.1.0` version alone does not establish compatibility: builds from
+different revisions can expose different task/report APIs.
+
+The check covers native classes, result members and the call signatures used by
+the selected path, including replayable task serialization:
+
+| Provider path | Required native capabilities |
+| --- | --- |
+| Diagnostic or P0 | Common task/report valuation, discount-curve evaluation and VegaKT allocation fields |
+| Multi-step or path Gamma | Common task/report valuation and the dedicated multi-step Gamma audit |
+| Extension or named-basis Gamma | The above plus ordinary plan evaluation and retained samples for joint covariance |
+| Quote-control | Dedicated ordinary plan evaluation and paired Gamma samples; unused common task/report APIs are not required |
+
+Missing classes/members or incompatible arguments raise
+`BacktestError(code="unsupported_native_version")`, with the detected native
+version and API paths that failed. For example, an older wheel lacking
+`PricingTask` is rejected at construction, instead of raising `AttributeError`
+after a backtest has started. A missing/unloadable native dependency raises
+`BacktestError(code="native_import_failure")` and preserves the original import
+error as its cause. Install or rebuild the native wheel from the same source
+revision as the companion package, using the correct Python ABI. An unavailable
+native binary file also fails construction because provenance cannot be bound.
+
+The companion package remains importable without the optional native wheel.
+Compatible extra APIs and optional arguments are allowed. These structural
+checks do not run a sample trade, certify numerical accuracy or replace the
+wheel's full compatibility tests. Request-specific report shapes, calibration,
+Gamma recovery, covariance and precision gates still run during evaluation.
+No numerical method, tolerance, accepted scope or serialized schema changes.
+See [ADR 0039](../../design/adr/0039-native-provider-compatibility.md).
+
 ## Common task/report evidence
 
 The ordinary native valuation in `RustPricingProvider` runs through

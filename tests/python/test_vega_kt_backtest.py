@@ -10,9 +10,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backtesting"))
@@ -304,15 +303,14 @@ class NativeBacktestTests(unittest.TestCase):
                 self.assertEqual(len(result.ledger), 1)
 
     def test_native_pricing_error_is_distinct_from_programming_error(self):
-        native = SimpleNamespace(**vars(self.rp))
-        native.PricingTask = SimpleNamespace(from_specification=Mock(side_effect=self.rp.PricingError("injected numerical failure")))
-        with patch.dict(sys.modules, {'rust_pricing': native}):
-            provider = RustPricingProvider(diagnostic_only=True)
-        with self.assertRaisesRegex(BacktestError, "native_pricing_failure"):
-            provider.evaluate(self.history[0], self.contracts[0])
-        provider.rp.PricingTask.from_specification.side_effect = RuntimeError("unexpected bug")
-        with self.assertRaisesRegex(RuntimeError, "unexpected bug"):
-            provider.evaluate(self.history[0], self.contracts[0])
+        provider = RustPricingProvider(diagnostic_only=True)
+        with patch('rust_pricing_backtest.task_adapter.evaluate_request',
+                   side_effect=self.rp.PricingError("injected numerical failure")):
+            with self.assertRaisesRegex(BacktestError, "native_pricing_failure"):
+                provider.evaluate(self.history[0], self.contracts[0])
+        with patch('rust_pricing_backtest.task_adapter.evaluate_request', side_effect=RuntimeError("unexpected bug")):
+            with self.assertRaisesRegex(RuntimeError, "unexpected bug"):
+                provider.evaluate(self.history[0], self.contracts[0])
 
     def test_diagnostic_cache_cannot_be_promoted_to_accepted_p0(self):
         snapshot, contract = self.history[0], self.contracts[0]
