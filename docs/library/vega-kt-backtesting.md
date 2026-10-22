@@ -102,6 +102,41 @@ input schedule to resume. CLI `--checkpoint` accepts the saved file. Processed
 history, code, provider binary or configuration changes invalidate the checkpoint.
 Unprocessed market values may change; the session schedule remains fixed.
 
+## Provider configuration lifetime
+
+`RustPricingProvider` binds its acceptance policy, execution settings, native
+module and identity once, when constructed. Its configuration is held in an
+immutable record. Existing constructor keywords and attribute reads remain
+available. Assignment or deletion of `numerical_scope`, `worker_threads`,
+`reduction_block_size`, `variance_extension`, `variance_basis_policy`,
+`sampling_policy`, `diagnostic_only`, `cache_max_entries`, `identity` or `rp`
+raises `AttributeError`. Calling `__init__` again on a live provider is also
+rejected. The native-module reference is fixed for that provider's lifetime.
+
+To change a policy or execution setting, construct a new provider:
+
+```python
+diagnostic = RustPricingProvider(diagnostic_only=True, worker_threads=1)
+accepted = RustPricingProvider(numerical_scope="p0_terminal_replication",
+                               worker_threads=4)
+```
+
+The second provider starts with an empty cache and applies its own acceptance
+checks. Diagnostic results cannot acquire accepted status through a setting
+assignment. Similarly, changing execution settings cannot reuse evidence made
+with the previous execution settings under the same provider identity.
+
+`clear_cache()` releases retained work while preserving all settings and the
+provider identity. Its concurrency and snapshot-switch behavior remain as
+described below. Numerical/execution changes require a new provider identity and
+cannot resume an incompatible checkpoint. Cache capacity alone remains outside
+the numerical identity, so separate providers with different capacities can
+resume compatible checkpoints. The implementation change itself invalidates
+older source hashes under the existing rules.
+
+This changes no ledger/checkpoint schema or numerical acceptance policy.
+See [ADR 0038](../../design/adr/0038-immutable-provider-configuration.md).
+
 ## Common task/report evidence
 
 The ordinary native valuation in `RustPricingProvider` runs through

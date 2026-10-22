@@ -26,6 +26,8 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0038: Immutable backtest provider configuration](adr/0038-immutable-provider-configuration.md)
+
 - [ADR 0037: Connect backtests to common tasks and reports](adr/0037-backtest-task-report-bridge.md)
 
 - [ADR 0036: Bound backtest provider cache lifetime](adr/0036-backtest-provider-cache.md)

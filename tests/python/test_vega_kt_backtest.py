@@ -304,16 +304,61 @@ class NativeBacktestTests(unittest.TestCase):
                 self.assertEqual(len(result.ledger), 1)
 
     def test_native_pricing_error_is_distinct_from_programming_error(self):
-        provider = RustPricingProvider(diagnostic_only=True)
-        provider.rp = SimpleNamespace(PricingRequest=self.rp.PricingRequest, PricingError=self.rp.PricingError,
-                                      DiscountCurve=self.rp.DiscountCurve,
-                                      PricingSpecification=self.rp.PricingSpecification,
-                                      PricingTask=SimpleNamespace(from_specification=Mock(side_effect=self.rp.PricingError("injected numerical failure"))))
+        native = SimpleNamespace(**vars(self.rp))
+        native.PricingTask = SimpleNamespace(from_specification=Mock(side_effect=self.rp.PricingError("injected numerical failure")))
+        with patch.dict(sys.modules, {'rust_pricing': native}):
+            provider = RustPricingProvider(diagnostic_only=True)
         with self.assertRaisesRegex(BacktestError, "native_pricing_failure"):
             provider.evaluate(self.history[0], self.contracts[0])
         provider.rp.PricingTask.from_specification.side_effect = RuntimeError("unexpected bug")
         with self.assertRaisesRegex(RuntimeError, "unexpected bug"):
             provider.evaluate(self.history[0], self.contracts[0])
+
+    def test_diagnostic_cache_cannot_be_promoted_to_accepted_p0(self):
+        snapshot, contract = self.history[0], self.contracts[0]
+        requests = dict(snapshot.pricing_requests)
+        request = json.loads(requests[contract.contract_id])
+        reporting = request['model']['reporting_iv_basis']
+        reporting['implied_volatilities'] = [1.] * len(reporting['implied_volatilities'])
+        requests[contract.contract_id] = json.dumps(request)
+        snapshot = replace(snapshot, pricing_requests=requests)
+        provider = RustPricingProvider(diagnostic_only=True)
+        risk = provider.evaluate(snapshot, contract)
+        identity = provider.identity
+        evidence = provider.pricing_evidence(snapshot, contract)
+        self.assertIn('unvalidated_vega_kt', risk.warning_codes)
+        with self.assertRaises(AttributeError):
+            provider.numerical_scope = 'p0_terminal_replication'
+        self.assertEqual(provider.validation['status'], 'unvalidated')
+        self.assertEqual(provider.identity, identity)
+        self.assertIs(provider.evaluate(snapshot, contract), risk)
+        self.assertIs(provider.pricing_evidence(snapshot, contract), evidence)
+        provider.clear_cache()
+        self.assertEqual(provider.evaluate(snapshot, contract), risk)
+        self.assertEqual(provider.validation['status'], 'unvalidated')
+        accepted = RustPricingProvider(numerical_scope='p0_terminal_replication')
+        with self.assertRaisesRegex(BacktestError, 'unaccepted_native_method'):
+            accepted.evaluate(snapshot, contract)
+        self.assertFalse(accepted._cache.results)
+
+    def test_execution_settings_stay_bound_to_task_and_replay_identity(self):
+        snapshot, contract = self.history[0], self.contracts[0]
+        original = RustPricingProvider(diagnostic_only=True, worker_threads=1, reduction_block_size=256)
+        evidence = original.pricing_evidence(snapshot, contract)
+        identity = original.identity
+        for name, value in (('worker_threads', 2), ('reduction_block_size', 128)):
+            with self.subTest(name=name), self.assertRaises(AttributeError):
+                setattr(original, name, value)
+        original.clear_cache()
+        self.assertEqual(original.pricing_evidence(snapshot, contract).task.to_json(), evidence.task.to_json())
+        self.assertEqual(original.identity, identity)
+        changed = RustPricingProvider(diagnostic_only=True, worker_threads=2, reduction_block_size=128)
+        self.assertNotEqual(changed.identity, identity)
+        self.assertNotEqual(changed.pricing_evidence(snapshot, contract).task.to_json(), evidence.task.to_json())
+        cfg, portfolio = BacktestConfig(strategy='delta', ridge=1e-4), [Position('target', -1., 1.)]
+        partial = run_backtest(cfg, self.history, self.contracts, portfolio, original, stop_after=2)
+        with self.assertRaisesRegex(BacktestError, 'checkpoint_mismatch'):
+            run_backtest(**load_input(input_json(partial)), provider=changed, checkpoint=partial.checkpoint)
 
     def test_native_cli_failure_export_and_repaired_resume(self):
         config = BacktestConfig(strategy="delta")

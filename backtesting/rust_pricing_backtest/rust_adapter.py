@@ -3,6 +3,7 @@
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
 
@@ -13,6 +14,22 @@ from . import task_adapter
 EXTENSION_SCOPES = ("multi_step_extension_gamma", "multi_step_extension_put_gamma")
 CUSTOM_BASIS_SCOPE = "multi_step_custom_basis_gamma"
 MULTI_STEP_SCOPES = ("multi_step_gamma", "multi_step_path_gamma", *EXTENSION_SCOPES, CUSTOM_BASIS_SCOPE)
+
+
+@dataclass(frozen=True, slots=True)
+class _ProviderConfiguration:
+    """One lifetime binding for acceptance, execution and provenance."""
+
+    native: object
+    identity: str
+    diagnostic_only: bool
+    numerical_scope: str | None
+    variance_extension: str | None
+    variance_basis_policy: str | None
+    sampling_policy: str | None
+    worker_threads: int
+    reduction_block_size: int
+    cache_max_entries: int
 
 
 class RustPricingProvider:
@@ -33,11 +50,15 @@ class RustPricingProvider:
     "weighted_time_hats" or "coupled_row_hats"; arbitrary raw matrices remain diagnostic-only.
     Other uses require diagnostic_only=True.
     Quantity and contract multiplier are applied by the ledger.
+    Settings are read-only for this provider's lifetime. Construct a new provider
+    to change acceptance or execution settings; clear_cache only releases work.
     """
 
     def __init__(self, *, diagnostic_only=False, worker_threads=1, reduction_block_size=256,
                  numerical_scope=None, variance_extension=None, variance_basis_policy=None, sampling_policy=None,
                  cache_max_entries=128):
+        if hasattr(self, "_configuration"):
+            raise AttributeError("provider configuration is read-only; create a new RustPricingProvider")
         require(type(cache_max_entries) is int and cache_max_entries > 0, "invalid_provider_cache",
                 "cache_max_entries must be a positive integer")
         require(numerical_scope in (None, "p0_terminal_replication", *MULTI_STEP_SCOPES), "unsupported_numerical_scope",
@@ -61,42 +82,39 @@ class RustPricingProvider:
                 "native LV paper decomposition has not passed independent acceptance; "
                 "diagnostic_only=True is required for investigation")
         import rust_pricing as rp
-        self.rp = rp
-        self.numerical_scope = numerical_scope
-        self._variance_extension = variance_extension
-        self._variance_basis_policy = variance_basis_policy
-        self._sampling_policy = sampling_policy
-        self.worker_threads = worker_threads
-        self.reduction_block_size = reduction_block_size
         require(worker_threads >= 1 and reduction_block_size >= 1, "invalid_provider", "positive execution settings required")
         module = getattr(rp, "rust_pricing", rp)
         binary_hash = hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()
-        self._identity = f"rust_pricing_lv_v5:{numerical_scope}:{binary_hash}:{worker_threads}:{reduction_block_size}"
+        identity = f"rust_pricing_lv_v5:{numerical_scope}:{binary_hash}:{worker_threads}:{reduction_block_size}"
         if numerical_scope in MULTI_STEP_SCOPES:
             from .multi_step_provider import implementation_identity
-            self._identity += ":" + implementation_identity(variance_extension, variance_basis_policy)
+            identity += ":" + implementation_identity(variance_extension, variance_basis_policy)
         if variance_extension is not None:
-            self._identity += ":extension=" + variance_extension
+            identity += ":extension=" + variance_extension
         if variance_basis_policy is not None:
-            self._identity += ":variance_basis=" + variance_basis_policy
+            identity += ":variance_basis=" + variance_basis_policy
         if sampling_policy is not None:
-            self._identity += ":sampling=" + sampling_policy
+            identity += ":sampling=" + sampling_policy
         if sampling_policy == "rqmc_quote_control_512x24":
             from .portfolio_market_risk import implementation_identity as portfolio_identity
-            self._identity += ":quote_control=" + portfolio_identity()
-        self._cache_max_entries = cache_max_entries
+            identity += ":quote_control=" + portfolio_identity()
+        self._configuration = _ProviderConfiguration(
+            native=rp, identity=identity, diagnostic_only=diagnostic_only, numerical_scope=numerical_scope,
+            variance_extension=variance_extension, variance_basis_policy=variance_basis_policy,
+            sampling_policy=sampling_policy, worker_threads=worker_threads,
+            reduction_block_size=reduction_block_size, cache_max_entries=cache_max_entries)
         self._cache_lock = RLock()
         self._cache = SnapshotCache(None, cache_max_entries)
 
     def clear_cache(self):
         """Release retained risks, task reports, audits and samples."""
         with self._cache_lock:
-            self._cache = SnapshotCache(None, self._cache_max_entries)
+            self._cache = SnapshotCache(None, self.cache_max_entries)
 
     def _snapshot_cache(self, snapshot_hash):
         with self._cache_lock:
             if self._cache.snapshot_hash != snapshot_hash:
-                self._cache = SnapshotCache(snapshot_hash, self._cache_max_entries)
+                self._cache = SnapshotCache(snapshot_hash, self.cache_max_entries)
             return self._cache
 
     @property
@@ -106,19 +124,43 @@ class RustPricingProvider:
 
     @property
     def identity(self):
-        return self._identity
+        return self._configuration.identity
+
+    @property
+    def rp(self):
+        return self._configuration.native
+
+    @property
+    def diagnostic_only(self):
+        return self._configuration.diagnostic_only
+
+    @property
+    def numerical_scope(self):
+        return self._configuration.numerical_scope
+
+    @property
+    def worker_threads(self):
+        return self._configuration.worker_threads
+
+    @property
+    def reduction_block_size(self):
+        return self._configuration.reduction_block_size
+
+    @property
+    def cache_max_entries(self):
+        return self._configuration.cache_max_entries
 
     @property
     def variance_extension(self):
-        return self._variance_extension
+        return self._configuration.variance_extension
 
     @property
     def variance_basis_policy(self):
-        return self._variance_basis_policy
+        return self._configuration.variance_basis_policy
 
     @property
     def sampling_policy(self):
-        return self._sampling_policy
+        return self._configuration.sampling_policy
 
     @property
     def validation(self):
