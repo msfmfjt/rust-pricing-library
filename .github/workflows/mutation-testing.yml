@@ -1,0 +1,141 @@
+name: Mutation testing
+
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'fixtures/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.cargo/**'
+      - '.github/workflows/mutation-testing.yml'
+      - 'scripts/run_mutation_tests.py'
+      - 'scripts/test_run_mutation_tests.py'
+      - 'scripts/test_mutation_integration.py'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to mutate (tests include both Rust crates)'
+        type: choice
+        options: [pricing-numerics, pricing, both]
+        default: pricing-numerics
+      file:
+        description: 'Optional source glob; blank examines all production files in the package'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+  # Keep incremental test builds small; do not change production profiles,
+  # RNG settings, optimization, or numerical acceptance tolerances.
+  CARGO_PROFILE_TEST_DEBUG: '0'
+
+jobs:
+  smoke:
+    name: Mutation smoke / numeric input contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Check mutation runner
+        run: python -m unittest discover -s scripts -p 'test_run_mutation_tests.py' -v
+      - name: Install pinned mutation tool
+        run: cargo install cargo-mutants --version "$(python scripts/run_mutation_tests.py --tool-version)" --locked
+      - name: Verify detection and failure propagation with the installed tool
+        run: python -m unittest discover -s scripts -p 'test_mutation_integration.py' -v
+      - name: Check numeric input contracts
+        run: python scripts/run_mutation_tests.py smoke
+      - name: Retain smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-smoke
+          path: target/mutation/
+          retention-days: 14
+          if-no-files-found: warn
+
+  changed:
+    name: Mutation testing / changed Rust lines
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Test the exact new side used by --in-diff, including stacked PRs.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install pinned mutation tool
+        run: cargo install cargo-mutants --version "$(python scripts/run_mutation_tests.py --tool-version)" --locked
+      - name: Test changed production code
+        env:
+          MUTATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/run_mutation_tests.py changed --base "$MUTATION_BASE_SHA"
+      - name: Retain changed-line evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-changed
+          path: target/mutation/
+          retention-days: 14
+          if-no-files-found: warn
+
+  full:
+    name: Mutation survey / shard ${{ matrix.shard }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install pinned mutation tool
+        run: cargo install cargo-mutants --version "$(python scripts/run_mutation_tests.py --tool-version)" --locked
+      - name: Test selected production files
+        shell: bash
+        env:
+          MUTATION_PACKAGE: ${{ inputs.package }}
+          MUTATION_FILE: ${{ inputs.file }}
+          MUTATION_SHARD: ${{ matrix.shard }}
+        run: |
+          args=(full --shard "$MUTATION_SHARD/4")
+          if [[ "$MUTATION_PACKAGE" != both ]]; then
+            args+=(--package "$MUTATION_PACKAGE")
+          fi
+          if [[ -n "$MUTATION_FILE" ]]; then
+            args+=(--file "$MUTATION_FILE")
+          fi
+          python scripts/run_mutation_tests.py "${args[@]}"
+      - name: Retain survey evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-full-${{ matrix.shard }}
+          path: target/mutation/
+          retention-days: 14
+          if-no-files-found: warn

@@ -1,0 +1,23 @@
+# cargo-mutants 27.1.0. See docs/library/mutation-testing.md.
+# Keep file selection on the command line: list-valued config and CLI filters
+# are combined, so an examine_globs allowlist here would widen a --file run.
+additional_cargo_args = ["--locked"]
+all_features = true
+copy_target = false
+minimum_test_timeout = 60.0
+timeout_multiplier = 3.0
+
+# Mutate production Rust, not test harnesses, examples or the Python binding.
+# Python needs a rebuilt/installed wheel per mutant; Rust-only tests do not
+# establish its mutation coverage. Inline #[cfg(test)] modules are skipped by
+# cargo-mutants itself.
+exclude_globs = [
+    "crates/pricing-python/**",
+    "**/tests/**",
+    "**/tests.rs",
+    "**/examples/**",
+    "**/benches/**",
+]
+
+# No blanket exclusions for arithmetic, validation, Display or error paths.
+# Surviving mutants must be investigated, not hidden by a score threshold.

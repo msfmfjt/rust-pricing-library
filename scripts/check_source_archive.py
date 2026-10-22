@@ -14,6 +14,13 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".cargo/mutants.toml",
+    ".github/workflows/mutation-testing.yml",
+    "scripts/run_mutation_tests.py",
+    "scripts/test_run_mutation_tests.py",
+    "scripts/test_mutation_integration.py",
+    "docs/library/mutation-testing.md",
+    "design/validation/mutation-testing-2026-10-22.md",
     "backtesting/rust_pricing_backtest/native_contract.py",
     "backtesting/tests/test_native_contract.py",
     "tests/python/test_backtest_native_contract.py",
