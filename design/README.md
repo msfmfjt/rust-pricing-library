@@ -82,6 +82,7 @@ documents the public API migration.
 
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 - [Typed API and task validation review, 2026-10-22](validation/typed-api-task-validation-review-2026-10-22.md)
+- [Model, calibration and HW quote-risk boundary review, 2026-10-22](validation/hw-market-iv-boundary-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump
