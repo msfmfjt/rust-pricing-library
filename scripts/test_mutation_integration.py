@@ -75,6 +75,22 @@ class InstalledToolTests(unittest.TestCase):
                     else:
                         self.assertNotEqual(record["status"], "passed")
 
+            # Fewer than 100 mutants exist in this fixture. An empty shard is
+            # an explicit no-op only when the unsharded selection is valid and
+            # nonempty. The still-broken consumer must not be run for this shard.
+            args = runner.parse_args(["full", "--package", "pricing-numerics",
+                                      "--shard", "99/100", "--output", "target/empty_shard"])
+            with patch.dict(runner.os.environ, {"GITHUB_STEP_SUMMARY": ""}), \
+                    contextlib.redirect_stdout(io.StringIO()) as captured:
+                code = runner.run(args, root)
+            record_path = next((root / "target/empty_shard").glob("*/run.json"))
+            record = json.loads(record_path.read_text())
+            self.assertEqual(code, 0, captured.getvalue())
+            self.assertEqual(record["status"], "empty_shard")
+            self.assertEqual(record["selected"], 0)
+            self.assertNotIn("cargo_mutants_exit_code", record)
+            self.assertGreater(len(json.loads(record_path.with_name("unsharded.json").read_text())), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

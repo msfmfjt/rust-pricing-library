@@ -1,6 +1,7 @@
 """Regression tests for mutation selection and failure/evidence handling."""
 
 import contextlib
+import copy
 import io
 import json
 from pathlib import Path
@@ -12,6 +13,18 @@ from unittest.mock import patch
 import run_mutation_tests as runner
 
 
+def selected_mutants():
+    return [{"name": "fixture.rs:1: replace first"}, {"name": "fixture.rs:2: replace second"}]
+
+
+def phase_results(test_status="Success", build_status="Success"):
+    command = ["cargo", "test", "--package=pricing@0.1.0", "--package=pricing-numerics"]
+    result = [{"phase": "Build", "argv": [*command, "--no-run"], "process_status": build_status}]
+    if build_status == "Success":
+        result.append({"phase": "Test", "argv": command, "process_status": test_status})
+    return result
+
+
 def completed_report():
     return {
         "cargo_mutants_version": runner.CARGO_MUTANTS_VERSION,
@@ -19,17 +32,70 @@ def completed_report():
         "total_mutants": 2, "caught": 2, "missed": 0, "timeout": 0,
         "unviable": 0, "success": 0,
         "outcomes": [{"scenario": "Baseline", "summary": "Success",
-                      "phase_results": [{"phase": "Build"}, {"phase": "Test", "argv": [
-                          "cargo", "test", "--package=pricing@0.1.0", "--package=pricing-numerics",
-                      ]}]},
-                     {"scenario": {"Mutant": {"name": "fixture.rs:1: replace first"}}, "summary": "CaughtMutant"},
-                     {"scenario": {"Mutant": {"name": "fixture.rs:2: replace second"}}, "summary": "CaughtMutant"}],
+                      "phase_results": phase_results()},
+                     *[{"scenario": {"Mutant": mutant}, "summary": "CaughtMutant",
+                        "phase_results": phase_results({"Failure": 101})} for mutant in selected_mutants()]],
     }
 
 
 class OutcomeTests(unittest.TestCase):
     def test_completed_test_run(self):
-        self.assertEqual(runner.check_outcomes(completed_report(), 2)["caught"], 2)
+        self.assertEqual(runner.check_outcomes(completed_report(), selected_mutants())["caught"], 2)
+        self.assertEqual(runner.check_outcomes(completed_report(), selected_mutants()[::-1])["caught"], 2)
+
+    def test_same_count_cannot_substitute_an_unselected_mutant(self):
+        report = completed_report()
+        report["outcomes"][1]["scenario"]["Mutant"]["name"] = "unselected.rs:1: replace unrelated"
+        with self.assertRaisesRegex(ValueError, "selected inventory"):
+            runner.check_outcomes(report, selected_mutants())
+
+    def test_malformed_or_duplicate_inventory_is_rejected(self):
+        for inventory in (None, {}, [{}, {}], [{"name": ""}], [{"name": 1}], [None],
+                          [selected_mutants()[0]] * 2):
+            with self.subTest(inventory=inventory), self.assertRaises(ValueError):
+                runner.check_outcomes(completed_report(), inventory)
+
+    def test_summary_cannot_hide_missing_or_contradictory_execution(self):
+        original = completed_report()
+        bad_phases = [
+            None, [], [None], [{"phase": "Check", "process_status": "Success"}],
+            phase_results()[0:1], phase_results()[1:], phase_results()[::-1],
+            phase_results({"Failure": 0}), phase_results({"Failure": True}),
+            phase_results("Other"), phase_results({"Signalled": 9}),
+        ]
+        for phases in bad_phases:
+            for index in (0, 1):
+                with self.subTest(phases=phases, index=index), self.assertRaises(ValueError):
+                    report = copy.deepcopy(original)
+                    report["outcomes"][index]["phase_results"] = phases
+                    runner.check_outcomes(report, selected_mutants())
+        for index, phases in ((0, phase_results({"Failure": 101})),
+                              (0, phase_results("Timeout")),
+                              (1, phase_results()),
+                              (1, phase_results(build_status={"Failure": 101}))):
+            with self.subTest(index=index, phases=phases), self.assertRaises(ValueError):
+                report = copy.deepcopy(original)
+                report["outcomes"][index]["phase_results"] = phases
+                runner.check_outcomes(report, selected_mutants())
+
+    def test_each_build_and_test_must_include_the_required_packages(self):
+        for index in (0, 1):
+            for phase in (0, 1):
+                with self.subTest(index=index, phase=phase), self.assertRaisesRegex(ValueError, "packages"):
+                    report = completed_report()
+                    argv = report["outcomes"][index]["phase_results"][phase]["argv"]
+                    argv.remove("--package=pricing-numerics")
+                    # A libtest argument cannot masquerade as Cargo selection.
+                    argv.extend(["--", "--package=pricing-numerics"])
+                    runner.check_outcomes(report, selected_mutants())
+
+    def test_phase_labels_do_not_substitute_for_a_test_command(self):
+        for command in (None, ["cargo", "check"], ["cargo", 7],
+                        ["cargo", "test", "--package=pricing", "--package=pricing-numerics", "--no-run"]):
+            with self.subTest(command=command), self.assertRaises(ValueError):
+                report = completed_report()
+                report["outcomes"][1]["phase_results"][1]["argv"] = command
+                runner.check_outcomes(report, selected_mutants())
 
     def test_incomplete_or_inconsistent_evidence_is_rejected(self):
         cases = [
@@ -47,13 +113,26 @@ class OutcomeTests(unittest.TestCase):
         ]
         for changes in cases:
             with self.subTest(changes=changes), self.assertRaises(ValueError):
-                runner.check_outcomes(completed_report() | changes, 2)
+                runner.check_outcomes(completed_report() | changes, selected_mutants())
 
     def test_missed_and_timeout_are_separate_from_caught(self):
         report = completed_report() | {"caught": 0, "missed": 1, "timeout": 1}
         report["outcomes"][1]["summary"] = "MissedMutant"
+        report["outcomes"][1]["phase_results"] = phase_results()
         report["outcomes"][2]["summary"] = "Timeout"
-        self.assertEqual(runner.check_outcomes(report, 2)["caught"], 0)
+        report["outcomes"][2]["phase_results"] = phase_results("Timeout")
+        self.assertEqual(runner.check_outcomes(report, selected_mutants())["caught"], 0)
+
+    def test_build_timeouts_and_unviable_builds_are_not_caught(self):
+        report = completed_report() | {"caught": 0, "timeout": 1, "unviable": 1}
+        report["outcomes"][1]["summary"] = "Timeout"
+        report["outcomes"][1]["phase_results"] = phase_results(build_status="Timeout")
+        report["outcomes"][2]["summary"] = "Unviable"
+        report["outcomes"][2]["phase_results"] = phase_results(build_status={"Failure": 101})
+        self.assertEqual(runner.check_outcomes(report, selected_mutants())["caught"], 0)
+        report["outcomes"][2]["phase_results"].append(phase_results()[1])
+        with self.assertRaisesRegex(ValueError, "unsuccessful build"):
+            runner.check_outcomes(report, selected_mutants())
 
     def test_aggregate_success_cannot_hide_missing_duplicate_or_wrong_records(self):
         report = completed_report()
@@ -64,7 +143,7 @@ class OutcomeTests(unittest.TestCase):
                          [baseline, first, {"scenario": "Unexpected", "summary": "CaughtMutant"}],
                          [baseline, first, None], [baseline, baseline, first, second], None):
             with self.subTest(outcomes=outcomes), self.assertRaises(ValueError):
-                runner.check_outcomes(report | {"outcomes": outcomes}, 2)
+                runner.check_outcomes(report | {"outcomes": outcomes}, selected_mutants())
 
 
 class SelectionTests(unittest.TestCase):
@@ -142,7 +221,7 @@ class SelectionTests(unittest.TestCase):
 
 
 class ExecutionTests(unittest.TestCase):
-    def execute(self, argv, *, selected=2, exit_code=0, report=None):
+    def execute(self, argv, *, selected=2, exit_code=0, report=None, inventory=None, unsharded=None):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             args = runner.parse_args(argv)
@@ -151,7 +230,11 @@ class ExecutionTests(unittest.TestCase):
                 if command[:3] == ["cargo", "mutants", "--version"]:
                     return f"cargo-mutants {runner.CARGO_MUTANTS_VERSION}\n"
                 if "--list" in command:
-                    return json.dumps([{}] * selected) if selected else ""
+                    if unsharded is not None and not any(item.startswith("--shard=") for item in command):
+                        return json.dumps(unsharded)
+                    if inventory is not None:
+                        return json.dumps(inventory)
+                    return json.dumps(selected_mutants()[:selected]) if selected else ""
                 return "fixture-head\n" if "rev-parse" in command else ""
 
             def run(command, **kwargs):
@@ -182,6 +265,28 @@ class ExecutionTests(unittest.TestCase):
         code, record, calls = self.execute(["smoke"], selected=0)
         self.assertEqual((code, record["status"], calls), (1, "error", 0))
 
+    def test_empty_shard_requires_a_valid_nonempty_unsharded_inventory(self):
+        args = ["full", "--shard", "9/10"]
+        code, record, calls = self.execute(args, selected=0, unsharded=selected_mutants())
+        self.assertEqual((code, record["status"], calls), (0, "empty_shard", 0))
+        for unsharded in ([], {}, [{}, {}], [selected_mutants()[0]] * 2):
+            with self.subTest(unsharded=unsharded):
+                code, record, calls = self.execute(args, selected=0, unsharded=unsharded)
+                self.assertEqual((code, record["status"], calls), (1, "error", 0))
+
+    def test_inventory_is_validated_even_in_list_mode(self):
+        for inventory in ([{}, {}], [selected_mutants()[0]] * 2, {"not": "a list"}):
+            with self.subTest(inventory=inventory):
+                code, record, calls = self.execute(["full", "--list"], inventory=inventory)
+                self.assertEqual((code, record["status"], calls), (1, "error", 0))
+
+    def test_substituted_results_fail_even_with_tool_exit_zero(self):
+        report = completed_report()
+        report["outcomes"][1]["scenario"]["Mutant"]["name"] = "unselected.rs:1: replace unrelated"
+        code, record, calls = self.execute(["smoke"], report=report)
+        self.assertEqual((code, record["status"], calls), (1, "error", 1))
+        self.assertIn("selected inventory", record["error"])
+
     def test_tool_failures_and_false_success_cannot_pass(self):
         for status in (1, 2, 3, 4, 5, 6, 70, -15):
             with self.subTest(status=status):
@@ -192,6 +297,14 @@ class ExecutionTests(unittest.TestCase):
                 code, record, _ = self.execute(["smoke"], report=completed_report() | changes)
                 self.assertNotEqual(code, 0)
                 self.assertNotEqual(record["status"], "passed")
+        for summary, counter, status in (("MissedMutant", "missed", "Success"),
+                                          ("Timeout", "timeout", "Timeout")):
+            with self.subTest(summary=summary):
+                report = completed_report() | {"caught": 1, counter: 1}
+                report["outcomes"][1]["summary"] = summary
+                report["outcomes"][1]["phase_results"] = phase_results(status)
+                code, record, _ = self.execute(["smoke"], report=report)
+                self.assertEqual((code, record["status"]), (1, "failed"))
 
 
 if __name__ == "__main__":

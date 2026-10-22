@@ -114,6 +114,12 @@ See the upstream [exit code definitions](https://mutants.rs/exit-codes.html).
 Aggregate counts must agree with the individual outcome records. Missing or
 duplicate mutation names, unknown outcomes, multiple baselines and an unfinished
 report are errors, even if the reported totals or console summary look successful.
+The result identities must exactly match `selected.json`; a different set with
+the same count is rejected. Recorded build/test commands, required packages and
+exit statuses must agree with the reported outcome for every scenario. A build
+failure cannot count as a caught mutation, and a test phase using `--no-run`
+cannot count as an executed test. Unsupported or contradictory phase records
+fail the gate. List-only and unsharded inventories are validated too.
 
 Investigate survivors by adding independent boundary, invariant or analytical
 reference tests. Keep the existing precision budgets, RNG settings and replay
@@ -130,6 +136,9 @@ The [survivor triage](../../design/validation/mutation-triage-2026-10-22.md)
 adds analytical solver and quadrature boundary tests, reducing missed mutations
 from 30 to 11. It records the remaining precision/equivalence arguments and
 unresolved guard without excluding them or presenting the survey as passing.
+The [evidence-integrity follow-up](../../design/validation/mutation-evidence-integrity-2026-10-22.md)
+verifies selection identity and execution-phase checks against real reports,
+injected inconsistencies and the installed tool.
 These diagnostic unit-only runs are narrower than the runner's `full` scope,
 which continues to include the downstream pricing tests.
 

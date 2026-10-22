@@ -70,17 +70,80 @@ def selection_args(args: argparse.Namespace, root: Path, output: Path) -> list[s
     return command
 
 
-def check_outcomes(report: dict, selected: int, expected_packages: tuple[str, ...] = PACKAGES) -> dict:
+def mutation_names(inventory: list[dict]) -> set[str]:
+    """Validate the inventory before trusting its size or matching outcomes."""
+    if not isinstance(inventory, list):
+        raise ValueError("Expected a JSON list of selected mutants")
+    names = set()
+    for mutant in inventory:
+        name = mutant.get("name") if isinstance(mutant, dict) else None
+        if not isinstance(name, str) or not name or name in names:
+            raise ValueError("Missing or duplicate selected mutation identity")
+        names.add(name)
+    return names
+
+
+def check_phases(entry: dict, expected_packages: tuple[str, ...]) -> None:
+    """Reconcile the summary with actual build/test commands and exit statuses."""
+    phases = entry.get("phase_results")
+    if not isinstance(phases, list) or any(not isinstance(p, dict) for p in phases):
+        raise ValueError("Invalid build/test phase records")
+    if [p.get("phase") for p in phases] not in (["Build"], ["Build", "Test"]):
+        raise ValueError("Expected ordered build/test phases")
+    for phase in phases:
+        argv = phase.get("argv")
+        if not isinstance(argv, list) or not all(isinstance(arg, str) for arg in argv):
+            raise ValueError("Invalid build/test command")
+        cargo_args = argv[:argv.index("--")] if "--" in argv else argv
+        if len(cargo_args) < 2 or cargo_args[1] != "test":
+            raise ValueError("Build/test command did not use cargo test")
+        if ("--no-run" in cargo_args) != (phase["phase"] == "Build"):
+            raise ValueError("Build/test command has inconsistent --no-run mode")
+        tested = {arg.split("=", 1)[1].split("@", 1)[0]
+                  for arg in cargo_args if arg.startswith("--package=")}
+        if not set(expected_packages).issubset(tested):
+            raise ValueError("Build/test command omitted required test packages")
+
+    def status(phase):
+        value = phase.get("process_status")
+        if value in ("Success", "Timeout"):
+            return value
+        if (isinstance(value, dict) and set(value) == {"Failure"}
+                and type(value["Failure"]) is int and value["Failure"] != 0):
+            return "Failure"
+        raise ValueError("Invalid or unsupported build/test exit status")
+
+    build = status(phases[0])
+    if build != "Success":
+        if len(phases) != 1:
+            raise ValueError("Tests reported after an unsuccessful build")
+        inferred = "Unviable" if build == "Failure" else "Timeout"
+    else:
+        if len(phases) != 2:
+            raise ValueError("Successful build did not run tests")
+        inferred = {"Success": "MissedMutant", "Failure": "CaughtMutant", "Timeout": "Timeout"}[
+            status(phases[1])]
+    if entry.get("scenario") == "Baseline":
+        if inferred != "MissedMutant" or entry.get("summary") != "Success":
+            raise ValueError("Unmutated baseline did not pass")
+    elif entry.get("summary") != inferred:
+        raise ValueError("Mutation summary disagrees with build/test exit statuses")
+
+
+def check_outcomes(report: dict, selected: list[dict], expected_packages: tuple[str, ...] = PACKAGES) -> dict:
     """Fail closed on partial/check-only output, not just on a mutation score."""
+    if not isinstance(report, dict):
+        raise ValueError("Invalid mutation report")
+    selected_names = mutation_names(selected)
     names = ("total_mutants", "caught", "missed", "timeout", "unviable", "success")
     counts = {name: report.get(name) for name in names}
     if any(type(value) is not int or value < 0 for value in counts.values()):
         raise ValueError("Invalid or missing mutation counts")
     if report.get("cargo_mutants_version") != CARGO_MUTANTS_VERSION:
         raise ValueError("Unexpected cargo-mutants report version")
-    if not report.get("end_time") or counts["total_mutants"] != selected:
+    if not report.get("end_time") or counts["total_mutants"] != len(selected_names):
         raise ValueError("Mutation run is incomplete")
-    if sum(counts[name] for name in names[1:]) != selected:
+    if sum(counts[name] for name in names[1:]) != len(selected_names):
         raise ValueError("Mutation outcome counts do not reconcile")
     outcomes = report.get("outcomes", [])
     summaries = {"CaughtMutant": "caught", "MissedMutant": "missed", "Timeout": "timeout",
@@ -92,6 +155,7 @@ def check_outcomes(report: dict, selected: int, expected_packages: tuple[str, ..
     for entry in outcomes:
         if not isinstance(entry, dict):
             raise ValueError("Invalid mutation outcome record")
+        check_phases(entry, expected_packages)
         scenario = entry.get("scenario")
         if scenario == "Baseline":
             continue
@@ -104,21 +168,13 @@ def check_outcomes(report: dict, selected: int, expected_packages: tuple[str, ..
             raise ValueError("Unknown mutation outcome")
         identities.add(identity)
         observed[category] += 1
-    if len(identities) != selected or any(observed[name] != counts[name] for name in observed):
+    if identities != selected_names:
+        raise ValueError("Mutation outcomes do not match the selected inventory")
+    if any(observed[name] != counts[name] for name in observed):
         raise ValueError("Mutation records do not match aggregate counts")
     baselines = [entry for entry in outcomes if entry.get("scenario") == "Baseline"]
     if len(baselines) != 1 or baselines[0].get("summary") != "Success":
         raise ValueError("Unmutated baseline did not pass")
-    if any(not any(phase.get("phase") == "Test" for phase in entry.get("phase_results", []))
-           for entry in baselines):
-        raise ValueError("Baseline did not run tests")
-    for entry in baselines:
-        for phase in entry["phase_results"]:
-            if phase.get("phase") == "Test":
-                tested = {arg.split("=", 1)[1].split("@", 1)[0]
-                          for arg in phase.get("argv", []) if arg.startswith("--package=")}
-                if not set(expected_packages).issubset(tested):
-                    raise ValueError("Baseline omitted required test packages")
     if counts["success"] or counts["caught"] + counts["missed"] + counts["timeout"] == 0:
         raise ValueError("No test outcomes (or check-only output)")
     return counts
@@ -167,8 +223,7 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
         # 27.1.0 prints no JSON at all when --in-diff removes every mutant.
         # capture(check=True) has already distinguished tool failure from this.
         selected = json.loads(selection) if selection.strip() else []
-        if not isinstance(selected, list):
-            raise ValueError("Expected a JSON list of selected mutants")
+        mutation_names(selected)
         (output / "selected.json").write_text(json.dumps(selected, indent=2) + "\n", encoding="utf-8")
         record["selected"] = len(selected)
         if args.list:
@@ -180,7 +235,7 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
                                      if not item.startswith(("--shard=", "--sharding="))]
                 unsharded = capture([*unsharded_command, "--list", "--json"], root)
                 (output / "unsharded.json").write_text(unsharded, encoding="utf-8")
-                if not json.loads(unsharded):
+                if not mutation_names(json.loads(unsharded)):
                     raise ValueError("Empty full selection before sharding: check filters")
                 record["status"] = "empty_shard"
             elif args.scope != "changed":
@@ -194,7 +249,7 @@ def run(args: argparse.Namespace, root: Path = ROOT) -> int:
             report_path = output / "mutants.out" / "outcomes.json"
             report = json.loads(report_path.read_text(encoding="utf-8"))
             expected_packages = ("pricing",) if args.scope == "smoke" else PACKAGES
-            record["counts"] = check_outcomes(report, len(selected), expected_packages)
+            record["counts"] = check_outcomes(report, selected, expected_packages)
             if code == 0 and (report["missed"] or report["timeout"]):
                 code = 1
             record["status"] = "passed" if code == 0 else "failed"
