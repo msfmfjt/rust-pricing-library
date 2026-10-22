@@ -261,10 +261,15 @@ fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
         return match e {
             E::Invalid(_) => ("invalid_multi_asset_input", None, None),
             E::Numerical(_) => ("multi_asset_numerical_error", None, None),
+            E::NumericalSource(source) => match classify(source.as_ref()) {
+                ("pricing_error", _, _) => ("multi_asset_numerical_error", None, None),
+                metadata => metadata,
+            },
             E::Correlation(_) => ("invalid_correlation", Some("correlation"), None),
             E::Market(_) => ("invalid_market", Some("market"), None),
             E::Graph(_) => ("graph_error", Some("product"), None),
             E::Core(_) => ("invalid_domain_value", None, None),
+            _ => ("multi_asset_error", None, None),
         };
     }
     if let Some(e) = error.downcast_ref::<pricing::models::StochasticDividendError>() {
@@ -383,5 +388,32 @@ mod tests {
                 Some("reverse_trace_required")
             )
         );
+    }
+
+    #[test]
+    fn multi_asset_sources_keep_nested_model_classification_and_unknown_fallback() {
+        use pricing::multi_asset::MultiAssetError;
+        let error = pricing::PricingTaskError::from(MultiAssetError::NumericalSource(Box::new(
+            pricing::mc::lsv::LsvError::NoSupportedCalibrationNode { time_index: 3 },
+        )));
+        let metadata = ErrorMetadata::from_error(&error, Stage::Compile);
+        assert_eq!(metadata.code, "calibration_error");
+        assert_eq!(metadata.stage, Stage::Compile);
+        assert_eq!(metadata.causes.len(), 2);
+        assert!(metadata.field.is_none());
+
+        for text in ["resource limit", "calibration error", "unknown failure"] {
+            let error = MultiAssetError::NumericalSource(Box::new(std::io::Error::other(text)));
+            assert_eq!(
+                classify(&error),
+                ("multi_asset_numerical_error", None, None)
+            );
+            let legacy = MultiAssetError::Numerical(text.into());
+            assert_eq!(error.to_string(), legacy.to_string());
+            assert_eq!(
+                ErrorMetadata::from_error(&error, Stage::Evaluate).causes,
+                [text]
+            );
+        }
     }
 }

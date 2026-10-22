@@ -192,7 +192,7 @@ impl LocalCorrelationCalibration {
                 !(0.0..=1.0).contains(&raw)
             };
             if projected && self.config.feasibility == LocalCorrelationFeasibility::Reject {
-                return Err(E::numerical(format!(
+                return Err(E::Numerical(format!(
                     "infeasible local correlation target at time {}, log basket {}: target {}, endpoints [{}, {}]",
                     self.times[row], x, target, a, b
                 )));

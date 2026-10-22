@@ -44,9 +44,8 @@ class ExecutionResourceTests(unittest.TestCase):
                             plan.evaluate()
                         self.assertIsInstance(caught.exception, RuntimeError)
                         self.assertEqual(caught.exception.stage, "evaluate")
-                        if name != "multi_asset_bs":
-                            self.assertEqual(caught.exception.code, "resource_limit")
-                            self.assertEqual(caught.exception.field, "reduction_blocks")
+                        self.assertEqual(caught.exception.code, "resource_limit")
+                        self.assertEqual(caught.exception.field, "reduction_blocks")
                     self.assertEqual(valid.evaluate().report.to_json(), baseline)
 
     def test_maximum_block_size_is_valid_for_a_small_workload(self):

@@ -472,7 +472,18 @@ impl PyMultiAssetPlan {
             }
         })
         .map(|inner| Self { inner })
-        .map_err(|e| invalid(py, e))
+        .map_err(|e| {
+            // Preserve the historical ValidationError and issue payload while
+            // classifying the native compile failure from its retained causes.
+            let mut issue = PyValidationIssue::domain(
+                "/multi_asset",
+                "invalid_multi_asset_configuration",
+                e.to_string(),
+            );
+            issue.error_metadata =
+                crate::errors::ErrorMetadata::from_error(&e, crate::errors::Stage::Compile);
+            validation_exception(py, issue)
+        })
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyMultiAssetPrice> {
         py.detach(|| self.inner.evaluate())
