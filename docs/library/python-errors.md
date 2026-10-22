@@ -20,6 +20,14 @@ entry point uses `calibrate`. Ordinary argument conversion errors raised by
 Python/PyO3 retain their built-in exception contracts. Do not assume these
 attributes exist on manually constructed exceptions or arbitrary `ValueError`s.
 
+For domain failures in `PricingTask.from_json`, JSON pointers are relative to
+the complete task, including source containers and array indices. For example,
+an invalid second-asset Spot points to `/source/markets/1/spot`; an embedded
+specification's execution-policy error points to
+`/source/specification/numerics`. A composition error can identify the enclosing
+source object when several inputs are involved. Standalone specification errors
+remain relative to the standalone specification document.
+
 ```python
 import rust_pricing as rp
 

@@ -81,6 +81,7 @@ documents the public API migration.
 ## Implementation roadmaps and acceptance
 
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
+- [Typed API and task validation review, 2026-10-22](validation/typed-api-task-validation-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump
