@@ -171,8 +171,12 @@ remaining survivors from five nonterminating mutations and eight unviable builds
 The [execution-evidence follow-up](../../design/validation/mutation-reporting-2026-10-22.md)
 verifies abrupt-termination checkpoints and complete failure lists, and runs the
 normal changed-line gate against both Rust crates and their downstream tests.
-The numerical and date/calendar diagnostic unit-only surveys are narrower than
-the runner's `full` scope, which includes the downstream pricing tests.
+The [discount-curve follow-up](../../design/validation/mutation-curve-2026-10-23.md)
+adds nonuniform-interval, negative-rate, overflow/underflow, accessor and
+diagnostic tests, with before/after evidence for all 71 generated mutations.
+The numerical, date/calendar and discount-curve diagnostic unit-only surveys
+are narrower than the runner's `full` scope, which includes the downstream
+pricing tests.
 
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:

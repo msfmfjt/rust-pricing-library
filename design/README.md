@@ -86,6 +86,7 @@ documents the public API migration.
 - [Mutation evidence integrity, 2026-10-22](validation/mutation-evidence-integrity-2026-10-22.md)
 - [Date and calendar mutation coverage, 2026-10-22](validation/mutation-calendar-2026-10-22.md)
 - [Mutation execution evidence and changed-line gate, 2026-10-22](validation/mutation-reporting-2026-10-22.md)
+- [Discount-curve mutation coverage, 2026-10-23](validation/mutation-curve-2026-10-23.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
