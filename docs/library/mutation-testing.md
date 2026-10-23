@@ -174,9 +174,12 @@ normal changed-line gate against both Rust crates and their downstream tests.
 The [discount-curve follow-up](../../design/validation/mutation-curve-2026-10-23.md)
 adds nonuniform-interval, negative-rate, overflow/underflow, accessor and
 diagnostic tests, with before/after evidence for all 71 generated mutations.
-The numerical, date/calendar and discount-curve diagnostic unit-only surveys
-are narrower than the runner's `full` scope, which includes the downstream
-pricing tests.
+The [forward/dividend follow-up](../../design/validation/mutation-carry-2026-10-23.md)
+adds exact-rational cash-flow and Spot-bump references, ex-date boundaries,
+funding, state-validation and tolerance tests, with evidence for all 243
+generated mutations in the two source files.
+These diagnostic unit-only surveys are narrower than the runner's `full` scope,
+which includes the downstream pricing tests.
 
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:
