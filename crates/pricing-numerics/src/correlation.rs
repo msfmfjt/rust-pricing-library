@@ -209,6 +209,219 @@ mod tests {
             zero_pivot_rel_tol: 1e-12,
         }
     }
+
+    #[test]
+    fn preserves_inputs_and_reconstructs_the_original_four_dimensional_matrix() {
+        let matrix = vec![
+            vec![1.0, 0.25, -0.5, 0.125],
+            vec![0.25, 1.0, 0.375, -0.25],
+            vec![-0.5, 0.375, 1.0, 0.125],
+            vec![0.125, -0.25, 0.125, 1.0],
+        ];
+        let expected: Vec<_> = matrix.iter().flatten().copied().collect();
+        let factor = CorrelationFactor::compile(matrix, t()).unwrap();
+        assert_eq!(factor.dimension(), 4);
+        assert_eq!(factor.raw(), expected);
+        assert_eq!(factor.canonical(), expected);
+        assert_eq!(factor.diagnostics().rank, 4);
+        assert_eq!(factor.diagnostics().scale, 2.0);
+        assert_eq!(factor.diagnostics().maximum_adjustment, 0.0);
+        assert!(factor.diagnostics().zero_pivots.is_empty());
+        for i in 0..4 {
+            for j in 0..4 {
+                let reconstructed: f64 = (0..4)
+                    .map(|k| factor.lower()[i * 4 + k] * factor.lower()[j * 4 + k])
+                    .sum();
+                // Compare with the input, independently of canonicalization.
+                assert!((reconstructed - expected[i * 4 + j]).abs() < 1e-14);
+                if j > i {
+                    assert_eq!(factor.lower()[i * 4 + j], 0.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn canonicalization_and_diagnostic_thresholds_are_exact() {
+        // Dyadic values make the inclusive tolerance boundaries exact in f64.
+        let tolerance = CorrelationToleranceConfig {
+            symmetry_abs_tol: 0.25,
+            diagonal_abs_tol: 0.125,
+            psd_abs_tol: 0.03125,
+            psd_rel_tol: 0.125,
+            zero_pivot_abs_tol: 0.125,
+            zero_pivot_rel_tol: 0.0625,
+        };
+        let factor =
+            CorrelationFactor::compile(vec![vec![1.125, 0.25], vec![0.5, 1.0]], tolerance).unwrap();
+        assert_eq!(factor.raw(), [1.125, 0.25, 0.5, 1.0]);
+        assert_eq!(factor.canonical(), [1.0, 0.375, 0.375, 1.0]);
+        assert_eq!(factor.lower(), [1.0, 0.0, 0.375, 0.859375_f64.sqrt()]);
+        assert_eq!(
+            *factor.diagnostics(),
+            CorrelationDiagnostics {
+                maximum_asymmetry: 0.25,
+                maximum_diagonal_deviation: 0.125,
+                maximum_adjustment: 0.125,
+                scale: 1.375,
+                psd_threshold: 0.171875,
+                zero_threshold: 0.125,
+                pivots: vec![1.0, 0.859375],
+                zero_pivots: vec![],
+                rank: 2,
+                maximum_checked_residual: 0.0,
+            }
+        );
+        assert_eq!(
+            CorrelationFactor::compile(
+                vec![vec![1.125_f64.next_up(), 0.25], vec![0.5, 1.0]],
+                tolerance,
+            ),
+            Err(CorrelationError::Diagonal)
+        );
+        assert_eq!(
+            CorrelationFactor::compile(
+                vec![vec![1.0, 0.25], vec![0.5_f64.next_up(), 1.0]],
+                tolerance,
+            ),
+            Err(CorrelationError::Asymmetric)
+        );
+        let alternate = CorrelationFactor::compile(
+            vec![vec![1.125, 0.25], vec![0.5, 1.0]],
+            CorrelationToleranceConfig {
+                psd_abs_tol: 0.25,
+                psd_rel_tol: 0.0625,
+                zero_pivot_abs_tol: 0.03125,
+                zero_pivot_rel_tol: 0.125,
+                ..tolerance
+            },
+        )
+        .unwrap();
+        assert_eq!(alternate.diagnostics().psd_threshold, 0.25);
+        assert_eq!(alternate.diagnostics().zero_threshold, 0.171875);
+    }
+
+    #[test]
+    fn validates_each_tolerance_and_independent_threshold_overflow() {
+        for index in 0..6 {
+            for invalid in [-1.0, f64::NEG_INFINITY, f64::INFINITY, f64::NAN] {
+                let mut tolerance = t();
+                let fields = [
+                    &mut tolerance.symmetry_abs_tol,
+                    &mut tolerance.diagonal_abs_tol,
+                    &mut tolerance.psd_abs_tol,
+                    &mut tolerance.psd_rel_tol,
+                    &mut tolerance.zero_pivot_abs_tol,
+                    &mut tolerance.zero_pivot_rel_tol,
+                ];
+                *fields[index] = invalid;
+                assert_eq!(
+                    CorrelationFactor::compile(vec![vec![1.0]], tolerance),
+                    Err(CorrelationError::InvalidTolerance),
+                    "tolerance {index}: {invalid}"
+                );
+            }
+        }
+        for (psd_rel_tol, zero_pivot_rel_tol) in [(f64::MAX, 0.0), (0.0, f64::MAX)] {
+            assert_eq!(
+                CorrelationFactor::compile(
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                    CorrelationToleranceConfig {
+                        psd_rel_tol,
+                        zero_pivot_rel_tol,
+                        ..t()
+                    },
+                ),
+                Err(CorrelationError::InvalidTolerance)
+            );
+        }
+    }
+
+    #[test]
+    fn zero_pivots_and_psd_and_residual_boundaries_are_inclusive() {
+        let exact = CorrelationToleranceConfig {
+            symmetry_abs_tol: 0.0,
+            diagonal_abs_tol: 0.0,
+            psd_abs_tol: 0.0,
+            psd_rel_tol: 0.0,
+            zero_pivot_abs_tol: 0.0,
+            zero_pivot_rel_tol: 0.0,
+        };
+        let factor = CorrelationFactor::compile(vec![vec![1.0; 3]; 3], exact).unwrap();
+        assert_eq!(factor.diagnostics().rank, 1);
+        assert_eq!(factor.diagnostics().pivots, [1.0, 0.0, 0.0]);
+        assert_eq!(factor.diagnostics().zero_pivots, [1, 2]);
+        assert_eq!(
+            factor.lower(),
+            [1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        );
+
+        let indefinite = vec![vec![1.0, 0.0, 1.0], vec![0.0, 1.0, 1.0], vec![1.0; 3]];
+        let factor = CorrelationFactor::compile(
+            indefinite.clone(),
+            CorrelationToleranceConfig {
+                psd_abs_tol: 1.0,
+                ..exact
+            },
+        )
+        .unwrap();
+        assert_eq!(factor.diagnostics().pivots, [1.0, 1.0, -1.0]);
+        assert_eq!(factor.diagnostics().zero_pivots, [2]);
+        assert_eq!(factor.diagnostics().rank, 2);
+        assert_eq!(
+            CorrelationFactor::compile(
+                indefinite,
+                CorrelationToleranceConfig {
+                    psd_abs_tol: 1.0_f64.next_down(),
+                    ..exact
+                },
+            ),
+            Err(CorrelationError::NotPsd {
+                column: 2,
+                pivot: -1.0
+            })
+        );
+
+        let singular = |residual| {
+            vec![
+                vec![1.0, 1.0, 0.0],
+                vec![1.0, 1.0, residual],
+                vec![0.0, residual, 1.0],
+            ]
+        };
+        let tolerance = CorrelationToleranceConfig {
+            zero_pivot_abs_tol: 0.25,
+            ..exact
+        };
+        let factor = CorrelationFactor::compile(singular(0.25), tolerance).unwrap();
+        assert_eq!(factor.diagnostics().maximum_checked_residual, 0.25);
+        assert_eq!(factor.diagnostics().zero_pivots, [1]);
+        let residual = 0.25_f64.next_up();
+        assert_eq!(
+            CorrelationFactor::compile(singular(residual), tolerance),
+            Err(CorrelationError::SingularResidual {
+                row: 2,
+                column: 1,
+                residual
+            })
+        );
+    }
+
+    #[test]
+    fn errors_identify_the_failed_contract() {
+        assert_eq!(
+            CorrelationError::Shape.to_string(),
+            "invalid correlation: Shape"
+        );
+        let error = CorrelationError::NotPsd {
+            column: 2,
+            pivot: -1.0,
+        };
+        assert_eq!(
+            error.to_string(),
+            "invalid correlation: NotPsd { column: 2, pivot: -1.0 }"
+        );
+    }
     #[test]
     fn reconstructs_full_rank_and_singular_without_reordering() {
         for (c, rank) in [

@@ -324,6 +324,9 @@ jobs:
       - name: Check wheel API signature validation
         run: python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v
 
+      - name: Check mutation runner selection and failure handling
+        run: python -m unittest discover -s scripts -p 'test_run_mutation_tests.py' -v
+
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
 

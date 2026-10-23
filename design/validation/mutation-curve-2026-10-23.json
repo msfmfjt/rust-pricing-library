@@ -1,0 +1,2643 @@
+{
+  "date": "2026-10-23",
+  "base_commit": "b4915f30908ad571699c3c21db6c11ffdf37f1b9",
+  "base_tree": "40c001cc80a781d74205b00e89da4899cbfe71c0",
+  "rust_toolchain": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "scope": "All 71 generated mutations in market/curve.rs; pricing unit tests matching market::curve::tests:: only.",
+  "source_check": {
+    "production_prefix_sha256": "baf1db2e6c846b61edca26183f5c82b1a88ab53ae3aa5bedad76d22336dff5bb",
+    "production_unchanged": true,
+    "before_sha256": "39d7f2d60b460b69c068c96be82fad1bcb00681595ddebcea80e98ca17681f00",
+    "after_sha256": "688e0bddd8bfa30fe0613e18b2ac8be8dd559234f1f096592064c9da8ea846d1",
+    "before_unit_tests": 5,
+    "after_unit_tests": 16
+  },
+  "compatibility": "Only cfg(test) Rust code changed. Production logic, API, schemas, dependencies, RNG and existing precision assertions are unchanged.",
+  "tool_generation_limit": {
+    "omitted_methods": [
+      "LogLinearDiscountCurve::new",
+      "CurveExtrapolationStats::new"
+    ],
+    "reason": "cargo-mutants 27.1.0 skips methods named new in impl/trait visitors; explicit constructor and domain tests were added without claiming generated coverage of those methods."
+  },
+  "analytical_references": {
+    "method": "Exact rational log2 interpolation with Python fractions.Fraction; logarithms with decimal.Decimal at 80 digits. Powers of two and distinct segment slopes are independent of the Rust implementation.",
+    "pillar_times": [
+      0,
+      2,
+      5
+    ],
+    "pillar_discounts": [
+      "1",
+      "1/4",
+      "1/64"
+    ],
+    "anchors": [
+      {
+        "time": "0",
+        "log2_discount": 0,
+        "exact_discount": "1",
+        "log_discount_80_digits": "0E-80"
+      },
+      {
+        "time": "1",
+        "log2_discount": -1,
+        "exact_discount": "1/2",
+        "log_discount_80_digits": "-0.69314718055994530941723212145817656807550013436025525412068000949339362196969472"
+      },
+      {
+        "time": "2",
+        "log2_discount": -2,
+        "exact_discount": "1/4",
+        "log_discount_80_digits": "-1.3862943611198906188344642429163531361510002687205105082413600189867872439393894"
+      },
+      {
+        "time": "2.75",
+        "log2_discount": -3,
+        "exact_discount": "1/8",
+        "log_discount_80_digits": "-2.0794415416798359282516963643745297042265004030807657623620400284801808659090842"
+      },
+      {
+        "time": "3.5",
+        "log2_discount": -4,
+        "exact_discount": "1/16",
+        "log_discount_80_digits": "-2.7725887222397812376689284858327062723020005374410210164827200379735744878787789"
+      },
+      {
+        "time": "4.25",
+        "log2_discount": -5,
+        "exact_discount": "1/32",
+        "log_discount_80_digits": "-3.4657359027997265470861606072908828403775006718012762706034000474669681098484736"
+      },
+      {
+        "time": "5",
+        "log2_discount": -6,
+        "exact_discount": "1/64",
+        "log_discount_80_digits": "-4.1588830833596718565033927287490594084530008061615315247240800569603617318181683"
+      },
+      {
+        "time": "5.75",
+        "log2_discount": -7,
+        "exact_discount": "1/128",
+        "log_discount_80_digits": "-4.8520302639196171659206248502072359765285009405217867788447600664537553537878630"
+      }
+    ]
+  },
+  "before": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/market/curve.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=market::curve::tests::",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-curve-before"
+    ],
+    "source_head": "b4915f30908ad571699c3c21db6c11ffdf37f1b9",
+    "file_sha256": {
+      "crates/pricing/src/market/curve.rs": "39d7f2d60b460b69c068c96be82fad1bcb00681595ddebcea80e98ca17681f00"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "test_scope": "pricing unit tests matching market::curve::tests:: only; no integration tests",
+    "exit_code": 2,
+    "selected": 71,
+    "counts": {
+      "total_mutants": 71,
+      "caught": 47,
+      "missed": 21,
+      "timeout": 0,
+      "unviable": 3,
+      "success": 0
+    },
+    "start_time": "2026-10-23T00:12:12.579910305Z",
+    "end_time": "2026-10-23T00:15:14.548189229Z",
+    "cargo_mutants_version": "27.1.0",
+    "complete": true,
+    "baseline_commands": [
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--no-run",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked"
+      ],
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked",
+        "market::curve::tests::"
+      ]
+    ],
+    "outstanding": [
+      {
+        "name": "crates/pricing/src/market/curve.rs:9:9: replace DiscountCurve::discount -> Result<f64, MarketError> with Ok(0.0)",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:13:9: replace DiscountCurve::log_discount -> Result<f64, MarketError> with Ok(1.0)",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:13:9: replace DiscountCurve::log_discount -> Result<f64, MarketError> with Ok(-1.0)",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:137:9: replace LogLinearDiscountCurve::id -> CurveId with Default::default()",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:13:9: replace DiscountCurve::log_discount -> Result<f64, MarketError> with Ok(0.0)",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:9:9: replace DiscountCurve::discount -> Result<f64, MarketError> with Ok(-1.0)",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:9:9: replace DiscountCurve::discount -> Result<f64, MarketError> with Ok(1.0)",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(Vec::new())",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(vec![0.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(vec![1.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(vec![-1.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(Vec::new())",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(vec![1.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(vec![0.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(vec![-1.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(Vec::new())",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(vec![-1.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(vec![0.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(vec![1.0])",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:157:48: replace / with * in LogLinearDiscountCurve::segment_value",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:164:9: replace <impl DiscountCurve for LogLinearDiscountCurve>::evaluate -> Result<CurveEvaluation, MarketError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:193:63: replace || with && in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:193:38: replace || with && in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:242:9: replace CurveExtrapolationStats::curve -> CurveId with Default::default()",
+        "outcome": "Unviable"
+      }
+    ],
+    "by_file": {
+      "crates/pricing/src/market/curve.rs": {
+        "MissedMutant": 21,
+        "CaughtMutant": 47,
+        "Unviable": 3
+      }
+    },
+    "worktree_state_at_source_capture": "clean",
+    "baseline_test_result": "ok. 5 passed; 0 failed; 0 ignored; 0 measured; 556 filtered out; finished in 0.00s",
+    "baseline_log_sha256": "aaf4f3ed7e5c82c4025bf9bcb93191a5062c157da55a5aa45bb224bb6680605c",
+    "baseline_phases": [
+      {
+        "phase": "Build",
+        "duration": 31.543146899,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--no-run",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      },
+      {
+        "phase": "Test",
+        "duration": 0.051184535,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::curve::tests::"
+        ]
+      }
+    ],
+    "raw_artifacts": {
+      "outcomes.json": {
+        "path": "/tmp/pricing-curve-before/mutants.out/outcomes.json",
+        "sha256": "ad87c0c1d7e5f72933a28f46149277a1209da90b864a3d958e94affd3a777890"
+      },
+      "mutants.json": {
+        "path": "/tmp/pricing-curve-before/mutants.out/mutants.json",
+        "sha256": "e6f27eb224352b2014f9fb6356df2ecb8c152c8e186115985ad2f2b402e97de6"
+      }
+    },
+    "identity_phase_and_count_validation": "passed using scripts/run_mutation_tests.py check_outcomes"
+  },
+  "after": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/market/curve.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=market::curve::tests::",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-curve-after"
+    ],
+    "source_head": "b4915f30908ad571699c3c21db6c11ffdf37f1b9",
+    "file_sha256": {
+      "crates/pricing/src/market/curve.rs": "688e0bddd8bfa30fe0613e18b2ac8be8dd559234f1f096592064c9da8ea846d1"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "test_scope": "pricing unit tests matching market::curve::tests:: only; no integration tests",
+    "exit_code": 0,
+    "selected": 71,
+    "counts": {
+      "total_mutants": 71,
+      "caught": 68,
+      "missed": 0,
+      "timeout": 0,
+      "unviable": 3,
+      "success": 0
+    },
+    "start_time": "2026-10-23T00:15:53.602485076Z",
+    "end_time": "2026-10-23T00:19:08.718168994Z",
+    "cargo_mutants_version": "27.1.0",
+    "complete": true,
+    "baseline_commands": [
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--no-run",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked"
+      ],
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked",
+        "market::curve::tests::"
+      ]
+    ],
+    "outstanding": [
+      {
+        "name": "crates/pricing/src/market/curve.rs:137:9: replace LogLinearDiscountCurve::id -> CurveId with Default::default()",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:164:9: replace <impl DiscountCurve for LogLinearDiscountCurve>::evaluate -> Result<CurveEvaluation, MarketError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/market/curve.rs:242:9: replace CurveExtrapolationStats::curve -> CurveId with Default::default()",
+        "outcome": "Unviable"
+      }
+    ],
+    "by_file": {
+      "crates/pricing/src/market/curve.rs": {
+        "CaughtMutant": 68,
+        "Unviable": 3
+      }
+    },
+    "worktree_state_at_source_capture": "uncommitted curve test additions",
+    "baseline_test_result": "ok. 16 passed; 0 failed; 0 ignored; 0 measured; 556 filtered out; finished in 0.00s",
+    "baseline_log_sha256": "a87250f907c1eb008f0ae89c4b1d247b0d50bc79b20ae8e1cb5f101534541e51",
+    "baseline_phases": [
+      {
+        "phase": "Build",
+        "duration": 40.710891781,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--no-run",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      },
+      {
+        "phase": "Test",
+        "duration": 0.052687439,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::curve::tests::"
+        ]
+      }
+    ],
+    "raw_artifacts": {
+      "outcomes.json": {
+        "path": "/tmp/pricing-curve-after/mutants.out/outcomes.json",
+        "sha256": "69a06a91369df1fe3de66bb08c3f7ebd52c8bef5de0c5bfa86c3e75c2cee53ff"
+      },
+      "mutants.json": {
+        "path": "/tmp/pricing-curve-after/mutants.out/mutants.json",
+        "sha256": "e6f27eb224352b2014f9fb6356df2ecb8c152c8e186115985ad2f2b402e97de6"
+      }
+    },
+    "identity_phase_and_count_validation": "passed using scripts/run_mutation_tests.py check_outcomes"
+  },
+  "transition_counts": [
+    {
+      "before": "CaughtMutant",
+      "after": "CaughtMutant",
+      "count": 47
+    },
+    {
+      "before": "MissedMutant",
+      "after": "CaughtMutant",
+      "count": 21
+    },
+    {
+      "before": "Unviable",
+      "after": "Unviable",
+      "count": 3
+    }
+  ],
+  "all_identity_transitions": [
+    {
+      "name": "crates/pricing/src/market/curve.rs:137:9: replace LogLinearDiscountCurve::id -> CurveId with Default::default()",
+      "before": {
+        "summary": "Unviable",
+        "last_phase": "Build",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_137_col_9.log",
+        "log_sha256": "38cec8194bf5ab408ef2c88c7e43f7cc2c6554c9f8523a7101db8ad31ecd550c",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_137_col_9.diff",
+        "diff_sha256": "cc9d96777ba340fc800274ee9f23bc9c8e487a610caf7ff65d34e7346a5d96a9"
+      },
+      "after": {
+        "summary": "Unviable",
+        "last_phase": "Build",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_137_col_9.log",
+        "log_sha256": "0b4f8cf06f1fd8dd0c1c08418d40378f9272032d80742e8c8e7a6a0343f7d114",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_137_col_9.diff",
+        "diff_sha256": "cc9d96777ba340fc800274ee9f23bc9c8e487a610caf7ff65d34e7346a5d96a9",
+        "compiler_errors": [
+          "error[E0277]: the trait bound `ids::CurveId: Default` is not satisfied"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:13:9: replace DiscountCurve::log_discount -> Result<f64, MarketError> with Ok(-1.0)",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_13_col_9_002.log",
+        "log_sha256": "6e06d9dc076288ccc69fcdaf8a605f7e4dc6a86a2797b7cc2304adc1494bb584",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_13_col_9_002.diff",
+        "diff_sha256": "638f134763f3ae824a5b332c849ab684121cafa7e59772fd41f6b9af04cd8631"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_13_col_9_002.log",
+        "log_sha256": "757affc901d8aaede5c203374408fb31392d3d7aabaf15caeda3c720037f5416",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_13_col_9_002.diff",
+        "diff_sha256": "638f134763f3ae824a5b332c849ab684121cafa7e59772fd41f6b9af04cd8631",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:13:9: replace DiscountCurve::log_discount -> Result<f64, MarketError> with Ok(0.0)",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_13_col_9.log",
+        "log_sha256": "8348b88779b977cac8bf98a903a95fcdbd9dc7ac2ac18a021b39080238bd1e91",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_13_col_9.diff",
+        "diff_sha256": "c704927c6fb8b7f170f3c1da507a5952453fbd8e9c4a26b56d1f6e6673372aff"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_13_col_9.log",
+        "log_sha256": "b45214257f5d5dd2c5151b94f4ce9296a4380db252a0f4f7cf415b73746eb295",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_13_col_9.diff",
+        "diff_sha256": "c704927c6fb8b7f170f3c1da507a5952453fbd8e9c4a26b56d1f6e6673372aff",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:13:9: replace DiscountCurve::log_discount -> Result<f64, MarketError> with Ok(1.0)",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_13_col_9_001.log",
+        "log_sha256": "8ed023dd7026dc198c1c1365e93f1eec205b6359a3a8d0eda83db9b6f9357593",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_13_col_9_001.diff",
+        "diff_sha256": "8ab09562ebcb84c4ec30aadaaf89e4e707b616e914b8f167d8ebe3f56015c343"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_13_col_9_001.log",
+        "log_sha256": "53bfcbeee054079bccf6358050e42715a69bbf10b5e6fca24c117a02e726eacb",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_13_col_9_001.diff",
+        "diff_sha256": "8ab09562ebcb84c4ec30aadaaf89e4e707b616e914b8f167d8ebe3f56015c343",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(Vec::new())",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9.log",
+        "log_sha256": "8baba0ee7cee0214015bb7542e94c6164e33b09ab43755252379a8a0319b0767",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9.diff",
+        "diff_sha256": "c15e44b24282295fdd82bfed9fd8a3fe2512076d74f0c4da5eff0def4302ac28"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9.log",
+        "log_sha256": "330a21d8340558f5c11a6e205cd42ccb07848c54549cf817054daad71491077f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9.diff",
+        "diff_sha256": "c15e44b24282295fdd82bfed9fd8a3fe2512076d74f0c4da5eff0def4302ac28",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(vec![-1.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9_003.log",
+        "log_sha256": "c37d00f75c772ddf510b3c4595ebf3195390d3782605c477a617f539e2cdcf94",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9_003.diff",
+        "diff_sha256": "7c882fd5635fca2c1e707c8846dd34facb2f0b288582f663c567e435d07a5dab"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9_003.log",
+        "log_sha256": "66646e7f9ebe0ac25c9d4bdb408d5377e82aad02e74db13917fead6bca074a80",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9_003.diff",
+        "diff_sha256": "7c882fd5635fca2c1e707c8846dd34facb2f0b288582f663c567e435d07a5dab",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(vec![0.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9_001.log",
+        "log_sha256": "8da9afdd1f90b96141059eb42900cf0230842951d3c39f7326ab85c6bb9e6a98",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9_001.diff",
+        "diff_sha256": "48fdd080fab70bdffd74b40f4cc6422090a31cb3fba711ab69f8a0619db6aa37"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9_001.log",
+        "log_sha256": "550c3a78342c80eb858f0c92c209e05be586654367b69c99a8fb62f75a8c3e27",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9_001.diff",
+        "diff_sha256": "48fdd080fab70bdffd74b40f4cc6422090a31cb3fba711ab69f8a0619db6aa37",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:142:9: replace LogLinearDiscountCurve::times -> &[f64] with Vec::leak(vec![1.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9_002.log",
+        "log_sha256": "bbe5ee78d4b26867c516a83d9b59a50d078e4ca9dbc288b34d3aacaa7d6d7602",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9_002.diff",
+        "diff_sha256": "a93f407ed5e3e012db09104b8427d0521b94addda5f4f3da5246616d55ba14b6"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_142_col_9_002.log",
+        "log_sha256": "28026a09cbc8293a84076d55221f6d04337aa3061a334ae5ab413dff74acf347",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_142_col_9_002.diff",
+        "diff_sha256": "a93f407ed5e3e012db09104b8427d0521b94addda5f4f3da5246616d55ba14b6",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(Vec::new())",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9.log",
+        "log_sha256": "86855db174f2b77ab3df5fbd8605cde5ac9903af8d196c766f622fd71b988f98",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9.diff",
+        "diff_sha256": "026ab97207048c09a6657ab80ff9b86b5c3c0c980cf84147964b1d28206fd896"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9.log",
+        "log_sha256": "87b0152509708e2683835862cb62198746ca857d0d1945b23ac01eec13094cac",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9.diff",
+        "diff_sha256": "026ab97207048c09a6657ab80ff9b86b5c3c0c980cf84147964b1d28206fd896",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(vec![-1.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9_003.log",
+        "log_sha256": "7e02fa0691e8fb93decf97f9d7e2f9911fed22812f42b4ce29b014dcd1b511ac",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9_003.diff",
+        "diff_sha256": "0e27307f99c7dcb79d6c00caf13c1807ab058ab31219e512bc6c7d631e5bc447"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9_003.log",
+        "log_sha256": "f19f703fec5520105833a6740bb8d8139c3df24cbc8259976947559d49b69540",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9_003.diff",
+        "diff_sha256": "0e27307f99c7dcb79d6c00caf13c1807ab058ab31219e512bc6c7d631e5bc447",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(vec![0.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9_001.log",
+        "log_sha256": "6c86b007d30c8a66f3678bc6982da5ff199b8d0681d312ece636013bf91e80be",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9_001.diff",
+        "diff_sha256": "ed804e6826b213161b91fc3ba9d20a981b52b6fd9e4fa10c508b502adbc6adc7"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9_001.log",
+        "log_sha256": "91dda28a5ef9d10c5c053d32aaefcd34d4c5e575ee6c57b2059a2cdf0612dc71",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9_001.diff",
+        "diff_sha256": "ed804e6826b213161b91fc3ba9d20a981b52b6fd9e4fa10c508b502adbc6adc7",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:147:9: replace LogLinearDiscountCurve::log_discounts -> &[f64] with Vec::leak(vec![1.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9_002.log",
+        "log_sha256": "50d51ec9c2d3c0af8d0585c2a3d4fe6f6b20fb8601f0aad1c977572ebca5f178",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9_002.diff",
+        "diff_sha256": "f87e305c301ac378f54a5c02315e3477449ae377c291fc6e88bb60db2cbf4a34"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_147_col_9_002.log",
+        "log_sha256": "622011e48dc17384c130f412d1ca032631833c6826e81b1248cf86026197e608",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_147_col_9_002.diff",
+        "diff_sha256": "f87e305c301ac378f54a5c02315e3477449ae377c291fc6e88bb60db2cbf4a34",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(Vec::new())",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9.log",
+        "log_sha256": "8f7a7db8431f35fbba469728b17141ce279890363aec70f2ddff8dd3355499be",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9.diff",
+        "diff_sha256": "cb50fa3e0987108e7f1c6a193683a048df817c73bd61550269efd8dd9e23584d"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9.log",
+        "log_sha256": "24de46716c572e8dc8d380111d1dbadda578528328152803fa3ed531a94ccdab",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9.diff",
+        "diff_sha256": "cb50fa3e0987108e7f1c6a193683a048df817c73bd61550269efd8dd9e23584d",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(vec![-1.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9_003.log",
+        "log_sha256": "175347f3de646002fdfcbe071ca61ec01201f0e4235b963169031896b371e7ab",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9_003.diff",
+        "diff_sha256": "fa3428e1497911dbe79e1fe504cdeea282053050f95109edfb3ca9964bd1d38e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9_003.log",
+        "log_sha256": "7f5153e59d106033eb8016890bd02bcb57cd12dbf7651081f730cd4fc4c89a8e",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9_003.diff",
+        "diff_sha256": "fa3428e1497911dbe79e1fe504cdeea282053050f95109edfb3ca9964bd1d38e",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(vec![0.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9_001.log",
+        "log_sha256": "4f8466166b3af6c5f344d70e6a64cd91ba33ba061deb0da38f1cf713978a4a8f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9_001.diff",
+        "diff_sha256": "35a48c0f60a7172cb2ffe323342ad34d68f9d907030ea4366a11822f8fcae199"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9_001.log",
+        "log_sha256": "9567e96f18bef1510c6d544045d0cd18c2c382ef075d0e4a6360c36b6f7ae22b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9_001.diff",
+        "diff_sha256": "35a48c0f60a7172cb2ffe323342ad34d68f9d907030ea4366a11822f8fcae199",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:153:9: replace LogLinearDiscountCurve::discount_factors -> &[f64] with Vec::leak(vec![1.0])",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9_002.log",
+        "log_sha256": "588180dc5bf8599d2fa46566fc7a4c9bbbc6181942e1e743d27b2acd18f8d282",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9_002.diff",
+        "diff_sha256": "c5e935558a11b11665025b40e322a646836f148b2f718acbcd37954dc5da2eca"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_153_col_9_002.log",
+        "log_sha256": "79e6b1278913c55e508ddd5325b033385527e1eabf87619b00765ae1bf6af647",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_153_col_9_002.diff",
+        "diff_sha256": "c5e935558a11b11665025b40e322a646836f148b2f718acbcd37954dc5da2eca",
+        "failed_tests": [
+          "market::curve::tests::construction_preserves_inputs_and_normalizes_the_zero_anchor"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:28: replace - with + in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_28.log",
+        "log_sha256": "d914a198a28c63895cbc1e372a4e413290a8a2d0e715e32ab1cb5b20597eec0a",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_28.diff",
+        "diff_sha256": "f5278312477862365cc9dcfde64d0156078eed1f75b76f5aa9297304292cfdb9"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_28.log",
+        "log_sha256": "0a87cfdbc9eaa2bb6ff9dadb2223a3cbafb243fc269e8c391a6637fbad096b96",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_28.diff",
+        "diff_sha256": "f5278312477862365cc9dcfde64d0156078eed1f75b76f5aa9297304292cfdb9",
+        "failed_tests": [
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:28: replace - with / in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_28_001.log",
+        "log_sha256": "1ee416aad1847c26cd7fb24d0dd11c10388261aa7d07c6d55aa88b7afab39d19",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_28_001.diff",
+        "diff_sha256": "72657b5feb1cf847181120d7af4a51d5deed2508a4b4dd65d1b9a3fdfee02bc5"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_28_001.log",
+        "log_sha256": "2f02594cef93ca3a22c21de370120224415b4f1728644bd18a5764ea6d702da7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_28_001.diff",
+        "diff_sha256": "72657b5feb1cf847181120d7af4a51d5deed2508a4b4dd65d1b9a3fdfee02bc5",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:48: replace / with % in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_48.log",
+        "log_sha256": "0ad6dbbefb6360a570d69537550f02c0ccae082e94ceba187759503904ba8d0f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_48.diff",
+        "diff_sha256": "2e50a37d1b91371bc3e6f02a041838e57c6cca1ec1b3282706396795475c9414"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_48.log",
+        "log_sha256": "dfa66b0ffe618b21a2919e68109261875bb0f91fb0c0ec5dd5e1b99fd0018a28",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_48.diff",
+        "diff_sha256": "2e50a37d1b91371bc3e6f02a041838e57c6cca1ec1b3282706396795475c9414",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:48: replace / with * in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_48_001.log",
+        "log_sha256": "333e338aea64c40ac50b48c1da8e05439abf5ef4f20f9e9261e0781b3eeb55ff",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_48_001.diff",
+        "diff_sha256": "364cb8c1859993f2f63869ec6e846de29475e2a6246ed2709245922769129349"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_48_001.log",
+        "log_sha256": "267a535c9e46a79338932f997fba9a7f90fc875dd6e0af19d844856fcfc025d6",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_48_001.diff",
+        "diff_sha256": "364cb8c1859993f2f63869ec6e846de29475e2a6246ed2709245922769129349",
+        "failed_tests": [
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:69: replace - with + in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_69.log",
+        "log_sha256": "1866761b90c16969cfbc8882692c4470bee6022beb064e09fe3497df2c36245f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_69.diff",
+        "diff_sha256": "334b3ddd18d169795385fdfc83d8959be64b1df5d22da899f6bd2f3b33341953"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_69.log",
+        "log_sha256": "cff5cd11f08058d4829b03027da38c8dda8375478ac62b08d5f5ed7265d9fdee",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_69.diff",
+        "diff_sha256": "334b3ddd18d169795385fdfc83d8959be64b1df5d22da899f6bd2f3b33341953",
+        "failed_tests": [
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:69: replace - with / in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_69_001.log",
+        "log_sha256": "146dde0526c956da748f00230aea506d61139d5c138b8bfb0999d04e4c0720c4",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_69_001.diff",
+        "diff_sha256": "a05ab688f490546c67f1eda6a4bf71ccce5baa58e94f528a9f9db18c3c0b147e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_69_001.log",
+        "log_sha256": "ce68df29a9cae44b300a75f091baeeb12b42057ac6713bc77441a4f7f65b71d5",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_69_001.diff",
+        "diff_sha256": "a05ab688f490546c67f1eda6a4bf71ccce5baa58e94f528a9f9db18c3c0b147e",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:9: replace LogLinearDiscountCurve::segment_value -> f64 with -1.0",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_9_002.log",
+        "log_sha256": "d8a969905f721a75b66a280e392429454a7b8c6567afc2eb4d2bb9c4f4992cc7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_9_002.diff",
+        "diff_sha256": "4c378b6c9da9c39212435df7dd65a94fc49a102193c9b60fa9753f1e6ee2e681"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_9_002.log",
+        "log_sha256": "30ab2d437b386898d81783da5f7c1e084a65be4f7f6b41461096b87582f9367f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_9_002.diff",
+        "diff_sha256": "4c378b6c9da9c39212435df7dd65a94fc49a102193c9b60fa9753f1e6ee2e681",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:9: replace LogLinearDiscountCurve::segment_value -> f64 with 0.0",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_9.log",
+        "log_sha256": "f4f9ac0247998d57e67e5e30371db8867d7b04fc1b37e5f928828ddc4729179c",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_9.diff",
+        "diff_sha256": "d7664b80a72a9d30359eaa0279f18887e7319e4159991a6bdd02fe8439cf231e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_9.log",
+        "log_sha256": "7e780d025dc0d14dbe4ff555d74cbc45f565e5a27f9f3be01369d584fb823234",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_9.diff",
+        "diff_sha256": "d7664b80a72a9d30359eaa0279f18887e7319e4159991a6bdd02fe8439cf231e",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:157:9: replace LogLinearDiscountCurve::segment_value -> f64 with 1.0",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_9_001.log",
+        "log_sha256": "2e50ff886567848d6fe3b74d6957af71541fc7c8dbdb9e8bf4853bb25dfdf574",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_9_001.diff",
+        "diff_sha256": "085963c3f8899e568ea5ce22a8a7a022141cc9b4a555f12756d9c9b42a87048f"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_157_col_9_001.log",
+        "log_sha256": "55b8b026fcf97988bb7157c56c5c72e919cf494ea66e47513e7554355a4ba759",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_157_col_9_001.diff",
+        "diff_sha256": "085963c3f8899e568ea5ce22a8a7a022141cc9b4a555f12756d9c9b42a87048f",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:158:34: replace + with * in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_34_001.log",
+        "log_sha256": "31ffef993b8e1220966713e9e1755afe437f0ae27dc64c5999aeaf8a41306ede",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_34_001.diff",
+        "diff_sha256": "b183bd57290931f37cce1dced29f45680515c014ff1b7975ee0244f47eb4a496"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_34_001.log",
+        "log_sha256": "b2e483eeb6b9049c5e17902ce5d19d91f5cf876b84065ab3acbed8facc1619d7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_34_001.diff",
+        "diff_sha256": "b183bd57290931f37cce1dced29f45680515c014ff1b7975ee0244f47eb4a496",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:158:34: replace + with - in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_34.log",
+        "log_sha256": "51cfd820b9666af5f50c7a229f3a13562b072f9c8775676f8bfa437bed8f494b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_34.diff",
+        "diff_sha256": "d8240836843e893953ce8a3b15423e0bc468ddcc151689c000345d24e942bd9a"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_34.log",
+        "log_sha256": "28005609963083bdc97781f2d08da502e516361221f91f447406eeec7a4d2b67",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_34.diff",
+        "diff_sha256": "d8240836843e893953ce8a3b15423e0bc468ddcc151689c000345d24e942bd9a",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:158:43: replace * with + in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_43.log",
+        "log_sha256": "9845c2cc804142af36a78f2780b74be8a57c1e55fcdf4caaaedb242f33cc92c3",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_43.diff",
+        "diff_sha256": "14bfa53b9cf4565c8a7ad131f8198d2349332a4c50844f34f7ec5bd33cbcb4a2"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_43.log",
+        "log_sha256": "45ec951e1dba9a9f2483a5811fa67de7d4a285e72d0320073e9e377b81650459",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_43.diff",
+        "diff_sha256": "14bfa53b9cf4565c8a7ad131f8198d2349332a4c50844f34f7ec5bd33cbcb4a2",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:158:43: replace * with / in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_43_001.log",
+        "log_sha256": "c087d55c8067184f16bf3049e724e6979612066fa472958d34031abb6c4e140d",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_43_001.diff",
+        "diff_sha256": "ac1fd5a85b2d2d78ce5e0d0903c35f8862f40f81139762625ce9d980e437b2db"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_43_001.log",
+        "log_sha256": "d2b95e1fe8ae9052d35ff9404f34e23bbc986a24eddbaa8d9a18eb8d144b71c8",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_43_001.diff",
+        "diff_sha256": "ac1fd5a85b2d2d78ce5e0d0903c35f8862f40f81139762625ce9d980e437b2db",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:158:72: replace - with + in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_72.log",
+        "log_sha256": "94fd93cc232e43221db7fb18e2fd77382567ed73a22b6a268a1fd02778df5829",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_72.diff",
+        "diff_sha256": "1545b39967ec7ca4508277b9e4e0f2a89bcc51ba62ca156ee9afe426d210770e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_72.log",
+        "log_sha256": "fddd417529445687bfc8267f3038d3f03aca7e5fd75d380d71d708d81267f1e7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_72.diff",
+        "diff_sha256": "1545b39967ec7ca4508277b9e4e0f2a89bcc51ba62ca156ee9afe426d210770e",
+        "failed_tests": [
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:158:72: replace - with / in LogLinearDiscountCurve::segment_value",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_72_001.log",
+        "log_sha256": "2041cc44557a94156247c55d8a17dce908e540405fd01166af55a3f7b3f6b6ed",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_72_001.diff",
+        "diff_sha256": "561dfa2631e4a8d1fa8b9f7fb84883706187a11183b3eece8f1aa80070f75009"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_158_col_72_001.log",
+        "log_sha256": "1a9199b5676c3b63ea9b28ec0e136c3d43a3bac05751a6d56b50d5d2b17f19a0",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_158_col_72_001.diff",
+        "diff_sha256": "561dfa2631e4a8d1fa8b9f7fb84883706187a11183b3eece8f1aa80070f75009",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:164:12: delete ! in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_164_col_12.log",
+        "log_sha256": "7b6c80c757720fdd0a76bb97ad20d4f4447f9520ae3a179c511f40e443865c57",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_164_col_12.diff",
+        "diff_sha256": "e6f069aa74f9ad792eaa79c7eec63a49bc1e427b9a876e6fdb25d0d8b8728466"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_164_col_12.log",
+        "log_sha256": "03d45d57d849bd2211804813489738d720b488a557b15edb359322e536d78c7b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_164_col_12.diff",
+        "diff_sha256": "e6f069aa74f9ad792eaa79c7eec63a49bc1e427b9a876e6fdb25d0d8b8728466",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:164:9: replace <impl DiscountCurve for LogLinearDiscountCurve>::evaluate -> Result<CurveEvaluation, MarketError> with Ok(Default::default())",
+      "before": {
+        "summary": "Unviable",
+        "last_phase": "Build",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_164_col_9.log",
+        "log_sha256": "179d686c5eec007046d64db83bb215eeae7395bb9a50ea58c15a1efc54d6bde2",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_164_col_9.diff",
+        "diff_sha256": "c240a4d9b69ad4a835a88e98b1daf497f3faf60da849346ff267412812f8df11"
+      },
+      "after": {
+        "summary": "Unviable",
+        "last_phase": "Build",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_164_col_9.log",
+        "log_sha256": "d7b86f4a8bdae19e4f9b724bcfe5140b6d15311f75770c54114d271ce70e105c",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_164_col_9.diff",
+        "diff_sha256": "c240a4d9b69ad4a835a88e98b1daf497f3faf60da849346ff267412812f8df11",
+        "compiler_errors": [
+          "error[E0277]: the trait bound `curve::CurveEvaluation: Default` is not satisfied"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:170:17: replace < with <= in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_170_col_17_002.log",
+        "log_sha256": "79457d0ff607d23f3408d9f6f37db0d48df65b340363682ef60835ac5906b940",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_170_col_17_002.diff",
+        "diff_sha256": "70e8728b6b862a88b87a541d6763950da90e29b971df3b0ebb24754a85e42ab2"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_170_col_17_002.log",
+        "log_sha256": "26f4b155ea970a7f0defc8e4987e4438f19093a826ec54fb6330fbbbdc4130df",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_170_col_17_002.diff",
+        "diff_sha256": "70e8728b6b862a88b87a541d6763950da90e29b971df3b0ebb24754a85e42ab2",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:170:17: replace < with == in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_170_col_17.log",
+        "log_sha256": "3e25042731bbb92ca5a2ef4b981846f8d42c358a7fb43f2732bf6046902a88e2",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_170_col_17.diff",
+        "diff_sha256": "b688b6b6837224d775cf2a8df4fc1f4b06729fa4d860b517744c29a0de6cf06e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_170_col_17.log",
+        "log_sha256": "29945fede88ddd8f3eaefa90e027ae2f673d3c5d18c3f9a4a95542d0b79d0e40",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_170_col_17.diff",
+        "diff_sha256": "b688b6b6837224d775cf2a8df4fc1f4b06729fa4d860b517744c29a0de6cf06e",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:170:17: replace < with > in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_170_col_17_001.log",
+        "log_sha256": "5fcc5d636c412e9147a11ff472271d94993d7ca484a8db487dbe084b202ed97e",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_170_col_17_001.diff",
+        "diff_sha256": "5759851bdb8092fc323c8845fd1998bba60dbaf48a338883f30bc31fb1f5e638"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_170_col_17_001.log",
+        "log_sha256": "b91aad84a71d4d528019eb370b23209e1f096cf532b4b26ecbef305e79a101b9",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_170_col_17_001.diff",
+        "diff_sha256": "5759851bdb8092fc323c8845fd1998bba60dbaf48a338883f30bc31fb1f5e638",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:176:28: replace == with != in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_176_col_28.log",
+        "log_sha256": "124f2da174b7bdf8851b8c545bf86a39b2f311d7ffa9f31e0657c49b9a83ce79",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_176_col_28.diff",
+        "diff_sha256": "26f675aaedf674e23cbe3720b3a969302c47f6d89416986bc5950e772858c7dc"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_176_col_28.log",
+        "log_sha256": "d5dcc4f9e614c45d3a351d32adb5d54f7782122631f989e2490c3e06e925b5a6",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_176_col_28.diff",
+        "diff_sha256": "26f675aaedf674e23cbe3720b3a969302c47f6d89416986bc5950e772858c7dc",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:180:31: replace match guard right < self.times.len() with false in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_31_001.log",
+        "log_sha256": "15be687e430fefdf0f703aa23971df76e6cb3539b0be64c165a36f128ceba4fc",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_31_001.diff",
+        "diff_sha256": "9af2ca0eaf7789a34e46013bbf071e2a48db80bec50324895b02066b5fd844ae"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_31_001.log",
+        "log_sha256": "ff6602bd28bfebd866af5415d16ea433efc93a79f34c1dcffdcb83d8e77148e9",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_31_001.diff",
+        "diff_sha256": "9af2ca0eaf7789a34e46013bbf071e2a48db80bec50324895b02066b5fd844ae",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:180:31: replace match guard right < self.times.len() with true in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_31.log",
+        "log_sha256": "47c698fbc3213ed310feedd30a0e6997a2c56a5bdf47be0467c9e3d30167a97a",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_31.diff",
+        "diff_sha256": "1bc5bdd1a2be24efc88885a82b0e632ca308b4bcf97c7d79bd50effbdc5ddae4"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_31.log",
+        "log_sha256": "c63107b2caf54b9077a576b84b03f66499d3e4d2ece51fba8db383cb14164d4f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_31.diff",
+        "diff_sha256": "1bc5bdd1a2be24efc88885a82b0e632ca308b4bcf97c7d79bd50effbdc5ddae4",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:180:37: replace < with <= in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_37_002.log",
+        "log_sha256": "07f5c25019e08747366547a579bee7687d8e5ed2debb1d3f1a5c9c3a3f820e68",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_37_002.diff",
+        "diff_sha256": "11319bcb01831db357688b9ddc2d3e6c2e547d849de5ab9b4aed57a7634c0caa"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_37_002.log",
+        "log_sha256": "2f1ce66070268f142acf0e83accfa65a1a8f6f37d1ef1197178391a0e63bb0e9",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_37_002.diff",
+        "diff_sha256": "11319bcb01831db357688b9ddc2d3e6c2e547d849de5ab9b4aed57a7634c0caa",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:180:37: replace < with == in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_37.log",
+        "log_sha256": "daa835437cf1b38366ad5ac5b46cb5e23f4292465411a19483a57e4d8c54ac1f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_37.diff",
+        "diff_sha256": "e252f71d0719c4872e05f906025dd36de104f6c11f7de3bc3571e428e9d88978"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_37.log",
+        "log_sha256": "1dc7ba0ba3f35125c0c21190b80da028b0fa0433cb0e3b64df67067607a298a7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_37.diff",
+        "diff_sha256": "e252f71d0719c4872e05f906025dd36de104f6c11f7de3bc3571e428e9d88978",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:180:37: replace < with > in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_37_001.log",
+        "log_sha256": "8fa4eb218241435a8275367654f81342ebf9cc29df57faa0c7085ea72625d372",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_37_001.diff",
+        "diff_sha256": "459ec801dd6f9244298d9857ffa18339f9427bce6a6e24f4cd29f0c4e951718c"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_180_col_37_001.log",
+        "log_sha256": "7c2caf7fe617f0cd5a8d30608d9a82caf9b6b63f15d7bd54dfb6f5f135ea7c42",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_180_col_37_001.diff",
+        "diff_sha256": "459ec801dd6f9244298d9857ffa18339f9427bce6a6e24f4cd29f0c4e951718c",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:181:46: replace - with + in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_181_col_46.log",
+        "log_sha256": "9b22f461ea08c2e54cf82c4dd0e1944bad05d6460e630f2e2ba8273cf1bc20eb",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_181_col_46.diff",
+        "diff_sha256": "55713d63557b8e0566d884b693f1ffa03405b86293fc507096c650a6526d41a4"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_181_col_46.log",
+        "log_sha256": "5fbb68e94f4370b3fe8012b25b212c0a0fa46fbe50bc7048213bd132293667a4",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_181_col_46.diff",
+        "diff_sha256": "55713d63557b8e0566d884b693f1ffa03405b86293fc507096c650a6526d41a4",
+        "failed_tests": [
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:181:46: replace - with / in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_181_col_46_001.log",
+        "log_sha256": "836bffeb600928a3f7c050602cf3f008dc0796669798248b75f4eefa3f2c19cd",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_181_col_46_001.diff",
+        "diff_sha256": "8e733ee4475503d2d969842421a2f930af207fe9d85f0a72477de04ba3ef4c18"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_181_col_46_001.log",
+        "log_sha256": "bbdbe0bbc210b0d216147cd999604dfd6f765553b7bc42b7217c0d88a2e2559b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_181_col_46_001.diff",
+        "diff_sha256": "8e733ee4475503d2d969842421a2f930af207fe9d85f0a72477de04ba3ef4c18",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:185:50: replace - with + in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_185_col_50.log",
+        "log_sha256": "e24e0f670c382c5a672585e50af696a69a03b783e6dbd2c95078d4fd82af1504",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_185_col_50.diff",
+        "diff_sha256": "bdd928bae4de2f3504a12798914f2a25535922ef7616129e6c8c2757ec2cf9e6"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_185_col_50.log",
+        "log_sha256": "3827fac0e55032e5d581c9c76b67130e6e76c8691f760a576f0caaec0c754d8b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_185_col_50.diff",
+        "diff_sha256": "bdd928bae4de2f3504a12798914f2a25535922ef7616129e6c8c2757ec2cf9e6",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:185:50: replace - with / in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_185_col_50_001.log",
+        "log_sha256": "b466a546255b84c747cf8c00bfabc6b9b44a93fbdf8c2cf0073270662d0085e8",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_185_col_50_001.diff",
+        "diff_sha256": "bb7aa514d48424369c5279418617f189ecb0834d7fe2826e1b7c74b31c6c051f"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_185_col_50_001.log",
+        "log_sha256": "3bb4d27542906408a2141c52fd907c7ea7227ea5c626a80621bae727a0e4c326",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_185_col_50_001.diff",
+        "diff_sha256": "bb7aa514d48424369c5279418617f189ecb0834d7fe2826e1b7c74b31c6c051f",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:187:50: replace - with + in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_187_col_50.log",
+        "log_sha256": "c00e0fb252b592b9f0115cead6513068fee52ab8704e41aa6730781d5c07cbc6",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_187_col_50.diff",
+        "diff_sha256": "344bc94f33c29b7120009d86f88291e6bc0a239f6e3a4857e10a29e7b5998e8b"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_187_col_50.log",
+        "log_sha256": "ab5e52600539b3c592cf0d479fce1940eae687679e4dbed2815da4ef78ade6f6",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_187_col_50.diff",
+        "diff_sha256": "344bc94f33c29b7120009d86f88291e6bc0a239f6e3a4857e10a29e7b5998e8b",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:187:50: replace - with / in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_187_col_50_001.log",
+        "log_sha256": "916a93f72c5622bc46bc54917c5c32ba847d6afe42c8b1d365703873fc4ea7bc",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_187_col_50_001.diff",
+        "diff_sha256": "a705ab64bc2e8b93e4e01163f7001ebafa71be2a6b04c57d2b487e73e87ab1d9"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_187_col_50_001.log",
+        "log_sha256": "f9872c7b44f7ab6fa18246d02f799705d2a0fc2905e3fb0e9eaa4c925426543f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_187_col_50_001.diff",
+        "diff_sha256": "a705ab64bc2e8b93e4e01163f7001ebafa71be2a6b04c57d2b487e73e87ab1d9",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::nonfinite_log_values_are_reported_with_query_context",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:193:12: delete ! in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_12.log",
+        "log_sha256": "833bb3439823a78b3e51fb4feb6b8673699a7d378ba1555d46b4bde66f3fc80d",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_12.diff",
+        "diff_sha256": "a88ef0037b116fc5ed116f764ee767dbc17e2588fd241c3028cff0af06a31b75"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_12.log",
+        "log_sha256": "04509a7fe8e26ea93fb972ee5c52f3fd960a7844caf5c2e8db610978619190e5",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_12.diff",
+        "diff_sha256": "a88ef0037b116fc5ed116f764ee767dbc17e2588fd241c3028cff0af06a31b75",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:193:38: replace || with && in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_38.log",
+        "log_sha256": "870c513ca0968ae52594ca44f8a75d1a543ec9d14f5002240eaff61f29626d13",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_38.diff",
+        "diff_sha256": "f0904d8353d603a62b9e3dfbc9d812f5180c2888878aae7515dff6ff1902223e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_38.log",
+        "log_sha256": "41982d1e7feba1a04881b418afd92154a6c2465984fc208b49d7e783a24bc05a",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_38.diff",
+        "diff_sha256": "f0904d8353d603a62b9e3dfbc9d812f5180c2888878aae7515dff6ff1902223e",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:193:41: delete ! in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_41.log",
+        "log_sha256": "47ecb36d91c6f1c45cdd6c90c4277634b6e156af04516c8fa230270c21c773e0",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_41.diff",
+        "diff_sha256": "51bca8607a32aee43a492d436fd0ce34dd3979a420e4b492926ee6a1ce39b475"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_41.log",
+        "log_sha256": "39c0144c95864cc5a78977afc0950adcb4eee2d48bd78e0c39452b910da41c8c",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_41.diff",
+        "diff_sha256": "51bca8607a32aee43a492d436fd0ce34dd3979a420e4b492926ee6a1ce39b475",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:193:63: replace || with && in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_63.log",
+        "log_sha256": "a4010e9b33b1bead60230f818165b511ca502ce74e2f20d22974c3cded3576ea",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_63.diff",
+        "diff_sha256": "3e3080469073b7d960c5a201b0d1348d8803f6b3dddbffe9d62f2c6c62fe7cdb"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_63.log",
+        "log_sha256": "c7fec1f149ca81f9b62280a6e3ba57c78316ede5376502ab3b3378f537e181d1",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_63.diff",
+        "diff_sha256": "3e3080469073b7d960c5a201b0d1348d8803f6b3dddbffe9d62f2c6c62fe7cdb",
+        "failed_tests": [
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:193:75: replace <= with > in <impl DiscountCurve for LogLinearDiscountCurve>::evaluate",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_75.log",
+        "log_sha256": "4b4814623ef55333e8fa55e3629cb7080c404798c06461485cf35e7a96956cb4",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_75.diff",
+        "diff_sha256": "c479e74ff5e452be90150dad43321151c8ad06336b4e99b9a0d9eff915e843da"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_193_col_75.log",
+        "log_sha256": "53a28f00191cc7f7dd4c937309654abfdfd436efafb9248def4a1cdd651be2c7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_193_col_75.diff",
+        "diff_sha256": "c479e74ff5e452be90150dad43321151c8ad06336b4e99b9a0d9eff915e843da",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::finite_log_values_reject_discount_overflow_and_underflow",
+          "market::curve::tests::interpolation_is_linear_in_log_discount",
+          "market::curve::tests::invalid_query_errors_preserve_curve_and_input_bits",
+          "market::curve::tests::invalid_query_times_are_errors",
+          "market::curve::tests::irregular_pillars_interpolate_and_extrapolate_the_local_log_slope",
+          "market::curve::tests::negative_rates_and_flat_terminal_segments_are_supported",
+          "market::curve::tests::right_extrapolation_extends_boundary_forward"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:228:12: delete ! in CurveExtrapolationStats::record",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_228_col_12.log",
+        "log_sha256": "e0f1da47453b90b848fbe831c9782f28b52bcbd8b30b03e6ca9f21cd35b44b97",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_228_col_12.diff",
+        "diff_sha256": "8e1812db65b6d0a2826cde6b0d88f4f4d41d5d37be6af0ae50fa93c42fea055a"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_228_col_12.log",
+        "log_sha256": "9b5ae6957d34a4297c86d47e55de068353ba198d86d6a7473eb863ca0fc778de",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_228_col_12.diff",
+        "diff_sha256": "8e1812db65b6d0a2826cde6b0d88f4f4d41d5d37be6af0ae50fa93c42fea055a",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_count_overflow_preserves_the_previous_diagnostics",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:228:9: replace CurveExtrapolationStats::record -> Result<(), MarketError> with Ok(())",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_228_col_9.log",
+        "log_sha256": "16c75ff950727f371cdd2ed1fb8c7b450f16b3876af72bb3491585a1607c289f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_228_col_9.diff",
+        "diff_sha256": "3d54a06054d267d9536b7784972b1b90460e7ff8c159203577b7e3518454dc47"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_228_col_9.log",
+        "log_sha256": "43969e3c34f4e87b7351f55a8c1cf79b8e1487fedaa9c7a403ff6c8f7c5fb69c",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_228_col_9.diff",
+        "diff_sha256": "3d54a06054d267d9536b7784972b1b90460e7ff8c159203577b7e3518454dc47",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_count_overflow_preserves_the_previous_diagnostics",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:242:9: replace CurveExtrapolationStats::curve -> CurveId with Default::default()",
+      "before": {
+        "summary": "Unviable",
+        "last_phase": "Build",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_242_col_9.log",
+        "log_sha256": "39d76cc51dc08736782be530a3e5abdfe8427ae53a0ad26a56147831e09d5a77",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_242_col_9.diff",
+        "diff_sha256": "fc5946466874e88660be7f3f6313ce708abd677b6cdd57d51c0719de4eec99a6"
+      },
+      "after": {
+        "summary": "Unviable",
+        "last_phase": "Build",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_242_col_9.log",
+        "log_sha256": "4191406c799b4e5ba3033c88964c4231a5d2c7a5d443dfa496eef7a19b6991a4",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_242_col_9.diff",
+        "diff_sha256": "fc5946466874e88660be7f3f6313ce708abd677b6cdd57d51c0719de4eec99a6",
+        "compiler_errors": [
+          "error[E0277]: the trait bound `ids::CurveId: Default` is not satisfied"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:247:9: replace CurveExtrapolationStats::count -> u64 with 0",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_247_col_9.log",
+        "log_sha256": "2a1ea1f87110d6dde01f3244493ed89eae4df4d84c76a1525ab38a54d28a3b2a",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_247_col_9.diff",
+        "diff_sha256": "21dbc352c57e17aa6bf327f38b96a6800f665366a426e1ff797554d9a53b7b16"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_247_col_9.log",
+        "log_sha256": "be7fc9f90a038254564e88f7582747737ed93ca422019905b5311783f2772f10",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_247_col_9.diff",
+        "diff_sha256": "21dbc352c57e17aa6bf327f38b96a6800f665366a426e1ff797554d9a53b7b16",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:247:9: replace CurveExtrapolationStats::count -> u64 with 1",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_247_col_9_001.log",
+        "log_sha256": "fd38e640a9b20e9fc8930e583b76dd3eb831df04b7e98e3807b3f9f3c17a50c6",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_247_col_9_001.diff",
+        "diff_sha256": "fafb7dbe3b58a0eafabb8d9f664f50367663e2ebe73aa7d76edcfcbd28ef078d"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_247_col_9_001.log",
+        "log_sha256": "3ea0c0669debe8c2ed0adeda67a3e481a764f377a30f8a59abcb5f289f622962",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_247_col_9_001.diff",
+        "diff_sha256": "fafb7dbe3b58a0eafabb8d9f664f50367663e2ebe73aa7d76edcfcbd28ef078d",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:252:9: replace CurveExtrapolationStats::minimum_time -> Option<f64> with None",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9.log",
+        "log_sha256": "efcde8efb358c72ff68df0044e8593bf21537e6ee211e07549eefa597f89c1b9",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9.diff",
+        "diff_sha256": "8f8c85252fca1a96cecd1250a3cd0f096270102016c66ba6f562f78841d84eb6"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9.log",
+        "log_sha256": "eeb6ab26b4f80e8040ed9ff2054fa6549f807843cc0b084e12c471308f597478",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9.diff",
+        "diff_sha256": "8f8c85252fca1a96cecd1250a3cd0f096270102016c66ba6f562f78841d84eb6",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:252:9: replace CurveExtrapolationStats::minimum_time -> Option<f64> with Some(-1.0)",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9_003.log",
+        "log_sha256": "d044c7694733139abf26b0d01bae3bd5e3434535a2b305153b139058c518a2b5",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9_003.diff",
+        "diff_sha256": "f6901b7900f9d258d978e6d006e9bee76fa63c3ba34d9a65ee908946fcd1b76f"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9_003.log",
+        "log_sha256": "6725f9967537214457b5f559307f01c4d46bb74745f4c8aafc33847099313592",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9_003.diff",
+        "diff_sha256": "f6901b7900f9d258d978e6d006e9bee76fa63c3ba34d9a65ee908946fcd1b76f",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:252:9: replace CurveExtrapolationStats::minimum_time -> Option<f64> with Some(0.0)",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9_001.log",
+        "log_sha256": "742970785bf1e789614074f24e6d3b2ff9ebf90d4e3ccabce9c3a2257a7860cf",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9_001.diff",
+        "diff_sha256": "930a4df5f7975ed76f58ff5c0bc6fba9e23bf7f2203ec92fc6f6522ad22b594b"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9_001.log",
+        "log_sha256": "09795f0d183b65efed4fde2c879c4e43a90129a434f86c8697e6c8976ae46ea0",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9_001.diff",
+        "diff_sha256": "930a4df5f7975ed76f58ff5c0bc6fba9e23bf7f2203ec92fc6f6522ad22b594b",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:252:9: replace CurveExtrapolationStats::minimum_time -> Option<f64> with Some(1.0)",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9_002.log",
+        "log_sha256": "5b1f42707e6ab853d55ee37ec717aacc0011d8b0246591faf5ed54c960816672",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9_002.diff",
+        "diff_sha256": "d6b81698fb52d932c8b4c826a3bef3bdb86eec6b5f6268f99b745ecb6ddc55a1"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_252_col_9_002.log",
+        "log_sha256": "8ec77c4ad28fb93df06a6347477b58c8421e58c41497bddc5f27eea75e7d4e01",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_252_col_9_002.diff",
+        "diff_sha256": "d6b81698fb52d932c8b4c826a3bef3bdb86eec6b5f6268f99b745ecb6ddc55a1",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:257:9: replace CurveExtrapolationStats::maximum_time -> Option<f64> with None",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9.log",
+        "log_sha256": "757fcbe4e34c182c55a118d5a15175b085c2c2b29b0a309001c9e5d0970ed8b2",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9.diff",
+        "diff_sha256": "ae8d2c885cded6b12669ab3effc99adc1d573e43ccdcaa17c3db3dabbe33a2ed"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9.log",
+        "log_sha256": "5d160a35281f84d6763d1fc78e1352b44047badf49b95bf4da61a3b299fec122",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9.diff",
+        "diff_sha256": "ae8d2c885cded6b12669ab3effc99adc1d573e43ccdcaa17c3db3dabbe33a2ed",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:257:9: replace CurveExtrapolationStats::maximum_time -> Option<f64> with Some(-1.0)",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9_003.log",
+        "log_sha256": "7aee1c48bddf2c188482faa172b1554e04bdf971e00334be6d5153d2d0fbca3d",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9_003.diff",
+        "diff_sha256": "bb9a575eb57920900a18f528da4fb0fad6eb58345107612446942ac98de426af"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9_003.log",
+        "log_sha256": "ee88c8fc071d799860d15000438c7f7fc80cf287d65602909c6acc5a887136c7",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9_003.diff",
+        "diff_sha256": "bb9a575eb57920900a18f528da4fb0fad6eb58345107612446942ac98de426af",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:257:9: replace CurveExtrapolationStats::maximum_time -> Option<f64> with Some(0.0)",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9_001.log",
+        "log_sha256": "d9e16566fbed99b2535728b7de6cf822fe54d3988675eeba5d4d2716fad2fcde",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9_001.diff",
+        "diff_sha256": "f83b87e3fa13354f1b37f5eb040f4d5502e32ef9dd227b0a2341b8aa167bf226"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9_001.log",
+        "log_sha256": "aea7327d085b40410aaf7eb5b8c1c2774f0e61e231416394f9eb4cbd0e328963",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9_001.diff",
+        "diff_sha256": "f83b87e3fa13354f1b37f5eb040f4d5502e32ef9dd227b0a2341b8aa167bf226",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:257:9: replace CurveExtrapolationStats::maximum_time -> Option<f64> with Some(1.0)",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9_002.log",
+        "log_sha256": "62b9b235daa3b6b8ff8ff4981ecc1e59e7aa7de13eb3d77097f244628db06c73",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9_002.diff",
+        "diff_sha256": "b460ec04fea9a6c80daddb9d725c9ce41efd146da3d7703fa20a2a7775e4a5ba"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_257_col_9_002.log",
+        "log_sha256": "3d16366eeef024edb4e51660929d30683d53764a4248fa40ca4cd2463364f14f",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_257_col_9_002.diff",
+        "diff_sha256": "b460ec04fea9a6c80daddb9d725c9ce41efd146da3d7703fa20a2a7775e4a5ba",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:27:9: replace CurveRegion::is_extrapolated -> bool with false",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_27_col_9_001.log",
+        "log_sha256": "95df52d01c5912dea3d8b5365c51abe71fb37cc05c782d148c994f14f9abf253",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_27_col_9_001.diff",
+        "diff_sha256": "708f0cb25b126e6ccd72a3d20f0aed13152087bbc71f46367896e94ffc96b353"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_27_col_9_001.log",
+        "log_sha256": "60d6893aa0cf9a5e122c4e04b8046ee8d915f17950451b2a6dd8d6bea2de15ae",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_27_col_9_001.diff",
+        "diff_sha256": "708f0cb25b126e6ccd72a3d20f0aed13152087bbc71f46367896e94ffc96b353",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_count_overflow_preserves_the_previous_diagnostics",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:27:9: replace CurveRegion::is_extrapolated -> bool with true",
+      "before": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_27_col_9.log",
+        "log_sha256": "9333f69296a81e22d24bfd88be38d54804cdef727af943697c1f512cfe1c15f9",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_27_col_9.diff",
+        "diff_sha256": "78c62bcf9c20f419bc43dfc75471e6c4c131a41cc15343b73b499bfac2b7ee0f"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_27_col_9.log",
+        "log_sha256": "a47dfa6d81698bcae691e8990d565926a6bcd9efde0044ae552a932772863594",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_27_col_9.diff",
+        "diff_sha256": "78c62bcf9c20f419bc43dfc75471e6c4c131a41cc15343b73b499bfac2b7ee0f",
+        "failed_tests": [
+          "market::curve::tests::extrapolation_count_overflow_preserves_the_previous_diagnostics",
+          "market::curve::tests::extrapolation_statistics_are_explicit",
+          "market::curve::tests::extrapolation_statistics_ignore_other_regions_and_keep_extrema"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:9:9: replace DiscountCurve::discount -> Result<f64, MarketError> with Ok(-1.0)",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_9_col_9_002.log",
+        "log_sha256": "4c1752e1c9f85f87b1afff9d4f073d45758eb5874023c9b3b192d9c24d492095",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_9_col_9_002.diff",
+        "diff_sha256": "5dd6e6c9b40eda116c8399e77e656e919607bdc3015b7b6d816832928c1be69c"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_9_col_9_002.log",
+        "log_sha256": "e153759dbf716f6b0b7375d15a820a4727db120a9617ba8496568dbc1a71848d",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_9_col_9_002.diff",
+        "diff_sha256": "5dd6e6c9b40eda116c8399e77e656e919607bdc3015b7b6d816832928c1be69c",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:9:9: replace DiscountCurve::discount -> Result<f64, MarketError> with Ok(0.0)",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_9_col_9.log",
+        "log_sha256": "7fe44f0984bc3e33969ac252e38235ddf23e8afa15807a052f9d7b3fbad24f9b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_9_col_9.diff",
+        "diff_sha256": "41664ad72c79e1dfb8c894d2c06cd67fe2a8cc1f8fa06252618cf1e53e3dbfcf"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_9_col_9.log",
+        "log_sha256": "a7041439e5752a887ce579bd345c22ef46852658100a43701e35dde50a801f3d",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_9_col_9.diff",
+        "diff_sha256": "41664ad72c79e1dfb8c894d2c06cd67fe2a8cc1f8fa06252618cf1e53e3dbfcf",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors"
+        ]
+      }
+    },
+    {
+      "name": "crates/pricing/src/market/curve.rs:9:9: replace DiscountCurve::discount -> Result<f64, MarketError> with Ok(1.0)",
+      "before": {
+        "summary": "MissedMutant",
+        "last_phase": "Test",
+        "process_status": "Success",
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_9_col_9_001.log",
+        "log_sha256": "bdceae1e9270a826bb30fbabed3e782aa057d3bb0a821902a0863d781953ec8b",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_9_col_9_001.diff",
+        "diff_sha256": "80b6460b9abe67871613d46bbe5f2b2789cab1e36c546a9203343a03fa44254e"
+      },
+      "after": {
+        "summary": "CaughtMutant",
+        "last_phase": "Test",
+        "process_status": {
+          "Failure": 101
+        },
+        "log_path": "log/crates__pricing__src__market__curve.rs_line_9_col_9_001.log",
+        "log_sha256": "05c751604bf2bd6e414e414ab2e686088536e3c3970d56f5b2e3f0035d523704",
+        "diff_path": "diff/crates__pricing__src__market__curve.rs_line_9_col_9_001.diff",
+        "diff_sha256": "80b6460b9abe67871613d46bbe5f2b2789cab1e36c546a9203343a03fa44254e",
+        "failed_tests": [
+          "market::curve::tests::discount_accessors_preserve_values_and_errors"
+        ]
+      }
+    }
+  ],
+  "unviable_rationale": "Two return replacements require CurveId: Default; one requires CurveEvaluation: Default. These traits are not implemented; all three fail during build and are not test detections.",
+  "unit_validation": {
+    "command": "CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked -p pricing -p pricing-numerics --all-features --lib",
+    "exit_code": 0,
+    "results": [
+      "ok. 567 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 80.17s",
+      "ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+    ],
+    "log_path": "/tmp/pricing-curve-all-unit.log",
+    "log_sha256": "94f520928b2984f751f149d3e752e00ae98c76d3ad443df481cc74fda21a3964"
+  },
+  "limits": [
+    "This is a diagnostic unit-only survey, narrower than the normal full/changed runner that executes both crates and integration/doc tests.",
+    "The prior numerical survey remains 931 caught, 11 missed, 3 timeout, 7 unviable out of 952; the calendar survey retains 5 timeouts and 8 unviable out of 135.",
+    "No whole-library, ignored acceptance-test, or installed-Python-wheel mutation coverage is claimed."
+  ],
+  "additional_validation": [
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "environment": {
+        "CARGO_PROFILE_TEST_DEBUG": "0"
+      },
+      "exit_code": 0,
+      "log_path": "/tmp/pricing-curve-clippy.log",
+      "log_sha256": "18287c386fbe72f8deb48c26a06b9209068da56c209143ab70c2bd5896964167"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python",
+        "scripts/check_markdown_links.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ]
+}

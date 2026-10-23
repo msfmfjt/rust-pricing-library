@@ -80,6 +80,14 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+- [Rust mutation-testing rollout, 2026-10-22](validation/mutation-testing-2026-10-22.md)
+- [Numerical mutation-testing follow-up, 2026-10-22](validation/mutation-numerics-2026-10-22.md)
+- [Numerical mutation survivor triage, 2026-10-22](validation/mutation-triage-2026-10-22.md)
+- [Mutation evidence integrity, 2026-10-22](validation/mutation-evidence-integrity-2026-10-22.md)
+- [Date and calendar mutation coverage, 2026-10-22](validation/mutation-calendar-2026-10-22.md)
+- [Mutation execution evidence and changed-line gate, 2026-10-22](validation/mutation-reporting-2026-10-22.md)
+- [Discount-curve mutation coverage, 2026-10-23](validation/mutation-curve-2026-10-23.md)
+- [Forward and discrete-dividend mutation coverage, 2026-10-23](validation/mutation-carry-2026-10-23.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
