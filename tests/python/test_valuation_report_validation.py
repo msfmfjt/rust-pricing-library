@@ -33,6 +33,45 @@ class ValuationReportValidationTests(unittest.TestCase):
         self.assertEqual(error.field, expected)
         self.assertEqual(error.issues[0].pointer, expected)
         self.assertEqual(error.issues[0].document_kind, "valuation_report")
+        self.assertEqual(error.issues[0].schema_version, value["schema_version"])
+
+    def test_wire_errors_keep_the_validated_envelope_version(self):
+        for version in (1, 2):
+            for field, value, code in (
+                ("standard_error", "not a number", "invalid_json"),
+                ("document_kind", "pricing_task", "wrong_document_kind"),
+                ("schema_version", 99, "unsupported_schema_version"),
+            ):
+                with self.subTest(version=version, field=field):
+                    report = document(version)
+                    report[field] = value
+                    with self.assertRaises(rp.ValidationError) as caught:
+                        rp.ValuationReport.from_json(json.dumps(report))
+                    issue = caught.exception.issues[0]
+                    self.assertEqual(issue.code, code)
+                    self.assertEqual(issue.schema_version, report["schema_version"])
+                    self.assertEqual(issue.document_kind, "valuation_report")
+        report = document(1)
+        report["calibration_diagnostics"] = []
+        self.assert_pointer(report, "/calibration_diagnostics")
+
+    def test_untrusted_envelopes_keep_the_current_version_fallback(self):
+        # No version is trusted before syntax, duplicate-member and limit checks.
+        deep = ('{"document_kind":"valuation_report","schema_version":1,"x":'
+                + '[' * 65 + '0' + ']' * 65 + '}')
+        for text, code in (
+            ('{"document_kind":"valuation_report","schema_version":1', "invalid_json"),
+            ('{"document_kind":"valuation_report","schema_version":1,"schema_version":2}',
+             "invalid_json"),
+            ('{"schema_version":1}', "invalid_json"),
+            ('{"document_kind":"valuation_report","schema_version":-1}', "invalid_json"),
+            (deep, "resource_limit"),
+        ):
+            with self.subTest(code=code, text=text[:80]):
+                with self.assertRaises(rp.ValidationError) as caught:
+                    rp.ValuationReport.from_json(text)
+                self.assertEqual(caught.exception.issues[0].schema_version, 2)
+                self.assertEqual(caught.exception.issues[0].code, code)
 
     def test_scalar_and_replay_failures_identify_their_actual_fields(self):
         for version in (1, 2):

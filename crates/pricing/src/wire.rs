@@ -56,7 +56,8 @@ pub use specification::{
     specification_to_pretty_json,
 };
 pub use valuation_report::{
-    current_valuation_report_schema, parse_valuation_report_json, valuation_report_to_json,
+    current_valuation_report_schema, parse_valuation_report_json,
+    parse_valuation_report_json_with_context, valuation_report_to_json,
     valuation_report_to_pretty_json,
 };
 const DOCUMENT_RESULT: &str = "pricing_result";
@@ -191,6 +192,49 @@ impl fmt::Display for WireError {
 }
 
 impl Error for WireError {}
+
+/// A wire failure with the input schema version, when its envelope could be read.
+///
+/// Syntax, duplicate-member and resource-limit checks run before any envelope is
+/// trusted. This context does not change the underlying [`WireError`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WireParseError {
+    error: WireError,
+    schema_version: Option<u32>,
+}
+
+impl WireParseError {
+    /// The declared input version, including unsupported versions. `None` means
+    /// bounded JSON validation or envelope decoding failed before it was known.
+    #[must_use]
+    pub const fn schema_version(&self) -> Option<u32> {
+        self.schema_version
+    }
+
+    /// The original typed failure, with its existing message and JSON pointer.
+    #[must_use]
+    pub const fn wire_error(&self) -> &WireError {
+        &self.error
+    }
+
+    /// Discard document context while preserving the original typed failure.
+    #[must_use]
+    pub fn into_wire_error(self) -> WireError {
+        self.error
+    }
+}
+
+impl fmt::Display for WireParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.error.fmt(formatter)
+    }
+}
+
+impl Error for WireParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.error)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Fingerprint([u8; 32]);

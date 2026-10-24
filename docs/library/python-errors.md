@@ -35,6 +35,14 @@ coordinates identify the affected block, such as `/risks/1`, because shape and
 identity checks can involve several fields. There is no `/report` container in
 either report v1 or v2. The exception's `field` and issue's `pointer` agree.
 
+Report issues retain the input's declared `schema_version` after bounded JSON
+validation and envelope decoding succeed. An invalid v1 report therefore reports
+version 1, even though successful reads are normalized to the current v2 writer.
+Unsupported versions also retain the supplied version. If syntax, duplicate
+members, resource limits or an invalid envelope prevent identifying the version,
+the integer issue field keeps its existing current-report fallback of 2; this
+fallback is not evidence that the rejected input declared v2.
+
 ```python
 import rust_pricing as rp
 
