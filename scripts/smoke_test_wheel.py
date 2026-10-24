@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 from collections import Counter
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import signal
@@ -16,16 +17,13 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 from scripts.wheel_validation.archive import selected_wheel
 from scripts.wheel_validation.package import prepare_wheel
+from scripts.wheel_validation.provider_shards import SHARD_NAMES, SUITES
 from scripts.wheel_validation.stub import exported_stub_api, verify_stub_static_shape
 
 TEST_DIRECTORY = Path("tests/python")
 NAMED_TEST_GROUPS = {
-    "custom-basis": frozenset({"test_vega_kt_custom_basis_provider.py"}),
-    "providers": frozenset({
-        "test_vega_kt_coupled_basis_provider.py",
-        "test_vega_kt_extension_provider.py",
-        "test_vega_kt_extension_put_provider.py",
-    }),
+    "custom-basis": frozenset(suite.module + ".py" for suite in SUITES if suite.name == "custom-basis"),
+    "providers": frozenset(suite.module + ".py" for suite in SUITES if suite.name != "custom-basis"),
 }
 TEST_GROUPS = ("all", *NAMED_TEST_GROUPS, "remaining")
 
@@ -37,9 +35,17 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
                         help="full: package and all validation; package: install and verify only")
     parser.add_argument("--group", choices=TEST_GROUPS, default="all",
                         help="validation group; examples run with all or remaining")
+    parser.add_argument("--shard", choices=SHARD_NAMES,
+                        help="provider cases for one policy and interval count, or its contracts")
+    parser.add_argument("--report-directory", type=Path,
+                        help="write discovery inventory and per-process completion records")
     args = parser.parse_args(argv)
     if args.phase != "validation" and args.group != "all":
         parser.error("--group requires --phase validation")
+    if args.shard and (args.phase != "validation" or args.group != "all"):
+        parser.error("--shard requires --phase validation and cannot be combined with --group")
+    if args.report_directory and args.phase == "package":
+        parser.error("--report-directory requires validation")
     return args
 
 
@@ -48,7 +54,7 @@ def main(argv: list[str] | None = None) -> None:
     wheel = selected_wheel(args.wheel)
     python = prepare_wheel(wheel)
     if args.phase != "package":
-        run_validation(python, args.group)
+        run_validation(python, args.group, args.shard, args.report_directory)
 
 
 def run_examples(python: Path) -> None:
@@ -160,53 +166,100 @@ def verify_test_inventory(test_directory: Path, modules: list[str]) -> dict[str,
     return counts
 
 
-def run_validation(python: Path, group: str) -> None:
+def run_validation(python: Path, group: str, shard: str | None = None,
+                   report_directory: Path | None = None) -> None:
+    if shard is not None and (shard not in SHARD_NAMES or group != "all"):
+        raise ValueError("invalid provider shard selection")
     modules = discover_test_modules()
     selected = select_test_modules(modules, group)
+    if report_directory is not None:
+        report_directory.mkdir(parents=True, exist_ok=True)
     # Import-only discovery has its own process so it cannot retain module caches
     # or class state in any of the actual test processes.
     code = (
         "import json, sys\n"
         "from pathlib import Path\n"
         "from scripts.smoke_test_wheel import verify_test_inventory\n"
-        "verify_test_inventory(Path(sys.argv[1]), json.loads(sys.argv[2]))\n"
+        "from scripts.wheel_validation.provider_shards import verify_partition\n"
+        "counts = verify_test_inventory(Path(sys.argv[1]), json.loads(sys.argv[2]))\n"
+        "shards = verify_partition(Path(sys.argv[1]))\n"
+        "if sys.argv[3]:\n"
+        "    path = Path(sys.argv[3]) / 'inventory.json'\n"
+        "    path.write_text(json.dumps({'modules': counts, 'provider_shards': shards}, "
+        "indent=2) + '\\n', encoding='utf-8')\n"
     )
     subprocess.run(
         [str(python), "-X", "faulthandler", "-c", code,
-         str(TEST_DIRECTORY), json.dumps(modules)],
+         str(TEST_DIRECTORY), json.dumps(modules), str(report_directory or "")],
         check=True,
     )
+    if shard is not None:
+        run_test_shard(python, shard, report_directory)
+        return
     print(f"wheel-smoke group={group}: {len(selected)} modules", flush=True)
     if group in ("all", "remaining"):
         run_examples(python)
-    run_test_modules(python, selected)
+    run_test_modules(python, selected, report_directory=report_directory)
+
+
+def run_test_process(command: list[str], kind: str, name: str,
+                     report_directory: Path | None = None) -> str | None:
+    record = {"kind": kind, "name": name, "command": command, "status": "running",
+              "started_at": datetime.now(timezone.utc).isoformat()}
+
+    def save():
+        if report_directory is not None:
+            report_directory.mkdir(parents=True, exist_ok=True)
+            path = report_directory / f"{name}.json"
+            temporary = path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+            temporary.replace(path)
+
+    save()
+    print(f"wheel-smoke start {kind}={name}", flush=True)
+    started = time.monotonic()
+    try:
+        returncode = subprocess.run(command, check=False).returncode
+    except OSError as error:
+        returncode = 1
+        record["launch_error"] = str(error)
+        print(f"wheel-smoke launch error {kind}={name}: {error}", flush=True)
+    elapsed = time.monotonic() - started
+    detail = f"exit={returncode}"
+    if returncode < 0:
+        try:
+            signal_name = signal.Signals(-returncode).name
+        except ValueError:
+            signal_name = str(-returncode)
+        detail += f" signal={signal_name}"
+        record["signal"] = signal_name
+    record.update(status="failed" if returncode else "passed", returncode=returncode,
+                  elapsed_seconds=elapsed, finished_at=datetime.now(timezone.utc).isoformat())
+    save()
+    print(f"wheel-smoke finish {kind}={name} elapsed={elapsed:.3f}s {detail}", flush=True)
+    return f"{name} ({detail})" if returncode else None
+
+
+def run_test_shard(python: Path, shard: str, report_directory: Path | None = None) -> None:
+    command = [str(python), "-X", "faulthandler", "-m",
+               "scripts.wheel_validation.provider_shards", "--run", shard]
+    failure = run_test_process(command, "shard", shard, report_directory)
+    if failure:
+        raise RuntimeError("wheel provider shard failed: " + failure)
 
 
 def run_test_modules(python: Path, modules: list[str],
-                     test_directory: Path = TEST_DIRECTORY) -> None:
+                     test_directory: Path = TEST_DIRECTORY,
+                     report_directory: Path | None = None) -> None:
     if not modules:
         raise RuntimeError("no test modules selected")
     failures = []
     for module in modules:
-        print(f"wheel-smoke start module={module}", flush=True)
-        started = time.monotonic()
         command = [str(python), "-X", "faulthandler", "-m", "unittest", "discover",
                    "-s", str(test_directory), "-p", module, "-v"]
-        try:
-            returncode = subprocess.run(command, check=False).returncode
-        except OSError as error:
-            returncode = 1
-            print(f"wheel-smoke launch error module={module}: {error}", flush=True)
-        elapsed = time.monotonic() - started
-        detail = f"exit={returncode}"
-        if returncode < 0:
-            try:
-                detail += f" signal={signal.Signals(-returncode).name}"
-            except ValueError:
-                detail += f" signal={-returncode}"
-        print(f"wheel-smoke finish module={module} elapsed={elapsed:.3f}s {detail}", flush=True)
-        if returncode:
-            failures.append(f"{module} ({detail})")
+        failure = run_test_process(command, "module", module, report_directory)
+        if failure:
+            failures.append(failure)
     if failures:
         raise RuntimeError("wheel test modules failed: " + "; ".join(failures))
 
