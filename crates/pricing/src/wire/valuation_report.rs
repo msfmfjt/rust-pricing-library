@@ -220,8 +220,34 @@ pub fn parse_valuation_report_json(
     input: &[u8],
     limits: JsonLimits,
 ) -> Result<ValuationReport, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let header: Envelope = serde_json::from_str(text).map_err(json)?;
+    parse_valuation_report_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Read either report version and retain the declared input version on failure.
+///
+/// Uses the same bounded parser and domain validation as
+/// [`parse_valuation_report_json`]. No version is trusted until syntax,
+/// duplicate-member and resource checks and envelope decoding have succeeded.
+pub fn parse_valuation_report_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<ValuationReport, WireParseError> {
+    let without_context = |error| WireParseError {
+        error,
+        schema_version: None,
+    };
+    let text = validate_and_decode(input, limits).map_err(without_context)?;
+    let header: Envelope = serde_json::from_str(text)
+        .map_err(json)
+        .map_err(without_context)?;
+    let schema_version = Some(header.schema_version);
+    report_from_document(text, header).map_err(|error| WireParseError {
+        error,
+        schema_version,
+    })
+}
+
+fn report_from_document(text: &str, header: Envelope) -> Result<ValuationReport, WireError> {
     if header.document_kind != KIND {
         return Err(WireError::WrongDocumentKind {
             expected: KIND,

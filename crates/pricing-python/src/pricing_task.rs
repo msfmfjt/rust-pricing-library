@@ -18,7 +18,7 @@ fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
         })),
     }
 }
-fn wire_error(py: Python<'_>, error: &WireError, kind: &'static str) -> PyErr {
+fn wire_error(py: Python<'_>, error: &WireError, kind: &'static str, schema_version: u32) -> PyErr {
     let mut issue = PyValidationIssue::wire(error, kind);
     issue.schema_version = match error {
         WireError::UnsupportedSchemaVersion(version)
@@ -26,8 +26,7 @@ fn wire_error(py: Python<'_>, error: &WireError, kind: &'static str) -> PyErr {
             schema_version: version,
             ..
         } => *version,
-        _ if kind == "valuation_report" => 2,
-        _ => 1,
+        _ => schema_version,
     };
     validation_exception(py, issue)
 }
@@ -93,7 +92,7 @@ impl PyPricingTask {
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
         pricing::parse_pricing_task_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
             .map(|inner| Self { inner })
-            .map_err(|e| wire_error(py, &e, "pricing_task"))
+            .map_err(|e| wire_error(py, &e, "pricing_task", 1))
     }
     #[staticmethod]
     #[pyo3(signature=(specification, *, operation="evaluate", gamma_relative_bump=None))]
@@ -407,9 +406,19 @@ pub struct PyValuationReport {
 impl PyValuationReport {
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        pricing::parse_valuation_report_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .map(|inner| Self { inner })
-            .map_err(|e| wire_error(py, &e, "valuation_report"))
+        pricing::parse_valuation_report_json_with_context(
+            json.as_bytes(),
+            pricing::JsonLimits::DEFAULT,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| {
+            wire_error(
+                py,
+                e.wire_error(),
+                "valuation_report",
+                e.schema_version().unwrap_or(2),
+            )
+        })
     }
     fn to_json(&self) -> PyResult<String> {
         pricing::valuation_report_to_json(&self.inner).map_err(crate::errors::serialize_exception)

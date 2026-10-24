@@ -68,17 +68,17 @@ pub use result::{
     VegaKtResultUnit,
 };
 pub use wire::{
-    Fingerprint, JsonLimits, MigrationRegistry, WireError, current_pricing_task_schema,
-    current_product_graph_schema, current_request_schema, current_result_schema,
-    current_specification_schema, current_valuation_report_schema, fingerprint_pricing_task,
-    fingerprint_product_graph, fingerprint_request, fingerprint_specification,
-    monte_carlo_result_to_json, monte_carlo_result_to_pretty_json, parse_monte_carlo_result_json,
-    parse_pricing_task_json, parse_product_graph_json, parse_request_json, parse_result_json,
-    parse_specification_json, parse_valuation_report_json, pricing_task_to_json,
-    pricing_task_to_pretty_json, product_graph_to_json, product_graph_to_pretty_json,
-    request_to_json, request_to_pretty_json, result_to_json, result_to_pretty_json,
-    specification_to_json, specification_to_pretty_json, valuation_report_to_json,
-    valuation_report_to_pretty_json,
+    Fingerprint, JsonLimits, MigrationRegistry, WireError, WireParseError,
+    current_pricing_task_schema, current_product_graph_schema, current_request_schema,
+    current_result_schema, current_specification_schema, current_valuation_report_schema,
+    fingerprint_pricing_task, fingerprint_product_graph, fingerprint_request,
+    fingerprint_specification, monte_carlo_result_to_json, monte_carlo_result_to_pretty_json,
+    parse_monte_carlo_result_json, parse_pricing_task_json, parse_product_graph_json,
+    parse_request_json, parse_result_json, parse_specification_json, parse_valuation_report_json,
+    parse_valuation_report_json_with_context, pricing_task_to_json, pricing_task_to_pretty_json,
+    product_graph_to_json, product_graph_to_pretty_json, request_to_json, request_to_pretty_json,
+    result_to_json, result_to_pretty_json, specification_to_json, specification_to_pretty_json,
+    valuation_report_to_json, valuation_report_to_pretty_json,
 };
 
 /// Returns the public facade version.

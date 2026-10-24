@@ -244,6 +244,15 @@ Optional object fields are omitted; ordered optional configurations use
 keys, unknown fields and nonfinite numbers are rejected by the existing bounded
 parser. Rust additionally validates shapes, values and model consistency.
 
+Rust callers needing the input version on a report failure can use
+`parse_valuation_report_json_with_context(input, limits)`. Its `WireParseError`
+exposes `schema_version() -> Option<u32>` and the original `wire_error()`;
+`into_wire_error()` recovers that error by value. The version is absent when
+bounded JSON validation or envelope decoding fails. Existing
+`parse_valuation_report_json` keeps its `Result<ValuationReport, WireError>`
+signature, messages and error variants. Both entry points run the same parser
+and preserve the same v1-to-v2 migration.
+
 The task fingerprint uses domain `pricing/task/v1\0` and covers the complete
 source **and operation**, including Gamma bump, calibration seeds, worker count
 and reduction-block size. JSON whitespace/key order do not affect identity.
