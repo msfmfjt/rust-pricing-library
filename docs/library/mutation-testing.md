@@ -181,6 +181,10 @@ generated mutations in the two source files.
 These diagnostic unit-only surveys are narrower than the runner's `full` scope,
 which includes the downstream pricing tests.
 
+The [CI encoding follow-up](../../design/validation/mutation-ci-encoding-2026-10-24.md)
+fixes the Windows source checker failure exposed by Unicode date fixtures,
+adds portable regression checks and reruns the normal smoke and changed-line gates.
+
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:
 

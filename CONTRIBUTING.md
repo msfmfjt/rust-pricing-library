@@ -59,6 +59,7 @@ python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
+python3 -m unittest discover -s scripts -p test_check_dependency_direction.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
 cargo fmt --all --check

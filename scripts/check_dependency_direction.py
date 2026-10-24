@@ -107,18 +107,18 @@ def check_internal_boundaries(workspace_root: Path, errors: list[str]) -> None:
     import re
 
     source = workspace_root / "crates/pricing/src"
-    if re.search(r"(?m)^pub(?:\([^)]*\))?\s+mod\s+engine", (source / "lib.rs").read_text()):
+    if re.search(r"(?m)^pub(?:\([^)]*\))?\s+mod\s+engine", (source / "lib.rs").read_text(encoding="utf-8")):
         errors.append("engine module must remain private")
     for folder in ["core", "market", "models", "product", "risk"]:
         for path in (source / folder).rglob("*.rs"):
             if path.name == "mod.rs":
                 continue  # Existing public compatibility re-exports.
-            code = re.sub(r"//[^\n]*", "", path.read_text())
+            code = re.sub(r"//[^\n]*", "", path.read_text(encoding="utf-8"))
             if re.search(r"crate::engine::|\b(?:DeterministicExecutor|SoaWorkspace)\b", code):
                 errors.append(f"domain definition imports execution state: {path.relative_to(source)}")
     for folder in ["mc", "sampling", "processes", "payoff"]:
         for path in (source / "engine" / folder).rglob("*.rs"):
-            code = re.sub(r"//[^\n]*", "", path.read_text())
+            code = re.sub(r"//[^\n]*", "", path.read_text(encoding="utf-8"))
             if re.search(r"crate::engine::risk::|\b(?:RiskReport|VegaKtResult)\b|\.build_(?:risk_report|vega_kt_result)\(", code):
                 errors.append(f"lower execution layer assembles risk reports: {path.relative_to(source)}")
 
