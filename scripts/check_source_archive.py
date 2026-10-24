@@ -52,6 +52,9 @@ REQUIRED_FILES = {
     "scripts/wheel_validation/contracts/vega_kt.py",
     "scripts/wheel_validation/contracts/volatility.py",
     "scripts/wheel_validation/package.py",
+    "scripts/wheel_validation/provider_shards.py",
+    "scripts/test_provider_shards.py",
+    "tests/python/test_provider_validation_inventory.py",
     "scripts/wheel_validation/runtime.py",
     "scripts/wheel_validation/signatures.py",
     "scripts/wheel_validation/stub.py",
@@ -1152,6 +1155,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_task_json_schema.py",
     "python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v",
     "python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v",
+    "python -m unittest discover -s scripts -p 'test_provider_shards.py' -v",
     "python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
@@ -1207,13 +1211,13 @@ REQUIRED_CI_SNIPPETS = {
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 7,
+    'python-version: "3.12"': 8,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 3,
     "python scripts/smoke_test_wheel.py --phase package": 2,
-    "actions/upload-artifact@v7": 13,
+    "actions/upload-artifact@v7": 14,
     "actions/download-artifact@v8": 1,
-    "retention-days: 14": 11,
+    "retention-days: 14": 12,
 }
 
 REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
@@ -1226,17 +1230,21 @@ REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
         "name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist/*.whl",
         "run: python scripts/run_benchmark_suite.py",
     ),
+    "wheel-validation-plan": (
+        "matrix: ${{ steps.plan.outputs.matrix }}",
+        "id: plan",
+        "run: python scripts/wheel_validation/provider_shards.py --github-matrix",
+    ),
     "wheel-validation": (
-        "needs: [python-wheel-linux, supported-wheels]",
+        "needs: [python-wheel-linux, supported-wheels, wheel-validation-plan]",
         "fail-fast: false",
-        "os: [ubuntu-24.04, macos-15, windows-2025]",
-        "group: [custom-basis, providers, remaining]",
-        "- os: ubuntu-24.04\n            target: x86_64-unknown-linux-gnu",
-        "- os: macos-15\n            target: aarch64-apple-darwin",
-        "- os: windows-2025\n            target: x86_64-pc-windows-msvc",
+        "timeout-minutes: 330",
+        "matrix: ${{ fromJSON(needs.wheel-validation-plan.outputs.matrix) }}",
         "uses: actions/download-artifact@v8\n        with:\n"
         "          name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist",
-        "run: python scripts/smoke_test_wheel.py --phase validation --group ${{ matrix.group }}",
+        "run: python scripts/smoke_test_wheel.py --phase validation ${{ matrix.option }} ${{ matrix.selection }} --report-directory wheel-validation-reports",
+        "name: wheel-validation-${{ matrix.target }}-${{ matrix.selection }}\n          path: wheel-validation-reports/",
+        "if: always()",
     ),
     "rough-dividend-smoothing": (
         "timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}",
@@ -1946,12 +1954,14 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
         if missing:
             raise SystemExit(f"{archive}: CI job {job_name} is missing gates: {missing}")
         if job_name == "wheel-validation":
-            forbidden = ("exclude:", "continue-on-error:", "actions/upload-artifact@")
+            forbidden = ("exclude:", "continue-on-error:", "maturin build", "path: dist/*.whl")
             found = [snippet for snippet in forbidden if snippet in job]
-            if found:
+            # Exactly one diagnostics upload is allowed; validation still reuses
+            # the producer wheel instead of building or publishing another one.
+            if found or job.count("actions/upload-artifact@") != 1:
                 raise SystemExit(
-                    f"{archive}: wheel validation must run all groups, propagate failures "
-                    f"and reuse producer artifacts; found: {found}"
+                    f"{archive}: wheel validation must run all selections, propagate failures "
+                    f"and reuse producer artifacts with one diagnostics upload; found: {found}"
                 )
 
 

@@ -1,5 +1,6 @@
 """Put and mixed Call/Put ledgers under explicit full-row calibration rules."""
 from copy import deepcopy
+from itertools import product
 from dataclasses import replace
 from datetime import date,datetime,timedelta,timezone
 import json
@@ -11,6 +12,7 @@ import numpy as np
 import rust_pricing as rp
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'backtesting'));sys.path.insert(0,str(ROOT/'scripts'))
+from wheel_validation.provider_shards import iter_cases
 from multi_step_cases import model
 from extension_put_reference import request,PRODUCTS
 from test_vega_kt_path_ledger import fixture
@@ -60,7 +62,19 @@ def six_put_history(kind):
 
 
 class PutExtensionProviderTests(unittest.TestCase):
+    extensions=('all_rows','linear_time')
+    intervals=(4,6)
     evidence={}
+
+    @classmethod
+    def wheel_cases(cls):
+        return {
+            'test_a_native_put_panels': list(product(cls.extensions,cls.intervals,PRODUCTS)),
+            'test_b_fixing_day_mixed_ledgers': list(product(cls.extensions,
+                ('arithmetic_asian','fixed_lookback'))) if 4 in cls.intervals else [],
+            'test_c_six_interval_mixed_ledgers': list(product(cls.extensions,
+                ('arithmetic_asian','fixed_lookback'))) if 6 in cls.intervals else [],
+        }
 
     @classmethod
     def setUpClass(cls):
@@ -68,20 +82,19 @@ class PutExtensionProviderTests(unittest.TestCase):
         cls.evidence=dict(panels=[],replays=[],snapshots=[],failures=[],samples={})
 
     def test_a_native_put_panels(self):
-        for extension,pr in self.providers.items():
-            for n in [4,6]:
-                for kind in PRODUCTS:
-                    with self.subTest(extension=extension,n=n,kind=kind):
-                        c,s=panel(n,kind);risk=pr.evaluate(s,c);audit=pr.gamma_audit(s,c)
-                        self.assertEqual(audit['status'],'passed');market=audit['market_gamma']
-                        self.assertEqual(tuple(x['mean'] for x in market['estimate']),risk.buckets)
-                        np.testing.assert_allclose(np.diag(market['market_mean_covariance']),np.square(risk.bucket_standard_errors),rtol=1e-12)
-                        p=json.loads(s.pricing_requests['target']);p['risk'].pop('vega_kt');p['risk']['vega']=False
-                        raw=rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(p)),worker_threads=4,reduction_block_size=256).evaluate()
-                        self.assertEqual((risk.price,risk.delta),(raw.value,raw.delta_raw))
-                        self.assertEqual(audit['validation']['status'],'numerically_validated_multi_step_extension_call_put')
-                        self.evidence['panels'].append(dict(intervals=n,extension=extension,product=kind,seed=7,risk=data(risk),audit=audit))
-                        print(f'Accepted Put provider: {extension} {n} {kind}',flush=True)
+        for extension,n,kind in iter_cases(self):
+            pr=self.providers[extension]
+            with self.subTest(extension=extension,n=n,kind=kind):
+                c,s=panel(n,kind);risk=pr.evaluate(s,c);audit=pr.gamma_audit(s,c)
+                self.assertEqual(audit['status'],'passed');market=audit['market_gamma']
+                self.assertEqual(tuple(x['mean'] for x in market['estimate']),risk.buckets)
+                np.testing.assert_allclose(np.diag(market['market_mean_covariance']),np.square(risk.bucket_standard_errors),rtol=1e-12)
+                p=json.loads(s.pricing_requests['target']);p['risk'].pop('vega_kt');p['risk']['vega']=False
+                raw=rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(p)),worker_threads=4,reduction_block_size=256).evaluate()
+                self.assertEqual((risk.price,risk.delta),(raw.value,raw.delta_raw))
+                self.assertEqual(audit['validation']['status'],'numerically_validated_multi_step_extension_call_put')
+                self.evidence['panels'].append(dict(intervals=n,extension=extension,product=kind,seed=7,risk=data(risk),audit=audit))
+                print(f'Accepted Put provider: {extension} {n} {kind}',flush=True)
 
     def check_replay(self,extension,c,h,history,n):
         pr=self.providers[extension];cfg=BacktestConfig(ridge=1e-4,market_shock_log_moneyness=(-.2,0.,.2))
@@ -130,16 +143,14 @@ class PutExtensionProviderTests(unittest.TestCase):
         print(f'Settled Put {extension} {n} {c.product_type}: four mixed-side strategies',flush=True)
 
     def test_b_fixing_day_mixed_ledgers(self):
-        for extension in self.providers:
-            for kind in ['arithmetic_asian','fixed_lookback']:
-                with self.subTest(extension=extension,kind=kind):
-                    self.check_replay(extension,*fixture(kind,'put',on_fixing_days=True),4)
+        for extension,kind in iter_cases(self):
+            with self.subTest(extension=extension,kind=kind):
+                self.check_replay(extension,*fixture(kind,'put',on_fixing_days=True),4)
 
     def test_c_six_interval_mixed_ledgers(self):
-        for extension in self.providers:
-            for kind in ['arithmetic_asian','fixed_lookback']:
-                with self.subTest(extension=extension,kind=kind):
-                    self.check_replay(extension,*six_put_history(kind),6)
+        for extension,kind in iter_cases(self):
+            with self.subTest(extension=extension,kind=kind):
+                self.check_replay(extension,*six_put_history(kind),6)
 
     def test_d_scope_and_failed_native_risk_do_not_release_orders(self):
         for extension in [None,'custom']:

@@ -1,5 +1,6 @@
 """Named tensor bases: native risk, dated Call/Put ledgers and atomic failures."""
 from copy import deepcopy
+from itertools import product
 from dataclasses import replace
 from datetime import timedelta
 import json
@@ -11,6 +12,7 @@ import numpy as np
 import rust_pricing as rp
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'backtesting'));sys.path.insert(0,str(ROOT/'scripts'))
+from wheel_validation.provider_shards import iter_cases
 from test_vega_kt_extension_provider import panel as call_panel, six_interval_history
 from test_vega_kt_extension_put_provider import panel as put_panel, six_put_history
 from test_vega_kt_path_ledger import fixture
@@ -41,38 +43,43 @@ class CustomBasisProviderTests(unittest.TestCase):
     evidence={}
 
     @classmethod
+    def wheel_cases(cls):
+        return {
+            'test_a_native_panels': list(product(cls.policies,cls.intervals,PRODUCTS)),
+            'test_b_dated_ledgers': list(product(cls.policies,cls.intervals,
+                ('call','put'),('arithmetic_asian','fixed_lookback'))),
+        }
+
+    @classmethod
     def setUpClass(cls):
         cls.providers={p:provider(p) for p in cls.policies}
         cls.evidence=dict(panels=[],replays=[],snapshots=[],failures=[],samples={})
 
     def test_a_native_panels(self):
-        for policy,pr in self.providers.items():
-            for n in self.intervals:
-                for kind in PRODUCTS:
-                    with self.subTest(policy=policy,n=n,kind=kind):
-                        c,s=panel(n,kind);risk=pr.evaluate(s,c);audit=pr.gamma_audit(s,c);market=audit['market_gamma']
-                        self.assertEqual(audit['validation']['status'],STATUS)
-                        self.assertEqual(audit['validation']['variance_basis_policy'],policy)
-                        self.assertFalse(audit['validation']['diagnostic_only'])
-                        self.assertEqual(tuple(x['mean'] for x in market['estimate']),risk.buckets)
-                        np.testing.assert_allclose(np.diag(market['market_mean_covariance']),np.square(risk.bucket_standard_errors),rtol=1e-12)
-                        p=json.loads(s.pricing_requests['target']);_,construction=named_variance_basis(p,policy)
-                        self.assertEqual(audit['basis_construction'],construction)
-                        p['risk'].pop('vega_kt');p['risk']['vega']=False
-                        raw=rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(p)),worker_threads=4,reduction_block_size=256).evaluate()
-                        self.assertEqual((risk.price,risk.delta),(raw.value,raw.delta_raw))
-                        self.evidence['panels'].append(dict(intervals=n,basis=policy,product=kind,seed=7,risk=data(risk),audit=audit))
-                        print(f'Accepted named basis: {policy} {n} {kind}',flush=True)
+        for policy,n,kind in iter_cases(self):
+            pr=self.providers[policy]
+            with self.subTest(policy=policy,n=n,kind=kind):
+                c,s=panel(n,kind);risk=pr.evaluate(s,c);audit=pr.gamma_audit(s,c);market=audit['market_gamma']
+                self.assertEqual(audit['validation']['status'],STATUS)
+                self.assertEqual(audit['validation']['variance_basis_policy'],policy)
+                self.assertFalse(audit['validation']['diagnostic_only'])
+                self.assertEqual(tuple(x['mean'] for x in market['estimate']),risk.buckets)
+                np.testing.assert_allclose(np.diag(market['market_mean_covariance']),np.square(risk.bucket_standard_errors),rtol=1e-12)
+                p=json.loads(s.pricing_requests['target']);_,construction=named_variance_basis(p,policy)
+                self.assertEqual(audit['basis_construction'],construction)
+                p['risk'].pop('vega_kt');p['risk']['vega']=False
+                raw=rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(p)),worker_threads=4,reduction_block_size=256).evaluate()
+                self.assertEqual((risk.price,risk.delta),(raw.value,raw.delta_raw))
+                self.evidence['panels'].append(dict(intervals=n,basis=policy,product=kind,seed=7,risk=data(risk),audit=audit))
+                print(f'Accepted named basis: {policy} {n} {kind}',flush=True)
 
     def test_b_dated_ledgers(self):
-        for policy,pr in self.providers.items():
-            for n in self.intervals:
-                for side in ('call','put'):
-                    for kind in ('arithmetic_asian','fixed_lookback'):
-                        with self.subTest(policy=policy,n=n,side=side,kind=kind):
-                            if n==4: c,h,history=fixture(kind,side,on_fixing_days=True)
-                            else: c,h,history=(six_put_history if side=='put' else six_interval_history)(kind)
-                            self.check_replay(policy,pr,n,c,h,history)
+        for policy,n,side,kind in iter_cases(self):
+            pr=self.providers[policy]
+            with self.subTest(policy=policy,n=n,side=side,kind=kind):
+                if n==4: c,h,history=fixture(kind,side,on_fixing_days=True)
+                else: c,h,history=(six_put_history if side=='put' else six_interval_history)(kind)
+                self.check_replay(policy,pr,n,c,h,history)
 
     def check_replay(self,policy,pr,n,c,h,history):
         cfg=BacktestConfig(ridge=1e-4,market_shock_log_moneyness=(-.2,0.,.2));positions=[Position('target',-1.,5.)]

@@ -37,6 +37,7 @@ def main():
     paths.update((ROOT/'backtesting/rust_pricing_backtest').glob('*.py'))
     paths.update((ROOT/'backtesting/rust_pricing_backtest/schemas').glob('*.json'))
     paths.update(ROOT/n for n in ('scripts/check_custom_basis_provider.py','scripts/check_extension_provider.py',
+        'scripts/wheel_validation/provider_shards.py',
         'tests/python/test_vega_kt_custom_basis_provider.py','tests/python/test_vega_kt_extension_put_provider.py',
         'tests/python/test_vega_kt_extension_provider.py','tests/python/test_vega_kt_path_ledger.py',
         'tests/python/test_vega_kt_multi_step_provider.py','backtesting/tests/test_named_variance_basis.py'))

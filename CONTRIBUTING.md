@@ -58,6 +58,7 @@ python3 scripts/check_product_graph_json_schema.py
 python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
+python3 -m unittest discover -s scripts -p test_provider_shards.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
@@ -90,16 +91,37 @@ mismatches before installation.
 
 The default smoke command runs all package checks, examples and discovered
 Python tests. CI builds each platform wheel once, runs `--phase package`, and
-passes the same wheel artifact to three `--phase validation` jobs. Their
-`--group` values are `custom-basis`, `providers` and `remaining`; every group is
-required on Linux, macOS and Windows. New test modules automatically join
-`remaining`. Examples run with `remaining` (or `all`). Each module runs in a
-separate Python process with fault diagnostics enabled; tests within the module
-keep their shared class state. A failed test or process fails its job without
-retrying or skipping it. To reproduce one group with an existing wheel:
+passes the same wheel artifact to 21 `--phase validation` jobs per platform:
+20 provider shards and the `remaining` group. Every selection is required on
+Linux, macOS and Windows. The generated matrix in
+`scripts/wheel_validation/provider_shards.py` is the single CI plan.
+New test modules automatically join `remaining`; new methods in a provider
+suite join its contracts shard unless explicitly declared as numerical cases.
+Examples run with `remaining` (or `all`).
+
+Provider numerical shards select one basis/extension and one interval count.
+Each keeps its native panels, complete dated ledgers, four strategies, checkpoint
+replays and failure repairs. Contracts run separately with all original policy
+configurations. Before executing any selection, discovery checks both the test-ID
+multiset and the provider method/case multiset against the complete suite,
+including the original repeated coupled-basis coverage. Missing or extra cases
+fail validation. Cases, sampling, tolerances and numerical assertions are unchanged.
+
+Each module or shard runs in a separate Python process with fault diagnostics
+enabled. Tests within that process keep their shared class state. A failed test
+or process fails its job without retrying it. `--report-directory` saves the
+inventory and a running/completed record for each test process, including exit
+codes and signals. CI attempts to upload these records after failure or
+cancellation, together with any Python crash reports emitted by macOS.
+A missing or running record is incomplete evidence, never a passing result. CI gives each
+selection 330 minutes; successful completion on all platforms remains required.
+
+The original `--group custom-basis`, `--group providers` and default full
+execution remain available, but those combined suites can exceed a hosted
+runner's time limit. To reproduce a CI shard with an existing wheel:
 
 ```bash
-python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --group providers
+python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --shard coupled-basis-coupled_row_hats-4 --report-directory wheel-validation-reports
 ```
 
 The CLI delegates archive/metadata checks, static API contracts, and installed

@@ -70,7 +70,7 @@ class WheelRunnerTests(unittest.TestCase):
                     if phase == "package":
                         validate.assert_not_called()
                     else:
-                        validate.assert_called_once_with(Path("venv/python"), group)
+                        validate.assert_called_once_with(Path("venv/python"), group, None, None)
 
     def test_partition_is_disjoint_complete_and_includes_new_modules(self):
         named = sorted(set().union(*wheel.NAMED_TEST_GROUPS.values()))
@@ -152,11 +152,12 @@ class WheelRunnerTests(unittest.TestCase):
                     process.assert_called_once()
                     command = process.call_args.args[0]
                     self.assertEqual(command[:4], [str(Path("venv/python")), "-X", "faulthandler", "-c"])
-                    self.assertEqual(json.loads(command[-1]), modules)
+                    self.assertEqual(json.loads(command[-2]), modules)
                     self.assertTrue(process.call_args.kwargs["check"])
                     self.assertEqual(examples.call_count, int(group in ("all", "remaining")))
                     tests.assert_called_once_with(Path("venv/python"),
-                                                  wheel.select_test_modules(modules, group))
+                                                  wheel.select_test_modules(modules, group),
+                                                  report_directory=None)
 
     def test_failed_module_is_nonzero_and_later_module_runs_in_a_fresh_process(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -200,6 +201,73 @@ class WheelRunnerTests(unittest.TestCase):
             self.assertFalse(call.kwargs["check"])
         self.assertIn("signal=SIGABRT", output.getvalue())
         self.assertIn("finish module=test_later.py", output.getvalue())
+
+    def test_shard_cli_requires_validation_and_keeps_group_selection_exclusive(self):
+        shard = wheel.SHARD_NAMES[0]
+        args = wheel.parse_arguments(["--phase", "validation", "--shard", shard,
+                                      "--report-directory", "reports"])
+        self.assertEqual((args.shard, args.report_directory), (shard, Path("reports")))
+        for argv in (["--shard", shard], ["--phase", "package", "--shard", shard],
+                     ["--phase", "validation", "--group", "providers", "--shard", shard],
+                     ["--phase", "validation", "--shard", "typo"],
+                     ["--phase", "package", "--report-directory", "reports"]):
+            with self.subTest(argv=argv), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                wheel.parse_arguments(argv)
+
+    def test_shard_checks_inventory_and_runs_only_selected_process(self):
+        modules = sorted(set().union(*wheel.NAMED_TEST_GROUPS.values())) + ["test_extra.py"]
+        shard = wheel.SHARD_NAMES[0]
+        with patch.object(wheel, "discover_test_modules", return_value=modules), \
+                patch.object(wheel.subprocess, "run") as process, \
+                patch.object(wheel, "run_examples") as examples, \
+                patch.object(wheel, "run_test_modules") as modules_run, \
+                patch.object(wheel, "run_test_shard") as shard_run:
+            wheel.run_validation(Path("venv/python"), "all", shard)
+            process.assert_called_once()
+            self.assertIn("verify_partition", process.call_args.args[0][4])
+            examples.assert_not_called()
+            modules_run.assert_not_called()
+            shard_run.assert_called_once_with(Path("venv/python"), shard, None)
+        with self.assertRaisesRegex(ValueError, "invalid provider shard"):
+            wheel.run_validation(Path("venv/python"), "providers", shard)
+
+    def test_process_records_failure_signal_launch_error_and_incomplete_execution(self):
+        for outcome, status, exit_code in (
+            (subprocess.CompletedProcess([], 0), "passed", 0),
+            (subprocess.CompletedProcess([], -signal.SIGABRT), "failed", -signal.SIGABRT),
+            (OSError("cannot launch"), "failed", 1),
+            (KeyboardInterrupt(), "running", None),
+        ):
+            with self.subTest(status=status, exit_code=exit_code), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                def execute(*args, **kwargs):
+                    initial = json.loads((root / "probe.json").read_text())
+                    self.assertEqual(initial["status"], "running")
+                    if isinstance(outcome, BaseException):
+                        raise outcome
+                    return outcome
+                with patch.object(wheel.subprocess, "run", side_effect=execute), redirect_stdout(io.StringIO()):
+                    if isinstance(outcome, KeyboardInterrupt):
+                        with self.assertRaises(KeyboardInterrupt):
+                            wheel.run_test_process(["python", "probe"], "shard", "probe", root)
+                    else:
+                        failure = wheel.run_test_process(["python", "probe"], "shard", "probe", root)
+                        self.assertEqual(failure is not None, status == "failed")
+                record = json.loads((root / "probe.json").read_text())
+                self.assertEqual(record["status"], status)
+                self.assertEqual(record.get("returncode"), exit_code)
+                if exit_code == -signal.SIGABRT:
+                    self.assertEqual(record["signal"], "SIGABRT")
+                if isinstance(outcome, OSError):
+                    self.assertEqual(record["launch_error"], "cannot launch")
+
+    def test_shard_crash_propagates_immediately(self):
+        with patch.object(wheel.subprocess, "run", return_value=subprocess.CompletedProcess([], -6)) as run, \
+                redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "shard failed.*SIGABRT"):
+            wheel.run_test_shard(Path("python"), wheel.SHARD_NAMES[0])
+        run.assert_called_once_with(["python", "-X", "faulthandler", "-m",
+                                    "scripts.wheel_validation.provider_shards", "--run", wheel.SHARD_NAMES[0]],
+                                   check=False)
 
 
 if __name__ == "__main__":
