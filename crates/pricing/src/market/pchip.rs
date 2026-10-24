@@ -321,4 +321,319 @@ mod tests {
         assert_eq!(curve.derivatives()[1], 0.0);
         assert_eq!(curve.derivatives()[2], 0.0);
     }
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() <= 5.0e-13,
+            "actual={actual:.17e}, expected={expected:.17e}"
+        );
+    }
+
+    fn irregular_curve() -> ThetaPchip {
+        ThetaPchip::new(vec![1.0, 3.0, 6.0, 10.0], vec![2.0, 5.0, 6.0, 14.0], 0.75)
+            .expect("valid irregular curve")
+    }
+
+    #[test]
+    fn getters_and_knots_preserve_independent_inputs_and_slopes() {
+        let curve = irregular_curve();
+        assert_eq!(curve.times(), &[1.0, 3.0, 6.0, 10.0]);
+        assert_eq!(curve.values(), &[2.0, 5.0, 6.0, 14.0]);
+        assert_eq!(curve.terminal_slope(), 0.75);
+        assert_eq!(curve.derivatives().len(), 4);
+        // Secants are 3/2, 1/3 and 2; endpoint estimates and the two
+        // weighted harmonic means give these independently reduced fractions.
+        for (index, (time, theta, derivative)) in [
+            (1.0, 2.0, 59.0 / 30.0),
+            (3.0, 5.0, 45.0 / 79.0),
+            (6.0, 6.0, 21.0 / 38.0),
+            (10.0, 14.0, 62.0 / 21.0),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let value = curve.evaluate(time).expect("knot");
+            assert_eq!(value.region, ThetaRegion::Knot);
+            assert_eq!(value.theta, theta);
+            assert_close(value.derivative, derivative);
+            assert_close(curve.derivatives()[index], derivative);
+        }
+    }
+
+    #[test]
+    fn irregular_intervals_match_independent_cubic_references() {
+        let curve = irregular_curve();
+        // Exact rational elimination of the four endpoint value/slope
+        // constraints produces local power-basis polynomials. These values
+        // use Horner evaluation, independently of the production Hermite basis.
+        for (time, theta, derivative) in [
+            (1.5, 75043.0 / 25280.0, 23741.0 / 12640.0),
+            (2.0, 36491.0 / 9480.0, 15319.0 / 9480.0),
+            (2.5, 115161.0 / 25280.0, 8947.0 / 7584.0),
+            (4.0, 218425.0 / 40527.0, 89.0 / 342.0),
+            (4.5, 132241.0 / 24016.0, 2635.0 / 12008.0),
+            (5.0, 227831.0 / 40527.0, 181.0 / 711.0),
+            (7.0, 29823.0 / 4256.0, 18271.0 / 12768.0),
+            (8.0, 14045.0 / 1596.0, 6779.0 / 3192.0),
+            (9.0, 47637.0 / 4256.0, 11197.0 / 4256.0),
+        ] {
+            let value = curve.evaluate(time).expect("interior value");
+            assert_eq!(value.region, ThetaRegion::Interpolated);
+            assert_close(value.theta, theta);
+            assert_close(value.derivative, derivative);
+        }
+    }
+
+    #[test]
+    fn two_knots_define_a_line_with_separate_extrapolation_slopes() {
+        let curve = ThetaPchip::new(vec![2.0, 5.0], vec![3.0, 9.0], 0.25).expect("two-knot line");
+        assert_eq!(curve.derivatives(), &[2.0, 2.0]);
+        for (time, theta, derivative, region) in [
+            (0.0, 0.0, 1.5, ThetaRegion::ShortExtrapolated),
+            (1.0, 1.5, 1.5, ThetaRegion::ShortExtrapolated),
+            (2.0, 3.0, 2.0, ThetaRegion::Knot),
+            (2.5, 4.0, 2.0, ThetaRegion::Interpolated),
+            (3.5, 6.0, 2.0, ThetaRegion::Interpolated),
+            (4.5, 8.0, 2.0, ThetaRegion::Interpolated),
+            (5.0, 9.0, 2.0, ThetaRegion::Knot),
+            (7.0, 9.5, 0.25, ThetaRegion::LongExtrapolated),
+        ] {
+            let value = curve.evaluate(time).expect("line or extrapolation");
+            assert_eq!(value.region, region);
+            assert_close(value.theta, theta);
+            assert_close(value.derivative, derivative);
+        }
+    }
+
+    #[test]
+    fn constant_and_partial_plateaus_have_zero_slope_without_overshoot() {
+        let constant = ThetaPchip::new(vec![1.0, 3.0, 7.0], vec![5.0; 3], 0.0)
+            .expect("constant total variance");
+        assert_eq!(constant.derivatives(), &[0.0; 3]);
+        for time in [1.0, 1.25, 2.0, 3.0, 4.5, 6.5, 7.0, 100.0] {
+            let value = constant.evaluate(time).expect("constant segment");
+            assert_close(value.theta, 5.0);
+            assert_close(value.derivative, 0.0);
+        }
+        assert_eq!(
+            constant.evaluate(0.5).expect("anchored short end").theta,
+            2.5
+        );
+
+        let partial = ThetaPchip::new(
+            vec![1.0, 2.0, 4.0, 5.0, 8.0],
+            vec![1.0, 3.0, 3.0, 5.0, 5.0],
+            0.0,
+        )
+        .expect("two flat intervals");
+        assert_eq!(&partial.derivatives()[1..], &[0.0; 4]);
+        for (time, expected) in [(2.25, 3.0), (3.0, 3.0), (3.75, 3.0), (6.0, 5.0), (7.5, 5.0)] {
+            let value = partial.evaluate(time).expect("plateau interior");
+            assert_eq!(value.region, ThetaRegion::Interpolated);
+            assert_close(value.theta, expected);
+            assert_close(value.derivative, 0.0);
+        }
+    }
+
+    #[test]
+    fn endpoint_slope_clipping_preserves_monotonicity_at_both_ends() {
+        for (times, values, expected_slopes) in [
+            (
+                vec![1.0, 2.0, 4.0],
+                vec![1.0, 2.0, 20.0],
+                [0.0, 81.0 / 49.0, 43.0 / 3.0],
+            ),
+            (
+                vec![1.0, 3.0, 4.0],
+                vec![1.0, 19.0, 20.0],
+                [43.0 / 3.0, 81.0 / 49.0, 0.0],
+            ),
+        ] {
+            let curve = ThetaPchip::new(times.clone(), values.clone(), 0.0)
+                .expect("monotone endpoint stress");
+            for (actual, expected) in curve.derivatives().iter().zip(expected_slopes) {
+                assert_close(*actual, expected);
+            }
+            for interval in 0..2 {
+                let mut previous = values[interval];
+                for index in 1..=100 {
+                    let time = times[interval]
+                        + (times[interval + 1] - times[interval]) * f64::from(index) / 100.0;
+                    let value = curve.evaluate(time).expect("monotone interpolation");
+                    assert!(value.theta >= previous - 5.0e-13);
+                    assert!(value.theta <= values[interval + 1] + 5.0e-13);
+                    assert!(value.derivative >= -5.0e-13);
+                    previous = value.theta;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flat_intervals_keep_zero_slope_when_harmonic_weights_would_overflow() {
+        // All knots and secants are valid. The sum of harmonic-mean weights
+        // would overflow, so a zero secant must take the exact-zero branch
+        // before attempting the otherwise indeterminate infinity/infinity.
+        for (values, flat_time, expected) in [
+            (vec![1.0, 1.0, 2.0], 2.0e307, 1.0),
+            (vec![1.0, 2.0, 2.0], 6.0e307, 2.0),
+        ] {
+            let curve = ThetaPchip::new(vec![1.0, 4.0e307, 8.0e307], values, 0.0)
+                .expect("finite increasing times and non-decreasing theta");
+            assert_eq!(curve.derivatives()[1], 0.0);
+            for time in [4.0e307, flat_time] {
+                let value = curve.evaluate(time).expect("flat knot or interval");
+                assert_eq!(value.theta, expected);
+                assert_eq!(value.derivative, 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn knot_neighbors_obey_region_and_interior_c1_contracts() {
+        let curve = irregular_curve();
+        for time in [1.0_f64, 3.0, 6.0, 10.0] {
+            let knot = curve.evaluate(time).expect("knot");
+            let before = curve.evaluate(time.next_down()).expect("left neighbor");
+            let after = curve.evaluate(time.next_up()).expect("right neighbor");
+            assert_eq!(knot.region, ThetaRegion::Knot);
+            assert_eq!(
+                before.region,
+                if time == 1.0 {
+                    ThetaRegion::ShortExtrapolated
+                } else {
+                    ThetaRegion::Interpolated
+                }
+            );
+            assert_eq!(
+                after.region,
+                if time == 10.0 {
+                    ThetaRegion::LongExtrapolated
+                } else {
+                    ThetaRegion::Interpolated
+                }
+            );
+            assert_close(before.theta, knot.theta);
+            assert_close(after.theta, knot.theta);
+            if time == 1.0 {
+                assert_eq!(before.derivative, 2.0);
+            } else {
+                assert_close(before.derivative, knot.derivative);
+            }
+            if time == 10.0 {
+                assert_eq!(after.derivative, 0.75);
+            } else {
+                assert_close(after.derivative, knot.derivative);
+            }
+        }
+    }
+
+    #[test]
+    fn query_domain_preserves_error_bits_and_normalizes_signed_zero() {
+        let curve = irregular_curve();
+        for time in [
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                curve.evaluate(time),
+                Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "time",
+                    bits: time.to_bits()
+                })
+            );
+        }
+        for time in [0.0_f64, -0.0] {
+            let value = curve.evaluate(time).expect("origin");
+            assert_eq!(value.theta.to_bits(), 0.0_f64.to_bits());
+            assert_eq!(value.derivative, 2.0);
+            assert_eq!(value.region, ThetaRegion::ShortExtrapolated);
+        }
+        let value = curve
+            .evaluate(f64::from_bits(1))
+            .expect("positive subnormal time");
+        assert_eq!(value.theta, 2.0 * f64::from_bits(1));
+        assert_eq!(value.region, ThetaRegion::ShortExtrapolated);
+    }
+
+    #[test]
+    fn constructor_domains_return_precise_errors_and_accept_equal_theta() {
+        assert_eq!(
+            ThetaPchip::new(vec![1.0, 2.0], vec![1.0], 0.0),
+            Err(MarketError::SurfaceKnotLengthMismatch {
+                times: 2,
+                values: 1
+            })
+        );
+        for count in [0, 1] {
+            assert_eq!(
+                ThetaPchip::new(vec![1.0; count], vec![1.0; count], 0.0),
+                Err(MarketError::InvalidSurfaceKnotCount { count })
+            );
+        }
+        for bad in [
+            0.0_f64,
+            -0.0,
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                ThetaPchip::new(vec![1.0, bad], vec![1.0, 2.0], 0.0),
+                Err(MarketError::InvalidSurfaceKnotTime {
+                    index: 1,
+                    bits: bad.to_bits()
+                })
+            );
+            assert_eq!(
+                ThetaPchip::new(vec![1.0, 2.0], vec![1.0, bad], 0.0),
+                Err(MarketError::InvalidTheta {
+                    index: 1,
+                    bits: bad.to_bits()
+                })
+            );
+        }
+        for right in [1.0_f64, 0.5] {
+            assert_eq!(
+                ThetaPchip::new(vec![1.0, right], vec![1.0, 2.0], 0.0),
+                Err(MarketError::UnsortedSurfaceKnots {
+                    left_index: 0,
+                    left_bits: 1.0_f64.to_bits(),
+                    right_bits: right.to_bits()
+                })
+            );
+        }
+        assert_eq!(
+            ThetaPchip::new(vec![1.0, 2.0], vec![2.0, 1.0], 0.0),
+            Err(MarketError::DecreasingTheta {
+                left_index: 0,
+                left_bits: 2.0_f64.to_bits(),
+                right_bits: 1.0_f64.to_bits()
+            })
+        );
+        for slope in [
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                ThetaPchip::new(vec![1.0, 2.0], vec![1.0, 2.0], slope),
+                Err(MarketError::InvalidSurfaceParameter {
+                    parameter: "terminal_slope",
+                    bits: slope.to_bits()
+                })
+            );
+        }
+        for slope in [0.0, -0.0] {
+            let flat = ThetaPchip::new(vec![1.0, 2.0], vec![1.0, 1.0], slope)
+                .expect("flat theta and signed-zero terminal slope are valid");
+            assert_eq!(flat.derivatives(), &[0.0, 0.0]);
+        }
+    }
 }

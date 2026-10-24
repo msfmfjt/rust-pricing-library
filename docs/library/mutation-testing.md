@@ -185,6 +185,11 @@ The [CI encoding follow-up](../../design/validation/mutation-ci-encoding-2026-10
 fixes the Windows source checker failure exposed by Unicode date fixtures,
 adds portable regression checks and reruns the normal smoke and changed-line gates.
 
+The [PCHIP follow-up](../../design/validation/mutation-pchip-2026-10-25.md)
+adds exact-rational cubic references, unequal knot intervals, plateau and
+endpoint checks, and knot-neighbor/query-domain tests. It compares all 215
+generated identities using the focused PCHIP unit tests.
+
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:
 

@@ -38,6 +38,8 @@ REQUIRED_FILES = {
     "design/validation/mutation-carry-2026-10-23.json",
     "design/validation/mutation-ci-encoding-2026-10-24.md",
     "design/validation/mutation-ci-encoding-2026-10-24.json",
+    "design/validation/mutation-pchip-2026-10-25.md",
+    "design/validation/mutation-pchip-2026-10-25.json",
     "scripts/generate_numerics_mutation_references.py",
     "backtesting/rust_pricing_backtest/native_contract.py",
     "backtesting/tests/test_native_contract.py",
