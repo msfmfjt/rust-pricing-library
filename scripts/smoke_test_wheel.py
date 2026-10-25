@@ -19,6 +19,7 @@ from scripts.wheel_validation.archive import selected_wheel
 from scripts.wheel_validation.package import prepare_wheel
 from scripts.wheel_validation.provider_shards import SHARD_NAMES, SUITES
 from scripts.wheel_validation.stub import exported_stub_api, verify_stub_static_shape
+from scripts.wheel_validation import native_debugger as native_runner
 
 TEST_DIRECTORY = Path("tests/python")
 NAMED_TEST_GROUPS = {
@@ -39,6 +40,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
                         help="provider cases for one policy and interval count, or its contracts")
     parser.add_argument("--report-directory", type=Path,
                         help="write discovery inventory and per-process completion records")
+    parser.add_argument("--native-debugger", choices=("lldb",),
+                        help="capture native stacks and verify child exit status using LLDB")
     args = parser.parse_args(argv)
     if args.phase != "validation" and args.group != "all":
         parser.error("--group requires --phase validation")
@@ -46,6 +49,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--shard requires --phase validation and cannot be combined with --group")
     if args.report_directory and args.phase == "package":
         parser.error("--report-directory requires validation")
+    if args.native_debugger and (args.phase == "package" or args.report_directory is None):
+        parser.error("--native-debugger requires validation and --report-directory")
     return args
 
 
@@ -54,52 +59,63 @@ def main(argv: list[str] | None = None) -> None:
     wheel = selected_wheel(args.wheel)
     python = prepare_wheel(wheel)
     if args.phase != "package":
-        run_validation(python, args.group, args.shard, args.report_directory)
+        run_validation(python, args.group, args.shard, args.report_directory, args.native_debugger)
 
 
-def run_examples(python: Path) -> None:
-    subprocess.run([str(python), "examples/python/european_bs.py"], check=True)
-    subprocess.run([str(python), "examples/python/pricing_specification.py"], check=True)
-    subprocess.run([str(python), "examples/python/product_graph.py"], check=True)
-    subprocess.run([str(python), "examples/python/pricing_task.py"], check=True)
-    subprocess.run([str(python), "examples/python/typed_pricing_sources.py"], check=True)
-    subprocess.run([str(python), "examples/python/american_lsm.py"], check=True)
-    subprocess.run([str(python), "examples/python/american_dual.py"], check=True)
-    subprocess.run([str(python), "examples/python/local_vol_vegakt.py"], check=True)
-    subprocess.run([str(python), "examples/python/bergomi_lsv.py"], check=True)
-    subprocess.run([str(python), "examples/python/hull_white_lsv.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_bergomi.py"], check=True)
-    subprocess.run([str(python), "examples/python/pure_bergomi.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_volatility_families.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_family_aad_lsv.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_family_lsv_spot_delta.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_family_market_iv.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_mc_parameter_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_mc_hurst_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_lsv_parameter_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/mixed_bergomi_parameter_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/mixed_bergomi_hurst_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/mixed_bergomi_shape_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/quadratic_heston_parameter_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_family_gamma_bump.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_fourier.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_fourier_greeks.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_parameter_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_hurst_risk.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_calibration.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_iv_calibration.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_iv_refinement.py"], check=True)
-    subprocess.run([str(python), "examples/python/heston_iv_holdout.py"], check=True)
-    subprocess.run([str(python), "examples/python/multi_asset_lsv.py"], check=True)
-    subprocess.run([str(python), "examples/python/multi_asset_bergomi_two_factor.py"], check=True)
-    subprocess.run([str(python), "examples/python/bergomi_hull_white.py"], check=True)
-    subprocess.run([str(python), "examples/python/multi_asset_rough_bergomi.py"], check=True)
-    subprocess.run([str(python), "examples/python/local_correlation.py"], check=True)
-    subprocess.run([str(python), "examples/python/local_correlation_lsv_hw.py"], check=True)
-    subprocess.run([str(python), "examples/python/path_dependence.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_dividend_continuous_barrier.py"], check=True)
-    subprocess.run([str(python), "examples/python/rough_dividend_market_iv.py"], check=True)
+EXAMPLES = (
+    "examples/python/european_bs.py",
+    "examples/python/pricing_specification.py",
+    "examples/python/product_graph.py",
+    "examples/python/pricing_task.py",
+    "examples/python/typed_pricing_sources.py",
+    "examples/python/american_lsm.py",
+    "examples/python/american_dual.py",
+    "examples/python/local_vol_vegakt.py",
+    "examples/python/bergomi_lsv.py",
+    "examples/python/hull_white_lsv.py",
+    "examples/python/rough_bergomi.py",
+    "examples/python/pure_bergomi.py",
+    "examples/python/rough_volatility_families.py",
+    "examples/python/rough_family_aad_lsv.py",
+    "examples/python/rough_family_lsv_spot_delta.py",
+    "examples/python/rough_family_market_iv.py",
+    "examples/python/heston_mc_parameter_risk.py",
+    "examples/python/heston_mc_hurst_risk.py",
+    "examples/python/heston_lsv_parameter_risk.py",
+    "examples/python/mixed_bergomi_parameter_risk.py",
+    "examples/python/mixed_bergomi_hurst_risk.py",
+    "examples/python/mixed_bergomi_shape_risk.py",
+    "examples/python/quadratic_heston_parameter_risk.py",
+    "examples/python/rough_family_gamma_bump.py",
+    "examples/python/heston_fourier.py",
+    "examples/python/heston_fourier_greeks.py",
+    "examples/python/heston_parameter_risk.py",
+    "examples/python/heston_hurst_risk.py",
+    "examples/python/heston_calibration.py",
+    "examples/python/heston_iv_calibration.py",
+    "examples/python/heston_iv_refinement.py",
+    "examples/python/heston_iv_holdout.py",
+    "examples/python/multi_asset_lsv.py",
+    "examples/python/multi_asset_bergomi_two_factor.py",
+    "examples/python/bergomi_hull_white.py",
+    "examples/python/multi_asset_rough_bergomi.py",
+    "examples/python/local_correlation.py",
+    "examples/python/local_correlation_lsv_hw.py",
+    "examples/python/path_dependence.py",
+    "examples/python/rough_dividend_hard_barrier.py",
+    "examples/python/rough_dividend_continuous_barrier.py",
+    "examples/python/rough_dividend_market_iv.py",
+)
+
+
+def run_examples(python: Path, report_directory: Path | None = None,
+                 native_debugger: str | None = None) -> None:
+    for example in EXAMPLES:
+        command = [str(python), "-X", "faulthandler", example]
+        failure = run_test_process(command, "example", "example-" + Path(example).stem,
+                                   report_directory, native_debugger)
+        if failure:
+            raise RuntimeError("wheel example failed: " + failure)
 
 
 def discover_test_modules(test_directory: Path = TEST_DIRECTORY) -> list[str]:
@@ -167,7 +183,8 @@ def verify_test_inventory(test_directory: Path, modules: list[str]) -> dict[str,
 
 
 def run_validation(python: Path, group: str, shard: str | None = None,
-                   report_directory: Path | None = None) -> None:
+                   report_directory: Path | None = None,
+                   native_debugger: str | None = None) -> None:
     if shard is not None and (shard not in SHARD_NAMES or group != "all"):
         raise ValueError("invalid provider shard selection")
     modules = discover_test_modules()
@@ -194,16 +211,20 @@ def run_validation(python: Path, group: str, shard: str | None = None,
         check=True,
     )
     if shard is not None:
-        run_test_shard(python, shard, report_directory)
+        run_test_shard(python, shard, report_directory, native_debugger)
         return
     print(f"wheel-smoke group={group}: {len(selected)} modules", flush=True)
     if group in ("all", "remaining"):
-        run_examples(python)
-    run_test_modules(python, selected, report_directory=report_directory)
+        run_examples(python, report_directory, native_debugger)
+    run_test_modules(python, selected, report_directory=report_directory,
+                     native_debugger=native_debugger)
 
 
 def run_test_process(command: list[str], kind: str, name: str,
-                     report_directory: Path | None = None) -> str | None:
+                     report_directory: Path | None = None,
+                     native_debugger: str | None = None) -> str | None:
+    if native_debugger not in (None, "lldb") or (native_debugger and report_directory is None):
+        raise ValueError("native debugger requires lldb and a report directory")
     record = {"kind": kind, "name": name, "command": command, "status": "running",
               "started_at": datetime.now(timezone.utc).isoformat()}
 
@@ -219,7 +240,11 @@ def run_test_process(command: list[str], kind: str, name: str,
     print(f"wheel-smoke start {kind}={name}", flush=True)
     started = time.monotonic()
     try:
-        returncode = subprocess.run(command, check=False).returncode
+        if native_debugger:
+            returncode, diagnostic = native_runner.run(command, report_directory, name)
+            record["native_debugger"] = diagnostic
+        else:
+            returncode = subprocess.run(command, check=False).returncode
     except OSError as error:
         returncode = 1
         record["launch_error"] = str(error)
@@ -240,24 +265,26 @@ def run_test_process(command: list[str], kind: str, name: str,
     return f"{name} ({detail})" if returncode else None
 
 
-def run_test_shard(python: Path, shard: str, report_directory: Path | None = None) -> None:
+def run_test_shard(python: Path, shard: str, report_directory: Path | None = None,
+                   native_debugger: str | None = None) -> None:
     command = [str(python), "-X", "faulthandler", "-m",
                "scripts.wheel_validation.provider_shards", "--run", shard]
-    failure = run_test_process(command, "shard", shard, report_directory)
+    failure = run_test_process(command, "shard", shard, report_directory, native_debugger)
     if failure:
         raise RuntimeError("wheel provider shard failed: " + failure)
 
 
 def run_test_modules(python: Path, modules: list[str],
                      test_directory: Path = TEST_DIRECTORY,
-                     report_directory: Path | None = None) -> None:
+                     report_directory: Path | None = None,
+                     native_debugger: str | None = None) -> None:
     if not modules:
         raise RuntimeError("no test modules selected")
     failures = []
     for module in modules:
         command = [str(python), "-X", "faulthandler", "-m", "unittest", "discover",
                    "-s", str(test_directory), "-p", module, "-v"]
-        failure = run_test_process(command, "module", module, report_directory)
+        failure = run_test_process(command, "module", module, report_directory, native_debugger)
         if failure:
             failures.append(failure)
     if failures:

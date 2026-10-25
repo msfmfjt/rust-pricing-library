@@ -276,6 +276,11 @@ class ArchiveIntegrationTests(unittest.TestCase):
             ('scripts/wheel_validation/runtime.py', "if actual != contract['parameters']:"),
             ('scripts/wheel_validation/stub.py', 'verify_stub_static_shape(tree)'),
             ('scripts/wheel_validation/package.py', 'verify_runtime_symbols(python, stub_api, metadata["Version"])'),
+            ('scripts/smoke_test_wheel.py', 'for example in EXAMPLES:'),
+            ('scripts/smoke_test_wheel.py', '"examples/python/rough_dividend_continuous_barrier.py"'),
+            ('scripts/smoke_test_wheel.py', '"examples/python/rough_dividend_hard_barrier.py"'),
+            ('scripts/smoke_test_wheel.py', '"examples/python/rough_dividend_market_iv.py"'),
+            ('scripts/smoke_test_wheel.py', 'raise RuntimeError("wheel example failed: " + failure)'),
         ]:
             mutated = source | {name: source[name].replace(before, 'REMOVED')}
             with self.subTest(path=name), self.assertRaises(SystemExit):

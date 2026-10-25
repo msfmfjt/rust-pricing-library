@@ -71,7 +71,7 @@ class WheelRunnerTests(unittest.TestCase):
                     if phase == "package":
                         validate.assert_not_called()
                     else:
-                        validate.assert_called_once_with(Path("venv/python"), group, None, None)
+                        validate.assert_called_once_with(Path("venv/python"), group, None, None, None)
 
     def test_partition_is_disjoint_complete_and_includes_new_modules(self):
         named = sorted(set().union(*wheel.NAMED_TEST_GROUPS.values()))
@@ -158,7 +158,7 @@ class WheelRunnerTests(unittest.TestCase):
                     self.assertEqual(examples.call_count, int(group in ("all", "remaining")))
                     tests.assert_called_once_with(Path("venv/python"),
                                                   wheel.select_test_modules(modules, group),
-                                                  report_directory=None)
+                                                  report_directory=None, native_debugger=None)
 
     def test_failed_module_is_nonzero_and_later_module_runs_in_a_fresh_process(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -228,7 +228,7 @@ class WheelRunnerTests(unittest.TestCase):
             self.assertIn("verify_partition", process.call_args.args[0][4])
             examples.assert_not_called()
             modules_run.assert_not_called()
-            shard_run.assert_called_once_with(Path("venv/python"), shard, None)
+            shard_run.assert_called_once_with(Path("venv/python"), shard, None, None)
         with self.assertRaisesRegex(ValueError, "invalid provider shard"):
             wheel.run_validation(Path("venv/python"), "providers", shard)
 

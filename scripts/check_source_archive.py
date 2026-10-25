@@ -54,6 +54,8 @@ REQUIRED_FILES = {
     "scripts/wheel_validation/package.py",
     "scripts/wheel_validation/provider_shards.py",
     "scripts/test_provider_shards.py",
+    "scripts/wheel_validation/native_debugger.py",
+    "scripts/test_native_debugger.py",
     "tests/python/test_provider_validation_inventory.py",
     "scripts/wheel_validation/runtime.py",
     "scripts/wheel_validation/signatures.py",
@@ -1156,6 +1158,7 @@ REQUIRED_CI_SNIPPETS = {
     "python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v",
     "python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v",
     "python -m unittest discover -s scripts -p 'test_provider_shards.py' -v",
+    "python -m unittest discover -s scripts -p 'test_native_debugger.py' -v",
     "python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
@@ -1243,6 +1246,9 @@ REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
         "uses: actions/download-artifact@v8\n        with:\n"
         "          name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist",
         "run: python scripts/smoke_test_wheel.py --phase validation ${{ matrix.option }} ${{ matrix.selection }} --report-directory wheel-validation-reports",
+        "${{ runner.os == 'macOS' && '--native-debugger lldb' || '' }}",
+        "name: Verify native debugger on this macOS runner\n        if: runner.os == 'macOS'\n"
+        "        run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v",
         "name: wheel-validation-${{ matrix.target }}-${{ matrix.selection }}\n          path: wheel-validation-reports/",
         "if: always()",
     ),
@@ -1288,12 +1294,12 @@ REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 
 # Keep each gate tied to its owning source file after modularization.
 REQUIRED_WHEEL_SMOKE_SNIPPETS = {'scripts/smoke_test_wheel.py': ('from scripts.wheel_validation.package import prepare_wheel',
-                                 'subprocess.run([str(python), '
-                                 '"examples/python/rough_dividend_continuous_barrier.py"], check=True)',
-                                 'subprocess.run([str(python), '
-                                 '"examples/python/rough_dividend_hard_barrier.py"], check=True)',
-                                 'subprocess.run([str(python), '
-                                 '"examples/python/rough_dividend_market_iv.py"], check=True)'),
+                                 '"examples/python/rough_dividend_continuous_barrier.py"',
+                                 '"examples/python/rough_dividend_hard_barrier.py"',
+                                 '"examples/python/rough_dividend_market_iv.py"',
+                                 'for example in EXAMPLES:',
+                                 'failure = run_test_process(command, "example", "example-" + Path(example).stem,',
+                                 'raise RuntimeError("wheel example failed: " + failure)'),
  'scripts/wheel_validation/archive.py': ('Cargo.lock must use lockfile format version 4',
                                          'EXPECTED_INIT_PY = (',
                                          'EXPECTED_METADATA_FIELDS = (',

@@ -41,6 +41,9 @@ class ProviderShardTests(unittest.TestCase):
             ("path: wheel-validation-reports/", "path: dist/*.whl"),
             ("timeout-minutes: 330\n    strategy:", "timeout-minutes: 330\n    continue-on-error: true\n    strategy:"),
             ("'test_provider_shards.py'", "'missing.py'"),
+            ("'test_native_debugger.py'", "'missing-debugger.py'"),
+            ("${{ runner.os == 'macOS' && '--native-debugger lldb' || '' }}", ""),
+            ("name: Verify native debugger on this macOS runner", "name: missing debugger preflight"),
         ):
             with self.subTest(before=before), self.assertRaises(SystemExit):
                 validate(workflow.replace(before, after))

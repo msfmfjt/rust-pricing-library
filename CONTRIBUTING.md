@@ -59,6 +59,7 @@ python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_provider_shards.py -v
+python3 -m unittest discover -s scripts -p test_native_debugger.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
@@ -107,7 +108,7 @@ multiset and the provider method/case multiset against the complete suite,
 including the original repeated coupled-basis coverage. Missing or extra cases
 fail validation. Cases, sampling, tolerances and numerical assertions are unchanged.
 
-Each module or shard runs in a separate Python process with fault diagnostics
+Each example, module or shard runs in a separate Python process with fault diagnostics
 enabled. Tests within that process keep their shared class state. A failed test
 or process fails its job without retrying it. `--report-directory` saves the
 inventory and a running/completed record for each test process, including exit
@@ -117,8 +118,23 @@ Provider shard processes also dump Python stacks on POSIX `SIGTRAP`, which the
 standard fault handler does not cover. They then chain to the previous handler;
 the native crash remains a failed process. Windows uses its built-in fault and
 exception handlers. An absent native crash report does not identify the cause.
-A missing or running record is incomplete evidence, never a passing result. CI gives each
-selection 330 minutes; successful completion on all platforms remains required.
+
+macOS wheel selections also use `--native-debugger lldb`, which requires a
+report directory. LLDB launches the original command once, with argument shell
+expansion disabled, and captures native thread backtraces, registers, image
+identities and stop reasons before a stopped process is terminated. Diagnostic
+logs and process observations are saved under `native-debugger/` in the same
+artifact. A zero debugger exit alone cannot pass: a current process record must
+confirm normal child exit zero, and the debugger must also succeed. Missing,
+stale or malformed records and debugger launch failures fail the job. Crashes
+are not resumed or retried. Ordinary positive child exit codes are preserved;
+a native stop without a normal exit has gate status 1 and its actual stop state
+in the diagnostic record. The mandatory macOS debugger tests exercise normal
+exit, nonzero exit, SIGABRT, SIGTRAP and literal argument handling.
+
+A missing or running record is incomplete evidence, never a passing result.
+CI gives each selection 330 minutes; successful completion on all platforms
+remains required. Runner loss can prevent the final artifact upload entirely.
 
 The original `--group custom-basis`, `--group providers` and default full
 execution remain available, but those combined suites can exceed a hosted
