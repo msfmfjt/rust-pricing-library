@@ -93,6 +93,7 @@ documents the public API migration.
 - [PCHIP nonfinite-result validation, 2026-10-25](validation/mutation-pchip-finite-2026-10-25.md)
 - [SSVI phi stability and mutation coverage, 2026-10-25](validation/mutation-ssvi-phi-2026-10-25.md)
 - [Durrleman density-factor mutation coverage, 2026-10-25](validation/mutation-density-2026-10-25.md)
+- [Forward-call evaluation mutation coverage, 2026-10-25](validation/mutation-forward-call-2026-10-25.md)
 - [Fractional-OU range-guard investigation, 2026-10-25](validation/mutation-fou-guard-2026-10-25.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 

@@ -532,6 +532,368 @@ fn validate_butterfly_bounds(
 mod tests {
     use super::*;
 
+    struct FixedVarianceSurface(TotalVarianceDerivatives);
+
+    impl ImpliedVarianceSurface for FixedVarianceSurface {
+        fn total_variance_derivatives(
+            &self,
+            _time: f64,
+            _log_moneyness: f64,
+        ) -> Result<TotalVarianceDerivatives, MarketError> {
+            Ok(self.0)
+        }
+    }
+
+    fn assert_forward_reference(field: &str, actual: f64, expected: f64) {
+        let relative_error = ((actual - expected) / expected).abs();
+        assert!(
+            relative_error <= 5.0e-13,
+            "{field}: actual={actual:.17e}, expected={expected:.17e}, relative_error={relative_error:.3e}"
+        );
+    }
+
+    #[test]
+    fn forward_call_matches_independent_lognormal_references() {
+        // 100-digit Decimal Gaussian integrals; see the optional generator.
+        for (w, slope, curvature, k, forward, expected) in [
+            (
+                0.25,
+                0.125,
+                0.0625,
+                0.5,
+                128.0,
+                (
+                    211.0363226496164,
+                    6.712361380821717,
+                    0.7802734375,
+                    0.001350632231678362,
+                    -0.75,
+                    -1.25,
+                ),
+            ),
+            (
+                0.25,
+                0.125,
+                0.0625,
+                -0.5,
+                128.0,
+                (
+                    77.63592444321708,
+                    54.43532853332232,
+                    1.2802734375,
+                    0.009931955037303309,
+                    1.25,
+                    0.75,
+                ),
+            ),
+            (
+                1.0,
+                -0.25,
+                0.5,
+                0.25,
+                1.0,
+                (
+                    1.2840254166877414,
+                    0.3077110451143759,
+                    1.2939453125,
+                    0.30346390631436787,
+                    0.25,
+                    -0.75,
+                ),
+            ),
+            (
+                4.0,
+                0.5,
+                -0.25,
+                1.0,
+                0.125,
+                (
+                    0.33978522855738064,
+                    0.06373270750683377,
+                    0.72265625,
+                    0.13772920675556027,
+                    0.5,
+                    -1.5,
+                ),
+            ),
+            (
+                0.0625,
+                -0.0625,
+                0.125,
+                -0.25,
+                4.0,
+                (
+                    3.1152031322856195,
+                    0.9579589122925151,
+                    0.812255859375,
+                    0.2837417107283103,
+                    1.125,
+                    0.875,
+                ),
+            ),
+            (
+                0.5,
+                0.0,
+                0.5,
+                2.0,
+                16.0,
+                (
+                    118.2248975828904,
+                    0.020161870919953355,
+                    1.25,
+                    3.775811593011915e-05,
+                    -2.4748737341529163,
+                    -3.181980515339464,
+                ),
+            ),
+            (
+                0.25,
+                0.0,
+                0.0,
+                0.0,
+                100.0,
+                (
+                    100.0,
+                    19.741265136584744,
+                    1.0,
+                    0.007733362336056984,
+                    0.25,
+                    -0.25,
+                ),
+            ),
+            (
+                1.0,
+                0.0,
+                0.0,
+                -2.0,
+                1.0,
+                (
+                    0.1353352832366127,
+                    0.8674964229435774,
+                    1.0,
+                    0.9570127801738912,
+                    2.5,
+                    1.5,
+                ),
+            ),
+        ] {
+            let variance = density_variance(w, slope, curvature);
+            let call = FixedVarianceSurface(variance)
+                .forward_call_evaluation(1.25, k, forward)
+                .expect("regular forward call");
+            let (strike, price, g, density, d1, d2) = expected;
+            assert_eq!(call.forward, forward);
+            assert_eq!(call.variance, variance);
+            assert_eq!(call.density_factor, g);
+            for (field, actual, reference) in [
+                ("strike", call.strike, strike),
+                ("undiscounted_price", call.undiscounted_price, price),
+                ("call_density", call.call_density, density),
+                ("d1", call.d1, d1),
+                ("d2", call.d2, d2),
+            ] {
+                assert_forward_reference(field, actual, reference);
+            }
+        }
+    }
+
+    #[test]
+    fn forward_call_is_homogeneous_in_forward() {
+        let surface = FixedVarianceSurface(density_variance(0.25, 0.125, 0.0625));
+        for k in [-0.5, 0.0, 0.5] {
+            let base = surface.forward_call_evaluation(1.25, k, 1.0).unwrap();
+            for scale in [0.125, 0.5, 2.0, 128.0] {
+                let scaled = surface.forward_call_evaluation(1.25, k, scale).unwrap();
+                assert_eq!(scaled.forward, scale);
+                assert_eq!(scaled.strike, scale * base.strike);
+                assert_eq!(scaled.undiscounted_price, scale * base.undiscounted_price);
+                assert_eq!(scaled.call_density, base.call_density / scale);
+                assert_eq!((scaled.d1, scaled.d2), (base.d1, base.d2));
+                assert_eq!(scaled.density_factor, base.density_factor);
+                assert_eq!(scaled.variance, base.variance);
+            }
+        }
+    }
+
+    #[test]
+    fn forward_call_rejects_invalid_forward_before_surface_queries() {
+        let surface = flat_phi_surface(
+            PhiSpec::HestonLike { lambda: 2.0 },
+            0.0,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .unwrap();
+        for forward in [
+            0.0_f64,
+            -0.0,
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                surface.forward_call_evaluation(f64::NAN, f64::NAN, forward),
+                Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "forward",
+                    bits: forward.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn forward_call_preserves_queries_and_surface_errors() {
+        struct RejectingSurface;
+        impl ImpliedVarianceSurface for RejectingSurface {
+            fn total_variance_derivatives(
+                &self,
+                time: f64,
+                log_moneyness: f64,
+            ) -> Result<TotalVarianceDerivatives, MarketError> {
+                assert_eq!(time.to_bits(), 1.25_f64.to_bits());
+                assert_eq!(log_moneyness.to_bits(), (-0.375_f64).to_bits());
+                Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "custom_surface",
+                    bits: 0x7ff8_0000_0000_0042,
+                })
+            }
+        }
+        assert_eq!(
+            RejectingSurface.forward_call_evaluation(1.25, -0.375, 128.0),
+            Err(MarketError::InvalidSurfaceQuery {
+                coordinate: "custom_surface",
+                bits: 0x7ff8_0000_0000_0042,
+            })
+        );
+    }
+
+    #[test]
+    fn forward_call_rejects_unrepresentable_strikes() {
+        let time = 1.25_f64;
+        for (k, forward, strike) in [
+            (f64::MAX, 1.0, f64::INFINITY),
+            (1.0, f64::MAX, f64::INFINITY),
+            (-f64::MAX, 1.0, 0.0),
+            (-1.0, f64::from_bits(1), 0.0),
+        ] {
+            // Strike validation precedes validation of the supplied variance.
+            let surface = FixedVarianceSurface(density_variance(-1.0, 0.0, 0.0));
+            assert_eq!(
+                surface.forward_call_evaluation(time, k, forward),
+                Err(MarketError::NonPositiveSurfaceValue {
+                    field: "strike",
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: strike.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn forward_call_preserves_variance_and_density_errors() {
+        let time = 1.25_f64;
+        let k = -0.375_f64;
+        for w in [0.0_f64, -0.0, -1.0, f64::INFINITY, f64::NAN] {
+            assert_eq!(
+                FixedVarianceSurface(density_variance(w, 0.0, 0.0))
+                    .forward_call_evaluation(time, k, 1.0),
+                Err(MarketError::NonPositiveSurfaceValue {
+                    field: "total_variance",
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: w.to_bits(),
+                })
+            );
+        }
+        for (slope, curvature, field) in [
+            (f64::INFINITY, 0.0, "log_moneyness_derivative"),
+            (0.0, f64::INFINITY, "log_moneyness_second_derivative"),
+        ] {
+            assert_eq!(
+                FixedVarianceSurface(density_variance(0.25, slope, curvature))
+                    .forward_call_evaluation(time, k, 1.0),
+                Err(MarketError::NonFiniteSurfaceValue {
+                    field,
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: f64::INFINITY.to_bits(),
+                })
+            );
+        }
+        for (curvature, g) in [(-2.0, 0.0_f64), (-3.0, -0.5)] {
+            assert_eq!(
+                FixedVarianceSurface(density_variance(0.25, 0.0, curvature))
+                    .forward_call_evaluation(time, k, 1.0),
+                Err(MarketError::NonPositiveSurfaceValue {
+                    field: "density_factor",
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: g.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn forward_call_accepts_zero_price_and_zero_density() {
+        let surface = FixedVarianceSurface(density_variance(1.0, 0.0, 0.0));
+        for (k, expected_price, d1, d2) in [(40.0, 0.0, -39.5, -40.5), (-40.0, 1.0, 40.5, 39.5)] {
+            let call = surface.forward_call_evaluation(1.25, k, 1.0).unwrap();
+            assert_eq!(call.undiscounted_price, expected_price);
+            assert_eq!(call.call_density, 0.0);
+            assert_eq!(call.density_factor, 1.0);
+            assert_eq!((call.d1, call.d2), (d1, d2));
+            assert!(call.strike.is_finite() && call.strike > 0.0);
+        }
+    }
+
+    #[test]
+    fn forward_call_rejects_nonfinite_density_from_finite_inputs() {
+        let time = 1.25_f64;
+        let k = -0.0_f64;
+        // The positive strike times sqrt(w) underflows to zero.
+        assert_eq!(
+            FixedVarianceSurface(density_variance(0.25, 0.0, 0.0)).forward_call_evaluation(
+                time,
+                k,
+                f64::from_bits(1)
+            ),
+            Err(MarketError::NonFiniteSurfaceValue {
+                field: "call_density",
+                time_bits: time.to_bits(),
+                log_moneyness_bits: k.to_bits(),
+                value_bits: f64::INFINITY.to_bits(),
+            })
+        );
+    }
+
+    #[test]
+    fn forward_call_rejects_negative_roundoff_with_price_context() {
+        let time = 1.25_f64;
+        let k = 1.12e-16_f64;
+        // At this tiny variance d1 and d2 round to the same float, while K > F.
+        // The existing failure contract rejects a negative computed price.
+        let error = FixedVarianceSurface(density_variance(1.0e-32, 0.0, 0.0))
+            .forward_call_evaluation(time, k, 1.0)
+            .expect_err("negative roundoff must not be returned as a valid price");
+        match error {
+            MarketError::NonPositiveSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => {
+                assert_eq!(field, "undiscounted_call_price");
+                assert_eq!(time_bits, time.to_bits());
+                assert_eq!(log_moneyness_bits, k.to_bits());
+                let value = f64::from_bits(value_bits);
+                assert!(value.is_finite() && value < 0.0);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
     fn density_variance(w: f64, slope: f64, curvature: f64) -> TotalVarianceDerivatives {
         TotalVarianceDerivatives {
             total_variance: w,

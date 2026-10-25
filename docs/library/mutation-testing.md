@@ -229,6 +229,17 @@ validation, zero-boundary neighbors and overflow errors. Its comparison uses
 the same generated mutation inventory before and after adding tests; production
 arithmetic and tolerances are unchanged.
 
+The [forward-call follow-up](../../design/validation/mutation-forward-call-2026-10-25.md)
+checks the default surface method and its pricing helper with independent
+100-digit lognormal price/density references, forward scaling, provider-error
+propagation, strike overflow/underflow, zero-valued tails and computed-result
+errors. It uses the same 42 generated operations before and after adding tests.
+Regenerate the references without additional Python packages:
+
+```bash
+python scripts/generate_ssvi_forward_references.py
+```
+
 The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
 retains the unresolved final range-guard survivor. A bounded comparison of the
 actual source with its single logical mutation found no distinguishing input;
