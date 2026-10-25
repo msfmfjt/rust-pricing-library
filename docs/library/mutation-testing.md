@@ -92,11 +92,20 @@ merge tree. Manual `workflow_dispatch` runs accept a package and optional source
 glob, partitioned across four jobs. A failed job does not cancel the other shards.
 There is no recurring schedule and no automatic merge.
 
+PR changed-line checks use two round-robin shards, each with its own complete
+two-crate baseline and retained evidence. The existing `Mutation testing / changed
+Rust lines` check aggregates their results and succeeds only when both jobs
+succeed. Artifacts are named `mutation-changed-0` and `mutation-changed-1`.
+To reproduce one partition, add `--shard 0/2` or `--shard 1/2` to the normal
+`changed --base <actual-base>` command; run both to cover the selection.
+
 The installed-tool integration test uses a tiny temporary two-crate workspace.
 Only its downstream integration test observes the numerical function. It checks
 that correct assertions kill the mutations, weak assertions produce exit 2, and
 a broken unmutated baseline produces exit 4. This validates the real Cargo
 selection and CLI behavior in addition to the runner's unit tests.
+It also verifies that changed-line shards have a disjoint, complete union,
+retain downstream detection, and fail when the observing assertion is removed.
 
 Every invocation creates a fresh directory under `target/mutation/` containing:
 
@@ -200,6 +209,19 @@ extreme case can still return an error even when its exact mathematical result
 is finite. The record tracks all 215 retained mutation operations and the two
 new finite-check mutations, with the four regression tests failing before the
 fix and passing afterward.
+
+The [SSVI phi follow-up](../../design/validation/mutation-ssvi-phi-2026-10-25.md)
+adds independent 100-digit shape-function references, exact parameter errors,
+admissibility boundaries and floating-point failure cases. It corrects
+small-argument Heston-like derivative cancellation and distinguishes retained,
+removed and new mutation operations when comparing the two implementations.
+The scoped survey selects `PhiSpec`, its parameter validators and the new
+series helper; it does not claim mutation coverage of the complete SSVI surface.
+Regenerate the independent references without extra Python packages:
+
+```bash
+python scripts/generate_ssvi_phi_references.py
+```
 
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:

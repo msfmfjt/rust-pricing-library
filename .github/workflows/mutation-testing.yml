@@ -68,11 +68,15 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-  changed:
-    name: Mutation testing / changed Rust lines
+  changed-shards:
+    name: Mutation testing / changed Rust lines / shard ${{ matrix.shard }}
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -88,15 +92,30 @@ jobs:
       - name: Test changed production code
         env:
           MUTATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: python scripts/run_mutation_tests.py changed --base "$MUTATION_BASE_SHA"
+          MUTATION_SHARD: ${{ matrix.shard }}
+        run: python scripts/run_mutation_tests.py changed --base "$MUTATION_BASE_SHA" --shard "$MUTATION_SHARD/2"
       - name: Retain changed-line evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mutation-changed
+          name: mutation-changed-${{ matrix.shard }}
           path: target/mutation/
           retention-days: 14
           if-no-files-found: warn
+
+  changed:
+    # Preserve the existing required-check name; neither shard may be skipped
+    # or fail while the aggregate check reports success.
+    name: Mutation testing / changed Rust lines
+    needs: changed-shards
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every changed-line shard to pass
+        env:
+          SHARD_RESULT: ${{ needs.changed-shards.result }}
+        run: test "$SHARD_RESULT" = success
 
   full:
     name: Mutation survey / shard ${{ matrix.shard }}

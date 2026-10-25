@@ -1,7 +1,7 @@
 use crate::market::{MarketError, ThetaPchip, ThetaRegion};
 use pricing_numerics::{standard_normal_cdf, standard_normal_pdf};
 
-const SMALL_HESTON_Z: f64 = 1.0e-4;
+const SMALL_HESTON_Z: f64 = 0.5;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SurfaceValidationTolerance {
@@ -137,15 +137,7 @@ impl PhiSpec {
             Self::HestonLike { lambda } => {
                 let z = lambda * theta;
                 if z.abs() <= SMALL_HESTON_Z {
-                    let value = 0.5
-                        + z * (-1.0 / 6.0
-                            + z * (1.0 / 24.0
-                                + z * (-1.0 / 120.0
-                                    + z * (1.0 / 720.0 + z * (-1.0 / 5040.0 + z / 40320.0)))));
-                    let derivative_by_z = -1.0 / 6.0
-                        + z * (1.0 / 12.0
-                            + z * (-1.0 / 40.0
-                                + z * (1.0 / 180.0 + z * (-1.0 / 1008.0 + z / 6720.0))));
+                    let (value, derivative_by_z) = heston_phi_series(z);
                     PhiEvaluation {
                         value,
                         theta_derivative: lambda * derivative_by_z,
@@ -173,6 +165,19 @@ impl PhiSpec {
         }
         Ok(evaluation)
     }
+}
+
+fn heston_phi_series(z: f64) -> (f64, f64) {
+    // Degree 14 of sum_n (-z)^n/(n+2)!, with its analytic derivative.
+    // For 0 <= z <= 0.5, alternating-series truncation is below 8.6e-20
+    // in value and 2.6e-18 in derivative, before floating-point rounding.
+    let mut value = 1.0;
+    let mut derivative = 0.0;
+    for divisor in (3..=16).rev().map(f64::from) {
+        derivative = -(value + z * derivative) / divisor;
+        value = 1.0 - z * value / divisor;
+    }
+    (0.5 * value, 0.5 * derivative)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -526,6 +531,418 @@ fn validate_butterfly_bounds(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_phi_reference(actual: f64, expected: f64) {
+        let relative_error = ((actual - expected) / expected).abs();
+        assert!(
+            actual.is_finite() && relative_error <= 5.0e-13,
+            "actual={actual:.17e}, expected={expected:.17e}, relative_error={relative_error:.3e}"
+        );
+    }
+
+    fn flat_phi_surface(
+        phi: PhiSpec,
+        rho: f64,
+        tolerance: SurfaceValidationTolerance,
+    ) -> Result<StandardSsvi, MarketError> {
+        StandardSsvi::new(
+            ThetaPchip::new(vec![1.0, 2.0], vec![1.0, 1.0], 0.0).expect("flat theta"),
+            rho,
+            phi,
+            tolerance,
+        )
+    }
+
+    #[test]
+    fn power_law_phi_matches_independent_logarithmic_references() {
+        // 100-digit references use log/exp and the independently simplified
+        // derivative -eta*(gamma+theta)/(theta^(gamma+1)*(1+theta)^(2-gamma)).
+        let cases: [(f64, f64, f64, f64, f64); 8] = [
+            (0.75, 0.25, 0.04, 1.6284381233316532, -11.352092686687005),
+            (0.375, 0.6, 0.125, 1.2457309396155172, -6.4224350664622225),
+            (1.25, 0.125, 2.0, 0.4383289606286017, -0.15524150688929644),
+            (0.5, 0.5, 0.25, 0.8944271909999159, -2.1466252583997982),
+            (0.5, 0.5, 4.0, 0.11180339887498948, -0.025155764746872634),
+            (
+                0.625,
+                0.875,
+                16.0,
+                0.03876760013710127,
+                -0.0024051590158587644,
+            ),
+            (1.5, 0.375, 1e-08, 1499.999990625, -56250000585.937485),
+            (
+                0.125,
+                0.25,
+                32.0,
+                0.003817130989241902,
+                -0.00011657431288167741,
+            ),
+        ];
+        for (eta, gamma, theta, value, derivative) in cases {
+            let evaluated = PhiSpec::PowerLaw { eta, gamma }
+                .evaluate(theta)
+                .expect("standalone phi");
+            assert_phi_reference(evaluated.value, value);
+            assert_phi_reference(evaluated.theta_derivative, derivative);
+        }
+    }
+
+    #[test]
+    fn heston_phi_matches_independent_integral_references() {
+        // Integrate (1-u)*exp(-z*u) and -u*(1-u)*exp(-z*u) on [0,1]
+        // at 100 digits; includes neighbors of both old and new cutoffs.
+        let cases: [(f64, f64, f64); 14] = [
+            (1e-08, 0.49999999833333336, -0.16666666583333334),
+            (
+                9.999999999999999e-05,
+                0.49998333374999165,
+                -0.16665833358332777,
+            ),
+            (0.0001, 0.49998333374999165, -0.16665833358332777),
+            (
+                0.00010000000000000002,
+                0.49998333374999165,
+                -0.16665833358332777,
+            ),
+            (0.0002, 0.4999666683332667, -0.16665000099995556),
+            (0.001, 0.4998333749916681, -0.16658335832777876),
+            (0.01, 0.49833749168053576, -0.16583582778768355),
+            (0.1, 0.4837418035959573, -0.15857787551510363),
+            (
+                0.49999999999999994,
+                0.4261226388505337,
+                -0.13061319425266849,
+            ),
+            (0.5, 0.4261226388505337, -0.13061319425266849),
+            (0.5000000000000001, 0.4261226388505337, -0.13061319425266846),
+            (0.75, 0.39531831598402617, -0.11616715860809587),
+            (2.0, 0.28383382080915315, -0.06766764161830635),
+            (16.0, 0.058593750439590524, -0.003417969244539342),
+        ];
+        for lambda in [0.25, 2.0, 8.0] {
+            for (z, value, derivative_by_z) in cases {
+                let evaluated = PhiSpec::HestonLike { lambda }
+                    .evaluate(z / lambda)
+                    .expect("Heston-like reference node");
+                assert_phi_reference(evaluated.theta_derivative, lambda * derivative_by_z);
+                assert_phi_reference(evaluated.value, value);
+            }
+        }
+    }
+
+    #[test]
+    fn phi_family_syntax_rejects_all_invalid_parameters() {
+        for bad in [
+            0.0_f64,
+            -0.0,
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            for (phi, parameter) in [
+                (
+                    PhiSpec::PowerLaw {
+                        eta: bad,
+                        gamma: 0.5,
+                    },
+                    "eta",
+                ),
+                (
+                    PhiSpec::PowerLaw {
+                        eta: 0.5,
+                        gamma: bad,
+                    },
+                    "gamma",
+                ),
+                (PhiSpec::HestonLike { lambda: bad }, "lambda"),
+            ] {
+                assert_eq!(
+                    phi.evaluate(0.25),
+                    Err(MarketError::InvalidSurfaceParameter {
+                        parameter,
+                        bits: bad.to_bits(),
+                    })
+                );
+            }
+        }
+        for gamma in [1.0_f64, 1.0_f64.next_up(), 2.0] {
+            assert_eq!(
+                PhiSpec::PowerLaw { eta: 0.5, gamma }.evaluate(0.25),
+                Err(MarketError::InvalidSurfaceParameter {
+                    parameter: "gamma",
+                    bits: gamma.to_bits()
+                })
+            );
+        }
+        for gamma in [f64::from_bits(1), 1.0_f64.next_down()] {
+            let evaluated = PhiSpec::PowerLaw { eta: 0.5, gamma }
+                .evaluate(0.25)
+                .expect("open gamma boundaries");
+            assert!(evaluated.value > 0.0 && evaluated.theta_derivative < 0.0);
+        }
+    }
+
+    #[test]
+    fn phi_query_domain_returns_theta_error_bits() {
+        for phi in [
+            PhiSpec::PowerLaw {
+                eta: 0.5,
+                gamma: 0.25,
+            },
+            PhiSpec::HestonLike { lambda: 2.0 },
+        ] {
+            for theta in [
+                0.0_f64,
+                -0.0,
+                -f64::from_bits(1),
+                -1.0,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+                f64::from_bits(0x7ff8_0000_0000_0042),
+            ] {
+                assert_eq!(
+                    phi.evaluate(theta),
+                    Err(MarketError::InvalidSurfaceParameter {
+                        parameter: "theta",
+                        bits: theta.to_bits(),
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn phi_syntax_validation_precedes_query_validation() {
+        for (phi, parameter) in [
+            (
+                PhiSpec::PowerLaw {
+                    eta: -1.0,
+                    gamma: -1.0,
+                },
+                "eta",
+            ),
+            (
+                PhiSpec::PowerLaw {
+                    eta: 0.5,
+                    gamma: -1.0,
+                },
+                "gamma",
+            ),
+            (PhiSpec::HestonLike { lambda: -1.0 }, "lambda"),
+        ] {
+            assert_eq!(
+                phi.evaluate(f64::NAN),
+                Err(MarketError::InvalidSurfaceParameter {
+                    parameter,
+                    bits: (-1.0_f64).to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn standalone_phi_does_not_apply_surface_admissibility() {
+        for phi in [
+            PhiSpec::PowerLaw {
+                eta: 0.5,
+                gamma: 0.75,
+            },
+            PhiSpec::PowerLaw {
+                eta: 3.0,
+                gamma: 0.25,
+            },
+            PhiSpec::HestonLike { lambda: 0.125 },
+        ] {
+            let evaluated = phi.evaluate(0.25).expect("valid family syntax");
+            assert!(evaluated.value > 0.0 && evaluated.theta_derivative < 0.0);
+            assert!(matches!(
+                flat_phi_surface(
+                    phi,
+                    0.5,
+                    SurfaceValidationTolerance::new(0.0, 0.0).expect("zero tolerance")
+                ),
+                Err(MarketError::SsviAdmissibilityViolation { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn power_law_admissibility_is_symmetric_and_inclusive() {
+        let exact = SurfaceValidationTolerance::new(0.0, 0.0).expect("zero tolerance");
+        for rho in [-0.5, 0.5] {
+            let eta = 4.0_f64 / 3.0;
+            flat_phi_surface(PhiSpec::PowerLaw { eta, gamma: 0.5 }, rho, exact)
+                .expect("inclusive bounds");
+            let gamma = 0.5_f64.next_up();
+            assert_eq!(
+                flat_phi_surface(PhiSpec::PowerLaw { eta: 0.5, gamma }, rho, exact),
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition: "power_law_gamma_at_most_one_half",
+                    left_bits: gamma.to_bits(),
+                    right_bits: 0.5_f64.to_bits(),
+                })
+            );
+            // The first successor still rounds eta*1.5 to exactly 2.0.
+            flat_phi_surface(
+                PhiSpec::PowerLaw {
+                    eta: eta.next_up(),
+                    gamma: 0.5,
+                },
+                rho,
+                exact,
+            )
+            .expect("rounded wing is still exactly on the boundary");
+            for eta in [eta.next_up().next_up(), f64::MAX] {
+                assert_eq!(
+                    flat_phi_surface(PhiSpec::PowerLaw { eta, gamma: 0.5 }, rho, exact),
+                    Err(MarketError::SsviAdmissibilityViolation {
+                        condition: "power_law_eta_wing_bound",
+                        left_bits: (eta * 1.5).to_bits(),
+                        right_bits: 2.0_f64.to_bits(),
+                    })
+                );
+            }
+            let tolerant = SurfaceValidationTolerance::new(0.125, 0.0).expect("absolute tolerance");
+            flat_phi_surface(
+                PhiSpec::PowerLaw {
+                    eta: 0.5,
+                    gamma: 0.625,
+                },
+                rho,
+                tolerant,
+            )
+            .expect("inclusive gamma tolerance");
+            assert!(matches!(
+                flat_phi_surface(
+                    PhiSpec::PowerLaw {
+                        eta: 0.5,
+                        gamma: 0.625_f64.next_up()
+                    },
+                    rho,
+                    tolerant
+                ),
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition: "power_law_gamma_at_most_one_half",
+                    ..
+                })
+            ));
+            flat_phi_surface(
+                PhiSpec::PowerLaw {
+                    eta: 17.0 / 12.0,
+                    gamma: 0.5,
+                },
+                rho,
+                tolerant,
+            )
+            .expect("inclusive wing tolerance");
+            assert!(matches!(
+                flat_phi_surface(
+                    PhiSpec::PowerLaw {
+                        eta: (17.0_f64 / 12.0).next_up(),
+                        gamma: 0.5
+                    },
+                    rho,
+                    tolerant
+                ),
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition: "power_law_eta_wing_bound",
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
+    fn heston_admissibility_lower_bound_is_symmetric_and_inclusive() {
+        for rho in [-0.5, 0.5] {
+            for (absolute, minimum) in [(0.0, 0.375_f64), (0.125, 0.25)] {
+                let tolerance = SurfaceValidationTolerance::new(absolute, 0.0).expect("tolerance");
+                for lambda in [minimum, minimum.next_up()] {
+                    flat_phi_surface(PhiSpec::HestonLike { lambda }, rho, tolerance)
+                        .expect("inclusive lambda boundary");
+                }
+                let lambda = minimum.next_down();
+                assert_eq!(
+                    flat_phi_surface(PhiSpec::HestonLike { lambda }, rho, tolerance),
+                    Err(MarketError::SsviAdmissibilityViolation {
+                        condition: "heston_like_lambda_lower_bound",
+                        left_bits: 0.375_f64.to_bits(),
+                        right_bits: lambda.to_bits(),
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn phi_extreme_arithmetic_returns_typed_failures() {
+        for (eta, theta, expected_value) in [
+            (f64::MAX, f64::MIN_POSITIVE, f64::INFINITY),
+            (f64::from_bits(1), f64::MAX, 0.0),
+        ] {
+            assert_eq!(
+                PhiSpec::PowerLaw { eta, gamma: 0.5 }.evaluate(theta),
+                Err(MarketError::NonFiniteSurfaceValue {
+                    field: "phi",
+                    time_bits: 0,
+                    log_moneyness_bits: 0,
+                    value_bits: expected_value.to_bits(),
+                })
+            );
+        }
+        let error = PhiSpec::PowerLaw {
+            eta: 1.0,
+            gamma: 0.5,
+        }
+        .evaluate(f64::MIN_POSITIVE)
+        .expect_err("finite phi but infinite derivative");
+        match error {
+            MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => {
+                assert_eq!((field, time_bits, log_moneyness_bits), ("phi", 0, 0));
+                assert!(f64::from_bits(value_bits).is_finite());
+                assert!(f64::from_bits(value_bits) > 0.0);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+        let error = PhiSpec::HestonLike { lambda: f64::MAX }
+            .evaluate(f64::MAX)
+            .expect_err("unrepresentable scaled theta");
+        match error {
+            MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => {
+                assert_eq!((field, time_bits, log_moneyness_bits), ("phi", 0, 0));
+                assert!(f64::from_bits(value_bits).is_nan());
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn heston_phi_handles_underflowed_scaled_theta() {
+        let lambda = f64::MIN_POSITIVE;
+        let evaluated = PhiSpec::HestonLike { lambda }
+            .evaluate(f64::MIN_POSITIVE)
+            .expect("underflowed z retains the analytic limit");
+        assert_eq!(evaluated.value, 0.5);
+        assert!((evaluated.theta_derivative + lambda / 6.0).abs() <= f64::from_bits(1));
+        assert!(evaluated.theta_derivative < 0.0);
+        let evaluated = PhiSpec::HestonLike { lambda: 2.0 }
+            .evaluate(f64::from_bits(1))
+            .expect("smallest positive theta");
+        assert_eq!(evaluated.value, 0.5);
+        assert_phi_reference(evaluated.theta_derivative, -1.0 / 3.0);
+    }
 
     fn theta_curve() -> ThetaPchip {
         ThetaPchip::new(vec![0.5, 1.0, 2.0], vec![0.02, 0.04, 0.07], 0.02)

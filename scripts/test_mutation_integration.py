@@ -100,6 +100,51 @@ class InstalledToolTests(unittest.TestCase):
             self.assertNotIn("cargo_mutants_exit_code", record)
             self.assertGreater(len(json.loads(record_path.with_name("unsharded.json").read_text())), 0)
 
+            # A behavior-preserving source edit creates a real changed-line
+            # selection. Both shards must retain the downstream-only observer,
+            # and their disjoint union must equal the unsharded selection.
+            consumer.write_text("#[test]\nfn consumer() { assert_eq!(pricing::twice(3), 6); }\n", encoding="utf-8")
+            (root / "crates/pricing-numerics/src/lib.rs").write_text(
+                "pub fn twice(x: u64) -> u64 { x + x }\n", encoding="utf-8")
+            unsharded_output = root / "target/changed_all"
+            unsharded_output.mkdir(parents=True)
+            args = runner.parse_args(["changed", "--base", "HEAD", "--package", "pricing-numerics"])
+            selection = runner.selection_args(args, root, unsharded_output)
+            unsharded = json.loads(runner.capture(["cargo", "mutants", *selection, "--list", "--json"], root))
+            all_names = {mutant["name"] for mutant in unsharded}
+            self.assertGreater(len(all_names), 1)
+            shard_names = []
+            for shard in range(2):
+                args = runner.parse_args(["changed", "--base", "HEAD", "--package", "pricing-numerics",
+                                          "--shard", f"{shard}/2", "--jobs", "1",
+                                          "--output", f"target/changed_{shard}"])
+                with patch.dict(runner.os.environ, {"GITHUB_STEP_SUMMARY": ""}), \
+                        contextlib.redirect_stdout(io.StringIO()) as captured:
+                    code = runner.run(args, root)
+                record_path = next((root / f"target/changed_{shard}").glob("*/run.json"))
+                record = json.loads(record_path.read_text())
+                self.assertEqual(code, 0, captured.getvalue())
+                self.assertEqual(record["status"], "passed")
+                self.assertGreater(record["selected"], 0)
+                self.assertEqual(record["counts"]["caught"], record["selected"])
+                inventory = json.loads(record_path.with_name("selected.json").read_text())
+                shard_names.append({mutant["name"] for mutant in inventory})
+            self.assertFalse(shard_names[0] & shard_names[1])
+            self.assertEqual(shard_names[0] | shard_names[1], all_names)
+
+            # Losing the downstream assertion must still fail a changed shard.
+            consumer.write_text("#[test]\nfn consumer() { let _ = pricing::twice(3); }\n", encoding="utf-8")
+            args = runner.parse_args(["changed", "--base", "HEAD", "--package", "pricing-numerics",
+                                      "--shard", "1/2", "--jobs", "1", "--output", "target/changed_missed"])
+            with patch.dict(runner.os.environ, {"GITHUB_STEP_SUMMARY": ""}), \
+                    contextlib.redirect_stdout(io.StringIO()) as captured:
+                code = runner.run(args, root)
+            record_path = next((root / "target/changed_missed").glob("*/run.json"))
+            record = json.loads(record_path.read_text())
+            self.assertEqual(code, 2, captured.getvalue())
+            self.assertEqual(record["status"], "failed")
+            self.assertEqual(record["counts"]["missed"], record["selected"])
+
 
 if __name__ == "__main__":
     unittest.main()

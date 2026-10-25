@@ -91,6 +91,7 @@ documents the public API migration.
 - [Mutation CI source encoding, 2026-10-24](validation/mutation-ci-encoding-2026-10-24.md)
 - [PCHIP mutation coverage, 2026-10-25](validation/mutation-pchip-2026-10-25.md)
 - [PCHIP nonfinite-result validation, 2026-10-25](validation/mutation-pchip-finite-2026-10-25.md)
+- [SSVI phi stability and mutation coverage, 2026-10-25](validation/mutation-ssvi-phi-2026-10-25.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
