@@ -190,6 +190,17 @@ adds exact-rational cubic references, unequal knot intervals, plateau and
 endpoint checks, and knot-neighbor/query-domain tests. It compares all 215
 generated identities using the focused PCHIP unit tests.
 
+The [PCHIP finite-result follow-up](../../design/validation/mutation-pchip-finite-2026-10-25.md)
+reproduces nonfinite computed slopes and evaluation results from finite inputs.
+Construction now rejects nonfinite knot derivatives; evaluation rejects
+nonfinite theta or derivatives using `MarketError::NonFiniteSurfaceValue`.
+Arithmetic formulas and precision budgets are unchanged. This checks computed
+results, rather than promising stable arithmetic for all finite inputs; an
+extreme case can still return an error even when its exact mathematical result
+is finite. The record tracks all 215 retained mutation operations and the two
+new finite-check mutations, with the four regression tests failing before the
+fix and passing afterward.
+
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:
 

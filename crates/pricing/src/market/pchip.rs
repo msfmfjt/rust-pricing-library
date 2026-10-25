@@ -80,6 +80,9 @@ impl ThetaPchip {
         }
 
         let derivatives = pchip_derivatives(&times, &values).into_boxed_slice();
+        for (time, derivative) in times.iter().copied().zip(derivatives.iter().copied()) {
+            require_finite_theta_value("theta_derivative", time, derivative)?;
+        }
         Ok(Self {
             times: times.into_boxed_slice(),
             values: values.into_boxed_slice(),
@@ -118,19 +121,22 @@ impl ThetaPchip {
         let time = if time == 0.0 { 0.0 } else { time };
         if time < self.times[0] {
             let derivative = self.values[0] / self.times[0];
+            let theta = time * derivative;
+            require_finite_theta_value("theta", time, theta)?;
+            require_finite_theta_value("theta_derivative", time, derivative)?;
             return Ok(ThetaEvaluation {
-                theta: time * derivative,
+                theta,
                 derivative,
                 region: ThetaRegion::ShortExtrapolated,
             });
         }
 
-        match self.times.binary_search_by(|value| value.total_cmp(&time)) {
-            Ok(index) => Ok(ThetaEvaluation {
+        let evaluation = match self.times.binary_search_by(|value| value.total_cmp(&time)) {
+            Ok(index) => ThetaEvaluation {
                 theta: self.values[index],
                 derivative: self.derivatives[index],
                 region: ThetaRegion::Knot,
-            }),
+            },
             Err(right) if right < self.times.len() => {
                 let left = right - 1;
                 let width = self.times[right] - self.times[left];
@@ -154,22 +160,41 @@ impl ThetaPchip {
                     + h10_derivative * self.derivatives[left]
                     + h01_derivative * self.values[right]
                     + h11_derivative * self.derivatives[right];
-                Ok(ThetaEvaluation {
+                ThetaEvaluation {
                     theta,
                     derivative,
                     region: ThetaRegion::Interpolated,
-                })
+                }
             }
             Err(_) => {
                 let last = self.times.len() - 1;
-                Ok(ThetaEvaluation {
+                ThetaEvaluation {
                     theta: self.values[last] + self.terminal_slope * (time - self.times[last]),
                     derivative: self.terminal_slope,
                     region: ThetaRegion::LongExtrapolated,
-                })
+                }
             }
-        }
+        };
+        require_finite_theta_value("theta", time, evaluation.theta)?;
+        require_finite_theta_value("theta_derivative", time, evaluation.derivative)?;
+        Ok(evaluation)
     }
+}
+
+fn require_finite_theta_value(
+    field: &'static str,
+    time: f64,
+    value: f64,
+) -> Result<(), MarketError> {
+    if !value.is_finite() {
+        return Err(MarketError::NonFiniteSurfaceValue {
+            field,
+            time_bits: time.to_bits(),
+            log_moneyness_bits: 0,
+            value_bits: value.to_bits(),
+        });
+    }
+    Ok(())
 }
 
 fn pchip_derivatives(times: &[f64], values: &[f64]) -> Vec<f64> {
@@ -635,5 +660,126 @@ mod tests {
                 .expect("flat theta and signed-zero terminal slope are valid");
             assert_eq!(flat.derivatives(), &[0.0, 0.0]);
         }
+    }
+
+    #[test]
+    fn construction_rejects_nonfinite_computed_knot_derivatives() {
+        for (times, values, bad_time) in [
+            (
+                vec![1.0, 101.0, 201.0],
+                vec![1.0, 1.0e308, 1.1e308],
+                1.0_f64,
+            ),
+            (vec![1.0, 101.0, 201.0], vec![1.0, 1.0e307, 1.1e308], 201.0),
+            (vec![1.0, 1.0_f64.next_up()], vec![1.0, f64::MAX], 1.0),
+        ] {
+            assert_eq!(
+                ThetaPchip::new(times, values, 0.0).expect_err("infinite computed slope"),
+                MarketError::NonFiniteSurfaceValue {
+                    field: "theta_derivative",
+                    time_bits: bad_time.to_bits(),
+                    log_moneyness_bits: 0,
+                    value_bits: f64::INFINITY.to_bits(),
+                }
+            );
+        }
+        let error = ThetaPchip::new(vec![1.0, 4.0e307, 8.0e307], vec![1.0, 2.0, 3.0], 0.0)
+            .expect_err("indeterminate harmonic mean");
+        match error {
+            MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => {
+                assert_eq!(field, "theta_derivative");
+                assert_eq!(time_bits, 4.0e307_f64.to_bits());
+                assert_eq!(log_moneyness_bits, 0);
+                // The sign/payload of a computed NaN is platform dependent.
+                assert!(f64::from_bits(value_bits).is_nan());
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn short_extrapolation_rejects_nonfinite_values_at_and_after_origin() {
+        let curve = ThetaPchip::new(vec![1.0e-308, 1.0], vec![1.0e308, 1.0e308], 0.0)
+            .expect("finite knot derivatives");
+        assert_eq!(curve.derivatives(), &[0.0, 0.0]);
+        for time in [0.0, -0.0, 1.0e-309] {
+            let error = curve
+                .evaluate(time)
+                .expect_err("short-end arithmetic overflow");
+            match error {
+                MarketError::NonFiniteSurfaceValue {
+                    field,
+                    time_bits,
+                    log_moneyness_bits,
+                    value_bits,
+                } => {
+                    assert_eq!(field, "theta");
+                    assert_eq!(time_bits, if time == 0.0 { 0 } else { time.to_bits() });
+                    assert_eq!(log_moneyness_bits, 0);
+                    if time == 0.0 {
+                        assert!(f64::from_bits(value_bits).is_nan());
+                    } else {
+                        assert_eq!(value_bits, f64::INFINITY.to_bits());
+                    }
+                }
+                other => panic!("unexpected error: {other:?}"),
+            }
+        }
+        assert_eq!(curve.evaluate(1.0).expect("finite knot").theta, 1.0e308);
+    }
+
+    #[test]
+    fn interpolation_rejects_nonfinite_derivatives_even_with_finite_theta() {
+        let curve = ThetaPchip::new(vec![1.0e-308, 1.5e-308], vec![1.0, 1.0], 0.0)
+            .expect("flat curve with finite knot derivatives");
+        let time = 1.25e-308;
+        let error = curve
+            .evaluate(time)
+            .expect_err("indeterminate derivative cancellation");
+        match error {
+            MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => {
+                assert_eq!(field, "theta_derivative");
+                assert_eq!(time_bits, time.to_bits());
+                assert_eq!(log_moneyness_bits, 0);
+                assert!(f64::from_bits(value_bits).is_nan());
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+        assert_eq!(curve.evaluate(1.0e-308).expect("left knot").derivative, 0.0);
+        assert_eq!(
+            curve.evaluate(1.5e-308).expect("right knot").derivative,
+            0.0
+        );
+    }
+
+    #[test]
+    fn long_extrapolation_rejects_overflow_but_accepts_finite_large_results() {
+        let curve = ThetaPchip::new(vec![1.0, 2.0], vec![1.0, 2.0], f64::MAX)
+            .expect("finite terminal slope");
+        let near = curve
+            .evaluate(2.0_f64.next_up())
+            .expect("representable long end");
+        assert_eq!(near.region, ThetaRegion::LongExtrapolated);
+        assert_eq!(near.derivative, f64::MAX);
+        assert!(near.theta.is_finite());
+        assert_eq!(
+            curve.evaluate(4.0),
+            Err(MarketError::NonFiniteSurfaceValue {
+                field: "theta",
+                time_bits: 4.0_f64.to_bits(),
+                log_moneyness_bits: 0,
+                value_bits: f64::INFINITY.to_bits(),
+            })
+        );
     }
 }
