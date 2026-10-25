@@ -21,7 +21,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # Cold Windows builds plus the complete refinement panels can exceed 20m.
+    timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}
     defaults:
       run:
         shell: bash
