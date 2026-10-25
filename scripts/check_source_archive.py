@@ -53,6 +53,8 @@ REQUIRED_FILES = {
     "design/validation/mutation-forward-call-2026-10-25.md",
     "design/validation/mutation-forward-call-2026-10-25.json",
     "scripts/generate_ssvi_forward_references.py",
+    "design/validation/mutation-surface-tolerance-2026-10-25.md",
+    "design/validation/mutation-surface-tolerance-2026-10-25.json",
     "scripts/generate_numerics_mutation_references.py",
     "backtesting/rust_pricing_backtest/native_contract.py",
     "backtesting/tests/test_native_contract.py",

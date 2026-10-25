@@ -532,6 +532,257 @@ fn validate_butterfly_bounds(
 mod tests {
     use super::*;
 
+    #[test]
+    fn surface_tolerance_preserves_configured_values_and_v1_defaults() {
+        let policy = SurfaceValidationTolerance::local_vol_vegakt_v1();
+        assert_eq!(policy.absolute(), 1.0e-14);
+        assert_eq!(policy.relative(), 1.0e-12);
+        for (absolute, relative) in [
+            (0.0, -0.0),
+            (-0.0, 0.0),
+            (0.125, 0.0625),
+            (f64::from_bits(1), f64::MAX),
+            (f64::MAX, f64::from_bits(1)),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).unwrap();
+            assert_eq!(tolerance.absolute().to_bits(), absolute.to_bits());
+            assert_eq!(tolerance.relative().to_bits(), relative.to_bits());
+        }
+    }
+
+    #[test]
+    fn surface_tolerance_rejects_invalid_parameters_in_order() {
+        for value in [
+            -f64::from_bits(1),
+            -1.0,
+            f64::NEG_INFINITY,
+            f64::INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_1234),
+        ] {
+            for relative in [0.125, value] {
+                assert_eq!(
+                    SurfaceValidationTolerance::new(value, relative),
+                    Err(MarketError::InvalidSurfaceParameter {
+                        parameter: "absolute_tolerance",
+                        bits: value.to_bits(),
+                    })
+                );
+            }
+            assert_eq!(
+                SurfaceValidationTolerance::new(0.125, value),
+                Err(MarketError::InvalidSurfaceParameter {
+                    parameter: "relative_tolerance",
+                    bits: value.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn surface_tolerance_effective_matches_exact_scales() {
+        // Exact dyadic references to the documented max(abs, rel * scale) policy.
+        for (absolute, relative, left, right, expected) in [
+            (0.0, 0.0, -8.0, 2.0, 0.0),
+            (0.125, 0.0, -8.0, 2.0, 0.125),
+            (0.0, 0.0625, 0.25, -0.5, 0.0625),
+            (0.125, 0.0625, -1.0, 1.0, 0.125),
+            (0.125, 0.0625, -8.0, 2.0, 0.5),
+            (0.125, 0.0625, 2.0, -16.0, 1.0),
+            (2.0, 0.0625, -8.0, 16.0, 2.0),
+            (0.5, 0.0625, -8.0, 2.0, 0.5),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).unwrap();
+            assert_eq!(tolerance.effective(left, right), expected);
+            assert_eq!(tolerance.effective(right, left), expected);
+            assert_eq!(tolerance.effective(-left, -right), expected);
+        }
+    }
+
+    #[test]
+    fn surface_tolerance_non_strict_accepts_only_inclusive_residuals() {
+        for (absolute, relative, boundary, right) in [
+            (0.0, 0.0, 1.0_f64, 1.0),
+            (0.125, 0.0, 1.125, 1.0),
+            (0.0, 0.125, 8.0, 7.0),
+            (0.0, 0.125, -7.0, -8.0),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).unwrap();
+            assert!(tolerance.permits_non_strict(boundary.next_down(), right));
+            assert!(tolerance.permits_non_strict(boundary, right));
+            assert!(!tolerance.permits_non_strict(boundary.next_up(), right));
+            assert!(tolerance.permits_non_strict(-16.0, 8.0));
+            assert!(!tolerance.permits_non_strict(16.0, -8.0));
+        }
+    }
+
+    #[test]
+    fn surface_tolerance_strict_requires_slack_beyond_tolerance() {
+        for (absolute, relative, boundary, right) in [
+            (0.0, 0.0, 1.0_f64, 1.0),
+            (0.125, 0.0, 0.875, 1.0),
+            (0.0, 0.125, 7.0, 8.0),
+            (0.0, 0.125, -8.0, -7.0),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).unwrap();
+            assert!(tolerance.permits_strict(boundary.next_down(), right));
+            assert!(!tolerance.permits_strict(boundary, right));
+            assert!(!tolerance.permits_strict(boundary.next_up(), right));
+            assert!(tolerance.permits_strict(-16.0, 8.0));
+            assert!(!tolerance.permits_strict(16.0, -8.0));
+        }
+    }
+
+    #[test]
+    fn butterfly_wing_bound_requires_strict_slack() {
+        for (absolute, relative, rho, theta) in [
+            (0.0, 0.0, 0.0, 8.0_f64),
+            (0.25, 0.0, 0.0, 7.5),
+            (0.0, 0.0625, 0.0, 7.5),
+            (0.25, 0.0, 0.5, 5.0),
+            (0.25, 0.0, -0.5, 5.0),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).unwrap();
+            validate_butterfly_bounds(theta.next_down(), rho, 0.5, tolerance)
+                .expect("positive slack beyond tolerance");
+            for theta in [theta, theta.next_up()] {
+                assert_eq!(
+                    validate_butterfly_bounds(theta, rho, 0.5, tolerance),
+                    Err(MarketError::SsviAdmissibilityViolation {
+                        condition: "strict_wing_slope",
+                        left_bits: (theta * 0.5 * (1.0 + rho.abs())).to_bits(),
+                        right_bits: 4.0_f64.to_bits(),
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn butterfly_curvature_bound_includes_tolerance_boundary() {
+        for (absolute, relative, rho, theta) in [
+            (0.0, 0.0, 0.0, 1.0_f64),
+            (0.5, 0.0, 0.0, 1.125),
+            (0.5, 0.0, 0.5, 0.75),
+            (0.5, 0.0, -0.5, 0.75),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).unwrap();
+            for theta in [theta.next_down(), theta] {
+                validate_butterfly_bounds(theta, rho, 2.0, tolerance)
+                    .expect("inclusive curvature boundary");
+            }
+            let theta = theta.next_up();
+            assert_eq!(
+                validate_butterfly_bounds(theta, rho, 2.0, tolerance),
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition: "curvature_bound",
+                    left_bits: (theta * 4.0 * (1.0 + rho.abs())).to_bits(),
+                    right_bits: 4.0_f64.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn butterfly_bounds_report_independent_dyadic_residuals() {
+        let exact = SurfaceValidationTolerance::new(0.0, 0.0).unwrap();
+        for rho in [-0.5, 0.5] {
+            // Exact rational products: wing = theta*phi*(1+|rho|), curvature = wing*phi.
+            for (theta, phi, condition, residual) in [
+                (4.0, 0.75, "strict_wing_slope", 4.5_f64),
+                (0.5, 3.0, "curvature_bound", 6.75),
+                (2.0, 2.0, "strict_wing_slope", 6.0),
+            ] {
+                assert_eq!(
+                    validate_butterfly_bounds(theta, rho, phi, exact),
+                    Err(MarketError::SsviAdmissibilityViolation {
+                        condition,
+                        left_bits: residual.to_bits(),
+                        right_bits: 4.0_f64.to_bits(),
+                    })
+                );
+            }
+            validate_butterfly_bounds(0.5, rho, 2.0, exact).expect("both bounds satisfied");
+        }
+    }
+
+    #[test]
+    fn butterfly_bounds_reject_nonfinite_arithmetic() {
+        let tolerance = SurfaceValidationTolerance::new(0.0, 0.0625).unwrap();
+        for (theta, phi, condition) in [
+            (f64::MAX, 2.0, "strict_wing_slope"),
+            (
+                f64::MIN_POSITIVE,
+                f64::from_bits(0x7fe0_0000_0000_0000),
+                "curvature_bound",
+            ),
+        ] {
+            assert_eq!(
+                validate_butterfly_bounds(theta, 0.0, phi, tolerance),
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition,
+                    left_bits: f64::INFINITY.to_bits(),
+                    right_bits: 4.0_f64.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn standard_ssvi_preserves_tolerance_without_repairing_parameters() {
+        let tolerance = SurfaceValidationTolerance::new(0.25, 0.0625).unwrap();
+        let phi = PhiSpec::PowerLaw {
+            eta: 1.5,
+            gamma: 0.5,
+        };
+        let curve = ThetaPchip::new(vec![1.0, 2.0], vec![0.25, 0.25], 0.0).unwrap();
+        for rho in [-0.5, 0.5] {
+            let surface = StandardSsvi::new(curve.clone(), rho, phi, tolerance)
+                .expect("wing family bound accepted within tolerance");
+            assert_eq!(surface.tolerance(), tolerance);
+            assert_eq!(surface.phi_spec(), phi);
+            assert_eq!(surface.rho(), rho);
+            assert_eq!(surface.theta_curve(), &curve);
+            assert!(matches!(
+                StandardSsvi::new(
+                    curve.clone(),
+                    rho,
+                    phi,
+                    SurfaceValidationTolerance::new(0.0, 0.0).unwrap()
+                ),
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition: "power_law_eta_wing_bound",
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
+    fn standard_ssvi_applies_butterfly_bounds_after_family_validation() {
+        for (theta, eta, absolute, condition) in [
+            (0.25, 1.0, 4.0, "strict_wing_slope"),
+            (0.03125, 2.125, 0.125, "curvature_bound"),
+        ] {
+            let curve = ThetaPchip::new(vec![1.0, 2.0], vec![theta, theta], 0.0).unwrap();
+            let phi = PhiSpec::PowerLaw { eta, gamma: 0.5 };
+            let tolerance = SurfaceValidationTolerance::new(absolute, 0.0).unwrap();
+            phi.validate(0.0, tolerance).expect("admissible family");
+            match StandardSsvi::new(curve, 0.0, phi, tolerance) {
+                Err(MarketError::SsviAdmissibilityViolation {
+                    condition: actual,
+                    left_bits,
+                    right_bits,
+                }) => {
+                    assert_eq!(actual, condition);
+                    assert!(f64::from_bits(left_bits).is_finite());
+                    assert!(f64::from_bits(left_bits) > 0.0);
+                    assert_eq!(right_bits, 4.0_f64.to_bits());
+                }
+                result => panic!("expected {condition}, got {result:?}"),
+            }
+        }
+    }
+
     struct FixedVarianceSurface(TotalVarianceDerivatives);
 
     impl ImpliedVarianceSurface for FixedVarianceSurface {

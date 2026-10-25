@@ -240,6 +240,16 @@ Regenerate the references without additional Python packages:
 python scripts/generate_ssvi_forward_references.py
 ```
 
+The [surface-tolerance follow-up](../../design/validation/mutation-surface-tolerance-2026-10-25.md)
+checks the documented absolute/relative scaling policy, strict and inclusive
+boundary neighbors, butterfly-bound residuals and overflow rejection. Exact
+dyadic references exercise the validation helpers; public constructor tests
+also check parameter preservation and propagation of butterfly failures.
+These helper tests do not establish that every distinguishing input is reachable
+through every admissible phi family. Production arithmetic and tolerances are
+unchanged, and constructors omitted by the pinned generator are outside its
+mutation inventory.
+
 The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
 retains the unresolved final range-guard survivor. A bounded comparison of the
 actual source with its single logical mutation found no distinguishing input;
