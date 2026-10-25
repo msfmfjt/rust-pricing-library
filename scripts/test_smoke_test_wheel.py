@@ -3,6 +3,7 @@
 from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
 import ast
+from enum import IntEnum
 import io
 import json
 from pathlib import Path
@@ -262,12 +263,19 @@ class WheelRunnerTests(unittest.TestCase):
                     self.assertEqual(record["launch_error"], "cannot launch")
 
     def test_shard_crash_propagates_immediately(self):
-        with patch.object(wheel.subprocess, "run", return_value=subprocess.CompletedProcess([], -6)) as run, \
-                redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "shard failed.*SIGABRT"):
-            wheel.run_test_shard(Path("python"), wheel.SHARD_NAMES[0])
-        run.assert_called_once_with(["python", "-X", "faulthandler", "-m",
-                                    "scripts.wheel_validation.provider_shards", "--run", wheel.SHARD_NAMES[0]],
-                                   check=False)
+        # SIGABRT is 22 on Windows, rather than the POSIX value 6. Exercise
+        # both mappings on every host so a numeric literal cannot regress CI.
+        for number in (6, 22):
+            signals = IntEnum("Signals", {"SIGABRT": number})
+            with self.subTest(abort_signal=number), \
+                    patch.object(signal, "SIGABRT", signals.SIGABRT), \
+                    patch.object(signal, "Signals", signals), \
+                    patch.object(wheel.subprocess, "run", return_value=subprocess.CompletedProcess([], -signal.SIGABRT)) as run, \
+                    redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "shard failed.*SIGABRT"):
+                wheel.run_test_shard(Path("python"), wheel.SHARD_NAMES[0])
+            run.assert_called_once_with(["python", "-X", "faulthandler", "-m",
+                                        "scripts.wheel_validation.provider_shards", "--run", wheel.SHARD_NAMES[0]],
+                                       check=False)
 
 
 if __name__ == "__main__":

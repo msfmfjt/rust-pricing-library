@@ -113,6 +113,10 @@ or process fails its job without retrying it. `--report-directory` saves the
 inventory and a running/completed record for each test process, including exit
 codes and signals. CI attempts to upload these records after failure or
 cancellation, together with any Python crash reports emitted by macOS.
+Provider shard processes also dump Python stacks on POSIX `SIGTRAP`, which the
+standard fault handler does not cover. They then chain to the previous handler;
+the native crash remains a failed process. Windows uses its built-in fault and
+exception handlers. An absent native crash report does not identify the cause.
 A missing or running record is incomplete evidence, never a passing result. CI gives each
 selection 330 minutes; successful completion on all platforms remains required.
 

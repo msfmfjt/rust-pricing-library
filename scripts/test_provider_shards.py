@@ -5,6 +5,8 @@ from dataclasses import replace
 import io
 import json
 from pathlib import Path
+import signal
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -172,13 +174,74 @@ class Case(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "output"
             with patch.dict(shards.os.environ, {"GITHUB_OUTPUT": str(output)}), \
-                    patch.object(sys, "argv", ["provider_shards.py", "--github-matrix"]):
+                    patch.object(sys, "argv", ["provider_shards.py", "--github-matrix"]), \
+                    patch.object(shards.faulthandler, "register", create=True) as register:
                 shards.main()
+            register.assert_not_called()
             lines = output.read_text().splitlines()
             self.assertEqual(len(lines), 1)
             key, value = lines[0].split("=", 1)
             self.assertEqual(key, "matrix")
             self.assertEqual(json.loads(value), shards.ci_matrix())
+
+    def test_windows_cli_keeps_builtin_fault_handler_and_propagates_failure(self):
+        # faulthandler.register is not available on Windows. The interpreter's
+        # -X faulthandler remains enabled there, including Windows exceptions.
+        with patch.object(sys, "platform", "win32"), \
+                patch.object(sys, "argv", ["provider_shards.py", "--run", shards.SHARD_NAMES[0]]), \
+                patch.object(shards.faulthandler, "register", create=True) as register, \
+                patch.object(shards, "run_shard", return_value=False) as run, \
+                self.assertRaises(SystemExit) as error:
+            shards.main()
+        self.assertEqual(error.exception.code, 1)
+        register.assert_not_called()
+        run.assert_called_once_with(shards.SHARD_NAMES[0])
+
+    @unittest.skipUnless(sys.platform != "win32" and hasattr(signal, "SIGTRAP"),
+                         "SIGTRAP and user fault handlers require POSIX")
+    def test_real_trap_dumps_stack_and_remains_a_failed_process(self):
+        # Run the actual shard CLI, loader, runner and parent recorder with a
+        # synthetic provider. Never load the native pricing module or write a
+        # core file, and only signal the child process which owns this test.
+        code = '''
+import os, resource, signal, sys, unittest
+from scripts.wheel_validation import provider_shards as shards
+resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+class Probe(unittest.TestCase):
+    @classmethod
+    def wheel_cases(cls):
+        return {}
+    def test_native_trap_probe(self):
+        print("before native trap", flush=True)
+        os.kill(os.getpid(), signal.SIGTRAP)
+        print("after native trap", flush=True)
+shards.load_suite = lambda *args: (None, Probe)
+sys.argv = ["provider_shards.py", "--run", shards.SHARD_NAMES[0]]
+shards.main()
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            parent = '''
+import sys
+from pathlib import Path
+from scripts.smoke_test_wheel import run_test_process
+failure = run_test_process([sys.executable, "-X", "faulthandler", "-c", sys.argv[1]],
+                           "shard", "trap-probe", Path(sys.argv[2]))
+raise SystemExit(1 if failure else 0)
+'''
+            result = subprocess.run([sys.executable, "-c", parent, code, str(reports)],
+                                    cwd=Path(__file__).resolve().parents[1],
+                                    text=True, capture_output=True, timeout=30, check=False)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("before native trap", result.stdout)
+            self.assertNotIn("after native trap", result.stdout)
+            self.assertIn("signal=SIGTRAP", result.stdout)
+            self.assertIn("test_native_trap_probe", result.stderr)
+            self.assertIn('File "<string>"', result.stderr)
+            record = json.loads((reports / "trap-probe.json").read_text())
+            self.assertEqual(record["status"], "failed")
+            self.assertEqual(record["returncode"], -signal.SIGTRAP)
+            self.assertEqual(record["signal"], "SIGTRAP")
 
 
 if __name__ == "__main__":

@@ -9,10 +9,12 @@ import argparse
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass
+import faulthandler
 import importlib
 import json
 import os
 from pathlib import Path
+import signal
 import sys
 import unittest
 
@@ -205,8 +207,14 @@ def main() -> None:
         matrix = json.dumps(ci_matrix(), separators=(",", ":"))
         with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
             output.write(f"matrix={matrix}\n")
-    elif not run_shard(args.run):
-        raise SystemExit(1)
+    else:
+        # -X faulthandler covers ABRT/SEGV/BUS/ILL/FPE, but not the TRAP
+        # observed in macOS provider validation. Keep the default fatal action
+        # after dumping Python stacks; never turn a native crash into a pass.
+        if sys.platform != "win32" and hasattr(signal, "SIGTRAP"):
+            faulthandler.register(signal.SIGTRAP, all_threads=True, chain=True)
+        if not run_shard(args.run):
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
