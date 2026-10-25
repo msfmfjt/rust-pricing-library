@@ -232,19 +232,7 @@ pub fn parse_valuation_report_json_with_context(
     input: &[u8],
     limits: JsonLimits,
 ) -> Result<ValuationReport, WireParseError> {
-    let without_context = |error| WireParseError {
-        error,
-        schema_version: None,
-    };
-    let text = validate_and_decode(input, limits).map_err(without_context)?;
-    let header: Envelope = serde_json::from_str(text)
-        .map_err(json)
-        .map_err(without_context)?;
-    let schema_version = Some(header.schema_version);
-    report_from_document(text, header).map_err(|error| WireParseError {
-        error,
-        schema_version,
-    })
+    parse_document_with_context(input, limits, report_from_document)
 }
 
 fn report_from_document(text: &str, header: Envelope) -> Result<ValuationReport, WireError> {

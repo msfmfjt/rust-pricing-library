@@ -4,7 +4,8 @@ use pricing::{
     CompiledPricingSpecification, PricingSpecification, SpecificationOutput, SpecificationResult,
 };
 
-fn wire_exception(py: Python<'_>, error: &WireError) -> PyErr {
+fn wire_exception(py: Python<'_>, context: &pricing::WireParseError) -> PyErr {
+    let error = context.wire_error();
     let mut issue = PyValidationIssue::wire(error, "pricing_specification");
     issue.schema_version = match error {
         WireError::UnsupportedSchemaVersion(version)
@@ -14,7 +15,7 @@ fn wire_exception(py: Python<'_>, error: &WireError) -> PyErr {
         } => *version,
         _ => 2,
     };
-    validation_exception(py, issue)
+    validation_exception(py, issue.with_input_version(context.schema_version()))
 }
 
 #[pyclass(frozen, name = "PricingSpecification")]
@@ -51,9 +52,12 @@ impl PyPricingSpecification {
     }
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        pricing::parse_specification_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .map(|inner| Self { inner })
-            .map_err(|e| wire_exception(py, &e))
+        pricing::parse_specification_json_with_context(
+            json.as_bytes(),
+            pricing::JsonLimits::DEFAULT,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| wire_exception(py, &e))
     }
     #[staticmethod]
     #[pyo3(signature = (request, *, worker_threads, reduction_block_size=None))]

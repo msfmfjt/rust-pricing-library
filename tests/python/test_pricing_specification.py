@@ -107,7 +107,9 @@ class PricingSpecificationTests(unittest.TestCase):
                 rp.PricingSpecification.from_json(json.dumps(value)).compile()
             issue = caught.exception.issues[0]
             self.assertEqual(issue.document_kind, "pricing_specification")
-            self.assertEqual(issue.schema_version, 99 if name == "version" else 2)
+            # The correlation failure occurs during compile(), after the source
+            # has been normalized. Parse failures identify the supplied envelope.
+            self.assertEqual(issue.schema_version, 2 if name == "correlation" else value["schema_version"])
 
     def test_model_and_execution_changes_change_source_fingerprint(self):
         value = fixture("bergomi_hull_white")
