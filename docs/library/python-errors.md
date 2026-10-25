@@ -95,6 +95,20 @@ stochastic-dividend task adapters retain `code == "resource_limit"` and
 allocation check does not impose a new sampling-count or block-size cap, nor
 guarantee that all subsequent allocations will fit in memory.
 
+Time-grid compilation also checks the complete node count before generating
+substeps and reserves its node/index buffers fallibly. An unrepresentable count
+or failed grid reservation carries `code == "resource_limit"`,
+`field == "time_grid"` and `stage == "compile"`. `PricingTask.compile()` raises
+`PricingError`; `PricingSpecification.compile()` preserves `ValidationError`
+and its existing `plan_compile_error` issue. Rust callers retain
+`LocalVolError::StepCountOverflow` or `GridAllocationFailed { nodes }` in the
+error chain. This adds no arbitrary minimum step or node-count cap, does not
+coarsen the requested grid, and does not guarantee protection against operating
+system memory overcommit or allocations later in compilation/evaluation.
+Earlier model-specific guards keep their own classification: for example,
+the rough-family grid limit still reports `invalid_hull_white_input` with
+`field == "rough_time_grid_resource_limit"`.
+
 Basket numerical wrappers preserve their native sources: RQMC dimension limits
 report `resource_limit` / `effective_dimension`, failed LSV calibration nodes
 report `calibration_error`, and runtime payoff failures report `graph_error` /
