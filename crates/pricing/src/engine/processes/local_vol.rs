@@ -25,18 +25,49 @@ pub const LOCAL_VOL_LOG_EULER_SCHEME: &str = "local-vol-log-euler-f-v1";
 #[non_exhaustive]
 pub enum LocalVolError {
     EmptyEventTimes,
-    InvalidEventTime { index: usize, bits: u64 },
+    InvalidEventTime {
+        index: usize,
+        bits: u64,
+    },
     NonPositiveFinalTime,
-    NonPositiveMaximumStep { bits: u64 },
+    NonPositiveMaximumStep {
+        bits: u64,
+    },
     StepCountOverflow,
-    MissingDividendEventNode { event: EventId, time_bits: u64 },
-    InvalidForwardNormalizer { index: usize, bits: u64 },
-    InvalidInitialState { bits: u64 },
-    ShockCountMismatch { expected: usize, actual: usize },
-    NonFiniteState { step: usize, bits: u64 },
-    AdjointCountMismatch { expected: usize, actual: usize },
-    NonFiniteAdjoint { index: usize, bits: u64 },
-    CachedPathMismatch { step: usize },
+    /// The node or event-index buffer exceeds the allocator's layout or resources.
+    GridAllocationFailed {
+        nodes: usize,
+    },
+    MissingDividendEventNode {
+        event: EventId,
+        time_bits: u64,
+    },
+    InvalidForwardNormalizer {
+        index: usize,
+        bits: u64,
+    },
+    InvalidInitialState {
+        bits: u64,
+    },
+    ShockCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    NonFiniteState {
+        step: usize,
+        bits: u64,
+    },
+    AdjointCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    NonFiniteAdjoint {
+        index: usize,
+        bits: u64,
+    },
+    CachedPathMismatch {
+        step: usize,
+    },
     BrownianBridge(BrownianBridgeError),
     Market(crate::market::MarketError),
 }
@@ -60,6 +91,10 @@ impl fmt::Display for LocalVolError {
             Self::StepCountOverflow => write!(
                 formatter,
                 "Local Volatility event grid step count overflowed usize"
+            ),
+            Self::GridAllocationFailed { nodes } => write!(
+                formatter,
+                "failed to allocate Local Volatility event grid with {nodes} nodes"
             ),
             Self::MissingDividendEventNode { event, time_bits } => write!(
                 formatter,
@@ -159,8 +194,25 @@ impl LocalVolTimeGrid {
             return Err(LocalVolError::NonPositiveFinalTime);
         }
 
-        let mut nodes = vec![0.0];
-        let mut event_node_indices = vec![0];
+        // Size the complete grid before generating any substeps. Individually
+        // representable interval counts can overflow in aggregate, and a count
+        // fitting usize can still exceed Vec's byte-layout limit.
+        let node_count = event_times.windows(2).try_fold(1_usize, |count, pair| {
+            count
+                .checked_add(interval_step_count(pair[1] - pair[0], maximum_step)?)
+                .ok_or(LocalVolError::StepCountOverflow)
+        })?;
+        let allocation_error = || LocalVolError::GridAllocationFailed { nodes: node_count };
+        let mut nodes = Vec::new();
+        nodes
+            .try_reserve_exact(node_count)
+            .map_err(|_| allocation_error())?;
+        let mut event_node_indices = Vec::new();
+        event_node_indices
+            .try_reserve_exact(event_times.len())
+            .map_err(|_| allocation_error())?;
+        nodes.push(0.0);
+        event_node_indices.push(0);
         for pair in event_times.windows(2) {
             let left = pair[0];
             let right = pair[1];
@@ -886,10 +938,13 @@ fn validate_adjoint(value: f64, index: usize) -> Result<(), LocalVolError> {
 
 fn interval_step_count(interval: f64, maximum_step: f64) -> Result<usize, LocalVolError> {
     let steps = (interval / maximum_step).ceil();
-    if !steps.is_finite() || steps > usize::MAX as f64 {
+    // usize::MAX can round up when converted to f64. An interval also needs
+    // its initial node, so the exact usize::MAX count cannot form a grid either.
+    if !steps.is_finite() || steps >= usize::MAX as f64 {
         return Err(LocalVolError::StepCountOverflow);
     }
-    Ok(steps as usize)
+    // Even if division underflows to zero, the endpoint is still one step.
+    Ok((steps as usize).max(1))
 }
 
 #[cfg(test)]
@@ -897,6 +952,17 @@ mod tests {
     use super::*;
     use crate::core::{EventId, PositiveF64, UnderlyingId};
     use crate::market::{DividendEvent, DividendQuote};
+
+    #[test]
+    fn interval_count_rejects_the_rounded_usize_boundary_without_allocating() {
+        // On 64-bit targets usize::MAX rounds up to 2^64 as f64. Casting
+        // that value back saturates, so a strict `>` check is insufficient.
+        let first_unrepresentable = usize::MAX as f64 + 1.0;
+        assert_eq!(
+            interval_step_count(1.0, 1.0 / first_unrepresentable),
+            Err(LocalVolError::StepCountOverflow)
+        );
+    }
 
     #[test]
     fn event_substep_grid_preserves_events_and_maximum_step() {

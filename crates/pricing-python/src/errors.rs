@@ -296,7 +296,9 @@ fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
             E::NonFiniteState { .. } | E::NonFiniteAdjoint { .. } => {
                 ("non_finite_state", None, None)
             }
-            E::StepCountOverflow => ("resource_limit", Some("time_grid"), None),
+            E::StepCountOverflow | E::GridAllocationFailed { .. } => {
+                ("resource_limit", Some("time_grid"), None)
+            }
             _ => ("local_vol_error", None, None),
         };
     }
@@ -371,6 +373,10 @@ mod tests {
             classify(&resource),
             ("resource_limit", Some("rqmc_table"), None)
         );
+        let grid = MonteCarloError::from(pricing::mc::LocalVolError::GridAllocationFailed {
+            nodes: usize::MAX,
+        });
+        assert_eq!(classify(&grid), ("resource_limit", Some("time_grid"), None));
         let numerical = pricing::mc::lsv::LsvError::NonFiniteState {
             time_index: 0,
             path: 2,
