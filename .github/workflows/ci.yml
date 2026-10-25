@@ -325,6 +325,9 @@ jobs:
       - name: Check provider shard coverage and CI plan
         run: python -m unittest discover -s scripts -p 'test_provider_shards.py' -v
 
+      - name: Check native debugger failure propagation
+        run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v
+
       - name: Check wheel API signature validation
         run: python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v
 
@@ -595,10 +598,14 @@ jobs:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist
 
+      - name: Verify native debugger on this macOS runner
+        if: runner.os == 'macOS'
+        run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v
+
       - name: Run installed-wheel validation selection
         env:
           RUST_BACKTRACE: full
-        run: python scripts/smoke_test_wheel.py --phase validation ${{ matrix.option }} ${{ matrix.selection }} --report-directory wheel-validation-reports
+        run: python scripts/smoke_test_wheel.py --phase validation ${{ matrix.option }} ${{ matrix.selection }} --report-directory wheel-validation-reports ${{ runner.os == 'macOS' && '--native-debugger lldb' || '' }}
 
       - name: Collect available macOS Python crash reports
         if: always() && runner.os == 'macOS'
