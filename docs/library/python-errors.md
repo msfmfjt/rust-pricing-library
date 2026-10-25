@@ -35,13 +35,22 @@ coordinates identify the affected block, such as `/risks/1`, because shape and
 identity checks can involve several fields. There is no `/report` container in
 either report v1 or v2. The exception's `field` and issue's `pointer` agree.
 
-Report issues retain the input's declared `schema_version` after bounded JSON
-validation and envelope decoding succeed. An invalid v1 report therefore reports
-version 1, even though successful reads are normalized to the current v2 writer.
+In `from_json`, Request, Result, PricingSpecification and ValuationReport issues
+retain the input's declared `schema_version` after bounded JSON validation and
+envelope decoding succeed. An invalid v1 document therefore reports version 1, even
+though successful reads are normalized to the current writer format.
 Unsupported versions also retain the supplied version. If syntax, duplicate
 members, resource limits or an invalid envelope prevent identifying the version,
-the integer issue field keeps its existing current-report fallback of 2; this
-fallback is not evidence that the rejected input declared v2.
+the integer issue field keeps its historical current-format fallback: 3 for
+Request/Result and 2 for Specification/Report. This fallback is not evidence
+that the rejected input declared that version. Task issues continue to identify
+the outer task's version, including failures in nested source documents.
+
+Rust callers can opt into the corresponding `parse_*_json_with_context` readers
+for Request, Result, Monte Carlo Result, Specification and ValuationReport.
+They return `WireParseError`, which retains an optional input version and the
+original typed `WireError`, message, pointer and error source. The original
+readers still return `WireError`; parsing, migration and acceptance are shared.
 
 ```python
 import rust_pricing as rp

@@ -52,8 +52,8 @@ pub use product_graph::{
 pub use specification::{
     current_pricing_task_schema, current_specification_schema, fingerprint_pricing_task,
     fingerprint_specification, parse_pricing_task_json, parse_specification_json,
-    pricing_task_to_json, pricing_task_to_pretty_json, specification_to_json,
-    specification_to_pretty_json,
+    parse_specification_json_with_context, pricing_task_to_json, pricing_task_to_pretty_json,
+    specification_to_json, specification_to_pretty_json,
 };
 pub use valuation_report::{
     current_valuation_report_schema, parse_valuation_report_json,
@@ -3984,8 +3984,20 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 }
 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let version = validate_envelope(text, DOCUMENT_REQUEST)?;
+    parse_request_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Parse the document while retaining its validated input-envelope version on failure.
+pub fn parse_request_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<PricingRequest, WireParseError> {
+    parse_document_with_context(input, limits, request_from_document)
+}
+
+fn request_from_document(text: &str, header: Envelope) -> Result<PricingRequest, WireError> {
+    let version = header.schema_version;
+    check_header(&header.document_kind, version, DOCUMENT_REQUEST)?;
     if serde_json::from_str::<Value>(text).map_err(json)?["product"]["type"] == "graph" {
         return Err(WireError::UnsupportedSchemaFeature {
             feature: "graph products require pricing_specification v2",
@@ -4049,8 +4061,20 @@ pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingReq
 }
 
 pub fn parse_result_json(input: &[u8], limits: JsonLimits) -> Result<PricingResult, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    parse_result_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Parse the document while retaining its validated input-envelope version on failure.
+pub fn parse_result_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<PricingResult, WireParseError> {
+    parse_document_with_context(input, limits, result_from_document)
+}
+
+fn result_from_document(text: &str, header: Envelope) -> Result<PricingResult, WireError> {
+    let version = header.schema_version;
+    check_header(&header.document_kind, version, DOCUMENT_RESULT)?;
     let current = match version {
         1 => ResultV3::from(ResultV2::from(
             serde_json::from_str::<ResultV1>(text).map_err(json)?,
@@ -4066,8 +4090,24 @@ pub fn parse_monte_carlo_result_json(
     input: &[u8],
     limits: JsonLimits,
 ) -> Result<MonteCarloPrice, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    parse_monte_carlo_result_json_with_context(input, limits)
+        .map_err(WireParseError::into_wire_error)
+}
+
+/// Parse the document while retaining its validated input-envelope version on failure.
+pub fn parse_monte_carlo_result_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<MonteCarloPrice, WireParseError> {
+    parse_document_with_context(input, limits, monte_carlo_result_from_document)
+}
+
+fn monte_carlo_result_from_document(
+    text: &str,
+    header: Envelope,
+) -> Result<MonteCarloPrice, WireError> {
+    let version = header.schema_version;
+    check_header(&header.document_kind, version, DOCUMENT_RESULT)?;
     let mut current = match version {
         1 => ResultV3::from(ResultV2::from(
             serde_json::from_str::<ResultV1>(text).map_err(json)?,
@@ -4362,10 +4402,24 @@ fn json(error: serde_json::Error) -> WireError {
     WireError::Json(error.to_string())
 }
 
-fn validate_envelope(text: &str, expected: &'static str) -> Result<u32, WireError> {
-    let envelope: Envelope = serde_json::from_str(text).map_err(json)?;
-    check_header(&envelope.document_kind, envelope.schema_version, expected)?;
-    Ok(envelope.schema_version)
+fn parse_document_with_context<T>(
+    input: &[u8],
+    limits: JsonLimits,
+    parse: impl FnOnce(&str, Envelope) -> Result<T, WireError>,
+) -> Result<T, WireParseError> {
+    let without_context = |error| WireParseError {
+        error,
+        schema_version: None,
+    };
+    let text = validate_and_decode(input, limits).map_err(without_context)?;
+    let header: Envelope = serde_json::from_str(text)
+        .map_err(json)
+        .map_err(without_context)?;
+    let schema_version = header.schema_version;
+    parse(text, header).map_err(|error| WireParseError {
+        error,
+        schema_version: Some(schema_version),
+    })
 }
 
 fn check_header(kind: &str, version: u32, expected: &'static str) -> Result<(), WireError> {

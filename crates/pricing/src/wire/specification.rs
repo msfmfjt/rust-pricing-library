@@ -449,8 +449,21 @@ pub fn parse_specification_json(
     input: &[u8],
     limits: JsonLimits,
 ) -> Result<PricingSpecification, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let header: Envelope = serde_json::from_str(text).map_err(json)?;
+    parse_specification_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Parse a specification while retaining its input-envelope version on failure.
+pub fn parse_specification_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<PricingSpecification, WireParseError> {
+    parse_document_with_context(input, limits, specification_from_document)
+}
+
+fn specification_from_document(
+    text: &str,
+    header: Envelope,
+) -> Result<PricingSpecification, WireError> {
     if header.document_kind != KIND {
         return Err(WireError::WrongDocumentKind {
             expected: KIND,

@@ -52,8 +52,7 @@ use pricing::{
     VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
     VegaKtResultUnit, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, WireError,
     current_request_schema, current_result_schema, fingerprint_request, monte_carlo_result_to_json,
-    monte_carlo_result_to_pretty_json, parse_monte_carlo_result_json, parse_request_json,
-    parse_result_json, request_to_json, request_to_pretty_json,
+    monte_carlo_result_to_pretty_json, request_to_json, request_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -110,6 +109,13 @@ impl PyValidationIssue {
 
     fn result_document_kind() -> &'static str {
         pricing::core::DocumentKind::PricingResult.as_str()
+    }
+
+    fn with_input_version(mut self, version: Option<u32>) -> Self {
+        if let Some(version) = version {
+            self.schema_version = version;
+        }
+        self
     }
 
     fn request_wire(error: &WireError) -> Self {
@@ -300,9 +306,15 @@ impl PyPricingRequest {
     /// Parse and validate a versioned pricing-request JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        parse_request_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+        pricing::parse_request_json_with_context(json.as_bytes(), pricing::JsonLimits::DEFAULT)
             .map(|inner| Self { inner })
-            .map_err(|error| validation_exception(py, PyValidationIssue::request_wire(&error)))
+            .map_err(|error| {
+                validation_exception(
+                    py,
+                    PyValidationIssue::request_wire(error.wire_error())
+                        .with_input_version(error.schema_version()),
+                )
+            })
     }
 
     fn to_json(&self) -> PyResult<String> {
@@ -1206,20 +1218,32 @@ impl PyPricingResult {
     /// Parse and validate a versioned pricing-result JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        parse_monte_carlo_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .or_else(|rich_error| {
-                if matches!(
-                    &rich_error,
-                    WireError::DomainAt { pointer, .. } if pointer == "/monte_carlo"
-                ) {
-                    parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-                        .map(monte_carlo_price_from_result)
-                } else {
-                    Err(rich_error)
-                }
-            })
-            .map(|inner| Self { inner })
-            .map_err(|error| validation_exception(py, PyValidationIssue::result_wire(&error)))
+        pricing::parse_monte_carlo_result_json_with_context(
+            json.as_bytes(),
+            pricing::JsonLimits::DEFAULT,
+        )
+        .or_else(|rich_error| {
+            if matches!(
+                rich_error.wire_error(),
+                WireError::DomainAt { pointer, .. } if pointer == "/monte_carlo"
+            ) {
+                pricing::parse_result_json_with_context(
+                    json.as_bytes(),
+                    pricing::JsonLimits::DEFAULT,
+                )
+                .map(monte_carlo_price_from_result)
+            } else {
+                Err(rich_error)
+            }
+        })
+        .map(|inner| Self { inner })
+        .map_err(|error| {
+            validation_exception(
+                py,
+                PyValidationIssue::result_wire(error.wire_error())
+                    .with_input_version(error.schema_version()),
+            )
+        })
     }
 
     #[getter]
