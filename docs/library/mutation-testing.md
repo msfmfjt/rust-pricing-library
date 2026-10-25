@@ -223,6 +223,26 @@ Regenerate the independent references without extra Python packages:
 python scripts/generate_ssvi_phi_references.py
 ```
 
+The [density-factor follow-up](../../design/validation/mutation-density-2026-10-25.md)
+tests `durrleman_density_factor` with exact rational references, derivative
+validation, zero-boundary neighbors and overflow errors. Its comparison uses
+the same generated mutation inventory before and after adding tests; production
+arithmetic and tolerances are unchanged.
+
+The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
+retains the unresolved final range-guard survivor. A bounded comparison of the
+actual source with its single logical mutation found no distinguishing input;
+this is neither an independent accuracy oracle nor a proof of equivalence.
+Reproduce it with the pinned Rust toolchain and Python's standard library:
+
+```bash
+python scripts/probe_fractional_ou_guard.py --output /tmp/fou-guard-probe
+```
+
+Use a new output directory. The probe retains input/output bits for both default
+and optimized builds, source copies and hashes. Its samples do not change the
+generated-mutation score, and the survivor has no waiver or exclusion.
+
 The normal-tail and fractional-OU unit tests embed independent high-precision
 reference values. To regenerate those values in a development Python environment:
 

@@ -532,6 +532,154 @@ fn validate_butterfly_bounds(
 mod tests {
     use super::*;
 
+    fn density_variance(w: f64, slope: f64, curvature: f64) -> TotalVarianceDerivatives {
+        TotalVarianceDerivatives {
+            total_variance: w,
+            log_moneyness_derivative: slope,
+            log_moneyness_second_derivative: curvature,
+            time_derivative: 0.25,
+            theta: 0.25,
+            theta_derivative: 0.125,
+            theta_region: ThetaRegion::Interpolated,
+        }
+    }
+
+    #[test]
+    fn density_factor_matches_exact_quadratic_variance_references() {
+        // Local quadratic variance jets; exact rational evaluation of the
+        // Durrleman expression gives dyadic results without rounding ambiguity.
+        for (w, slope, curvature, k, expected) in [
+            (0.25, 0.125, 0.0625, 0.5, 799.0 / 1024.0),
+            (0.25, 0.125, 0.0625, -0.5, 1311.0 / 1024.0),
+            (1.0, -0.25, 0.5, 0.25, 1325.0 / 1024.0),
+            (4.0, 0.5, -0.25, 1.0, 185.0 / 256.0),
+            (0.0625, -0.0625, 0.125, -0.25, 3327.0 / 4096.0),
+            (0.5, 0.0, 0.5, 2.0, 1.25),
+        ] {
+            assert_eq!(
+                durrleman_density_factor(1.25, k, density_variance(w, slope, curvature)),
+                Ok(expected),
+                "w={w}, w_k={slope}, w_kk={curvature}, k={k}"
+            );
+        }
+        for w in [0.0625, 0.25, 1.0, 4.0] {
+            for k in [-2.0, 0.0, 2.0] {
+                assert_eq!(
+                    durrleman_density_factor(1.25, k, density_variance(w, 0.0, 0.0)),
+                    Ok(1.0),
+                    "flat total variance has unit density factor"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn density_factor_rejects_invalid_variance_with_query_context() {
+        let time = 1.25_f64;
+        let k = -0.375_f64;
+        for w in [
+            0.0_f64,
+            -0.0,
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                durrleman_density_factor(time, k, density_variance(w, 0.125, 0.0625)),
+                Err(MarketError::NonPositiveSurfaceValue {
+                    field: "total_variance",
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: w.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn density_factor_checks_both_derivatives_before_arithmetic() {
+        let time = 1.25_f64;
+        let k = -0.375_f64;
+        for bad in [
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            for (slope, curvature, field) in [
+                (bad, 0.0625, "log_moneyness_derivative"),
+                (0.125, bad, "log_moneyness_second_derivative"),
+                (bad, bad, "log_moneyness_derivative"),
+            ] {
+                assert_eq!(
+                    durrleman_density_factor(time, k, density_variance(0.25, slope, curvature)),
+                    Err(MarketError::NonFiniteSurfaceValue {
+                        field,
+                        time_bits: time.to_bits(),
+                        log_moneyness_bits: k.to_bits(),
+                        value_bits: bad.to_bits(),
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn density_factor_distinguishes_zero_and_positive_boundary() {
+        let time = 1.25_f64;
+        let k = -0.375_f64;
+        for (curvature, expected) in [((-2.0_f64).next_down(), -f64::EPSILON), (-2.0, 0.0)] {
+            assert_eq!(
+                durrleman_density_factor(time, k, density_variance(0.25, 0.0, curvature)),
+                Err(MarketError::NonPositiveSurfaceValue {
+                    field: "density_factor",
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: expected.to_bits(),
+                })
+            );
+        }
+        assert_eq!(
+            durrleman_density_factor(time, k, density_variance(0.25, 0.0, (-2.0_f64).next_up())),
+            Ok(f64::EPSILON / 2.0)
+        );
+    }
+
+    #[test]
+    fn density_factor_rejects_nonfinite_computed_results() {
+        let time = 1.25_f64;
+        for (k, slope, expected) in [
+            (f64::MAX, 1.0, f64::INFINITY),
+            (0.0, f64::MAX, f64::NEG_INFINITY),
+        ] {
+            assert_eq!(
+                durrleman_density_factor(time, k, density_variance(0.25, slope, 0.0)),
+                Err(MarketError::NonPositiveSurfaceValue {
+                    field: "density_factor",
+                    time_bits: time.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: expected.to_bits(),
+                })
+            );
+        }
+        let error = durrleman_density_factor(time, 1.0, density_variance(0.25, f64::MAX, 0.0))
+            .expect_err("overflowed positive and negative terms must not return NaN success");
+        match error {
+            MarketError::NonPositiveSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            } => {
+                assert_eq!(field, "density_factor");
+                assert_eq!(time_bits, time.to_bits());
+                assert_eq!(log_moneyness_bits, 1.0_f64.to_bits());
+                assert!(f64::from_bits(value_bits).is_nan());
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
     fn assert_phi_reference(actual: f64, expected: f64) {
         let relative_error = ((actual - expected) / expected).abs();
         assert!(
