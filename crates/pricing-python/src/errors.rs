@@ -329,8 +329,16 @@ fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
             _ => ("executor_build_error", None, None),
         };
     }
-    if error.is::<pricing::mc::ExecutionError>() {
-        return ("resource_limit", Some("reduction_blocks"), None);
+    if let Some(e) = error.downcast_ref::<pricing::mc::ExecutionError>() {
+        use pricing::mc::ExecutionError as E;
+        let field = match e {
+            E::TooManyReductionBlocks { .. } | E::ReductionBlockAllocationFailed { .. } => {
+                Some("reduction_blocks")
+            }
+            E::VectorStatisticsAllocationFailed { .. } => Some("statistics_components"),
+            _ => None,
+        };
+        return ("resource_limit", field, None);
     }
     error
         .source()
@@ -341,6 +349,37 @@ fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn executor_resource_errors_preserve_the_requested_dimension_through_task_sources() {
+        use pricing::mc::ExecutionError;
+        for (error, field) in [
+            (
+                ExecutionError::TooManyReductionBlocks { count: u64::MAX },
+                "reduction_blocks",
+            ),
+            (
+                ExecutionError::ReductionBlockAllocationFailed { count: u64::MAX },
+                "reduction_blocks",
+            ),
+            (
+                ExecutionError::VectorStatisticsAllocationFailed {
+                    components: usize::MAX,
+                },
+                "statistics_components",
+            ),
+        ] {
+            assert_eq!(classify(&error), ("resource_limit", Some(field), None));
+            let task = pricing::PricingTaskError::from(MonteCarloError::from(
+                pricing::mc::TryExecutionError::<MonteCarloError>::Execution(error),
+            ));
+            let metadata = ErrorMetadata::from_error(&task, Stage::Evaluate);
+            assert_eq!(metadata.code, "resource_limit");
+            assert_eq!(metadata.field.as_deref(), Some(field));
+            assert_eq!(metadata.stage, Stage::Evaluate);
+            assert_eq!(metadata.causes.last(), Some(&error.to_string()));
+        }
+    }
 
     #[test]
     fn nested_calibration_errors_preserve_code_stage_and_causes() {

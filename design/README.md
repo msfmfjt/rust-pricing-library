@@ -96,6 +96,7 @@ documents the public API migration.
 - [Native wheel backtrace review, 2026-10-25](validation/native-wheel-backtrace-review-2026-10-25.md)
 - [Brownian-bridge numerical-domain review, 2026-10-25](validation/brownian-bridge-domain-review-2026-10-25.md)
 - [LLDB launch and native-crash follow-up, 2026-10-26](validation/lldb-launch-review-2026-10-26.md)
+- [Dynamic executor vector allocation review, 2026-10-26](validation/executor-vector-resource-review-2026-10-26.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump
