@@ -238,6 +238,54 @@ class NativeDebuggerTests(unittest.TestCase):
         validate.assert_called_once_with(Path("python"), "all", wheel.SHARD_NAMES[0], Path("reports"), "lldb")
 
 
+@unittest.skipUnless(sys.platform == "darwin" or
+                     (sys.platform == "linux" and shutil.which("lldb")),
+                     "real LLDB Python API required; mandatory on macOS")
+class LldbLaunchInfoTests(unittest.TestCase):
+    def test_real_launch_info_preserves_symlinked_executable_and_argv0(self):
+        executable = shutil.which("lldb")
+        self.assertIsNotNone(executable)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            environment = root / "quoted 'venv' `literal` path"
+            venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
+            python = environment / "bin/python"
+            self.assertTrue(python.is_symlink())
+            command = [str(python), "-c", "pass", "", "line\n日本語"]
+            observed = root / "launch-info.json"
+            # Use the installed LLDB's real SBFileSpec and SBLaunchInfo, with
+            # target/process handles substituted; no ptrace permission is needed.
+            code = f"""
+import importlib.util, json, os
+from pathlib import Path
+from types import SimpleNamespace
+spec = importlib.util.spec_from_file_location('wheel_native', {str(Path(native.__file__).resolve())!r})
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+process = SimpleNamespace(GetSTDOUT=lambda size: '', GetSTDERR=lambda size: '')
+def observe(info, error):
+    file = info.GetExecutableFile()
+    Path({str(observed)!r}).write_text(json.dumps({{
+        'executable': os.path.join(file.GetDirectory(), file.GetFilename()),
+        'argv': [info.GetArgumentAtIndex(i) for i in range(info.GetNumArguments())],
+    }}))
+    return process
+target = SimpleNamespace(IsValid=lambda: True, Launch=observe)
+debugger = SimpleNamespace(CreateTarget=lambda path: target,
+                          SetSelectedTarget=lambda target: None, SetAsync=lambda value: None)
+module.capture = lambda *args: None
+module.launch(debugger, {command!r}, 'unused.json', 'current')
+"""
+            script = f"script exec(bytes.fromhex('{code.encode('utf-8').hex()}').decode('utf-8'), {{}})"
+            result = subprocess.run([executable, "--batch", "--no-lldbinit", "-o", script],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(observed.is_file(), result.stdout + result.stderr)
+            actual = json.loads(observed.read_text())
+            self.assertEqual(actual["executable"], str(python))
+            self.assertEqual(actual["argv"], command)
+
+
 @unittest.skipUnless(sys.platform == "darwin", "mandatory real LLDB integration on macOS")
 class MacNativeDebuggerTests(unittest.TestCase):
     def setUp(self):
@@ -246,22 +294,35 @@ class MacNativeDebuggerTests(unittest.TestCase):
     def test_real_child_exit_and_literal_arguments(self):
         values = ["spaces 'quotes' \"double\" $HOME $(exit 9) `exit 9` * 日本語", "", "line\nback\\slash"]
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            # macOS framework Python canonicalizes the launcher's directory.
+            # tempfile can return /var while the same directory lives in
+            # /private/var. Canonicalize the fixture root, never bin/python:
+            # resolving that symlink would select the base interpreter.
+            root = Path(directory).resolve()
             environment = root / "quoted 'venv' `literal` path"
             venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
+            python = str(environment / "bin/python")
+            direct_prefix = subprocess.check_output(
+                [python, "-c", "import sys; print(sys.prefix)"], text=True).strip()
+            self.assertEqual(direct_prefix, str(environment), "direct venv launch precondition")
             for exit_code in (0, 7):
                 with self.subTest(exit_code=exit_code):
                     marker = root / f"entered-{exit_code}"
-                    code = (f"import sys, os; from pathlib import Path; assert sys.argv[1:] == {values!r}; "
-                            f"assert sys.prefix == {str(environment)!r}; "
-                            f"assert os.getcwd() == {str(Path.cwd())!r}; "
-                            "assert os.environ['WHEEL_NATIVE_ENV_TEST'] == 'inherited'; "
-                            f"p = Path({str(marker)!r}); p.write_text(p.read_text() + 'entered' if p.exists() else 'entered'); "
-                            "print('wheel-child-stdout', flush=True); print('wheel-child-stderr', file=sys.stderr, flush=True); "
-                            f"sys.exit({exit_code})")
+                    code = "\n".join([
+                        "import sys, os; from pathlib import Path",
+                        f"assert sys.argv[1:] == {values!r}, ('argv', sys.argv[1:])",
+                        f"assert sys.prefix == {str(environment)!r}, ('venv_prefix', sys.prefix)",
+                        f"assert os.getcwd() == {str(Path.cwd())!r}, ('cwd', os.getcwd())",
+                        "assert os.environ['WHEEL_NATIVE_ENV_TEST'] == 'inherited', 'environment'",
+                        f"p = Path({str(marker)!r})",
+                        "p.write_text(p.read_text() + 'entered' if p.exists() else 'entered')",
+                        "print('wheel-child-stdout', flush=True)",
+                        "print('wheel-child-stderr', file=sys.stderr, flush=True)",
+                        f"sys.exit({exit_code})",
+                    ])
                     with patch.dict(os.environ, WHEEL_NATIVE_ENV_TEST="inherited"):
                         result, metadata = native.run(
-                            [str(environment / "bin/python"), "-c", code, *values], root, f"exit{exit_code}")
+                            [python, "-c", code, *values], root, f"exit{exit_code}")
                     self.assertEqual(result, exit_code, metadata)
                     self.assertEqual(metadata["process"]["state"], "exited")
                     self.assertEqual(marker.read_text(), "entered")
