@@ -1,16 +1,49 @@
 """Capture native wheel failures with LLDB; a debugger exit is not a test exit.
 
 Imported both by the wheel runner and LLDB's own embedded Python interpreter.
-The latter imports lldb only inside capture(), so normal package checks do not
+The latter imports lldb only inside debugger callbacks, so package checks do not
 require debugger Python bindings in the wheel's environment.
 """
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import uuid
+
+
+def launch(debugger, command: list[str], destination: str, request_id: str) -> None:
+    """Launch literal argv once, then observe exit or a genuine native stop."""
+    import lldb
+
+    target = debugger.CreateTarget(command[0])
+    if not target.IsValid():
+        raise RuntimeError("LLDB could not create the wheel process target")
+    debugger.SetSelectedTarget(target)
+    debugger.SetAsync(False)
+    info = lldb.SBLaunchInfo(command[1:])
+    # CreateTarget resolves symlinks. Retain the venv executable path and argv0
+    # explicitly so Python discovers the same environment as a direct launch.
+    info.SetExecutableFile(lldb.SBFileSpec(command[0]), True)
+    info.SetWorkingDirectory(os.getcwd())
+    info.SetEnvironmentEntries([f"{key}={value}" for key, value in os.environ.items()], False)
+    info.SetLaunchFlags(lldb.eLaunchFlagDebug)
+    info.SetShellExpandArguments(False)
+    info.SetDetachOnError(False)
+    error = lldb.SBError()
+    process = target.Launch(info, error)
+    # SBTarget.Launch waits synchronously. Retain any output not already emitted
+    # by LLDB's IO handler, including Python's fault-handler diagnostics.
+    for read in (process.GetSTDOUT, process.GetSTDERR):
+        while output := read(4096):
+            print(output, end="", flush=True)
+    if error.Fail():
+        message = f"LLDB could not launch the wheel process: {error.GetCString()}"
+        print(message, flush=True)
+        raise RuntimeError(message)
+    capture(debugger, destination, request_id)
 
 
 def capture(debugger, destination: str, request_id: str) -> None:
@@ -84,22 +117,26 @@ def run(command: list[str], report_directory: Path, name: str) -> tuple[int, dic
     log_path = directory / f"{name}.log"
     request_id = uuid.uuid4().hex
     module_path = str(Path(__file__).resolve())
-    # Python literals protect paths inside LLDB's embedded interpreter. Launch
-    # the original argv without a shell or LLDB's shell-expanding `run` alias.
+    # LLDB's CLI turns trailing argv into commands and evaluates backticks even
+    # when shell expansion is disabled. Transport only hex into that parser;
+    # the embedded Python API receives the original strings as data.
     initialize = (
-        "script import importlib.util; "
+        "import importlib.util; "
         f"s = importlib.util.spec_from_file_location('wheel_native_debugger', {module_path!r}); "
         "wheel_native_debugger = importlib.util.module_from_spec(s); "
-        "s.loader.exec_module(wheel_native_debugger)"
+        "s.loader.exec_module(wheel_native_debugger); "
+        f"wheel_native_debugger.launch(lldb.debugger, {command!r}, "
+        f"{str(result_path)!r}, {request_id!r})"
     )
-    finish = f"script wheel_native_debugger.capture(lldb.debugger, {str(result_path)!r}, {request_id!r})"
+    initialize = f"script exec(bytes.fromhex('{initialize.encode('utf-8').hex()}').decode('utf-8'))"
     arguments = [
-        executable, "--batch", "--no-lldbinit", "-o", initialize,
+        executable, "--batch", "--no-lldbinit",
         "-o", "settings set auto-confirm true",
         "-o", "settings set target.detach-on-error false",
-        "-o", "settings set target.arg0 " + json.dumps(command[0], ensure_ascii=False),
-        "-o", "process launch --disable-aslr false --shell-expand-args false",
-        "-o", finish, "-o", "quit", "-k", finish, "-k", "quit", "--", *command,
+        # macOS framework Python execs its actual interpreter during startup.
+        # Do not stop on that handoff; fatal signal/exception stops still fail.
+        "-o", "settings set target.process.stop-on-exec false",
+        "-o", initialize, "-o", "quit",
     ]
     with log_path.open("w", encoding="utf-8") as log:
         with subprocess.Popen(arguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
