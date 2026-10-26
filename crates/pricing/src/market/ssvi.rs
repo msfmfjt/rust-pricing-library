@@ -795,6 +795,362 @@ mod tests {
         }
     }
 
+    fn variance_reference_surface(phi: PhiSpec, rho: f64) -> StandardSsvi {
+        StandardSsvi::new(
+            ThetaPchip::new(vec![1.0, 2.0], vec![0.25, 0.5], 0.125).unwrap(),
+            rho,
+            phi,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn standard_variance_matches_independent_references() {
+        // Centered differences of the scalar formula at 100/140 Decimal digits.
+        // See scripts/generate_ssvi_variance_references.py; all literals are frozen.
+        for (phi, rho, time, k, theta, theta_t, region, expected) in [
+            (
+                PhiSpec::PowerLaw {
+                    eta: 0.75,
+                    gamma: 0.25,
+                },
+                -0.5,
+                0.25,
+                -1.0,
+                0.0625,
+                0.25,
+                ThetaRegion::ShortExtrapolated,
+                (
+                    0.11984662220909575,
+                    -0.06327328994687283,
+                    0.005064753121360882,
+                    0.4049473241930032,
+                ),
+            ),
+            (
+                PhiSpec::PowerLaw {
+                    eta: 0.75,
+                    gamma: 0.25,
+                },
+                -0.5,
+                1.0,
+                0.5,
+                0.25,
+                0.25,
+                ThetaRegion::Knot,
+                (
+                    0.2054058509281387,
+                    -0.06271964086943062,
+                    0.11557836635384702,
+                    0.21794977910202482,
+                ),
+            ),
+            (
+                PhiSpec::PowerLaw {
+                    eta: 0.75,
+                    gamma: 0.25,
+                },
+                0.5,
+                1.5,
+                -0.5,
+                0.375,
+                0.25,
+                ThetaRegion::Interpolated,
+                (
+                    0.316118139487536,
+                    0.09059948715674868,
+                    0.11972808680607172,
+                    0.22447262134877377,
+                ),
+            ),
+            (
+                PhiSpec::PowerLaw {
+                    eta: 1.0,
+                    gamma: 0.5,
+                },
+                0.0,
+                2.0,
+                2.0,
+                0.5,
+                0.25,
+                ThetaRegion::Knot,
+                (
+                    0.8791528696058958,
+                    0.26490647141300877,
+                    0.02091366879576385,
+                    0.2629721205276087,
+                ),
+            ),
+            (
+                PhiSpec::HestonLike { lambda: 1.0 },
+                -0.5,
+                1.75,
+                0.5,
+                0.4375,
+                0.25,
+                ThetaRegion::Interpolated,
+                (
+                    0.3942808192346176,
+                    -0.07701107866089706,
+                    0.040945855445685755,
+                    0.2282851928842171,
+                ),
+            ),
+            (
+                PhiSpec::HestonLike { lambda: 2.0 },
+                0.5,
+                3.5,
+                -2.0,
+                0.6875,
+                0.125,
+                ThetaRegion::LongExtrapolated,
+                (
+                    0.5325947496499578,
+                    0.03581650984544598,
+                    0.04151470739451481,
+                    0.10157206409926572,
+                ),
+            ),
+            (
+                PhiSpec::HestonLike { lambda: 4.0 },
+                0.0,
+                1.0,
+                1.0,
+                0.25,
+                0.25,
+                ThetaRegion::Knot,
+                (
+                    0.25819014152921405,
+                    0.015876654054821707,
+                    0.013984110499552657,
+                    0.25371739957870143,
+                ),
+            ),
+            (
+                PhiSpec::HestonLike { lambda: 0.5 },
+                0.5,
+                0.25,
+                -0.5,
+                0.0625,
+                0.25,
+                ThetaRegion::ShortExtrapolated,
+                (
+                    0.05557499584949597,
+                    0.012061425189948084,
+                    0.007817206292633818,
+                    0.22254995707465489,
+                ),
+            ),
+        ] {
+            let result = variance_reference_surface(phi, rho)
+                .total_variance_derivatives(time, k)
+                .unwrap();
+            for (field, actual, reference) in [
+                ("w", result.total_variance, expected.0),
+                ("w_k", result.log_moneyness_derivative, expected.1),
+                ("w_kk", result.log_moneyness_second_derivative, expected.2),
+                ("w_t", result.time_derivative, expected.3),
+            ] {
+                assert!(
+                    actual.is_finite() && (actual - reference).abs() <= 5.0e-13 * reference.abs(),
+                    "{field}: actual={actual:.17e}, expected={reference:.17e}, phi={phi:?}, time={time}, k={k}"
+                );
+            }
+            assert_eq!(result.theta, theta);
+            assert_eq!(result.theta_derivative, theta_t);
+            assert_eq!(result.theta_region, region);
+        }
+    }
+
+    #[test]
+    fn standard_variance_reflects_moneyness_with_correlation() {
+        for phi in [
+            PhiSpec::PowerLaw {
+                eta: 0.75,
+                gamma: 0.25,
+            },
+            PhiSpec::HestonLike { lambda: 1.0 },
+        ] {
+            let left = variance_reference_surface(phi, -0.5);
+            let right = variance_reference_surface(phi, 0.5);
+            for time in [0.25, 1.0, 1.5, 2.0, 3.5] {
+                for k in [-2.0, -0.25, 0.0, 0.25, 2.0] {
+                    let a = left.total_variance_derivatives(time, k).unwrap();
+                    let b = right.total_variance_derivatives(time, -k).unwrap();
+                    assert_eq!(a.total_variance, b.total_variance);
+                    assert_eq!(a.log_moneyness_derivative, -b.log_moneyness_derivative);
+                    assert_eq!(
+                        a.log_moneyness_second_derivative,
+                        b.log_moneyness_second_derivative
+                    );
+                    assert_eq!(a.time_derivative, b.time_derivative);
+                    assert_eq!(a.theta, b.theta);
+                    assert_eq!(a.theta_derivative, b.theta_derivative);
+                    assert_eq!(a.theta_region, b.theta_region);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn standard_variance_preserves_atm_values_and_flat_time_derivative() {
+        for phi in [
+            PhiSpec::PowerLaw {
+                eta: 0.75,
+                gamma: 0.25,
+            },
+            PhiSpec::HestonLike { lambda: 1.0 },
+        ] {
+            let rising = variance_reference_surface(phi, 0.0);
+            for (time, theta, theta_t) in [
+                (0.25, 0.0625, 0.25),
+                (1.5, 0.375, 0.25),
+                (3.5, 0.6875, 0.125),
+            ] {
+                for k in [0.0, -0.0] {
+                    let result = rising.total_variance_derivatives(time, k).unwrap();
+                    assert_eq!(result.total_variance, theta);
+                    assert_eq!(result.log_moneyness_derivative, 0.0);
+                    assert_eq!(result.time_derivative, theta_t);
+                    assert!(result.log_moneyness_second_derivative > 0.0);
+                }
+            }
+            let flat = StandardSsvi::new(
+                ThetaPchip::new(vec![1.0, 2.0], vec![0.25, 0.25], 0.0).unwrap(),
+                0.5,
+                phi,
+                SurfaceValidationTolerance::local_vol_vegakt_v1(),
+            )
+            .unwrap();
+            for time in [1.0, 1.5, 2.0, 3.5] {
+                for k in [-1.0, 0.0, 1.0] {
+                    let result = flat.total_variance_derivatives(time, k).unwrap();
+                    assert_eq!(result.theta, 0.25);
+                    assert_eq!(result.theta_derivative, 0.0);
+                    assert_eq!(result.time_derivative, 0.0);
+                    assert!(result.total_variance > 0.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn standard_variance_query_errors_preserve_coordinate_and_order() {
+        let surface = variance_reference_surface(PhiSpec::HestonLike { lambda: 1.0 }, 0.0);
+        let nan = f64::from_bits(0x7ff8_0000_0000_1234);
+        for time in [
+            0.0,
+            -0.0,
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            nan,
+        ] {
+            for k in [0.25, nan] {
+                assert_eq!(
+                    surface.total_variance_derivatives(time, k),
+                    Err(MarketError::InvalidSurfaceQuery {
+                        coordinate: "time",
+                        bits: time.to_bits()
+                    })
+                );
+            }
+        }
+        for k in [f64::INFINITY, f64::NEG_INFINITY, nan] {
+            assert_eq!(
+                surface.total_variance_derivatives(1.0, k),
+                Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "log_moneyness",
+                    bits: k.to_bits()
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn standard_variance_propagates_curve_and_phi_errors() {
+        let surface = StandardSsvi::new(
+            ThetaPchip::new(vec![1.0, 2.0], vec![0.25, 0.5], f64::MAX).unwrap(),
+            0.0,
+            PhiSpec::HestonLike { lambda: 1.0 },
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .unwrap();
+        assert_eq!(
+            surface.total_variance_derivatives(4.0, -0.5),
+            Err(MarketError::NonFiniteSurfaceValue {
+                field: "theta",
+                time_bits: 4.0_f64.to_bits(),
+                log_moneyness_bits: 0,
+                value_bits: f64::INFINITY.to_bits(),
+            })
+        );
+        let surface = variance_reference_surface(PhiSpec::HestonLike { lambda: 1.0 }, 0.0);
+        assert_eq!(
+            surface.total_variance_derivatives(f64::from_bits(1), -0.5),
+            Err(MarketError::InvalidSurfaceParameter {
+                parameter: "theta",
+                bits: 0.0_f64.to_bits()
+            })
+        );
+    }
+
+    #[test]
+    fn standard_variance_rejects_nonfinite_outputs_with_context() {
+        let surface = variance_reference_surface(PhiSpec::HestonLike { lambda: 1.0 }, 0.0);
+        for k in [-f64::MAX, f64::MAX] {
+            assert_eq!(
+                surface.total_variance_derivatives(1.0, k),
+                Err(MarketError::NonFiniteSurfaceValue {
+                    field: "total_variance",
+                    time_bits: 1.0_f64.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: f64::INFINITY.to_bits(),
+                })
+            );
+        }
+        let time = f64::MIN_POSITIVE;
+        let steep = StandardSsvi::new(
+            ThetaPchip::new(vec![time, 2.0 * time], vec![0.25, 0.5], 0.0).unwrap(),
+            0.0,
+            PhiSpec::HestonLike { lambda: 1.0 },
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .unwrap();
+        assert_eq!(
+            steep.total_variance_derivatives(time, 1024.0),
+            Err(MarketError::NonFiniteSurfaceValue {
+                field: "time_derivative",
+                time_bits: time.to_bits(),
+                log_moneyness_bits: 1024.0_f64.to_bits(),
+                value_bits: f64::INFINITY.to_bits(),
+            })
+        );
+    }
+
+    #[test]
+    fn standard_variance_rejects_underflowed_total_variance() {
+        let tiny = f64::from_bits(1);
+        let surface = StandardSsvi::new(
+            ThetaPchip::new(vec![1.0, 2.0], vec![tiny, tiny], 0.0).unwrap(),
+            0.75,
+            PhiSpec::HestonLike { lambda: 1.0 },
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .unwrap();
+        assert_eq!(
+            surface.total_variance_derivatives(1.0, -3.0),
+            Err(MarketError::NonPositiveSurfaceValue {
+                field: "total_variance",
+                time_bits: 1.0_f64.to_bits(),
+                log_moneyness_bits: (-3.0_f64).to_bits(),
+                value_bits: 0.0_f64.to_bits(),
+            })
+        );
+    }
+
     fn assert_forward_reference(field: &str, actual: f64, expected: f64) {
         let relative_error = ((actual - expected) / expected).abs();
         assert!(

@@ -95,6 +95,7 @@ documents the public API migration.
 - [Durrleman density-factor mutation coverage, 2026-10-25](validation/mutation-density-2026-10-25.md)
 - [Forward-call evaluation mutation coverage, 2026-10-25](validation/mutation-forward-call-2026-10-25.md)
 - [Surface tolerance and butterfly-bound mutation coverage, 2026-10-25](validation/mutation-surface-tolerance-2026-10-25.md)
+- [Standard SSVI variance-derivative mutation coverage, 2026-10-26](validation/mutation-ssvi-variance-2026-10-26.md)
 - [Fractional-OU range-guard investigation, 2026-10-25](validation/mutation-fou-guard-2026-10-25.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 

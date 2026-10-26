@@ -250,6 +250,17 @@ through every admissible phi family. Production arithmetic and tolerances are
 unchanged, and constructors omitted by the pinned generator are outside its
 mutation inventory.
 
+The [Standard SSVI variance follow-up](../../design/validation/mutation-ssvi-variance-2026-10-26.md)
+anchors variance and its log-moneyness/time derivatives to independently
+differenced scalar references, with separate reflection, ATM, interpolation
+metadata and typed-error contracts. Both comparison runs select the same 71
+generated operations. The reference generator varies precision and difference
+step together; agreement is a finite-panel check, not a whole-domain error bound.
+
+```bash
+python scripts/generate_ssvi_variance_references.py
+```
+
 The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
 retains the unresolved final range-guard survivor. A bounded comparison of the
 actual source with its single logical mutation found no distinguishing input;
