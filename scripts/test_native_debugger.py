@@ -56,17 +56,78 @@ class NativeDebuggerTests(unittest.TestCase):
                         patch.object(native.uuid, "uuid4", return_value=SimpleNamespace(hex="current")), \
                         patch.object(native.subprocess, "Popen", return_value=child) as launch, \
                         redirect_stdout(io.StringIO()):
-                    command = ["python", "-c", "print('literal $HOME')", "a b"]
+                    command = ["quoted `venv`/python", "-c", "print('literal $HOME')",
+                               "a b", "", "`exit 9` $(exit 9) * 日本語\nnext\\line"]
                     code, metadata = native.run(command, root, "probe")
                 self.assertEqual(code == 0, content == json.dumps(exited()))
                 self.assertEqual(metadata["debugger_returncode"], 0)
                 self.assertEqual(Path(metadata["log"]).read_text(), "debugger output\n")
                 args = launch.call_args.args[0]
-                self.assertEqual(args[args.index("--") + 1:], command)
-                self.assertIn("process launch --disable-aslr false --shell-expand-args false", args)
+                self.assertFalse(any("`" in arg or "$" in arg or "\n" in arg for arg in args))
+                self.assertNotIn("--", args)
+                self.assertIn("settings set target.process.stop-on-exec false", args)
                 self.assertIn("--no-lldbinit", args)
-                self.assertIn("-k", args)
                 self.assertNotIn("shell", launch.call_args.kwargs)
+                # Execute the bootstrap with a fake loader, checking that its
+                # data survives the actual transport through embedded Python.
+                callback = MagicMock()
+                module = SimpleNamespace(launch=callback)
+                spec = SimpleNamespace(loader=MagicMock())
+                debugger = object()
+                with patch("importlib.util.spec_from_file_location", return_value=spec), \
+                        patch("importlib.util.module_from_spec", return_value=module):
+                    script = next(arg for arg in args if arg.startswith("script "))
+                    exec(script.removeprefix("script "), {"lldb": SimpleNamespace(debugger=debugger)})
+                callback.assert_called_once_with(debugger, command, str(result.resolve()), "current")
+
+    def test_api_launch_preserves_venv_arguments_environment_and_child_output(self):
+        command = ["relative 'venv'/bin/python", "-c", "print('`literal`')", "", "line\n日本語"]
+        info, error, process, target, debugger = (MagicMock() for _ in range(5))
+        target.IsValid.return_value = True
+        target.Launch.return_value = process
+        debugger.CreateTarget.return_value = target
+        error.Fail.return_value = False
+        process.GetSTDOUT.side_effect = ["child stdout\n", ""]
+        process.GetSTDERR.side_effect = ["child stderr\n", ""]
+        lldb = SimpleNamespace(SBLaunchInfo=MagicMock(return_value=info),
+                               SBFileSpec=lambda value: value, SBError=lambda: error,
+                               eLaunchFlagDebug=2)
+        output = io.StringIO()
+        with patch.dict(sys.modules, lldb=lldb), patch.dict(os.environ, WHEEL_NATIVE_ENV_TEST="inherited"), \
+                patch.object(native, "capture") as capture, redirect_stdout(output):
+            native.launch(debugger, command, "result.json", "current")
+        lldb.SBLaunchInfo.assert_called_once_with(command[1:])
+        info.SetExecutableFile.assert_called_once_with(command[0], True)
+        info.SetWorkingDirectory.assert_called_once_with(os.getcwd())
+        self.assertIn("WHEEL_NATIVE_ENV_TEST=inherited", info.SetEnvironmentEntries.call_args.args[0])
+        info.SetLaunchFlags.assert_called_once_with(2)
+        info.SetShellExpandArguments.assert_called_once_with(False)
+        info.SetDetachOnError.assert_called_once_with(False)
+        debugger.SetAsync.assert_called_once_with(False)
+        target.Launch.assert_called_once_with(info, error)
+        process.Continue.assert_not_called()
+        process.Detach.assert_not_called()
+        capture.assert_called_once_with(debugger, "result.json", "current")
+        self.assertEqual(output.getvalue(), "child stdout\nchild stderr\n")
+
+    def test_api_launch_errors_do_not_record_a_success_or_retry(self):
+        for valid_target in (False, True):
+            with self.subTest(valid_target=valid_target):
+                target, debugger, error, info, process = (MagicMock() for _ in range(5))
+                target.IsValid.return_value = valid_target
+                debugger.CreateTarget.return_value = target
+                target.Launch.return_value = process
+                error.Fail.return_value = True
+                error.GetCString.return_value = "launch failed"
+                process.GetSTDOUT.return_value = process.GetSTDERR.return_value = ""
+                lldb = SimpleNamespace(SBLaunchInfo=lambda argv: info, SBFileSpec=lambda value: value,
+                                       SBError=lambda: error, eLaunchFlagDebug=2)
+                with patch.dict(sys.modules, lldb=lldb), patch.object(native, "capture") as capture, \
+                        redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "LLDB could not"):
+                    native.launch(debugger, ["python", "probe"], "result.json", "current")
+                self.assertEqual(target.Launch.call_count, int(valid_target))
+                capture.assert_not_called()
+                process.Continue.assert_not_called()
 
     def test_debugger_unavailable_and_launch_error_do_not_run_a_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -183,23 +244,41 @@ class MacNativeDebuggerTests(unittest.TestCase):
         self.assertIsNotNone(shutil.which("lldb"), "macOS wheel diagnostics require LLDB")
 
     def test_real_child_exit_and_literal_arguments(self):
-        value = "spaces 'quotes' \"double\" $HOME $(exit 9) `exit 9` * 日本語"
+        values = ["spaces 'quotes' \"double\" $HOME $(exit 9) `exit 9` * 日本語", "", "line\nback\\slash"]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            environment = root / "quoted 'venv' path"
+            environment = root / "quoted 'venv' `literal` path"
             venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
             for exit_code in (0, 7):
                 with self.subTest(exit_code=exit_code):
-                    code = (f"import sys, os; assert sys.argv[1] == {value!r}; "
+                    marker = root / f"entered-{exit_code}"
+                    code = (f"import sys, os; from pathlib import Path; assert sys.argv[1:] == {values!r}; "
                             f"assert sys.prefix == {str(environment)!r}; "
                             f"assert os.getcwd() == {str(Path.cwd())!r}; "
                             "assert os.environ['WHEEL_NATIVE_ENV_TEST'] == 'inherited'; "
+                            f"p = Path({str(marker)!r}); p.write_text(p.read_text() + 'entered' if p.exists() else 'entered'); "
+                            "print('wheel-child-stdout', flush=True); print('wheel-child-stderr', file=sys.stderr, flush=True); "
                             f"sys.exit({exit_code})")
                     with patch.dict(os.environ, WHEEL_NATIVE_ENV_TEST="inherited"):
                         result, metadata = native.run(
-                            [str(environment / "bin/python"), "-c", code, value], root, f"exit{exit_code}")
+                            [str(environment / "bin/python"), "-c", code, *values], root, f"exit{exit_code}")
                     self.assertEqual(result, exit_code, metadata)
                     self.assertEqual(metadata["process"]["state"], "exited")
+                    self.assertEqual(marker.read_text(), "entered")
+                    log = Path(metadata["log"]).read_text()
+                    self.assertIn("wheel-child-stdout", log)
+                    self.assertIn("wheel-child-stderr", log)
+
+    def test_real_exec_handoff_reaches_the_requested_child_exit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root / "exec-child"
+            child = f"from pathlib import Path; Path({str(marker)!r}).write_text('entered'); raise SystemExit(3)"
+            code = f"import os, sys; os.execv(sys.executable, [sys.executable, '-c', {child!r}])"
+            result, metadata = native.run([sys.executable, "-c", code], root, "exec-handoff")
+            self.assertEqual(result, 3, metadata)
+            self.assertEqual(metadata["process"]["state"], "exited")
+            self.assertEqual(marker.read_text(), "entered")
 
     def test_real_abort_and_trap_capture_native_stack_and_never_continue(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -207,15 +286,24 @@ class MacNativeDebuggerTests(unittest.TestCase):
             for name in ("SIGABRT", "SIGTRAP"):
                 with self.subTest(signal=name):
                     marker = root / f"continued-{name}"
+                    entered = root / f"entered-{name}"
                     code = ("import os, resource, signal; from pathlib import Path; "
                             "resource.setrlimit(resource.RLIMIT_CORE, (0, 0)); "
+                            f"Path({str(entered)!r}).write_text('before-signal'); "
                             f"os.kill(os.getpid(), signal.{name}); "
                             f"Path({str(marker)!r}).write_text('continued')")
                     result, metadata = native.run([sys.executable, "-c", code], root, name)
                     self.assertNotEqual(result, 0, metadata)
+                    self.assertTrue(entered.is_file(), metadata)
+                    self.assertEqual(entered.read_text(), "before-signal")
                     self.assertFalse(marker.exists())
                     self.assertIn(metadata["process"]["state"], ("stopped", "crashed"))
                     self.assertTrue(metadata["process"]["threads"])
+                    descriptions = [thread["stop_description"] or ""
+                                    for thread in metadata["process"]["threads"]]
+                    self.assertTrue(any(name in description or
+                                        (name == "SIGTRAP" and "EXC_BREAKPOINT" in description)
+                                        for description in descriptions), descriptions)
                     self.assertTrue(metadata["process"]["diagnostics"]["thread backtrace all"])
                     self.assertIn("frame #0", Path(metadata["log"]).read_text())
 

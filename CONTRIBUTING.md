@@ -120,9 +120,11 @@ the native crash remains a failed process. Windows uses its built-in fault and
 exception handlers. An absent native crash report does not identify the cause.
 
 macOS wheel selections also use `--native-debugger lldb`, which requires a
-report directory. LLDB launches the original command once, with argument shell
-expansion disabled, and captures native thread backtraces, registers, image
-identities and stop reasons before a stopped process is terminated. Diagnostic
+report directory. LLDB launches the original command once through its Python
+API, retaining literal arguments and the venv executable path. Shell argument
+expansion is disabled. Startup `exec` handoffs do not stop the process; native
+signals and exceptions still do. The runner captures thread backtraces,
+registers, image identities and stop reasons before a stopped process is terminated. Diagnostic
 logs and process observations are saved under `native-debugger/` in the same
 artifact. A zero debugger exit alone cannot pass: a current process record must
 confirm normal child exit zero, and the debugger must also succeed. Missing,
@@ -130,7 +132,9 @@ stale or malformed records and debugger launch failures fail the job. Crashes
 are not resumed or retried. Ordinary positive child exit codes are preserved;
 a native stop without a normal exit has gate status 1 and its actual stop state
 in the diagnostic record. The mandatory macOS debugger tests exercise normal
-exit, nonzero exit, SIGABRT, SIGTRAP and literal argument handling.
+exit, nonzero exit, `exec` handoffs, SIGABRT, SIGTRAP and literal argument
+handling. A crash probe must reach its pre-signal marker and report the requested
+signal or its Mach exception before it counts as diagnostic evidence.
 
 A missing or running record is incomplete evidence, never a passing result.
 CI gives each selection 330 minutes; successful completion on all platforms
