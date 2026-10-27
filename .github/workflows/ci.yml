@@ -258,6 +258,10 @@ jobs:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
+    # PowerShell otherwise exposes only the last native command's exit status.
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out source
@@ -274,6 +278,9 @@ jobs:
           rustc -vV
           cargo -V
           git hash-object Cargo.lock
+
+      - name: Check CI command failure propagation
+        run: python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v
 
       - name: Check Local Volatility equation fixture
         run: python scripts/check_local_vol_reference_fixture.py
@@ -459,6 +466,9 @@ jobs:
           - os: windows-2025
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out source

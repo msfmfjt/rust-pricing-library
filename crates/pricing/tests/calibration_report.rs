@@ -42,13 +42,57 @@ fn v1_migration_preserves_unknown_diagnostics_and_frozen_numerical_fields() {
             .is_empty()
     );
     assert_eq!(current.task_fingerprint(), old.task_fingerprint());
-    assert_eq!(current.plan_fingerprint(), old.plan_fingerprint());
-    // Exact numerical replay follows the existing platform-specific contract.
+    // Compiled plan identity also hashes calibrated floating-point values.
+    // Exact numerical replay follows the existing platform-specific contract;
+    // source/task identity above remains independent of the replay platform.
     if current.platform() == old.platform() {
+        assert_eq!(current.plan_fingerprint(), old.plan_fingerprint());
         assert_eq!(
             new, migrated,
             "diagnostics must not alter existing numerical fields"
         );
+    }
+}
+
+#[test]
+fn native_v1_migration_preserves_all_fields_and_plan_identity_on_every_platform() {
+    for name in [
+        "standard_risk",
+        "multi_asset_bs",
+        "multi_asset_joint",
+        "stochastic_dividend_bs",
+        "stochastic_dividend_hw",
+        "stochastic_dividend_lsv",
+    ] {
+        let current = report(name);
+        let mut expected = wire(&current);
+        expected
+            .as_object_mut()
+            .unwrap()
+            .remove("calibration_diagnostics")
+            .unwrap();
+        let mut legacy = expected.clone();
+        legacy["schema_version"] = json!(1);
+        let migrated = parse(&legacy).unwrap();
+        assert_eq!(migrated.calibration_diagnostics(), None, "{name}");
+        assert_eq!(
+            migrated.task_fingerprint(),
+            current.task_fingerprint(),
+            "{name}"
+        );
+        assert_eq!(
+            migrated.plan_fingerprint(),
+            current.plan_fingerprint(),
+            "{name}"
+        );
+        // No numerical tolerance: retain the entire native report, including
+        // every price/risk/covariance value, seed, convention and compiled hash.
+        assert_eq!(
+            serde_json::to_vec(&wire(&migrated)).unwrap(),
+            serde_json::to_vec(&expected).unwrap(),
+            "{name}"
+        );
+        assert_eq!(parse(&expected).unwrap(), migrated, "{name}");
     }
 }
 

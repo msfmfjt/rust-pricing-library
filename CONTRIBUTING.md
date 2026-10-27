@@ -60,6 +60,7 @@ python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_provider_shards.py -v
 python3 -m unittest discover -s scripts -p test_native_debugger.py -v
+python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
@@ -89,6 +90,12 @@ python scripts/check_benchmark_reports.py benchmark-results
 Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
 tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
 mismatches before installation.
+
+The main Rust and supported-wheel jobs use explicit `shell: bash` on every
+platform so a failed native command or pipeline fails its step immediately.
+Do not rely on PowerShell's final `$LASTEXITCODE` for a block with multiple
+commands. The failure-propagation tests inject nonzero native exits into the
+retained CI blocks and require that subsequent commands do not run.
 
 The default smoke command runs all package checks, examples and discovered
 Python tests. CI builds each platform wheel once, runs `--phase package`, and
