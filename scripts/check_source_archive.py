@@ -56,6 +56,7 @@ REQUIRED_FILES = {
     "scripts/test_provider_shards.py",
     "scripts/wheel_validation/native_debugger.py",
     "scripts/test_native_debugger.py",
+    "scripts/test_ci_failure_propagation.py",
     "tests/python/test_provider_validation_inventory.py",
     "scripts/wheel_validation/runtime.py",
     "scripts/wheel_validation/signatures.py",
@@ -1159,6 +1160,7 @@ REQUIRED_CI_SNIPPETS = {
     "python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v",
     "python -m unittest discover -s scripts -p 'test_provider_shards.py' -v",
     "python -m unittest discover -s scripts -p 'test_native_debugger.py' -v",
+    "python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v",
     "python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
@@ -1935,6 +1937,18 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
         raise SystemExit(f"{archive}: pricing-python extension-module feature mismatch")
 
 
+def ci_job_text(workflow: str, job_name: str) -> str:
+    """Read a job from the retained workflow's two-space job layout."""
+    match = re.search(
+        rf"^  {re.escape(job_name)}:\n(.*?)(?=^  [\w-]+:\n|\Z)",
+        workflow,
+        re.MULTILINE | re.DOTALL,
+    )
+    if match is None:
+        raise SystemExit(f"CI workflow is missing job {job_name}")
+    return match.group(1)
+
+
 def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
     workflow = read_text(package, ".github/workflows/ci.yml")
     missing = sorted(snippet for snippet in REQUIRED_CI_SNIPPETS if snippet not in workflow)
@@ -1947,15 +1961,15 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                 f"{archive}: CI workflow must contain {snippet!r} "
                 f"{expected_count} times, found {actual_count}"
             )
+    for job_name in ("rust", "supported-wheels"):
+        job = ci_job_text(workflow, job_name)
+        if "    defaults:\n      run:\n        shell: bash\n" not in job:
+            raise SystemExit(f"{archive}: CI job {job_name} must use fail-fast bash")
+        overrides = re.findall(r"^        shell: (.+)$", job, re.MULTILINE)
+        if any(shell != "bash" for shell in overrides) or "continue-on-error:" in job:
+            raise SystemExit(f"{archive}: CI job {job_name} must propagate command failures")
     for job_name, snippets in REQUIRED_WHEEL_CI_JOB_SNIPPETS.items():
-        match = re.search(
-            rf"^  {re.escape(job_name)}:\n(.*?)(?=^  [\w-]+:\n|\Z)",
-            workflow,
-            re.MULTILINE | re.DOTALL,
-        )
-        if match is None:
-            raise SystemExit(f"{archive}: CI workflow is missing job {job_name}")
-        job = match.group(1)
+        job = ci_job_text(workflow, job_name)
         missing = [snippet for snippet in snippets if snippet not in job]
         if missing:
             raise SystemExit(f"{archive}: CI job {job_name} is missing gates: {missing}")
