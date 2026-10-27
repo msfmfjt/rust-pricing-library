@@ -39,13 +39,22 @@ impl CompactC2Smoothing {
             };
         }
 
-        let u = (input + half_width) / (2.0 * half_width);
+        let u = transition_coordinate(input, half_width);
         let u2 = u * u;
         let u3 = u2 * u;
         let value = u3 * (10.0 + u * (-15.0 + 6.0 * u));
         let one_minus_u = 1.0 - u;
         let first = 15.0 * u2 * one_minus_u * one_minus_u / half_width;
-        let second = (120.0 * u3 - 180.0 * u2 + 60.0 * u) / (4.0 * half_width * half_width);
+        let numerator = 120.0 * u3 - 180.0 * u2 + 60.0 * u;
+        let denominator = 4.0 * half_width * half_width;
+        let second = if denominator.is_normal() {
+            numerator / denominator
+        } else {
+            // Do not overflow/underflow the width square before division.
+            // In particular, the exact zero curvature at the midpoint is
+            // still zero when that square rounds to zero.
+            ((0.25 * numerator) / half_width) / half_width
+        };
         SmoothingDerivatives {
             value,
             first,
@@ -67,13 +76,21 @@ impl CompactC2Smoothing {
             };
         }
 
-        let u = (input + half_width) / (2.0 * half_width);
+        let u = transition_coordinate(input, half_width);
         let u2 = u * u;
         let u3 = u2 * u;
         let u4 = u2 * u2;
         let indicator = u3 * (10.0 + u * (-15.0 + 6.0 * u));
         let indicator_first = 15.0 * u2 * (1.0 - u) * (1.0 - u) / half_width;
-        let value = 2.0 * half_width * u4 * (2.5 + u * (-3.0 + u));
+        let scaled_u4 = 2.0 * half_width * u4;
+        let polynomial = 2.5 + u * (-3.0 + u);
+        let value = if scaled_u4.is_normal() {
+            scaled_u4 * polynomial
+        } else {
+            // Apply the width last when its early product leaves the normal
+            // range, so a subnormal value is rounded only once.
+            (2.0 * u4 * polynomial) * half_width
+        };
         SmoothingDerivatives {
             value,
             first: indicator,
@@ -83,7 +100,22 @@ impl CompactC2Smoothing {
 
     #[must_use]
     pub fn maximum(self, left: f64, right: f64) -> SmoothingBinaryDerivatives {
-        let positive_part = self.positive_part(left - right);
+        let difference = left - right;
+        if difference >= self.half_width.get() {
+            return SmoothingBinaryDerivatives {
+                value: left,
+                left_first: 1.0,
+                right_first: 0.0,
+            };
+        }
+        if difference <= -self.half_width.get() {
+            return SmoothingBinaryDerivatives {
+                value: right,
+                left_first: 0.0,
+                right_first: 1.0,
+            };
+        }
+        let positive_part = self.positive_part(difference);
         SmoothingBinaryDerivatives {
             value: right + positive_part.value,
             left_first: positive_part.first,
@@ -93,12 +125,38 @@ impl CompactC2Smoothing {
 
     #[must_use]
     pub fn minimum(self, left: f64, right: f64) -> SmoothingBinaryDerivatives {
-        let positive_part = self.positive_part(left - right);
+        let difference = left - right;
+        if difference >= self.half_width.get() {
+            return SmoothingBinaryDerivatives {
+                value: right,
+                left_first: 0.0,
+                right_first: 1.0,
+            };
+        }
+        if difference <= -self.half_width.get() {
+            return SmoothingBinaryDerivatives {
+                value: left,
+                left_first: 1.0,
+                right_first: 0.0,
+            };
+        }
+        let positive_part = self.positive_part(difference);
         SmoothingBinaryDerivatives {
             value: left - positive_part.value,
             left_first: 1.0 - positive_part.first,
             right_first: positive_part.first,
         }
+    }
+}
+
+fn transition_coordinate(input: f64, half_width: f64) -> f64 {
+    let full_width = 2.0 * half_width;
+    if full_width.is_finite() {
+        (input + half_width) / full_width
+    } else {
+        // Interior inputs satisfy |input| < half_width. This ratio remains
+        // bounded even when adding/doubling the width would overflow.
+        0.5 * (input / half_width + 1.0)
     }
 }
 
