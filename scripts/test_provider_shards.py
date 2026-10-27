@@ -1,6 +1,6 @@
 """Coverage and failure guards for provider CI partitioning (no wheel needed)."""
 from collections import Counter
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import replace
 import io
 import json
@@ -50,16 +50,132 @@ class ProviderShardTests(unittest.TestCase):
 
     def test_ci_matrix_runs_every_selection_once_per_platform(self):
         matrix = shards.ci_matrix()["include"]
-        self.assertEqual(len(matrix), 63)
+        self.assertEqual(len(matrix), 111)
         self.assertLessEqual(len(matrix), 256)
-        self.assertEqual(len(shards.SHARD_NAMES), 20)
-        self.assertEqual(len(set(shards.SHARD_NAMES)), 20)
+        self.assertEqual(len(shards.SHARDS), 36)
+        self.assertEqual(len(shards.COMBINED_SHARDS), 4)
+        self.assertEqual(len(shards.SHARD_NAMES), 40)
+        self.assertEqual(len(set(shards.SHARD_NAMES)), 40)
+        ci_names = tuple(shard.name for shard in shards.SHARDS)
         for platform in ("ubuntu-24.04", "macos-15", "windows-2025"):
             rows = [row for row in matrix if row["os"] == platform]
             self.assertEqual(Counter(row["selection"] for row in rows),
-                             Counter((*shards.SHARD_NAMES, "remaining")))
+                             Counter((*ci_names, "remaining")))
             for row in rows:
                 self.assertEqual(row["option"], "--group" if row["selection"] == "remaining" else "--shard")
+
+    def test_split_preserves_case_multiplicity_and_rejects_missing_or_overlapping_ledgers(self):
+        source = '''import unittest
+from itertools import product
+class Case(unittest.TestCase):
+    policies = ('first',)
+    intervals = (4, 6)
+    @classmethod
+    def wheel_cases(cls):
+        return {
+            'test_a_native_panels': list(product(cls.policies, cls.intervals, ('call', 'put', 'put'))),
+            'test_b_dated_ledgers': list(product(cls.policies, cls.intervals,
+                ('call', 'put'), ('arithmetic_asian', 'fixed_lookback'))),
+        }
+    @classmethod
+    def setUpClass(cls):
+        raise AssertionError('inventory must not construct providers')
+    def test_a_native_panels(self):
+        raise AssertionError('inventory must not run test bodies')
+    def test_b_dated_ledgers(self):
+        raise AssertionError('inventory must not run test bodies')
+    def test_control(self):
+        raise AssertionError('inventory must not run test bodies')
+'''
+        spec = shards.ProviderSuite("probe", "test_ledger_inventory_probe", "Case", "policies", ("first",))
+        original = (shards.ProviderShard("contracts", spec),
+                    *(shards.ProviderShard(f"first-{n}", spec, "first", n) for n in (4, 6)))
+        plan = tuple(part for shard in original for part in shards.split_shard(shard))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / (spec.module + ".py")).write_text(source, encoding="utf-8")
+            with patch.object(shards, "SUITES", (spec,)), patch.object(sys, "path", sys.path.copy()), \
+                    patch.dict(sys.modules), redirect_stdout(io.StringIO()):
+                report = shards.verify_partition(root, plan)
+                old = shards.verify_partition(root, original)
+                total = lambda rows: sum(c["count"] for row in rows.values() for c in row["cases"])
+                self.assertEqual(total(report), 15)
+                self.assertEqual(total(report), total(old))
+                self.assertEqual(len(report), 7)
+                self.assertEqual(sum(c["count"] for c in report["first-4-panels"]["cases"]), 3)
+                for part in plan[2:6]:
+                    self.assertEqual(report[part.name]["methods"], ["test_b_dated_ledgers"])
+                    self.assertEqual(len(report[part.name]["cases"]), 1)
+                    self.assertEqual(report[part.name]["cases"][0]["parameters"], list(part.parameters))
+                for broken in (plan[:5] + plan[6:], plan + (replace(plan[5], name="repeat"),)):
+                    with self.assertRaisesRegex(RuntimeError, "case inventory differs"):
+                        shards.verify_partition(root, broken)
+                _, cls = shards.load_suite(spec, root)
+                with self.assertRaisesRegex(RuntimeError, "unknown provider case method"):
+                    with shards.configured(cls, replace(plan[2], method="test_typo")):
+                        shards.selected_methods(cls, plan[2])
+                with self.assertRaisesRegex(RuntimeError, "empty provider shard"):
+                    with shards.configured(cls, replace(plan[2], parameters=("typo",))):
+                        shards.selected_methods(cls, plan[2])
+                with self.assertRaisesRegex(RuntimeError, "requires a method"):
+                    with shards.configured(cls, replace(plan[2], method=None)):
+                        pass
+                self.assertEqual(cls.intervals, (4, 6))
+                self.assertEqual(len(cls.wheel_cases()["test_b_dated_ledgers"]), 8)
+
+    def test_ledger_runtime_and_combined_alias_keep_order_setup_and_failure(self):
+        events = []
+        class Parent(unittest.TestCase):
+            policies = ("first",)
+            intervals = (4, 6)
+            @classmethod
+            def wheel_cases(cls):
+                return {
+                    "test_a_native_panels": [(p, n, "call") for p in cls.policies for n in cls.intervals],
+                    "test_b_dated_ledgers": [(p, n, side, kind)
+                        for p in cls.policies for n in cls.intervals for side in ("call", "put")
+                        for kind in ("arithmetic_asian", "fixed_lookback")],
+                }
+            @classmethod
+            def setUpClass(cls):
+                events.append("setup")
+            @classmethod
+            def tearDownClass(cls):
+                events.append("teardown")
+            def test_a_native_panels(self):
+                events.extend(shards.iter_cases(self))
+            def test_b_dated_ledgers(self):
+                for values in shards.iter_cases(self):
+                    events.append(values)
+                    if self.fail_ledger:
+                        self.fail("selected ledger failed")
+        class Child(Parent):
+            fail_ledger = False
+        spec = shards.ProviderSuite("probe", "probe", "Child", "policies", ("first",))
+        original = shards.ProviderShard("first-4", spec, "first", 4)
+        plan = shards.split_shard(original)
+        with patch.object(shards, "SHARDS", plan), patch.object(shards, "COMBINED_SHARDS", (original,)), \
+                patch.object(shards, "load_suite", return_value=(None, Child)), \
+                redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            for part in plan:
+                self.assertTrue(shards.run_shard(part.name))
+            split_events = events.copy()
+            self.assertEqual(split_events.count("setup"), 5)
+            self.assertEqual(split_events.count("teardown"), 5)
+            events.clear()
+            self.assertTrue(shards.run_shard(original.name))
+            self.assertEqual([x for x in split_events if isinstance(x, tuple)], events[1:-1])
+            self.assertEqual((events[0], events[-1]), ("setup", "teardown"))
+            events.clear()
+            Child.fail_ledger = True
+            self.assertFalse(shards.run_shard(plan[-1].name))
+            self.assertEqual(events, ["setup", ("first", 4, "put", "fixed_lookback"), "teardown"])
+            with self.assertRaisesRegex(RuntimeError, "probe error"):
+                with shards.configured(Child, plan[-1]):
+                    raise RuntimeError("probe error")
+        for name in ("wheel_cases", "policies", "intervals"):
+            self.assertNotIn(name, Child.__dict__)
+        self.assertEqual(Child.wheel_cases(), Parent.wheel_cases())
 
     def test_partition_rejects_lost_extra_duplicate_cases_and_retains_new_controls(self):
         source = '''import unittest

@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import faulthandler
 import importlib
 import json
@@ -47,9 +47,11 @@ class ProviderShard:
     suite: ProviderSuite
     policy: str | None = None
     intervals: int | None = None
+    method: str | None = None
+    parameters: tuple[str | int, ...] | None = None
 
 
-SHARDS = tuple(
+UNSPLIT_SHARDS = tuple(
     shard
     for suite in SUITES
     for shard in (
@@ -58,7 +60,26 @@ SHARDS = tuple(
           for policy in suite.policies for n in (4, 6)),
     )
 )
-SHARD_NAMES = tuple(shard.name for shard in SHARDS)
+
+
+def split_shard(shard: ProviderShard) -> tuple[ProviderShard, ...]:
+    # Four dated ledgers plus the panels exceeded 330 minutes on Windows.
+    # Keep each ledger's strategies, checkpoint replays and repairs together.
+    if shard.suite.axis != "policies" or shard.intervals != 4:
+        return (shard,)
+    return (
+        replace(shard, name=f"{shard.name}-panels", method="test_a_native_panels"),
+        *(replace(shard, name=f"{shard.name}-{side}-{kind}",
+                  method="test_b_dated_ledgers", parameters=(shard.policy, 4, side, kind))
+          for side in ("call", "put") for kind in ("arithmetic_asian", "fixed_lookback")),
+    )
+
+
+SHARDS = tuple(part for shard in UNSPLIT_SHARDS for part in split_shard(shard))
+# Retain the original process grouping for reproducing historical native faults.
+# These aliases are selectable locally, but must not duplicate cases in CI.
+COMBINED_SHARDS = tuple(shard for shard in UNSPLIT_SHARDS if shard not in SHARDS)
+SHARD_NAMES = tuple(shard.name for shard in (*SHARDS, *COMBINED_SHARDS))
 
 
 def iter_cases(test: unittest.TestCase):
@@ -96,6 +117,23 @@ def configured(cls, shard: ProviderShard):
     overrides = {} if shard.policy is None else {
         shard.suite.axis: (shard.policy,), "intervals": (shard.intervals,),
     }
+    if shard.parameters is not None and shard.method is None:
+        raise RuntimeError("provider case selection requires a method")
+    if shard.method is not None:
+        original_cases = cls.wheel_cases
+
+        def selected_cases(_cls):
+            cases = original_cases()
+            if shard.method not in cases:
+                raise RuntimeError(f"unknown provider case method: {shard.method}")
+            return {
+                method: [values for values in values_list
+                         if method == shard.method
+                         and (shard.parameters is None or tuple(values) == shard.parameters)]
+                for method, values_list in cases.items()
+            }
+
+        overrides["wheel_cases"] = classmethod(selected_cases)
     missing = object()
     previous = {name: cls.__dict__.get(name, missing) for name in overrides}
     try:
@@ -176,7 +214,7 @@ def verify_partition(test_directory: Path, shards=SHARDS) -> dict:
 
 
 def run_shard(name: str, test_directory: Path = Path("tests/python")) -> bool:
-    shard = next(shard for shard in SHARDS if shard.name == name)
+    shard = next(shard for shard in (*SHARDS, *COMBINED_SHARDS) if shard.name == name)
     _, cls = load_suite(shard.suite, test_directory)
     with configured(cls, shard):
         methods = selected_methods(cls, shard)
@@ -193,7 +231,7 @@ def ci_matrix() -> dict:
             ("macos-15", "aarch64-apple-darwin"),
             ("windows-2025", "x86_64-pc-windows-msvc"),
         )
-        for selection in (*SHARD_NAMES, "remaining")
+        for selection in (*(shard.name for shard in SHARDS), "remaining")
     ]}
 
 

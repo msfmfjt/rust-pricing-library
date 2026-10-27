@@ -100,6 +100,7 @@ documents the public API migration.
 - [macOS debugger venv fixture follow-up, 2026-10-26](validation/macos-debugger-venv-review-2026-10-26.md)
 - [Windows CI failure propagation review, 2026-10-27](validation/windows-ci-failure-review-2026-10-27.md)
 - [Product Graph division AAD numerical review, 2026-10-27](validation/graph-division-review-2026-10-27.md)
+- [Provider ledger case sharding and timeout follow-up, 2026-10-27](validation/provider-ledger-case-sharding-2026-10-27.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump
