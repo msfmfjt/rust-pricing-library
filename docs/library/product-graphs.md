@@ -85,6 +85,14 @@ restrictions still apply. Graphs do not implicitly provide continuous barrier
 monitoring or early exercise: those require the corresponding existing product
 and plan contracts. Invalid path arithmetic is an evaluation error.
 
+Division AAD retains the usual `-seed * numerator / denominator^2` arithmetic
+when both intermediate products are normal binary64 values. Outside that range,
+it separates binary exponents before multiplying, so a finite sensitivity is
+not lost merely because the denominator's square overflows or underflows.
+Zero denominators and genuinely nonfinite adjoints still fail. This does not
+make every intermediate in an arbitrary graph representable; see the
+[division numerical review](../../design/validation/graph-division-review-2026-10-27.md).
+
 Rust `MultiAssetProduct::from_product_graph` and `to_product_graph`, and Python
 `MultiAssetProduct.from_graph` and `to_graph`, bridge the existing multi-asset
 builders. The product graph document stores the product only; multi-asset
