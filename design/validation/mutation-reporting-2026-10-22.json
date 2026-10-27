@@ -1,0 +1,1752 @@
+{
+  "date": "2026-10-22",
+  "base_commit": "3f017b521df7c3f330182229c63d9d0211fc8e9d",
+  "base_tree": "a552a10da7ac3069122613fe1824e0f85b7806c0",
+  "rust_toolchain": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "reporting_source_sha256": {
+    "scripts/run_mutation_tests.py": "9d95ddc3ee6790e7004c9d830ba76836be6aa490c70eb65a2918dc2437fdeccc",
+    "scripts/test_run_mutation_tests.py": "a80e8a82b140a97c50123e4afe1452b3b2f8b5cb776a784e567e3e506a06ca52",
+    "scripts/test_mutation_integration.py": "e2e0dfb86549c09811780298f458908a8e590f2b90789ef28b2b5e645f6b88ea"
+  },
+  "hard_exit_regression": {
+    "method": "The regression launches a Python subprocess and calls os._exit(143) during inventory selection or tool execution, bypassing finally and exception handlers.",
+    "before": {
+      "source_commit": "3f017b521df7c3f330182229c63d9d0211fc8e9d",
+      "stages": [
+        "selecting",
+        "running"
+      ],
+      "result": "run.json missing in both cases",
+      "regression_errors": 2,
+      "log_path": "/tmp/pricing-mutation-reporting-before.log",
+      "log_sha256": "18e351ddc77e0a34bf1a08d64a58a1714927733996af0f9889cf9aff63b431d2"
+    },
+    "after": {
+      "result": "Both stages retain valid JSON with source HEAD, command, start time and last stage; execution also retains selection count and inventory. Neither has a finish time, runner exit or passing result."
+    },
+    "partial_write_regression": "Interrupt writing the next JSON checkpoint before replacement: the previous JSON remains readable. A later successful replacement recovers normally.",
+    "handled_exits": {
+      "KeyboardInterrupt": {
+        "status": "interrupted",
+        "exit": 130
+      },
+      "OSError": {
+        "status": "error",
+        "exit": 1
+      }
+    }
+  },
+  "runner_validation": {
+    "unit": {
+      "command": "python -m unittest discover -s scripts -p 'test_run_mutation_tests.py' -v",
+      "exit_code": 0,
+      "passed": 24,
+      "log_sha256": "5d2b71594cbd65ceacf5079779f046d234e4fbec15d487a76f15812df5a2cd66"
+    },
+    "installed_tool": {
+      "command": "CARGO_PROFILE_TEST_DEBUG=0 python -m unittest discover -s scripts -p 'test_mutation_integration.py' -v",
+      "exit_code": 0,
+      "unittest_methods": 1,
+      "scenarios": [
+        "four caught mutants",
+        "four missed mutants",
+        "failed unmutated downstream baseline",
+        "empty shard of a nonempty inventory"
+      ],
+      "assertions_added": [
+        "terminal timestamps and runner exit",
+        "complete survivor identities",
+        "log and patch paths exist",
+        "no validated outstanding list for a failed baseline"
+      ],
+      "log_sha256": "8477ec3afa1dd5ef3cdcba7ba69f8c33376c8c1cd0141b204931df3c5559e32e"
+    }
+  },
+  "changed_line_gate": {
+    "command": "CARGO_PROFILE_TEST_DEBUG=0 python scripts/run_mutation_tests.py changed --base 376c92624f88083b46d86e1087d2b0f03e202b91 --output /tmp/pricing-calendar-changed-gate",
+    "scope": "Both Rust crates, unit and integration tests plus doc-test targets; existing ignored acceptance tests stay ignored.",
+    "run_record": {
+      "scope": "changed",
+      "status": "passed",
+      "tool_version": "27.1.0",
+      "head": "3f017b521df7c3f330182229c63d9d0211fc8e9d",
+      "worktree_status": "",
+      "command": [
+        "cargo",
+        "mutants",
+        "--baseline=run",
+        "--no-shuffle",
+        "--build-timeout=600",
+        "--jobs=2",
+        "--package=pricing",
+        "--package=pricing-numerics",
+        "--test-package=pricing",
+        "--test-package=pricing-numerics",
+        "--cargo-arg=--package=pricing",
+        "--cargo-arg=--package=pricing-numerics",
+        "--in-diff=/tmp/pricing-calendar-changed-gate/changed-wwe878e8/changes.diff",
+        "--output=/tmp/pricing-calendar-changed-gate/changed-wwe878e8"
+      ],
+      "selected": 2,
+      "cargo_mutants_exit_code": 0,
+      "counts": {
+        "total_mutants": 2,
+        "caught": 1,
+        "missed": 0,
+        "timeout": 0,
+        "unviable": 1,
+        "success": 0
+      }
+    },
+    "outcomes_report": {
+      "outcomes": [
+        {
+          "scenario": "Baseline",
+          "summary": "Success",
+          "log_path": "log/baseline.log",
+          "diff_path": null,
+          "phase_results": [
+            {
+              "phase": "Build",
+              "duration": 47.010744182,
+              "process_status": "Success",
+              "argv": [
+                "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                "test",
+                "--no-run",
+                "--verbose",
+                "--package=pricing@0.1.0",
+                "--all-features",
+                "--package=pricing",
+                "--package=pricing-numerics",
+                "--locked"
+              ]
+            },
+            {
+              "phase": "Test",
+              "duration": 350.349504517,
+              "process_status": "Success",
+              "argv": [
+                "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                "test",
+                "--verbose",
+                "--package=pricing@0.1.0",
+                "--all-features",
+                "--package=pricing",
+                "--package=pricing-numerics",
+                "--locked"
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/calendar.rs",
+              "function": {
+                "function_name": "Calendar::adjust",
+                "return_type": "-> Result<Date, CoreError>",
+                "span": {
+                  "start": {
+                    "line": 54,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 55,
+                  "column": 9
+                },
+                "end": {
+                  "line": 67,
+                  "column": 10
+                }
+              },
+              "replacement": "Ok(Default::default())",
+              "genre": "FnValue"
+            }
+          },
+          "summary": "Unviable",
+          "log_path": "log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_55_col_9.diff",
+          "phase_results": [
+            {
+              "phase": "Build",
+              "duration": 3.11151515,
+              "process_status": {
+                "Failure": 101
+              },
+              "argv": [
+                "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                "test",
+                "--no-run",
+                "--verbose",
+                "--package=pricing@0.1.0",
+                "--package=pricing-numerics@0.1.0",
+                "--all-features",
+                "--package=pricing",
+                "--package=pricing-numerics",
+                "--locked"
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/calendar.rs",
+              "function": {
+                "function_name": "Calendar::adjust",
+                "return_type": "-> Result<Date, CoreError>",
+                "span": {
+                  "start": {
+                    "line": 54,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 60,
+                  "column": 56
+                },
+                "end": {
+                  "line": 60,
+                  "column": 58
+                }
+              },
+              "replacement": "!=",
+              "genre": "BinaryOperator"
+            }
+          },
+          "summary": "CaughtMutant",
+          "log_path": "log/crates__pricing__src__core__calendar.rs_line_60_col_56.log",
+          "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_60_col_56.diff",
+          "phase_results": [
+            {
+              "phase": "Build",
+              "duration": 45.879658034,
+              "process_status": "Success",
+              "argv": [
+                "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                "test",
+                "--no-run",
+                "--verbose",
+                "--package=pricing@0.1.0",
+                "--package=pricing-numerics@0.1.0",
+                "--all-features",
+                "--package=pricing",
+                "--package=pricing-numerics",
+                "--locked"
+              ]
+            },
+            {
+              "phase": "Test",
+              "duration": 67.883827298,
+              "process_status": {
+                "Failure": 101
+              },
+              "argv": [
+                "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                "test",
+                "--verbose",
+                "--package=pricing@0.1.0",
+                "--package=pricing-numerics@0.1.0",
+                "--all-features",
+                "--package=pricing",
+                "--package=pricing-numerics",
+                "--locked"
+              ]
+            }
+          ]
+        }
+      ],
+      "total_mutants": 2,
+      "missed": 0,
+      "caught": 1,
+      "timeout": 0,
+      "unviable": 1,
+      "success": 0,
+      "start_time": "2026-10-22T21:40:10.95518221Z",
+      "end_time": "2026-10-22T21:48:42.549165637Z",
+      "cargo_mutants_version": "27.1.0"
+    },
+    "selected_inventory": [
+      {
+        "diff": "--- crates/pricing/src/core/calendar.rs\n+++ replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())\n@@ -47,29 +47,17 @@\n     }\n \n     #[must_use]\n     pub fn is_business_day(&self, date: Date) -> bool {\n         !date.weekday().is_weekend() && !self.is_holiday(date)\n     }\n \n     pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {\n-        match convention {\n-            BusinessDayAdjustment::Unadjusted => Ok(date),\n-            BusinessDayAdjustment::Following => self.following(date),\n-            BusinessDayAdjustment::ModifiedFollowing => {\n-                let adjusted = self.following(date)?;\n-                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {\n-                    Ok(adjusted)\n-                } else {\n-                    self.preceding(date)\n-                }\n-            }\n-            BusinessDayAdjustment::Preceding => self.preceding(date),\n-        }\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn following(&self, mut date: Date) -> Result<Date, CoreError> {\n         while !self.is_business_day(date) {\n             date = date.next_day()?;\n         }\n         Ok(date)\n     }\n",
+        "file": "crates/pricing/src/core/calendar.rs",
+        "function": {
+          "function_name": "Calendar::adjust",
+          "return_type": "-> Result<Date, CoreError>",
+          "span": {
+            "end": {
+              "column": 6,
+              "line": 68
+            },
+            "start": {
+              "column": 5,
+              "line": 54
+            }
+          }
+        },
+        "genre": "FnValue",
+        "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+        "package": "pricing",
+        "replacement": "Ok(Default::default())",
+        "span": {
+          "end": {
+            "column": 10,
+            "line": 67
+          },
+          "start": {
+            "column": 9,
+            "line": 55
+          }
+        }
+      },
+      {
+        "diff": "--- crates/pricing/src/core/calendar.rs\n+++ replace == with != in Calendar::adjust\n@@ -52,17 +52,17 @@\n     }\n \n     pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {\n         match convention {\n             BusinessDayAdjustment::Unadjusted => Ok(date),\n             BusinessDayAdjustment::Following => self.following(date),\n             BusinessDayAdjustment::ModifiedFollowing => {\n                 let adjusted = self.following(date)?;\n-                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {\n+                if (adjusted.year(), adjusted.month()) != /* ~ changed by cargo-mutants ~ */ (date.year(), date.month()) {\n                     Ok(adjusted)\n                 } else {\n                     self.preceding(date)\n                 }\n             }\n             BusinessDayAdjustment::Preceding => self.preceding(date),\n         }\n     }\n",
+        "file": "crates/pricing/src/core/calendar.rs",
+        "function": {
+          "function_name": "Calendar::adjust",
+          "return_type": "-> Result<Date, CoreError>",
+          "span": {
+            "end": {
+              "column": 6,
+              "line": 68
+            },
+            "start": {
+              "column": 5,
+              "line": 54
+            }
+          }
+        },
+        "genre": "BinaryOperator",
+        "name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+        "package": "pricing",
+        "replacement": "!=",
+        "span": {
+          "end": {
+            "column": 58,
+            "line": 60
+          },
+          "start": {
+            "column": 56,
+            "line": 60
+          }
+        }
+      }
+    ],
+    "baseline_totals": {
+      "passed": 1116,
+      "failed": 0,
+      "ignored": 91,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    "baseline_groups": [
+      {
+        "target": "pricing",
+        "kind": "unit",
+        "passed": 556,
+        "failed": 0,
+        "ignored": 5,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 68.5
+      },
+      {
+        "target": "affine_oracles",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.35
+      },
+      {
+        "target": "american_dual",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.21
+      },
+      {
+        "target": "analytical_acceptance",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "bass_request",
+        "kind": "integration",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 6.25
+      },
+      {
+        "target": "bergomi_calibration_quality",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 6,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.35
+      },
+      {
+        "target": "bergomi_dividends",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.9
+      },
+      {
+        "target": "bergomi_hull_white",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.02
+      },
+      {
+        "target": "bergomi_two_factor",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.11
+      },
+      {
+        "target": "calibration_report",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.09
+      },
+      {
+        "target": "early_exercise_acceptance",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "extended_model_acceptance",
+        "kind": "integration",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 27,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.73
+      },
+      {
+        "target": "extended_risk_acceptance",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 11,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "facade_compatibility",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "heston_calibration",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.44
+      },
+      {
+        "target": "heston_fourier",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 21.37
+      },
+      {
+        "target": "heston_fourier_greeks",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.72
+      },
+      {
+        "target": "heston_hurst_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.49
+      },
+      {
+        "target": "heston_iv_calibration",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 4.32
+      },
+      {
+        "target": "heston_iv_holdout",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.44
+      },
+      {
+        "target": "heston_iv_refinement",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.41
+      },
+      {
+        "target": "heston_lsv_parameter_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.81
+      },
+      {
+        "target": "heston_mc_hurst_risk",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.27
+      },
+      {
+        "target": "heston_mc_parameter_risk",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.5
+      },
+      {
+        "target": "heston_parameter_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.33
+      },
+      {
+        "target": "hull_white",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.97
+      },
+      {
+        "target": "hull_white_aad",
+        "kind": "integration",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 3.57
+      },
+      {
+        "target": "hull_white_dividends",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.67
+      },
+      {
+        "target": "hull_white_escrowed_default",
+        "kind": "integration",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.44
+      },
+      {
+        "target": "lifted_heston_factor_prices",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.22
+      },
+      {
+        "target": "local_vol_atom_chain",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.07
+      },
+      {
+        "target": "local_vol_convolution_gamma",
+        "kind": "integration",
+        "passed": 11,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.08
+      },
+      {
+        "target": "local_vol_density_mass",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "local_vol_direct_variance",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "local_vol_direction_conservation",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "local_vol_gamma_measure",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "local_vol_gamma_numerics",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "local_vol_gamma_recovery",
+        "kind": "integration",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.05
+      },
+      {
+        "target": "local_vol_initial_gamma",
+        "kind": "integration",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.42
+      },
+      {
+        "target": "local_vol_initial_smile_gamma",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 3.74
+      },
+      {
+        "target": "local_vol_initial_three_gamma",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "local_vol_joint_gamma",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 4.05
+      },
+      {
+        "target": "local_vol_middle_gamma",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 3.24
+      },
+      {
+        "target": "local_vol_multi_step_gamma",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.2
+      },
+      {
+        "target": "local_vol_nonflat_gamma",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "local_vol_step_adjoints",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.06
+      },
+      {
+        "target": "local_vol_step_recovery",
+        "kind": "integration",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.03
+      },
+      {
+        "target": "local_vol_three_step_gamma",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.14
+      },
+      {
+        "target": "local_vol_vegakt_chain",
+        "kind": "integration",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.07
+      },
+      {
+        "target": "local_vol_vegakt_paper",
+        "kind": "integration",
+        "passed": 11,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "local_vol_vegakt_pricing",
+        "kind": "integration",
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 20.85
+      },
+      {
+        "target": "lsv",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.17
+      },
+      {
+        "target": "market_essvi_reference",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "market_market_iv",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "market_standard_ssvi_reference",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "mc_hull_white",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.42
+      },
+      {
+        "target": "mc_lsv",
+        "kind": "integration",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.63
+      },
+      {
+        "target": "mc_rough_bergomi",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "mixed_bergomi_hurst_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.83
+      },
+      {
+        "target": "mixed_bergomi_parameter_risk",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.22
+      },
+      {
+        "target": "mixed_bergomi_shape_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.66
+      },
+      {
+        "target": "models_hull_white",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "models_rough_bergomi",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.09
+      },
+      {
+        "target": "multi_asset",
+        "kind": "integration",
+        "passed": 44,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 30.31
+      },
+      {
+        "target": "path_dependence_acceptance",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "pricing_specification",
+        "kind": "integration",
+        "passed": 12,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.4
+      },
+      {
+        "target": "pricing_task",
+        "kind": "integration",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.91
+      },
+      {
+        "target": "pricing_task_reuse",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.24
+      },
+      {
+        "target": "product_graph",
+        "kind": "integration",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.04
+      },
+      {
+        "target": "pure_bergomi",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.88
+      },
+      {
+        "target": "quadratic_heston_parameter_risk",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.15
+      },
+      {
+        "target": "rough_bergomi",
+        "kind": "integration",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 6.21
+      },
+      {
+        "target": "rough_dividend_correlation_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 7.25
+      },
+      {
+        "target": "rough_dividend_risk",
+        "kind": "integration",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 21.89
+      },
+      {
+        "target": "rough_dividends",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.94
+      },
+      {
+        "target": "rough_family_aad_lsv",
+        "kind": "integration",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.11
+      },
+      {
+        "target": "rough_family_gamma_bump",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.65
+      },
+      {
+        "target": "rough_family_lsv_spot_delta",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.15
+      },
+      {
+        "target": "rough_family_market_iv",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.16
+      },
+      {
+        "target": "rough_lsv",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.27
+      },
+      {
+        "target": "rough_lsv_calibration_reference",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "rough_volatility_families",
+        "kind": "integration",
+        "passed": 16,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.66
+      },
+      {
+        "target": "rough_volatility_pricing_reference",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.21
+      },
+      {
+        "target": "rough_volatility_refinement",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.61
+      },
+      {
+        "target": "statistical_acceptance",
+        "kind": "integration",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "stochastic_dividend_barrier_reference",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 6,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.2
+      },
+      {
+        "target": "stochastic_dividend_bergomi_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 2.69
+      },
+      {
+        "target": "stochastic_dividend_correlation_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 6.38
+      },
+      {
+        "target": "stochastic_dividend_gamma",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 11.85
+      },
+      {
+        "target": "stochastic_dividend_hull_white",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.15
+      },
+      {
+        "target": "stochastic_dividend_hull_white_correlation_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.46
+      },
+      {
+        "target": "stochastic_dividend_hull_white_gamma",
+        "kind": "integration",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 22.16
+      },
+      {
+        "target": "stochastic_dividend_hull_white_refinement",
+        "kind": "integration",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.1
+      },
+      {
+        "target": "stochastic_dividend_hull_white_risk",
+        "kind": "integration",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 35.21
+      },
+      {
+        "target": "stochastic_dividend_refinement",
+        "kind": "integration",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "stochastic_dividend_risk",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 10.86
+      },
+      {
+        "target": "stochastic_dividend_rough_lsv",
+        "kind": "integration",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 3.97
+      },
+      {
+        "target": "stochastic_dividends",
+        "kind": "integration",
+        "passed": 7,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.75
+      },
+      {
+        "target": "pricing_numerics",
+        "kind": "unit",
+        "passed": 55,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.01
+      },
+      {
+        "target": "pricing",
+        "kind": "doc",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      },
+      {
+        "target": "pricing_numerics",
+        "kind": "doc",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0
+      }
+    ],
+    "baseline_log_sha256": "1ad6c5ac081048018131cd21c08a0eab3f3b4dd64588a34e9fcbf9462b9d82a5",
+    "mutation_evidence": [
+      {
+        "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable",
+        "failed_tests": [],
+        "build_errors": [
+          "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+        ],
+        "log_path": "/tmp/pricing-calendar-changed-gate/changed-wwe878e8/mutants.out/log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+        "log_sha256": "4ce5fd7f14c2d672bd979c53f358eb56d1c54cd463f3df0121273c89e3782152",
+        "phases": [
+          {
+            "phase": "Build",
+            "duration": 3.11151515,
+            "process_status": {
+              "Failure": 101
+            },
+            "argv": [
+              "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--no-run",
+              "--verbose",
+              "--package=pricing@0.1.0",
+              "--package=pricing-numerics@0.1.0",
+              "--all-features",
+              "--package=pricing",
+              "--package=pricing-numerics",
+              "--locked"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+        "outcome": "CaughtMutant",
+        "failed_tests": [
+          "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+          "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year",
+          "core::calendar::tests::adjustments_follow_weekends_and_holidays"
+        ],
+        "build_errors": [],
+        "log_path": "/tmp/pricing-calendar-changed-gate/changed-wwe878e8/mutants.out/log/crates__pricing__src__core__calendar.rs_line_60_col_56.log",
+        "log_sha256": "ee7288322569cd46d62eb1935ce4c1af6a5dd9bdd36464a5ad9a84c83b66833e",
+        "phases": [
+          {
+            "phase": "Build",
+            "duration": 45.879658034,
+            "process_status": "Success",
+            "argv": [
+              "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--no-run",
+              "--verbose",
+              "--package=pricing@0.1.0",
+              "--package=pricing-numerics@0.1.0",
+              "--all-features",
+              "--package=pricing",
+              "--package=pricing-numerics",
+              "--locked"
+            ]
+          },
+          {
+            "phase": "Test",
+            "duration": 67.883827298,
+            "process_status": {
+              "Failure": 101
+            },
+            "argv": [
+              "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--verbose",
+              "--package=pricing@0.1.0",
+              "--package=pricing-numerics@0.1.0",
+              "--all-features",
+              "--package=pricing",
+              "--package=pricing-numerics",
+              "--locked"
+            ]
+          }
+        ]
+      }
+    ],
+    "raw_hashes": {
+      "run.json": "ff6efca7da79af05a78f888e396a4c3055003e43ddfee4e489953c72816901cc",
+      "selected.json": "c83852475786f17adaa4e532d464ac5c70e6f3f5c5f3f2059392d4154e649d8c",
+      "changes.diff": "9f9a7283f6df4c55be21ee9887abe97e34c38345d436d8f16f354fd6e8723ed8",
+      "mutants.out/outcomes.json": "b448d8553a094669a7d4323db5d9d2bb7fa80e96a522b9633c0e2ab81f67d585"
+    },
+    "provenance": "Started on clean base_commit before the reporting-only edits. Production Rust and its tests are unchanged in this follow-up. Complete output was revalidated with the updated checker; this is not a second execution of the broad gate.",
+    "interpretation": "The changed-line gate passes with one caught and one unviable mutation. Unviable is not caught. This result does not make either full diagnostic survey pass."
+  },
+  "retained_survey_revalidation": {
+    "calendar": {
+      "scope": "diagnostic pricing core::",
+      "status": "failed",
+      "selected": 135,
+      "counts": {
+        "total_mutants": 135,
+        "caught": 122,
+        "missed": 0,
+        "timeout": 5,
+        "unviable": 8,
+        "success": 0
+      },
+      "outstanding": [
+        {
+          "name": "crates/pricing/src/core/date.rs:102:52: replace + with * in Date::next_day",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_102_col_52_001.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_102_col_52_001.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_104_col_29_001.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_104_col_29_001.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:115:62: replace - with / in Date::previous_day",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_115_col_62_001.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_115_col_62_001.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:127:29: replace - with / in Date::previous_day",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_127_col_29_001.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_127_col_29_001.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:99:62: replace + with * in Date::next_day",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_99_col_62_001.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_99_col_62_001.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/calendar.rs:41:9: replace Calendar::holidays -> &[Date] with Vec::leak(vec![Default::default()])",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__calendar.rs_line_41_col_9_001.log",
+          "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_41_col_9_001.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_55_col_9.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/calendar.rs:71:9: replace Calendar::following -> Result<Date, CoreError> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__calendar.rs_line_71_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_71_col_9.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/calendar.rs:78:9: replace Calendar::preceding -> Result<Date, CoreError> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__calendar.rs_line_78_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_78_col_9.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:108:9: replace Date::previous_day -> Result<Self, CoreError> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_108_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_108_col_9.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:154:9: replace <impl FromStr for Date>::from_str -> Result<Self, Self::Err> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_154_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_154_col_9.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:74:9: replace Date::weekday -> Weekday with Default::default()",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_74_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_74_col_9.diff"
+        },
+        {
+          "name": "crates/pricing/src/core/date.rs:86:9: replace Date::next_day -> Result<Self, CoreError> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing__src__core__date.rs_line_86_col_9.log",
+          "diff_path": "diff/crates__pricing__src__core__date.rs_line_86_col_9.diff"
+        }
+      ],
+      "revalidation_only": true,
+      "source_report": "/tmp/pricing-calendar-after/mutants.out/outcomes.json",
+      "source_report_sha256": "cccc231e9c533e62ef1bde534e8f50b6708cac7ce170a8cad9b21049662d14ea",
+      "source_inventory_sha256": "5d6c79cefed35c058354fab98873bc8539cb969e7f00defcf89a80f5244995ae"
+    },
+    "numerics": {
+      "scope": "diagnostic pricing-numerics unit",
+      "status": "failed",
+      "selected": 952,
+      "counts": {
+        "total_mutants": 952,
+        "caught": 931,
+        "missed": 11,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "outstanding": [
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with <= in fractional_ou_correlation",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_104_col_27_002.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_104_col_27_002.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:110:27: replace && with || in fractional_ou_correlation",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_110_col_27.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_110_col_27.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:201:24: replace || with && in adaptive_simpson",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_201_col_24.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_201_col_24.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:41:13: replace < with <= in digamma_half_to_two",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_41_col_13_002.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_41_col_13_002.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:53:14: replace / with % in digamma_half_to_two",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_53_col_14.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_53_col_14.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:53:9: delete - in digamma_half_to_two",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_53_col_9.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_53_col_9.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:83:31: replace < with <= in fractional_ou_correlation",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_83_col_31_002.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_83_col_31_002.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:94:25: replace || with && in fractional_ou_correlation",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_94_col_25.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_94_col_25.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/least_squares.rs:209:13: replace || with && in bounded_least_squares",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__least_squares.rs_line_209_col_13.log",
+          "diff_path": "diff/crates__pricing-numerics__src__least_squares.rs_line_209_col_13.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/normal.rs:15:25: replace < with <= in standard_normal_cdf",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__normal.rs_line_15_col_25_002.log",
+          "diff_path": "diff/crates__pricing-numerics__src__normal.rs_line_15_col_25_002.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/normal.rs:47:14: replace > with >= in standard_normal_cdf",
+          "outcome": "MissedMutant",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__normal.rs_line_47_col_14_002.log",
+          "diff_path": "diff/crates__pricing-numerics__src__normal.rs_line_47_col_14_002.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with *= in digamma_half_to_two",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_43_col_11_001.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_43_col_11_001.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with -= in digamma_half_to_two",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_43_col_11.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_43_col_11.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce",
+          "outcome": "Timeout",
+          "phase": "Test",
+          "log_path": "log/crates__pricing-numerics__src__reduction.rs_line_259_col_23_002.log",
+          "diff_path": "diff/crates__pricing-numerics__src__reduction.rs_line_259_col_23_002.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/complex.rs:97:22: replace / with % in <impl Div for Complex64>::div",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__complex.rs_line_97_col_22.log",
+          "diff_path": "diff/crates__pricing-numerics__src__complex.rs_line_97_col_22.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/correlation.rs:195:9: replace CorrelationFactor::diagnostics -> &CorrelationDiagnostics with Box::leak(Box::new(Default::default()))",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__correlation.rs_line_195_col_9.log",
+          "diff_path": "diff/crates__pricing-numerics__src__correlation.rs_line_195_col_9.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/correlation.rs:65:9: replace CorrelationFactor::compile -> Result<Self, CorrelationError> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__correlation.rs_line_65_col_9.log",
+          "diff_path": "diff/crates__pricing-numerics__src__correlation.rs_line_65_col_9.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:134:9: replace <impl PartialOrd for SimpsonPanel>::partial_cmp -> Option<std::cmp::Ordering> with Some(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_134_col_9_001.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_134_col_9_001.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/fractional.rs:139:9: replace <impl Ord for SimpsonPanel>::cmp -> std::cmp::Ordering with Default::default()",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__fractional.rs_line_139_col_9.log",
+          "diff_path": "diff/crates__pricing-numerics__src__fractional.rs_line_139_col_9.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/least_squares.rs:197:5: replace bounded_least_squares -> Result<LeastSquaresResult, LeastSquaresError<E>> with Ok(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__least_squares.rs_line_197_col_5.log",
+          "diff_path": "diff/crates__pricing-numerics__src__least_squares.rs_line_197_col_5.diff"
+        },
+        {
+          "name": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())",
+          "outcome": "Unviable",
+          "phase": "Build",
+          "log_path": "log/crates__pricing-numerics__src__reduction.rs_line_259_col_5_001.log",
+          "diff_path": "diff/crates__pricing-numerics__src__reduction.rs_line_259_col_5_001.diff"
+        }
+      ],
+      "revalidation_only": true,
+      "source_report": "/tmp/pricing-numerics-triage-after/mutants.out/outcomes.json",
+      "source_report_sha256": "a6b061ef96363a7ee2ef6b46c13a7659d7d89837559e9e9c23b2be760ea79d52",
+      "source_inventory_sha256": "7b12b76d7b131b1793d5f4386b19ad2de384eaebf8980e1c8b498ba5caea821b"
+    }
+  },
+  "limits": [
+    "The summary displays at most 20 outstanding mutations; the complete JSON list and raw evidence are retained.",
+    "An unfinished checkpoint is a last-known stage, not proof of an active process or a completed/pass result.",
+    "The date/calendar diagnostic still has 122 caught, zero missed, five timeouts and eight unviable out of 135; exit 3.",
+    "The numerical diagnostic still has 931 caught, eleven missed, three timeouts and seven unviable out of 952; exit 3.",
+    "Doc-test targets ran successfully but currently contain zero test cases.",
+    "Ignored numerical acceptance and installed Python-wheel validation are not part of this gate.",
+    "Remote CI is reported separately; the PR remains a draft and is not merged."
+  ]
+}

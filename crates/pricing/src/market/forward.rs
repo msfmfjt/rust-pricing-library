@@ -252,4 +252,284 @@ mod tests {
         assert_eq!(value.discount_region, CurveRegion::RightExtrapolated);
         assert_eq!(value.dividend_region, CurveRegion::RightExtrapolated);
     }
+
+    #[test]
+    fn spot_replacement_preserves_identity_curves_and_independent_regions() {
+        let discount = Arc::new(
+            LogLinearDiscountCurve::new(CurveId::new(10), vec![0.0, 1.0], vec![1.0, 0.5])
+                .expect("discount curve"),
+        );
+        let dividend = Arc::new(
+            LogLinearDiscountCurve::new(CurveId::new(20), vec![0.0, 2.0, 4.0], vec![1.0, 1.0, 1.0])
+                .expect("dividend curve"),
+        );
+        let original = EquityForward::new(
+            UnderlyingId::new(7),
+            PositiveF64::new(128.0, "spot").unwrap(),
+            Arc::clone(&discount),
+            Arc::clone(&dividend),
+        );
+        let bumped = original
+            .with_spot(PositiveF64::new(160.0, "spot").unwrap())
+            .unwrap();
+        assert_eq!(bumped.underlying(), UnderlyingId::new(7));
+        assert_eq!(original.spot().get(), 128.0);
+        assert_eq!(bumped.spot().get(), 160.0);
+        assert_eq!(bumped.discount_curve(), discount.as_ref());
+        assert_eq!(bumped.dividend_curve(), dividend.as_ref());
+        assert!(bumped.discrete_dividends().is_none());
+        assert_eq!(bumped.forward(0.0), Ok(160.0));
+        assert!((bumped.forward(1.0).unwrap() - 320.0).abs() < 1.0e-13);
+        for (time, discount_region, dividend_region) in [
+            (1.0, CurveRegion::Pillar, CurveRegion::Interpolated),
+            (2.0, CurveRegion::RightExtrapolated, CurveRegion::Pillar),
+            (
+                3.0,
+                CurveRegion::RightExtrapolated,
+                CurveRegion::Interpolated,
+            ),
+            (
+                5.0,
+                CurveRegion::RightExtrapolated,
+                CurveRegion::RightExtrapolated,
+            ),
+        ] {
+            let value = bumped.evaluate(time).unwrap();
+            assert_eq!(value.discount_region, discount_region);
+            assert_eq!(value.dividend_region, dividend_region);
+        }
+    }
+
+    #[test]
+    fn multiple_dividends_follow_independent_cash_flow_recursion() {
+        let discount = Arc::new(
+            LogLinearDiscountCurve::new(
+                CurveId::new(10),
+                vec![0.0, 1.0, 2.0],
+                vec![1.0, 0.25, 0.0625],
+            )
+            .unwrap(),
+        );
+        let dividend = Arc::new(
+            LogLinearDiscountCurve::new(
+                CurveId::new(20),
+                vec![0.0, 1.0, 2.0],
+                vec![1.0, 0.5, 0.25],
+            )
+            .unwrap(),
+        );
+        let forward = EquityForward::with_discrete_dividends(
+            UnderlyingId::new(7),
+            PositiveF64::new(128.0, "spot").unwrap(),
+            discount,
+            dividend,
+            vec![
+                DividendEvent::new(
+                    EventId::new(11),
+                    1.0,
+                    DividendQuote::FixedCashAndProportional {
+                        fixed_cash: 8.0,
+                        beta: 0.25,
+                    },
+                )
+                .unwrap(),
+                DividendEvent::new(
+                    EventId::new(12),
+                    2.0,
+                    DividendQuote::FixedCashAndProportional {
+                        fixed_cash: 12.0,
+                        beta: 0.5,
+                    },
+                )
+                .unwrap(),
+            ],
+        )
+        .unwrap();
+        // Funded reserve = 8/(3/4)/2 + 12/(3/8)/4 = 40/3.
+        let transform = forward.discrete_dividends().unwrap();
+        assert!((transform.initial_reserve() - 40.0 / 3.0).abs() < 1.0e-13);
+        assert_eq!(transform.underlying(), UnderlyingId::new(7));
+        assert_eq!(transform.spot().get(), 128.0);
+        for (time, canonical, spot_forward, a, b, scale) in [
+            (0.0, 128.0, 128.0, 5.0 / 48.0, 43.0 / 48.0, 1.0),
+            (1.0, 256.0, 184.0, 3.0 / 32.0, 43.0 / 64.0, 0.75),
+            (2.0, 512.0, 172.0, 0.0, 43.0 / 128.0, 0.375),
+            (3.0, 1024.0, 344.0, 0.0, 43.0 / 128.0, 0.375),
+        ] {
+            let value = forward.evaluate(time).unwrap();
+            assert!((value.forward - canonical).abs() < 1.0e-12, "time={time}");
+            assert!((forward.forward(time).unwrap() - canonical).abs() < 1.0e-12);
+            assert!(
+                (value.spot_contract_forward - spot_forward).abs() < 1.0e-12,
+                "time={time}"
+            );
+            assert!((value.affine_coordinate.a() - a).abs() < 1.0e-15);
+            assert!((value.affine_coordinate.b() - b).abs() < 1.0e-15);
+            assert_eq!(value.affine_coordinate.spot_scale(), scale);
+        }
+        let timeline = transform.event_timeline().unwrap();
+        for (index, (event, time, a, b, pre_spot, post_spot)) in [
+            (EventId::new(11), 1.0, 5.0 / 24.0, 43.0 / 48.0, 256.0, 184.0),
+            (EventId::new(12), 2.0, 3.0 / 16.0, 43.0 / 64.0, 368.0, 172.0),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let entry = timeline[index];
+            assert_eq!(entry.event(), event);
+            assert_eq!(entry.ex_time(), time);
+            assert!((entry.before().a() - a).abs() < 1.0e-15);
+            assert!((entry.before().b() - b).abs() < 1.0e-15);
+            assert_eq!(
+                entry.before(),
+                transform.coordinate_before_event(index).unwrap()
+            );
+            assert_eq!(
+                entry.after(),
+                transform.coordinate_after_time(time).unwrap()
+            );
+            let compiled = transform.events()[index];
+            assert_eq!(compiled.event(), event);
+            assert_eq!(compiled.ex_time(), time);
+            assert!((compiled.post_spot(pre_spot, forward.spot()) - post_spot).abs() < 1.0e-13);
+        }
+        let bumped = forward
+            .with_spot(PositiveF64::new(160.0, "spot").unwrap())
+            .unwrap();
+        assert_eq!(
+            bumped.discrete_dividends().unwrap().initial_reserve(),
+            transform.initial_reserve()
+        );
+        assert!((bumped.evaluate(3.0).unwrap().spot_contract_forward - 440.0).abs() < 1.0e-12);
+        assert!((forward.evaluate(3.0).unwrap().spot_contract_forward - 344.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn canonical_forward_overflow_reports_underlying_before_dividend_carry() {
+        let id = UnderlyingId::new(7);
+        let discount = Arc::new(
+            LogLinearDiscountCurve::new(
+                CurveId::new(10),
+                vec![0.0, 1.0, 2.0],
+                vec![1.0, 1.0e-300, 1.0],
+            )
+            .unwrap(),
+        );
+        let dividend = Arc::new(
+            LogLinearDiscountCurve::new(
+                CurveId::new(20),
+                vec![0.0, 1.0, 2.0],
+                vec![1.0, 1.0e300, 1.0],
+            )
+            .unwrap(),
+        );
+        let forward = EquityForward::with_discrete_dividends(
+            id,
+            PositiveF64::new(100.0, "spot").unwrap(),
+            discount,
+            dividend,
+            vec![DividendEvent::new(EventId::new(11), 2.0, DividendQuote::FixedCash(1.0)).unwrap()],
+        )
+        .expect("the future cash is funded at its actual ex-date");
+        let expected = MarketError::NonFiniteForward {
+            underlying: id,
+            time_bits: 1.0_f64.to_bits(),
+            forward_bits: f64::INFINITY.to_bits(),
+        };
+        assert_eq!(forward.evaluate(1.0), Err(expected.clone()));
+        assert_eq!(forward.forward(1.0), Err(expected));
+    }
+
+    #[test]
+    fn positive_canonical_forward_can_underflow_after_a_proportional_dividend() {
+        let id = UnderlyingId::new(7);
+        let forward = EquityForward::with_discrete_dividends(
+            id,
+            PositiveF64::new(f64::from_bits(1), "spot").unwrap(),
+            flat_curve(10, 0.0),
+            flat_curve(20, 0.0),
+            vec![
+                DividendEvent::new(EventId::new(11), 0.0, DividendQuote::Proportional(0.75))
+                    .unwrap(),
+            ],
+        )
+        .expect("a zero-cash proportional schedule is funded");
+        assert_eq!(
+            forward.evaluate(0.0),
+            Err(MarketError::NonFiniteForward {
+                underlying: id,
+                time_bits: 0.0_f64.to_bits(),
+                forward_bits: 0.0_f64.to_bits(),
+            })
+        );
+    }
+
+    #[test]
+    fn zero_cash_coordinates_do_not_require_representable_carry_growth() {
+        let discount = Arc::new(
+            LogLinearDiscountCurve::new(CurveId::new(10), vec![0.0, 1.0], vec![1.0, 1.0e-300])
+                .unwrap(),
+        );
+        let dividend = Arc::new(
+            LogLinearDiscountCurve::new(CurveId::new(20), vec![0.0, 1.0], vec![1.0, 1.0e300])
+                .unwrap(),
+        );
+        for (events, expected_b) in [
+            (vec![], 1.0),
+            (
+                vec![
+                    DividendEvent::new(EventId::new(11), 0.0, DividendQuote::Proportional(0.25))
+                        .unwrap(),
+                ],
+                0.75,
+            ),
+        ] {
+            let forward = EquityForward::with_discrete_dividends(
+                UnderlyingId::new(7),
+                PositiveF64::new(100.0, "spot").unwrap(),
+                Arc::clone(&discount),
+                Arc::clone(&dividend),
+                events,
+            )
+            .unwrap();
+            let transform = forward.discrete_dividends().unwrap();
+            assert_eq!(transform.initial_reserve(), 0.0);
+            let coordinate = transform
+                .coordinate_after_time(1.0)
+                .expect("zero cash remains zero");
+            assert_eq!(coordinate.a(), 0.0);
+            assert_eq!(coordinate.b(), expected_b);
+            assert_eq!(coordinate.spot_scale(), expected_b);
+        }
+    }
+
+    #[test]
+    fn curve_errors_are_propagated_with_their_original_identity() {
+        for (discount_rate, dividend_rate, expected_curve) in [
+            (-700.0, 0.0, CurveId::new(10)),
+            (0.0, -700.0, CurveId::new(20)),
+        ] {
+            let forward = EquityForward::new(
+                UnderlyingId::new(7),
+                PositiveF64::new(100.0, "spot").unwrap(),
+                flat_curve(10, discount_rate),
+                flat_curve(20, dividend_rate),
+            );
+            let error = forward
+                .evaluate(2.0)
+                .expect_err("individual curve overflow");
+            let MarketError::NonFiniteCurveValue {
+                curve,
+                time_bits,
+                log_discount_bits,
+            } = error
+            else {
+                panic!("unexpected error: {error:?}");
+            };
+            assert_eq!(curve, expected_curve);
+            assert_eq!(time_bits, 2.0_f64.to_bits());
+            assert!(f64::from_bits(log_discount_bits) > 1000.0);
+            assert_eq!(forward.forward(2.0), Err(error));
+        }
+    }
 }

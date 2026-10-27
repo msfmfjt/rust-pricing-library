@@ -80,6 +80,26 @@ documents the public API migration.
 
 ## Implementation roadmaps and acceptance
 
+- [Rust mutation-testing rollout, 2026-10-22](validation/mutation-testing-2026-10-22.md)
+- [Numerical mutation-testing follow-up, 2026-10-22](validation/mutation-numerics-2026-10-22.md)
+- [Numerical mutation survivor triage, 2026-10-22](validation/mutation-triage-2026-10-22.md)
+- [Mutation evidence integrity, 2026-10-22](validation/mutation-evidence-integrity-2026-10-22.md)
+- [Date and calendar mutation coverage, 2026-10-22](validation/mutation-calendar-2026-10-22.md)
+- [Mutation execution evidence and changed-line gate, 2026-10-22](validation/mutation-reporting-2026-10-22.md)
+- [Discount-curve mutation coverage, 2026-10-23](validation/mutation-curve-2026-10-23.md)
+- [Forward and discrete-dividend mutation coverage, 2026-10-23](validation/mutation-carry-2026-10-23.md)
+- [Mutation CI source encoding, 2026-10-24](validation/mutation-ci-encoding-2026-10-24.md)
+- [PCHIP mutation coverage, 2026-10-25](validation/mutation-pchip-2026-10-25.md)
+- [PCHIP nonfinite-result validation, 2026-10-25](validation/mutation-pchip-finite-2026-10-25.md)
+- [SSVI phi stability and mutation coverage, 2026-10-25](validation/mutation-ssvi-phi-2026-10-25.md)
+- [Durrleman density-factor mutation coverage, 2026-10-25](validation/mutation-density-2026-10-25.md)
+- [Forward-call evaluation mutation coverage, 2026-10-25](validation/mutation-forward-call-2026-10-25.md)
+- [Surface tolerance and butterfly-bound mutation coverage, 2026-10-25](validation/mutation-surface-tolerance-2026-10-25.md)
+- [Standard SSVI variance-derivative mutation coverage, 2026-10-26](validation/mutation-ssvi-variance-2026-10-26.md)
+- [eSSVI parameter interpolation mutation coverage, 2026-10-27](validation/mutation-essvi-parameters-2026-10-27.md)
+- [eSSVI variance-derivative mutation coverage, 2026-10-27](validation/mutation-essvi-variance-2026-10-27.md)
+- [eSSVI slice validation and accessor mutation coverage, 2026-10-27](validation/mutation-essvi-validation-2026-10-27.md)
+- [Fractional-OU range-guard investigation, 2026-10-25](validation/mutation-fou-guard-2026-10-25.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)

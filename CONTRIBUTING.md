@@ -59,6 +59,7 @@ python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
+python3 -m unittest discover -s scripts -p test_check_dependency_direction.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
 cargo fmt --all --check
@@ -134,6 +135,23 @@ The [extended-model risk panel](design/validation/extended-model-risk-accuracy.m
 checks public AAD and recalibrated sensitivities with common calibration/pricing
 streams, multiple seeds and bump sizes. It runs before the price acceptance
 panel and retains its own evidence, so the two gates can be assessed separately.
+
+## Mutation checks
+
+Use the pinned mutation tool and the [mutation-testing guide](docs/library/mutation-testing.md)
+to check whether assertions detect deliberately broken Rust code:
+
+```bash
+cargo install cargo-mutants --version 27.1.0 --locked
+python -m unittest discover -s scripts -p 'test_run_mutation_tests.py' -v
+python scripts/run_mutation_tests.py smoke
+python scripts/run_mutation_tests.py changed --base origin/main
+```
+
+For stacked PRs, substitute the actual parent branch for `origin/main`. Preserve
+the baseline, inspect missed/time-out patches, and add behavior tests without
+relaxing numerical tolerances. Mutation checks supplement the numerical and
+installed-wheel acceptance gates above. Python mutation coverage is not claimed.
 
 ## Internal boundaries after crate consolidation
 

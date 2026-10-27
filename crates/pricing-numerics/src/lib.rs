@@ -28,3 +28,11 @@ mod complex;
 pub use complex::Complex64;
 
 pub mod least_squares;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn legacy_foundation_role_remains_compatible() {
+        assert_eq!(super::foundation_role(), "core");
+    }
+}

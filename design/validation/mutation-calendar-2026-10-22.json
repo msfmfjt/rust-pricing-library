@@ -1,0 +1,2100 @@
+{
+  "date": "2026-10-22",
+  "base_commit": "641db5e4e0cd274f3faa6e8054222138594a4018",
+  "rust_toolchain": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "scope": "All generated mutations in core/date.rs and core/calendar.rs; pricing core:: unit tests only.",
+  "production_correction": {
+    "function": "Calendar::adjust / ModifiedFollowing",
+    "before": "adjusted.month() == date.month()",
+    "after": "(adjusted.year(), adjusted.month()) == (date.year(), date.month())",
+    "regression_test": "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year",
+    "fixture": "Every date in 2026 explicitly marked as a holiday; start 2026-01-01.",
+    "unchanged_following_result": "2027-01-01",
+    "incorrect_modified_following_result_before_fix": "2027-01-01",
+    "correct_modified_following_result": "2025-12-31",
+    "pre_fix_regression_test_exit_code": 101,
+    "pre_fix_evidence": "Observed assertion failure in execution output before changing the production comparison; the standalone log was not retained.",
+    "compatibility": "No public signature, wire schema, dependency, RNG or precision-budget change; long-closure date adjustment is corrected."
+  },
+  "tool_generation_limit": {
+    "source": "cargo-mutants-27.1.0/src/visit.rs: visit_impl_item_fn and visit_trait_item_fn",
+    "excluded_by_tool": "Methods named new, including Date::new and Calendar::new.",
+    "effect": "Complete generated inventory does not cover every production expression. Explicit constructor/domain tests were added. No repository exclusion changed."
+  },
+  "reference_anchors": {
+    "method": "Python datetime.date.toordinal and weekday; proleptic Gregorian",
+    "anchors": [
+      {
+        "date": "0001-01-01",
+        "ordinal": 1,
+        "weekday": "Monday"
+      },
+      {
+        "date": "0001-12-31",
+        "ordinal": 365,
+        "weekday": "Monday"
+      },
+      {
+        "date": "0004-02-29",
+        "ordinal": 1155,
+        "weekday": "Sunday"
+      },
+      {
+        "date": "0100-03-01",
+        "ordinal": 36219,
+        "weekday": "Monday"
+      },
+      {
+        "date": "0400-02-29",
+        "ordinal": 145791,
+        "weekday": "Tuesday"
+      },
+      {
+        "date": "1582-10-15",
+        "ordinal": 577736,
+        "weekday": "Friday"
+      },
+      {
+        "date": "1600-02-29",
+        "ordinal": 584082,
+        "weekday": "Tuesday"
+      },
+      {
+        "date": "1700-03-01",
+        "ordinal": 620607,
+        "weekday": "Monday"
+      },
+      {
+        "date": "1900-03-01",
+        "ordinal": 693655,
+        "weekday": "Thursday"
+      },
+      {
+        "date": "1970-01-01",
+        "ordinal": 719163,
+        "weekday": "Thursday"
+      },
+      {
+        "date": "2000-01-01",
+        "ordinal": 730120,
+        "weekday": "Saturday"
+      },
+      {
+        "date": "2000-02-29",
+        "ordinal": 730179,
+        "weekday": "Tuesday"
+      },
+      {
+        "date": "2024-02-29",
+        "ordinal": 738945,
+        "weekday": "Thursday"
+      },
+      {
+        "date": "2026-09-09",
+        "ordinal": 739868,
+        "weekday": "Wednesday"
+      },
+      {
+        "date": "9999-12-31",
+        "ordinal": 3652059,
+        "weekday": "Friday"
+      }
+    ]
+  },
+  "before": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/core/date.rs",
+      "--file=crates/pricing/src/core/calendar.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=core::",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-calendar-before"
+    ],
+    "source_head": "641db5e4e0cd274f3faa6e8054222138594a4018",
+    "file_sha256": {
+      "crates/pricing/src/core/date.rs": "c146dd7741033aa2a23dd456bbeb56117afb3bafcddfdd649ee85b7eea58d984",
+      "crates/pricing/src/core/calendar.rs": "377f0d90f86bbbff999c5131b2384a510c89ba57edb78cd7ac116ffbebe4c88b"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "test_scope": "pricing unit tests matching core:: only; no integration tests",
+    "exit_code": 3,
+    "selected": 135,
+    "counts": {
+      "total_mutants": 135,
+      "caught": 109,
+      "missed": 16,
+      "timeout": 2,
+      "unviable": 8,
+      "success": 0
+    },
+    "start_time": "2026-10-22T21:11:33.964949788Z",
+    "end_time": "2026-10-22T21:16:42.601767458Z",
+    "cargo_mutants_version": "27.1.0",
+    "complete": true,
+    "baseline_commands": [
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--no-run",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked"
+      ],
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked",
+        "core::"
+      ]
+    ],
+    "outstanding": [
+      {
+        "name": "crates/pricing/src/core/calendar.rs:21:9: replace Calendar::weekend_only -> Self with Default::default()",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:41:9: replace Calendar::holidays -> &[Date] with Vec::leak(vec![Default::default()])",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:71:9: replace Calendar::following -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:78:9: replace Calendar::preceding -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:54:9: replace Date::year -> u16 with 0",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:54:9: replace Date::year -> u16 with 1",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:64:9: replace Date::day -> u8 with 0",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:64:9: replace Date::day -> u8 with 1",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:74:9: replace Date::weekday -> Weekday with Default::default()",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:77:13: delete match arm 2 in Date::weekday",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:78:13: delete match arm 3 in Date::weekday",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:86:9: replace Date::next_day -> Result<Self, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:98:21: replace < with > in Date::next_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:101:23: replace < with <= in Date::next_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:104:29: replace + with - in Date::next_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:108:9: replace Date::previous_day -> Result<Self, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:99:62: replace + with * in Date::next_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:117:23: replace > with < in Date::previous_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:118:36: replace - with + in Date::previous_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:118:36: replace - with / in Date::previous_day",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:115:62: replace - with / in Date::previous_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:154:9: replace <impl FromStr for Date>::from_str -> Result<Self, Self::Err> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:50: replace || with && in <impl FromStr for Date>::from_str",
+        "outcome": "MissedMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:30: replace || with && in <impl FromStr for Date>::from_str",
+        "outcome": "MissedMutant"
+      }
+    ],
+    "by_file": {
+      "crates/pricing/src/core/calendar.rs": {
+        "MissedMutant": 1,
+        "CaughtMutant": 11,
+        "Unviable": 4
+      },
+      "crates/pricing/src/core/date.rs": {
+        "MissedMutant": 15,
+        "CaughtMutant": 98,
+        "Unviable": 4,
+        "Timeout": 2
+      }
+    },
+    "baseline_test_result": [
+      "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 530 filtered out; finished in 0.00s"
+    ],
+    "raw_artifacts": {
+      "console.log": {
+        "path": "/tmp/pricing-calendar-before/console.log",
+        "sha256": "9a0b7ba073af85db4dfb42395d2166ea1df7c63530ed1e59ca4fdb921f163a40"
+      },
+      "mutants.out/mutants.json": {
+        "path": "/tmp/pricing-calendar-before/mutants.out/mutants.json",
+        "sha256": "6d2c40929b623b432f862cccdcd13330e4ee559fe4e33db4341a616a2a1fa425"
+      },
+      "mutants.out/outcomes.json": {
+        "path": "/tmp/pricing-calendar-before/mutants.out/outcomes.json",
+        "sha256": "a924d35b1294667eaacd5939183a6c36337cc076d9b0750207a6ca3892b095ca"
+      }
+    },
+    "source_description": "Clean detached baseline checkout at source_head."
+  },
+  "after": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/core/date.rs",
+      "--file=crates/pricing/src/core/calendar.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=core::",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-calendar-after"
+    ],
+    "source_head": "641db5e4e0cd274f3faa6e8054222138594a4018",
+    "file_sha256": {
+      "crates/pricing/src/core/date.rs": "87bfd28b21de726318bdd13cea58a898a28cef3179e618e3838eeb4ec116e78f",
+      "crates/pricing/src/core/calendar.rs": "426e4dfd0bcb44db3bc628e810e6fe994ce26c7aa96062af3aba7ba9a87d6f86"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "test_scope": "pricing unit tests matching core:: only; no integration tests",
+    "exit_code": 3,
+    "selected": 135,
+    "counts": {
+      "total_mutants": 135,
+      "caught": 122,
+      "missed": 0,
+      "timeout": 5,
+      "unviable": 8,
+      "success": 0
+    },
+    "start_time": "2026-10-22T21:18:01.313531411Z",
+    "end_time": "2026-10-22T21:23:10.408828421Z",
+    "cargo_mutants_version": "27.1.0",
+    "complete": true,
+    "baseline_commands": [
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--no-run",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked"
+      ],
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked",
+        "core::"
+      ]
+    ],
+    "outstanding": [
+      {
+        "name": "crates/pricing/src/core/calendar.rs:41:9: replace Calendar::holidays -> &[Date] with Vec::leak(vec![Default::default()])",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:71:9: replace Calendar::following -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:78:9: replace Calendar::preceding -> Result<Date, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:74:9: replace Date::weekday -> Weekday with Default::default()",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:86:9: replace Date::next_day -> Result<Self, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:108:9: replace Date::previous_day -> Result<Self, CoreError> with Ok(Default::default())",
+        "outcome": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:99:62: replace + with * in Date::next_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:102:52: replace + with * in Date::next_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:115:62: replace - with / in Date::previous_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:127:29: replace - with / in Date::previous_day",
+        "outcome": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:154:9: replace <impl FromStr for Date>::from_str -> Result<Self, Self::Err> with Ok(Default::default())",
+        "outcome": "Unviable"
+      }
+    ],
+    "by_file": {
+      "crates/pricing/src/core/calendar.rs": {
+        "CaughtMutant": 12,
+        "Unviable": 4
+      },
+      "crates/pricing/src/core/date.rs": {
+        "CaughtMutant": 110,
+        "Unviable": 4,
+        "Timeout": 5
+      }
+    },
+    "baseline_test_result": [
+      "test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 530 filtered out; finished in 0.00s"
+    ],
+    "raw_artifacts": {
+      "console.log": {
+        "path": "/tmp/pricing-calendar-after/console.log",
+        "sha256": "c3405ff0843a20ec9a4343a08f17ba78f3afbbab32e85aade106d51c934d3ff0"
+      },
+      "mutants.out/mutants.json": {
+        "path": "/tmp/pricing-calendar-after/mutants.out/mutants.json",
+        "sha256": "5d6c79cefed35c058354fab98873bc8539cb969e7f00defcf89a80f5244995ae"
+      },
+      "mutants.out/outcomes.json": {
+        "path": "/tmp/pricing-calendar-after/mutants.out/outcomes.json",
+        "sha256": "cccc231e9c533e62ef1bde534e8f50b6708cac7ce170a8cad9b21049662d14ea"
+      }
+    },
+    "source_description": "Uncommitted date/calendar changes on source_head, pinned by file_sha256; same source as published follow-up."
+  },
+  "identity_comparison": {
+    "common_identity_count": 134,
+    "common_transition_counts": {
+      "CaughtMutant -> CaughtMutant": 106,
+      "CaughtMutant -> Timeout": 2,
+      "MissedMutant -> CaughtMutant": 15,
+      "MissedMutant -> Timeout": 1,
+      "Timeout -> Timeout": 2,
+      "Unviable -> Unviable": 8
+    },
+    "common_identity_results": [
+      {
+        "name": "crates/pricing/src/core/calendar.rs:21:9: replace Calendar::weekend_only -> Self with Default::default()",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:41:9: replace Calendar::holidays -> &[Date] with Vec::leak(Vec::new())",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:41:9: replace Calendar::holidays -> &[Date] with Vec::leak(vec![Default::default()])",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:46:9: replace Calendar::is_holiday -> bool with false",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:46:9: replace Calendar::is_holiday -> bool with true",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:51:38: replace && with || in Calendar::is_business_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:51:41: delete ! in Calendar::is_business_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:51:9: delete ! in Calendar::is_business_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:51:9: replace Calendar::is_business_day -> bool with false",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:51:9: replace Calendar::is_business_day -> bool with true",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:71:15: delete ! in Calendar::following",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:71:9: replace Calendar::following -> Result<Date, CoreError> with Ok(Default::default())",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:78:15: delete ! in Calendar::preceding",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/calendar.rs:78:9: replace Calendar::preceding -> Result<Date, CoreError> with Ok(Default::default())",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:101:23: replace < with <= in Date::next_day",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:101:23: replace < with == in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:101:23: replace < with > in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:102:52: replace + with * in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:102:52: replace + with - in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day",
+        "before": "MissedMutant",
+        "after": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:104:29: replace + with - in Date::next_day",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:108:17: replace == with != in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:108:9: replace Date::previous_day -> Result<Self, CoreError> with Ok(Default::default())",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:114:21: replace > with < in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:114:21: replace > with == in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:114:21: replace > with >= in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:115:62: replace - with + in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:115:62: replace - with / in Date::previous_day",
+        "before": "Timeout",
+        "after": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:117:23: replace > with < in Date::previous_day",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:117:23: replace > with == in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:117:23: replace > with >= in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:118:36: replace - with + in Date::previous_day",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:118:36: replace - with / in Date::previous_day",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:127:29: replace - with + in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:127:29: replace - with / in Date::previous_day",
+        "before": "CaughtMutant",
+        "after": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:131:50: replace - with + in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:131:50: replace - with / in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:131:9: replace Date::ordinal -> i32 with -1",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:131:9: replace Date::ordinal -> i32 with 0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:131:9: replace Date::ordinal -> i32 with 1",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:17: replace * with + in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:17: replace * with / in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:33: replace + with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:33: replace + with - in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:49: replace / with % in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:49: replace / with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:53: replace - with + in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:53: replace - with / in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:69: replace / with % in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:69: replace / with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:75: replace + with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:75: replace + with - in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:91: replace / with % in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:133:91: replace / with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:135:45: replace > with < in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:135:45: replace > with == in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:135:45: replace > with >= in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:135:49: replace && with || in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:26: replace + with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:26: replace + with - in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:62: replace - with + in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:62: replace - with / in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:68: replace + with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:68: replace + with - in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:79: replace + with * in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:136:79: replace + with - in Date::ordinal",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:142:9: replace <impl fmt::Display for Date>::fmt -> fmt::Result with Ok(Default::default())",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:154:9: replace <impl FromStr for Date>::from_str -> Result<Self, Self::Err> with Ok(Default::default())",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:24: replace != with == in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:30: replace || with && in <impl FromStr for Date>::from_str",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:42: replace != with == in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:50: replace || with && in <impl FromStr for Date>::from_str",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:155:62: replace != with == in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:160:12: delete ! in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:163:40: replace == with != in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:163:45: replace || with && in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:163:54: replace == with != in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:163:59: replace || with && in <impl FromStr for Date>::from_str",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:177:5: replace parse_digits -> u32 with 0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:177:5: replace parse_digits -> u32 with 1",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:179:42: replace * with + in parse_digits",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:179:42: replace * with / in parse_digits",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:179:47: replace + with * in parse_digits",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:179:47: replace + with - in parse_digits",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:179:64: replace - with + in parse_digits",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:179:64: replace - with / in parse_digits",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:184:28: replace && with || in is_leap_year",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:184:32: delete ! in is_leap_year",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:184:58: replace || with && in is_leap_year",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:184:5: replace is_leap_year -> bool with false",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:184:5: replace is_leap_year -> bool with true",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:189:5: replace days_in_month -> Option<u8> with None",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:189:5: replace days_in_month -> Option<u8> with Some(0)",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:189:5: replace days_in_month -> Option<u8> with Some(1)",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:190:9: delete match arm 1 | 3 | 5 | 7 | 8 | 10 | 12 in days_in_month",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:191:9: delete match arm 4 | 6 | 9 | 11 in days_in_month",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:192:14: replace match guard is_leap_year(year) with false in days_in_month",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:192:14: replace match guard is_leap_year(year) with true in days_in_month",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:193:9: delete match arm 2 in days_in_month",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:212:9: replace Weekday::is_weekend -> bool with false",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:212:9: replace Weekday::is_weekend -> bool with true",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:226:9: replace DayCountConvention::year_fraction -> f64 with -1.0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:226:9: replace DayCountConvention::year_fraction -> f64 with 0.0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:226:9: replace DayCountConvention::year_fraction -> f64 with 1.0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:230:42: replace / with % in DayCountConvention::year_fraction",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:230:42: replace / with * in DayCountConvention::year_fraction",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:54:9: replace Date::year -> u16 with 0",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:54:9: replace Date::year -> u16 with 1",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:59:9: replace Date::month -> u8 with 0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:59:9: replace Date::month -> u8 with 1",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:64:9: replace Date::day -> u8 with 0",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:64:9: replace Date::day -> u8 with 1",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:69:23: replace - with + in Date::days_until",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:69:23: replace - with / in Date::days_until",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:69:9: replace Date::days_until -> i32 with -1",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:69:9: replace Date::days_until -> i32 with 0",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:69:9: replace Date::days_until -> i32 with 1",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:74:31: replace - with + in Date::weekday",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:74:31: replace - with / in Date::weekday",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:74:9: replace Date::weekday -> Weekday with Default::default()",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:75:13: delete match arm 0 in Date::weekday",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:76:13: delete match arm 1 in Date::weekday",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:77:13: delete match arm 2 in Date::weekday",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:78:13: delete match arm 3 in Date::weekday",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:79:13: delete match arm 4 in Date::weekday",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:80:13: delete match arm 5 in Date::weekday",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:86:17: replace == with != in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:86:9: replace Date::next_day -> Result<Self, CoreError> with Ok(Default::default())",
+        "before": "Unviable",
+        "after": "Unviable"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:98:21: replace < with <= in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:98:21: replace < with == in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:98:21: replace < with > in Date::next_day",
+        "before": "MissedMutant",
+        "after": "CaughtMutant"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:99:62: replace + with * in Date::next_day",
+        "before": "Timeout",
+        "after": "Timeout"
+      },
+      {
+        "name": "crates/pricing/src/core/date.rs:99:62: replace + with - in Date::next_day",
+        "before": "CaughtMutant",
+        "after": "CaughtMutant"
+      }
+    ],
+    "changed_comparison_mutation": {
+      "before_name": "crates/pricing/src/core/calendar.rs:60:37: replace == with != in Calendar::adjust",
+      "before_outcome": "CaughtMutant",
+      "after_name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+      "after_outcome": "CaughtMutant",
+      "caveat": "Different source location and operands after the production correction; not counted as an identical mutation."
+    },
+    "changed_outcome_evidence": {
+      "crates/pricing/src/core/calendar.rs:21:9: replace Calendar::weekend_only -> Self with Default::default()": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__calendar.rs_line_21_col_9.log",
+        "log_sha256": "ba8dedaed49e5198e4c793717f9586f2cecbed2de3f3eebf39953583afe347c8",
+        "failed_test_names": [],
+        "diagnostic_lines": [
+          "thread 'core::calendar::tests::weekend_calendars_preserve_business_days_and_unadjusted_dates' (3284) has overflowed its stack",
+          "fatal runtime error: stack overflow, aborting",
+          "  process didn't exit successfully: `/tmp/cargo-mutants-rust-pricing-library-Sm2upa.tmp/target/debug/deps/pricing-ffc08b07195144ad 'core::'` (signal: 6, SIGABRT: process abort signal)"
+        ],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 8.43307936
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051579972
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:101:23: replace < with <= in Date::next_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_101_col_23_002.log",
+        "log_sha256": "98229473b41bcc4583eff71018d1d9cbfce72714b0fb63875629c584ce2f2d3b",
+        "failed_test_names": [
+          "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year",
+          "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 6.422140384
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051493882
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:102:52: replace + with * in Date::next_day": {
+        "outcome": "Timeout",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_102_col_52_001.log",
+        "log_sha256": "f73773542fb3537f1be5d95733fee0544425cbd1b734959717bc7b213a263396",
+        "failed_test_names": [
+          "core::calendar::tests::adjustments_follow_weekends_and_holidays",
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary",
+          "core::date::tests::next_and_previous_day_cross_boundaries"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.948117122
+          },
+          {
+            "phase": "Test",
+            "process_status": "Timeout",
+            "duration_seconds": 20.021300502
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day": {
+        "outcome": "Timeout",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_104_col_29_001.log",
+        "log_sha256": "7bd8efb6eff7c3cd82088fa9453c8854a1c2dbece91b7b794a3bcbbc41b1c5ff",
+        "failed_test_names": [
+          "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.876048033
+          },
+          {
+            "phase": "Test",
+            "process_status": "Timeout",
+            "duration_seconds": 20.028135778
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:104:29: replace + with - in Date::next_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_104_col_29.log",
+        "log_sha256": "14517837364df2e5d097da6d4a045c12c718f287d7bdbb50b5e76040fa8f1700",
+        "failed_test_names": [
+          "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+          "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year",
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.918706176
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051744959
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:117:23: replace > with < in Date::previous_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_117_col_23_001.log",
+        "log_sha256": "b9b112bcbe7e46de3f1d4f1c16e175df5e22a47548c5fb58419bf44def9df221",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.847677722
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.050990368
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:118:36: replace - with + in Date::previous_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_118_col_36.log",
+        "log_sha256": "9b11ec9542117446aa0226016395a20be904cb484dec4106e8878a0c872856b7",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.6303529789999995
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.0511984
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:118:36: replace - with / in Date::previous_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_118_col_36_001.log",
+        "log_sha256": "ae6e781a2507043af0695731deae1a7c2c8919fafa9b714c3284219c8ad0c031",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.615295908
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051006754
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:127:29: replace - with / in Date::previous_day": {
+        "outcome": "Timeout",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_127_col_29_001.log",
+        "log_sha256": "33ad9df079ba7b2c516122a138cd438615ed5d7d009d468c5af7ead6ae042df9",
+        "failed_test_names": [
+          "core::date::tests::next_and_previous_day_cross_boundaries",
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.577317874
+          },
+          {
+            "phase": "Test",
+            "process_status": "Timeout",
+            "duration_seconds": 20.040561217
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:155:30: replace || with && in <impl FromStr for Date>::from_str": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_155_col_30.log",
+        "log_sha256": "9616be1d161cef65786470db9d19df7ded8d88acf2d4fec81b71d910be32241b",
+        "failed_test_names": [
+          "core::date::tests::parser_rejects_noncanonical_ascii_and_utf8_without_panicking"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.626151878
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.104799372
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:155:50: replace || with && in <impl FromStr for Date>::from_str": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_155_col_50.log",
+        "log_sha256": "b6eb18fe60e4ef7f69f62c4bec9348655abf56486ee2d804bd662e907ef38b79",
+        "failed_test_names": [
+          "core::date::tests::parser_rejects_noncanonical_ascii_and_utf8_without_panicking"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.933029427
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051205637
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:54:9: replace Date::year -> u16 with 0": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_54_col_9.log",
+        "log_sha256": "aafe5f44715332ebad8fd92ce2837eba602f3dec3d1b6f2f07d6641d66f16a4e",
+        "failed_test_names": [
+          "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year",
+          "core::date::tests::components_and_iso_format_preserve_the_full_date"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 7.915857452
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051288946
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:54:9: replace Date::year -> u16 with 1": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_54_col_9_001.log",
+        "log_sha256": "c93c1ccd4bbd90af98949b21115917b77d00b72965db69c988dba156dc348924",
+        "failed_test_names": [
+          "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year",
+          "core::date::tests::components_and_iso_format_preserve_the_full_date"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 7.174794495
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051338917
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:64:9: replace Date::day -> u8 with 0": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_64_col_9.log",
+        "log_sha256": "3abfad1b375293c3fc875fc0e0aaa2b55e34be77db1a84177de46f1e551dc814",
+        "failed_test_names": [
+          "core::date::tests::components_and_iso_format_preserve_the_full_date"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 6.574748469
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051140833
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:64:9: replace Date::day -> u8 with 1": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_64_col_9_001.log",
+        "log_sha256": "e65ad5c237dc0023694353aca0e5d848d5e123294c7e8e3916f07e983ffd6427",
+        "failed_test_names": [
+          "core::date::tests::components_and_iso_format_preserve_the_full_date"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 6.633773175
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051254784
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:77:13: delete match arm 2 in Date::weekday": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_77_col_13.log",
+        "log_sha256": "afaaf9dc2c83606783aaa1cbc28d9ef492e3dd6fe70b384df1b9769c01945698",
+        "failed_test_names": [
+          "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+          "core::date::tests::day_offsets_and_weekdays_match_independent_gregorian_anchors",
+          "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 6.546267061
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051043133
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:78:13: delete match arm 3 in Date::weekday": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_78_col_13.log",
+        "log_sha256": "fddce15fbcc669950279f854d7a0c255ecd7e64833eb09aef70fc828059b96c7",
+        "failed_test_names": [
+          "core::date::tests::day_offsets_and_weekdays_match_independent_gregorian_anchors"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 6.646445325
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051149292
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:98:21: replace < with > in Date::next_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_98_col_21_001.log",
+        "log_sha256": "d53f1480b9de55536f1fd2f8b3b4dd94872012c70886a31939e105bd7d12546c",
+        "failed_test_names": [
+          "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 7.080610386
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051842949
+          }
+        ]
+      }
+    }
+  },
+  "timeout_evidence": {
+    "crates/pricing/src/core/date.rs:102:52: replace + with * in Date::next_day": {
+      "outcome": "Timeout",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_102_col_52_001.log",
+      "log_sha256": "f73773542fb3537f1be5d95733fee0544425cbd1b734959717bc7b213a263396",
+      "failed_test_names": [
+        "core::calendar::tests::adjustments_follow_weekends_and_holidays",
+        "core::date::tests::daily_successors_and_predecessors_cross_each_boundary",
+        "core::date::tests::next_and_previous_day_cross_boundaries"
+      ],
+      "diagnostic_lines": [],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": "Success",
+          "duration_seconds": 5.948117122
+        },
+        {
+          "phase": "Test",
+          "process_status": "Timeout",
+          "duration_seconds": 20.021300502
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day": {
+      "outcome": "Timeout",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_104_col_29_001.log",
+      "log_sha256": "7bd8efb6eff7c3cd82088fa9453c8854a1c2dbece91b7b794a3bcbbc41b1c5ff",
+      "failed_test_names": [
+        "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+        "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+      ],
+      "diagnostic_lines": [],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": "Success",
+          "duration_seconds": 5.876048033
+        },
+        {
+          "phase": "Test",
+          "process_status": "Timeout",
+          "duration_seconds": 20.028135778
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:115:62: replace - with / in Date::previous_day": {
+      "outcome": "Timeout",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_115_col_62_001.log",
+      "log_sha256": "0fd842ed0b920ff7613e000cf865a5350c9e42a6b9b5c05148815ea73d370111",
+      "failed_test_names": [
+        "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+      ],
+      "diagnostic_lines": [],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": "Success",
+          "duration_seconds": 5.928071244
+        },
+        {
+          "phase": "Test",
+          "process_status": "Timeout",
+          "duration_seconds": 20.033114996
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:127:29: replace - with / in Date::previous_day": {
+      "outcome": "Timeout",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_127_col_29_001.log",
+      "log_sha256": "33ad9df079ba7b2c516122a138cd438615ed5d7d009d468c5af7ead6ae042df9",
+      "failed_test_names": [
+        "core::date::tests::next_and_previous_day_cross_boundaries",
+        "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+      ],
+      "diagnostic_lines": [],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": "Success",
+          "duration_seconds": 5.577317874
+        },
+        {
+          "phase": "Test",
+          "process_status": "Timeout",
+          "duration_seconds": 20.040561217
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:99:62: replace + with * in Date::next_day": {
+      "outcome": "Timeout",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_99_col_62_001.log",
+      "log_sha256": "cb2b8a87a91e2af5f99358a4cb4f46c6c4821807b650aaaf7b8c3066e9828f49",
+      "failed_test_names": [
+        "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+      ],
+      "diagnostic_lines": [],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": "Success",
+          "duration_seconds": 6.144488211
+        },
+        {
+          "phase": "Test",
+          "process_status": "Timeout",
+          "duration_seconds": 20.017606921
+        }
+      ]
+    }
+  },
+  "timeout_explanation": "Five non-progressing date-step mutations leave a calendar search looping while other tests report failed date assertions. Two were already timeouts, one was missed and two were caught before the expanded calendar tests. They remain timeouts, not caught.",
+  "unviable_evidence": {
+    "crates/pricing/src/core/calendar.rs:41:9: replace Calendar::holidays -> &[Date] with Vec::leak(vec![Default::default()])": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__calendar.rs_line_41_col_9_001.log",
+      "log_sha256": "64b6086e830bf26273354028ee04b4ddc1f2e9e2d744cc2daa0a383ab11aed8c",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 23.637679552
+        }
+      ]
+    },
+    "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+      "log_sha256": "d1d0ee0a89494caa991ca8b6bf5531231db2ea4e114845f0323cc7dee6c2228d",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 3.669000595
+        }
+      ]
+    },
+    "crates/pricing/src/core/calendar.rs:71:9: replace Calendar::following -> Result<Date, CoreError> with Ok(Default::default())": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__calendar.rs_line_71_col_9.log",
+      "log_sha256": "2ad680b4b052d024349aa7062eb0410c820b94bcdc0092515c894f9baf469ca4",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 3.819685684
+        }
+      ]
+    },
+    "crates/pricing/src/core/calendar.rs:78:9: replace Calendar::preceding -> Result<Date, CoreError> with Ok(Default::default())": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__calendar.rs_line_78_col_9.log",
+      "log_sha256": "b8c9a16df494a2ec79447f1c8c3617ddf2ca0962156eb6c5be6813ce9061302a",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 3.295931642
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:108:9: replace Date::previous_day -> Result<Self, CoreError> with Ok(Default::default())": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_108_col_9.log",
+      "log_sha256": "659712b27453494a7afc101f2f4934556c84037aedd4110dcee3293a6d9d4141",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 2.861211868
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:154:9: replace <impl FromStr for Date>::from_str -> Result<Self, Self::Err> with Ok(Default::default())": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_154_col_9.log",
+      "log_sha256": "decda165c307bc8ada27d75587eb14782a3909bb6e2d215ac3befebd788ef934",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 3.172577137
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:74:9: replace Date::weekday -> Weekday with Default::default()": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_74_col_9.log",
+      "log_sha256": "9f1ab1be6e5405cdb0ce31f24950c4370128bb741d04e13720b04d40730c426b",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Weekday: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 3.674777323
+        }
+      ]
+    },
+    "crates/pricing/src/core/date.rs:86:9: replace Date::next_day -> Result<Self, CoreError> with Ok(Default::default())": {
+      "outcome": "Unviable",
+      "log_path": "/tmp/pricing-calendar-after/mutants.out/log/crates__pricing__src__core__date.rs_line_86_col_9.log",
+      "log_sha256": "1caa13b4bca06a2bf30166f8694cc33546110760bd963292eff6854a278ac00d",
+      "failed_test_names": [],
+      "diagnostic_lines": [
+        "error[E0277]: the trait bound `date::Date: Default` is not satisfied"
+      ],
+      "phases": [
+        {
+          "phase": "Build",
+          "process_status": {
+            "Failure": 101
+          },
+          "duration_seconds": 3.31352422
+        }
+      ]
+    }
+  },
+  "unviable_explanation": "All eight are E0277 build failures: seven require Date: Default and one requires Weekday: Default. These implementations do not exist.",
+  "timeout_diagnosis": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/core/date.rs",
+      "--file=crates/pricing/src/core/calendar.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=core::date::tests::",
+      "--re=^(?:crates/pricing/src/core/date\\.rs:102:52:\\ replace\\ \\+\\ with\\ \\*\\ in\\ Date::next_day|crates/pricing/src/core/date\\.rs:104:29:\\ replace\\ \\+\\ with\\ \\*\\ in\\ Date::next_day|crates/pricing/src/core/date\\.rs:115:62:\\ replace\\ \\-\\ with\\ /\\ in\\ Date::previous_day|crates/pricing/src/core/date\\.rs:127:29:\\ replace\\ \\-\\ with\\ /\\ in\\ Date::previous_day|crates/pricing/src/core/date\\.rs:99:62:\\ replace\\ \\+\\ with\\ \\*\\ in\\ Date::next_day)$",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-calendar-timeout-diagnosis"
+    ],
+    "source_head": "641db5e4e0cd274f3faa6e8054222138594a4018",
+    "file_sha256": {
+      "crates/pricing/src/core/date.rs": "87bfd28b21de726318bdd13cea58a898a28cef3179e618e3838eeb4ec116e78f",
+      "crates/pricing/src/core/calendar.rs": "426e4dfd0bcb44db3bc628e810e6fe994ce26c7aa96062af3aba7ba9a87d6f86"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "test_scope": "pricing unit tests matching core::date::tests:: only; timeout diagnosis, not a replacement for the complete survey",
+    "exit_code": 0,
+    "selected": 5,
+    "counts": {
+      "total_mutants": 5,
+      "caught": 5,
+      "missed": 0,
+      "timeout": 0,
+      "unviable": 0,
+      "success": 0
+    },
+    "start_time": "2026-10-22T21:23:41.589150777Z",
+    "end_time": "2026-10-22T21:24:52.690397366Z",
+    "cargo_mutants_version": "27.1.0",
+    "complete": true,
+    "baseline_commands": [
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--no-run",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked"
+      ],
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked",
+        "core::date::tests::"
+      ]
+    ],
+    "outstanding": [],
+    "by_file": {
+      "crates/pricing/src/core/date.rs": {
+        "CaughtMutant": 5
+      }
+    },
+    "baseline_test_result": [
+      "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 548 filtered out; finished in 0.00s"
+    ],
+    "raw_artifacts": {
+      "console.log": {
+        "path": "/tmp/pricing-calendar-timeout-diagnosis/console.log",
+        "sha256": "4d89b85fbc8cb37b923ceff32c5161c167da42a120e8c8e05e5add886ec5cae2"
+      },
+      "mutants.out/mutants.json": {
+        "path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/mutants.json",
+        "sha256": "48a08ed914e938f2709cc11d345311afec0d9f7c586e75279dae7116e449dffd"
+      },
+      "mutants.out/outcomes.json": {
+        "path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/outcomes.json",
+        "sha256": "6b2f3232b306b63f37d3b4fd519ca2a2c091914da825da57286070be55e16869"
+      }
+    },
+    "source_description": "Uncommitted date/calendar changes on source_head, pinned by file_sha256; same source as published follow-up.",
+    "mutation_evidence": {
+      "crates/pricing/src/core/date.rs:102:52: replace + with * in Date::next_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/log/crates__pricing__src__core__date.rs_line_102_col_52.log",
+        "log_sha256": "9a379393658a3d5bf5c6887bc272c97f38128ccdce2f7693244cedd7a91e1ab7",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary",
+          "core::date::tests::next_and_previous_day_cross_boundaries"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 38.640301234
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051530003
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:104:29: replace + with * in Date::next_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/log/crates__pricing__src__core__date.rs_line_104_col_29.log",
+        "log_sha256": "3096d6116ca3976cbc3873d8c2f797103ddfb10930a09174e1d4a86a7f358615",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 37.772966829
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.05214515
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:115:62: replace - with / in Date::previous_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/log/crates__pricing__src__core__date.rs_line_115_col_62.log",
+        "log_sha256": "18803409fb7d84f5e35980c34b55d006587453203f87b2833ab3ceec28337917",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 38.605161319
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051018121
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:127:29: replace - with / in Date::previous_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/log/crates__pricing__src__core__date.rs_line_127_col_29.log",
+        "log_sha256": "25315c77bce10c1e996e2039d0a7d4ed4070a2e519848e7e813c7ee907c25f5a",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary",
+          "core::date::tests::next_and_previous_day_cross_boundaries"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 5.815584733
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051157879
+          }
+        ]
+      },
+      "crates/pricing/src/core/date.rs:99:62: replace + with * in Date::next_day": {
+        "outcome": "CaughtMutant",
+        "log_path": "/tmp/pricing-calendar-timeout-diagnosis/mutants.out/log/crates__pricing__src__core__date.rs_line_99_col_62.log",
+        "log_sha256": "1cc4ac8df000c9a25b00a881c1e1f5c95ff55882c95b6c2d0d3a696c330934cb",
+        "failed_test_names": [
+          "core::date::tests::daily_successors_and_predecessors_cross_each_boundary"
+        ],
+        "diagnostic_lines": [],
+        "phases": [
+          {
+            "phase": "Build",
+            "process_status": "Success",
+            "duration_seconds": 7.202184418
+          },
+          {
+            "phase": "Test",
+            "process_status": {
+              "Failure": 101
+            },
+            "duration_seconds": 0.051381243
+          }
+        ]
+      }
+    }
+  },
+  "timeout_diagnosis_caveat": "All five timed-out identities are caught by the date-only test filter at the same 20-second limit. This narrower diagnostic does not replace or reclassify the complete survey outcomes.",
+  "changed_line_inventory": {
+    "scope": "changed",
+    "status": "listed_only",
+    "tool_version": "27.1.0",
+    "head": "641db5e4e0cd274f3faa6e8054222138594a4018",
+    "worktree_status": " M crates/pricing/src/core/calendar.rs\n M crates/pricing/src/core/date.rs\n M design/README.md\n M docs/library/mutation-testing.md\n M scripts/check_source_archive.py\n",
+    "command": [
+      "cargo",
+      "mutants",
+      "--baseline=run",
+      "--no-shuffle",
+      "--build-timeout=600",
+      "--jobs=2",
+      "--package=pricing",
+      "--package=pricing-numerics",
+      "--test-package=pricing",
+      "--test-package=pricing-numerics",
+      "--cargo-arg=--package=pricing",
+      "--cargo-arg=--package=pricing-numerics",
+      "--in-diff=/tmp/pricing-calendar-changed/changed-tgbn99go/changes.diff",
+      "--output=/tmp/pricing-calendar-changed/changed-tgbn99go"
+    ],
+    "selected": 2,
+    "base_ref": "origin/fix/product-graph-task-review",
+    "merge_base": "376c92624f88083b46d86e1087d2b0f03e202b91",
+    "selected_names": [
+      "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+      "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust"
+    ]
+  },
+  "validation": {
+    "pricing_unit": {
+      "command": "CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked -p pricing --lib --all-features",
+      "exit_code": 0,
+      "passed": 556,
+      "failed": 0,
+      "ignored": 5
+    },
+    "pricing_integration": {
+      "command": "CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked -p pricing --test product_graph --test pricing_task --test facade_compatibility -- --quiet",
+      "exit_code": 0,
+      "passed": 19,
+      "failed": 0,
+      "log_sha256": "2c84ee85b9610b1e221177d334a64d9bdfd0375b3c0cf939747124f3a13490bd"
+    },
+    "clippy": {
+      "command": "CARGO_PROFILE_TEST_DEBUG=0 cargo clippy --locked -p pricing --all-targets --all-features -- -D warnings",
+      "exit_code": 0,
+      "log_sha256": "9ac29af48271946ababdb36db7eaa7237e3d54db9682f20994f57e67319e2074"
+    },
+    "formatting": {
+      "command": "cargo fmt --all --check",
+      "exit_code": 0
+    },
+    "anchor_verification": {
+      "method": "Compare all 15 Rust tuple literals with Python datetime.date.toordinal() and weekday().",
+      "matched": 15
+    }
+  },
+  "limitations": [
+    "Both complete calendar surveys exit 3; five timeouts remain after strengthening, even though no mutation is missed.",
+    "This diagnostic runs core:: unit tests, not the broader full/changed runner scope.",
+    "Changed-line selection is list-only, with two mutants, and is not a passing changed-line test run.",
+    "No whole-library mutation, ignored acceptance or installed Python-wheel coverage is claimed.",
+    "Numerical files are unchanged; the previous 952-mutation result remains 931 caught, 11 missed, 3 timeouts and 7 unviable.",
+    "Remote CI is reported separately in the PR. The PR remains a draft; no merge is authorized."
+  ]
+}
