@@ -98,6 +98,7 @@ documents the public API migration.
 - [Standard SSVI variance-derivative mutation coverage, 2026-10-26](validation/mutation-ssvi-variance-2026-10-26.md)
 - [eSSVI parameter interpolation mutation coverage, 2026-10-27](validation/mutation-essvi-parameters-2026-10-27.md)
 - [eSSVI variance-derivative mutation coverage, 2026-10-27](validation/mutation-essvi-variance-2026-10-27.md)
+- [eSSVI slice validation and accessor mutation coverage, 2026-10-27](validation/mutation-essvi-validation-2026-10-27.md)
 - [Fractional-OU range-guard investigation, 2026-10-25](validation/mutation-fou-guard-2026-10-25.md)
 - [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
 

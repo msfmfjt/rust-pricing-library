@@ -435,6 +435,406 @@ mod tests {
         ]
     }
 
+    fn surface_with_candidate(
+        candidate: EssviSlice,
+        tolerance: SurfaceValidationTolerance,
+    ) -> Result<EssviSurface, MarketError> {
+        EssviSurface::new(
+            vec![
+                EssviSlice::new(1.0, 0.0625, 0.125, 0.0).expect("first slice"),
+                candidate,
+            ],
+            0.125,
+            tolerance,
+        )
+    }
+
+    #[test]
+    fn slice_accessors_preserve_valid_inputs_and_derived_correlation() {
+        for (time, theta, psi, rho_psi, rho) in [
+            (2.0, 0.5, 0.25, -0.125, -0.5),
+            (4.0, 2.0, 0.5, 0.125, 0.25),
+            (8.0, 4.0, 2.0, -1.0, -0.5),
+            (
+                f64::MIN_POSITIVE,
+                f64::from_bits(1),
+                f64::MIN_POSITIVE,
+                -0.0,
+                -0.0,
+            ),
+            (f64::MAX, f64::MAX, f64::MAX, 0.0, 0.0),
+        ] {
+            let slice =
+                EssviSlice::new(time, theta, psi, rho_psi).expect("syntactically valid slice");
+            for (actual, expected) in [
+                (slice.time(), time),
+                (slice.theta(), theta),
+                (slice.psi(), psi),
+                (slice.rho_psi(), rho_psi),
+                (slice.rho(), rho),
+            ] {
+                assert_eq!(actual.to_bits(), expected.to_bits());
+            }
+        }
+    }
+
+    #[test]
+    fn slice_errors_preserve_field_input_bits_and_validation_order() {
+        let fields = ["time", "theta", "psi", "rho_psi"];
+        let nan = f64::from_bits(0x7ff8_0000_0000_0042);
+        for (index, field) in fields.into_iter().enumerate() {
+            for value in [f64::INFINITY, f64::NEG_INFINITY, nan] {
+                let mut inputs = [2.0, 0.5, 0.25, -0.125];
+                inputs[index] = value;
+                assert_eq!(
+                    EssviSlice::new(inputs[0], inputs[1], inputs[2], inputs[3]),
+                    Err(MarketError::InvalidEssviSlice {
+                        index: 0,
+                        field,
+                        bits: value.to_bits()
+                    })
+                );
+            }
+        }
+        for (index, field) in fields[..3].iter().copied().enumerate() {
+            for value in [0.0, -0.0, -f64::from_bits(1), -1.0] {
+                let mut inputs = [2.0, 0.5, 0.25, -0.125];
+                inputs[index] = value;
+                assert_eq!(
+                    EssviSlice::new(inputs[0], inputs[1], inputs[2], inputs[3]),
+                    Err(MarketError::InvalidEssviSlice {
+                        index: 0,
+                        field,
+                        bits: value.to_bits()
+                    })
+                );
+            }
+        }
+        // All inputs are checked for finiteness before positivity/correlation.
+        assert_eq!(
+            EssviSlice::new(-1.0, f64::INFINITY, 0.0, nan),
+            Err(MarketError::InvalidEssviSlice {
+                index: 0,
+                field: "theta",
+                bits: f64::INFINITY.to_bits()
+            })
+        );
+        assert_eq!(
+            EssviSlice::new(nan, f64::INFINITY, 0.0, 0.0),
+            Err(MarketError::InvalidEssviSlice {
+                index: 0,
+                field: "time",
+                bits: nan.to_bits()
+            })
+        );
+    }
+
+    #[test]
+    fn slice_correlation_is_open_and_rejects_division_overflow() {
+        for sign in [-1.0, 1.0] {
+            let interior = sign * 1.0_f64.next_down();
+            let slice = EssviSlice::new(1.0, 1.0, 1.0, interior).expect("interior correlation");
+            assert_eq!(slice.rho(), interior);
+            for rho in [sign, sign * 1.0_f64.next_up()] {
+                assert_eq!(
+                    EssviSlice::new(1.0, 1.0, 1.0, rho),
+                    Err(MarketError::InvalidEssviSlice {
+                        index: 0,
+                        field: "rho",
+                        bits: rho.to_bits()
+                    })
+                );
+            }
+            assert_eq!(
+                EssviSlice::new(1.0, 1.0, f64::MIN_POSITIVE, sign * f64::MAX),
+                Err(MarketError::InvalidEssviSlice {
+                    index: 0,
+                    field: "rho",
+                    bits: (sign * f64::INFINITY).to_bits()
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn surface_accessors_preserve_slices_slope_and_custom_tolerance() {
+        let slices = vec![
+            EssviSlice::new(2.0, 0.5, 0.25, -0.125).expect("first"),
+            EssviSlice::new(4.0, 1.0, 0.5, 0.0).expect("second"),
+            EssviSlice::new(8.0, 2.0, 1.0, 0.25).expect("third"),
+        ];
+        let tolerance = SurfaceValidationTolerance::new(0.03125, 0.0625).expect("custom tolerance");
+        for slope in [-0.0, f64::MIN_POSITIVE, 0.125, f64::MAX] {
+            let surface =
+                EssviSurface::new(slices.clone(), slope, tolerance).expect("valid surface");
+            assert_eq!(surface.slices(), slices);
+            assert_eq!(surface.terminal_theta_slope().to_bits(), slope.to_bits());
+            assert_eq!(surface.tolerance(), tolerance);
+        }
+    }
+
+    #[test]
+    fn surface_structure_errors_preserve_counts_slopes_and_pair_index() {
+        let tolerance = SurfaceValidationTolerance::local_vol_vegakt_v1();
+        let first = EssviSlice::new(1.0, 1.0, 0.5, 0.0).expect("first");
+        for slices in [vec![], vec![first]] {
+            assert_eq!(
+                EssviSurface::new(slices.clone(), f64::NAN, tolerance),
+                Err(MarketError::InvalidEssviSliceCount {
+                    count: slices.len()
+                })
+            );
+        }
+        let second = EssviSlice::new(3.0, 2.0, 1.0, 0.0).expect("second");
+        for slope in [
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                EssviSurface::new(vec![first, second], slope, tolerance),
+                Err(MarketError::InvalidSurfaceParameter {
+                    parameter: "terminal_theta_slope",
+                    bits: slope.to_bits()
+                })
+            );
+        }
+        for time in [2.0_f64, 3.0] {
+            let third = EssviSlice::new(time, 3.0, 1.5, 0.0).expect("third");
+            assert_eq!(
+                EssviSurface::new(vec![first, second, third], 0.0, tolerance),
+                Err(MarketError::UnsortedEssviSlices {
+                    left_index: 1,
+                    left_bits: 3.0_f64.to_bits(),
+                    right_bits: time.to_bits()
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn surface_monotonicity_is_exact_despite_positive_tolerance() {
+        let tolerance = SurfaceValidationTolerance::new(0.25, 0.0).expect("positive tolerance");
+        let first = EssviSlice::new(1.0, 1.0, 0.5, 0.0).expect("first");
+        let second = EssviSlice::new(2.0, 2.0, 1.0, 0.0).expect("second");
+        for (theta, psi, condition, left, right) in [
+            (
+                2.0_f64.next_down(),
+                1.0,
+                "theta_non_decreasing",
+                2.0_f64,
+                2.0_f64.next_down(),
+            ),
+            (
+                2.0,
+                1.0_f64.next_down(),
+                "psi_non_decreasing",
+                1.0,
+                1.0_f64.next_down(),
+            ),
+            (
+                2.0_f64.next_down(),
+                1.0_f64.next_down(),
+                "theta_non_decreasing",
+                2.0,
+                2.0_f64.next_down(),
+            ),
+        ] {
+            let third = EssviSlice::new(3.0, theta, psi, 0.0).expect("valid individual slice");
+            assert_eq!(
+                EssviSurface::new(vec![first, second, third], 0.0, tolerance),
+                Err(MarketError::InconsistentEssviSlices {
+                    left_index: 1,
+                    condition,
+                    left_bits: left.to_bits(),
+                    right_bits: right.to_bits()
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn surface_correlation_change_includes_the_tolerance_boundary() {
+        for (absolute, relative, boundary, rejected_change) in [
+            (0.0, 0.0, 0.5_f64, 0.2500000000000001_f64),
+            (0.0625, 0.0, 0.5625, 0.3125000000000001),
+            (0.0, 0.0625, 0.5625, 0.3125000000000001),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).expect("tolerance");
+            for sign in [-1.0, 1.0] {
+                let left = EssviSlice::new(1.0, 4.0, 1.0, sign * 0.25).expect("left");
+                for (index, magnitude) in [boundary.next_down(), boundary, boundary.next_up()]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let right = EssviSlice::new(2.0, 4.0, 1.25, sign * magnitude).expect("right");
+                    let actual = EssviSurface::new(vec![left, right], 0.0, tolerance);
+                    if index < 2 {
+                        assert!(actual.is_ok(), "at/below boundary: {actual:?}");
+                    } else {
+                        assert_eq!(
+                            actual,
+                            Err(MarketError::InconsistentEssviSlices {
+                                left_index: 0,
+                                condition: "rho_psi_change_bound",
+                                left_bits: rejected_change.to_bits(),
+                                right_bits: 0.25_f64.to_bits(),
+                            })
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn slice_wing_bound_excludes_the_tolerance_boundary() {
+        for (absolute, relative, boundary) in [
+            (0.0, 0.0, 4.0_f64),
+            (0.125, 0.0, 3.875),
+            (0.0, 0.03125, 3.875),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).expect("tolerance");
+            for (psi, accepted) in [
+                (boundary.next_down(), true),
+                (boundary, false),
+                (boundary.next_up(), false),
+            ] {
+                let candidate = EssviSlice::new(2.0, 4.0, psi, 0.0).expect("candidate");
+                let actual = surface_with_candidate(candidate, tolerance);
+                if accepted {
+                    assert!(actual.is_ok(), "below wing boundary: {actual:?}");
+                } else {
+                    assert_eq!(
+                        actual,
+                        Err(MarketError::EssviSliceAdmissibilityViolation {
+                            index: 1,
+                            condition: "strict_wing_slope",
+                            left_bits: psi.to_bits(),
+                            right_bits: 4.0_f64.to_bits(),
+                        })
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn slice_curvature_bound_includes_the_tolerance_boundary() {
+        // psi=1 and |rho|=1/2 give exact curvature 3/2. The relative case
+        // scales its tolerance by 3/2, giving a boundary theta of 45/128.
+        for (absolute, relative, boundary) in [
+            (0.0, 0.0, 0.375_f64),
+            (0.125, 0.0, 0.34375),
+            (0.0, 0.0625, 0.3515625),
+        ] {
+            let tolerance = SurfaceValidationTolerance::new(absolute, relative).expect("tolerance");
+            for sign in [-1.0, 1.0] {
+                for (theta, accepted) in [
+                    (boundary.next_down(), false),
+                    (boundary, true),
+                    (boundary.next_up(), true),
+                ] {
+                    let candidate =
+                        EssviSlice::new(2.0, theta, 1.0, sign * 0.5).expect("candidate");
+                    let actual = surface_with_candidate(candidate, tolerance);
+                    if accepted {
+                        assert!(actual.is_ok(), "at/above theta boundary: {actual:?}");
+                    } else {
+                        assert_eq!(
+                            actual,
+                            Err(MarketError::EssviSliceAdmissibilityViolation {
+                                index: 1,
+                                condition: "curvature_bound",
+                                left_bits: 1.5_f64.to_bits(),
+                                right_bits: (4.0 * theta).to_bits(),
+                            })
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn slice_admissibility_reports_exact_residuals_for_both_signs() {
+        let tolerance = SurfaceValidationTolerance::new(0.0, 0.0).expect("zero tolerance");
+        for sign in [-1.0, 1.0] {
+            for (theta, psi, rho_psi, condition, left, right) in [
+                (2.0, 3.0, 1.5, "strict_wing_slope", 4.5_f64, 4.0_f64),
+                (0.25, 1.5, 0.75, "curvature_bound", 3.375, 1.0),
+                (0.0625, 0.5, 0.125, "curvature_bound", 0.3125, 0.25),
+                (0.0625, 4.0, 2.0, "strict_wing_slope", 6.0, 4.0),
+            ] {
+                let candidate =
+                    EssviSlice::new(2.0, theta, psi, sign * rho_psi).expect("candidate");
+                assert_eq!(
+                    surface_with_candidate(candidate, tolerance),
+                    Err(MarketError::EssviSliceAdmissibilityViolation {
+                        index: 1,
+                        condition,
+                        left_bits: left.to_bits(),
+                        right_bits: right.to_bits(),
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn slice_admissibility_rejects_nonfinite_wing_and_curvature_limit() {
+        for tolerance in [
+            SurfaceValidationTolerance::new(0.0, 0.0).expect("zero tolerance"),
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        ] {
+            let wing =
+                EssviSlice::new(2.0, 1.0, f64::MAX, f64::MAX / 2.0).expect("finite slice inputs");
+            assert_eq!(
+                surface_with_candidate(wing, tolerance),
+                Err(MarketError::EssviSliceAdmissibilityViolation {
+                    index: 1,
+                    condition: "strict_wing_slope",
+                    left_bits: f64::INFINITY.to_bits(),
+                    right_bits: 4.0_f64.to_bits(),
+                })
+            );
+            let limit = EssviSlice::new(2.0, f64::MAX, 0.5, 0.25).expect("finite slice inputs");
+            assert_eq!(
+                surface_with_candidate(limit, tolerance),
+                Err(MarketError::EssviSliceAdmissibilityViolation {
+                    index: 1,
+                    condition: "curvature_bound",
+                    left_bits: 0.375_f64.to_bits(),
+                    right_bits: f64::INFINITY.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn all_slice_admissibility_checks_precede_pair_checks() {
+        let slices = vec![
+            EssviSlice::new(2.0, 0.5, 0.5, 0.0).expect("first"),
+            EssviSlice::new(1.0, 0.5, 0.5, 0.0).expect("unsorted second"),
+            EssviSlice::new(3.0, 2.0, 3.0, 1.5).expect("inadmissible third"),
+        ];
+        assert_eq!(
+            EssviSurface::new(
+                slices,
+                0.0,
+                SurfaceValidationTolerance::local_vol_vegakt_v1()
+            ),
+            Err(MarketError::EssviSliceAdmissibilityViolation {
+                index: 2,
+                condition: "strict_wing_slope",
+                left_bits: 4.5_f64.to_bits(),
+                right_bits: 4.0_f64.to_bits(),
+            })
+        );
+    }
+
     fn variance_components(value: TotalVarianceDerivatives) -> [f64; 4] {
         [
             value.total_variance,

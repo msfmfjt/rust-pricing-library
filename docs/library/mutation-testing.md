@@ -285,6 +285,20 @@ wrapper and its evaluation helper, without changing production Rust.
 python scripts/generate_essvi_variance_references.py
 ```
 
+The [eSSVI validation follow-up](../../design/validation/mutation-essvi-validation-2026-10-27.md)
+checks strict wing and non-strict curvature bounds at adjacent binary64 inputs,
+with exact rational witnesses for zero, absolute and relative tolerances.
+Accessor values and diagnostic fields/indices are checked exactly. The same
+44 generated operations in `validate_slice` and the selected accessors go from
+24 caught / 18 missed to 42 caught / zero missed, with two unviable builds.
+The pinned tool omits constructors named `new`: the additional constructor,
+pair-consistency and validation-order tests are ordinary contract tests, outside
+this mutation denominator. Production Rust and existing tolerances are unchanged.
+
+```bash
+python scripts/generate_essvi_validation_references.py
+```
+
 The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
 retains the unresolved final range-guard survivor. A bounded comparison of the
 actual source with its single logical mutation found no distinguishing input;
