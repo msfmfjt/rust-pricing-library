@@ -435,6 +435,332 @@ mod tests {
         ]
     }
 
+    fn variance_components(value: TotalVarianceDerivatives) -> [f64; 4] {
+        [
+            value.total_variance,
+            value.log_moneyness_derivative,
+            value.log_moneyness_second_derivative,
+            value.time_derivative,
+        ]
+    }
+
+    fn assert_variance_close(actual: f64, expected: f64) {
+        assert!(actual.is_finite(), "nonfinite result: {actual}");
+        assert!(
+            (actual - expected).abs() <= 5.0e-13 * expected.abs(),
+            "actual={actual:.17e}, expected={expected:.17e}"
+        );
+    }
+
+    #[test]
+    fn variance_matches_independently_differenced_scalar_references() {
+        let surface = parameter_policy_surface(1.0);
+        // scripts/generate_essvi_variance_references.py evaluates only the
+        // scalar formula in theta/psi/rho_psi. Derivatives are high-precision
+        // centered differences along the specified local affine parameter path.
+        // At knots that path follows the right-hand derivative, not both sides.
+        let cases = [
+            (
+                0.5,
+                -2.0,
+                [
+                    0.14517972847076846,
+                    -0.04515347445384588,
+                    0.0012655060480219662,
+                    0.2903594569415369,
+                ],
+                0.0625,
+                0.125,
+                ThetaRegion::ShortExtrapolated,
+            ),
+            (
+                2.0,
+                0.5,
+                [
+                    0.20200317547305482,
+                    -0.0625,
+                    0.14433756729740643,
+                    0.28496256729740643,
+                ],
+                0.25,
+                0.25,
+                ThetaRegion::Knot,
+            ),
+            (
+                2.5,
+                -0.5,
+                [
+                    0.434653454113693,
+                    -0.14072657099403707,
+                    0.06975785515064446,
+                    0.22505251773683638,
+                ],
+                0.375,
+                0.25,
+                ThetaRegion::Interpolated,
+            ),
+            (
+                3.5,
+                1.0,
+                [
+                    0.6653070663297374,
+                    0.101000977830996,
+                    0.09296135414095905,
+                    0.32058660512549436,
+                ],
+                0.625,
+                0.25,
+                ThetaRegion::Interpolated,
+            ),
+            (
+                4.0,
+                -1.5,
+                [
+                    0.9053300858899106,
+                    -0.1767766952966369,
+                    0.05892556509887896,
+                    0.19965897801643787,
+                ],
+                0.75,
+                0.0625,
+                ThetaRegion::Knot,
+            ),
+            (
+                5.0,
+                0.25,
+                [
+                    0.8043869080239556,
+                    -0.002382486540518712,
+                    0.2385098112052254,
+                    0.049297980807451985,
+                ],
+                0.8125,
+                0.0625,
+                ThetaRegion::Interpolated,
+            ),
+            (
+                7.0,
+                -0.75,
+                [
+                    1.1662072575121711,
+                    -0.39272403710077436,
+                    0.16267500272883148,
+                    0.12359167261306908,
+                ],
+                0.9375,
+                0.0625,
+                ThetaRegion::Interpolated,
+            ),
+            (
+                8.0,
+                2.0,
+                [1.25, 0.3125, 0.05859375, 0.01953125],
+                1.0,
+                0.03125,
+                ThetaRegion::Knot,
+            ),
+            (
+                10.0,
+                -0.25,
+                [
+                    1.1378735199850616,
+                    -0.349039246719847,
+                    0.34726383642818864,
+                    0.03090040318544411,
+                ],
+                1.0625,
+                0.03125,
+                ThetaRegion::LongExtrapolated,
+            ),
+        ];
+        for (time, k, expected, theta, theta_t, region) in cases {
+            let actual = surface
+                .total_variance_derivatives(time, k)
+                .expect("reference query");
+            for (value, reference) in variance_components(actual).into_iter().zip(expected) {
+                assert_variance_close(value, reference);
+            }
+            assert_eq!(actual.theta, theta);
+            assert_eq!(actual.theta_derivative, theta_t);
+            assert_eq!(actual.theta_region, region);
+        }
+    }
+
+    #[test]
+    fn variance_reflects_moneyness_with_all_slice_correlations() {
+        let original = parameter_policy_surface(1.0);
+        let reflected = EssviSurface::new(
+            original
+                .slices()
+                .iter()
+                .map(|slice| {
+                    EssviSlice::new(slice.time(), slice.theta(), slice.psi(), -slice.rho_psi())
+                        .expect("reflected slice")
+                })
+                .collect(),
+            original.terminal_theta_slope(),
+            original.tolerance(),
+        )
+        .expect("reflected surface");
+        for time in [0.5, 2.0, 2.5, 3.5, 4.0, 5.0, 7.0, 8.0, 10.0] {
+            for k in [-2.0, -0.25, 0.0, 0.5, 2.0] {
+                let expected = original
+                    .total_variance_derivatives(time, k)
+                    .expect("original");
+                let actual = reflected
+                    .total_variance_derivatives(time, -k)
+                    .expect("reflected");
+                for (value, reference) in variance_components(actual).into_iter().zip([
+                    expected.total_variance,
+                    -expected.log_moneyness_derivative,
+                    expected.log_moneyness_second_derivative,
+                    expected.time_derivative,
+                ]) {
+                    assert_variance_close(value, reference);
+                }
+                assert_eq!(actual.theta, expected.theta);
+                assert_eq!(actual.theta_derivative, expected.theta_derivative);
+                assert_eq!(actual.theta_region, expected.theta_region);
+            }
+        }
+    }
+
+    #[test]
+    fn variance_time_derivative_transforms_with_the_time_unit() {
+        let original = parameter_policy_surface(1.0);
+        for scale in [0.25, 0.5, 2.0, 4.0] {
+            let scaled = parameter_policy_surface(scale);
+            for time in [0.5, 2.0, 2.5, 3.5, 4.0, 5.0, 7.0, 8.0, 10.0] {
+                for k in [-2.0, -0.25, 0.5, 2.0] {
+                    let expected = original
+                        .total_variance_derivatives(time, k)
+                        .expect("original");
+                    let actual = scaled
+                        .total_variance_derivatives(time * scale, k)
+                        .expect("scaled");
+                    for (value, reference) in variance_components(actual).into_iter().zip([
+                        expected.total_variance,
+                        expected.log_moneyness_derivative,
+                        expected.log_moneyness_second_derivative,
+                        expected.time_derivative / scale,
+                    ]) {
+                        assert_variance_close(value, reference);
+                    }
+                    assert_eq!(actual.theta, expected.theta);
+                    assert_eq!(actual.theta_derivative * scale, expected.theta_derivative);
+                    assert_eq!(actual.theta_region, expected.theta_region);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn variance_query_errors_preserve_coordinate_bits_and_order() {
+        let surface = parameter_policy_surface(1.0);
+        let nan = f64::from_bits(0x7ff8_0000_0000_0042);
+        for k in [f64::INFINITY, f64::NEG_INFINITY, nan] {
+            for time in [0.0, -1.0, f64::INFINITY, nan, 2.0] {
+                assert_eq!(
+                    surface.total_variance_derivatives(time, k),
+                    Err(MarketError::InvalidSurfaceQuery {
+                        coordinate: "log_moneyness",
+                        bits: k.to_bits(),
+                    })
+                );
+            }
+        }
+        for time in [
+            0.0,
+            -0.0,
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            nan,
+        ] {
+            assert_eq!(
+                surface.total_variance_derivatives(time, 0.25),
+                Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "time",
+                    bits: time.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn variance_rejects_nonfinite_arithmetic_with_query_context() {
+        let surface = parameter_policy_surface(1.0);
+        for k in [-f64::MAX, f64::MAX] {
+            assert_eq!(
+                surface.total_variance_derivatives(2.0, k),
+                Err(MarketError::NonFiniteSurfaceValue {
+                    field: "total_variance",
+                    time_bits: 2.0_f64.to_bits(),
+                    log_moneyness_bits: k.to_bits(),
+                    value_bits: f64::INFINITY.to_bits(),
+                })
+            );
+        }
+
+        let tiny = EssviSurface::new(
+            [1.0, 2.0]
+                .into_iter()
+                .map(|time| {
+                    EssviSlice::new(time, 1.0e-200, 1.0e-200, 0.0).expect("tiny flat slice")
+                })
+                .collect(),
+            0.0,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .expect("admissible tiny surface");
+        // The quotient-rule denominators theta^2 and psi^2 underflow to zero.
+        // Keep the finite-result rejection; do not freeze a computed NaN payload
+        // or claim accurate evaluation over the whole finite input domain.
+        match tiny.total_variance_derivatives(3.0, 0.5) {
+            Err(MarketError::NonFiniteSurfaceValue {
+                field,
+                time_bits,
+                log_moneyness_bits,
+                value_bits,
+            }) => {
+                assert_eq!(field, "time_derivative");
+                assert_eq!(time_bits, 3.0_f64.to_bits());
+                assert_eq!(log_moneyness_bits, 0.5_f64.to_bits());
+                assert!(f64::from_bits(value_bits).is_nan());
+            }
+            other => panic!("expected a nonfinite time derivative: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn flat_smile_has_zero_time_derivative() {
+        let surface = EssviSurface::new(
+            [2.0, 4.0, 8.0]
+                .into_iter()
+                .map(|time| EssviSlice::new(time, 0.25, 0.25, -0.125).expect("flat slice"))
+                .collect(),
+            0.0,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .expect("flat surface");
+        for k in [-2.0, -0.25, 0.0, 0.5, 2.0] {
+            let first = surface
+                .total_variance_derivatives(2.0, k)
+                .expect("first slice");
+            for time in [2.0, 3.0, 4.0, 5.0, 8.0, 10.0] {
+                let actual = surface
+                    .total_variance_derivatives(time, k)
+                    .expect("flat smile");
+                assert_eq!(actual.time_derivative, 0.0);
+                assert_eq!(actual.theta_derivative, 0.0);
+                assert_eq!(variance_components(actual), variance_components(first));
+                assert!(actual.total_variance > 0.0);
+                assert!(actual.log_moneyness_second_derivative > 0.0);
+            }
+        }
+    }
+
     #[test]
     fn parameters_match_exact_piecewise_affine_references() {
         let surface = parameter_policy_surface(1.0);

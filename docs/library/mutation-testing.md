@@ -273,6 +273,18 @@ The optional reference generator uses only Python's standard library:
 python scripts/generate_essvi_parameter_references.py
 ```
 
+The [eSSVI variance follow-up](../../design/validation/mutation-essvi-variance-2026-10-27.md)
+anchors the variance level and its log-moneyness/time derivatives to an
+independent scalar formula in `theta`, `psi` and `rho_psi`. Centered differences
+at two precisions/step sizes cross-check the regular-case references. Reflection,
+time-unit changes, flat smiles and typed query/nonfinite errors add separate
+contracts. The matched inventory contains 109 operations in the public variance
+wrapper and its evaluation helper, without changing production Rust.
+
+```bash
+python scripts/generate_essvi_variance_references.py
+```
+
 The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
 retains the unresolved final range-guard survivor. A bounded comparison of the
 actual source with its single logical mutation found no distinguishing input;
