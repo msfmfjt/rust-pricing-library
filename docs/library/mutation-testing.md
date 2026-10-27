@@ -261,6 +261,18 @@ step together; agreement is a finite-panel check, not a whole-domain error bound
 python scripts/generate_ssvi_variance_references.py
 ```
 
+The [eSSVI parameter follow-up](../../design/validation/mutation-essvi-parameters-2026-10-27.md)
+uses exact affine references on unequal time intervals, knot-neighbor checks,
+time-unit scaling, flat segments and public variance identities. It checks all
+six parameter values/derivatives and the selected interpolation region. Both
+runs select the same 85 generated operations in `parameters`, `interpolate`
+and `long_parameters`; this is not the complete eSSVI surface inventory.
+The optional reference generator uses only Python's standard library:
+
+```bash
+python scripts/generate_essvi_parameter_references.py
+```
+
 The [fractional-OU guard investigation](../../design/validation/mutation-fou-guard-2026-10-25.md)
 retains the unresolved final range-guard survivor. A bounded comparison of the
 actual source with its single logical mutation found no distinguishing input;

@@ -411,6 +411,253 @@ mod tests {
         .expect("valid eSSVI surface")
     }
 
+    fn parameter_policy_surface(time_scale: f64) -> EssviSurface {
+        EssviSurface::new(
+            vec![
+                EssviSlice::new(2.0 * time_scale, 0.25, 0.25, -0.125).expect("first"),
+                EssviSlice::new(4.0 * time_scale, 0.75, 0.5, 0.0).expect("second"),
+                EssviSlice::new(8.0 * time_scale, 1.0, 1.0, -0.25).expect("third"),
+            ],
+            0.03125 / time_scale,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .expect("admissible unequal-interval surface")
+    }
+
+    fn parameter_components(parameters: EssviParameters) -> [f64; 6] {
+        [
+            parameters.theta,
+            parameters.psi,
+            parameters.rho_psi,
+            parameters.theta_derivative,
+            parameters.psi_derivative,
+            parameters.rho_psi_derivative,
+        ]
+    }
+
+    #[test]
+    fn parameters_match_exact_piecewise_affine_references() {
+        let surface = parameter_policy_surface(1.0);
+        // Independently tabulated affine values and slopes, all exact dyadic
+        // rationals. The slopes change at every knot; the last knot uses the
+        // explicit terminal slope, not the preceding interpolation interval.
+        let cases = [
+            (
+                0.5,
+                [0.0625, 0.0625, -0.03125, 0.125, 0.125, -0.0625],
+                ThetaRegion::ShortExtrapolated,
+            ),
+            (
+                2.0,
+                [0.25, 0.25, -0.125, 0.25, 0.125, 0.0625],
+                ThetaRegion::Knot,
+            ),
+            (
+                2.5,
+                [0.375, 0.3125, -0.09375, 0.25, 0.125, 0.0625],
+                ThetaRegion::Interpolated,
+            ),
+            (
+                3.5,
+                [0.625, 0.4375, -0.03125, 0.25, 0.125, 0.0625],
+                ThetaRegion::Interpolated,
+            ),
+            (
+                4.0,
+                [0.75, 0.5, 0.0, 0.0625, 0.125, -0.0625],
+                ThetaRegion::Knot,
+            ),
+            (
+                5.0,
+                [0.8125, 0.625, -0.0625, 0.0625, 0.125, -0.0625],
+                ThetaRegion::Interpolated,
+            ),
+            (
+                7.0,
+                [0.9375, 0.875, -0.1875, 0.0625, 0.125, -0.0625],
+                ThetaRegion::Interpolated,
+            ),
+            (8.0, [1.0, 1.0, -0.25, 0.03125, 0.0, 0.0], ThetaRegion::Knot),
+            (
+                10.0,
+                [1.0625, 1.0, -0.25, 0.03125, 0.0, 0.0],
+                ThetaRegion::LongExtrapolated,
+            ),
+        ];
+        for (time, expected, region) in cases {
+            let actual = surface.parameters(time).expect("valid query");
+            assert_eq!(parameter_components(actual), expected, "time={time}");
+            assert_eq!(actual.region, region, "time={time}");
+        }
+    }
+
+    #[test]
+    fn knot_neighbors_select_right_hand_parameter_slopes() {
+        let surface = parameter_policy_surface(1.0);
+        for (time, left_region, left, right_region, right) in [
+            (
+                2.0_f64,
+                ThetaRegion::ShortExtrapolated,
+                [0.125, 0.125, -0.0625],
+                ThetaRegion::Interpolated,
+                [0.25, 0.125, 0.0625],
+            ),
+            (
+                4.0,
+                ThetaRegion::Interpolated,
+                [0.25, 0.125, 0.0625],
+                ThetaRegion::Interpolated,
+                [0.0625, 0.125, -0.0625],
+            ),
+            (
+                8.0,
+                ThetaRegion::Interpolated,
+                [0.0625, 0.125, -0.0625],
+                ThetaRegion::LongExtrapolated,
+                [0.03125, 0.0, 0.0],
+            ),
+        ] {
+            for (query, region, slopes) in [
+                (time.next_down(), left_region, left),
+                (time, ThetaRegion::Knot, right),
+                (time.next_up(), right_region, right),
+            ] {
+                let actual = surface.parameters(query).expect("knot or neighbor");
+                assert_eq!(actual.region, region, "query={query:?}");
+                assert_eq!(parameter_components(actual)[3..], slopes, "query={query:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn parameters_transform_with_the_time_unit() {
+        let original = parameter_policy_surface(1.0);
+        for time_scale in [0.25, 0.5, 2.0, 4.0] {
+            let scaled = parameter_policy_surface(time_scale);
+            for time in [0.5, 2.0, 2.5, 3.5, 4.0, 5.0, 7.0, 8.0, 10.0] {
+                let expected = original.parameters(time).expect("original");
+                let actual = scaled.parameters(time * time_scale).expect("scaled");
+                assert_eq!(actual.region, expected.region);
+                let expected = parameter_components(expected);
+                let actual = parameter_components(actual);
+                assert_eq!(actual[..3], expected[..3]);
+                for index in 3..6 {
+                    assert_eq!(actual[index] * time_scale, expected[index]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flat_slices_and_zero_terminal_slope_preserve_parameters() {
+        let surface = EssviSurface::new(
+            [2.0, 4.0, 8.0]
+                .into_iter()
+                .map(|time| EssviSlice::new(time, 0.25, 0.25, -0.125).expect("flat slice"))
+                .collect(),
+            0.0,
+            SurfaceValidationTolerance::local_vol_vegakt_v1(),
+        )
+        .expect("flat surface");
+        for (time, region) in [
+            (2.0, ThetaRegion::Knot),
+            (3.0, ThetaRegion::Interpolated),
+            (4.0, ThetaRegion::Knot),
+            (7.0, ThetaRegion::Interpolated),
+            (8.0, ThetaRegion::Knot),
+            (16.0, ThetaRegion::LongExtrapolated),
+        ] {
+            let actual = surface.parameters(time).expect("flat query");
+            assert_eq!(
+                parameter_components(actual),
+                [0.25, 0.25, -0.125, 0.0, 0.0, 0.0]
+            );
+            assert_eq!(actual.region, region);
+        }
+    }
+
+    #[test]
+    fn parameter_query_errors_preserve_time_bits() {
+        let surface = parameter_policy_surface(1.0);
+        for time in [
+            0.0,
+            -0.0,
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            assert_eq!(
+                surface.parameters(time),
+                Err(MarketError::InvalidSurfaceQuery {
+                    coordinate: "time",
+                    bits: time.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn short_end_scales_the_smile_at_constant_rho() {
+        let surface = parameter_policy_surface(1.0);
+        for time in [0.125, 0.5, 1.0] {
+            let parameters = surface.parameters(time).expect("short parameters");
+            assert_eq!(parameters.rho_psi / parameters.psi, -0.5);
+            assert_eq!(parameters.psi / parameters.theta, 1.0);
+            for log_moneyness in [-2.0, -0.25, 0.0, 0.5, 2.0] {
+                let first = surface
+                    .total_variance_derivatives(2.0, log_moneyness)
+                    .expect("first slice");
+                let short = surface
+                    .total_variance_derivatives(time, log_moneyness)
+                    .expect("short smile");
+                for (actual, expected) in [
+                    (short.total_variance, first.total_variance * time / 2.0),
+                    (
+                        short.log_moneyness_derivative,
+                        first.log_moneyness_derivative * time / 2.0,
+                    ),
+                    (
+                        short.log_moneyness_second_derivative,
+                        first.log_moneyness_second_derivative * time / 2.0,
+                    ),
+                    (short.time_derivative, first.total_variance / 2.0),
+                ] {
+                    assert!(actual.is_finite());
+                    assert!(
+                        (actual - expected).abs() <= 2.0e-14 * expected.abs(),
+                        "actual={actual}, expected={expected}"
+                    );
+                }
+                assert_eq!(short.theta_region, ThetaRegion::ShortExtrapolated);
+            }
+        }
+    }
+
+    #[test]
+    fn atm_variance_uses_selected_theta_and_one_sided_derivative() {
+        let surface = parameter_policy_surface(1.0);
+        for (time, theta, derivative, region) in [
+            (0.5, 0.0625, 0.125, ThetaRegion::ShortExtrapolated),
+            (2.0, 0.25, 0.25, ThetaRegion::Knot),
+            (2.5, 0.375, 0.25, ThetaRegion::Interpolated),
+            (4.0, 0.75, 0.0625, ThetaRegion::Knot),
+            (5.0, 0.8125, 0.0625, ThetaRegion::Interpolated),
+            (8.0, 1.0, 0.03125, ThetaRegion::Knot),
+            (10.0, 1.0625, 0.03125, ThetaRegion::LongExtrapolated),
+        ] {
+            let actual = surface
+                .total_variance_derivatives(time, 0.0)
+                .expect("ATM query");
+            assert_eq!(actual.theta, theta);
+            assert_eq!(actual.theta_derivative, derivative);
+            assert_eq!(actual.theta_region, region);
+            assert!((actual.total_variance - theta).abs() <= 2.0e-14 * theta);
+            assert!((actual.time_derivative - derivative).abs() <= 2.0e-14 * derivative);
+        }
+    }
+
     #[test]
     fn interpolation_and_extrapolation_follow_v1_policy() {
         let surface = valid_surface();

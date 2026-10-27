@@ -160,18 +160,25 @@ phi'(theta) = lambda * (2 - z - (z + 2)*exp(-z)) / z^3.
 ```
 
 It requires `lambda > 0` and
-`lambda >= (1 + abs(rho))/4`. For `abs(z) <= 1e-4`, V1 evaluates `phi` and
-`phi'/lambda` using the fixed Horner series
+`lambda >= (1 + abs(rho))/4`. For `abs(z) <= 0.5`, V1 evaluates the degree-14
+series `sum(n=0..14, (-z)^n/(n+2)!)` and its analytic derivative using this
+fixed backward Horner order:
 
 ```text
-phi = 1/2 + z*(-1/6 + z*(1/24 + z*(-1/120 + z*(1/720
-      + z*(-1/5040 + z/40320)))))
-phi'/lambda = -1/6 + z*(1/12 + z*(-1/40 + z*(1/180
-                  + z*(-1/1008 + z/6720))))
+value = 1
+derivative = 0
+for divisor = 16, 15, ..., 3:
+    derivative = -(value + z*derivative)/divisor
+    value = 1 - z*value/divisor
+phi = 0.5*value
+phi' = lambda*(0.5*derivative)
 ```
 
-and otherwise uses the displayed exponential formulas. Evaluation does not use
-FMA. The branch and Horner order are fingerprinted policy.
+Above that cutoff it uses the displayed exponential formulas. Evaluation does
+not use FMA. The branch and Horner order are fingerprinted policy. The
+[SSVI phi validation record](../../design/validation/mutation-ssvi-phi-2026-10-25.md)
+documents the cancellation defect and the correction from the former `1e-4`,
+degree-6 policy; its historical measurements remain unchanged.
 
 Standard SSVI also enforces the Gatheral-Jacquier sufficient conditions over its
 entire represented theta range:
@@ -227,6 +234,14 @@ time, then `rho=rho_psi/psi` is recovered. No component-wise interpolation of
 At the short end, `theta`, `psi`, and `rho_psi` are multiplied by `T/T1`, which
 keeps `rho` constant. At the long end, `psi` and `rho_psi` are constant while
 theta grows with the explicit terminal slope.
+
+At an exact slice time, the parameter values reproduce that slice. Derivatives
+use the interval to its right; at the final slice they use the terminal theta
+slope and zero slopes for `psi` and `rho_psi`. A knot is reported as `Knot`,
+even when its derivatives follow an extrapolation rule. These one-sided
+derivatives need not equal a centered difference across the knot. The
+[parameter mutation record](../../design/validation/mutation-essvi-parameters-2026-10-27.md)
+checks this convention and the immediately adjacent binary64 times.
 
 ## 4. Surface derivatives, density, and Dupire
 
