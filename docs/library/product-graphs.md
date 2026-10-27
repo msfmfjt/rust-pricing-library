@@ -93,6 +93,15 @@ Zero denominators and genuinely nonfinite adjoints still fail. This does not
 make every intermediate in an arbitrary graph representable; see the
 [division numerical review](../../design/validation/graph-division-review-2026-10-27.md).
 
+Compact C2 min/max return the selected input exactly outside the transition
+band, including its endpoints; they do not reconstruct that value by subtracting
+and adding potentially very different operands. Inside the band the same v1
+polynomial applies. Width scaling avoids overflowing the doubled/squared width
+or prematurely rounding subnormal values. Constant folding, forward evaluation
+and AAD share this primitive. Truly nonrepresentable results remain errors;
+the [smoothing numerical review](../../design/validation/compact-smoothing-review-2026-10-27.md)
+records the regressions and compatibility checks.
+
 Rust `MultiAssetProduct::from_product_graph` and `to_product_graph`, and Python
 `MultiAssetProduct.from_graph` and `to_graph`, bridge the existing multi-asset
 builders. The product graph document stores the product only; multi-asset
