@@ -42,10 +42,24 @@ class ProviderValidationInventoryTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()):
             report = shards.verify_partition(ROOT / "tests/python")
         self.assertEqual(Counter(row["module"] for row in report.values()), {
-            "test_vega_kt_custom_basis_provider": 7, "test_vega_kt_coupled_basis_provider": 3,
+            "test_vega_kt_custom_basis_provider": 19, "test_vega_kt_coupled_basis_provider": 7,
             "test_vega_kt_extension_provider": 5, "test_vega_kt_extension_put_provider": 5,
         })
         self.assertEqual(sum(case["count"] for row in report.values() for case in row["cases"]), 179)
+
+    def test_combined_reproduction_shards_retain_all_original_cases_in_order(self):
+        for combined in shards.COMBINED_SHARDS:
+            _, cls = shards.load_suite(combined.suite, ROOT / "tests/python")
+            def selected(shard):
+                with shards.configured(cls, shard):
+                    cases = cls.wheel_cases()
+                    return [(method, values) for method in shards.selected_methods(cls, shard)
+                            for values in cases[method]]
+            original = selected(combined)
+            parts = shards.split_shard(combined)
+            self.assertEqual(len(original), 14)
+            self.assertEqual([len(selected(part)) for part in parts], [10, 1, 1, 1, 1])
+            self.assertEqual([case for part in parts for case in selected(part)], original)
 
 
 if __name__ == "__main__":

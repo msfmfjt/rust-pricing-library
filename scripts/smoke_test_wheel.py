@@ -37,7 +37,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--group", choices=TEST_GROUPS, default="all",
                         help="validation group; examples run with all or remaining")
     parser.add_argument("--shard", choices=SHARD_NAMES,
-                        help="provider cases for one policy and interval count, or its contracts")
+                        help="provider panels, dated ledger, combined reproduction, or contracts")
     parser.add_argument("--report-directory", type=Path,
                         help="write discovery inventory and per-process completion records")
     parser.add_argument("--native-debugger", choices=("lldb",),

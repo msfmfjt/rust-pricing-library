@@ -99,8 +99,8 @@ retained CI blocks and require that subsequent commands do not run.
 
 The default smoke command runs all package checks, examples and discovered
 Python tests. CI builds each platform wheel once, runs `--phase package`, and
-passes the same wheel artifact to 21 `--phase validation` jobs per platform:
-20 provider shards and the `remaining` group. Every selection is required on
+passes the same wheel artifact to 37 `--phase validation` jobs per platform:
+36 provider shards and the `remaining` group. Every selection is required on
 Linux, macOS and Windows. The generated matrix in
 `scripts/wheel_validation/provider_shards.py` is the single CI plan.
 New test modules automatically join `remaining`; new methods in a provider
@@ -108,7 +108,10 @@ suite join its contracts shard unless explicitly declared as numerical cases.
 Examples run with `remaining` (or `all`).
 
 Provider numerical shards select one basis/extension and one interval count.
-Each keeps its native panels, complete dated ledgers, four strategies, checkpoint
+For four-interval named bases, native panels run together and each dated ledger
+(side and product) runs separately: their combined execution exceeded the job
+limit on Windows. Six-interval named bases and extension shards retain their
+combined panels and ledgers. Every ledger keeps all four strategies, checkpoint
 replays and failure repairs. Contracts run separately with all original policy
 configurations. Before executing any selection, discovery checks both the test-ID
 multiset and the provider method/case multiset against the complete suite,
@@ -147,9 +150,19 @@ A missing or running record is incomplete evidence, never a passing result.
 CI gives each selection 330 minutes; successful completion on all platforms
 remains required. Runner loss can prevent the final artifact upload entirely.
 
-The original `--group custom-basis`, `--group providers` and default full
-execution remain available, but those combined suites can exceed a hosted
-runner's time limit. To reproduce a CI shard with an existing wheel:
+The original `--group custom-basis`, `--group providers`, default full execution,
+and combined four-interval shard names remain available, but those combined
+suites can exceed a hosted runner's time limit. Combined shard aliases are
+excluded from the CI matrix to avoid duplicating numerical cases. They retain
+the original process/class lifetime for investigating native faults; success
+under shorter process lifetimes does not establish a fix for those faults.
+To reproduce a CI shard with an existing wheel:
+
+```bash
+python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --shard coupled-basis-coupled_row_hats-4-put-fixed_lookback --report-directory wheel-validation-reports
+```
+
+To reproduce the original combined shard, including its panels and all ledgers:
 
 ```bash
 python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --shard coupled-basis-coupled_row_hats-4 --report-directory wheel-validation-reports
