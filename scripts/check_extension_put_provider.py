@@ -21,7 +21,7 @@ def main():
     paths+=list((ROOT/'backtesting/rust_pricing_backtest/schemas').glob('*.json'))
     paths += [Path(__file__),Path(panel.__file__),ROOT/'scripts/extension_put_reference.py',ROOT/'scripts/multi_step_cases.py',
         ROOT/'scripts/check_extension_provider.py',ROOT/'fixtures/local-vol/multi-step-gamma-v0.1.json',
-        ROOT/'scripts/wheel_validation/provider_shards.py',
+        ROOT/'scripts/wheel_validation/provider_shards.py',ROOT/'tests/python/provider_evidence.py',
         ROOT/'tests/python/test_vega_kt_path_ledger.py',ROOT/'tests/python/test_vega_kt_extension_provider.py',
         ROOT/'tests/python/test_vega_kt_multi_step_provider.py']
     frozen={str(p.relative_to(ROOT)):sha(p) for p in sorted(set(paths))}

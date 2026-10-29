@@ -56,7 +56,7 @@ def main():
     paths+=list((ROOT/'backtesting/rust_pricing_backtest/schemas').glob('*.json'))
     paths+=[ROOT/n for n in numerical_names]
     paths+=[Path(__file__),Path(panel.__file__),ROOT/'tests/python/test_vega_kt_path_ledger.py',
-            ROOT/'scripts/wheel_validation/provider_shards.py',
+            ROOT/'scripts/wheel_validation/provider_shards.py',ROOT/'tests/python/provider_evidence.py',
             ROOT/'tests/python/test_vega_kt_multi_step_provider.py']
     frozen={str(p.relative_to(ROOT)):sha(p) for p in sorted(set(paths))}
     retained=None

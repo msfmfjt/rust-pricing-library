@@ -13,6 +13,7 @@ import rust_pricing as rp
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'backtesting'));sys.path.insert(0,str(ROOT/'scripts'))
 from wheel_validation.provider_shards import iter_cases
+from provider_evidence import capture_provider_evidence
 from multi_step_cases import model
 from test_vega_kt_path_ledger import fixture
 from test_vega_kt_multi_step_provider import advance
@@ -121,15 +122,17 @@ class ExtensionProviderTests(unittest.TestCase):
 
     def check_replay(self,extension,c,h,history,intervals):
         pr=self.providers[extension];cfg=BacktestConfig(ridge=1e-4,market_shock_log_moneyness=(-.2,0.,.2))
-        results=compare_strategies(cfg,history,[c,h],[Position('target',-1.,5.)],pr)
+        with capture_provider_evidence(pr) as captured:
+            results=compare_strategies(cfg,history,[c,h],[Position('target',-1.,5.)],pr)
         book={}
         for s in history[:-1]:
             resolved=resolve(s,[c,h],book)
             for instrument in [c,h]:
-                r=pr.evaluate(resolved,instrument);a=pr.gamma_audit(resolved,instrument)
+                r,a=captured.get(resolved,instrument)
                 self.assertEqual(a['status'],'passed')
                 self.evidence['snapshots'].append(dict(extension=extension,intervals=intervals,
                     kind=c.product_type,at=s.at.isoformat(),contract=instrument.contract_id,risk=data(r),audit=a))
+        captured.assert_complete()
         for strategy,full in results.items():
             self.assertEqual(full.status,'completed');self.assertTrue(full.summary['fully_settled'])
             self.assertEqual(full.summary['risk_validation_status'],'numerically_validated_multi_step_extension_call')

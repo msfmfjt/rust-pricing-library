@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "source": {
+    "run_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40863601572/job/123413063881",
+    "platform": "windows-2025",
+    "method": "Rounded seconds between consecutive successful test completions, starting at 'running 27 tests'. Scheduling estimates only; no numerical settings depend on these weights.",
+    "total_reported_seconds": 15187.19,
+    "candidate_head": "bd5aaf216feb08ddd6e7d838cb51cb0132f0fe3e",
+    "checkout_commit": "45c50dede687f90fba4d0827770bf5e6675507c1"
+  },
+  "seconds": {
+    "multi_asset::bs_basket_refinement_consistency": 223,
+    "multi_asset::bs_basket_stress_repricing": 291,
+    "multi_asset::bs_constituent_refinement_consistency": 221,
+    "multi_asset::bs_constituent_stress_repricing": 289,
+    "multi_asset::rough_hw_basket_refinement_consistency": 1219,
+    "multi_asset::rough_hw_basket_stress_repricing": 2631,
+    "multi_asset::rough_hw_constituent_refinement_consistency": 1177,
+    "multi_asset::rough_hw_constituent_stress_repricing": 2648,
+    "multi_asset::two_factor_basket_refinement_consistency": 476,
+    "multi_asset::two_factor_basket_stress_repricing": 1803,
+    "multi_asset::two_factor_constituent_refinement_consistency": 473,
+    "multi_asset::two_factor_constituent_stress_repricing": 1826,
+    "single_asset::deterministic_lsv_smile_repricing": 66,
+    "single_asset::gaussian_hull_white_independent_price_reference": 43,
+    "single_asset::one_factor_hw_refinement_consistency": 115,
+    "single_asset::one_factor_hw_stress_repricing": 170,
+    "single_asset::one_factor_refinement_consistency": 50,
+    "single_asset::one_factor_stress_repricing": 76,
+    "single_asset::rough_hw_refinement_consistency": 199,
+    "single_asset::rough_hw_stress_repricing": 316,
+    "single_asset::rough_refinement_consistency": 100,
+    "single_asset::rough_stress_repricing": 151,
+    "single_asset::stochastic_rate_lsv_smile_repricing": 85,
+    "single_asset::two_factor_hw_refinement_consistency": 154,
+    "single_asset::two_factor_hw_stress_repricing": 236,
+    "single_asset::two_factor_refinement_consistency": 60,
+    "single_asset::two_factor_stress_repricing": 88
+  }
+}

@@ -99,6 +99,7 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
             self.assertEqual(os.environ["DYLD_INSERT_LIBRARIES"], str(Path("/runtime with spaces/asan.dylib")))
             self.assertEqual(os.environ["__PYVENV_LAUNCHER__"], diagnostic.sys.executable)
             self.assertEqual(os.environ["ASAN_OPTIONS"], diagnostic.ASAN_OPTIONS)
+            self.assertEqual(os.environ["PRICING_TEST_ORIGINAL_EVIDENCE"], "1")
             self.assertEqual(run.call_args.args[0][0], str(Path("/actual Python")))
             run.return_value = "import failed"
             with self.assertRaisesRegex(RuntimeError, "import failed"):

@@ -59,6 +59,8 @@ python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_provider_shards.py -v
+python3 -m unittest discover -s scripts -p test_remaining_shards.py -v
+python3 -m unittest discover -s scripts -p test_extended_acceptance_shards.py -v
 python3 -m unittest discover -s scripts -p test_native_debugger.py -v
 python3 -m unittest discover -s scripts -p test_native_memory_diagnostic.py -v
 python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
@@ -100,13 +102,37 @@ retained CI blocks and require that subsequent commands do not run.
 
 The default smoke command runs all package checks, examples and discovered
 Python tests. CI builds each platform wheel once, runs `--phase package`, and
-passes the same wheel artifact to 37 `--phase validation` jobs per platform:
-36 provider shards and the `remaining` group. Every selection is required on
+passes the same wheel artifact to 40 `--phase validation` jobs per platform:
+36 provider shards and four balanced `remaining-1` through `remaining-4` groups.
+Every selection is required on
 Linux, macOS and Windows. The generated matrix in
 `scripts/wheel_validation/provider_shards.py` is the single CI plan.
 New test modules automatically join `remaining`; new methods in a provider
 suite join its contracts shard unless explicitly declared as numerical cases.
-Examples run with `remaining` (or `all`).
+Examples run once with `remaining-1` (or the original `remaining` / `all`).
+The remaining groups schedule every discovered module using retained Linux
+durations; a newly discovered module gets a default weight and is always included.
+Timing hints affect placement only. Each module keeps its isolated process,
+complete test inventory and failure handling. The inventory artifact records
+the generated groups as well as the provider case partition. The unsplit
+`--group remaining` command is still available locally.
+
+Extended Rust acceptance builds its release binaries once per platform. The
+complete risk suite and four balanced accuracy selections consume those same
+binaries. Before running, each selection verifies the binary hash, source
+fingerprint and compiled ignored-test inventory. It then proves that libtest's
+exact filters select precisely its assigned tests. The original named
+`Extended model acceptance / <OS>` checks remain mandatory and fail unless all
+selections on all platforms pass. Their accuracy artifacts include the combined
+logs and a structured report with every executed test. No numerical populations,
+seeds, tolerances, ignored cases or platforms are removed. New accuracy cases
+must be added to the timing inventory; a mismatch fails before execution.
+
+Inspect the historical scheduling estimates without running numerical tests:
+
+```shell
+python3 scripts/extended_acceptance_shards.py --plan
+```
 
 Provider numerical shards select one basis/extension and one interval count.
 For four-interval named bases, native panels run together and each dated ledger
@@ -182,6 +208,15 @@ suites can exceed a hosted runner's time limit. Combined shard aliases are
 excluded from the CI matrix to avoid duplicating numerical cases. They retain
 the original process/class lifetime for investigating native faults; success
 under shorter process lifetimes does not establish a fix for those faults.
+Provider ledger tests capture detached risk/audit observations during the real
+strategy evaluations, eliminating a later history traversal used only to export
+the same evidence. All four strategies and independent partial/resumed backtests
+still call the original provider. Observations must match the complete expected
+snapshot/contract set and their provenance; failures cannot become observations.
+Combined reproduction aliases and ASan diagnostics automatically set
+`PRICING_TEST_ORIGINAL_EVIDENCE=1`, which restores the original evidence repricing
+traversal and native call sequence. Set that variable explicitly to reproduce
+the original workload with other group or shard commands.
 To reproduce a CI shard with an existing wheel:
 
 ```bash

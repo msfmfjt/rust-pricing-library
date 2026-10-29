@@ -1,0 +1,288 @@
+{
+  "captured_at": "2026-10-29T17:50:56.454271+00:00",
+  "baseline_commit": "bd5aaf216feb08ddd6e7d838cb51cb0132f0fe3e",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "profile": "release",
+  "repetitions_per_case": 1000000,
+  "paired_runs": 3,
+  "method": "Alternating baseline and candidate executables on the same host. Benchmark checks every output against each executable's first complete signed Gamma payoff. Cross-version outputs compared exactly in all pairs.",
+  "limitations": "Microbenchmark of the payoff compiler used by native Gamma calculation, not an end-to-end numerical acceptance or suite timing. Build activity may overlap the run. No claim that the unrelated native crash is fixed.",
+  "source_hashes": {
+    "crates/pricing/examples/benchmark_terminal_gamma.rs": "486de1d196a2fc191e650166695328c4b863dd2b8b6afc1698c51f3ece3401c5",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "48a2200aee346542af7e9c22ca06080946e49622ba3c02edec6357fb17bc499d"
+  },
+  "binary_sha256": {
+    "baseline": "4442cdb8671c8d557e2511cfec00fa8bfe01b0b4a70d234bdd88a88e7595b4fd",
+    "candidate": "62ebaaf1e4bd286ec40ab6ea0f8a1998936d3928c44403d98e51be4cc75bf021"
+  },
+  "exact_output_parity": true,
+  "summary": [
+    {
+      "intervals": 4,
+      "lookback": false,
+      "opcodes": 28,
+      "baseline_median_seconds": 1.410519417,
+      "candidate_median_seconds": 0.953750584,
+      "speedup": 1.4789185355822545,
+      "elapsed_reduction": 0.3238302340931192
+    },
+    {
+      "intervals": 4,
+      "lookback": true,
+      "opcodes": 26,
+      "baseline_median_seconds": 1.382681,
+      "candidate_median_seconds": 0.911931,
+      "speedup": 1.5162123011499773,
+      "elapsed_reduction": 0.3404617550975243
+    },
+    {
+      "intervals": 6,
+      "lookback": false,
+      "opcodes": 38,
+      "baseline_median_seconds": 1.923081625,
+      "candidate_median_seconds": 1.251115334,
+      "speedup": 1.5370938016174933,
+      "elapsed_reduction": 0.3494216169841464
+    },
+    {
+      "intervals": 6,
+      "lookback": true,
+      "opcodes": 36,
+      "baseline_median_seconds": 1.851932708,
+      "candidate_median_seconds": 1.22974025,
+      "speedup": 1.5059543736980228,
+      "elapsed_reduction": 0.3359692581227417
+    }
+  ],
+  "runs": [
+    {
+      "baseline": [
+        {
+          "elapsed_seconds": 1.37495675,
+          "intervals": 4,
+          "lookback": false,
+          "opcodes": 28,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 112.3529411764706, mass: 0.85 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.353746209,
+          "intervals": 4,
+          "lookback": true,
+          "opcodes": 26,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 91.0, mass: 1.0 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.8711738329999998,
+          "intervals": 6,
+          "lookback": false,
+          "opcodes": 38,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 97.36842105263159, mass: 0.95 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.801967167,
+          "intervals": 6,
+          "lookback": true,
+          "opcodes": 36,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 70.83333333333334, mass: 1.2 }] } }",
+          "repetitions": 1000000
+        }
+      ],
+      "candidate": [
+        {
+          "elapsed_seconds": 0.943822917,
+          "intervals": 4,
+          "lookback": false,
+          "opcodes": 28,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 112.3529411764706, mass: 0.85 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 0.897522834,
+          "intervals": 4,
+          "lookback": true,
+          "opcodes": 26,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 91.0, mass: 1.0 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.224449583,
+          "intervals": 6,
+          "lookback": false,
+          "opcodes": 38,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 97.36842105263159, mass: 0.95 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.195556125,
+          "intervals": 6,
+          "lookback": true,
+          "opcodes": 36,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 70.83333333333334, mass: 1.2 }] } }",
+          "repetitions": 1000000
+        }
+      ]
+    },
+    {
+      "baseline": [
+        {
+          "elapsed_seconds": 1.415198542,
+          "intervals": 4,
+          "lookback": false,
+          "opcodes": 28,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 112.3529411764706, mass: 0.85 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.414289375,
+          "intervals": 4,
+          "lookback": true,
+          "opcodes": 26,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 91.0, mass: 1.0 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.926086666,
+          "intervals": 6,
+          "lookback": false,
+          "opcodes": 38,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 97.36842105263159, mass: 0.95 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.852192583,
+          "intervals": 6,
+          "lookback": true,
+          "opcodes": 36,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 70.83333333333334, mass: 1.2 }] } }",
+          "repetitions": 1000000
+        }
+      ],
+      "candidate": [
+        {
+          "elapsed_seconds": 0.953750584,
+          "intervals": 4,
+          "lookback": false,
+          "opcodes": 28,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 112.3529411764706, mass: 0.85 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 0.911931,
+          "intervals": 4,
+          "lookback": true,
+          "opcodes": 26,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 91.0, mass: 1.0 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.258011583,
+          "intervals": 6,
+          "lookback": false,
+          "opcodes": 38,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 97.36842105263159, mass: 0.95 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.2743333749999999,
+          "intervals": 6,
+          "lookback": true,
+          "opcodes": 36,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 70.83333333333334, mass: 1.2 }] } }",
+          "repetitions": 1000000
+        }
+      ]
+    },
+    {
+      "baseline": [
+        {
+          "elapsed_seconds": 1.410519417,
+          "intervals": 4,
+          "lookback": false,
+          "opcodes": 28,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 112.3529411764706, mass: 0.85 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.382681,
+          "intervals": 4,
+          "lookback": true,
+          "opcodes": 26,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 91.0, mass: 1.0 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.923081625,
+          "intervals": 6,
+          "lookback": false,
+          "opcodes": 38,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 97.36842105263159, mass: 0.95 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.851932708,
+          "intervals": 6,
+          "lookback": true,
+          "opcodes": 36,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 70.83333333333334, mass: 1.2 }] } }",
+          "repetitions": 1000000
+        }
+      ],
+      "candidate": [
+        {
+          "elapsed_seconds": 0.960929333,
+          "intervals": 4,
+          "lookback": false,
+          "opcodes": 28,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 112.3529411764706, mass: 0.85 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 0.923231541,
+          "intervals": 4,
+          "lookback": true,
+          "opcodes": 26,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 91.0, mass: 1.0 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.251115334,
+          "intervals": 6,
+          "lookback": false,
+          "opcodes": 38,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 97.36842105263159, mass: 0.95 }] } }",
+          "repetitions": 1000000
+        },
+        {
+          "elapsed_seconds": 1.22974025,
+          "intervals": 6,
+          "lookback": true,
+          "opcodes": 36,
+          "payoff": "VegaKtTerminalPayoff { cash: 0.0, slope: 0.0, gamma: VegaKtGammaAtoms { atoms: [VegaKtGammaAtom { strike: 70.83333333333334, mass: 1.2 }] } }",
+          "repetitions": 1000000
+        }
+      ]
+    }
+  ],
+  "validation": [
+    {
+      "command": "cargo test --locked --release -p pricing --lib engine::risk::vegakt_terminal -- --nocapture",
+      "passed": 5
+    },
+    {
+      "command": "target/release/deps/pricing-34ca81328e22b98f engine::risk::vegakt_path_chain --nocapture",
+      "passed": 7
+    },
+    {
+      "command": "cargo test --locked --release -p pricing --test local_vol_gamma_measure --test local_vol_vegakt_pricing --test local_vol_multi_step_gamma -- --nocapture",
+      "passed": 19
+    },
+    {
+      "command": "cargo test --locked --release -p pricing --test local_vol_initial_gamma conditional_gamma_and_initial_vega_moments_match_independent_decimal_prices -- --exact --nocapture",
+      "passed": 1
+    }
+  ]
+}

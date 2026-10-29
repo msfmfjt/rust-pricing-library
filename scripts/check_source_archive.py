@@ -57,6 +57,12 @@ REQUIRED_FILES = {
     "scripts/wheel_validation/package.py",
     "scripts/wheel_validation/provider_shards.py",
     "scripts/test_provider_shards.py",
+    "scripts/test_remaining_shards.py",
+    "scripts/wheel_validation/remaining_shards.py",
+    "scripts/wheel_validation/remaining_timings.json",
+    "scripts/extended_acceptance_shards.py",
+    "scripts/extended_acceptance_timings.json",
+    "scripts/test_extended_acceptance_shards.py",
     "scripts/wheel_validation/native_debugger.py",
     "scripts/test_native_debugger.py",
     "scripts/test_ci_failure_propagation.py",
@@ -338,6 +344,8 @@ REQUIRED_FILES = {
     'design/validation/local-vol-extension-put-v0.1.json',
     'scripts/test_extension_provider_comparison.py',
     'tests/python/test_vega_kt_extension_provider.py',
+    "tests/python/provider_evidence.py",
+    "tests/python/test_provider_evidence.py",
     'scripts/check_extension_provider.py',
     'design/validation/local-vol-extension-provider-v0.1.md',
     'design/validation/local-vol-extension-provider-v0.1.json',
@@ -1173,14 +1181,10 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
-    "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
-    "cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1",
     "name: Gaussian escrow reference / ${{ matrix.os }}",
     "cargo test --locked --release -p pricing --test extended_model_acceptance single_asset::gaussian_hull_white_independent_price_reference -- --ignored --exact --nocapture",
     "name: extended-model-risk-${{ matrix.os }}",
-    "path: extended-model-risk.log",
     "name: extended-model-accuracy-${{ matrix.os }}",
-    "path: extended-model-accuracy.log",
     "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
@@ -1216,16 +1220,23 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results",
     "name: model-scaling-linux",
     "retention-days: 14",
+    "python scripts/extended_acceptance_shards.py --build",
+    "python scripts/extended_acceptance_shards.py --run risk",
+    "python scripts/extended_acceptance_shards.py --run accuracy-${{ matrix.shard }}",
+    "python scripts/extended_acceptance_shards.py --combine",
+    "python -m unittest discover -s scripts -p 'test_extended_acceptance_shards.py' -v",
+    "python -m unittest discover -s scripts -p 'test_remaining_shards.py' -v",
+
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 8,
+    'python-version: "3.12"': 12,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 3,
     "python scripts/smoke_test_wheel.py --phase package": 2,
-    "actions/upload-artifact@v7": 14,
-    "actions/download-artifact@v8": 1,
-    "retention-days: 14": 12,
+    "actions/upload-artifact@v7": 16,
+    "actions/download-artifact@v8": 4,
+    "retention-days: 14": 13,
 }
 
 REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
@@ -1987,6 +1998,46 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                     f"{archive}: wheel validation must run all selections, propagate failures "
                     f"and reuse producer artifacts with one diagnostics upload; found: {found}"
                 )
+    extended_jobs = {
+        "extended-acceptance-build": (
+            "python scripts/extended_acceptance_shards.py --build",
+            "name: extended-acceptance-binaries-${{ matrix.os }}",
+            "path: target/extended-acceptance-binaries/",
+        ),
+        "extended-risk": (
+            "needs: extended-acceptance-build",
+            "name: extended-acceptance-binaries-${{ matrix.os }}",
+            "python scripts/extended_acceptance_shards.py --run risk",
+        ),
+        "extended-accuracy": (
+            "needs: extended-acceptance-build",
+            "shard: [0, 1, 2, 3]",
+            "name: extended-acceptance-binaries-${{ matrix.os }}",
+            "python scripts/extended_acceptance_shards.py --run accuracy-${{ matrix.shard }}",
+            "name: extended-model-accuracy-${{ matrix.os }}-${{ matrix.shard }}",
+        ),
+        "extended-acceptance": (
+            "name: Extended model acceptance / ${{ matrix.os }}",
+            "    if: always()",
+            "needs: [extended-acceptance-build, extended-risk, extended-accuracy]",
+            "BUILD_RESULT: ${{ needs.extended-acceptance-build.result }}",
+            "RISK_RESULT: ${{ needs.extended-risk.result }}",
+            "ACCURACY_RESULT: ${{ needs.extended-accuracy.result }}",
+            'assert all(os.environ[name] == "success" for name in',
+            '("BUILD_RESULT", "RISK_RESULT", "ACCURACY_RESULT"))',
+            "pattern: extended-model-accuracy-${{ matrix.os }}-*",
+            "python scripts/extended_acceptance_shards.py --combine",
+        ),
+    }
+    for job_name, snippets in extended_jobs.items():
+        job = ci_job_text(workflow, job_name)
+        required = (*snippets, "os: [ubuntu-24.04, macos-15, windows-2025]", "fail-fast: false")
+        missing = [snippet for snippet in required if snippet not in job]
+        conditionals = re.findall(r"^\s+if: (.+)$", job, re.MULTILINE)
+        forbidden = any(text in job for text in ("exclude:", "continue-on-error:"))
+        if missing or forbidden or any(condition != "always()" for condition in conditionals):
+            raise SystemExit(f"{archive}: extended acceptance must preserve all platforms and shards: "
+                             f"{job_name}; missing={missing}")
 
 
 def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:

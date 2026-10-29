@@ -18,6 +18,7 @@ if _ROOT not in sys.path:
 from scripts.wheel_validation.archive import selected_wheel
 from scripts.wheel_validation.package import prepare_wheel
 from scripts.wheel_validation.provider_shards import SHARD_NAMES, SUITES
+from scripts.wheel_validation.remaining_shards import EXAMPLES_GROUP, REMAINING_GROUPS, partition_remaining
 from scripts.wheel_validation.stub import exported_stub_api, verify_stub_static_shape
 from scripts.wheel_validation import native_debugger as native_runner
 
@@ -26,7 +27,7 @@ NAMED_TEST_GROUPS = {
     "custom-basis": frozenset(suite.module + ".py" for suite in SUITES if suite.name == "custom-basis"),
     "providers": frozenset(suite.module + ".py" for suite in SUITES if suite.name != "custom-basis"),
 }
-TEST_GROUPS = ("all", *NAMED_TEST_GROUPS, "remaining")
+TEST_GROUPS = ("all", *NAMED_TEST_GROUPS, "remaining", *REMAINING_GROUPS)
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -35,7 +36,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--phase", choices=("full", "package", "validation"), default="full",
                         help="full: package and all validation; package: install and verify only")
     parser.add_argument("--group", choices=TEST_GROUPS, default="all",
-                        help="validation group; examples run with all or remaining")
+                        help="validation group; examples run with all, remaining or remaining-1")
     parser.add_argument("--shard", choices=SHARD_NAMES,
                         help="provider panels, dated ledger, combined reproduction, or contracts")
     parser.add_argument("--report-directory", type=Path,
@@ -138,8 +139,10 @@ def select_test_modules(modules: list[str], group: str) -> list[str]:
         raise RuntimeError(f"named test modules are missing: {sorted(missing)}")
     if group == "all":
         selected = modules
-    elif group == "remaining":
+    elif group == "remaining" or group in REMAINING_GROUPS:
         selected = [name for name in modules if name not in named]
+        if group in REMAINING_GROUPS:
+            selected = partition_remaining(selected)[group]
     else:
         selected = [name for name in modules if name in NAMED_TEST_GROUPS[group]]
     if not selected:
@@ -196,13 +199,16 @@ def run_validation(python: Path, group: str, shard: str | None = None,
     code = (
         "import json, sys\n"
         "from pathlib import Path\n"
-        "from scripts.smoke_test_wheel import verify_test_inventory\n"
+        "from scripts.smoke_test_wheel import verify_test_inventory, select_test_modules\n"
         "from scripts.wheel_validation.provider_shards import verify_partition\n"
+        "from scripts.wheel_validation.remaining_shards import partition_remaining, EXAMPLES_GROUP\n"
         "counts = verify_test_inventory(Path(sys.argv[1]), json.loads(sys.argv[2]))\n"
         "shards = verify_partition(Path(sys.argv[1]))\n"
+        "remaining = partition_remaining(select_test_modules(json.loads(sys.argv[2]), 'remaining'))\n"
         "if sys.argv[3]:\n"
         "    path = Path(sys.argv[3]) / 'inventory.json'\n"
-        "    path.write_text(json.dumps({'modules': counts, 'provider_shards': shards}, "
+        "    path.write_text(json.dumps({'modules': counts, 'provider_shards': shards, "
+        "'remaining_groups': remaining, 'examples_group': EXAMPLES_GROUP}, "
         "indent=2) + '\\n', encoding='utf-8')\n"
     )
     subprocess.run(
@@ -214,7 +220,7 @@ def run_validation(python: Path, group: str, shard: str | None = None,
         run_test_shard(python, shard, report_directory, native_debugger)
         return
     print(f"wheel-smoke group={group}: {len(selected)} modules", flush=True)
-    if group in ("all", "remaining"):
+    if group in ("all", "remaining", EXAMPLES_GROUP):
         run_examples(python, report_directory, native_debugger)
     run_test_modules(python, selected, report_directory=report_directory,
                      native_debugger=native_debugger)
