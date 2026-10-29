@@ -52,6 +52,7 @@ class PartitionTests(unittest.TestCase):
                 ('    strategy:', '    if: always()\n    strategy:'),
             ),
             "extended-acceptance": (
+                ('runs-on: ubuntu-24.04', 'runs-on: ${{ matrix.os }}'),
                 ('os: [ubuntu-24.04, macos-15, windows-2025]', 'os: [ubuntu-24.04]'),
                 ('    if: always()', "    if: success()"),
                 ('    needs: extended-acceptance-run', '    needs: other-job'),

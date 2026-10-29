@@ -2012,6 +2012,7 @@ def check_extended_acceptance_workflow(package, archive, workflow):
         )),
         "extended-acceptance": (aggregate, (
             platforms, "fail-fast: false",
+            "runs-on: ubuntu-24.04",
             "name: Extended model acceptance / ${{ matrix.os }}",
             "    if: always()",
             "    needs: extended-acceptance-run",

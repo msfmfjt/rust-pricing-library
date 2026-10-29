@@ -25,6 +25,8 @@ Exact filters are checked against libtest discovery before execution. A normal
 exit is insufficient without the expected successful executed-test count.
 The original required-check names aggregate all selections and reject failed,
 cancelled, missing or inconsistent evidence.
+All three final gates combine their platform's JSON and logs on Linux; this
+step executes no native binary and does not occupy scarce macOS test runners.
 
 The previous Linux wheel `remaining` group spent about 93.7 minutes in its
 examples and test modules. Four partitions have a historical critical path of
