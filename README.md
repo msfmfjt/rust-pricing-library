@@ -293,11 +293,12 @@ validation estimates for requested Greeks.
 Pull-request and `main` CI retain native CPython 3.12 wheels for the two MVP
 platforms as short-lived workflow artifacts, plus a Linux wheel for CI
 validation. Each platform builds its wheel once and checks the package and
-runtime contract in a fresh virtual environment. Three validation jobs per
-platform reuse that wheel: the custom basis provider, the coupled/extension
-providers, and all remaining Python test modules plus examples. All three
-groups must pass. Each test module runs in its own Python process, preserving
-state within the module while releasing it before the next module. The default
+runtime contract in a fresh virtual environment. The generated validation matrix
+reuses that wheel in 37 jobs per platform: 36 provider shards and the `remaining`
+group for other Python test modules and examples. All 111 selections must pass.
+Each module or provider shard runs in its own Python process, preserving its
+shared test state. The [contributor guide](CONTRIBUTING.md) describes case
+coverage checks, process completion records and native crash diagnostics. The default
 `python scripts/smoke_test_wheel.py` command still runs the full package,
 example and Python test checks locally. CI also retains a source archive for
 each MVP target at the exact commit, including the locked Rust dependency

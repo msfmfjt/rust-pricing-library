@@ -72,7 +72,48 @@ This is an investigation aid, not a native-crash repair or a waiver of a gate.
 The macOS integration host is macOS 27.0.1, Apple LLDB 2103.0.34.103 and Python
 3.14.2. It is not the hosted macOS 15 / CPython 3.12 wheel environment from the
 failed jobs. No failed numerical provider workload was rerun locally, and no
-candidate wheel, extended numerical panel or supported-platform gate is claimed.
+candidate wheel, extended numerical panel or supported-platform gate is claimed
+by that debugger-test checkpoint.
+
+## Installed parent-wheel follow-up
+
+The subsequent local investigation uses the original macOS CPython 3.12 wheel
+from CI run `40604344572`, artifact `12797943668`, produced from `30f98bc`.
+Its SHA-256 is
+`fe349cbac2f245cedef6fe5883ed80f211bbc2da4d6c18313b80becc964accf3`.
+The host is macOS 27.0.1 arm64 and MacPorts CPython 3.12.11; NumPy 2.5.4,
+SciPy 1.18.1 and jsonschema 4.26.0 match the failed CI installations. The failed
+hosted jobs used macOS 15.7.9 and CPython 3.12.10, so this is not an equivalent
+operating-system/interpreter environment.
+
+- The installed parent wheel passed all 341 callable contracts and the existing
+  package checks. Discovery verified the 112-module / 616-test multiset and
+  36-shard / 179-case multiset. Discovery is not numerical execution.
+- Under LLDB, 54 tests passed across `test_graph_smoothing_range`,
+  `test_graph_division`, `test_product_graph`, `test_pricing_task`,
+  `test_pricing_task_reuse`, `test_typed_pricing_sources`,
+  `test_calibration_report`, `test_structured_errors`, `test_legacy_wire_context`
+  and `test_valuation_report_validation`. Both the debuggee and LLDB exited zero.
+- A separate process without `rust_pricing` installed evaluated the existing
+  `MultiStepExtensionCalibrator.all_maturity_iv_tangent` for all three named
+  bases at four and six intervals, eight cycles each: 48 completed evaluations.
+  All tangents were finite and the process exited zero. It asserted that
+  `rust_pricing` was never imported and idled five seconds between cycles.
+  This 64-second negative reproduction does not rule out a native dependency,
+  operating-system, lifetime or concurrency fault.
+
+The original `custom-basis-row_hats-4-call-fixed_lookback` selection completed
+successfully at 10:15:35 UTC in 1,133.565 seconds, including all four strategies,
+checkpoint replays and failure repairs. Samples, seeds, workers, tolerances and
+assertions were unchanged. Both the process and LLDB exited zero. This local
+pass on a different macOS version does not establish a native-crash repair.
+
+At the 10:17 UTC checkpoint, the other original failed selection,
+`extension-all_rows-4`, is running with the same installed wheel and dependency
+environment. Its running record is incomplete evidence until the process exits.
+The parent CI run also has a single capacity-cancelled
+`custom-basis-coupled_row_hats-6` selection restarted as job `123377959795`;
+the other cancellations and both failed selections are not repaired by that rerun.
 
 ## Next investigation
 
