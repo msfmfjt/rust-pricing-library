@@ -94,6 +94,12 @@ operating-system/interpreter environment.
   `test_pricing_task_reuse`, `test_typed_pricing_sources`,
   `test_calibration_report`, `test_structured_errors`, `test_legacy_wire_context`
   and `test_valuation_report_validation`. Both the debuggee and LLDB exited zero.
+- A second LLDB process passed all 34 tests in `test_backtest_native_contract`
+  and `test_vega_kt_backtest`, including actual task/report replay, cache eviction,
+  delayed-payment scaling and checkpoint resume. It and LLDB exited zero.
+  The 30 separate synthetic tests in `test_provider_cache`, `test_task_adapter`
+  and `test_native_contract` also passed; these validate boundary and ownership
+  behavior, not numerical accuracy.
 - A separate process without `rust_pricing` installed evaluated the existing
   `MultiStepExtensionCalibrator.all_maturity_iv_tangent` for all three named
   bases at four and six intervals, eight cycles each: 48 completed evaluations.
