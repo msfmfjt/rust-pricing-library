@@ -1594,7 +1594,8 @@ REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
 }
 
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
-    "Status: code and private artifact gates ready; external publication decisions open",
+    # Archiving a candidate does not establish that its runtime gates passed.
+    "Readiness applies to the exact validated commit",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
     "the retained Rust source archive for the exact commit",
     "benchmark and replay artifacts for the supported platforms",
