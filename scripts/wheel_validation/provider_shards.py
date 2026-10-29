@@ -18,6 +18,12 @@ import signal
 import sys
 import unittest
 
+try:
+    from .remaining_shards import REMAINING_GROUPS
+except ImportError:
+    # Direct CLI invocation from the workflow's matrix-generation step.
+    from remaining_shards import REMAINING_GROUPS
+
 
 @dataclass(frozen=True)
 class ProviderSuite:
@@ -216,22 +222,31 @@ def verify_partition(test_directory: Path, shards=SHARDS) -> dict:
 def run_shard(name: str, test_directory: Path = Path("tests/python")) -> bool:
     shard = next(shard for shard in (*SHARDS, *COMBINED_SHARDS) if shard.name == name)
     _, cls = load_suite(shard.suite, test_directory)
-    with configured(cls, shard):
-        methods = selected_methods(cls, shard)
-        tests = unittest.TestSuite(cls(method) for method in methods)
-        return unittest.TextTestRunner(verbosity=2).run(tests).wasSuccessful()
+    original = os.environ.get("PRICING_TEST_ORIGINAL_EVIDENCE")
+    if shard in COMBINED_SHARDS:
+        os.environ["PRICING_TEST_ORIGINAL_EVIDENCE"] = "1"
+    try:
+        with configured(cls, shard):
+            methods = selected_methods(cls, shard)
+            tests = unittest.TestSuite(cls(method) for method in methods)
+            return unittest.TextTestRunner(verbosity=2).run(tests).wasSuccessful()
+    finally:
+        if original is None:
+            os.environ.pop("PRICING_TEST_ORIGINAL_EVIDENCE", None)
+        else:
+            os.environ["PRICING_TEST_ORIGINAL_EVIDENCE"] = original
 
 
 def ci_matrix() -> dict:
     return {"include": [
         {"os": os_name, "target": target, "selection": selection,
-         "option": "--group" if selection == "remaining" else "--shard"}
+         "option": "--group" if selection in REMAINING_GROUPS else "--shard"}
         for os_name, target in (
             ("ubuntu-24.04", "x86_64-unknown-linux-gnu"),
             ("macos-15", "aarch64-apple-darwin"),
             ("windows-2025", "x86_64-pc-windows-msvc"),
         )
-        for selection in (*(shard.name for shard in SHARDS), "remaining")
+        for selection in (*(shard.name for shard in SHARDS), *REMAINING_GROUPS)
     ]}
 
 

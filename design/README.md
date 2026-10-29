@@ -103,6 +103,7 @@ documents the public API migration.
 - [Provider ledger case sharding and timeout follow-up, 2026-10-27](validation/provider-ledger-case-sharding-2026-10-27.md)
 - [Compact smoothing numerical review, 2026-10-27](validation/compact-smoothing-review-2026-10-27.md)
 - [macOS native crash triage and structured frame capture, 2026-10-29](validation/native-crash-triage-2026-10-29.md)
+- [Test execution performance, 2026-10-29](validation/test-performance-2026-10-29.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump

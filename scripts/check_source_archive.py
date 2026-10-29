@@ -57,6 +57,12 @@ REQUIRED_FILES = {
     "scripts/wheel_validation/package.py",
     "scripts/wheel_validation/provider_shards.py",
     "scripts/test_provider_shards.py",
+    "scripts/test_remaining_shards.py",
+    "scripts/wheel_validation/remaining_shards.py",
+    "scripts/wheel_validation/remaining_timings.json",
+    "scripts/extended_acceptance_shards.py",
+    "scripts/extended_acceptance_timings.json",
+    "scripts/test_extended_acceptance_shards.py",
     "scripts/wheel_validation/native_debugger.py",
     "scripts/test_native_debugger.py",
     "scripts/test_ci_failure_propagation.py",
@@ -338,6 +344,8 @@ REQUIRED_FILES = {
     'design/validation/local-vol-extension-put-v0.1.json',
     'scripts/test_extension_provider_comparison.py',
     'tests/python/test_vega_kt_extension_provider.py',
+    "tests/python/provider_evidence.py",
+    "tests/python/test_provider_evidence.py",
     'scripts/check_extension_provider.py',
     'design/validation/local-vol-extension-provider-v0.1.md',
     'design/validation/local-vol-extension-provider-v0.1.json',
@@ -970,6 +978,7 @@ REQUIRED_FILES = {
     "pyproject.toml",
     ".github/dependabot.yml",
     ".github/workflows/ci.yml",
+    ".github/workflows/extended-acceptance.yml",
     ".github/workflows/model-heap-followup.yml",
     "scripts/profile_model_heap_followup.py",
     "scripts/test_profile_model_heap_followup.py",
@@ -1173,14 +1182,9 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
-    "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
-    "cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1",
     "name: Gaussian escrow reference / ${{ matrix.os }}",
     "cargo test --locked --release -p pricing --test extended_model_acceptance single_asset::gaussian_hull_white_independent_price_reference -- --ignored --exact --nocapture",
-    "name: extended-model-risk-${{ matrix.os }}",
-    "path: extended-model-risk.log",
     "name: extended-model-accuracy-${{ matrix.os }}",
-    "path: extended-model-accuracy.log",
     "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
@@ -1216,16 +1220,21 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results",
     "name: model-scaling-linux",
     "retention-days: 14",
+    "python scripts/extended_acceptance_shards.py --combine",
+    "python -m unittest discover -s scripts -p 'test_extended_acceptance_shards.py' -v",
+    "python -m unittest discover -s scripts -p 'test_remaining_shards.py' -v",
+    "uses: ./.github/workflows/extended-acceptance.yml",
+
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 8,
+    'python-version: "3.12"': 9,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 3,
     "python scripts/smoke_test_wheel.py --phase package": 2,
-    "actions/upload-artifact@v7": 14,
-    "actions/download-artifact@v8": 1,
-    "retention-days: 14": 12,
+    "actions/upload-artifact@v7": 13,
+    "actions/download-artifact@v8": 2,
+    "retention-days: 14": 11,
 }
 
 REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
@@ -1987,6 +1996,94 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                     f"{archive}: wheel validation must run all selections, propagate failures "
                     f"and reuse producer artifacts with one diagnostics upload; found: {found}"
                 )
+    check_extended_acceptance_workflow(package, archive, workflow)
+
+
+def check_extended_acceptance_workflow(package, archive, workflow):
+    reusable = read_text(package, ".github/workflows/extended-acceptance.yml")
+    call = ci_job_text(workflow, "extended-acceptance-run")
+    aggregate = ci_job_text(workflow, "extended-acceptance")
+    platforms = "os: [ubuntu-24.04, macos-15, windows-2025]"
+    main_jobs = {
+        "extended-acceptance-run": (call, (
+            platforms, "fail-fast: false",
+            "uses: ./.github/workflows/extended-acceptance.yml",
+            "      os: ${{ matrix.os }}",
+        )),
+        "extended-acceptance": (aggregate, (
+            platforms, "fail-fast: false",
+            "runs-on: ubuntu-24.04",
+            "name: Extended model acceptance / ${{ matrix.os }}",
+            "    if: always()",
+            "    needs: extended-acceptance-run",
+            "ACCEPTANCE_RESULT: ${{ needs.extended-acceptance-run.result }}",
+            'result = os.environ["ACCEPTANCE_RESULT"]',
+            'if result != "success":',
+            'raise SystemExit(f"incomplete acceptance jobs: {result}")',
+            "pattern: extended-model-accuracy-${{ matrix.os }}-*",
+            "python scripts/extended_acceptance_shards.py --combine",
+        )),
+    }
+    for name, (job, required) in main_jobs.items():
+        missing = [text for text in required if text not in job]
+        conditions = re.findall(r"^\s+if: (.+)$", job, re.MULTILINE)
+        forbidden = any(text in job for text in ("exclude:", "include:", "continue-on-error:"))
+        if missing or forbidden or any(condition != "always()" for condition in conditions):
+            raise SystemExit(f"{archive}: extended acceptance caller/gate is incomplete: {name}; {missing}")
+        matrix = re.search(r"^      matrix:\n((?:        [^\n]*\n)+)", job, re.MULTILINE)
+        if matrix is None or re.findall(r"^        ([a-zA-Z0-9_-]+):", matrix.group(1), re.MULTILINE) != ["os"]:
+            raise SystemExit(f"{archive}: extended acceptance caller/gate must use only the complete OS matrix")
+    # A needs edge on the caller recreates an all-platform producer barrier.
+    if re.search(r"^    (needs|if|runs-on|steps):", call, re.MULTILINE):
+        raise SystemExit(f"{archive}: each extended acceptance invocation must start independently")
+    if re.findall(r"^    needs: (.+)$", aggregate, re.MULTILINE) != ["extended-acceptance-run"]:
+        raise SystemExit(f"{archive}: acceptance gate must require every reusable invocation")
+    header = "  workflow_call:\n    inputs:\n      os:\n        required: true\n        type: string"
+    if header not in reusable or "${{ matrix.os }}" in reusable:
+        raise SystemExit(f"{archive}: extended acceptance must use one required OS input per invocation")
+    job_names = set(re.findall(r"^  ([a-zA-Z0-9_-]+):", reusable.split("jobs:\n", 1)[-1], re.MULTILINE))
+    if job_names != {"build", "risk", "accuracy"}:
+        raise SystemExit(f"{archive}: reusable acceptance must contain exactly build, risk and accuracy")
+    requirements = {
+        "build": (
+            "python scripts/extended_acceptance_shards.py --build",
+            "name: extended-acceptance-binaries-${{ inputs.os }}",
+            "path: target/extended-acceptance-binaries/",
+        ),
+        "risk": (
+            "python scripts/extended_acceptance_shards.py --run risk",
+            "name: extended-acceptance-binaries-${{ inputs.os }}",
+            "name: extended-model-risk-${{ inputs.os }}",
+            "path: extended-acceptance-reports/extended-model-risk.*",
+        ),
+        "accuracy": (
+            "fail-fast: false", "shard: [0, 1, 2, 3]",
+            "name: extended-acceptance-binaries-${{ inputs.os }}",
+            "python scripts/extended_acceptance_shards.py --run accuracy-${{ matrix.shard }}",
+            "name: extended-model-accuracy-${{ inputs.os }}-${{ matrix.shard }}",
+        ),
+    }
+    for name, required in requirements.items():
+        job = ci_job_text(reusable, name)
+        missing = [text for text in (*required, "runs-on: ${{ inputs.os }}", "if-no-files-found: error")
+                   if text not in job]
+        dependencies = re.findall(r"^    needs: (.+)$", job, re.MULTILINE)
+        if dependencies != ([] if name == "build" else ["build"]):
+            raise SystemExit(f"{archive}: acceptance {name} must depend only on its invocation's build")
+        if name != "accuracy" and "strategy:" in job:
+            raise SystemExit(f"{archive}: acceptance {name} must not create another platform matrix")
+        if name == "accuracy":
+            matrix = re.search(r"^      matrix:\n((?:        [^\n]*\n)+)", job, re.MULTILINE)
+            axes = [] if matrix is None else re.findall(r"^        ([a-zA-Z0-9_-]+):", matrix.group(1), re.MULTILINE)
+            if axes != ["shard"]:
+                raise SystemExit(f"{archive}: acceptance accuracy matrix must contain only all four shards")
+        command = next(text for text in required if text.startswith("python "))
+        if not re.search(rf"^        run: {re.escape(command)}$", job, re.MULTILINE):
+            raise SystemExit(f"{archive}: acceptance {name} must propagate the runner exit status")
+        conditions = re.findall(r"^\s+if: (.+)$", job, re.MULTILINE)
+        forbidden = any(text in job for text in ("exclude:", "include:", "continue-on-error:"))
+        if missing or forbidden or any(condition != "always()" for condition in conditions):
+            raise SystemExit(f"{archive}: reusable acceptance job is incomplete: {name}; {missing}")
 
 
 def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:

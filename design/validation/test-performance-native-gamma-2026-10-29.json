@@ -1,0 +1,186 @@
+{
+  "captured_at": "2026-10-29T18:06:53.408481+00:00",
+  "baseline_commit": "bd5aaf216feb08ddd6e7d838cb51cb0132f0fe3e",
+  "baseline_tracked_clean": true,
+  "candidate_parent_commit": "bd5aaf216feb08ddd6e7d838cb51cb0132f0fe3e",
+  "native_source_change": "crates/pricing/src/engine/risk/vegakt_terminal.rs",
+  "baseline_native_source_sha256": "d19af3e7fb976edc78eeff798cc1830075acb0e5ee206fbb09a148b23af986de",
+  "candidate_native_source_sha256": "48a2200aee346542af7e9c22ca06080946e49622ba3c02edec6357fb17bc499d",
+  "benchmark_source_sha256": "3d772a2323dfe00ccd446ab22108a328fbb46a94bf546169e00e614ea8818a89",
+  "rust_toolchain_sha256": "c910997cb152c6dc8ed13b1fdf9fa28a4ed30d6776123e27dd6170e5c66067a0",
+  "cargo_lock_sha256": "2f612b95031028c7b60bcea45f9280251a73ce9ae16319cc6a0c7bcf29f1bf91",
+  "baseline_native_sha256": {
+    "rust_pricing.cpython-312-darwin.so": "b889f25678b4a0f0d8fce63002ad21f796a609257fb385942534d6433c94c0a0"
+  },
+  "candidate_native_sha256": {
+    "rust_pricing.cpython-312-darwin.so": "60402645fbff3316a6a62492b2846b0f918535e3483cbd0911150ffe8b66e5f4"
+  },
+  "baseline_wheel": {
+    "archive_info": {
+      "hash": "sha256=b7acfb0635c369089ea975a7bf9d884d24113d7d4c7d2a9c088d804d32810fc7",
+      "hashes": {
+        "sha256": "b7acfb0635c369089ea975a7bf9d884d24113d7d4c7d2a9c088d804d32810fc7"
+      }
+    },
+    "url": "file:///Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/pricing-test-performance-baseline/dist/rust_pricing-0.1.0-cp312-cp312-macosx_11_0_arm64.whl"
+  },
+  "candidate_wheel": {
+    "archive_info": {
+      "hash": "sha256=fec656e8aa14c33853efea778f22d208e50576b48538acfdbec05eb8670b2b2a",
+      "hashes": {
+        "sha256": "fec656e8aa14c33853efea778f22d208e50576b48538acfdbec05eb8670b2b2a"
+      }
+    },
+    "url": "file:///Users/fujimas/.codex/.chatgpt-projects/g-p-6a98ba7d7a7081919d71f9ba6c9aab87/pricing-test-performance/dist/rust_pricing-0.1.0-cp312-cp312-macosx_11_0_arm64.whl"
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "python": "3.12.11 (main, Jun  6 2025, 23:18:08) [Clang 16.0.0 (clang-1600.0.26.6)]",
+  "thread_environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1"
+  },
+  "samples": 1024,
+  "worker_threads": 4,
+  "reduction_block_size": 256,
+  "subdivisions": 512,
+  "paired_runs": 3,
+  "case_count": 4,
+  "method": "Three alternating baseline/candidate processes, each evaluating all four original-model cases once via the public PricingPlan Gamma-chain API. Baseline wheel built from a clean detached bd5aaf2 worktree using the same pinned compiler and lockfile. Timing covers the Gamma audit; tangent construction and ordinary-price checks are outside the timed interval.",
+  "exact_baseline_parity": true,
+  "parity_scope": [
+    "complete request payload",
+    "all variance-risk directions",
+    "complete ordinary price before and after Gamma calculation",
+    "complete Gamma-chain audit, including recovered estimates, moments, covariance and diagnostics"
+  ],
+  "load": "No other agents ran CPU-heavy workloads during the paired benchmark; provider ledger, CI risk test, and wheel builds had completed.",
+  "limitations": [
+    "Representative 1024-sample API workload, not the complete provider ledger or all-platform CI runtime.",
+    "No claim that the pre-existing native allocation fault is fixed."
+  ],
+  "summary": [
+    {
+      "intervals": 4,
+      "kind": "asian",
+      "baseline_seconds": [
+        1.9207187918946147,
+        1.8412614997942,
+        1.829444833099842
+      ],
+      "candidate_seconds": [
+        1.3202991250436753,
+        1.3740054168738425,
+        1.2296357080340385
+      ],
+      "baseline_median_seconds": 1.8412614997942,
+      "candidate_median_seconds": 1.3202991250436753,
+      "speedup": 1.394579050208256,
+      "elapsed_reduction": 0.28293774393737847,
+      "identical_audit_sha256": "43144d2f688ebb0be235b60b82af7cca503f150132799bb23c335df4e2ae31f1"
+    },
+    {
+      "intervals": 4,
+      "kind": "lookback",
+      "baseline_seconds": [
+        1.4678120422177017,
+        1.5935422091279179,
+        1.5285601660143584
+      ],
+      "candidate_seconds": [
+        1.3104060420300812,
+        1.1757890000008047,
+        1.1272438750602305
+      ],
+      "baseline_median_seconds": 1.5285601660143584,
+      "candidate_median_seconds": 1.1757890000008047,
+      "speedup": 1.3000293130938565,
+      "elapsed_reduction": 0.2307865754040852,
+      "identical_audit_sha256": "50ea96ae8a7f34c78d843acb97bccad43baea90d0447c72801b0dc7f96486eb5"
+    },
+    {
+      "intervals": 6,
+      "kind": "asian",
+      "baseline_seconds": [
+        4.970962957944721,
+        5.119412415893748,
+        4.902642208151519
+      ],
+      "candidate_seconds": [
+        3.4524903339333832,
+        3.611101125134155,
+        3.3945955419912934
+      ],
+      "baseline_median_seconds": 4.970962957944721,
+      "candidate_median_seconds": 3.4524903339333832,
+      "speedup": 1.4398195149416564,
+      "elapsed_reduction": 0.30546850516849566,
+      "identical_audit_sha256": "c53462a7965e6b3cd8c92461d67cb8a00c1fd89c572d793ce97a99b8117a45a4"
+    },
+    {
+      "intervals": 6,
+      "kind": "lookback",
+      "baseline_seconds": [
+        3.472368833841756,
+        3.7126267498824745,
+        3.898670375114307
+      ],
+      "candidate_seconds": [
+        3.045615250011906,
+        3.074333625147119,
+        2.7545572919771075
+      ],
+      "baseline_median_seconds": 3.7126267498824745,
+      "candidate_median_seconds": 3.045615250011906,
+      "speedup": 1.2190071447363422,
+      "elapsed_reduction": 0.17966026342176278,
+      "identical_audit_sha256": "39f0c3ba479c3238292dda17775367c3506d72956940d5252e984df188595683"
+    }
+  ],
+  "raw_reports": [
+    {
+      "path": "artifacts/test-performance/native-gamma/baseline-1.json",
+      "sha256": "c0534da0faf1e878f1e52167be02e24a024c9a8325e4bdc621e86bca097a911d"
+    },
+    {
+      "path": "artifacts/test-performance/native-gamma/candidate-1.json",
+      "sha256": "8a7aa9e77670e5915e5e04d5307c79b475025089d6c705dd655a396806d42e91"
+    },
+    {
+      "path": "artifacts/test-performance/native-gamma/baseline-2.json",
+      "sha256": "ff90f07036b27b8dd056777e17e806fce1dd344d9a829389e62512599db8b286"
+    },
+    {
+      "path": "artifacts/test-performance/native-gamma/candidate-2.json",
+      "sha256": "6976bacde1e4f1450a53c67403cdf7aaab3e2049f8642570c9c00fd27beb8178"
+    },
+    {
+      "path": "artifacts/test-performance/native-gamma/baseline-3.json",
+      "sha256": "72b225c467f7a826e30b47cbdb436d0151ebc033770a796814df749b470bf4b8"
+    },
+    {
+      "path": "artifacts/test-performance/native-gamma/candidate-3.json",
+      "sha256": "47f888a03bc13529176dff772969613646a9713eb4a99942c01c1ef368ee56b1"
+    }
+  ],
+  "independent_acceptance": {
+    "command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python tests/python/test_vega_kt_conditional_ad.py -v",
+    "unchanged_test_file": true,
+    "samples": 8192,
+    "payoffs": [
+      "asian",
+      "fixed_asian"
+    ],
+    "intervals": 6,
+    "test_count": 1,
+    "passed": true,
+    "elapsed_seconds": 33.189,
+    "log": "artifacts/test-performance/native-gamma/conditional-ad-candidate.log",
+    "log_sha256": "82479653f8018c4d338815b67f8174f915f20e28f0b18e0cfa3f6b8e6eaa6385",
+    "checks": [
+      "sparse raw AD node retains exact zero mean and variance",
+      "conditional native Gamma and raw AD variances remain positive",
+      "conditional recovery and raw-conditional validation pass",
+      "last-row conditional and recovered moments agree"
+    ]
+  }
+}

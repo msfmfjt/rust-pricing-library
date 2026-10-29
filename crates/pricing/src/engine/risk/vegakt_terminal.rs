@@ -15,6 +15,50 @@ struct Piecewise {
     knots: Vec<f64>,
     lines: Vec<Line>,
 }
+
+/// The graph compiler emits consecutive slots. Index those directly instead of
+/// allocating a tree node for each small conditional payoff. Retain a sparse
+/// fallback for internal tapes with arbitrary IDs without sizing by the ID.
+struct PayoffSlots {
+    dense: Vec<Option<Piecewise>>,
+    sparse: BTreeMap<u32, Piecewise>,
+}
+
+impl PayoffSlots {
+    fn new(opcodes: usize) -> Self {
+        Self {
+            // Every supported opcode contributes at least one line, so the
+            // existing line budget stops evaluation before a larger dense tape.
+            dense: vec![None; opcodes.min(65536)],
+            sparse: BTreeMap::new(),
+        }
+    }
+
+    fn get(&self, id: &u32) -> Option<&Piecewise> {
+        if let Some(slot) = self.dense.get(*id as usize) {
+            slot.as_ref()
+        } else {
+            self.sparse.get(id)
+        }
+    }
+
+    fn insert(&mut self, id: u32, value: Piecewise) {
+        if let Some(slot) = self.dense.get_mut(id as usize) {
+            *slot = Some(value);
+        } else {
+            self.sparse.insert(id, value);
+        }
+    }
+
+    fn remove(&mut self, id: &u32) -> Option<Piecewise> {
+        if let Some(slot) = self.dense.get_mut(*id as usize) {
+            slot.take()
+        } else {
+            self.sparse.remove(id)
+        }
+    }
+}
+
 impl Piecewise {
     fn affine(cash: f64, slope: f64) -> Self {
         Self {
@@ -199,7 +243,7 @@ fn compile_affine_observation_payoff(
     if payoff.output_slots().len() != 1 {
         return Ok(None);
     }
-    let mut slots = BTreeMap::<u32, Piecewise>::new();
+    let mut slots = PayoffSlots::new(payoff.opcodes().len());
     let mut line_count = 0_usize;
     for &op in payoff.opcodes() {
         let get = |id: u32| {
@@ -295,6 +339,71 @@ fn compile_affine_observation_payoff(
 mod conditional_tests {
     use super::*;
     use crate::product::{GraphLimitPolicy, SourceGraphBuilder, SourceOpcode as Op};
+
+    #[test]
+    fn conditional_compiler_preserves_sparse_slots_overwrites_and_missing_operands() {
+        let mut b = SourceGraphBuilder::new();
+        let first = b.literal(0.).unwrap();
+        let mut graph = b
+            .finish(vec![first])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .unwrap();
+        let u = UnderlyingId::new(1);
+        let date = "2027-03-04".parse().unwrap();
+        // Internal tapes may use sparse IDs or overwrite a slot. They retain
+        // the previous compiler's behavior without allocating up to u32::MAX.
+        graph.opcodes = vec![
+            CompiledOpcode::Literal {
+                value: 80.,
+                output: 0,
+            },
+            CompiledOpcode::Literal {
+                value: 100.,
+                output: 0,
+            },
+            CompiledOpcode::TerminalSpot {
+                underlying: u,
+                observation_date: date,
+                output: u32::MAX,
+            },
+            CompiledOpcode::Subtract {
+                left: u32::MAX,
+                right: 0,
+                output: 1,
+            },
+            CompiledOpcode::Literal {
+                value: 0.,
+                output: 2,
+            },
+            CompiledOpcode::Maximum {
+                left: 1,
+                right: 2,
+                output: u32::MAX,
+            },
+        ]
+        .into_boxed_slice();
+        graph.output_slots = vec![u32::MAX].into_boxed_slice();
+        let payoff = terminal_payoff_gamma_measure(&graph, u, date).unwrap();
+        assert_eq!(payoff.gamma().atoms().len(), 1);
+        assert_eq!(payoff.gamma().atoms()[0].strike(), 100.);
+        assert_eq!(payoff.gamma().atoms()[0].mass(), 1.);
+
+        graph.output_slots = vec![3].into_boxed_slice();
+        let error = terminal_payoff_gamma_measure(&graph, u, date).unwrap_err();
+        assert!(error.to_string().contains("missing terminal output"));
+        graph.output_slots = vec![u32::MAX].into_boxed_slice();
+        graph.opcodes[3] = CompiledOpcode::Subtract {
+            left: 3,
+            right: 0,
+            output: 1,
+        };
+        let error = terminal_payoff_gamma_measure(&graph, u, date).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("missing compiled payoff operand")
+        );
+    }
 
     #[test]
     fn conditional_ad_partition_keeps_canceled_output_kinks() {

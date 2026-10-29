@@ -141,8 +141,8 @@ class WheelRunnerTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "test module is empty"):
                     wheel.verify_test_inventory(root, [name])
 
-    def test_examples_only_run_for_all_or_remaining_and_inventory_always_runs(self):
-        modules = sorted(set().union(*wheel.NAMED_TEST_GROUPS.values())) + ["test_extra.py"]
+    def test_examples_run_once_per_partition_and_inventory_always_runs(self):
+        modules = sorted(set().union(*wheel.NAMED_TEST_GROUPS.values())) + [f"test_extra_{i}.py" for i in range(4)]
         for group in wheel.TEST_GROUPS:
             with self.subTest(group=group), redirect_stdout(io.StringIO()):
                 with patch.object(wheel, "discover_test_modules", return_value=modules), \
@@ -155,7 +155,7 @@ class WheelRunnerTests(unittest.TestCase):
                     self.assertEqual(command[:4], [str(Path("venv/python")), "-X", "faulthandler", "-c"])
                     self.assertEqual(json.loads(command[-2]), modules)
                     self.assertTrue(process.call_args.kwargs["check"])
-                    self.assertEqual(examples.call_count, int(group in ("all", "remaining")))
+                    self.assertEqual(examples.call_count, int(group in ("all", "remaining", wheel.EXAMPLES_GROUP)))
                     tests.assert_called_once_with(Path("venv/python"),
                                                   wheel.select_test_modules(modules, group),
                                                   report_directory=None, native_debugger=None)

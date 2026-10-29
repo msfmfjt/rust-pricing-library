@@ -42,7 +42,7 @@ def main():
     paths = {ROOT/n for n in retained | {n: '' for n in BOUNDARY}}
     paths.update(ROOT/n for n in (
         'scripts/check_coupled_basis_provider.py', 'scripts/check_extension_provider.py',
-        'scripts/wheel_validation/provider_shards.py',
+        'scripts/wheel_validation/provider_shards.py', 'tests/python/provider_evidence.py',
         'tests/python/test_vega_kt_coupled_basis_provider.py', 'tests/python/test_vega_kt_custom_basis_provider.py',
         'tests/python/test_vega_kt_extension_put_provider.py', 'tests/python/test_vega_kt_extension_provider.py',
         'tests/python/test_vega_kt_path_ledger.py', 'tests/python/test_vega_kt_multi_step_provider.py',

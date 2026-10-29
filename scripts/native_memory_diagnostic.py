@@ -107,6 +107,8 @@ def prepare_sanitizer(directory: Path) -> Path:
     settings = {"DYLD_INSERT_LIBRARIES": str(runtime),
                 "__PYVENV_LAUNCHER__": sys.executable,
                 "ASAN_OPTIONS": ASAN_OPTIONS,
+                # Keep the historical native call sequence during fault triage.
+                "PRICING_TEST_ORIGINAL_EVIDENCE": "1",
                 "PYTHONPATH": os.pathsep.join(str(ROOT / name)
                                               for name in ("tests/python", "backtesting", "scripts"))}
     save(directory, "asan-environment.json", {

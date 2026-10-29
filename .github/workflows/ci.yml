@@ -331,6 +331,10 @@ jobs:
 
       - name: Check provider shard coverage and CI plan
         run: python -m unittest discover -s scripts -p 'test_provider_shards.py' -v
+      - name: Check remaining wheel shard coverage
+        run: python -m unittest discover -s scripts -p 'test_remaining_shards.py' -v
+      - name: Check extended acceptance inventory and failure handling
+        run: python -m unittest discover -s scripts -p 'test_extended_acceptance_shards.py' -v
 
       - name: Check native debugger failure propagation
         run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v
@@ -379,55 +383,59 @@ jobs:
         shell: bash
         run: cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
 
-  extended-acceptance:
-    name: Extended model acceptance / ${{ matrix.os }}
+  extended-acceptance-run:
+    # Each invocation owns its build dependency. A queued macOS runner must not
+    # delay already-built Linux or Windows accuracy/risk consumers.
+    name: Extended acceptance jobs / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 330
+    uses: ./.github/workflows/extended-acceptance.yml
+    with:
+      os: ${{ matrix.os }}
 
+  extended-acceptance:
+    # Preserve the original required check names and full-platform acceptance.
+    name: Extended model acceptance / ${{ matrix.os }}
+    if: always()
+    needs: extended-acceptance-run
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    # Combining JSON and logs needs no platform-native binary or macOS runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Run extended model risk acceptance
-        shell: bash
-        run: |
-          set -o pipefail
-          {
-            git rev-parse HEAD
-            rustc -vV
-            cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1
-          } 2>&1 | tee extended-model-risk.log
-
-      - name: Retain extended model risk evidence
-        if: always()
-        uses: actions/upload-artifact@v7
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          name: extended-model-risk-${{ matrix.os }}
-          path: extended-model-risk.log
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Run extended model accuracy acceptance
-        shell: bash
+          python-version: "3.12"
+      - name: Require every acceptance job to pass
+        env:
+          ACCEPTANCE_RESULT: ${{ needs.extended-acceptance-run.result }}
+        shell: python
         run: |
-          set -o pipefail
-          {
-            git rev-parse HEAD
-            rustc -vV
-            cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
-          } 2>&1 | tee extended-model-accuracy.log
-
+          import os
+          result = os.environ["ACCEPTANCE_RESULT"]
+          if result != "success":
+              raise SystemExit(f"incomplete acceptance jobs: {result}")
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: extended-model-accuracy-${{ matrix.os }}-*
+          path: extended-acceptance-reports/
+          merge-multiple: true
+      - name: Verify complete coverage and combine accuracy evidence
+        run: python scripts/extended_acceptance_shards.py --combine
       - name: Retain extended model accuracy evidence
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: extended-model-accuracy-${{ matrix.os }}
-          path: extended-model-accuracy.log
-          if-no-files-found: warn
+          path: |
+            extended-model-accuracy.log
+            extended-model-accuracy.json
+          if-no-files-found: error
           retention-days: 14
 
   python-wheel-linux:

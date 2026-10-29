@@ -1,6 +1,7 @@
 """Coverage and failure guards for provider CI partitioning (no wheel needed)."""
 from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext
 from dataclasses import replace
 import io
 import json
@@ -18,16 +19,36 @@ from check_source_archive import check_ci_workflow
 
 
 class ProviderShardTests(unittest.TestCase):
+    def test_combined_reproduction_keeps_original_evidence_and_restores_environment(self):
+        seen = []
+
+        class Probe(unittest.TestCase):
+            def test_observation_mode(self):
+                seen.append(shards.os.environ.get("PRICING_TEST_ORIGINAL_EVIDENCE"))
+
+        for selected, expected in ((shards.COMBINED_SHARDS[0], "1"), (shards.SHARDS[0], "0")):
+            with self.subTest(selection=selected.name), \
+                    patch.dict(shards.os.environ, {"PRICING_TEST_ORIGINAL_EVIDENCE": "0"}), \
+                    patch.object(shards, "load_suite", return_value=(None, Probe)), \
+                    patch.object(shards, "configured", return_value=nullcontext()), \
+                    patch.object(shards, "selected_methods", return_value=["test_observation_mode"]), \
+                    redirect_stderr(io.StringIO()):
+                self.assertTrue(shards.run_shard(selected.name))
+                self.assertEqual(seen[-1], expected)
+                self.assertEqual(shards.os.environ["PRICING_TEST_ORIGINAL_EVIDENCE"], "0")
+
     def test_archive_workflow_gate_requires_complete_plan_and_producer_wheel_reuse(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        reusable = (Path(__file__).resolve().parents[1] / ".github/workflows/extended-acceptance.yml").read_text()
 
         def validate(source):
             buffer = io.BytesIO()
             with tarfile.open(fileobj=buffer, mode="w") as archive:
-                content = source.encode()
-                member = tarfile.TarInfo(".github/workflows/ci.yml")
-                member.size = len(content)
-                archive.addfile(member, io.BytesIO(content))
+                for name, body in (("ci.yml", source), ("extended-acceptance.yml", reusable)):
+                    content = body.encode()
+                    member = tarfile.TarInfo(".github/workflows/" + name)
+                    member.size = len(content)
+                    archive.addfile(member, io.BytesIO(content))
             buffer.seek(0)
             with tarfile.open(fileobj=buffer, mode="r") as archive:
                 check_ci_workflow(archive, "probe")
@@ -50,7 +71,7 @@ class ProviderShardTests(unittest.TestCase):
 
     def test_ci_matrix_runs_every_selection_once_per_platform(self):
         matrix = shards.ci_matrix()["include"]
-        self.assertEqual(len(matrix), 111)
+        self.assertEqual(len(matrix), 120)
         self.assertLessEqual(len(matrix), 256)
         self.assertEqual(len(shards.SHARDS), 36)
         self.assertEqual(len(shards.COMBINED_SHARDS), 4)
@@ -60,9 +81,9 @@ class ProviderShardTests(unittest.TestCase):
         for platform in ("ubuntu-24.04", "macos-15", "windows-2025"):
             rows = [row for row in matrix if row["os"] == platform]
             self.assertEqual(Counter(row["selection"] for row in rows),
-                             Counter((*ci_names, "remaining")))
+                             Counter((*ci_names, *shards.REMAINING_GROUPS)))
             for row in rows:
-                self.assertEqual(row["option"], "--group" if row["selection"] == "remaining" else "--shard")
+                self.assertEqual(row["option"], "--group" if row["selection"] in shards.REMAINING_GROUPS else "--shard")
 
     def test_split_preserves_case_multiplicity_and_rejects_missing_or_overlapping_ledgers(self):
         source = '''import unittest
