@@ -6,6 +6,13 @@ Status: Frozen for library `0.x`
 |---|---:|---:|---:|---:|
 | `0` | `3` | `1, 2, 3` | `1, 2, 3` | `3` |
 
+The separate `pricing_specification` document uses version `1` and its own
+reader, writer, schema and fingerprint domain. It captures complete model
+compositions, calibration inputs and execution settings, then rebuilds existing
+plans. It does not change the request/result table above or introduce a new
+persisted result contract. See [pricing specifications](pricing-specification.md)
+for source replay, support limits and legacy migration-provenance behavior.
+
 Schema v2 adds the optional `risk.payoff_smoothing_width_ladder` field. Schema
 v3 adds the `american_vanilla` product, its required top-level `lsm`
 configuration, and an optional `monte_carlo` result block. The configuration retains the independent training engine,

@@ -42,6 +42,11 @@ use crate::{
 };
 
 const DOCUMENT_REQUEST: &str = "pricing_request";
+mod specification;
+pub use specification::{
+    current_specification_schema, fingerprint_specification, parse_specification_json,
+    specification_to_json, specification_to_pretty_json,
+};
 const DOCUMENT_RESULT: &str = "pricing_result";
 const MIGRATION_REQUEST_V1_TO_V2: &str = "pricing_request/v1-to-v2";
 const MIGRATION_RESULT_V1_TO_V2: &str = "pricing_result/v1-to-v2";
@@ -1375,28 +1380,7 @@ impl TryFrom<RequestV3> for PricingRequest {
                 MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
             }
         };
-        let model = match value.model {
-            ModelV1::BassLocalVolatility { parameters } => {
-                ModelSpec::BassLocalVolatility(parameters.into_spec()?)
-            }
-            ModelV1::BlackScholes { volatility } => ModelSpec::BlackScholes(
-                BlackScholesSpec::new(volatility)
-                    .map_err(|error| domain_at("/model/volatility", error))?,
-            ),
-            ModelV1::Black76 { volatility } => ModelSpec::Black76(
-                Black76Spec::new(volatility)
-                    .map_err(|error| domain_at("/model/volatility", error))?,
-            ),
-            ModelV1::LocalVolatility {
-                local_variance_grid,
-                reporting_iv_basis,
-            } => ModelSpec::LocalVolatility(local_volatility_from_wire(
-                local_variance_grid,
-                reporting_iv_basis,
-                "/model/local_variance_grid",
-                "/model/reporting_iv_basis",
-            )?),
-        };
+        let model = model_from_wire(value.model)?;
         let engine = match value.engine {
             EngineV1::PseudoMonteCarlo {
                 master_seed,
@@ -1536,6 +1520,30 @@ fn polynomial_basis_resource_limits(
         ));
     }
     Ok((columns, exponents))
+}
+
+fn model_from_wire(value: ModelV1) -> Result<ModelSpec, WireError> {
+    Ok(match value {
+        ModelV1::BassLocalVolatility { parameters } => {
+            ModelSpec::BassLocalVolatility(parameters.into_spec()?)
+        }
+        ModelV1::BlackScholes { volatility } => ModelSpec::BlackScholes(
+            BlackScholesSpec::new(volatility)
+                .map_err(|error| domain_at("/model/volatility", error))?,
+        ),
+        ModelV1::Black76 { volatility } => ModelSpec::Black76(
+            Black76Spec::new(volatility).map_err(|error| domain_at("/model/volatility", error))?,
+        ),
+        ModelV1::LocalVolatility {
+            local_variance_grid,
+            reporting_iv_basis,
+        } => ModelSpec::LocalVolatility(local_volatility_from_wire(
+            local_variance_grid,
+            reporting_iv_basis,
+            "/model/local_variance_grid",
+            "/model/reporting_iv_basis",
+        )?),
+    })
 }
 
 fn local_volatility_from_wire(

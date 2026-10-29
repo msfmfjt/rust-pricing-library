@@ -26,6 +26,9 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [0028: Complete pricing source specifications](adr/0028-pricing-specification.md),
+  with a [usage and extension guide](../docs/library/pricing-specification.md).
+
 - [0027: Andersen–Broadie bounds](adr/0027-american-dual.md), with
   [validation evidence](validation/american-dual.md).
 

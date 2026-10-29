@@ -28,6 +28,12 @@ It builds market data, a product, a model, an engine configuration and a risk
 request, then compiles a reusable plan and inspects estimates and diagnostics.
 The [Python type stub](../../rust_pricing.pyi) lists the typed entry points.
 
+Use [pricing specifications](pricing-specification.md) to save complete model
+compositions, calibration inputs and numerical settings and rebuild them through
+one Rust/Python entry point. The guide lists supported combinations and extension
+rules; the [Python example](../../examples/python/pricing_specification.py)
+demonstrates replay.
+
 Generate the Rust API reference from the repository root with:
 
 ```shell

@@ -1,0 +1,93 @@
+{
+  "document_kind": "pricing_specification",
+  "schema_version": 1,
+  "valuation_date": "2026-09-04",
+  "product": {
+    "type": "european_vanilla",
+    "underlying_id": 1,
+    "currency_id": 2,
+    "expiry": "2027-09-04",
+    "strike": 100.0,
+    "notional": 1.0,
+    "side": {
+      "type": "call"
+    }
+  },
+  "market": {
+    "type": "equity",
+    "currency_id": 2,
+    "underlying_id": 1,
+    "spot": 100.0,
+    "discount_curve": {
+      "curve_id": 10,
+      "times": [
+        0.0,
+        1.0
+      ],
+      "discount_factors": [
+        1.0,
+        0.95
+      ]
+    },
+    "dividend_curve": {
+      "curve_id": 11,
+      "times": [
+        0.0,
+        1.0
+      ],
+      "discount_factors": [
+        1.0,
+        0.98
+      ]
+    }
+  },
+  "model": {
+    "equity": {
+      "type": "stochastic_volatility",
+      "initial_volatility": 0.2,
+      "factor": {
+        "type": "bergomi",
+        "mean_reversion": 1.2,
+        "vol_of_vol": 0.3,
+        "correlation": -0.4
+      }
+    },
+    "rates": {
+      "type": "hull_white",
+      "mean_reversion": 0.2,
+      "volatility_times": [
+        0.0,
+        0.5
+      ],
+      "volatilities": [
+        0.005,
+        0.007
+      ],
+      "equity_rate_correlation": 0.1,
+      "vol_rate_correlations": [
+        0.0
+      ]
+    }
+  },
+  "engine": {
+    "type": "pseudo_monte_carlo",
+    "master_seed": 7,
+    "independent_sampling_units": 64,
+    "variance_reduction": {
+      "antithetic": true,
+      "brownian_bridge": false
+    }
+  },
+  "risk": {
+    "delta": false,
+    "vega": false,
+    "smile_dynamics": {
+      "type": "sticky_log_moneyness"
+    }
+  },
+  "numerics": {
+    "worker_threads": 2,
+    "reduction_block_size": 32,
+    "maximum_step": 0.25
+  }
+}

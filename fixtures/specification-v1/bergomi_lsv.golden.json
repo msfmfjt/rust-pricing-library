@@ -1,0 +1,124 @@
+{
+  "document_kind": "pricing_specification",
+  "schema_version": 1,
+  "valuation_date": "2026-09-04",
+  "product": {
+    "type": "european_vanilla",
+    "underlying_id": 1,
+    "currency_id": 2,
+    "expiry": "2027-09-04",
+    "strike": 100.0,
+    "notional": 1.0,
+    "side": {
+      "type": "call"
+    }
+  },
+  "market": {
+    "type": "equity",
+    "currency_id": 2,
+    "underlying_id": 1,
+    "spot": 100.0,
+    "discount_curve": {
+      "curve_id": 10,
+      "times": [
+        0.0,
+        1.0
+      ],
+      "discount_factors": [
+        1.0,
+        0.95
+      ]
+    },
+    "dividend_curve": {
+      "curve_id": 11,
+      "times": [
+        0.0,
+        1.0
+      ],
+      "discount_factors": [
+        1.0,
+        0.98
+      ]
+    }
+  },
+  "model": {
+    "equity": {
+      "type": "local_stochastic_volatility",
+      "target": {
+        "local_variance_grid": {
+          "time_nodes": [
+            0.0,
+            0.25,
+            0.5,
+            0.75,
+            1.0
+          ],
+          "log_forward_moneyness_nodes": [
+            -0.6,
+            0.0,
+            0.6
+          ],
+          "shape": [
+            5,
+            3
+          ],
+          "values": [
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04,
+            0.04
+          ],
+          "floor": 1e-08,
+          "cap": 4.0
+        }
+      },
+      "factor": {
+        "type": "bergomi",
+        "mean_reversion": 1.2,
+        "vol_of_vol": 0.3,
+        "correlation": -0.4
+      },
+      "particles": {
+        "particle_count": 64,
+        "seed": 429,
+        "log_bandwidth": 0.4,
+        "minimum_effective_samples": 2.0,
+        "retain_reverse_trace": true
+      }
+    },
+    "rates": {
+      "type": "deterministic"
+    }
+  },
+  "engine": {
+    "type": "pseudo_monte_carlo",
+    "master_seed": 7,
+    "independent_sampling_units": 64,
+    "variance_reduction": {
+      "antithetic": true,
+      "brownian_bridge": false
+    }
+  },
+  "risk": {
+    "delta": false,
+    "vega": false,
+    "smile_dynamics": {
+      "type": "sticky_log_moneyness"
+    }
+  },
+  "numerics": {
+    "worker_threads": 2,
+    "reduction_block_size": 32
+  }
+}
