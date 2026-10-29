@@ -223,6 +223,8 @@ def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument("--calibration-only", action="store_true")
+    selection.add_argument("--preflight-only", action="store_true",
+                           help="verify the installed ASan wheel and detector controls without pricing")
     selection.add_argument("--shard", choices=SHARDS)
     parser.add_argument("--report-directory", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -231,8 +233,13 @@ def main(argv=None) -> None:
     if args.calibration_only:
         calibration_only(directory)
     else:
+        if args.preflight_only:
+            save(directory, "preflight.json", {"status": "running"})
         python = prepare_sanitizer(directory)
-        run_validation(python, "all", args.shard, directory)
+        if args.preflight_only:
+            save(directory, "preflight.json", {"status": "completed", "interpreter": str(python)})
+        else:
+            run_validation(python, "all", args.shard, directory)
 
 
 if __name__ == "__main__":

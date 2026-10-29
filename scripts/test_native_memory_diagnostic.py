@@ -2,16 +2,70 @@
 import json
 import os
 from pathlib import Path
+import re
+import shlex
 import subprocess
 import tempfile
+import textwrap
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import native_memory_diagnostic as diagnostic
+from test_ci_failure_propagation import run_block
 
 
 class NativeMemoryDiagnosticTests(unittest.TestCase):
+    def test_preflight_only_records_completion_without_numerical_workload(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(diagnostic, "prepare_sanitizer", return_value=Path("/actual Python")) as prepare, \
+                patch.object(diagnostic, "run_validation") as run:
+            directory = Path(temporary).resolve()
+            diagnostic.main(["--preflight-only", "--report-directory", temporary])
+            prepare.assert_called_once_with(directory)
+            run.assert_not_called()
+            self.assertEqual(json.loads((directory / "preflight.json").read_text()),
+                             {"status": "completed", "interpreter": str(Path("/actual Python"))})
+
+    def test_preflight_failure_cannot_record_success_or_launch_workload(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(diagnostic, "prepare_sanitizer", side_effect=RuntimeError("control failed")), \
+                patch.object(diagnostic, "run_validation") as run:
+            # Reusing a report directory must invalidate its earlier completion.
+            record = Path(temporary) / "preflight.json"
+            record.write_text('{"status": "completed"}')
+            with self.assertRaisesRegex(RuntimeError, "control failed"):
+                diagnostic.main(["--preflight-only", "--report-directory", temporary])
+            self.assertEqual(json.loads(record.read_text()), {"status": "running"})
+            run.assert_not_called()
+
+    def test_workflow_routes_each_selection_once_and_preserves_pipeline_failures(self):
+        workflow = (diagnostic.ROOT / ".github/workflows/native-memory-diagnostic.yml").read_text()
+        match = re.search(
+            r"^        run: \|\n((?:          [^\n]*\n)+)", workflow, re.MULTILINE)
+        self.assertIsNotNone(match)
+        source = textwrap.dedent(match.group(1))
+        self.assertIn("    shell: bash", workflow)
+        for selection in ("preflight-only", *diagnostic.SHARDS):
+            for exit_code in (0, 23):
+                with self.subTest(selection=selection, exit_code=exit_code), \
+                        tempfile.TemporaryDirectory() as temporary:
+                    # Run the real workflow block with a fake Python command;
+                    # tee still runs, so it must not hide the failing producer.
+                    prelude = (
+                        f"cd {shlex.quote(Path(temporary).as_posix())}\nNATIVE_SELECTION='{selection}'\n"
+                        f"python() {{ printf '%s\\n' \"$@\"; return {exit_code}; }}\n")
+                    result = run_block(prelude + source + "printf 'continued\\n'\n")
+                    self.assertEqual(result.returncode, exit_code, result.stderr)
+                    choice = (["--preflight-only"] if selection == "preflight-only"
+                              else ["--shard", selection])
+                    expected = ["-X", "faulthandler", "scripts/native_memory_diagnostic.py",
+                                *choice, "--report-directory", "native-memory-reports"]
+                    self.assertEqual(result.stdout.splitlines(),
+                                     expected + (["continued"] if exit_code == 0 else []))
+                    self.assertEqual((Path(temporary) / "native-memory-run.log").read_text().splitlines(),
+                                     expected)
+
     def test_framework_interpreter_bypasses_launcher_and_missing_binary_fails(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

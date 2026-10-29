@@ -155,8 +155,11 @@ signal or its Mach exception before it counts as diagnostic evidence.
 The separate `Native memory diagnostics` workflow investigates the two retained
 macOS failures on `macos-15` with CPython 3.12.10 and the observed NumPy/SciPy
 versions. One job runs existing calibration kernels without importing native
-pricing. Two other jobs build a local diagnostic wheel with the pinned Rust
-compiler's AddressSanitizer and execute the original failed selections once.
+pricing. Another builds a diagnostic wheel with the pinned Rust compiler's
+AddressSanitizer. PR updates run only its detector preflight, with a 30-minute
+job limit. A manual dispatch can select either original failed shard for one
+run with the existing 330-minute limit. Each selection has its own concurrency
+group, so dispatching one shard does not cancel a different selection.
 The normal wheel matrix remains required. A diagnostic pass is not proof that
 an intermittent fault is repaired.
 
@@ -176,9 +179,17 @@ with instrumentation. These diagnostic builds are not distribution artifacts.
 The workflow runs when its helper/tests/workflow change, and can also be invoked
 manually after it is available on the default branch.
 
+Use `--preflight-only --report-directory <directory>` to check an already
+installed instrumented wheel locally without starting numerical validation.
+`preflight.json` records completion only after every detector control passes;
+an interrupted or failed attempt cannot retain an earlier completion marker.
+The full `--shard` mode remains available. The hosted `extension-all_rows-4`
+ASan run exceeded 330 minutes, so its partial output is incomplete evidence.
+
 A missing or running record is incomplete evidence, never a passing result.
-CI gives each selection 330 minutes; successful completion on all platforms
-remains required. Runner loss can prevent the final artifact upload entirely.
+Production wheel CI gives each selection 330 minutes; successful completion on
+all platforms remains required. Runner loss can prevent the final artifact
+upload entirely.
 
 The original `--group custom-basis`, `--group providers`, default full execution,
 and combined four-interval shard names remain available, but those combined

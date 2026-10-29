@@ -142,8 +142,8 @@ UTC the full instrumented fixed-lookback selection is still running, not passed.
 These are diagnostic results with a different allocator and operating system;
 they do not establish that the original corruption is absent.
 
-The [targeted workflow](../../.github/workflows/native-memory-diagnostic.yml)
-runs calibration isolation and both instrumented original selections on hosted
+The initial [targeted workflow](../../.github/workflows/native-memory-diagnostic.yml)
+ran calibration isolation and both instrumented original selections on hosted
 `macos-15`, with CPython 3.12.10 and the observed numerical dependency versions.
 It records the actual host/compiler and installed extension hash, verifies the
 extension is instrumented, checks the detector's positive/negative controls and
@@ -151,7 +151,7 @@ preserves the original workload once. The existing wheel inventory checks and
 process failure records remain in use. Diagnostic wheels and debug symbols are
 retained separately from ordinary wheel artifacts; all production gates remain.
 
-The helper's eight tests cover runtime selection, framework launchers, rejection
+The initial helper's eight tests covered runtime selection, framework launchers, rejection
 of uninstrumented wheels, genuine detection versus unrelated aborts, compiler and
 import failures, literal executable paths, and unchanged shard/failure propagation.
 Local integration verifies the helper can launch the actual instrumented wheel,
@@ -199,11 +199,33 @@ and free stacks. Missing startup markers, unrelated failures, incomplete stacks
 and timed-out controls prevent the numerical workload from starting. Partial
 logs and control outcomes are retained.
 
-All eleven helper tests pass locally. Actual local integration passes the Rust
+The allocator-control change's eleven helper tests passed locally. Actual local integration passes the Rust
 normal/UAF controls, wheel import and Python normal/double-free controls. The
 Python fault child exits with SIGABRT and retains both history stacks. Local
 symbolizer warnings limit source-line detail; module/offset frames are present.
 The new Python controls have not yet run in hosted CI.
+
+## Bounded detector preflight
+
+Following the extension diagnostic's 330-minute timeout, PR updates now run
+calibration isolation and an ASan detector preflight with a 30-minute job limit.
+The helper's `--preflight-only` mode runs the same wheel instrumentation,
+standalone Rust, import and Python allocator controls without launching numerical
+validation. Its completion marker is written only after all controls succeed;
+reusing a report directory first invalidates the previous completion marker.
+
+Manual dispatch retains each original full shard as a separate selection with
+the existing 330-minute limit. Selection-specific concurrency groups prevent
+one diagnostic from cancelling a different selection on the same branch.
+The ordinary CI matrix and numerical inputs are unchanged. The interrupted
+extension diagnostic remains incomplete and the production faults unresolved.
+
+All fourteen helper tests pass locally, including the actual workflow command
+block for all three selections with successful and failing child exits. The
+new CLI mode also completed against the installed local ASan wheel: both normal
+controls exited zero, the Rust UAF and Python double-free controls aborted with
+the required reports, and no numerical workload started. This validates the
+local preflight; the new mode has not yet run on hosted macOS 15.
 
 ## Next investigation
 
