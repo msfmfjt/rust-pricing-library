@@ -136,7 +136,12 @@ expansion is disabled. Startup `exec` handoffs do not stop the process; native
 signals and exceptions still do. The runner captures thread backtraces,
 registers, image identities and stop reasons before a stopped process is terminated. Diagnostic
 logs and process observations are saved under `native-debugger/` in the same
-artifact. A zero debugger exit alone cannot pass: a current process record must
+artifact. Each thread's JSON observation also retains up to 128 frames with
+function names, module paths/UUIDs, load and file addresses, and available source
+locations. Missing symbols remain null; invalid frames, truncated stacks and
+unwind errors are explicit. These are read-only debugger observations, not a
+diagnosis of the corruption's origin. Full text backtraces remain in the log.
+A zero debugger exit alone cannot pass: a current process record must
 confirm normal child exit zero, and the debugger must also succeed. Missing,
 stale or malformed records and debugger launch failures fail the job. Crashes
 are not resumed or retried. Ordinary positive child exit codes are preserved;
