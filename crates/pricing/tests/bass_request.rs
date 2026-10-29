@@ -50,6 +50,20 @@ fn rqmc(v: &mut Value) {
 
 #[test]
 fn common_report_retains_deterministic_bass_diagnostics() {
+    fn assert_metrics(block: &ReportedCalibration, expected: &[(&str, DiagnosticUnit, Vec<f64>)]) {
+        assert_eq!(block.metrics.len(), expected.len());
+        for (name, unit, values) in expected {
+            let metric = block
+                .metrics
+                .iter()
+                .find(|metric| metric.name == *name)
+                .unwrap();
+            assert_eq!(metric.unit, *unit, "{name}");
+            assert_eq!(metric.values, *values, "{name}");
+            assert!(!metric.convention.trim().is_empty(), "{name}");
+        }
+    }
+
     let mut v = payload();
     no_risk(&mut v);
     let native = plan(&v, 1);
@@ -57,6 +71,7 @@ fn common_report_retains_deterministic_bass_diagnostics() {
         request(&v),
         ExecutionPolicy::new(1, Some(128)).unwrap(),
     );
+    let underlying_id = source.product().underlying().get();
     let result = PricingTask::new(source, PricingOperation::Evaluate)
         .unwrap()
         .compile()
@@ -75,32 +90,110 @@ fn common_report_retains_deterministic_bass_diagnostics() {
     assert_eq!(blocks.len(), 2);
     assert_eq!(blocks[0].kind, CalibrationKind::BassFixedPoint);
     assert_eq!(blocks[1].kind, CalibrationKind::BassSurfaceProjection);
-    assert!(blocks.iter().all(|b| b.seed.is_none()));
+    for block in blocks {
+        assert_eq!(block.underlying_ids, vec![underlying_id]);
+        assert_eq!(block.seed, None);
+    }
     let rows = native.bass_calibration_diagnostics().unwrap();
     assert_eq!(
-        blocks[0].axes[0].values,
-        rows.iter().map(|r| r.end_time).collect::<Vec<_>>()
+        blocks[0].axes,
+        vec![ReportAxis {
+            name: "end_time".into(),
+            values: rows.iter().map(|r| r.end_time).collect(),
+        }]
     );
-    assert_eq!(
-        blocks[0]
-            .metrics
-            .iter()
-            .find(|m| m.name == "cdf_residual")
-            .unwrap()
-            .values,
-        rows.iter().map(|r| r.cdf_residual).collect::<Vec<_>>()
+    assert_metrics(
+        &blocks[0],
+        &[
+            (
+                "start_time",
+                DiagnosticUnit::Time,
+                rows.iter().map(|r| r.start_time).collect(),
+            ),
+            (
+                "iterations",
+                DiagnosticUnit::Count,
+                rows.iter().map(|r| r.iterations as f64).collect(),
+            ),
+            (
+                "cdf_residual",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.cdf_residual).collect(),
+            ),
+            (
+                "marginal_cdf_error",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.marginal_cdf_error).collect(),
+            ),
+            (
+                "boundary_tail_probability",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.boundary_tail_probability).collect(),
+            ),
+            (
+                "brownian_min",
+                DiagnosticUnit::BrownianCoordinate,
+                rows.iter().map(|r| r.brownian_min).collect(),
+            ),
+            (
+                "brownian_max",
+                DiagnosticUnit::BrownianCoordinate,
+                rows.iter().map(|r| r.brownian_max).collect(),
+            ),
+            (
+                "grid_spacing",
+                DiagnosticUnit::BrownianCoordinate,
+                rows.iter().map(|r| r.grid_spacing).collect(),
+            ),
+        ],
     );
     let rows = native.bass_projection_diagnostics().unwrap();
     assert_eq!(
-        blocks[1]
-            .metrics
-            .iter()
-            .find(|m| m.name == "max_call_price_error")
-            .unwrap()
-            .values,
-        rows.iter()
-            .map(|r| r.max_call_price_error)
-            .collect::<Vec<_>>()
+        blocks[1].axes,
+        vec![ReportAxis {
+            name: "marginal_index".into(),
+            values: (0..rows.len()).map(|i| i as f64).collect(),
+        }]
+    );
+    assert_metrics(
+        &blocks[1],
+        &[
+            (
+                "lower_tail_probability",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.lower_tail_probability).collect(),
+            ),
+            (
+                "upper_tail_probability",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.upper_tail_probability).collect(),
+            ),
+            (
+                "retained_probability",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.retained_probability).collect(),
+            ),
+            (
+                "unscaled_mean",
+                DiagnosticUnit::EquityCoordinate,
+                rows.iter().map(|r| r.unscaled_mean).collect(),
+            ),
+            (
+                "mean_scale",
+                DiagnosticUnit::Dimensionless,
+                rows.iter().map(|r| r.mean_scale).collect(),
+            ),
+            (
+                "max_call_price_error",
+                DiagnosticUnit::EquityCoordinate,
+                rows.iter().map(|r| r.max_call_price_error).collect(),
+            ),
+            (
+                "retained_nodes",
+                DiagnosticUnit::Count,
+                rows.iter().map(|r| r.retained_nodes as f64).collect(),
+            ),
+        ],
     );
     assert_eq!(
         result.report,
