@@ -383,93 +383,23 @@ jobs:
         shell: bash
         run: cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
 
-  extended-acceptance-build:
-    name: Build extended acceptance / ${{ matrix.os }}
+  extended-acceptance-run:
+    # Each invocation owns its build dependency. A queued macOS runner must not
+    # delay already-built Linux or Windows accuracy/risk consumers.
+    name: Extended acceptance jobs / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Build release acceptance binaries and verify complete ignored inventory
-        run: python scripts/extended_acceptance_shards.py --build
-      - name: Retain identical binaries for all acceptance selections
-        uses: actions/upload-artifact@v7
-        with:
-          name: extended-acceptance-binaries-${{ matrix.os }}
-          path: target/extended-acceptance-binaries/
-          if-no-files-found: error
-          retention-days: 7
-
-  extended-risk:
-    name: Extended model risk / ${{ matrix.os }}
-    needs: extended-acceptance-build
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - uses: actions/download-artifact@v8
-        with:
-          name: extended-acceptance-binaries-${{ matrix.os }}
-          path: target/extended-acceptance-binaries/
-      - name: Run complete extended model risk acceptance
-        run: python scripts/extended_acceptance_shards.py --run risk
-      - name: Retain extended model risk evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: extended-model-risk-${{ matrix.os }}
-          path: extended-acceptance-reports/extended-model-risk.*
-          if-no-files-found: error
-          retention-days: 14
-
-  extended-accuracy:
-    name: Extended model accuracy / ${{ matrix.os }} / ${{ matrix.shard }}
-    needs: extended-acceptance-build
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
-        shard: [0, 1, 2, 3]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - uses: actions/download-artifact@v8
-        with:
-          name: extended-acceptance-binaries-${{ matrix.os }}
-          path: target/extended-acceptance-binaries/
-      - name: Run balanced extended model accuracy acceptance
-        run: python scripts/extended_acceptance_shards.py --run accuracy-${{ matrix.shard }}
-      - name: Retain every selected test result
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: extended-model-accuracy-${{ matrix.os }}-${{ matrix.shard }}
-          path: extended-acceptance-reports/
-          if-no-files-found: error
-          retention-days: 14
+    uses: ./.github/workflows/extended-acceptance.yml
+    with:
+      os: ${{ matrix.os }}
 
   extended-acceptance:
     # Preserve the original required check names and full-platform acceptance.
     name: Extended model acceptance / ${{ matrix.os }}
     if: always()
-    needs: [extended-acceptance-build, extended-risk, extended-accuracy]
+    needs: extended-acceptance-run
     strategy:
       fail-fast: false
       matrix:
@@ -483,14 +413,13 @@ jobs:
           python-version: "3.12"
       - name: Require every acceptance job to pass
         env:
-          BUILD_RESULT: ${{ needs.extended-acceptance-build.result }}
-          RISK_RESULT: ${{ needs.extended-risk.result }}
-          ACCURACY_RESULT: ${{ needs.extended-accuracy.result }}
+          ACCEPTANCE_RESULT: ${{ needs.extended-acceptance-run.result }}
         shell: python
         run: |
           import os
-          assert all(os.environ[name] == "success" for name in
-                     ("BUILD_RESULT", "RISK_RESULT", "ACCURACY_RESULT")), "incomplete acceptance jobs"
+          result = os.environ["ACCEPTANCE_RESULT"]
+          if result != "success":
+              raise SystemExit(f"incomplete acceptance jobs: {result}")
       - uses: actions/download-artifact@v8
         with:
           pattern: extended-model-accuracy-${{ matrix.os }}-*

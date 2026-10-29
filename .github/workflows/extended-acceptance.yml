@@ -1,0 +1,87 @@
+name: Extended acceptance (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# The caller creates one independent invocation for every supported platform.
+# Keep the build inside this workflow so needs never waits for another OS.
+jobs:
+  build:
+    name: Build extended acceptance / ${{ inputs.os }}
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build release acceptance binaries and verify complete ignored inventory
+        run: python scripts/extended_acceptance_shards.py --build
+      - name: Retain identical binaries for all acceptance selections
+        uses: actions/upload-artifact@v7
+        with:
+          name: extended-acceptance-binaries-${{ inputs.os }}
+          path: target/extended-acceptance-binaries/
+          if-no-files-found: error
+          retention-days: 7
+
+  risk:
+    name: Extended model risk / ${{ inputs.os }}
+    needs: build
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          name: extended-acceptance-binaries-${{ inputs.os }}
+          path: target/extended-acceptance-binaries/
+      - name: Run complete extended model risk acceptance
+        run: python scripts/extended_acceptance_shards.py --run risk
+      - name: Retain extended model risk evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: extended-model-risk-${{ inputs.os }}
+          path: extended-acceptance-reports/extended-model-risk.*
+          if-no-files-found: error
+          retention-days: 14
+
+  accuracy:
+    name: Extended model accuracy / ${{ inputs.os }} / ${{ matrix.shard }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          name: extended-acceptance-binaries-${{ inputs.os }}
+          path: target/extended-acceptance-binaries/
+      - name: Run balanced extended model accuracy acceptance
+        run: python scripts/extended_acceptance_shards.py --run accuracy-${{ matrix.shard }}
+      - name: Retain every selected test result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: extended-model-accuracy-${{ inputs.os }}-${{ matrix.shard }}
+          path: extended-acceptance-reports/
+          if-no-files-found: error
+          retention-days: 14

@@ -15,6 +15,7 @@ from check_source_archive import check_ci_workflow, ci_job_text
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+REUSABLE_WORKFLOW = (ROOT / ".github/workflows/extended-acceptance.yml").read_text(encoding="utf-8")
 BLOCKS = {
     "rust": (
         "Show pinned toolchain",
@@ -27,13 +28,14 @@ BLOCKS = {
 }
 
 
-def validate_archive(workflow):
+def validate_archive(workflow, reusable=REUSABLE_WORKFLOW):
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w") as archive:
-        content = workflow.encode("utf-8")
-        member = tarfile.TarInfo(".github/workflows/ci.yml")
-        member.size = len(content)
-        archive.addfile(member, io.BytesIO(content))
+        for name, source in (("ci.yml", workflow), ("extended-acceptance.yml", reusable)):
+            content = source.encode("utf-8")
+            member = tarfile.TarInfo(".github/workflows/" + name)
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
     buffer.seek(0)
     with tarfile.open(fileobj=buffer, mode="r") as archive:
         check_ci_workflow(archive, "failure-probe")

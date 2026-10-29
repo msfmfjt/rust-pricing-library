@@ -7,15 +7,18 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from unittest.mock import patch
 
 import extended_acceptance_shards as shards
 from check_source_archive import ci_job_text
-from test_ci_failure_propagation import validate_archive, WORKFLOW
+from test_ci_failure_propagation import validate_archive, WORKFLOW, REUSABLE_WORKFLOW
 
 
 class PartitionTests(unittest.TestCase):
@@ -39,25 +42,82 @@ class PartitionTests(unittest.TestCase):
                 (root / "README.md").write_text("unrelated docs\n", encoding="utf-8")
                 self.assertEqual(shards.source_fingerprint(), fixture)
 
-    def test_workflow_cannot_drop_a_platform_shard_or_failed_dependency(self):
+    def test_workflow_cannot_drop_a_platform_or_failed_dependency(self):
         validate_archive(WORKFLOW)
         mutations = {
-            "extended-accuracy": (
-                ('shard: [0, 1, 2, 3]', 'shard: [0, 1, 2]'),
+            "extended-acceptance-run": (
                 ('os: [ubuntu-24.04, macos-15, windows-2025]', 'os: [ubuntu-24.04]'),
                 ('    strategy:', '    continue-on-error: true\n    strategy:'),
+                ('    strategy:', '    needs: all-platform-builds\n    strategy:'),
+                ('    strategy:', '    if: always()\n    strategy:'),
             ),
             "extended-acceptance": (
+                ('os: [ubuntu-24.04, macos-15, windows-2025]', 'os: [ubuntu-24.04]'),
                 ('    if: always()', "    if: success()"),
-                ('RISK_RESULT: ${{ needs.extended-risk.result }}', 'RISK_RESULT: success'),
-                ('os.environ[name] == "success"', 'os.environ[name] != "failure"'),
+                ('    needs: extended-acceptance-run', '    needs: other-job'),
+                ('ACCEPTANCE_RESULT: ${{ needs.extended-acceptance-run.result }}', 'ACCEPTANCE_RESULT: success'),
+                ('if result != "success":', 'if result == "failure":'),
             ),
         }
         for job_name, replacements in mutations.items():
             original = ci_job_text(WORKFLOW, job_name)
             for before, after in replacements:
+                self.assertIn(before, original)
                 with self.subTest(job=job_name, mutation=before), self.assertRaises(SystemExit):
                     validate_archive(WORKFLOW.replace(original, original.replace(before, after)))
+
+    def test_reusable_workflow_cannot_drop_shards_or_add_platform_barriers(self):
+        for name in ("build", "risk", "accuracy"):
+            original = ci_job_text(REUSABLE_WORKFLOW, name)
+            replacements = [
+                ('runs-on: ${{ inputs.os }}', 'runs-on: ubuntu-24.04'),
+                ('        run: python', '        continue-on-error: true\n        run: python'),
+                ('        run: python', '        if: false\n        run: python'),
+            ]
+            if name == "build":
+                replacements.extend([
+                    ('    steps:', '    needs: all-platform-builds\n    steps:'),
+                    ('    steps:', '    strategy:\n      matrix:\n        os: [ubuntu-24.04, macos-15, windows-2025]\n    steps:'),
+                ])
+            else:
+                replacements.extend([
+                    ('    needs: build', '    needs: all-platform-builds'),
+                    ('    needs: build', '    needs: [build, other-platform-build]'),
+                    ('name: extended-acceptance-binaries-${{ inputs.os }}', 'name: extended-acceptance-binaries-ubuntu-24.04'),
+                ])
+            if name == "accuracy":
+                replacements.extend([
+                    ('shard: [0, 1, 2, 3]', 'shard: [0, 1, 2]'),
+                    ('        shard:', '        os: [ubuntu-24.04, macos-15, windows-2025]\n        shard:'),
+                ])
+            else:
+                replacements.append(('    steps:', '    strategy:\n      matrix:\n        os: [ubuntu-24.04]\n    steps:'))
+            command = re.search(r'^        run: python [^\n]+', original, re.MULTILINE).group(0)
+            replacements.append((command, command + ' || true'))
+            for before, after in replacements:
+                self.assertIn(before, original)
+                changed = REUSABLE_WORKFLOW.replace(original, original.replace(before, after))
+                with self.subTest(job=name, mutation=after), self.assertRaises(SystemExit):
+                    validate_archive(WORKFLOW, changed)
+            with self.subTest(missing=name), self.assertRaises(SystemExit):
+                validate_archive(WORKFLOW, REUSABLE_WORKFLOW.replace(original, ""))
+
+    def test_actual_aggregate_guard_rejects_failure_cancellation_and_skips(self):
+        gate = ci_job_text(WORKFLOW, "extended-acceptance")
+        match = re.search(r'^        shell: python\n        run: \|\n((?:          [^\n]*\n)+)', gate, re.MULTILINE)
+        self.assertIsNotNone(match)
+        command = textwrap.dedent(match.group(1))
+        for result in ("success", "failure", "cancelled", "skipped", ""):
+            for options in ([], ["-O"]):
+                with self.subTest(result=result, optimized=bool(options)):
+                    completed = subprocess.run(
+                        [sys.executable, *options, "-c", command],
+                        env={**os.environ, "ACCEPTANCE_RESULT": result},
+                        text=True, capture_output=True, check=False, timeout=30,
+                    )
+                    self.assertEqual(completed.returncode == 0, result == "success")
+                    if result != "success":
+                        self.assertIn("incomplete acceptance jobs:", completed.stderr)
 
     def test_historical_duration_partition_is_complete_and_balanced(self):
         weights = shards.weights()

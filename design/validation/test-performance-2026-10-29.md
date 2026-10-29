@@ -14,8 +14,13 @@ remain unchanged and are not reinterpreted as candidate acceptance.
 The previous Windows extended accuracy run executed 27 ignored tests in about
 253.1 minutes. Four longest-processing-time partitions have historical estimates
 of 63.4, 63.6, 63.3 and 62.8 minutes. The full risk suite remains a separate job.
-Each platform builds the two release executables once; consumers verify the
-same binary hash, actual source fingerprint, platform and compiled inventory.
+Each platform builds the two release executables once. An independent reusable
+workflow per OS starts its risk and accuracy consumers after that OS's build;
+a queued build on another OS does not hold ready consumers. The
+[per-platform workflow](../../.github/workflows/extended-acceptance.yml) uses
+GitHub's supported [matrix workflow calls](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#using-a-matrix-strategy-with-a-reusable-workflow).
+Consumers verify the same binary hash, actual source fingerprint, platform and
+compiled inventory.
 Exact filters are checked against libtest discovery before execution. A normal
 exit is insufficient without the expected successful executed-test count.
 The original required-check names aggregate all selections and reject failed,
@@ -105,10 +110,15 @@ conditional-Gamma acceptance test; it does not replace its numerical policy.
 - Rust formatting, workspace/all-target/all-feature Clippy with warnings denied,
   API documentation, dependency direction, Markdown links and the complete
   staged source archive passed.
-- A complete unchanged fixed-lookback ledger passed all four strategies,
-  independent partial/resumed backtests and all eight snapshot/contract audits
-  with the observation helper. Its 768-second run overlapped other work and is
-  not used as a performance comparison.
+- A complete unchanged fixed-lookback ledger on candidate native binary
+  `60402645…e5f4` passed all four strategies, four exact partial/resumed replay
+  comparisons and eight snapshot/contract audits in 630.837 seconds. The
+  4096-sample, seed-7, four-worker fixture is unchanged. The
+  [candidate integration record](test-performance-candidate-ledger-2026-10-29.json)
+  binds the implementation sources at `41f8388`, binary, settings and evidence
+  hashes. This is a correctness run, not a paired performance comparison.
+  The earlier 768-second helper run used the prior installed wheel and is not
+  candidate native acceptance.
 - All 15 macOS native debugger checks passed in the normal host environment,
   including real child exits, `exec`, SIGABRT and SIGTRAP. The first sandboxed
   attempt could not launch debugged children and is not counted as a pass.

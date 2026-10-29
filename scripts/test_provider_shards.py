@@ -39,14 +39,16 @@ class ProviderShardTests(unittest.TestCase):
 
     def test_archive_workflow_gate_requires_complete_plan_and_producer_wheel_reuse(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        reusable = (Path(__file__).resolve().parents[1] / ".github/workflows/extended-acceptance.yml").read_text()
 
         def validate(source):
             buffer = io.BytesIO()
             with tarfile.open(fileobj=buffer, mode="w") as archive:
-                content = source.encode()
-                member = tarfile.TarInfo(".github/workflows/ci.yml")
-                member.size = len(content)
-                archive.addfile(member, io.BytesIO(content))
+                for name, body in (("ci.yml", source), ("extended-acceptance.yml", reusable)):
+                    content = body.encode()
+                    member = tarfile.TarInfo(".github/workflows/" + name)
+                    member.size = len(content)
+                    archive.addfile(member, io.BytesIO(content))
             buffer.seek(0)
             with tarfile.open(fileobj=buffer, mode="r") as archive:
                 check_ci_workflow(archive, "probe")
