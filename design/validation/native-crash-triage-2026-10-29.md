@@ -214,8 +214,10 @@ standalone Rust, import and Python allocator controls without launching numerica
 validation. Its completion marker is written only after all controls succeed;
 reusing a report directory first invalidates the previous completion marker.
 
-Manual dispatch retains each original full shard as a separate selection with
-the existing 330-minute limit. Selection-specific concurrency groups prevent
+Manual dispatch retains each original full shard and the subsequent
+`coupled-basis-coupled_row_hats-6` failure as separate selections with the existing
+330-minute limit. The coupled selection preserves all ten panels and all four
+dated ledgers, including their shared process lifetime. Selection-specific concurrency groups prevent
 one diagnostic from cancelling a different selection on the same branch.
 The ordinary CI matrix and numerical inputs are unchanged. The interrupted
 extension diagnostic remains incomplete and the production faults unresolved.
@@ -226,6 +228,26 @@ new CLI mode also completed against the installed local ASan wheel: both normal
 controls exited zero, the Rust UAF and Python double-free controls aborted with
 the required reports, and no numerical workload started. This validates the
 local preflight; the new mode has not yet run on hosted macOS 15.
+
+## Completed production matrix and matching local interpreter
+
+The production run at `bd5aaf2` finished with 130 successful jobs, one failed job
+and two skipped jobs. All 37 Linux and all 37 Windows wheel selections passed;
+macOS passed 36 of 37. The remaining failure is the coupled six-interval ledger
+described above. The original `extension-all_rows-4` selection completed on
+macOS in 4,222.541 seconds: all four panels and both four-strategy ledgers passed,
+with child and debugger exits zero. The retained artifact `12926720264` matches
+SHA-256 `9d4c5ae8214204c7ff9c3e16d84ca7f2cb9723d13536478464ea0a754eb423a5`.
+
+The complete coupled selection also passed locally with the exact failed CI
+wheel: 1,728.774 seconds with CPython 3.12.11 under LLDB, then 2,011.201 seconds
+with the matching signed CPython 3.12.10 payload. Each run executed the original
+ten panels and four ledgers once. The latter used direct execution because
+local macOS denied debugger attachment to that signed interpreter. All 35
+CPython image UUIDs referenced in the failed CI log match the extracted payload;
+all 92 NumPy/SciPy native image UUIDs also match. Local macOS remains 27.0.1,
+whereas the failed host used 15.8.2. These are complete negative reproductions,
+not a repair or proof that the operating system caused the fault.
 
 ## Next investigation
 

@@ -152,13 +152,15 @@ exit, nonzero exit, `exec` handoffs, SIGABRT, SIGTRAP and literal argument
 handling. A crash probe must reach its pre-signal marker and report the requested
 signal or its Mach exception before it counts as diagnostic evidence.
 
-The separate `Native memory diagnostics` workflow investigates the two retained
+The separate `Native memory diagnostics` workflow investigates the retained
 macOS failures on `macos-15` with CPython 3.12.10 and the observed NumPy/SciPy
 versions. One job runs existing calibration kernels without importing native
 pricing. Another builds a diagnostic wheel with the pinned Rust compiler's
 AddressSanitizer. PR updates run only its detector preflight, with a 30-minute
-job limit. A manual dispatch can select either original failed shard for one
-run with the existing 330-minute limit. Each selection has its own concurrency
+job limit. A manual dispatch can select either original failed shard or the
+subsequent `coupled-basis-coupled_row_hats-6` failure for one run with the existing
+330-minute limit. The latter keeps all ten panels and four dated ledgers in the
+original process. Each selection has its own concurrency
 group, so dispatching one shard does not cancel a different selection.
 The normal wheel matrix remains required. A diagnostic pass is not proof that
 an intermittent fault is repaired.

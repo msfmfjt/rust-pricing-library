@@ -1,4 +1,4 @@
-"""Diagnose the two retained macOS failures; never replace production wheel gates."""
+"""Diagnose retained macOS failures; never replace production wheel gates."""
 from __future__ import annotations
 
 import argparse
@@ -19,7 +19,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts.smoke_test_wheel import run_test_process, run_validation
 
-SHARDS = ("custom-basis-row_hats-4-call-fixed_lookback", "extension-all_rows-4")
+SHARDS = ("custom-basis-row_hats-4-call-fixed_lookback", "extension-all_rows-4",
+          "coupled-basis-coupled_row_hats-6")
 ASAN_OPTIONS = "detect_leaks=0:abort_on_error=1"
 # This standalone diagnostic deliberately contains a fault. It is never linked
 # into the pricing library; both its normal and faulting exits must be verified.

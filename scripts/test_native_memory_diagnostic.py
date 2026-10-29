@@ -41,6 +41,11 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
 
     def test_workflow_routes_each_selection_once_and_preserves_pipeline_failures(self):
         workflow = (diagnostic.ROOT / ".github/workflows/native-memory-diagnostic.yml").read_text()
+        options = re.search(
+            r"^        options:\n((?:          - [^\n]+\n)+)", workflow, re.MULTILINE)
+        self.assertIsNotNone(options)
+        self.assertEqual(re.findall(r"^          - (.+)$", options.group(1), re.MULTILINE),
+                         ["preflight-only", *diagnostic.SHARDS])
         match = re.search(
             r"^        run: \|\n((?:          [^\n]*\n)+)", workflow, re.MULTILINE)
         self.assertIsNotNone(match)
@@ -225,12 +230,13 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
             run.assert_not_called()
 
     def test_native_shard_failure_is_propagated_once_with_unchanged_selection(self):
-        with tempfile.TemporaryDirectory() as temporary, \
-                patch.object(diagnostic, "prepare_sanitizer", return_value=Path("literal interpreter")), \
-                patch.object(diagnostic, "run_validation", side_effect=RuntimeError("native failed")) as run:
-            with self.assertRaisesRegex(RuntimeError, "native failed"):
-                diagnostic.main(["--shard", diagnostic.SHARDS[0], "--report-directory", temporary])
-            run.assert_called_once_with(Path("literal interpreter"), "all", diagnostic.SHARDS[0], Path(temporary).resolve())
+        for shard in diagnostic.SHARDS:
+            with self.subTest(shard=shard), tempfile.TemporaryDirectory() as temporary, \
+                    patch.object(diagnostic, "prepare_sanitizer", return_value=Path("literal interpreter")), \
+                    patch.object(diagnostic, "run_validation", side_effect=RuntimeError("native failed")) as run:
+                with self.assertRaisesRegex(RuntimeError, "native failed"):
+                    diagnostic.main(["--shard", shard, "--report-directory", temporary])
+                run.assert_called_once_with(Path("literal interpreter"), "all", shard, Path(temporary).resolve())
 
     def test_calibration_isolation_does_not_prepare_or_launch_a_native_wheel(self):
         with tempfile.TemporaryDirectory() as temporary, \

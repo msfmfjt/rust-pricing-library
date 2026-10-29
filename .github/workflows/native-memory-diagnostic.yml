@@ -11,6 +11,7 @@ on:
           - preflight-only
           - custom-basis-row_hats-4-call-fixed_lookback
           - extension-all_rows-4
+          - coupled-basis-coupled_row_hats-6
   pull_request:
     paths:
       - .github/workflows/native-memory-diagnostic.yml
