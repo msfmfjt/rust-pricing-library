@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import signal
 import subprocess
 import sys
 import sysconfig
@@ -34,6 +35,28 @@ fn main() {
         drop(allocation);
     }
 }
+"""
+PYTHON_ALLOCATOR_MARKER = "ASan Python allocator probe ready"
+PYTHON_ALLOCATOR_SOURCE = """
+import ctypes
+import resource
+import sys
+import rust_pricing
+
+resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+process = ctypes.CDLL(None)
+assert hasattr(process, '__asan_init')
+process.malloc.argtypes = [ctypes.c_size_t]
+process.malloc.restype = ctypes.c_void_p
+process.free.argtypes = [ctypes.c_void_p]
+process.free.restype = None
+allocation = process.malloc(64)
+assert allocation
+process.free(allocation)
+print('ASan Python allocator probe ready', rust_pricing.__file__, flush=True)
+if '--fault' in sys.argv:
+    # Deliberate fault in this isolated control, never in the pricing workload.
+    process.free(allocation)
 """
 
 
@@ -97,6 +120,41 @@ def verify_detector(directory: Path) -> None:
         raise RuntimeError("ASan did not distinguish the normal and deliberate faulty probe")
 
 
+def verify_python_allocator(directory: Path, executable: Path) -> None:
+    """Prove free interception in the actual Python process after wheel import."""
+    source = directory / "asan-python-allocator.py"
+    source.write_text(PYTHON_ALLOCATOR_SOURCE, encoding="utf-8")
+    results = []
+    for label, arguments in (("normal", []), ("fault", ["--fault"])):
+        command = [str(executable), "-X", "faulthandler", str(source), *arguments]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired as error:
+            output = (error.stdout or b""), (error.stderr or b"")
+            log = "".join(part.decode("utf-8", errors="replace")
+                          if isinstance(part, bytes) else part for part in output)
+            (directory / f"asan-python-allocator-{label}.log").write_text(log, encoding="utf-8")
+            results.append({"case": label, "status": "timed_out", "exit_code": None})
+            save(directory, "asan-python-allocator.json", results)
+            raise RuntimeError("ASan Python allocator control timed out") from error
+        log = result.stdout + result.stderr
+        (directory / f"asan-python-allocator-{label}.log").write_text(log, encoding="utf-8")
+        results.append({
+            "case": label, "status": "completed", "exit_code": result.returncode,
+            "pricing_imported_and_first_free_completed": PYTHON_ALLOCATOR_MARKER in result.stdout,
+            "double_free": "AddressSanitizer: attempting double-free" in result.stderr,
+            "allocation_stack": "previously allocated by thread" in result.stderr,
+            "free_stack": "freed by thread" in result.stderr,
+        })
+        save(directory, "asan-python-allocator.json", results)
+    normal, fault = results
+    if (not all(item["pricing_imported_and_first_free_completed"] for item in results)
+            or normal["exit_code"] != 0 or normal["double_free"]
+            or fault["exit_code"] != -signal.SIGABRT or not fault["double_free"]
+            or not fault["allocation_stack"] or not fault["free_stack"]):
+        raise RuntimeError("ASan Python allocator control did not prove double-free detection")
+
+
 def prepare_sanitizer(directory: Path) -> Path:
     if platform.system() != "Darwin":
         raise RuntimeError("this diagnostic targets the retained macOS failures")
@@ -124,6 +182,7 @@ def prepare_sanitizer(directory: Path) -> Path:
                                "diagnostic", "asan-import", directory)
     if failure:
         raise RuntimeError(failure)
+    verify_python_allocator(directory, executable)
     return executable
 
 

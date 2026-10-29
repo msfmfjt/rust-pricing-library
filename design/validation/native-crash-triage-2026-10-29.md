@@ -159,11 +159,59 @@ rejects the actual normal wheel, and completes all 48 calibration-only evaluatio
 without importing Rust. The staged source archive, workflow YAML and Markdown
 links pass. Hosted diagnostic completion is still required.
 
+## Current candidate failure and detector coverage
+
+Candidate `bd5aaf2` reproduced heap corruption in
+[coupled-basis-coupled_row_hats-6](https://github.com/msfmfjt/rust-pricing-library/actions/runs/40863601572/job/123463485675).
+All ten native panels completed. The first dated ledger, with parameters
+`["coupled_row_hats", 6, "call", "arithmetic_asian"]`, was active when the
+allocator reported corruption. The job used macOS **15.8.2 / 24H232**, runner
+image `macos-15-arm64 20261028.0489.1`; it is a different OS build from the
+original 15.7.9 failures.
+
+Artifact `12920020213` was downloaded and verified against SHA-256
+`e5f291e8f1bffd8ef5f98c1311bbc37a82c92ef0a4680c0e924b99a113ff3e31`.
+The structured record contains all eight threads without truncation. Worker 1
+was reporting an invalid free in `Piecewise::into_payoff`; workers 2 and 3 were
+reporting damaged nanov2 free-list guards while growing vectors. The active
+pricing frames include `Piecewise::combine`, `VegaKtGammaAtoms::new` and
+`evaluate_vega_kt_multi_step_gamma_chain_with_samples`. These are detection
+sites; they do not identify the corrupting write. A common cause with the prior
+libdispatch cleanup failures has not been established.
+
+The first SIGABRT stop was retained, with child exit code null and gate exit 1.
+The debugger did not continue the process or retry the workload. No OS crash
+report was collected. This failure remains unresolved even though other
+candidate selections have passed.
+
+The hosted ASan fixed-lookback selection completed in 17,508.491 seconds on the
+original 15.7.9 environment. The ASan extension selection reached the configured
+330-minute limit: its four panels completed, its arithmetic-Asian ledger was
+interrupted, and its fixed-lookback ledger was not reached. Its running process
+record has no exit code and cannot count as a pass. Neither diagnostic proves
+a repair of the production-wheel failures.
+
+The diagnostic helper now also verifies allocation/free interception inside
+the actual Python interpreter after importing the installed pricing extension.
+Separate children exercise normal allocation/free and a deliberate double-free.
+The latter must abort with an ASan double-free report containing both allocation
+and free stacks. Missing startup markers, unrelated failures, incomplete stacks
+and timed-out controls prevent the numerical workload from starting. Partial
+logs and control outcomes are retained.
+
+All eleven helper tests pass locally. Actual local integration passes the Rust
+normal/UAF controls, wheel import and Python normal/double-free controls. The
+Python fault child exits with SIGABRT and retains both history stacks. Local
+symbolizer warnings limit source-line detail; module/offset frames are present.
+The new Python controls have not yet run in hosted CI.
+
 ## Next investigation
 
 Keep both failed artifacts and original combined-shard reproductions. Use the
 structured records to compare subsequent failures by stopped thread, module UUID
 and file address. Reproduce the provider workload in the matching hosted wheel
-environment before changing numerical execution or native dependencies. The six
-capacity cancellations still need completed executions; rerunning them does not
-resolve either native fault. The PR stack remains unmerged.
+environment before changing numerical execution or native dependencies. The
+current candidate's pricing-worker corruption and the earlier cleanup failures
+remain unresolved; passing reruns do not establish a repair. The five remaining
+capacity cancellations in the parent snapshot and outstanding candidate
+selections still require completed evidence. The PR stack remains unmerged.

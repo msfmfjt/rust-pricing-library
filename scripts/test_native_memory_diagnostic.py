@@ -83,6 +83,51 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                 diagnostic.verify_detector(Path(temporary))
             self.assertEqual(run.call_count, 1)
 
+    def test_python_allocator_requires_import_abort_and_both_history_stacks(self):
+        ready = diagnostic.PYTHON_ALLOCATOR_MARKER + " /installed/native.so\n"
+        report = ("AddressSanitizer: attempting double-free\n"
+                  "freed by thread T0 here:\npreviously allocated by thread T0 here:\n")
+        for normal_code, fault_code, marker, message, accepted in (
+                (0, -6, ready, report, True),
+                (1, -6, ready, report, False),
+                (0, 0, ready, report, False),
+                (0, 1, ready, report, False),
+                (0, -6, "", report, False),
+                (0, -6, ready, "native crash without ASan", False),
+                (0, -6, ready, report.replace("freed by thread", "unknown free"), False),
+                (0, -6, ready, report.replace("previously allocated by thread", "unknown allocation"), False)):
+            with self.subTest(normal=normal_code, fault=fault_code, marker=marker, report=message), \
+                    tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                results = [subprocess.CompletedProcess([], normal_code, stdout=ready, stderr=""),
+                           subprocess.CompletedProcess([], fault_code, stdout=marker, stderr=message)]
+                with patch.object(diagnostic.subprocess, "run", side_effect=results) as run:
+                    if accepted:
+                        diagnostic.verify_python_allocator(directory, Path("/actual Python"))
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "did not prove"):
+                            diagnostic.verify_python_allocator(directory, Path("/actual Python"))
+                self.assertEqual(run.call_count, 2)
+                self.assertEqual(run.call_args.args[0], ["/actual Python", "-X", "faulthandler",
+                                                        str(directory / "asan-python-allocator.py"), "--fault"])
+                self.assertEqual(run.call_args.kwargs["timeout"], 30)
+                records = json.loads((directory / "asan-python-allocator.json").read_text())
+                self.assertEqual(records[1]["exit_code"], fault_code)
+                self.assertEqual((directory / "asan-python-allocator-fault.log").read_text(), marker + message)
+
+    def test_python_allocator_timeout_preserves_partial_log_and_stops(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(diagnostic.subprocess, "run", side_effect=subprocess.TimeoutExpired(
+                    ["python"], 30, output=b"partial stdout\n", stderr=b"partial stderr\n")) as run:
+            directory = Path(temporary)
+            with self.assertRaisesRegex(RuntimeError, "timed out"):
+                diagnostic.verify_python_allocator(directory, Path("python"))
+            self.assertEqual(run.call_count, 1)
+            self.assertEqual(json.loads((directory / "asan-python-allocator.json").read_text()),
+                             [{"case": "normal", "status": "timed_out", "exit_code": None}])
+            self.assertEqual((directory / "asan-python-allocator-normal.log").read_text(),
+                             "partial stdout\npartial stderr\n")
+
     def test_launch_preloads_selected_runtime_and_keeps_virtual_environment(self):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(diagnostic.platform, "system", return_value="Darwin"), \
@@ -91,6 +136,7 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                 patch.object(diagnostic, "sanitizer_runtime", return_value=Path("/runtime with spaces/asan.dylib")), \
                 patch.object(diagnostic, "interpreter", return_value=Path("/actual Python")), \
                 patch.object(diagnostic, "verify_detector"), \
+                patch.object(diagnostic, "verify_python_allocator") as allocator, \
                 patch.object(diagnostic.subprocess, "check_output", return_value="rustc fixture"), \
                 patch.object(diagnostic, "run_test_process", return_value=None) as run, \
                 patch.dict(os.environ, {"ASAN_OPTIONS": "halt_on_error=0"}):
@@ -100,9 +146,29 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
             self.assertEqual(os.environ["__PYVENV_LAUNCHER__"], diagnostic.sys.executable)
             self.assertEqual(os.environ["ASAN_OPTIONS"], diagnostic.ASAN_OPTIONS)
             self.assertEqual(run.call_args.args[0][0], str(Path("/actual Python")))
+            allocator.assert_called_once_with(Path(temporary), Path("/actual Python"))
+            allocator.reset_mock()
             run.return_value = "import failed"
             with self.assertRaisesRegex(RuntimeError, "import failed"):
                 diagnostic.prepare_sanitizer(Path(temporary))
+            allocator.assert_not_called()
+
+    def test_python_allocator_failure_prevents_numerical_workload(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(diagnostic.platform, "system", return_value="Darwin"), \
+                patch.object(diagnostic.platform, "platform", return_value="macOS test fixture"), \
+                patch.object(diagnostic, "instrumented_extension", return_value={}), \
+                patch.object(diagnostic, "sanitizer_runtime", return_value=Path("/asan.dylib")), \
+                patch.object(diagnostic, "interpreter", return_value=Path("/actual Python")), \
+                patch.object(diagnostic, "verify_detector"), \
+                patch.object(diagnostic.subprocess, "check_output", return_value="fixture"), \
+                patch.object(diagnostic, "run_test_process", return_value=None), \
+                patch.object(diagnostic, "verify_python_allocator", side_effect=RuntimeError("allocator failed")), \
+                patch.object(diagnostic, "run_validation") as run, \
+                patch.dict(os.environ, {}):
+            with self.assertRaisesRegex(RuntimeError, "allocator failed"):
+                diagnostic.main(["--shard", diagnostic.SHARDS[1], "--report-directory", temporary])
+            run.assert_not_called()
 
     def test_native_shard_failure_is_propagated_once_with_unchanged_selection(self):
         with tempfile.TemporaryDirectory() as temporary, \

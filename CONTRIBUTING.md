@@ -162,8 +162,12 @@ an intermittent fault is repaired.
 
 `scripts/native_memory_diagnostic.py` rejects an uninstrumented installed
 extension, checks both normal execution and detection of a deliberately faulty
-standalone probe, then verifies ASan can import the wheel. Framework Python is
-launched through its actual interpreter with the original environment retained;
+standalone probe, then verifies ASan can import the wheel. It also runs normal
+allocation/free and deliberate double-free controls in separate Python processes
+after importing pricing. The faulty control must abort with an ASan report that
+includes both allocation and free stacks before the numerical workload can run.
+Framework Python is launched through its actual interpreter with the original
+environment retained;
 its startup launcher can lose sanitizer interposition. Source/binary identities,
 host/compiler versions, detector results and process completion records accompany
 the logs. Leak detection is disabled; invalid access/free detection remains on.
