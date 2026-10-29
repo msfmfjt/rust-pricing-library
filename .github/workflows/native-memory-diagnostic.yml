@@ -1,0 +1,90 @@
+name: Native memory diagnostics
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - .github/workflows/native-memory-diagnostic.yml
+      - scripts/native_memory_diagnostic.py
+      - scripts/test_native_memory_diagnostic.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-memory-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+# These isolated diagnostics supplement the unchanged production wheel matrix.
+# A successful diagnostic does not waive a failed or incomplete numerical gate.
+jobs:
+  calibration-only:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.10"
+      - name: Install the failed run's numerical dependencies without native pricing
+        run: python -m pip install numpy==2.5.4 scipy==1.18.1 jsonschema==4.26.0
+      - name: Check diagnostic failure handling
+        run: python -m unittest discover -s scripts -p test_native_memory_diagnostic.py -v
+      - name: Exercise calibration without importing Rust
+        run: python -X faulthandler scripts/native_memory_diagnostic.py --calibration-only --report-directory native-memory-reports 2>&1 | tee native-memory-calibration.log
+      - name: Preserve isolation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-memory-calibration-only
+          path: |
+            native-memory-reports/
+            native-memory-calibration.log
+          if-no-files-found: error
+          retention-days: 14
+
+  address-sanitizer:
+    runs-on: macos-15
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        shard:
+          - custom-basis-row_hats-4-call-fixed_lookback
+          - extension-all_rows-4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.10"
+      - name: Install diagnostic build tools and the failed run's numerical dependencies
+        run: python -m pip install maturin==1.15.0 numpy==2.5.4 scipy==1.18.1 jsonschema==4.26.0
+      - name: Build an instrumented wheel with the repository's pinned Rust toolchain
+        env:
+          RUSTC_BOOTSTRAP: "1"
+          RUSTFLAGS: "-Zsanitizer=address -Cdebuginfo=1 -Cforce-frame-pointers=yes"
+        run: python -m maturin build --locked --release --target aarch64-apple-darwin --interpreter python --out dist/asan 2>&1 | tee native-memory-build.log
+      - name: Install the diagnostic wheel
+        run: python -m pip install dist/asan/*.whl
+      - name: Verify the detector and run the original failed selection once
+        env:
+          NATIVE_SHARD: ${{ matrix.shard }}
+        run: python -X faulthandler scripts/native_memory_diagnostic.py --shard "$NATIVE_SHARD" --report-directory native-memory-reports 2>&1 | tee native-memory-run.log
+      - name: Preserve diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-memory-asan-${{ matrix.shard }}
+          path: |
+            native-memory-reports/
+            native-memory-build.log
+            native-memory-run.log
+            dist/asan/*.whl
+            target/aarch64-apple-darwin/release/deps/librust_pricing.dylib.dSYM/
+          if-no-files-found: error
+          retention-days: 14

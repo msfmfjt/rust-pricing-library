@@ -14,6 +14,9 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".github/workflows/native-memory-diagnostic.yml",
+    "scripts/native_memory_diagnostic.py",
+    "scripts/test_native_memory_diagnostic.py",
     "backtesting/rust_pricing_backtest/native_contract.py",
     "backtesting/tests/test_native_contract.py",
     "tests/python/test_backtest_native_contract.py",

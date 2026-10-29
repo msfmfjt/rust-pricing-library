@@ -60,6 +60,7 @@ python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_provider_shards.py -v
 python3 -m unittest discover -s scripts -p test_native_debugger.py -v
+python3 -m unittest discover -s scripts -p test_native_memory_diagnostic.py -v
 python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
@@ -150,6 +151,26 @@ in the diagnostic record. The mandatory macOS debugger tests exercise normal
 exit, nonzero exit, `exec` handoffs, SIGABRT, SIGTRAP and literal argument
 handling. A crash probe must reach its pre-signal marker and report the requested
 signal or its Mach exception before it counts as diagnostic evidence.
+
+The separate `Native memory diagnostics` workflow investigates the two retained
+macOS failures on `macos-15` with CPython 3.12.10 and the observed NumPy/SciPy
+versions. One job runs existing calibration kernels without importing native
+pricing. Two other jobs build a local diagnostic wheel with the pinned Rust
+compiler's AddressSanitizer and execute the original failed selections once.
+The normal wheel matrix remains required. A diagnostic pass is not proof that
+an intermittent fault is repaired.
+
+`scripts/native_memory_diagnostic.py` rejects an uninstrumented installed
+extension, checks both normal execution and detection of a deliberately faulty
+standalone probe, then verifies ASan can import the wheel. Framework Python is
+launched through its actual interpreter with the original environment retained;
+its startup launcher can lose sanitizer interposition. Source/binary identities,
+host/compiler versions, detector results and process completion records accompany
+the logs. Leak detection is disabled; invalid access/free detection remains on.
+CPython, NumPy, SciPy, the standard library and system libraries are not rebuilt
+with instrumentation. These diagnostic builds are not distribution artifacts.
+The workflow runs when its helper/tests/workflow change, and can also be invoked
+manually after it is available on the default branch.
 
 A missing or running record is incomplete evidence, never a passing result.
 CI gives each selection 330 minutes; successful completion on all platforms

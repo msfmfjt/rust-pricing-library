@@ -121,6 +121,44 @@ The parent CI run also has a single capacity-cancelled
 `custom-basis-coupled_row_hats-6` selection restarted as job `123377959795`;
 the other cancellations and both failed selections are not repaired by that rerun.
 
+## Memory diagnostic follow-up
+
+The capacity-cancelled parent selection restarted as job `123377959795`
+completed successfully at 11:10:22 UTC. This resolves that one incomplete parent
+selection; five other cancellations and the two original failures remain.
+
+The original `extension-all_rows-4` selection completed at 10:47:15 UTC in
+1,831.092 seconds on the local macOS 27 host. All four price/covariance panels
+and both dated ledgers passed, including four strategies and exact checkpoint
+resume. The child and LLDB exited zero. Neither original CI failure reproduced
+in these local runs; the macOS 15 failures remain unresolved.
+
+An AddressSanitizer wheel built with pinned Rust 1.98.1 passed 18 installed API
+preflight tests. Six instrumented Rust integration binaries passed 38 tests
+covering graphs, graph division, tasks, operation reuse, calibration reports and
+validation pointers. A standalone normal/fault control verified that the runtime
+accepts valid execution and detects a deliberate heap use-after-free. At 11:05
+UTC the full instrumented fixed-lookback selection is still running, not passed.
+These are diagnostic results with a different allocator and operating system;
+they do not establish that the original corruption is absent.
+
+The [targeted workflow](../../.github/workflows/native-memory-diagnostic.yml)
+runs calibration isolation and both instrumented original selections on hosted
+`macos-15`, with CPython 3.12.10 and the observed numerical dependency versions.
+It records the actual host/compiler and installed extension hash, verifies the
+extension is instrumented, checks the detector's positive/negative controls and
+preserves the original workload once. The existing wheel inventory checks and
+process failure records remain in use. Diagnostic wheels and debug symbols are
+retained separately from ordinary wheel artifacts; all production gates remain.
+
+The helper's eight tests cover runtime selection, framework launchers, rejection
+of uninstrumented wheels, genuine detection versus unrelated aborts, compiler and
+import failures, literal executable paths, and unchanged shard/failure propagation.
+Local integration verifies the helper can launch the actual instrumented wheel,
+rejects the actual normal wheel, and completes all 48 calibration-only evaluations
+without importing Rust. The staged source archive, workflow YAML and Markdown
+links pass. Hosted diagnostic completion is still required.
+
 ## Next investigation
 
 Keep both failed artifacts and original combined-shard reproductions. Use the
