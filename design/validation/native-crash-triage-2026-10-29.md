@@ -249,6 +249,36 @@ all 92 NumPy/SciPy native image UUIDs also match. Local macOS remains 27.0.1,
 whereas the failed host used 15.8.2. These are complete negative reproductions,
 not a repair or proof that the operating system caused the fault.
 
+## Independent system allocator lead
+
+[JDK-8350455](https://bugs.openjdk.org/browse/JDK-8350455) reports intermittent
+`nanov2_guard_corruption_detected` failures during concurrent valid allocation
+and free. Its maintainers isolated the issue from Java, filed Apple feedback
+FB16566672, and closed it as external after the reproducer stopped failing on
+macOS 26. The related [JDK-8350375](https://bugs.openjdk.org/browse/JDK-8350375)
+also checks a thread-specific value in live 64-byte allocations. OpenJDK
+[continues to exclude older macOS releases](https://github.com/openjdk/jdk/pull/30835#issuecomment-4288693678)
+from the affected stress test. This is a relevant lead for the retained 15.8.2
+failure and the negative local 27.0.1 reproductions; it is not proof of a shared
+cause, and no pricing gate or supported platform is removed.
+
+The standalone system allocator diagnostic now compares hosted macOS 15 and 26.
+It repeatedly creates 32 native threads, exercises valid 8-byte and 64-byte
+allocations, verifies thread-specific payloads, and joins every thread. It uses
+neither pricing nor Python/Rust in the target process. All 32 rounds must finish;
+the first native stop is retained without continuation or retry. A normal exit
+is recorded as `completed_without_reproduction`, not as a repair. The child
+alarm and CI timeout bound incomplete runs. Allocator overrides are rejected,
+and active allocator identifiers, host/SDK/compiler, source and binary hashes,
+per-case timing and per-worker counts are retained.
+
+The previously introduced detector preflight passed at `ba5a749` in
+[hosted job 123807028923](https://github.com/msfmfjt/rust-pricing-library/actions/runs/40976890497/job/123807028923).
+Artifact `12943486632` independently confirms the Rust normal/UAF and Python
+normal/double-free controls, both allocation/free histories, successful wheel
+import, and matching extension/dSYM UUID `7B3ACA4F-D56A-3434-8DF1-64673C7AFC38`.
+No numerical workload ran in that preflight.
+
 ## Next investigation
 
 Keep both failed artifacts and original combined-shard reproductions. Use the

@@ -165,6 +165,24 @@ group, so dispatching one shard does not cancel a different selection.
 The normal wheel matrix remains required. A diagnostic pass is not proof that
 an intermittent fault is repaired.
 
+A third job compares the system allocator on `macos-15` and `macos-26`, following
+the independently reported [JDK-8350455](https://bugs.openjdk.org/browse/JDK-8350455)
+malloc/free concurrency fault. Its standalone C child links neither pricing nor
+Python/Rust dependencies. It writes and verifies live 8-byte and 64-byte allocations
+using 32 threads, then frees each allocation exactly once. The default 32 rounds
+take 640 seconds, with an additional 60-second process alarm and a 20-minute job
+limit. No allocator setting is overridden. LLDB preserves the first abnormal
+stop, and every worker/case must finish before the record can say
+`completed_without_reproduction`. Partial runs and nonzero exits fail the job;
+the probe is not retried. This comparison cannot by itself establish the cause
+of the pricing failures or waive any production selection.
+
+For a short local integration check, run
+`python scripts/system_allocator_diagnostic.py --workers 4 --rounds 2 --seconds 1 --report-directory <directory>`.
+The child records the active allocator identifiers when the OS exposes them;
+missing identifiers remain null. The report also retains the compiler, SDK,
+source/binary hashes, per-worker counts and process outcome.
+
 `scripts/native_memory_diagnostic.py` rejects an uninstrumented installed
 extension, checks both normal execution and detection of a deliberately faulty
 standalone probe, then verifies ASan can import the wheel. It also runs normal

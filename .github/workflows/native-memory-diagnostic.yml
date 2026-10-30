@@ -17,6 +17,9 @@ on:
       - .github/workflows/native-memory-diagnostic.yml
       - scripts/native_memory_diagnostic.py
       - scripts/test_native_memory_diagnostic.py
+      - scripts/system_allocator_diagnostic.py
+      - scripts/test_system_allocator_diagnostic.py
+      - scripts/diagnostics/system_allocator_probe.c
 
 permissions:
   contents: read
@@ -54,6 +57,35 @@ jobs:
           path: |
             native-memory-reports/
             native-memory-calibration.log
+          if-no-files-found: error
+          retention-days: 14
+
+  system-allocator:
+    name: system-allocator (${{ matrix.os }})
+    if: ${{ github.event_name == 'pull_request' || inputs.selection == 'preflight-only' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.10"
+      - name: Check system allocator evidence handling
+        run: python -m unittest discover -s scripts -p test_system_allocator_diagnostic.py -v
+      - name: Exercise the system allocator without pricing or Python in the child
+        run: python scripts/system_allocator_diagnostic.py --report-directory system-allocator-reports 2>&1 | tee system-allocator.log
+      - name: Preserve system allocator evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-system-allocator-${{ matrix.os }}
+          path: |
+            system-allocator-reports/
+            system-allocator.log
           if-no-files-found: error
           retention-days: 14
 

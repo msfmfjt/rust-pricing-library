@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import subprocess
 import tempfile
 import textwrap
@@ -144,17 +145,18 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
 
     def test_python_allocator_requires_import_abort_and_both_history_stacks(self):
         ready = diagnostic.PYTHON_ALLOCATOR_MARKER + " /installed/native.so\n"
+        abort_code = -signal.SIGABRT
         report = ("AddressSanitizer: attempting double-free\n"
                   "freed by thread T0 here:\npreviously allocated by thread T0 here:\n")
         for normal_code, fault_code, marker, message, accepted in (
-                (0, -6, ready, report, True),
-                (1, -6, ready, report, False),
+                (0, abort_code, ready, report, True),
+                (1, abort_code, ready, report, False),
                 (0, 0, ready, report, False),
                 (0, 1, ready, report, False),
-                (0, -6, "", report, False),
-                (0, -6, ready, "native crash without ASan", False),
-                (0, -6, ready, report.replace("freed by thread", "unknown free"), False),
-                (0, -6, ready, report.replace("previously allocated by thread", "unknown allocation"), False)):
+                (0, abort_code, "", report, False),
+                (0, abort_code, ready, "native crash without ASan", False),
+                (0, abort_code, ready, report.replace("freed by thread", "unknown free"), False),
+                (0, abort_code, ready, report.replace("previously allocated by thread", "unknown allocation"), False)):
             with self.subTest(normal=normal_code, fault=fault_code, marker=marker, report=message), \
                     tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
@@ -167,7 +169,7 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                         with self.assertRaisesRegex(RuntimeError, "did not prove"):
                             diagnostic.verify_python_allocator(directory, Path("/actual Python"))
                 self.assertEqual(run.call_count, 2)
-                self.assertEqual(run.call_args.args[0], ["/actual Python", "-X", "faulthandler",
+                self.assertEqual(run.call_args.args[0], [str(Path("/actual Python")), "-X", "faulthandler",
                                                         str(directory / "asan-python-allocator.py"), "--fault"])
                 self.assertEqual(run.call_args.kwargs["timeout"], 30)
                 records = json.loads((directory / "asan-python-allocator.json").read_text())
