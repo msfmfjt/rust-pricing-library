@@ -24,6 +24,61 @@ def exited(code=0, **changes):
 
 
 class NativeDebuggerTests(unittest.TestCase):
+    def test_stack_snapshot_retains_symbols_addresses_and_missing_debug_info(self):
+        frame = MagicMock()
+        frame.IsValid.return_value = True
+        frame.GetPC.return_value = 0x1020
+        frame.GetPCAddress.return_value.GetFileAddress.return_value = 0x20
+        frame.GetFunctionName.return_value = None
+        frame.GetSymbol.return_value.GetName.return_value = "_dispatch_cache_cleanup"
+        module = frame.GetModule.return_value
+        module.IsValid.return_value = True
+        module.GetFileSpec.return_value.GetDirectory.return_value = "/usr/lib/system"
+        module.GetFileSpec.return_value.GetFilename.return_value = "libdispatch.dylib"
+        module.GetUUIDString.return_value = "module-uuid"
+        frame.GetLineEntry.return_value.IsValid.return_value = False
+        unknown = MagicMock()
+        unknown.IsValid.return_value = False
+        thread = MagicMock()
+        thread.GetNumFrames.return_value = 2
+        thread.GetFrameAtIndex.side_effect = [frame, unknown]
+        with patch.dict(sys.modules, lldb=SimpleNamespace(LLDB_INVALID_ADDRESS=2**64 - 1)):
+            record = native.stack_snapshot(thread)
+        self.assertEqual(record, {
+            "frame_count": 2, "frames_truncated": False,
+            "frames": [{"index": 0, "valid": True, "pc": "0x1020", "file_address": "0x20",
+                        "function": "_dispatch_cache_cleanup", "module": "libdispatch.dylib",
+                        "module_path": str(Path("/usr/lib/system") / "libdispatch.dylib"),
+                        "module_uuid": "module-uuid", "source": None},
+                       {"index": 1, "valid": False}],
+        })
+
+        frame.GetFunctionName.return_value = "pricing::probe"
+        frame.GetPC.return_value = 2**64 - 1
+        frame.GetPCAddress.return_value.GetFileAddress.return_value = 2**64 - 1
+        module.IsValid.return_value = False
+        line = frame.GetLineEntry.return_value
+        line.IsValid.return_value = True
+        line.GetFileSpec.return_value.GetDirectory.return_value = "/source"
+        line.GetFileSpec.return_value.GetFilename.return_value = "probe.rs"
+        line.GetLine.return_value = 42
+        line.GetColumn.return_value = 3
+        thread.GetFrameAtIndex.side_effect = None
+        thread.GetFrameAtIndex.return_value = frame
+        thread.GetNumFrames.return_value = 129
+        thread.GetFrameAtIndex.reset_mock()
+        with patch.dict(sys.modules, lldb=SimpleNamespace(LLDB_INVALID_ADDRESS=2**64 - 1)):
+            record = native.stack_snapshot(thread)
+        self.assertEqual(record["frame_count"], 129)
+        self.assertTrue(record["frames_truncated"])
+        self.assertEqual(len(record["frames"]), 128)
+        self.assertEqual(thread.GetFrameAtIndex.call_count, 128)
+        self.assertEqual(record["frames"][-1], {
+            "index": 127, "valid": True, "pc": None, "file_address": None,
+            "function": "pricing::probe", "module": None, "module_path": None,
+            "module_uuid": None, "source": {"path": str(Path("/source") / "probe.rs"), "line": 42, "column": 3},
+        })
+
     def test_only_current_normal_child_exit_and_successful_debugger_can_pass(self):
         self.assertEqual(native.outcome(exited(), 0, "current"), 0)
         self.assertEqual(native.outcome(exited(7), 0, "current"), 7)
@@ -141,8 +196,8 @@ class NativeDebuggerTests(unittest.TestCase):
                 self.assertEqual(launch.call_count, int(executable is not None))
 
     def test_capture_records_native_stops_without_resuming_and_keeps_first_observation(self):
-        for state in (5, 8, 10):
-            with self.subTest(state=state), tempfile.TemporaryDirectory() as directory:
+        for state, broken_stack in ((5, False), (8, False), (10, False), (5, True)):
+            with self.subTest(state=state, broken_stack=broken_stack), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory) / "capture.json"
                 result = MagicMock()
                 result.GetOutput.return_value = "native frames\n"
@@ -163,10 +218,13 @@ class NativeDebuggerTests(unittest.TestCase):
                 thread.GetStopDescription.return_value = "EXC_BREAKPOINT"
                 thread.GetStopReasonDataCount.return_value = 1
                 thread.GetStopReasonDataAtIndex.return_value = 5
+                thread.GetNumFrames.return_value = 0
                 process.__iter__.return_value = iter([thread])
                 debugger = MagicMock()
                 debugger.GetSelectedTarget.return_value.GetProcess.return_value = process
-                with patch.dict(sys.modules, lldb=lldb), redirect_stdout(io.StringIO()):
+                with patch.dict(sys.modules, lldb=lldb), redirect_stdout(io.StringIO()), \
+                        patch.object(native, "stack_snapshot", wraps=native.stack_snapshot,
+                                     side_effect=RuntimeError("unwind failed") if broken_stack else None):
                     native.capture(debugger, str(root), "current")
                     first = root.read_bytes()
                     process.GetState.return_value = 10
@@ -183,6 +241,12 @@ class NativeDebuggerTests(unittest.TestCase):
                     self.assertIn("thread backtrace all", commands)
                     self.assertIn("image list", commands)
                     self.assertEqual(record["threads"][0]["stop_description"], "EXC_BREAKPOINT")
+                    if broken_stack:
+                        self.assertEqual(record["threads"][0]["frames_error"], "RuntimeError: unwind failed")
+                        self.assertNotIn("frames", record["threads"][0])
+                    else:
+                        self.assertEqual(record["threads"][0]["frames"], [])
+                        self.assertFalse(record["threads"][0]["frames_truncated"])
                     self.assertIsNone(record["exit_code"])
 
     def test_module_failure_remains_failed_and_later_module_still_runs(self):
@@ -365,6 +429,15 @@ class MacNativeDebuggerTests(unittest.TestCase):
                     self.assertTrue(any(name in description or
                                         (name == "SIGTRAP" and "EXC_BREAKPOINT" in description)
                                         for description in descriptions), descriptions)
+                    stopped = [thread for thread in metadata["process"]["threads"]
+                               if name in (thread["stop_description"] or "") or
+                               (name == "SIGTRAP" and "EXC_BREAKPOINT" in (thread["stop_description"] or ""))]
+                    for thread in stopped:
+                        self.assertNotIn("frames_error", thread)
+                        self.assertTrue(thread["frames"])
+                        self.assertGreaterEqual(thread["frame_count"], len(thread["frames"]))
+                        self.assertTrue(any(frame.get("function") and frame.get("module_uuid")
+                                            and frame.get("pc") for frame in thread["frames"]))
                     self.assertTrue(metadata["process"]["diagnostics"]["thread backtrace all"])
                     self.assertIn("frame #0", Path(metadata["log"]).read_text())
 

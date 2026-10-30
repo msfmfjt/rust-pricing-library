@@ -1,0 +1,754 @@
+{
+  "observed_date": "2026-10-29",
+  "head": "30f98bc0823e2955e5822016289af8fe76cbbd21",
+  "run_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572",
+  "summary": {
+    "success": 103,
+    "failure": 2,
+    "cancelled": 6
+  },
+  "checks": [
+    {
+      "id": 122680603086,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-weighted_time_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680603086"
+    },
+    {
+      "id": 122680602633,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-coupled_row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602633"
+    },
+    {
+      "id": 122680602630,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-coupled_row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602630"
+    },
+    {
+      "id": 122680602628,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / remaining",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602628"
+    },
+    {
+      "id": 122680602620,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / put-extension-all_rows-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602620"
+    },
+    {
+      "id": 122680602597,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / put-extension-linear_time-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602597"
+    },
+    {
+      "id": 122680602581,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / extension-all_rows-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602581"
+    },
+    {
+      "id": 122680602578,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602578"
+    },
+    {
+      "id": 122680602562,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / extension-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602562"
+    },
+    {
+      "id": 122680602558,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / extension-linear_time-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602558"
+    },
+    {
+      "id": 122680602547,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602547"
+    },
+    {
+      "id": 122680602529,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-coupled_row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602529"
+    },
+    {
+      "id": 122680602527,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-coupled_row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602527"
+    },
+    {
+      "id": 122680602526,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602526"
+    },
+    {
+      "id": 122680602522,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / put-extension-linear_time-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602522"
+    },
+    {
+      "id": 122680602515,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / put-extension-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602515"
+    },
+    {
+      "id": 122680602506,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / extension-linear_time-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602506"
+    },
+    {
+      "id": 122680602501,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602501"
+    },
+    {
+      "id": 122680602499,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-coupled_row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602499"
+    },
+    {
+      "id": 122680602498,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-weighted_time_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602498"
+    },
+    {
+      "id": 122680602491,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / extension-all_rows-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602491"
+    },
+    {
+      "id": 122680602481,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-weighted_time_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602481"
+    },
+    {
+      "id": 122680602479,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / put-extension-all_rows-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602479"
+    },
+    {
+      "id": 122680602477,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602477"
+    },
+    {
+      "id": 122680602475,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-weighted_time_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602475"
+    },
+    {
+      "id": 122680602468,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-coupled_row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602468"
+    },
+    {
+      "id": 122680602461,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602461"
+    },
+    {
+      "id": 122680602460,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602460"
+    },
+    {
+      "id": 122680602448,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602448"
+    },
+    {
+      "id": 122680602447,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-coupled_row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602447"
+    },
+    {
+      "id": 122680602439,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-weighted_time_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602439"
+    },
+    {
+      "id": 122680602436,
+      "name": "Wheel validation / aarch64-apple-darwin / remaining",
+      "conclusion": "cancelled",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602436",
+      "annotations": [
+        "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+      ]
+    },
+    {
+      "id": 122680602427,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / coupled-basis-coupled_row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602427"
+    },
+    {
+      "id": 122680602425,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602425"
+    },
+    {
+      "id": 122680602415,
+      "name": "Wheel validation / aarch64-apple-darwin / put-extension-all_rows-6",
+      "conclusion": "cancelled",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602415",
+      "annotations": [
+        "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+      ]
+    },
+    {
+      "id": 122680602403,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602403"
+    },
+    {
+      "id": 122680602396,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602396"
+    },
+    {
+      "id": 122680602377,
+      "name": "Wheel validation / aarch64-apple-darwin / put-extension-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602377"
+    },
+    {
+      "id": 122680602372,
+      "name": "Wheel validation / aarch64-apple-darwin / extension-linear_time-6",
+      "conclusion": "cancelled",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602372",
+      "annotations": [
+        "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+      ]
+    },
+    {
+      "id": 122680602354,
+      "name": "Wheel validation / aarch64-apple-darwin / extension-all_rows-4",
+      "conclusion": "failure",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602354"
+    },
+    {
+      "id": 122680602351,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602351"
+    },
+    {
+      "id": 122680602340,
+      "name": "Wheel validation / x86_64-pc-windows-msvc / custom-basis-row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602340"
+    },
+    {
+      "id": 122680602298,
+      "name": "Wheel validation / aarch64-apple-darwin / extension-all_rows-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602298"
+    },
+    {
+      "id": 122680602296,
+      "name": "Wheel validation / aarch64-apple-darwin / extension-linear_time-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602296"
+    },
+    {
+      "id": 122680602293,
+      "name": "Wheel validation / aarch64-apple-darwin / put-extension-linear_time-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602293"
+    },
+    {
+      "id": 122680602290,
+      "name": "Wheel validation / aarch64-apple-darwin / put-extension-linear_time-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602290"
+    },
+    {
+      "id": 122680602287,
+      "name": "Wheel validation / aarch64-apple-darwin / put-extension-all_rows-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680602287"
+    },
+    {
+      "id": 122680598045,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680598045"
+    },
+    {
+      "id": 122680598007,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-coupled_row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680598007"
+    },
+    {
+      "id": 122680597833,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597833"
+    },
+    {
+      "id": 122680597798,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597798"
+    },
+    {
+      "id": 122680597745,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597745"
+    },
+    {
+      "id": 122680597719,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597719"
+    },
+    {
+      "id": 122680597718,
+      "name": "Wheel validation / aarch64-apple-darwin / extension-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597718"
+    },
+    {
+      "id": 122680597712,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-coupled_row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597712"
+    },
+    {
+      "id": 122680597705,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-coupled_row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597705"
+    },
+    {
+      "id": 122680597689,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597689"
+    },
+    {
+      "id": 122680597669,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-row_hats-4-call-fixed_lookback",
+      "conclusion": "failure",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597669"
+    },
+    {
+      "id": 122680597668,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-weighted_time_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597668"
+    },
+    {
+      "id": 122680597659,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597659"
+    },
+    {
+      "id": 122680597651,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-coupled_row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597651"
+    },
+    {
+      "id": 122680597632,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-coupled_row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597632"
+    },
+    {
+      "id": 122680597610,
+      "name": "Wheel validation / aarch64-apple-darwin / coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "conclusion": "cancelled",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597610",
+      "annotations": [
+        "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+      ]
+    },
+    {
+      "id": 122680597608,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597608"
+    },
+    {
+      "id": 122680597599,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-coupled_row_hats-6",
+      "conclusion": "cancelled",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597599",
+      "annotations": [
+        "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+      ]
+    },
+    {
+      "id": 122680597586,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-weighted_time_hats-6",
+      "conclusion": "cancelled",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597586",
+      "annotations": [
+        "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+      ]
+    },
+    {
+      "id": 122680597583,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597583"
+    },
+    {
+      "id": 122680597579,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / remaining",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597579"
+    },
+    {
+      "id": 122680597547,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597547"
+    },
+    {
+      "id": 122680597543,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-weighted_time_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597543"
+    },
+    {
+      "id": 122680597524,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-weighted_time_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597524"
+    },
+    {
+      "id": 122680597514,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-coupled_row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597514"
+    },
+    {
+      "id": 122680597513,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597513"
+    },
+    {
+      "id": 122680597511,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-coupled_row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597511"
+    },
+    {
+      "id": 122680597492,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-coupled_row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597492"
+    },
+    {
+      "id": 122680597485,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597485"
+    },
+    {
+      "id": 122680597476,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / put-extension-linear_time-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597476"
+    },
+    {
+      "id": 122680597461,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / extension-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597461"
+    },
+    {
+      "id": 122680597459,
+      "name": "Wheel validation / aarch64-apple-darwin / custom-basis-weighted_time_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597459"
+    },
+    {
+      "id": 122680597424,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / put-extension-all_rows-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597424"
+    },
+    {
+      "id": 122680597415,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / put-extension-all_rows-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597415"
+    },
+    {
+      "id": 122680597407,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-coupled_row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597407"
+    },
+    {
+      "id": 122680597406,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / put-extension-linear_time-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597406"
+    },
+    {
+      "id": 122680597396,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597396"
+    },
+    {
+      "id": 122680597388,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / extension-linear_time-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597388"
+    },
+    {
+      "id": 122680597385,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / extension-all_rows-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597385"
+    },
+    {
+      "id": 122680597383,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-coupled_row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597383"
+    },
+    {
+      "id": 122680597374,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / extension-all_rows-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597374"
+    },
+    {
+      "id": 122680597360,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597360"
+    },
+    {
+      "id": 122680597355,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / put-extension-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597355"
+    },
+    {
+      "id": 122680597352,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-coupled_row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597352"
+    },
+    {
+      "id": 122680597344,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / extension-linear_time-4",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597344"
+    },
+    {
+      "id": 122680597343,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / coupled-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597343"
+    },
+    {
+      "id": 122680597317,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-coupled_row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597317"
+    },
+    {
+      "id": 122680597274,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597274"
+    },
+    {
+      "id": 122680597266,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597266"
+    },
+    {
+      "id": 122680597260,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597260"
+    },
+    {
+      "id": 122680597259,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597259"
+    },
+    {
+      "id": 122680597249,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597249"
+    },
+    {
+      "id": 122680597239,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-coupled_row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597239"
+    },
+    {
+      "id": 122680597238,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-weighted_time_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597238"
+    },
+    {
+      "id": 122680597232,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-weighted_time_hats-4-call-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597232"
+    },
+    {
+      "id": 122680597228,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-coupled_row_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597228"
+    },
+    {
+      "id": 122680597223,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597223"
+    },
+    {
+      "id": 122680597217,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-coupled_row_hats-6",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597217"
+    },
+    {
+      "id": 122680597216,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-weighted_time_hats-4-call-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597216"
+    },
+    {
+      "id": 122680597200,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-weighted_time_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597200"
+    },
+    {
+      "id": 122680597191,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-row_hats-4-put-arithmetic_asian",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597191"
+    },
+    {
+      "id": 122680597189,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-weighted_time_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597189"
+    },
+    {
+      "id": 122680597185,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-row_hats-4-put-fixed_lookback",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597185"
+    },
+    {
+      "id": 122680597180,
+      "name": "Wheel validation / x86_64-unknown-linux-gnu / custom-basis-row_hats-4-panels",
+      "conclusion": "success",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40604344572/job/122680597180"
+    }
+  ],
+  "crashes": [
+    {
+      "job_id": 122680597669,
+      "malloc_error": "2026-10-28T13:13:47.1082960Z Python(1858,0x16be1f000) malloc: *** error for object 0x600001d3ffc0: pointer being freed was not allocated",
+      "stopped_stack": [
+        "2026-10-28T13:13:47.2327380Z * thread #4, stop reason = EXC_BREAKPOINT (code=1, subcode=0x190b08ba0)",
+        "2026-10-28T13:13:47.2328180Z   * frame #0: 0x0000000190b08ba0 libsystem_c.dylib`__abort + 164",
+        "2026-10-28T13:13:47.2328940Z     frame #1: 0x0000000190b08afc libsystem_c.dylib`abort + 136",
+        "2026-10-28T13:13:47.2329480Z     frame #2: 0x0000000190a0c174 libsystem_malloc.dylib`malloc_vreport + 892",
+        "2026-10-28T13:13:47.2330920Z     frame #3: 0x0000000190a0fc90 libsystem_malloc.dylib`malloc_report + 64",
+        "2026-10-28T13:13:47.2332700Z     frame #4: 0x0000000190a1421c libsystem_malloc.dylib`___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED + 32",
+        "2026-10-28T13:13:47.2334770Z     frame #5: 0x0000000190a570f4 libdispatch.dylib`_dispatch_cache_cleanup + 28",
+        "2026-10-28T13:13:47.2335870Z     frame #6: 0x0000000190bfd67c libsystem_pthread.dylib`_pthread_tsd_cleanup + 620",
+        "2026-10-28T13:13:47.2336680Z     frame #7: 0x0000000190c002a8 libsystem_pthread.dylib`_pthread_exit + 84",
+        "2026-10-28T13:13:47.2338960Z     frame #8: 0x0000000190bfd354 libsystem_pthread.dylib`_pthread_wqthread_exit + 56",
+        "2026-10-28T13:13:47.2340670Z     frame #9: 0x0000000190bfbea8 libsystem_pthread.dylib`_pthread_wqthread + 428"
+      ],
+      "retained_log_sha256": "be868f3ae779f8d691c789cb4c613ea8228a618dbcfcb8990439eb7c8f7e765c",
+      "retained_log_bytes": 292094
+    },
+    {
+      "job_id": 122680602354,
+      "malloc_error": "2026-10-28T18:49:19.0429880Z Python(1678,0x16afab000) malloc: *** error for object 0x60000024e1c0: pointer being freed was not allocated",
+      "stopped_stack": [
+        "2026-10-28T18:49:19.3604870Z * thread #5, stop reason = EXC_BREAKPOINT (code=1, subcode=0x1927f0ba0)",
+        "2026-10-28T18:49:19.3606340Z   * frame #0: 0x00000001927f0ba0 libsystem_c.dylib`__abort + 164",
+        "2026-10-28T18:49:19.3607950Z     frame #1: 0x00000001927f0afc libsystem_c.dylib`abort + 136",
+        "2026-10-28T18:49:19.3609380Z     frame #2: 0x00000001926f4174 libsystem_malloc.dylib`malloc_vreport + 892",
+        "2026-10-28T18:49:19.3610220Z     frame #3: 0x00000001926f7c90 libsystem_malloc.dylib`malloc_report + 64",
+        "2026-10-28T18:49:19.3611120Z     frame #4: 0x00000001926fc21c libsystem_malloc.dylib`___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED + 32",
+        "2026-10-28T18:49:19.3612780Z     frame #5: 0x000000019273f0f4 libdispatch.dylib`_dispatch_cache_cleanup + 28",
+        "2026-10-28T18:49:19.3615120Z     frame #6: 0x00000001928e567c libsystem_pthread.dylib`_pthread_tsd_cleanup + 620",
+        "2026-10-28T18:49:19.3616750Z     frame #7: 0x00000001928e82a8 libsystem_pthread.dylib`_pthread_exit + 84",
+        "2026-10-28T18:49:19.3617510Z     frame #8: 0x00000001928e5354 libsystem_pthread.dylib`_pthread_wqthread_exit + 56",
+        "2026-10-28T18:49:19.3618610Z     frame #9: 0x00000001928e3ea8 libsystem_pthread.dylib`_pthread_wqthread + 428"
+      ],
+      "retained_log_sha256": "81bfa9c5995748aa059c123ab6bb8ad0750c2eb1a29ef6b44cf1116b2ad53a41",
+      "retained_log_bytes": 271443
+    }
+  ]
+}

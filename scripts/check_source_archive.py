@@ -14,6 +14,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".github/workflows/native-memory-diagnostic.yml",
+    "scripts/native_memory_diagnostic.py",
+    "scripts/test_native_memory_diagnostic.py",
+    "scripts/system_allocator_diagnostic.py",
+    "scripts/test_system_allocator_diagnostic.py",
+    "scripts/diagnostics/system_allocator_probe.c",
     "backtesting/rust_pricing_backtest/native_contract.py",
     "backtesting/tests/test_native_contract.py",
     "tests/python/test_backtest_native_contract.py",
@@ -1594,7 +1600,8 @@ REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
 }
 
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
-    "Status: code and private artifact gates ready; external publication decisions open",
+    # Archiving a candidate does not establish that its runtime gates passed.
+    "Readiness applies to the exact validated commit",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
     "the retained Rust source archive for the exact commit",
     "benchmark and replay artifacts for the supported platforms",

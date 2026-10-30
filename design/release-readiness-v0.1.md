@@ -1,9 +1,16 @@
 # Release readiness v0.1
 
-Status: code and private artifact gates ready; external publication decisions open
+Status: historical v0.1 baseline; current development candidate gates incomplete
 
-The v0.1 implementation is prepared for private distribution through retained CI
-artifacts. The supported artifact set is:
+The original v0.1 baseline completed the private artifact gates described below.
+Readiness applies to the exact validated commit and does not transfer to later
+development candidates. The 2026-10-29 [native crash review](validation/native-crash-triage-2026-10-29.md)
+records two failed and six capacity-cancelled wheel selections at PR #190's head.
+That development candidate is not ready: the native failures remain unresolved
+and incomplete selections still require successful execution. A successful
+rerun alone does not establish a repair for an intermittent crash.
+
+The supported private artifact set is:
 
 - platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64;
 - the retained Rust source archive for the exact commit;
@@ -32,10 +39,10 @@ Passing these checks establishes that the commit is ready for private artifact
 retention on the supported CI platforms. It does not resolve publication,
 licensing, or access-control decisions.
 
-Path Dependence and Early Exercise have completed their P0-P8 and E0-E8 gates.
-Their supported Apple Silicon macOS and Windows x86-64 replay fixtures are
-frozen, and the latest pull-request CI for this status passes the complete
-Rust, Python wheel, statistical acceptance, replay, and benchmark matrix.
+Path Dependence and Early Exercise completed their P0-P8 and E0-E8 baseline
+gates. Their supported Apple Silicon macOS and Windows x86-64 replay fixtures
+are frozen. Each subsequent candidate must pass the complete Rust, Python wheel,
+statistical acceptance, replay and benchmark matrix against those fixtures.
 
 Before any public publication, the following non-code decisions must be resolved
 outside the repository:

@@ -14,6 +14,39 @@ import subprocess
 import uuid
 
 
+def file_path(spec) -> str | None:
+    filename = spec.GetFilename()
+    return str(Path(spec.GetDirectory() or "") / filename) if filename else None
+
+
+def stack_snapshot(thread) -> dict:
+    """Read bounded frame metadata without evaluating code in the stopped child."""
+    import lldb
+
+    count = thread.GetNumFrames()
+    frames = []
+    for index in range(min(count, 128)):
+        frame = thread.GetFrameAtIndex(index)
+        entry = {"index": index, "valid": bool(frame.IsValid())}
+        if entry["valid"]:
+            module = frame.GetModule()
+            line = frame.GetLineEntry()
+            pc = frame.GetPC()
+            address = frame.GetPCAddress().GetFileAddress()
+            entry.update({
+                "pc": None if pc == lldb.LLDB_INVALID_ADDRESS else hex(pc),
+                "file_address": None if address == lldb.LLDB_INVALID_ADDRESS else hex(address),
+                "function": frame.GetFunctionName() or frame.GetSymbol().GetName(),
+                "module": module.GetFileSpec().GetFilename() if module.IsValid() else None,
+                "module_path": file_path(module.GetFileSpec()) if module.IsValid() else None,
+                "module_uuid": module.GetUUIDString() if module.IsValid() else None,
+                "source": {"path": file_path(line.GetFileSpec()), "line": line.GetLine(),
+                           "column": line.GetColumn()} if line.IsValid() else None,
+            })
+        frames.append(entry)
+    return {"frame_count": count, "frames_truncated": count > len(frames), "frames": frames}
+
+
 def launch(debugger, command: list[str], destination: str, request_id: str) -> None:
     """Launch literal argv once, then observe exit or a genuine native stop."""
     import lldb
@@ -71,13 +104,20 @@ def capture(debugger, destination: str, request_id: str) -> None:
     }
     if state_name != "exited":
         for thread in process:
-            record["threads"].append({
+            observation = {
                 "id": thread.GetThreadID(), "name": thread.GetName(),
                 "stop_reason": thread.GetStopReason(),
                 "stop_description": thread.GetStopDescription(4096),
                 "stop_data": [thread.GetStopReasonDataAtIndex(i)
                               for i in range(thread.GetStopReasonDataCount())],
-            })
+            }
+            try:
+                observation.update(stack_snapshot(thread))
+            except Exception as error:
+                # A damaged/unavailable stack must not discard the original
+                # stop reason or prevent the existing text diagnostics.
+                observation["frames_error"] = f"{type(error).__name__}: {error}"
+            record["threads"].append(observation)
         record["diagnostics"] = {}
         for command in ("process status", "thread backtrace all", "register read", "image list"):
             result = lldb.SBCommandReturnObject()

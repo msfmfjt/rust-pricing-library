@@ -60,6 +60,7 @@ python3 scripts/check_markdown_links.py
 python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
 python3 -m unittest discover -s scripts -p test_provider_shards.py -v
 python3 -m unittest discover -s scripts -p test_native_debugger.py -v
+python3 -m unittest discover -s scripts -p test_native_memory_diagnostic.py -v
 python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
 python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
@@ -136,7 +137,12 @@ expansion is disabled. Startup `exec` handoffs do not stop the process; native
 signals and exceptions still do. The runner captures thread backtraces,
 registers, image identities and stop reasons before a stopped process is terminated. Diagnostic
 logs and process observations are saved under `native-debugger/` in the same
-artifact. A zero debugger exit alone cannot pass: a current process record must
+artifact. Each thread's JSON observation also retains up to 128 frames with
+function names, module paths/UUIDs, load and file addresses, and available source
+locations. Missing symbols remain null; invalid frames, truncated stacks and
+unwind errors are explicit. These are read-only debugger observations, not a
+diagnosis of the corruption's origin. Full text backtraces remain in the log.
+A zero debugger exit alone cannot pass: a current process record must
 confirm normal child exit zero, and the debugger must also succeed. Missing,
 stale or malformed records and debugger launch failures fail the job. Crashes
 are not resumed or retried. Ordinary positive child exit codes are preserved;
@@ -146,9 +152,67 @@ exit, nonzero exit, `exec` handoffs, SIGABRT, SIGTRAP and literal argument
 handling. A crash probe must reach its pre-signal marker and report the requested
 signal or its Mach exception before it counts as diagnostic evidence.
 
+The separate `Native memory diagnostics` workflow investigates the retained
+macOS failures on `macos-15` with CPython 3.12.10 and the observed NumPy/SciPy
+versions. One job runs existing calibration kernels without importing native
+pricing. Another builds a diagnostic wheel with the pinned Rust compiler's
+AddressSanitizer. PR updates run only its detector preflight, with a 30-minute
+job limit. A manual dispatch can select either original failed shard or the
+subsequent `coupled-basis-coupled_row_hats-6` failure for one run with the existing
+330-minute limit. The latter keeps all ten panels and four dated ledgers in the
+original process. Each selection has its own concurrency
+group, so dispatching one shard does not cancel a different selection.
+The normal wheel matrix remains required. A diagnostic pass is not proof that
+an intermittent fault is repaired.
+
+A third job compares the system allocator on `macos-15` and `macos-26`, following
+the independently reported [JDK-8350455](https://bugs.openjdk.org/browse/JDK-8350455)
+malloc/free concurrency fault. Its standalone C child links neither pricing nor
+Python/Rust dependencies. It writes and verifies live 8-byte and 64-byte allocations
+using 32 threads, then frees each allocation exactly once. The default 32 rounds
+take 640 seconds, with an additional 60-second process alarm and a 20-minute job
+limit. No allocator setting is overridden. LLDB preserves the first abnormal
+stop, and every worker/case must finish before the record can say
+`completed_without_reproduction`. Partial runs and nonzero exits fail the job;
+the probe is not retried. This comparison cannot by itself establish the cause
+of the pricing failures or waive any production selection.
+
+For a short local integration check, run
+`python scripts/system_allocator_diagnostic.py --workers 4 --rounds 2 --seconds 1 --report-directory <directory>`.
+The child records allocator configuration flags when the OS exposes them;
+missing flags remain null. These flags do not identify the zone serving each
+allocation: [Apple's implementation](https://github.com/apple-oss-distributions/libmalloc/blob/main/src/malloc.c)
+can report Nano mode 2 with the secure allocator enabled even when no Nano zone
+is created. The report also retains
+the compiler, SDK, source/binary hashes, per-worker counts and process outcome.
+
+`scripts/native_memory_diagnostic.py` rejects an uninstrumented installed
+extension, checks both normal execution and detection of a deliberately faulty
+standalone probe, then verifies ASan can import the wheel. It also runs normal
+allocation/free and deliberate double-free controls in separate Python processes
+after importing pricing. The faulty control must abort with an ASan report that
+includes both allocation and free stacks before the numerical workload can run.
+Framework Python is launched through its actual interpreter with the original
+environment retained;
+its startup launcher can lose sanitizer interposition. Source/binary identities,
+host/compiler versions, detector results and process completion records accompany
+the logs. Leak detection is disabled; invalid access/free detection remains on.
+CPython, NumPy, SciPy, the standard library and system libraries are not rebuilt
+with instrumentation. These diagnostic builds are not distribution artifacts.
+The workflow runs when its helper/tests/workflow change, and can also be invoked
+manually after it is available on the default branch.
+
+Use `--preflight-only --report-directory <directory>` to check an already
+installed instrumented wheel locally without starting numerical validation.
+`preflight.json` records completion only after every detector control passes;
+an interrupted or failed attempt cannot retain an earlier completion marker.
+The full `--shard` mode remains available. The hosted `extension-all_rows-4`
+ASan run exceeded 330 minutes, so its partial output is incomplete evidence.
+
 A missing or running record is incomplete evidence, never a passing result.
-CI gives each selection 330 minutes; successful completion on all platforms
-remains required. Runner loss can prevent the final artifact upload entirely.
+Production wheel CI gives each selection 330 minutes; successful completion on
+all platforms remains required. Runner loss can prevent the final artifact
+upload entirely.
 
 The original `--group custom-basis`, `--group providers`, default full execution,
 and combined four-interval shard names remain available, but those combined
