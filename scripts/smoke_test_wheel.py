@@ -483,9 +483,14 @@ def verify_wheel_metadata(
         and "charset=UTF-8" in content_type
     ):
         raise RuntimeError(f"unexpected wheel Description-Content-Type: {content_type}")
-    for field in ["License", "License-Expression", "License-File"]:
-        if metadata.get_all(field):
-            raise RuntimeError(f"wheel metadata must not declare {field}")
+    if metadata.get_all("License-Expression") != ["MIT OR Apache-2.0"]:
+        raise RuntimeError("wheel metadata must declare License-Expression: MIT OR Apache-2.0")
+    if sorted(metadata.get_all("License-File") or []) != [
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "THIRD_PARTY_NOTICES.md",
+    ]:
+        raise RuntimeError("wheel metadata License-File entries mismatch")
     if metadata.get_payload() != expected_readme_payload:
         raise RuntimeError("wheel metadata README payload does not match README.md")
     if wheel_metadata["Wheel-Version"] != "1.0":
@@ -970,11 +975,10 @@ def expected_project_metadata() -> dict[str, str]:
     authors = project.get("authors")
     if authors != [{"name": "Masafumi Fujita"}]:
         raise RuntimeError("pyproject.toml project.authors mismatch")
-    for key in ["license", "license-files"]:
-        if key in project:
-            raise RuntimeError(
-                f"pyproject.toml project.{key} must stay absent until licensing is decided"
-            )
+    if project.get("license") != "MIT OR Apache-2.0":
+        raise RuntimeError("pyproject.toml project.license mismatch")
+    if project.get("license-files") != ["LICENSE-MIT", "LICENSE-APACHE", "THIRD_PARTY_NOTICES.md"]:
+        raise RuntimeError("pyproject.toml project.license-files mismatch")
     if project.get("dynamic") != ["version"]:
         raise RuntimeError("pyproject.toml project.dynamic must derive version dynamically")
     maturin = required_table(pyproject, "tool", "pyproject.toml").get("maturin")
