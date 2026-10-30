@@ -273,6 +273,9 @@ impl HullWhiteEquityPricingPlan {
                     e => e.into(),
                 })?;
         }
+        if let Some(target) = &self.market_iv_target {
+            target.validate_market_iv_reverse()?;
+        }
         let context = Context::new(self)?;
         let executor = DeterministicExecutor::new(self.policy)?;
         let width = context.width();
