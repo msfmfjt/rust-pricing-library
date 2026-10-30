@@ -63,6 +63,12 @@ and statistical American Call/Put acceptance, independent Bermudan-tree and
 in/out-of-sample evidence, same-platform replay on Apple Silicon macOS and
 Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
+## API stability
+
+The project is at version 0.1.0. Interfaces described as experimental can change
+without a migration path, and the "stable" facade wording refers to the module
+paths the library intends to keep, not to a released compatibility guarantee.
+
 ## Workspace
 
 Experimental multi-marginal Bass local volatility is available through Rust
@@ -198,7 +204,9 @@ subcrates are removed; direct users must follow the
 
 ## Development
 
-The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run:
+The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run the
+core checks below. [CONTRIBUTING.md](CONTRIBUTING.md) has the complete required list, and
+CI runs on Linux, macOS and Windows.
 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
