@@ -82,10 +82,11 @@ int main(int argc, char **argv) {
     alarm(rounds * 2 * seconds + 60);
     FILE *report = fopen(argv[4], "w");
     if (report == NULL) return 2;
-    unsigned (*nano)(void) = (unsigned (*)(void))dlsym(RTLD_DEFAULT, "malloc_engaged_nano");
-    bool (*secure)(void) = (bool (*)(void))dlsym(RTLD_DEFAULT, "malloc_engaged_secure_allocator");
+    /* Both optional SPI return int; their flags do not identify each allocation's zone. */
+    int (*nano)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "malloc_engaged_nano");
+    int (*secure)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "malloc_engaged_secure_allocator");
     fprintf(report, "{\"event\":\"start\",\"workers\":%u,\"rounds\":%u,\"seconds\":%u,\"nano_mode\":", workers, rounds, seconds);
-    if (nano) fprintf(report, "%u", nano()); else fputs("null", report);
+    if (nano) fprintf(report, "%d", nano()); else fputs("null", report);
     fputs(",\"secure_allocator\":", report);
     if (secure) fprintf(report, "%s", secure() ? "true" : "false"); else fputs("null", report);
     fputs("}\n", report);

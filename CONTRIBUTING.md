@@ -179,9 +179,12 @@ of the pricing failures or waive any production selection.
 
 For a short local integration check, run
 `python scripts/system_allocator_diagnostic.py --workers 4 --rounds 2 --seconds 1 --report-directory <directory>`.
-The child records the active allocator identifiers when the OS exposes them;
-missing identifiers remain null. The report also retains the compiler, SDK,
-source/binary hashes, per-worker counts and process outcome.
+The child records allocator configuration flags when the OS exposes them;
+missing flags remain null. These flags do not identify the zone serving each
+allocation: [Apple's implementation](https://github.com/apple-oss-distributions/libmalloc/blob/main/src/malloc.c)
+can report Nano mode 2 with the secure allocator enabled even when no Nano zone
+is created. The report also retains
+the compiler, SDK, source/binary hashes, per-worker counts and process outcome.
 
 `scripts/native_memory_diagnostic.py` rejects an uninstrumented installed
 extension, checks both normal execution and detection of a deliberately faulty
