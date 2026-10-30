@@ -257,6 +257,10 @@ jobs:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
+    # PowerShell otherwise exposes only the last native command's exit status.
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out source
@@ -447,6 +451,9 @@ jobs:
           - os: windows-2025
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out source
