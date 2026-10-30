@@ -278,6 +278,9 @@ jobs:
           cargo -V
           git hash-object Cargo.lock
 
+      - name: Check CI command failure propagation
+        run: python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v
+
       - name: Check Local Volatility equation fixture
         run: python scripts/check_local_vol_reference_fixture.py
       - name: Check independent Local Vol Gamma numerical references

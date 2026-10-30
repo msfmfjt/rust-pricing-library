@@ -37,6 +37,7 @@ Do not combine an optimization with an untested numerical-policy change.
 ## Required checks
 
 ```shell
+python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
 python3 scripts/check_local_vol_reference_fixture.py
 python3 scripts/check_local_vol_gamma_numerics.py
 python3 scripts/check_local_vol_gamma_recovery.py
@@ -79,6 +80,12 @@ python scripts/check_replay_fixture.py benchmark-results/path-dependence-replay.
 python scripts/check_replay_fixture.py benchmark-results/early-exercise-replay.json
 python scripts/check_benchmark_reports.py benchmark-results
 ```
+
+The main Rust and supported-wheel jobs use explicit `shell: bash` on every
+platform so a failed native command or pipeline fails its step immediately.
+Do not rely on PowerShell's final `$LASTEXITCODE` for a block with multiple
+commands. The failure-propagation tests inject nonzero native exits into the
+retained CI blocks and require that subsequent commands do not run.
 
 Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
 tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
