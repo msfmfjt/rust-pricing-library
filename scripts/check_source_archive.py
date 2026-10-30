@@ -966,6 +966,8 @@ REQUIRED_FILES = {
     "rust_pricing.pyi",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
     "scripts/check_benchmark_reports.py",
     "scripts/check_dependency_direction.py",
     "scripts/check_early_exercise_reference_fixture.py",
@@ -1469,8 +1471,7 @@ REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Python extension build, wheel smoke test, Python smoke suite, benchmark run",
     "benchmark artifact validation",
     "private artifact repository location and access policy",
-    "internal licensing terms for private consumers",
-    "whether a public open-source license will ever be selected",
+    "licensed under `MIT OR Apache-2.0`",
 }
 
 REQUIRED_ARCHITECTURE_SNIPPETS = {
@@ -1760,11 +1761,10 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
         raise SystemExit(f"{archive}: pyproject project.requires-python mismatch")
     if project.get("authors") != [{"name": "Masafumi Fujita"}]:
         raise SystemExit(f"{archive}: pyproject project.authors mismatch")
-    for key in ["license", "license-files"]:
-        if key in project:
-            raise SystemExit(
-                f"{archive}: pyproject project.{key} must stay absent until licensing is decided"
-            )
+    if project.get("license") != "MIT OR Apache-2.0":
+        raise SystemExit(f"{archive}: pyproject project.license mismatch")
+    if project.get("license-files") != ["LICENSE-MIT", "LICENSE-APACHE", "THIRD_PARTY_NOTICES.md"]:
+        raise SystemExit(f"{archive}: pyproject project.license-files mismatch")
     if project.get("dynamic") != ["version"]:
         raise SystemExit(f"{archive}: pyproject must derive version dynamically")
 
