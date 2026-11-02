@@ -27,6 +27,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check first-order reverse
         run: cargo test --locked --release -p pricing --test stochastic_dividend_risk -- --nocapture 2>&1 | tee stochastic-dividend-risk.log
       - name: Check Hull-White dividend risk
@@ -80,6 +84,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check fixed-grid Barrier smoothing widths
         run: cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-barrier-smoothing.log
       - name: Check exact-limit and multi-step hard Barrier references
@@ -265,6 +273,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -373,6 +385,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run extended model risk acceptance
         shell: bash
