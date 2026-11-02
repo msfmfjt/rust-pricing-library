@@ -369,7 +369,7 @@ pub(in crate::engine) fn reverse_opcode(
             add_adjoint(
                 adjoints,
                 denominator,
-                -output_adjoint * numerator_value / (denominator_value * denominator_value),
+                division_denominator_adjoint(output_adjoint, numerator_value, denominator_value),
                 opcode.name(),
             )?;
         }
@@ -471,6 +471,61 @@ pub(in crate::engine) fn reverse_opcode(
         }
     }
     Ok(())
+}
+
+/// Preserve the ordinary pullback's arithmetic, but do not lose a finite
+/// derivative when its numerator product or denominator square leaves the
+/// normal range. Forward evaluation has already checked finite inputs and a
+/// nonzero denominator; incoming adjoints are also checked by `add_adjoint`.
+fn division_denominator_adjoint(seed: f64, numerator: f64, denominator: f64) -> f64 {
+    let product = -seed * numerator;
+    let square = denominator * denominator;
+    if square.is_normal() && product.is_normal() {
+        return product / square;
+    }
+    if seed == 0.0 || numerator == 0.0 {
+        return product;
+    }
+    let (seed_fraction, seed_exponent) = binary_parts(seed);
+    let (numerator_fraction, numerator_exponent) = binary_parts(numerator);
+    let (denominator_fraction, denominator_exponent) = binary_parts(denominator);
+    // Every fraction has magnitude in [1, 2), so neither product can leave
+    // the normal range. The final scaling is the only possible underflow or
+    // overflow; a genuinely nonfinite adjoint remains an evaluation error.
+    let fraction =
+        -seed_fraction * numerator_fraction / (denominator_fraction * denominator_fraction);
+    let exponent = seed_exponent + numerator_exponent - 2 * denominator_exponent;
+    scale_binary(fraction, exponent)
+}
+
+/// Exact decomposition of a finite, nonzero binary64, including subnormals.
+fn binary_parts(value: f64) -> (f64, i32) {
+    let (value, adjustment) = if value.is_subnormal() {
+        (value * 18_014_398_509_481_984.0, -54) // 2^54, exact normalization
+    } else {
+        (value, 0)
+    };
+    let bits = value.to_bits();
+    let exponent = ((bits >> 52) & 0x7ff) as i32 - 1023 + adjustment;
+    let fraction = f64::from_bits((bits & 0x800f_ffff_ffff_ffff) | (1023_u64 << 52));
+    (fraction, exponent)
+}
+
+/// `fraction` has magnitude in (1/4, 4). Split only at binary64's exponent
+/// boundaries so subnormal results are rounded once, at the final multiply.
+fn scale_binary(fraction: f64, exponent: i32) -> f64 {
+    let power = |exponent: i32| f64::from_bits(((exponent + 1023) as u64) << 52);
+    if exponent > 1025 {
+        f64::INFINITY.copysign(fraction)
+    } else if exponent < -1076 {
+        0.0_f64.copysign(fraction)
+    } else if exponent > 1023 {
+        (fraction * power(exponent - 1023)) * power(1023)
+    } else if exponent < -1022 {
+        (fraction * power(exponent + 1022)) * f64::MIN_POSITIVE
+    } else {
+        fraction * power(exponent)
+    }
 }
 
 pub(in crate::engine) fn add_adjoint(
@@ -652,5 +707,47 @@ pub(in crate::engine) fn checked_index(index: u32, length: usize) -> Result<usiz
             index: u32::try_from(index).unwrap_or(u32::MAX),
             length,
         })
+    }
+}
+
+#[cfg(test)]
+mod division_adjoint_tests {
+    use super::division_denominator_adjoint;
+
+    fn assert_relative(actual: f64, expected: f64) {
+        assert!(
+            ((actual - expected) / expected).abs() <= 4.0 * f64::EPSILON,
+            "{actual} != {expected}"
+        );
+    }
+
+    #[test]
+    fn normal_range_keeps_the_ordinary_pullback() {
+        for (seed, numerator, denominator) in [(1.5, 3.0, -0.75), (-2.0, 1e-3, 7.0)] {
+            assert_eq!(
+                division_denominator_adjoint(seed, numerator, denominator),
+                -seed * numerator / (denominator * denominator)
+            );
+        }
+    }
+
+    #[test]
+    fn finite_derivatives_survive_an_underflowing_or_overflowing_square() {
+        // d(n/d)/dd = -n/d^2 is finite although d^2 leaves binary64.
+        assert_relative(division_denominator_adjoint(1.0, 1e-200, 1e-200), -1e200);
+        assert_relative(division_denominator_adjoint(2.0, 1e300, 1e200), -2e-100);
+        assert_relative(division_denominator_adjoint(-1.0, 3e-310, 1e-160), 3e10);
+    }
+
+    #[test]
+    fn genuine_range_limits_round_once() {
+        assert_eq!(
+            division_denominator_adjoint(1.0, 1e300, 1e-10),
+            f64::NEG_INFINITY
+        );
+        assert_eq!(division_denominator_adjoint(0.0, 1e300, 1e-200), -0.0);
+        let subnormal = division_denominator_adjoint(1.0, 1e-300, 1e10);
+        assert!(subnormal.is_subnormal() && subnormal < 0.0, "{subnormal}");
+        assert!((subnormal + 1e-320).abs() <= 4.0 * f64::from_bits(1));
     }
 }
