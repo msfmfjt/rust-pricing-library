@@ -528,7 +528,7 @@ def verify_message_fields(message: Message, expected_fields: tuple[str, ...], na
     if actual_fields != list(expected_fields):
         raise RuntimeError(f"wheel {name} fields changed: {actual_fields}")
     for field in expected_fields:
-        if len(message.get_all(field) or []) != 1:
+        if len(message.get_all(field) or []) != expected_fields.count(field):
             raise RuntimeError(f"wheel {name} field {field} must appear exactly once")
 
 
