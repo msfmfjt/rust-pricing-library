@@ -736,7 +736,15 @@ mod division_adjoint_tests {
         // d(n/d)/dd = -n/d^2 is finite although d^2 leaves binary64.
         assert_relative(division_denominator_adjoint(1.0, 1e-200, 1e-200), -1e200);
         assert_relative(division_denominator_adjoint(2.0, 1e300, 1e200), -2e-100);
-        assert_relative(division_denominator_adjoint(-1.0, 3e-310, 1e-160), 3e10);
+        // A subnormal numerator literal is not 3e-310 to full precision, so
+        // the reference rescales exactly by powers of two: n * 2^200 / (d * 2^100)^2.
+        let (numerator, denominator) = (3e-310, 1e-160);
+        let scale = |exponent: i32| 2.0_f64.powi(exponent);
+        let expected = (numerator * scale(200)) / (denominator * scale(100)).powi(2);
+        assert_relative(
+            division_denominator_adjoint(-1.0, numerator, denominator),
+            expected,
+        );
     }
 
     #[test]
