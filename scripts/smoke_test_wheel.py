@@ -31,8 +31,12 @@ EXPECTED_METADATA_FIELDS = (
     "Metadata-Version",
     "Name",
     "Version",
+    "License-File",
+    "License-File",
+    "License-File",
     "Summary",
     "Author",
+    "License-Expression",
     "Requires-Python",
     "Description-Content-Type",
 )
