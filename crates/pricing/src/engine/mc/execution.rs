@@ -86,7 +86,13 @@ impl Error for ExecutorBuildError {}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ExecutionError {
-    TooManyReductionBlocks { count: u64 },
+    TooManyReductionBlocks {
+        count: u64,
+    },
+    /// The block table exceeds the allocator's layout limit or cannot be reserved.
+    ReductionBlockAllocationFailed {
+        count: u64,
+    },
 }
 
 impl fmt::Display for ExecutionError {
@@ -98,6 +104,10 @@ impl fmt::Display for ExecutionError {
                     "reduction-block count {count} does not fit usize"
                 )
             }
+            Self::ReductionBlockAllocationFailed { count } => write!(
+                formatter,
+                "failed to allocate the table of {count} reduction blocks"
+            ),
         }
     }
 }
@@ -528,7 +538,10 @@ fn fixed_blocks(sampling_units: u64, block_size: u64) -> Result<Vec<Range<u64>>,
     let block_count = sampling_units.div_ceil(block_size);
     let capacity = usize::try_from(block_count)
         .map_err(|_| ExecutionError::TooManyReductionBlocks { count: block_count })?;
-    let mut blocks = Vec::with_capacity(capacity);
+    let mut blocks = Vec::new();
+    blocks
+        .try_reserve_exact(capacity)
+        .map_err(|_| ExecutionError::ReductionBlockAllocationFailed { count: block_count })?;
     let mut begin = 0;
     while begin < sampling_units {
         let end = begin.saturating_add(block_size).min(sampling_units);
