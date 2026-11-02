@@ -1,0 +1,54 @@
+name: macOS nano zone experiment
+
+# Temporary diagnostic: does disabling the macOS nano allocator stop the
+# intermittent heap-corruption abort in the VegaKT Put provider module?
+# Runs only on pushes to experiment branches, against main's built wheel.
+on:
+  push:
+    branches: ["experiment/macos-nano-zone"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  put-provider:
+    name: put provider / MallocNanoZone=${{ matrix.nano }} / ${{ matrix.repeat }}
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        nano: ["0", "default"]
+        repeat: [1, 2, 3]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download main's macOS wheel (run 41494417235, fb03ef1)
+        uses: actions/download-artifact@v8
+        with:
+          name: rust-pricing-aarch64-apple-darwin-cp312
+          path: dist
+          run-id: 41494417235
+          github-token: ${{ github.token }}
+
+      - name: Install wheel and test dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check \
+            "numpy>=2.0,<3.0" dist/*.whl "./backtesting[validation,constraints]"
+
+      - name: Run the crashing module
+        run: |
+          if [ "${{ matrix.nano }}" = "0" ]; then export MallocNanoZone=0; fi
+          echo "MallocNanoZone=${MallocNanoZone:-unset}"
+          .venv/bin/python -X faulthandler -m unittest discover \
+            -s tests/python -p test_vega_kt_extension_put_provider.py -v
