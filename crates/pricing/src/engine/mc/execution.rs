@@ -1,3 +1,4 @@
+use std::collections::TryReserveError;
 use std::error::Error;
 use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
@@ -93,6 +94,10 @@ pub enum ExecutionError {
     ReductionBlockAllocationFailed {
         count: u64,
     },
+    /// A dynamic statistics buffer exceeds the allocator's limit or cannot be reserved.
+    VectorStatisticsAllocationFailed {
+        components: usize,
+    },
 }
 
 impl fmt::Display for ExecutionError {
@@ -107,6 +112,10 @@ impl fmt::Display for ExecutionError {
             Self::ReductionBlockAllocationFailed { count } => write!(
                 formatter,
                 "failed to allocate the table of {count} reduction blocks"
+            ),
+            Self::VectorStatisticsAllocationFailed { components } => write!(
+                formatter,
+                "failed to allocate vector statistics with {components} components"
             ),
         }
     }
@@ -176,6 +185,36 @@ impl<E: Error + 'static> Error for TryExecutionError<E> {
 pub(crate) struct VectorStatistics {
     pub components: Vec<DeterministicStatistics>,
     pub covariances: Option<Vec<Vec<CenteredCovariance>>>,
+}
+
+impl VectorStatistics {
+    fn try_new(components: usize, full_covariance: bool) -> Result<Self, TryReserveError> {
+        let statistics = try_filled_vector(components, DeterministicStatistics::default())?;
+        let covariances = if full_covariance {
+            let mut rows = Vec::new();
+            rows.try_reserve_exact(components)?;
+            for i in 0..components {
+                rows.push(try_filled_vector(
+                    components - i,
+                    CenteredCovariance::new(),
+                )?);
+            }
+            Some(rows)
+        } else {
+            None
+        };
+        Ok(Self {
+            components: statistics,
+            covariances,
+        })
+    }
+}
+
+fn try_filled_vector<T: Clone>(length: usize, value: T) -> Result<Vec<T>, TryReserveError> {
+    let mut buffer = Vec::new();
+    buffer.try_reserve_exact(length)?;
+    buffer.resize(length, value);
+    Ok(buffer)
 }
 
 /// Executes fixed logical blocks on a calculation-owned Rayon pool.
@@ -280,6 +319,8 @@ impl DeterministicExecutor {
 
     /// Dynamic-width counterpart used by surface adjoints. Callback output is
     /// reset for every sampling unit; reductions retain the fixed block order.
+    /// An unallocatable result width returns an execution error before callbacks,
+    /// including when there are no sampling units.
     pub fn try_map_reduce_statistics_vector<F, E>(
         &self,
         sampling_units: u64,
@@ -314,17 +355,21 @@ impl DeterministicExecutor {
     {
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let allocation_failed = |_| {
+            TryExecutionError::Execution(ExecutionError::VectorStatisticsAllocationFailed {
+                components,
+            })
+        };
+        let mut output =
+            VectorStatistics::try_new(components, full_covariance).map_err(allocation_failed)?;
         let results = self.pool.install(|| {
             blocks
                 .into_par_iter()
                 .map(|block| {
-                    let mut statistics = vec![DeterministicStatistics::default(); components];
-                    let mut covariances = full_covariance.then(|| {
-                        (0..components)
-                            .map(|i| vec![CenteredCovariance::new(); components - i])
-                            .collect::<Vec<_>>()
-                    });
-                    let mut values = vec![0.0; components];
+                    let mut statistics = VectorStatistics::try_new(components, full_covariance)
+                        .map_err(allocation_failed)?;
+                    let mut values =
+                        try_filled_vector(components, 0.0).map_err(allocation_failed)?;
                     for sampling_unit in block {
                         values.fill(0.0);
                         evaluate(sampling_unit, &mut values).map_err(|source| {
@@ -333,11 +378,11 @@ impl DeterministicExecutor {
                                 source,
                             }
                         })?;
-                        for (statistic, &value) in statistics.iter_mut().zip(&values) {
+                        for (statistic, &value) in statistics.components.iter_mut().zip(&values) {
                             statistic.sum.add(value);
                             statistic.moments.add(value);
                         }
-                        if let Some(rows) = &mut covariances {
+                        if let Some(rows) = &mut statistics.covariances {
                             for (i, row) in rows.iter_mut().enumerate() {
                                 for (c, &y) in row.iter_mut().zip(&values[i..]) {
                                     c.add(values[i], y);
@@ -345,40 +390,30 @@ impl DeterministicExecutor {
                             }
                         }
                     }
-                    Ok(VectorStatistics {
-                        components: statistics,
-                        covariances,
-                    })
+                    Ok(statistics)
                 })
                 .collect::<Vec<Result<_, TryExecutionError<E>>>>()
         });
         let results = results.into_iter().collect::<Result<Vec<_>, _>>()?;
-        let covariances = full_covariance.then(|| {
-            (0..components)
-                .map(|i| {
-                    (0..components - i)
-                        .map(|j| {
-                            reduce_covariances(
-                                results
-                                    .iter()
-                                    .map(|r| r.covariances.as_ref().expect("enabled")[i][j])
-                                    .collect(),
-                            )
-                        })
-                        .collect()
-                })
-                .collect()
-        });
-        let components = (0..components)
-            .map(|i| DeterministicStatistics {
+        if let Some(rows) = &mut output.covariances {
+            for (i, row) in rows.iter_mut().enumerate() {
+                for (j, covariance) in row.iter_mut().enumerate() {
+                    *covariance = reduce_covariances(
+                        results
+                            .iter()
+                            .map(|r| r.covariances.as_ref().expect("enabled")[i][j])
+                            .collect(),
+                    );
+                }
+            }
+        }
+        for (i, statistic) in output.components.iter_mut().enumerate() {
+            *statistic = DeterministicStatistics {
                 sum: reduce_sums(results.iter().map(|r| r.components[i].sum).collect()),
                 moments: reduce_moments(results.iter().map(|r| r.components[i].moments).collect()),
-            })
-            .collect();
-        Ok(VectorStatistics {
-            components,
-            covariances,
-        })
+            };
+        }
+        Ok(output)
     }
 
     /// Reduces several pathwise quantities together while preserving the same
@@ -715,6 +750,28 @@ mod tests {
 mod covariance_tests {
     use super::*;
     use std::convert::Infallible;
+
+    #[test]
+    fn impossible_covariance_width_returns_an_error_before_evaluation() {
+        let executor =
+            DeterministicExecutor::new(ExecutionPolicy::new(2, Some(1)).unwrap()).unwrap();
+        for sampling_units in [0, 1] {
+            let result = executor.try_map_reduce_statistics_vector_with_covariance(
+                sampling_units,
+                usize::MAX,
+                true,
+                |_, _| -> Result<(), Infallible> { panic!("unallocatable width") },
+            );
+            assert!(matches!(
+                result,
+                Err(TryExecutionError::Execution(
+                    ExecutionError::VectorStatisticsAllocationFailed {
+                        components: usize::MAX
+                    }
+                ))
+            ));
+        }
+    }
 
     #[test]
     fn centered_vector_covariance_survives_offsets_and_replays_fixed_blocks() {

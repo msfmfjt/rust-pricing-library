@@ -1,0 +1,291 @@
+{
+  "document_kind": "pricing_task",
+  "schema_version": 1,
+  "operation": {
+    "type": "aad",
+    "gamma_relative_bump": 0.01
+  },
+  "source": {
+    "type": "multi_asset",
+    "valuation_date": "2026-01-01",
+    "product": {
+      "currency_id": 1,
+      "underlying_ids": [
+        1,
+        2
+      ],
+      "nodes": [
+        {
+          "id": 0,
+          "operation": {
+            "type": "literal",
+            "value": 0.0
+          }
+        },
+        {
+          "id": 1,
+          "operation": {
+            "type": "terminal_spot",
+            "underlying_id": 1,
+            "observation_date": "2027-01-01"
+          }
+        },
+        {
+          "id": 2,
+          "operation": {
+            "type": "literal",
+            "value": 0.5
+          }
+        },
+        {
+          "id": 3,
+          "operation": {
+            "type": "literal",
+            "value": 1.0
+          }
+        },
+        {
+          "id": 4,
+          "operation": {
+            "type": "multiply",
+            "left": 2,
+            "right": 1
+          }
+        },
+        {
+          "id": 5,
+          "operation": {
+            "type": "divide",
+            "numerator": 4,
+            "denominator": 3
+          }
+        },
+        {
+          "id": 6,
+          "operation": {
+            "type": "add",
+            "left": 0,
+            "right": 5
+          }
+        },
+        {
+          "id": 7,
+          "operation": {
+            "type": "terminal_spot",
+            "underlying_id": 2,
+            "observation_date": "2027-01-01"
+          }
+        },
+        {
+          "id": 8,
+          "operation": {
+            "type": "literal",
+            "value": 0.5
+          }
+        },
+        {
+          "id": 9,
+          "operation": {
+            "type": "literal",
+            "value": 1.0
+          }
+        },
+        {
+          "id": 10,
+          "operation": {
+            "type": "multiply",
+            "left": 8,
+            "right": 7
+          }
+        },
+        {
+          "id": 11,
+          "operation": {
+            "type": "divide",
+            "numerator": 10,
+            "denominator": 9
+          }
+        },
+        {
+          "id": 12,
+          "operation": {
+            "type": "add",
+            "left": 6,
+            "right": 11
+          }
+        },
+        {
+          "id": 13,
+          "operation": {
+            "type": "literal",
+            "value": 100.0
+          }
+        },
+        {
+          "id": 14,
+          "operation": {
+            "type": "subtract",
+            "left": 12,
+            "right": 13
+          }
+        },
+        {
+          "id": 15,
+          "operation": {
+            "type": "literal",
+            "value": 0.0
+          }
+        },
+        {
+          "id": 16,
+          "operation": {
+            "type": "smooth_maximum",
+            "left": 14,
+            "right": 15,
+            "half_width": 1.0
+          }
+        },
+        {
+          "id": 17,
+          "operation": {
+            "type": "literal",
+            "value": 1.0
+          }
+        },
+        {
+          "id": 18,
+          "operation": {
+            "type": "multiply",
+            "left": 17,
+            "right": 16
+          }
+        }
+      ],
+      "cashflows": [
+        {
+          "output_node": 18,
+          "payment_date": "2027-01-01"
+        }
+      ]
+    },
+    "markets": [
+      {
+        "type": "equity",
+        "currency_id": 1,
+        "underlying_id": 1,
+        "spot": 100.0,
+        "discount_curve": {
+          "curve_id": 1,
+          "times": [
+            0.0,
+            2.0
+          ],
+          "discount_factors": [
+            1.0,
+            0.96
+          ]
+        },
+        "dividend_curve": {
+          "curve_id": 1,
+          "times": [
+            0.0,
+            2.0
+          ],
+          "discount_factors": [
+            1.0,
+            0.96
+          ]
+        }
+      },
+      {
+        "type": "equity",
+        "currency_id": 1,
+        "underlying_id": 2,
+        "spot": 100.0,
+        "discount_curve": {
+          "curve_id": 1,
+          "times": [
+            0.0,
+            2.0
+          ],
+          "discount_factors": [
+            1.0,
+            0.96
+          ]
+        },
+        "dividend_curve": {
+          "curve_id": 1,
+          "times": [
+            0.0,
+            2.0
+          ],
+          "discount_factors": [
+            1.0,
+            0.96
+          ]
+        }
+      }
+    ],
+    "models": [
+      {
+        "type": "black_scholes",
+        "volatility": 0.2
+      },
+      {
+        "type": "black_scholes",
+        "volatility": 0.2
+      }
+    ],
+    "correlation": {
+      "underlying_ids": [
+        1,
+        2
+      ],
+      "entries": [
+        {
+          "date": "2026-01-01",
+          "matrix": [
+            [
+              1.0,
+              0.2
+            ],
+            [
+              0.20000000000001,
+              1.0
+            ]
+          ]
+        }
+      ],
+      "tolerances": {
+        "symmetry_abs_tol": 1e-12,
+        "diagonal_abs_tol": 1e-12,
+        "psd_abs_tol": 1e-12,
+        "psd_rel_tol": 1e-12,
+        "zero_pivot_abs_tol": 1e-12,
+        "zero_pivot_rel_tol": 1e-12
+      }
+    },
+    "lsv": [
+      {
+        "type": "absent"
+      },
+      {
+        "type": "absent"
+      }
+    ],
+    "engine": {
+      "type": "pseudo_monte_carlo",
+      "master_seed": 82,
+      "independent_sampling_units": 32,
+      "variance_reduction": {
+        "antithetic": true,
+        "brownian_bridge": false
+      }
+    },
+    "numerics": {
+      "worker_threads": 1,
+      "reduction_block_size": 16,
+      "maximum_step": 0.5
+    }
+  }
+}

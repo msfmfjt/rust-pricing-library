@@ -15,6 +15,8 @@ pub struct HullWhiteAadRisk {
     /// log-DF pillars, row-major local variance, row-major forward log density,
     /// optional row-major market IV and parallel market IV.
     pub parameter_labels: Box<[String]>,
+    /// Native differentiation coordinates, in exactly the same order as labels/derivatives.
+    pub parameter_kinds: Box<[crate::RiskParameterKind]>,
     pub derivatives: Box<[f64]>,
     /// Same order as derivatives. Only independent RQMC scrambles; conditional
     /// on the realized calibration and its fixed discrete branch decisions.
@@ -134,6 +136,7 @@ struct Context {
     node_indices: Vec<usize>,
     coefficient_count: usize,
     leverage_count: usize,
+    discount_count: usize,
     is_bs: bool,
 }
 impl Context {
@@ -167,10 +170,15 @@ impl Context {
                 .as_ref()
                 .map_or(0, |c| c.surface.squared_leverage().len()),
             is_bs: plan.calibration.is_none(),
+            discount_count: if plan.base.cashflow_discount_adjoints.is_empty() {
+                0
+            } else {
+                plan.market.discount_curve().times().len()
+            },
         })
     }
     fn width(&self) -> usize {
-        3 + self.coefficient_count + self.leverage_count
+        3 + self.coefficient_count + self.leverage_count + self.discount_count
     }
 
     fn reverse_mean(
@@ -195,7 +203,7 @@ impl Context {
         let mut target = Vec::new();
         let mut quotes = Vec::new();
         if let Some(c) = &plan.calibration {
-            let adj = c.calibration_pullback(&mean[offset..])?;
+            let adj = c.calibration_pullback(&mean[offset..offset + self.leverage_count])?;
             spot += adj.initial_spot;
             if let Some(nodes) = &adj.dividends {
                 add_nodes(&mut coefficients, nodes);
@@ -220,6 +228,13 @@ impl Context {
             mean[0],
             &mut market.discount_log_df,
         )?;
+        for (bar, correction) in market
+            .discount_log_df
+            .iter_mut()
+            .zip(&mean[offset + self.leverage_count..])
+        {
+            *bar += correction;
+        }
         let mut out = vec![spot + market.spot];
         if self.is_bs {
             out.push(mean[2]);
@@ -257,7 +272,7 @@ impl HullWhiteEquityPricingPlan {
     /// First-order reverse at fixed HW/Bergomi parameters, correlations, payout
     /// amounts, grid axes and paired target coordinates. LSV includes the finite
     /// particle recalibration and requires retain_reverse_trace=true at compile.
-    pub fn evaluate_aad(&self) -> Result<HullWhiteAadRisk, MonteCarloError> {
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "HW discontinuous payoff requires explicit smoothing",
@@ -276,6 +291,13 @@ impl HullWhiteEquityPricingPlan {
         if let Some(target) = &self.market_iv_target {
             target.validate_market_iv_reverse()?;
         }
+        Ok(())
+    }
+    /// First-order reverse at fixed HW/Bergomi parameters, correlations, payout
+    /// amounts, grid axes and paired target coordinates. LSV includes the finite
+    /// particle recalibration and requires retain_reverse_trace=true at compile.
+    pub fn evaluate_aad(&self) -> Result<HullWhiteAadRisk, MonteCarloError> {
+        self.validate_source_aad()?;
         let context = Context::new(self)?;
         let executor = DeterministicExecutor::new(self.policy)?;
         let width = context.width();
@@ -375,8 +397,11 @@ impl HullWhiteEquityPricingPlan {
                 )
             }
         };
+        use crate::RiskParameterKind as K;
         let mut labels = vec!["spot".to_owned()];
+        let mut kinds = vec![K::Spot];
         if context.is_bs {
+            kinds.push(K::Volatility);
             labels.push(
                 if self.path.is_direct_stochastic_volatility() {
                     "initial_volatility"
@@ -386,19 +411,26 @@ impl HullWhiteEquityPricingPlan {
                 .to_owned(),
             );
         }
-        for (name, count) in [
+        for (name, count, kind) in [
             (
                 "discount_log_df",
                 self.market.discount_curve().times().len(),
+                K::LogDiscountFactor,
             ),
             (
                 "dividend_log_df",
                 self.market.dividend_curve().times().len(),
+                K::LogDiscountFactor,
             ),
-            ("local_variance", context.leverage_count),
-            ("forward_log_density", context.leverage_count),
+            ("local_variance", context.leverage_count, K::LocalVariance),
+            (
+                "forward_log_density",
+                context.leverage_count,
+                K::ForwardLogDensity,
+            ),
         ] {
             labels.extend((0..count).map(|i| format!("{name}[{i}]")));
+            kinds.extend(std::iter::repeat_n(kind, count));
         }
         let market_iv = self
             .market_iv_target
@@ -409,6 +441,10 @@ impl HullWhiteEquityPricingPlan {
                 (0..surface.implied_volatilities().len()).map(|i| format!("market_iv[{i}]")),
             );
             labels.push("parallel_market_iv".to_owned());
+            kinds.extend(std::iter::repeat_n(
+                K::Volatility,
+                surface.implied_volatilities().len() + 1,
+            ));
         }
         let price = HullWhitePrice {
             value: price_stats.sum().total() / units as f64,
@@ -424,6 +460,7 @@ impl HullWhiteEquityPricingPlan {
         Ok(HullWhiteAadRisk {
             price,
             parameter_labels: labels.into(),
+            parameter_kinds: kinds.into(),
             derivatives: derivatives.into(),
             standard_errors,
             discount_times: self.market.discount_curve().times().into(),
@@ -500,9 +537,12 @@ impl HullWhiteEquityPricingPlan {
                         .spots(s.normalized_equity, s.rate_factor)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let (payoff, payoff_seeds) = self
-                .base
-                .hybrid_spot_payoff_adjoints(self.time_nodes(), &spots)?;
+            let mut discount_adjoints = vec![0.0; context.discount_count];
+            let (payoff, payoff_seeds) = self.base.hybrid_spot_payoff_market_adjoints(
+                self.time_nodes(),
+                &spots,
+                &mut discount_adjoints,
+            )?;
             out[0] += payoff * relative_discount;
             let mut coefficients = dividends.zero_adjoints();
             let mut state_seeds = Vec::with_capacity(states.len());
@@ -532,8 +572,17 @@ impl HullWhiteEquityPricingPlan {
                     offset += 1;
                 }
             }
-            for (target, source) in out[offset..].iter_mut().zip(reverse.squared_leverage) {
+            for (target, source) in out[offset..offset + context.leverage_count]
+                .iter_mut()
+                .zip(reverse.squared_leverage)
+            {
                 *target += source;
+            }
+            for (target, source) in out[offset + context.leverage_count..]
+                .iter_mut()
+                .zip(discount_adjoints)
+            {
+                *target += relative_discount * source;
             }
         }
         if antithetic {

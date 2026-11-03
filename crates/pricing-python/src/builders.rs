@@ -310,6 +310,13 @@ pub struct PyProduct {
 
 #[pymethods]
 impl PyProduct {
+    #[staticmethod]
+    fn from_graph(graph: &crate::product_graph::PyGraphProduct) -> Self {
+        Self {
+            inner: ProductSpec::Graph(graph.inner.clone()),
+        }
+    }
+
     /// Build a European vanilla call or put.
     #[staticmethod]
     fn european_vanilla(
@@ -899,7 +906,10 @@ impl PyEngine {
 
     /// Build a randomized Sobol QMC engine with independent scrambles.
     #[staticmethod]
-    #[pyo3(signature = (points_per_scramble, master_scramble_seed, *, scramble_count=RqmcConfig::DEFAULT_SCRAMBLE_COUNT, antithetic=false, brownian_bridge=true))]
+    #[pyo3(
+        signature = (points_per_scramble, master_scramble_seed, *, scramble_count=RqmcConfig::DEFAULT_SCRAMBLE_COUNT, antithetic=false, brownian_bridge=true),
+        text_signature = "(points_per_scramble, master_scramble_seed, *, scramble_count=16, antithetic=False, brownian_bridge=True)"
+    )]
     fn randomized_quasi_monte_carlo(
         py: Python<'_>,
         points_per_scramble: u64,
@@ -1530,6 +1540,7 @@ fn barrier_monitoring(py: Python<'_>, value: &str) -> PyResult<BarrierMonitoring
 
 const fn product_name(product: &ProductSpec) -> &'static str {
     match product {
+        ProductSpec::Graph(_) => "graph",
         ProductSpec::EuropeanVanilla(_) => "european_vanilla",
         ProductSpec::AmericanVanilla(_) => "american_vanilla",
         ProductSpec::Digital(_) => "digital",

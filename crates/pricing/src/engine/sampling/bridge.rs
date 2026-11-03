@@ -59,6 +59,12 @@ pub enum BrownianBridgeError {
         left_bits: u64,
         right_bits: u64,
     },
+    InvalidConditionalVariance {
+        left_index: usize,
+        node_index: usize,
+        right_index: usize,
+        variance_bits: u64,
+    },
     ZeroFactorCount,
     DimensionOverflow,
     SobolDimensionLimitExceeded {
@@ -97,6 +103,15 @@ impl fmt::Display for BrownianBridgeError {
             } => write!(
                 formatter,
                 "Brownian bridge times must increase strictly at pair {left_index}: 0x{left_bits:016x}, 0x{right_bits:016x}"
+            ),
+            Self::InvalidConditionalVariance {
+                left_index,
+                node_index,
+                right_index,
+                variance_bits,
+            } => write!(
+                formatter,
+                "Brownian bridge conditional variance at node {node_index} between nodes {left_index} and {right_index} must be finite and positive: 0x{variance_bits:016x}"
             ),
             Self::ZeroFactorCount => write!(formatter, "Brownian factor count must be positive"),
             Self::DimensionOverflow => {
@@ -157,6 +172,8 @@ pub struct BrownianBridgePlan {
 }
 
 impl BrownianBridgePlan {
+    /// Rejects grids whose conditional variance becomes zero or nonfinite in
+    /// the fixed bridge arithmetic, even when every time is finite and ordered.
     pub fn compile(times: Vec<f64>, factor_count: u32) -> Result<Self, BrownianBridgeError> {
         validate_times(&times)?;
         if factor_count == 0 {
@@ -180,7 +197,7 @@ impl BrownianBridgePlan {
             .map(|pair| 1.0 / (pair[1] - pair[0]).sqrt())
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        let instructions = compile_instructions(&times).into_boxed_slice();
+        let instructions = compile_instructions(&times)?.into_boxed_slice();
         Ok(Self {
             times: times.into_boxed_slice(),
             inverse_sqrt_dt,
@@ -375,7 +392,9 @@ fn validate_times(times: &[f64]) -> Result<(), BrownianBridgeError> {
     Ok(())
 }
 
-fn compile_instructions(times: &[f64]) -> Vec<BrownianBridgeInstruction> {
+fn compile_instructions(
+    times: &[f64],
+) -> Result<Vec<BrownianBridgeInstruction>, BrownianBridgeError> {
     let terminal = times.len() - 1;
     let mut instructions = Vec::with_capacity(terminal);
     instructions.push(BrownianBridgeInstruction::Terminal {
@@ -384,7 +403,7 @@ fn compile_instructions(times: &[f64]) -> Vec<BrownianBridgeInstruction> {
         standard_deviation: times[terminal].sqrt(),
     });
     let mut heap = BinaryHeap::new();
-    if let Some(candidate) = interval_candidate(times, 0, terminal) {
+    if let Some(candidate) = interval_candidate(times, 0, terminal)? {
         heap.push(candidate);
     }
     let mut normal_rank = 1_u32;
@@ -402,34 +421,49 @@ fn compile_instructions(times: &[f64]) -> Vec<BrownianBridgeInstruction> {
             standard_deviation: candidate.variance.sqrt(),
         });
         normal_rank += 1;
-        if let Some(left) = interval_candidate(times, candidate.left, candidate.node) {
+        if let Some(left) = interval_candidate(times, candidate.left, candidate.node)? {
             heap.push(left);
         }
-        if let Some(right) = interval_candidate(times, candidate.node, candidate.right) {
+        if let Some(right) = interval_candidate(times, candidate.node, candidate.right)? {
             heap.push(right);
         }
     }
-    instructions
+    Ok(instructions)
 }
 
-fn interval_candidate(times: &[f64], left: usize, right: usize) -> Option<IntervalCandidate> {
+fn interval_candidate(
+    times: &[f64],
+    left: usize,
+    right: usize,
+) -> Result<Option<IntervalCandidate>, BrownianBridgeError> {
     if right <= left + 1 {
-        return None;
+        return Ok(None);
     }
     let denominator = times[right] - times[left];
-    (left + 1..right)
-        .map(|node| {
-            let variance =
-                ((times[node] - times[left]) * (times[right] - times[node])) / denominator;
-            IntervalCandidate {
-                variance,
-                time: times[node],
-                node,
-                left,
-                right,
-            }
-        })
-        .max()
+    let mut best: Option<IntervalCandidate> = None;
+    for node in left + 1..right {
+        // Preserve the versioned arithmetic and candidate ordering. Silently
+        // retaining zero loses an independent Brownian component; infinity
+        // contaminates both the forward transform and its reverse.
+        let variance = ((times[node] - times[left]) * (times[right] - times[node])) / denominator;
+        if !variance.is_finite() || variance <= 0.0 {
+            return Err(BrownianBridgeError::InvalidConditionalVariance {
+                left_index: left,
+                node_index: node,
+                right_index: right,
+                variance_bits: variance.to_bits(),
+            });
+        }
+        let candidate = IntervalCandidate {
+            variance,
+            time: times[node],
+            node,
+            left,
+            right,
+        };
+        best = Some(best.map_or(candidate, |current| current.max(candidate)));
+    }
+    Ok(best)
 }
 
 fn to_u32(value: usize) -> u32 {

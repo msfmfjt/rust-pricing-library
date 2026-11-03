@@ -1,0 +1,2225 @@
+{
+  "schema_version": 1,
+  "source": {
+    "pull_request": 180,
+    "head_sha": "1bdbda8c009268c9ddb3562289848f3a043c18b9",
+    "job_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40193992079/job/121248413956",
+    "artifact_id": 12623534697,
+    "artifact_sha256": "9c35fbafa2be76011206b44e6dde2e99c449985e2bcb96239c4ad15dbe9ea100",
+    "crash_member": "native-crashes/user-Python-2026-10-26-023817.ips",
+    "crash_member_sha256": "b5569dd2924f61711553363ac3a005bb62d4f44191a15af92719f070710a0628",
+    "transformation": "The two original JSON documents in the IPS member are retained as parsed objects; no diagnostic fields are removed."
+  },
+  "process_record": {
+    "kind": "module",
+    "name": "test_vega_kt_path_ledger.py",
+    "command": [
+      ".wheel-smoke-venv/bin/python",
+      "-X",
+      "faulthandler",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests/python",
+      "-p",
+      "test_vega_kt_path_ledger.py",
+      "-v"
+    ],
+    "status": "failed",
+    "started_at": "2026-10-26T02:13:24.616278+00:00",
+    "signal": "SIGTRAP",
+    "returncode": -5,
+    "elapsed_seconds": 1485.8275941250004,
+    "finished_at": "2026-10-26T02:38:10.446959+00:00"
+  },
+  "ips_header": {
+    "app_name": "Python",
+    "timestamp": "2026-10-26 02:38:17.00 +0000",
+    "app_version": "3.12.10",
+    "slice_uuid": "547e7e79-9aea-3add-a080-ad8e9ba98162",
+    "build_version": "3.12.10",
+    "platform": 1,
+    "bundleID": "org.python.python",
+    "share_with_app_devs": 0,
+    "is_first_party": 0,
+    "bug_type": "309",
+    "os_version": "macOS 15.7.9 (24G830)",
+    "roots_installed": 0,
+    "name": "Python",
+    "incident_id": "574EA1F7-9FC9-4507-85AF-8CA9B7EE832F"
+  },
+  "ips_report": {
+    "uptime": 6200,
+    "procRole": "Unspecified",
+    "version": 2,
+    "userID": 501,
+    "deployVersion": 210,
+    "modelCode": "VirtualMac2,1",
+    "coalitionID": 827,
+    "osVersion": {
+      "train": "macOS 15.7.9",
+      "build": "24G830",
+      "releaseType": "User"
+    },
+    "captureTime": "2026-10-26 02:38:10.4482 +0000",
+    "codeSigningMonitor": 0,
+    "incident": "574EA1F7-9FC9-4507-85AF-8CA9B7EE832F",
+    "pid": 93628,
+    "translated": false,
+    "cpuType": "ARM-64",
+    "roots_installed": 0,
+    "bug_type": "309",
+    "procLaunch": "2026-10-26 02:13:24.6215 +0000",
+    "procStartAbsTime": 114003199156,
+    "procExitAbsTime": 149662956389,
+    "procName": "Python",
+    "procPath": "/Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python",
+    "bundleInfo": {
+      "CFBundleShortVersionString": "3.12.10",
+      "CFBundleVersion": "3.12.10",
+      "CFBundleIdentifier": "org.python.python"
+    },
+    "storeInfo": {
+      "deviceIdentifierForVendor": "9695EA9B-0B6A-5568-8FEB-09E6902EA899",
+      "thirdParty": true
+    },
+    "parentProc": "Python",
+    "parentPid": 1767,
+    "coalitionName": "runner-provisioner",
+    "crashReporterKey": "ADDE7254-8956-057B-324C-1789E3C481AE",
+    "appleIntelligenceStatus": {
+      "reasons": [
+        "deviceNotCapable",
+        "countryLocationIneligible",
+        "selectedSiriLanguageIneligible",
+        "countryBillingIneligible"
+      ],
+      "state": "unavailable"
+    },
+    "responsiblePid": 962,
+    "responsibleProc": "hosted-compute-agent",
+    "codeSigningID": "org.python.python",
+    "codeSigningTeamID": "BMM5U3QVKW",
+    "codeSigningFlags": 570490881,
+    "codeSigningValidationCategory": 6,
+    "codeSigningTrustLevel": 4294967295,
+    "codeSigningAuxiliaryInfo": 0,
+    "instructionByteStream": {
+      "beforePC": "wQCAUl8FAJQA4oRSjmn/lwgDgBLoGwC5gSIAkWAAgFICAIDS2wUAlA==",
+      "atPC": "IAAg1H8jA9X/wwDR9E8Bqf17Aqn9gwCR8wMAqv8HAPkKAwCUQAEAtA=="
+    },
+    "bootSessionUUID": "1BDE94F2-15EA-4D78-9B2F-AF91EE06DB08",
+    "sip": "disabled",
+    "exception": {
+      "codes": "0x0000000000000001, 0x0000000189da8ba0",
+      "rawCodes": [
+        1,
+        6607768480
+      ],
+      "type": "EXC_BREAKPOINT",
+      "signal": "SIGTRAP"
+    },
+    "termination": {
+      "flags": 0,
+      "code": 5,
+      "namespace": "SIGNAL",
+      "indicator": "Trace/BPT trap: 5",
+      "byProc": "exc handler",
+      "byPid": 93628
+    },
+    "os_fault": {
+      "process": "Python"
+    },
+    "asi": {
+      "libsystem_c.dylib": [
+        "abort() called"
+      ]
+    },
+    "extMods": {
+      "caller": {
+        "thread_create": 0,
+        "thread_set_state": 0,
+        "task_for_pid": 0
+      },
+      "system": {
+        "thread_create": 0,
+        "thread_set_state": 0,
+        "task_for_pid": 0
+      },
+      "targeted": {
+        "thread_create": 0,
+        "thread_set_state": 0,
+        "task_for_pid": 0
+      },
+      "warnings": 0
+    },
+    "faultingThread": 1,
+    "threads": [
+      {
+        "id": 233774,
+        "threadState": {
+          "x": [
+            {
+              "value": 260
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 61696
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 160
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 6130491896
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 3328
+            },
+            {
+              "value": 14293651164418
+            },
+            {
+              "value": 14293651164418
+            },
+            {
+              "value": 3328
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 14293651164416
+            },
+            {
+              "value": 305
+            },
+            {
+              "value": 8471156032
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 105553173138496
+            },
+            {
+              "value": 105553163638496
+            },
+            {
+              "value": 8454022048,
+              "symbolLocation": 224,
+              "symbol": "_main_thread"
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 61696
+            },
+            {
+              "value": 61697
+            },
+            {
+              "value": 61952
+            },
+            {
+              "value": 29
+            },
+            {
+              "value": 30
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 6608781468
+          },
+          "cpsr": {
+            "value": 1610616832
+          },
+          "fp": {
+            "value": 6130492016
+          },
+          "sp": {
+            "value": 6130491872
+          },
+          "esr": {
+            "value": 1442840704,
+            "description": " Address size fault"
+          },
+          "pc": {
+            "value": 6608524236
+          },
+          "far": {
+            "value": 0
+          }
+        },
+        "queue": "com.apple.main-thread",
+        "frames": [
+          {
+            "imageOffset": 17356,
+            "symbol": "__psynch_cvwait",
+            "symbolLocation": 8,
+            "imageIndex": 35
+          },
+          {
+            "imageOffset": 28828,
+            "symbol": "_pthread_cond_wait",
+            "symbolLocation": 984,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 5131316,
+            "symbol": "_RNvMs3_NtCs5fJiRc5JJ2V_10rayon_core5latchNtB5_9LockLatch14wait_and_reset",
+            "symbolLocation": 136,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 6800904,
+            "symbol": "_RINvMs4_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB6_8Registry14in_worker_coldNCINvMNtB8_11thread_poolNtB1h_10ThreadPool7installNCINvNtNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB26_NtNtNtB2a_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_0INtNtCshxvaOLs88l5_5alloc3vec3VecINtNtCs8Mbv00yxnRz_4core6result6ResultTIB5r_NtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB5r_NtB6H_14CenteredMomentEIB5r_NtB6H_18CenteredCovarianceEIB5r_IB5r_dEEENtNtNtB2c_3api5error15MonteCarloErrorEEE0B5q_EB2c_",
+            "symbolLocation": 196,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 533328,
+            "symbol": "_RINvNtNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB4_NtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0EBa_",
+            "symbolLocation": 2524,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2785928,
+            "symbol": "_RNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB6_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samples",
+            "symbolLocation": 3820,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5933112,
+            "symbol": "_RNvMsK_Cs7ZGlw4pkGHt_12rust_pricingNtB5_13PyPricingPlan58___pymethod_evaluate_vega_kt_multi_step_gamma_chain_audit__",
+            "symbolLocation": 1124,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5242716,
+            "symbol": "_RINvNtNtCsiRKsNLi3YqH_4pyo35impl_10trampoline10trampolineNCNvNtB2_32fastcall_cfunction_with_keywords5inner0ONtNtCsdc5tGmECoyc_8pyo3_ffi6object8PyObjectECs7ZGlw4pkGHt_12rust_pricing",
+            "symbolLocation": 124,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5255192,
+            "symbol": "_RINvNtNtCsiRKsNLi3YqH_4pyo35impl_10trampoline32fastcall_cfunction_with_keywordsNtNvNvXsJ_Cs7ZGlw4pkGHt_12rust_pricingINtNtB4_7pyclass20PyClassImplCollectorNtB1p_13PyPricingPlanEINtB1U_9PyMethodsB2t_E10py_methods5ITEMSs6_3DefEB1p_",
+            "symbolLocation": 72,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 610724,
+            "symbol": "method_vectorcall_FASTCALL_KEYWORDS",
+            "symbolLocation": 132,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016472,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48376,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 560096,
+            "symbol": "method_vectorcall",
+            "symbolLocation": 180,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2024480,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 56384,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 542980,
+            "symbol": "_PyObject_FastCallDictTstate",
+            "symbolLocation": 96,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1174548,
+            "symbol": "slot_tp_call",
+            "symbolLocation": 208,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 543616,
+            "symbol": "_PyObject_MakeTpCall",
+            "symbolLocation": 128,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016824,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48728,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 560096,
+            "symbol": "method_vectorcall",
+            "symbolLocation": 180,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2024480,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 56384,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 542980,
+            "symbol": "_PyObject_FastCallDictTstate",
+            "symbolLocation": 96,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1174548,
+            "symbol": "slot_tp_call",
+            "symbolLocation": 208,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 543616,
+            "symbol": "_PyObject_MakeTpCall",
+            "symbolLocation": 128,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016824,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48728,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 560096,
+            "symbol": "method_vectorcall",
+            "symbolLocation": 180,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2024480,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 56384,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 542980,
+            "symbol": "_PyObject_FastCallDictTstate",
+            "symbolLocation": 96,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1174548,
+            "symbol": "slot_tp_call",
+            "symbolLocation": 208,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 543616,
+            "symbol": "_PyObject_MakeTpCall",
+            "symbolLocation": 128,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016824,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48728,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 560096,
+            "symbol": "method_vectorcall",
+            "symbolLocation": 180,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2024480,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 56384,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 542980,
+            "symbol": "_PyObject_FastCallDictTstate",
+            "symbolLocation": 96,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1174548,
+            "symbol": "slot_tp_call",
+            "symbolLocation": 208,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 543616,
+            "symbol": "_PyObject_MakeTpCall",
+            "symbolLocation": 128,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016824,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48728,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 543092,
+            "symbol": "_PyObject_FastCallDictTstate",
+            "symbolLocation": 208,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1181136,
+            "symbol": "slot_tp_init",
+            "symbolLocation": 208,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1135636,
+            "symbol": "type_call",
+            "symbolLocation": 148,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 543616,
+            "symbol": "_PyObject_MakeTpCall",
+            "symbolLocation": 128,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016824,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48728,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1967172,
+            "symbol": "PyEval_EvalCode",
+            "symbolLocation": 304,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 1948060,
+            "symbol": "builtin_exec",
+            "symbolLocation": 404,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 988008,
+            "symbol": "cfunction_vectorcall_FASTCALL_KEYWORDS",
+            "symbolLocation": 92,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2016472,
+            "symbol": "_PyEval_EvalFrameDefault",
+            "symbolLocation": 48376,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2682220,
+            "symbol": "pymain_run_module",
+            "symbolLocation": 280,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2678804,
+            "symbol": "Py_RunMain",
+            "symbolLocation": 252,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2681356,
+            "symbol": "pymain_main",
+            "symbolLocation": 500,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 2681640,
+            "symbol": "Py_BytesMain",
+            "symbolLocation": 40,
+            "imageIndex": 1
+          },
+          {
+            "imageOffset": 27544,
+            "symbol": "start",
+            "symbolLocation": 6076,
+            "imageIndex": 37
+          }
+        ]
+      },
+      {
+        "triggered": true,
+        "id": 297451,
+        "threadState": {
+          "x": [
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 10000000
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 2832
+            },
+            {
+              "value": 4294967271
+            },
+            {
+              "value": 8454064456,
+              "symbolLocation": 0,
+              "symbol": "errno"
+            },
+            {
+              "value": 1000
+            },
+            {
+              "value": 1099511627776
+            },
+            {
+              "value": 4294967293
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 48
+            },
+            {
+              "value": 8471160616
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 6132215808
+            },
+            {
+              "value": 6132213776
+            },
+            {
+              "value": 4340039720
+            },
+            {
+              "value": 6606927290
+            },
+            {
+              "value": 6132215520
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 6130509183
+            },
+            {
+              "value": 6132215808
+            },
+            {
+              "value": 0
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 6607768480
+          },
+          "cpsr": {
+            "value": 1073745920
+          },
+          "fp": {
+            "value": 6132213808
+          },
+          "sp": {
+            "value": 6132213760
+          },
+          "esr": {
+            "value": 4060086273,
+            "description": "(Breakpoint) brk 1"
+          },
+          "pc": {
+            "value": 6607768480,
+            "matchesCrashFrame": 1
+          },
+          "far": {
+            "value": 0
+          }
+        },
+        "frames": [
+          {
+            "imageOffset": 494496,
+            "symbol": "__abort",
+            "symbolLocation": 164,
+            "imageIndex": 39
+          },
+          {
+            "imageOffset": 494496,
+            "symbol": "__abort",
+            "symbolLocation": 164,
+            "imageIndex": 39
+          },
+          {
+            "imageOffset": 494332,
+            "symbol": "abort",
+            "symbolLocation": 136,
+            "imageIndex": 39
+          },
+          {
+            "imageOffset": 57716,
+            "symbol": "malloc_vreport",
+            "symbolLocation": 892,
+            "imageIndex": 40
+          },
+          {
+            "imageOffset": 72848,
+            "symbol": "malloc_report",
+            "symbolLocation": 64,
+            "imageIndex": 40
+          },
+          {
+            "imageOffset": 90652,
+            "symbol": "___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED",
+            "symbolLocation": 32,
+            "imageIndex": 40
+          },
+          {
+            "imageOffset": 69876,
+            "symbol": "_dispatch_cache_cleanup",
+            "symbolLocation": 28,
+            "imageIndex": 41
+          },
+          {
+            "imageOffset": 18044,
+            "symbol": "_pthread_tsd_cleanup",
+            "symbolLocation": 620,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 29352,
+            "symbol": "_pthread_exit",
+            "symbolLocation": 84,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 17236,
+            "symbol": "_pthread_wqthread_exit",
+            "symbolLocation": 56,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 11944,
+            "symbol": "_pthread_wqthread",
+            "symbolLocation": 428,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 7028,
+            "symbol": "start_wqthread",
+            "symbolLocation": 8,
+            "imageIndex": 36
+          }
+        ]
+      },
+      {
+        "id": 299462,
+        "frames": [
+          {
+            "imageOffset": 7020,
+            "symbol": "start_wqthread",
+            "symbolLocation": 0,
+            "imageIndex": 36
+          }
+        ],
+        "threadState": {
+          "x": [
+            {
+              "value": 6131068928
+            },
+            {
+              "value": 5899
+            },
+            {
+              "value": 6130532352
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 409603
+            },
+            {
+              "value": 18446744073709551615
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 0
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 0
+          },
+          "cpsr": {
+            "value": 4096
+          },
+          "fp": {
+            "value": 0
+          },
+          "sp": {
+            "value": 6131068928
+          },
+          "esr": {
+            "value": 1442840704,
+            "description": " Address size fault"
+          },
+          "pc": {
+            "value": 6608759660
+          },
+          "far": {
+            "value": 0
+          }
+        }
+      },
+      {
+        "id": 299473,
+        "name": "pricing-worker-0",
+        "threadState": {
+          "x": [
+            {
+              "value": 5024841736
+            },
+            {
+              "value": 24
+            },
+            {
+              "value": 21
+            },
+            {
+              "value": 4598175219545276416
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 37
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 4616881312626300971
+            },
+            {
+              "value": 4294967295
+            },
+            {
+              "value": 4294967295
+            },
+            {
+              "value": 153
+            },
+            {
+              "value": 20
+            },
+            {
+              "value": 119
+            },
+            {
+              "value": 120
+            },
+            {
+              "value": 152
+            },
+            {
+              "value": 5024905728
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 4990376800
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 6130493496
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 5
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 105553173142976
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 6134358904
+            },
+            {
+              "value": 105553151002928
+            },
+            {
+              "value": 8
+            },
+            {
+              "value": 105553173142984
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 4383002832
+          },
+          "cpsr": {
+            "value": 1610616832
+          },
+          "fp": {
+            "value": 6134357840
+          },
+          "sp": {
+            "value": 6134357376
+          },
+          "esr": {
+            "value": 1442840704,
+            "description": " Address size fault"
+          },
+          "pc": {
+            "value": 4383002928
+          },
+          "far": {
+            "value": 0
+          }
+        },
+        "frames": [
+          {
+            "imageOffset": 2494768,
+            "symbol": "_RNCNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtBa_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0s0_0Bc_",
+            "symbolLocation": 872,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2494672,
+            "symbol": "_RNCNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtBa_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0s0_0Bc_",
+            "symbolLocation": 776,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2494672,
+            "symbol": "_RNCNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtBa_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0s0_0Bc_",
+            "symbolLocation": 776,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2561896,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0Ba_",
+            "symbolLocation": 8464,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2569924,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless9_0Ba_",
+            "symbolLocation": 68,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1025708,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 932,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 4902100,
+            "symbol": "_RNvXs2_NtCs5fJiRc5JJ2V_10rayon_core3jobINtB5_8StackJobNtNtB7_5latch9SpinLatchNCINvNvNtB7_4join12join_context6call_bINtNtNtNtCs8M0oLebOVsf_5rayon4iter7collect8consumer13CollectResultINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCINvNvNtB1W_8plumbing24bridge_producer_consumer6helperINtNtB1Y_5range12IterProducerjEINtNtB1W_3map11MapConsumerIB8x_INtB1S_15CollectConsumerB2T_ENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB9D_NtNtNtB9H_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B84_yNtNtB84_7private12RangeInteger15drive_unindexed6offset0EEs_0E0B1P_ENtB5_3Job7executeB6j_",
+            "symbolLocation": 116,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 7149144,
+            "symbol": "_RNvMs8_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB5_12WorkerThread15wait_until_cold",
+            "symbolLocation": 316,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5130760,
+            "symbol": "_RNvMNtCs5fJiRc5JJ2V_10rayon_core8registryNtB2_13ThreadBuilder3run",
+            "symbolLocation": 300,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5128968,
+            "symbol": "_RINvNtNtCs82bWklYMk3w_3std3sys9backtrace28___rust_begin_short_backtraceNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1f_12DefaultSpawnNtB1f_11ThreadSpawn5spawn0uEB1h_",
+            "symbolLocation": 12,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5129780,
+            "symbol": "_RNSNvYNCINvNtNtCs82bWklYMk3w_3std6thread9lifecycle15spawn_uncheckedNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1b_12DefaultSpawnNtB1b_11ThreadSpawn5spawn0uEs_0INtNtNtCs8Mbv00yxnRz_4core3ops8function6FnOnceuE9call_once6vtableB1d_",
+            "symbolLocation": 140,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 6585476,
+            "symbol": "_RNvNvMs0_NtNtNtCs82bWklYMk3w_3std3sys6thread4unixNtB7_6Thread3new12thread_start",
+            "symbolLocation": 320,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 27592,
+            "symbol": "_pthread_start",
+            "symbolLocation": 136,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 7040,
+            "symbol": "thread_start",
+            "symbolLocation": 8,
+            "imageIndex": 36
+          }
+        ]
+      },
+      {
+        "id": 299474,
+        "name": "pricing-worker-1",
+        "threadState": {
+          "x": [
+            {
+              "value": 54525952
+            },
+            {
+              "value": 105553153040320
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 105553151047632
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 14272
+            },
+            {
+              "value": 4607182418800017408
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 512
+            },
+            {
+              "value": 2200465646
+            },
+            {
+              "value": 511
+            },
+            {
+              "value": 8128
+            },
+            {
+              "value": 2043
+            },
+            {
+              "value": 2045
+            },
+            {
+              "value": 555008
+            },
+            {
+              "value": 238
+            },
+            {
+              "value": 2202009600
+            },
+            {
+              "value": 2200467694
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 4336713728
+            },
+            {
+              "value": 105553153040320
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 105553151050892
+            },
+            {
+              "value": 4336742400
+            },
+            {
+              "value": 32
+            },
+            {
+              "value": 5024840224
+            },
+            {
+              "value": 4294967295
+            },
+            {
+              "value": 105553151047616
+            },
+            {
+              "value": 15
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 4383048616
+          },
+          "cpsr": {
+            "value": 2147487744
+          },
+          "fp": {
+            "value": 6136499600
+          },
+          "sp": {
+            "value": 6136499552
+          },
+          "esr": {
+            "value": 1442840704,
+            "description": " Address size fault"
+          },
+          "pc": {
+            "value": 6606831228
+          },
+          "far": {
+            "value": 0
+          }
+        },
+        "frames": [
+          {
+            "imageOffset": 155260,
+            "symbol": "_nanov2_free",
+            "symbolLocation": 612,
+            "imageIndex": 40
+          },
+          {
+            "imageOffset": 2540456,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless6_0Ba_",
+            "symbolLocation": 2704,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2494388,
+            "symbol": "_RNCNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtBa_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0s0_0Bc_",
+            "symbolLocation": 492,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2561896,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0Ba_",
+            "symbolLocation": 8464,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2569924,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless9_0Ba_",
+            "symbolLocation": 68,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1025708,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 932,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441484,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441652,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 492,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441484,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 4902100,
+            "symbol": "_RNvXs2_NtCs5fJiRc5JJ2V_10rayon_core3jobINtB5_8StackJobNtNtB7_5latch9SpinLatchNCINvNvNtB7_4join12join_context6call_bINtNtNtNtCs8M0oLebOVsf_5rayon4iter7collect8consumer13CollectResultINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCINvNvNtB1W_8plumbing24bridge_producer_consumer6helperINtNtB1Y_5range12IterProducerjEINtNtB1W_3map11MapConsumerIB8x_INtB1S_15CollectConsumerB2T_ENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB9D_NtNtNtB9H_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B84_yNtNtB84_7private12RangeInteger15drive_unindexed6offset0EEs_0E0B1P_ENtB5_3Job7executeB6j_",
+            "symbolLocation": 116,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 7149144,
+            "symbol": "_RNvMs8_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB5_12WorkerThread15wait_until_cold",
+            "symbolLocation": 316,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5130760,
+            "symbol": "_RNvMNtCs5fJiRc5JJ2V_10rayon_core8registryNtB2_13ThreadBuilder3run",
+            "symbolLocation": 300,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5128968,
+            "symbol": "_RINvNtNtCs82bWklYMk3w_3std3sys9backtrace28___rust_begin_short_backtraceNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1f_12DefaultSpawnNtB1f_11ThreadSpawn5spawn0uEB1h_",
+            "symbolLocation": 12,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5129780,
+            "symbol": "_RNSNvYNCINvNtNtCs82bWklYMk3w_3std6thread9lifecycle15spawn_uncheckedNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1b_12DefaultSpawnNtB1b_11ThreadSpawn5spawn0uEs_0INtNtNtCs8Mbv00yxnRz_4core3ops8function6FnOnceuE9call_once6vtableB1d_",
+            "symbolLocation": 140,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 6585476,
+            "symbol": "_RNvNvMs0_NtNtNtCs82bWklYMk3w_3std3sys6thread4unixNtB7_6Thread3new12thread_start",
+            "symbolLocation": 320,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 27592,
+            "symbol": "_pthread_start",
+            "symbolLocation": 136,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 7040,
+            "symbol": "thread_start",
+            "symbolLocation": 8,
+            "imageIndex": 36
+          }
+        ]
+      },
+      {
+        "id": 299475,
+        "name": "pricing-worker-2",
+        "threadState": {
+          "x": [
+            {
+              "value": 4336713728
+            },
+            {
+              "value": 105553173066944
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 105553151018928
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 1952
+            },
+            {
+              "value": 4607182418800017408
+            },
+            {
+              "value": 4616937607621643102
+            },
+            {
+              "value": 16
+            },
+            {
+              "value": 3094298666
+            },
+            {
+              "value": 511
+            },
+            {
+              "value": 1728
+            },
+            {
+              "value": 2043
+            },
+            {
+              "value": 2045
+            },
+            {
+              "value": 3096397879
+            },
+            {
+              "value": 3094298666
+            },
+            {
+              "value": 6606681716,
+              "symbolLocation": 0,
+              "symbol": "free"
+            },
+            {
+              "value": 55
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 6138646344
+            },
+            {
+              "value": 48
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 4452301920
+            },
+            {
+              "value": 10
+            },
+            {
+              "value": 4990308360
+            },
+            {
+              "value": 5024840224
+            },
+            {
+              "value": 4294967295
+            },
+            {
+              "value": 105553151018912
+            },
+            {
+              "value": 15
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 4383048632
+          },
+          "cpsr": {
+            "value": 536875008
+          },
+          "fp": {
+            "value": 6138646080
+          },
+          "sp": {
+            "value": 6138645632
+          },
+          "esr": {
+            "value": 1442840704,
+            "description": " Address size fault"
+          },
+          "pc": {
+            "value": 6606887840
+          },
+          "far": {
+            "value": 0
+          }
+        },
+        "frames": [
+          {
+            "imageOffset": 211872,
+            "symbol": "_free",
+            "symbolLocation": 56,
+            "imageIndex": 40
+          },
+          {
+            "imageOffset": 2540472,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless6_0Ba_",
+            "symbolLocation": 2720,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2494388,
+            "symbol": "_RNCNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtBa_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0s0_0Bc_",
+            "symbolLocation": 492,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2561896,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0Ba_",
+            "symbolLocation": 8464,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2570180,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless9_0Ba_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1025708,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 932,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441652,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 492,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441484,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441484,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2279444,
+            "symbol": "_RNCINvMNtCs5fJiRc5JJ2V_10rayon_core11thread_poolNtB5_10ThreadPool7installNCINvNtNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB1g_NtNtNtB1k_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_0INtNtCshxvaOLs88l5_5alloc3vec3VecINtNtCs8Mbv00yxnRz_4core6result6ResultTIB4B_NtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4B_NtB5R_14CenteredMomentEIB4B_NtB5R_18CenteredCovarianceEIB4B_IB4B_dEEENtNtNtB1m_3api5error15MonteCarloErrorEEE0B1m_",
+            "symbolLocation": 256,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 4605708,
+            "symbol": "_RNvXs2_NtCs5fJiRc5JJ2V_10rayon_core3jobINtB5_8StackJobINtNtB7_5latch8LatchRefNtBT_9LockLatchENCNCINvMs4_NtB7_8registryNtB1E_8Registry14in_worker_coldNCINvMNtB7_11thread_poolNtB2t_10ThreadPool7installNCINvNtNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB3i_NtNtNtB3m_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_0INtNtCshxvaOLs88l5_5alloc3vec3VecINtNtCs8Mbv00yxnRz_4core6result6ResultTIB6D_NtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB6D_NtB7T_14CenteredMomentEIB6D_NtB7T_18CenteredCovarianceEIB6D_IB6D_dEEENtNtNtB3o_3api5error15MonteCarloErrorEEE0B6C_E00B6C_ENtB5_3Job7executeB3o_",
+            "symbolLocation": 108,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 7149144,
+            "symbol": "_RNvMs8_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB5_12WorkerThread15wait_until_cold",
+            "symbolLocation": 316,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5130760,
+            "symbol": "_RNvMNtCs5fJiRc5JJ2V_10rayon_core8registryNtB2_13ThreadBuilder3run",
+            "symbolLocation": 300,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5128968,
+            "symbol": "_RINvNtNtCs82bWklYMk3w_3std3sys9backtrace28___rust_begin_short_backtraceNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1f_12DefaultSpawnNtB1f_11ThreadSpawn5spawn0uEB1h_",
+            "symbolLocation": 12,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5129780,
+            "symbol": "_RNSNvYNCINvNtNtCs82bWklYMk3w_3std6thread9lifecycle15spawn_uncheckedNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1b_12DefaultSpawnNtB1b_11ThreadSpawn5spawn0uEs_0INtNtNtCs8Mbv00yxnRz_4core3ops8function6FnOnceuE9call_once6vtableB1d_",
+            "symbolLocation": 140,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 6585476,
+            "symbol": "_RNvNvMs0_NtNtNtCs82bWklYMk3w_3std3sys6thread4unixNtB7_6Thread3new12thread_start",
+            "symbolLocation": 320,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 27592,
+            "symbol": "_pthread_start",
+            "symbolLocation": 136,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 7040,
+            "symbol": "thread_start",
+            "symbolLocation": 8,
+            "imageIndex": 36
+          }
+        ]
+      },
+      {
+        "id": 299476,
+        "name": "pricing-worker-3",
+        "threadState": {
+          "x": [
+            {
+              "value": 4990197488
+            },
+            {
+              "value": 6140793680
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 105553151002736
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 2144
+            },
+            {
+              "value": 4607182418800017408
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 4990197488
+            },
+            {
+              "value": 8
+            },
+            {
+              "value": 1023
+            },
+            {
+              "value": 1824
+            },
+            {
+              "value": 2043
+            },
+            {
+              "value": 2045
+            },
+            {
+              "value": 3953018995
+            },
+            {
+              "value": 3950919832
+            },
+            {
+              "value": 3951034368
+            },
+            {
+              "value": 115
+            },
+            {
+              "value": 0
+            },
+            {
+              "value": 6140794136
+            },
+            {
+              "value": 48
+            },
+            {
+              "value": 1
+            },
+            {
+              "value": 4990197872
+            },
+            {
+              "value": 10
+            },
+            {
+              "value": 4990308360
+            },
+            {
+              "value": 5024840224
+            },
+            {
+              "value": 4294967295
+            },
+            {
+              "value": 105553151002720
+            },
+            {
+              "value": 15
+            }
+          ],
+          "flavor": "ARM_THREAD_STATE64",
+          "lr": {
+            "value": 4383048584
+          },
+          "cpsr": {
+            "value": 2147487744
+          },
+          "fp": {
+            "value": 6140793872
+          },
+          "sp": {
+            "value": 6140793424
+          },
+          "esr": {
+            "value": 1442840704,
+            "description": " Address size fault"
+          },
+          "pc": {
+            "value": 4383048600
+          },
+          "far": {
+            "value": 0
+          }
+        },
+        "frames": [
+          {
+            "imageOffset": 2540440,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless6_0Ba_",
+            "symbolLocation": 2688,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2540424,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless6_0Ba_",
+            "symbolLocation": 2672,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2494388,
+            "symbol": "_RNCNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtBa_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0s0_0Bc_",
+            "symbolLocation": 492,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2561896,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless8_0Ba_",
+            "symbolLocation": 8464,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2569924,
+            "symbol": "_RNCNvMNtNtNtCsiR6vNk4WvY1_7pricing6engine4risk17vegakt_path_chainNtNtNtB8_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_sampless9_0Ba_",
+            "symbolLocation": 68,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1025708,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 932,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441484,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 2441484,
+            "symbol": "_RNCINvNtCs5fJiRc5JJ2V_10rayon_core4join12join_contextNCINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB10_5range12IterProducerjEINtNtBY_3map11MapConsumerIB2B_INtNtNtBY_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB4q_NtB4Y_14CenteredMomentEIB4q_NtB4Y_18CenteredCovarianceEIB4q_IB4q_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB7c_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB8a_NtNtNtB8e_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B28_yNtNtB28_7private12RangeInteger15drive_unindexed6offset0EE0NCBR_s_0INtB37_13CollectResultB3M_EBcx_E0B7c_",
+            "symbolLocation": 324,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 1027132,
+            "symbol": "_RINvNvNtNtCs8M0oLebOVsf_5rayon4iter8plumbing24bridge_producer_consumer6helperINtNtB8_5range12IterProducerjEINtNtB6_3map11MapConsumerIB1I_INtNtNtB6_7collect8consumer15CollectConsumerINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB7h_NtNtNtB7l_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B1g_yNtNtB1g_7private12RangeInteger15drive_unindexed6offset0EEB6j_",
+            "symbolLocation": 2356,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 4902100,
+            "symbol": "_RNvXs2_NtCs5fJiRc5JJ2V_10rayon_core3jobINtB5_8StackJobNtNtB7_5latch9SpinLatchNCINvNvNtB7_4join12join_context6call_bINtNtNtNtCs8M0oLebOVsf_5rayon4iter7collect8consumer13CollectResultINtNtCs8Mbv00yxnRz_4core6result6ResultTINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCsesPmqimsE3T_16pricing_numerics9reduction11NeumaierSumEIB3x_NtB45_14CenteredMomentEIB3x_NtB45_18CenteredCovarianceEIB3x_IB3x_dEEENtNtNtCsiR6vNk4WvY1_7pricing3api5error15MonteCarloErrorEENCINvNvNtB1W_8plumbing24bridge_producer_consumer6helperINtNtB1Y_5range12IterProducerjEINtNtB1W_3map11MapConsumerIB8x_INtB1S_15CollectConsumerB2T_ENCNCINvNtNtNtNtB6j_6engine4risk17vegakt_path_chain10statistics18evaluate_retainingNCNvMB9D_NtNtNtB9H_4plan10simulation14SimulationPlan52evaluate_vega_kt_multi_step_gamma_chain_with_samplesse_0Es0_00ENCNvNvXsv_B84_yNtNtB84_7private12RangeInteger15drive_unindexed6offset0EEs_0E0B1P_ENtB5_3Job7executeB6j_",
+            "symbolLocation": 116,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 7149144,
+            "symbol": "_RNvMs8_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB5_12WorkerThread15wait_until_cold",
+            "symbolLocation": 316,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5130760,
+            "symbol": "_RNvMNtCs5fJiRc5JJ2V_10rayon_core8registryNtB2_13ThreadBuilder3run",
+            "symbolLocation": 300,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5128968,
+            "symbol": "_RINvNtNtCs82bWklYMk3w_3std3sys9backtrace28___rust_begin_short_backtraceNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1f_12DefaultSpawnNtB1f_11ThreadSpawn5spawn0uEB1h_",
+            "symbolLocation": 12,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 5129780,
+            "symbol": "_RNSNvYNCINvNtNtCs82bWklYMk3w_3std6thread9lifecycle15spawn_uncheckedNCNvXs0_NtCs5fJiRc5JJ2V_10rayon_core8registryNtB1b_12DefaultSpawnNtB1b_11ThreadSpawn5spawn0uEs_0INtNtNtCs8Mbv00yxnRz_4core3ops8function6FnOnceuE9call_once6vtableB1d_",
+            "symbolLocation": 140,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 6585476,
+            "symbol": "_RNvNvMs0_NtNtNtCs82bWklYMk3w_3std3sys6thread4unixNtB7_6Thread3new12thread_start",
+            "symbolLocation": 320,
+            "imageIndex": 16
+          },
+          {
+            "imageOffset": 27592,
+            "symbol": "_pthread_start",
+            "symbolLocation": 136,
+            "imageIndex": 36
+          },
+          {
+            "imageOffset": 7040,
+            "symbol": "thread_start",
+            "symbolLocation": 8,
+            "imageIndex": 36
+          }
+        ]
+      }
+    ],
+    "usedImages": [
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4336369664,
+        "CFBundleShortVersionString": "3.12.10",
+        "CFBundleIdentifier": "org.python.python",
+        "size": 16384,
+        "uuid": "547e7e79-9aea-3add-a080-ad8e9ba98162",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python",
+        "name": "Python",
+        "CFBundleVersion": "3.12.10"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4357193728,
+        "CFBundleShortVersionString": "3.12.10, (c) 2001-2023 Python Software Foundation.",
+        "CFBundleIdentifier": "org.python.python",
+        "size": 4276224,
+        "uuid": "2cf94af1-abc3-3015-b8d0-4078bb56b015",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/Python",
+        "name": "Python",
+        "CFBundleVersion": "3.12.10"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4340088832,
+        "size": 16384,
+        "uuid": "ce95e1e9-9806-39e0-9288-0fbfffd8c75e",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_heapq.cpython-312-darwin.so",
+        "name": "_heapq.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4340170752,
+        "size": 16384,
+        "uuid": "a51f8020-290d-31c3-a20f-6bbd9e63b59e",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_opcode.cpython-312-darwin.so",
+        "name": "_opcode.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4339924992,
+        "size": 32768,
+        "uuid": "2f010c41-2e83-367e-9579-1661dcebf365",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/zlib.cpython-312-darwin.so",
+        "name": "zlib.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4340416512,
+        "size": 16384,
+        "uuid": "87352622-cbc5-366c-aa7a-06f920c72bbb",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_bz2.cpython-312-darwin.so",
+        "name": "_bz2.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4342546432,
+        "size": 196608,
+        "uuid": "b4ea5119-772a-3b6a-bbcb-7b33b0cdc042",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_lzma.cpython-312-darwin.so",
+        "name": "_lzma.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4342349824,
+        "size": 81920,
+        "uuid": "e8c87013-16d1-3cd8-af58-0a8c2ac54ac7",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_datetime.cpython-312-darwin.so",
+        "name": "_datetime.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4340252672,
+        "size": 32768,
+        "uuid": "f74d5623-01b1-3230-a499-182ad695b37e",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_json.cpython-312-darwin.so",
+        "name": "_json.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4343873536,
+        "size": 49152,
+        "uuid": "3b2715b5-2d9b-3718-becc-9e8cf1222d01",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/math.cpython-312-darwin.so",
+        "name": "math.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4348002304,
+        "size": 3325952,
+        "uuid": "8f9c1cb6-ed18-3f5c-8419-eab3300d91f2",
+        "path": "/Users/USER/*/_multiarray_umath.cpython-312-darwin.so",
+        "name": "_multiarray_umath.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4342153216,
+        "size": 16384,
+        "uuid": "5ad3e431-1f27-3294-b3a1-f64be89968fa",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_contextvars.cpython-312-darwin.so",
+        "name": "_contextvars.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4341989376,
+        "size": 32768,
+        "uuid": "009ed07d-cf7f-3f79-bb4e-66c91d8cdc0e",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_struct.cpython-312-darwin.so",
+        "name": "_struct.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4346478592,
+        "size": 98304,
+        "uuid": "0c7256b8-2f0a-3d51-963e-d3f6792fb3e5",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_pickle.cpython-312-darwin.so",
+        "name": "_pickle.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4346101760,
+        "size": 81920,
+        "uuid": "2bd7508b-a654-3f66-8b9f-63bb8ce3e964",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_ctypes.cpython-312-darwin.so",
+        "name": "_ctypes.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4347707392,
+        "size": 98304,
+        "uuid": "80d60fef-66b0-35b3-a0b5-22e43d5f84c3",
+        "path": "/Users/USER/*/_umath_linalg.cpython-312-darwin.so",
+        "name": "_umath_linalg.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4380508160,
+        "size": 11714560,
+        "uuid": "2e6fed31-de0a-338c-a02a-6d4f49c8a9c9",
+        "path": "/Users/USER/*/rust_pricing.cpython-312-darwin.so",
+        "name": "rust_pricing.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4342235136,
+        "size": 32768,
+        "uuid": "ad061d66-6a1c-361a-82c0-de52fa9f4d62",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_hashlib.cpython-312-darwin.so",
+        "name": "_hashlib.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4353146880,
+        "size": 2490368,
+        "uuid": "183295a9-84e1-3460-9258-5b40c382dc03",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/libcrypto.3.dylib",
+        "name": "libcrypto.3.dylib"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4346298368,
+        "size": 32768,
+        "uuid": "a398acd3-46aa-307a-8fa3-e350f0b9e6bf",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_blake2.cpython-312-darwin.so",
+        "name": "_blake2.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4347871232,
+        "size": 32768,
+        "uuid": "c397f736-dccf-37ca-9931-e2f7f1e5fdd9",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_csv.cpython-312-darwin.so",
+        "name": "_csv.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4346396672,
+        "size": 16384,
+        "uuid": "6d7e1b5a-bde2-3ace-9f09-9d98fd783a65",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_bisect.cpython-312-darwin.so",
+        "name": "_bisect.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4356931584,
+        "size": 16384,
+        "uuid": "874fdd52-cb6e-394a-b836-1e831038ab46",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_random.cpython-312-darwin.so",
+        "name": "_random.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4356767744,
+        "size": 32768,
+        "uuid": "3c5f19e4-f909-374d-897f-0bdd16c562f4",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_sha2.cpython-312-darwin.so",
+        "name": "_sha2.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4367073280,
+        "size": 278528,
+        "uuid": "35371972-5642-3596-9f63-cb002c30a392",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_decimal.cpython-312-darwin.so",
+        "name": "_decimal.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4366254080,
+        "size": 16384,
+        "uuid": "36fc7583-fb0c-3eaf-8267-b84414168c58",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_statistics.cpython-312-darwin.so",
+        "name": "_statistics.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4366336000,
+        "size": 16384,
+        "uuid": "678b6d22-1706-34da-aab6-fe41b8d193fb",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/fcntl.cpython-312-darwin.so",
+        "name": "fcntl.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4366417920,
+        "size": 16384,
+        "uuid": "efe4eedd-c7ac-311c-a188-3f6fac443eeb",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_posixsubprocess.cpython-312-darwin.so",
+        "name": "_posixsubprocess.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4357013504,
+        "size": 32768,
+        "uuid": "72edc82b-9cec-38bb-9571-088f03002482",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/select.cpython-312-darwin.so",
+        "name": "select.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4366696448,
+        "size": 32768,
+        "uuid": "beaa8b4c-06f7-3453-8e19-e0dbd8bfe1ad",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/binascii.cpython-312-darwin.so",
+        "name": "binascii.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4366794752,
+        "size": 163840,
+        "uuid": "ff51554b-4cfa-31b8-9601-148e03727e1c",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/pyexpat.cpython-312-darwin.so",
+        "name": "pyexpat.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4357111808,
+        "size": 16384,
+        "uuid": "efb1a174-a0c7-3c67-a5a4-ff1bed4ba95c",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_uuid.cpython-312-darwin.so",
+        "name": "_uuid.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4376166400,
+        "size": 1114112,
+        "uuid": "3d609cb5-ec2f-3e10-a0cc-2589c22473e4",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/unicodedata.cpython-312-darwin.so",
+        "name": "unicodedata.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4374740992,
+        "size": 622592,
+        "uuid": "2eb870da-ad1a-37aa-898a-2af89ef806ab",
+        "path": "/Users/USER/*/rpds.cpython-312-darwin.so",
+        "name": "rpds.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64",
+        "base": 4366499840,
+        "size": 65536,
+        "uuid": "c4b20724-c8ee-3cd5-b68c-0d1d6ced8f56",
+        "path": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload/_socket.cpython-312-darwin.so",
+        "name": "_socket.cpython-312-darwin.so"
+      },
+      {
+        "source": "P",
+        "arch": "arm64e",
+        "base": 6608506880,
+        "size": 243188,
+        "uuid": "4d7a9e23-5b73-3c87-80e2-3b5e13f74f58",
+        "path": "/usr/lib/system/libsystem_kernel.dylib",
+        "name": "libsystem_kernel.dylib"
+      },
+      {
+        "source": "P",
+        "arch": "arm64e",
+        "base": 6608752640,
+        "size": 51832,
+        "uuid": "2886f4f3-500b-36c8-a20c-c457eb754e3d",
+        "path": "/usr/lib/system/libsystem_pthread.dylib",
+        "name": "libsystem_pthread.dylib"
+      },
+      {
+        "source": "P",
+        "arch": "arm64e",
+        "base": 6604947456,
+        "size": 636284,
+        "uuid": "aa296324-126c-32dd-9026-5b744f8eb283",
+        "path": "/usr/lib/dyld",
+        "name": "dyld"
+      },
+      {
+        "size": 0,
+        "source": "A",
+        "base": 0,
+        "uuid": "00000000-0000-0000-0000-000000000000"
+      },
+      {
+        "source": "P",
+        "arch": "arm64e",
+        "base": 6607273984,
+        "size": 529228,
+        "uuid": "2f87f7e4-6d67-339d-9db1-756a5618cfc7",
+        "path": "/usr/lib/system/libsystem_c.dylib",
+        "name": "libsystem_c.dylib"
+      },
+      {
+        "source": "P",
+        "arch": "arm64e",
+        "base": 6606675968,
+        "size": 290928,
+        "uuid": "3ce1e59c-91c8-3259-93d8-7ded66842979",
+        "path": "/usr/lib/system/libsystem_malloc.dylib",
+        "name": "libsystem_malloc.dylib"
+      },
+      {
+        "source": "P",
+        "arch": "arm64e",
+        "base": 6606970880,
+        "size": 288608,
+        "uuid": "63a54ce1-2ab6-3673-82e4-d8489d811475",
+        "path": "/usr/lib/system/libdispatch.dylib",
+        "name": "libdispatch.dylib"
+      }
+    ],
+    "sharedCache": {
+      "base": 6604111872,
+      "size": 5039996928,
+      "uuid": "0517ae48-31dc-3086-8d85-545fef4d70b7"
+    },
+    "vmSummary": "ReadOnly portion of Libraries: Total=877.2M resident=0K(0%) swapped_out_or_unallocated=877.2M(100%)\nWritable regions: Total=988.4M written=369K(0%) resident=369K(0%) swapped_out=0K(0%) unallocated=988.0M(100%)\n\n                                VIRTUAL   REGION \nREGION TYPE                        SIZE    COUNT (non-coalesced) \n===========                     =======  ======= \nKernel Alloc Once                   32K        1 \nMALLOC                           939.7M       22 \nMALLOC guard page                   96K        6 \nSTACK GUARD                        112K        7 \nStack                             25.2M        7 \nVM_ALLOCATE                       23.0M       25 \n__AUTH                             822K      161 \n__AUTH_CONST                      12.8M      296 \n__DATA                            5399K      310 \n__DATA_CONST                      12.3M      331 \n__DATA_DIRTY                       453K       89 \n__FONT_DATA                        2352        1 \n__LINKEDIT                       624.4M       36 \n__OBJC_RO                         61.4M        1 \n__OBJC_RW                         2397K        1 \n__TEXT                           252.9M      340 \n__TPRO_CONST                       128K        2 \npage table in kernel               369K        1 \nshared memory                       48K        2 \n===========                     =======  ======= \nTOTAL                              1.9G     1639 \n",
+    "legacyInfo": {
+      "threadTriggered": {}
+    },
+    "logWritingSignature": "a760b908f2c9a5b59335a19692e4bcc21d5e76dc",
+    "trialInfo": {
+      "rollouts": [
+        {
+          "rolloutId": "6297d96be2c9387df974efa4",
+          "factorPackIds": {},
+          "deploymentId": 240000032
+        },
+        {
+          "rolloutId": "642da32dea3b2418c750f848",
+          "factorPackIds": {},
+          "deploymentId": 240000011
+        }
+      ],
+      "experiments": []
+    }
+  }
+}

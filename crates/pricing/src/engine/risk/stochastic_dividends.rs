@@ -135,6 +135,21 @@ pub struct StochasticDividendPricingPlan {
 }
 
 impl StochasticDividendPricingPlan {
+    pub(crate) fn calibration_diagnostics(&self, id: u32) -> Vec<crate::ReportedCalibration> {
+        use super::calibration_report::lsv;
+        match &self.lsv {
+            Some(StochasticDividendLsvCalibration::One { calibration: c, .. }) => {
+                vec![lsv(id, c.config().seed(), c.diagnostics())]
+            }
+            Some(StochasticDividendLsvCalibration::Two { calibration: c, .. }) => {
+                vec![lsv(id, c.config().seed(), c.diagnostics())]
+            }
+            Some(StochasticDividendLsvCalibration::Rough { calibration: c, .. }) => {
+                vec![lsv(id, c.config().seed(), c.diagnostics())]
+            }
+            None => Vec::new(),
+        }
+    }
     pub fn compile_bs(
         request: &PricingRequest,
         model: BuehlerDividendModel,

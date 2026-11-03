@@ -265,6 +265,119 @@ fn compile_hybrid(
 }
 
 impl CompiledPricingSpecification {
+    pub(crate) fn calibration_diagnostics(
+        &self,
+        source: &PricingSpecification,
+    ) -> Vec<crate::ReportedCalibration> {
+        use super::calibration_report as report;
+        let id = source.product().underlying().get();
+        let seed = match &source.model().equity {
+            EquityModelSpec::LocalStochasticVolatility { particles, .. }
+            | EquityModelSpec::RoughLocalStochasticVolatility { particles, .. } => {
+                Some(particles.seed())
+            }
+            _ => None,
+        };
+        match &self.backend {
+            Backend::Standard(p) => {
+                let mut blocks = Vec::new();
+                if let Some(rows) = p.bass_calibration_diagnostics().filter(|r| !r.is_empty()) {
+                    blocks.push(report::bass(id, rows));
+                }
+                if let Some(rows) = p.bass_projection_diagnostics().filter(|r| !r.is_empty()) {
+                    blocks.push(report::bass_projection(id, rows));
+                }
+                blocks
+            }
+            Backend::Hybrid(p) => p
+                .calibration()
+                .map(|c| report::hull_white(id, seed.expect("LSV seed"), &c.diagnostics))
+                .into_iter()
+                .collect(),
+            Backend::BergomiLsv(p) => vec![report::lsv(
+                id,
+                p.calibration().config().seed(),
+                p.calibration().diagnostics(),
+            )],
+            Backend::BergomiTwoFactorLsv(p) => vec![report::lsv(
+                id,
+                p.calibration().config().seed(),
+                p.calibration().diagnostics(),
+            )],
+            Backend::RoughBergomiLsv(p) => vec![report::lsv(
+                id,
+                p.calibration().config().seed(),
+                p.calibration().diagnostics(),
+            )],
+            Backend::RoughFamilyLsv(p) => vec![report::lsv(
+                id,
+                p.calibration().config().seed(),
+                p.calibration().diagnostics(),
+            )],
+            Backend::Stochastic(_) | Backend::Rough(_) => Vec::new(),
+        }
+    }
+    pub(crate) fn validate_operation(
+        &self,
+        operation: crate::PricingOperation,
+    ) -> Result<(), MonteCarloError> {
+        use crate::PricingOperation as O;
+        match (&self.backend, operation) {
+            (_, O::Evaluate) => Ok(()),
+            (
+                Backend::Stochastic(p),
+                O::Aad {
+                    gamma_relative_bump: None,
+                },
+            ) => p.validate_source_aad(),
+            (
+                Backend::Hybrid(p),
+                O::Aad {
+                    gamma_relative_bump: None,
+                },
+            ) => p.validate_source_aad(),
+            (Backend::BergomiLsv(p), O::LocalVarianceRisk) => p.validate_source_local_variance(),
+            (Backend::BergomiTwoFactorLsv(p), O::LocalVarianceRisk) => {
+                p.validate_source_local_variance()
+            }
+            (Backend::RoughBergomiLsv(p), O::LocalVarianceRisk) => {
+                p.validate_source_local_variance()
+            }
+            (Backend::RoughFamilyLsv(p), O::LocalVarianceRisk) => {
+                p.validate_source_local_variance()
+            }
+            _ => Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "operation is not exposed by this source adapter",
+            }),
+        }
+    }
+    pub(crate) fn evaluate_operation(
+        &self,
+        operation: crate::PricingOperation,
+    ) -> Result<crate::PricingTaskOutput, MonteCarloError> {
+        use crate::{PricingOperation as O, PricingTaskOutput as Out};
+        self.validate_operation(operation)?;
+        Ok(match (&self.backend, operation) {
+            (_, O::Evaluate) => Out::SingleAsset(self.evaluate()?),
+            (Backend::Stochastic(p), O::Aad { .. }) => {
+                Out::HullWhiteRisk(Box::new(p.evaluate_aad()?))
+            }
+            (Backend::Hybrid(p), O::Aad { .. }) => Out::HullWhiteRisk(Box::new(p.evaluate_aad()?)),
+            (Backend::BergomiLsv(p), O::LocalVarianceRisk) => {
+                Out::LocalVarianceRisk(Box::new(p.evaluate_local_variance_risk()?))
+            }
+            (Backend::BergomiTwoFactorLsv(p), O::LocalVarianceRisk) => {
+                Out::LocalVarianceRisk(Box::new(p.evaluate_local_variance_risk()?))
+            }
+            (Backend::RoughBergomiLsv(p), O::LocalVarianceRisk) => {
+                Out::LocalVarianceRisk(Box::new(p.evaluate_local_variance_risk()?))
+            }
+            (Backend::RoughFamilyLsv(p), O::LocalVarianceRisk) => {
+                Out::LocalVarianceRisk(Box::new(p.evaluate_local_variance_risk()?))
+            }
+            _ => unreachable!("validated operation"),
+        })
+    }
     #[must_use]
     pub fn specification_fingerprint(&self) -> Fingerprint {
         self.fingerprint

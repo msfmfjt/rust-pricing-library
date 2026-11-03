@@ -206,6 +206,19 @@ pub struct PyMultiAssetProduct {
 #[pymethods]
 impl PyMultiAssetProduct {
     #[staticmethod]
+    fn from_graph(graph: &crate::product_graph::PyGraphProduct) -> Self {
+        Self {
+            inner: MultiAssetProduct::from_product_graph(graph.inner.clone()),
+        }
+    }
+    fn to_graph(&self, py: Python<'_>) -> PyResult<crate::product_graph::PyGraphProduct> {
+        self.inner
+            .to_product_graph()
+            .map(|inner| crate::product_graph::PyGraphProduct { inner })
+            .map_err(|e| invalid(py, e))
+    }
+
+    #[staticmethod]
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(underlying_ids,weights,scales,side,strike,expiry,payment_date,*,currency_id=1,notional=1.0,smoothing_half_width=None))]
     fn basket(
@@ -459,12 +472,23 @@ impl PyMultiAssetPlan {
             }
         })
         .map(|inner| Self { inner })
-        .map_err(|e| invalid(py, e))
+        .map_err(|e| {
+            // Preserve the historical ValidationError and issue payload while
+            // classifying the native compile failure from its retained causes.
+            let mut issue = PyValidationIssue::domain(
+                "/multi_asset",
+                "invalid_multi_asset_configuration",
+                e.to_string(),
+            );
+            issue.error_metadata =
+                crate::errors::ErrorMetadata::from_error(&e, crate::errors::Stage::Compile);
+            validation_exception(py, issue)
+        })
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyMultiAssetPrice> {
         py.detach(|| self.inner.evaluate())
             .map(|inner| PyMultiAssetPrice { inner })
-            .map_err(|e| pricing_exception(e.to_string()))
+            .map_err(pricing_exception)
     }
     #[pyo3(signature=(*,gamma_relative_bump=None))]
     fn evaluate_aad(
@@ -478,7 +502,7 @@ impl PyMultiAssetPlan {
             })
         })
         .map(|inner| PyMultiAssetPrice { inner })
-        .map_err(|e| pricing_exception(e.to_string()))
+        .map_err(pricing_exception)
     }
     #[getter]
     fn fingerprint(&self) -> &str {
@@ -611,7 +635,7 @@ impl PyMultiAssetRisk {
 #[pyclass(frozen, name = "MultiAssetPrice")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetPrice {
-    inner: MultiAssetPrice,
+    pub(super) inner: MultiAssetPrice,
 }
 #[pymethods]
 impl PyMultiAssetPrice {

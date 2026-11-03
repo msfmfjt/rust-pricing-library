@@ -30,9 +30,19 @@ The [Python type stub](../../rust_pricing.pyi) lists the typed entry points.
 
 Use [pricing specifications](pricing-specification.md) to save complete model
 compositions, calibration inputs and numerical settings and rebuild them through
-one Rust/Python entry point. The guide lists supported combinations and extension
+one Rust/Python entry point. [Typed Python construction](typed-python-sources.md)
+composes these inputs without JSON. The guide lists supported combinations and extension
 rules; the [Python example](../../examples/python/pricing_specification.py)
 demonstrates replay.
+
+Use [complete pricing tasks](pricing-tasks.md) for capability/preflight queries,
+shared risk reports with explicit units and uncertainty, and complete
+multi-asset or stochastic-dividend source replay.
+Inspect and save [calibration diagnostics](calibration-reports.md) through the
+same report, with explicit seeds, coordinates and availability.
+
+Use [structured Python errors](python-errors.md) to distinguish invalid inputs,
+unsupported operations, resource limits and numerical failures in batch work.
 
 Generate the Rust API reference from the repository root with:
 
@@ -87,3 +97,6 @@ features. Experimental model adapters have separate entry points and limitations
   timing commands, host metadata and interpretation.
 
 Required contributor checks are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+Use [product graphs](product-graphs.md) to build custom cash flows with the same
+Rust, Python and JSON source representation.

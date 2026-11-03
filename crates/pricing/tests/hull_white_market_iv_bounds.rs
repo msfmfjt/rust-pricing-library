@@ -4,8 +4,15 @@ use pricing::mc::{ExecutionPolicy, hull_white::HullWhiteLsvTarget, lsv::LsvParti
 use pricing::models::{
     Bergomi1Factor, HullWhite1Factor, HybridCorrelation, LocalVolatilitySpec, ModelSpec,
 };
-use pricing::{JsonLimits, PricingRequest, parse_request_json};
+use pricing::{
+    CapabilityStatus, EquityModelSpec, JsonLimits, MultiAssetSpecification, PricingModelSpec,
+    PricingOperation, PricingSource, PricingSpecification, PricingTask, RateModelSpec,
+    VolatilityFactorSpec, parse_pricing_task_json, parse_request_json,
+};
 
+const AAD: PricingOperation = PricingOperation::Aad {
+    gamma_relative_bump: None,
+};
 const BOUND_ERROR: &str = "market_iv_local_variance_bound_kink";
 
 fn surface(volatility: f64) -> MarketIvSurface {
@@ -47,32 +54,98 @@ fn rates() -> HullWhite1Factor {
     HullWhite1Factor::new(0.2, vec![0.0], vec![0.0]).unwrap()
 }
 
-fn plan(t: &HullWhiteLsvTarget) -> HullWhiteEquityPricingPlan {
-    let golden = parse_request_json(
+fn single(t: &HullWhiteLsvTarget) -> PricingSpecification {
+    let request = parse_request_json(
         include_bytes!("../../../fixtures/v1/pricing_request.golden.json"),
         JsonLimits::DEFAULT,
     )
     .unwrap();
-    // Same effective variance target as the forward-density target.
-    let request = PricingRequest::new(
-        golden.valuation_date(),
-        golden.product().clone(),
-        golden.market().clone(),
-        ModelSpec::LocalVolatility(local_model(t)),
-        golden.engine(),
-        golden.risk().clone(),
+    PricingSpecification::from_request(request, policy())
+        .with_model(
+            PricingModelSpec::new(
+                EquityModelSpec::LocalStochasticVolatility {
+                    target: local_model(t),
+                    factor: VolatilityFactorSpec::Bergomi(
+                        Bergomi1Factor::new(1.0, 0.0, -0.5).unwrap(),
+                    ),
+                    particles: particles(),
+                    forward_density: Some(t.clone()),
+                },
+                RateModelSpec::HullWhite {
+                    model: rates(),
+                    equity_rate_correlation: 0.0,
+                    vol_rate_correlations: vec![0.0],
+                },
+            ),
+            None,
+        )
+        .unwrap()
+}
+
+fn basket(t: &HullWhiteLsvTarget, basket_target: bool) -> MultiAssetSpecification {
+    let fixture = parse_pricing_task_json(
+        include_bytes!("../../../fixtures/task-v1/multi_asset_joint.golden.json"),
+        JsonLimits::DEFAULT,
     )
     .unwrap();
-    HullWhiteEquityPricingPlan::compile_lsv(
-        &request,
-        t,
-        Bergomi1Factor::new(1.0, 0.0, -0.5).unwrap(),
-        rates(),
-        HybridCorrelation::new(-0.5, 0.0, 0.0).unwrap(),
-        particles(),
+    let PricingSource::MultiAsset(s) = fixture.source() else {
+        panic!("basket fixture")
+    };
+    let mut model = s.model().clone();
+    model.hull_white.as_mut().unwrap().rate_model = rates();
+    if basket_target {
+        let (config, extensions) = model.local_correlation.as_mut().unwrap();
+        config.target = t.grid().clone();
+        extensions.hull_white_target = Some(t.clone());
+    } else {
+        model.local_correlation = None;
+        model.models[0] = ModelSpec::LocalVolatility(local_model(t));
+        model.hull_white.as_mut().unwrap().lsv_targets[0] = Some(t.clone());
+    }
+    MultiAssetSpecification::new(
+        s.valuation_date(),
+        s.product().clone(),
+        s.markets().to_vec(),
+        model,
+        s.engine(),
         policy(),
+        0.5,
     )
     .unwrap()
+}
+
+fn assert_price_only_at_bound(source: impl Into<PricingSource>) {
+    let task = PricingTask::new(source, PricingOperation::Evaluate).unwrap();
+    let compiled = task.compile().unwrap();
+    let price = compiled.evaluate().unwrap();
+    let capability = compiled.capability_for(AAD);
+    assert_eq!(
+        capability.status,
+        CapabilityStatus::Unsupported,
+        "{capability:?}"
+    );
+    assert!(
+        capability.detail.contains(BOUND_ERROR),
+        "{}",
+        capability.detail
+    );
+    assert!(
+        compiled
+            .with_operation(AAD)
+            .unwrap_err()
+            .to_string()
+            .contains(BOUND_ERROR)
+    );
+    assert!(
+        task.with_operation(AAD)
+            .unwrap()
+            .compile()
+            .unwrap_err()
+            .to_string()
+            .contains(BOUND_ERROR)
+    );
+    // Failed operation selection must leave the existing price task reusable.
+    assert_eq!(price, compiled.evaluate().unwrap());
 }
 
 #[test]
@@ -109,14 +182,50 @@ fn paired_quote_reverse_rejects_exact_bounds_with_unequal_one_sided_derivatives(
 }
 
 #[test]
-fn single_asset_native_plan_rejects_bound_quote_risk_but_keeps_price() {
+fn single_asset_native_and_task_preflight_reject_bound_quote_risk() {
     for (floor, cap) in [(1e-8, 0.0625), (0.0625, 4.0)] {
-        let plan = plan(&target(0.25, floor, cap));
+        let t = target(0.25, floor, cap);
+        let s = single(&t);
+        // Construct a legacy request with the exact same effective variance target.
+        let request = pricing::PricingRequest::new(
+            s.valuation_date(),
+            s.product().clone(),
+            s.market().clone(),
+            ModelSpec::LocalVolatility(local_model(&t)),
+            s.engine(),
+            s.risk().clone(),
+        )
+        .unwrap();
+        let plan = HullWhiteEquityPricingPlan::compile_lsv(
+            &request,
+            &t,
+            Bergomi1Factor::new(1.0, 0.0, -0.5).unwrap(),
+            rates(),
+            HybridCorrelation::new(-0.5, 0.0, 0.0).unwrap(),
+            particles(),
+            policy(),
+        )
+        .unwrap();
         let price = plan.evaluate().unwrap();
-        let error = plan.evaluate_aad().unwrap_err();
-        assert!(error.to_string().contains(BOUND_ERROR), "{error}");
-        // A failed risk request must leave the compiled plan reusable.
+        assert!(
+            plan.evaluate_aad()
+                .unwrap_err()
+                .to_string()
+                .contains(BOUND_ERROR)
+        );
         assert_eq!(price, plan.evaluate().unwrap());
+        assert_price_only_at_bound(s);
+    }
+}
+
+#[test]
+fn basket_marginal_and_local_correlation_quote_bounds_reach_task_preflight() {
+    for basket_target in [false, true] {
+        let sigma = if basket_target { 0.1875 } else { 0.25 };
+        let variance = sigma * sigma;
+        for (floor, cap) in [(1e-8, variance), (variance, 4.0)] {
+            assert_price_only_at_bound(basket(&target(sigma, floor, cap), basket_target));
+        }
     }
 }
 
@@ -131,10 +240,19 @@ fn adjacent_interior_bounds_and_unquoted_targets_keep_valid_risk() {
     // No epsilon band: even the immediately adjacent representable bounds are interior.
     let quotes = t.reverse_market_iv(&[1.0; 6], &[0.0; 6]).unwrap();
     assert!((quotes.iter().sum::<f64>() - 3.0).abs() < 1e-12);
-    assert!(plan(&t).evaluate_aad().is_ok());
+    let strict = PricingTask::new(single(&t), AAD)
+        .unwrap()
+        .compile()
+        .unwrap();
+    assert_eq!(strict.capability().status, CapabilityStatus::Supported);
+    assert!(strict.evaluate().is_ok());
     // Explicit effective-node risk has no IV floor/cap derivative to take.
     let bounded = target(0.25, 1e-8, variance);
     let unquoted =
         HullWhiteLsvTarget::new(bounded.grid().clone(), bounded.log_densities().to_vec()).unwrap();
-    assert!(plan(&unquoted).evaluate_aad().is_ok());
+    let task = PricingTask::new(single(&unquoted), AAD)
+        .unwrap()
+        .compile()
+        .unwrap();
+    assert!(task.evaluate().is_ok());
 }

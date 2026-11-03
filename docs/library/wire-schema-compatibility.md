@@ -6,8 +6,11 @@ Status: Frozen for library `0.x`
 |---|---:|---:|---:|---:|
 | `0` | `3` | `1, 2, 3` | `1, 2, 3` | `3` |
 
-The separate `pricing_specification` document uses version `1` and its own
-reader, writer, schema and fingerprint domain. It captures complete model
+The separate `pricing_specification` document writes version `2` and reads `1`
+and `2`, using its own reader, writer, schema and fingerprint domain. Version 2
+adds [product graphs](product-graphs.md), also available as independent
+`product_graph` v1 documents. Source fingerprints normalize to version 2;
+legacy request/result identities and contracts stay unchanged. It captures complete model
 compositions, calibration inputs and execution settings, then rebuilds existing
 plans. It does not change the request/result table above or introduce a new
 persisted result contract. See [pricing specifications](pricing-specification.md)

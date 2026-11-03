@@ -8,7 +8,12 @@ use crate::{
 };
 
 mod rough;
+mod task;
 use rough::RoughModelV1;
+pub use task::{
+    current_pricing_task_schema, fingerprint_pricing_task, parse_pricing_task_json,
+    pricing_task_to_json, pricing_task_to_pretty_json,
+};
 const KIND: &str = "pricing_specification";
 
 #[derive(Serialize, Deserialize)]
@@ -412,6 +417,9 @@ fn source_error(error: SpecificationValidationError) -> WireError {
             domain_at(format!("/{}", field.replace('.', "/")), message)
         }
         SpecificationValidationError::Request(e) => domain_at("/", e),
+        SpecificationValidationError::UnsupportedOperation { detail, .. } => {
+            domain_at("/operation", detail)
+        }
     }
 }
 impl From<&PricingSpecification> for SpecificationV1 {
@@ -420,7 +428,7 @@ impl From<&PricingSpecification> for SpecificationV1 {
         let policy = s.numerics().execution_policy;
         Self {
             document_kind: KIND.into(),
-            schema_version: 1,
+            schema_version: 2,
             valuation_date: legacy.valuation_date,
             product: legacy.product,
             market: legacy.market,
@@ -441,18 +449,49 @@ pub fn parse_specification_json(
     input: &[u8],
     limits: JsonLimits,
 ) -> Result<PricingSpecification, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let header: Envelope = serde_json::from_str(text).map_err(json)?;
+    parse_specification_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Parse a specification while retaining its input-envelope version on failure.
+pub fn parse_specification_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<PricingSpecification, WireParseError> {
+    parse_document_with_context(input, limits, specification_from_document)
+}
+
+fn specification_from_document(
+    text: &str,
+    header: Envelope,
+) -> Result<PricingSpecification, WireError> {
     if header.document_kind != KIND {
         return Err(WireError::WrongDocumentKind {
             expected: KIND,
             actual: header.document_kind,
         });
     }
-    if header.schema_version != 1 {
+    if !matches!(header.schema_version, 1 | 2) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let value: SpecificationV1 = serde_json::from_str(text).map_err(json)?;
+    specification_from_wire(value)
+}
+fn specification_from_wire(value: SpecificationV1) -> Result<PricingSpecification, WireError> {
+    if value.document_kind != KIND {
+        return Err(WireError::WrongDocumentKind {
+            expected: KIND,
+            actual: value.document_kind,
+        });
+    }
+    if !matches!(value.schema_version, 1 | 2) {
+        return Err(WireError::UnsupportedSchemaVersion(value.schema_version));
+    }
+    if value.schema_version == 1 && matches!(&value.product, ProductV1::Graph { .. }) {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "graph products require pricing_specification v2",
+            schema_version: 1,
+        });
+    }
     let model = value.model.into_domain()?;
     let policy = ExecutionPolicy::new(
         value.numerics.worker_threads,
@@ -496,11 +535,11 @@ pub fn specification_to_pretty_json(source: &PricingSpecification) -> Result<Str
 pub fn fingerprint_specification(source: &PricingSpecification) -> Result<Fingerprint, WireError> {
     let value = serde_json::to_value(SpecificationV1::from(source)).map_err(json)?;
     let mut bytes = b"pricing/specification\0".to_vec();
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
+    bytes.extend_from_slice(&2_u32.to_be_bytes());
     encode_value(&value, &mut bytes)?;
     Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
 }
 #[must_use]
 pub fn current_specification_schema() -> &'static str {
-    include_str!("../../../../schemas/specification-v1/pricing_specification.schema.json")
+    include_str!("../../../../schemas/specification-v2/pricing_specification.schema.json")
 }

@@ -1,0 +1,40 @@
+{
+  "verified_at": "2026-10-29T18:55:09.298733+00:00",
+  "status": "passed",
+  "source_head": "41f8388c08ebbcb8e8a4ff482e764766d93996b8",
+  "native_sha256": "60402645fbff3316a6a62492b2846b0f918535e3483cbd0911150ffe8b66e5f4",
+  "elapsed_seconds": 630.8374052920844,
+  "source_hash_count": 952,
+  "source_and_binary_unchanged": true,
+  "replays": 4,
+  "snapshot_contract_audits": 8,
+  "unique_snapshot_contract_pairs": 8,
+  "all_strategies_settled": true,
+  "all_resumes_exact": true,
+  "settings": {
+    "master_seed": 7,
+    "independent_sampling_units": 4096,
+    "worker_threads": 4,
+    "thresholds_and_numerical_cases": "unchanged",
+    "evidence_mode": "observed-native-calls"
+  },
+  "returncode": 0,
+  "retries": 0,
+  "evidence_sha256": "6a86f41dc6ed8456c2ad9855cf13a75722ae1f1b916dd48925cd89980a8277d0",
+  "log_sha256": "1fff53211957c29a0ffb01e56024619d1e860319f0bf2951aa3f611ac642aeb5",
+  "performance_comparison": false,
+  "case": "linear_time four-interval fixed-lookback full ledger",
+  "invocation": "ExtensionProviderTests.setUpClass(); ExtensionProviderTests().check_replay('linear_time', *fixture('fixed_lookback', on_fixing_days=True), 4)",
+  "python_version": "3.12.11",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "selected_source_sha256": {
+    "Cargo.lock": "2f612b95031028c7b60bcea45f9280251a73ce9ae16319cc6a0c7bcf29f1bf91",
+    "rust-toolchain.toml": "c910997cb152c6dc8ed13b1fdf9fa28a4ed30d6776123e27dd6170e5c66067a0",
+    "crates/pricing/src/engine/risk/vegakt_terminal.rs": "48a2200aee346542af7e9c22ca06080946e49622ba3c02edec6357fb17bc499d",
+    "tests/python/provider_evidence.py": "b1b7f6e9b262d66c6a9b85318c9785d779ecf68d461930f932c09e55626a2a18",
+    "tests/python/test_vega_kt_extension_provider.py": "95fa1b2a10c3a01fafa93ec4ea763633f6c2f69805d5aedbed0227aee3a1be24",
+    "tests/python/test_vega_kt_path_ledger.py": "3ef8e9a2e22378d0f81ee4bb8b4c3a1de98c72eecda09cc9d1c4a98a82a0f97d"
+  },
+  "source_scope": "The complete 952-file inventory was unchanged across the run. Selected implementation and fixture hashes are retained here; raw logs, audits, and the full inventory remain in the local validation artifacts. Later workflow-only edits do not change these numerical sources.",
+  "timing_note": "Completion evidence only; do not compare with the prior 768-second old-wheel run."
+}

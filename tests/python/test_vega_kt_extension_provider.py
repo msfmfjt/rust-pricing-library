@@ -1,5 +1,6 @@
 """Explicit variance extensions through real conditional Gamma and the ledger."""
 from copy import deepcopy
+from itertools import product
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 import json
@@ -11,6 +12,8 @@ import numpy as np
 import rust_pricing as rp
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'backtesting'));sys.path.insert(0,str(ROOT/'scripts'))
+from wheel_validation.provider_shards import iter_cases
+from provider_evidence import capture_provider_evidence
 from multi_step_cases import model
 from test_vega_kt_path_ledger import fixture
 from test_vega_kt_multi_step_provider import advance
@@ -78,7 +81,19 @@ def six_interval_history(kind):
 
 
 class ExtensionProviderTests(unittest.TestCase):
+    extensions=('all_rows','linear_time')
+    intervals=(4,6)
     evidence={}
+
+    @classmethod
+    def wheel_cases(cls):
+        return {
+            'test_a_native_panels_and_covariance': list(product(cls.extensions,cls.intervals,('call','asian','fixed_asian','lookback'))),
+            'test_b_fixing_day_ledgers': list(product(cls.extensions,
+                ('arithmetic_asian','fixed_lookback'))) if 4 in cls.intervals else [],
+            'test_c_six_interval_ledgers': list(product(cls.extensions,
+                ('arithmetic_asian','fixed_lookback'))) if 6 in cls.intervals else [],
+        }
 
     @classmethod
     def setUpClass(cls):
@@ -86,37 +101,38 @@ class ExtensionProviderTests(unittest.TestCase):
         cls.evidence=dict(panels=[],replays=[],snapshots=[],failures=[])
 
     def test_a_native_panels_and_covariance(self):
-        for extension,pr in self.providers.items():
-            for n in [4,6]:
-                for kind in ['call','asian','fixed_asian','lookback']:
-                    c,s=panel(n,kind)
-                    risk=pr.evaluate(s,c);audit=pr.gamma_audit(s,c);market=audit['market_gamma'];a=market['gamma_audit']
-                    self.assertEqual(a['status'],'path_gamma_chain_passed')
-                    self.assertEqual(audit['validation']['calibration_extension'],extension)
-                    self.assertFalse(audit['validation']['diagnostic_only'])
-                    self.assertEqual(market['extension_audit']['extension'],extension)
-                    self.assertEqual([r['variance_row'] for r in a['rows']],list(range(n)))
-                    self.assertEqual(tuple(x['mean'] for x in market['estimate']),risk.buckets)
-                    np.testing.assert_allclose(np.diag(market['market_mean_covariance']),np.square(risk.bucket_standard_errors),rtol=1e-12)
-                    p=json.loads(s.pricing_requests['target']);p['risk'].pop('vega_kt');p['risk']['vega']=False
-                    ordinary=rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(p)),worker_threads=4,reduction_block_size=256).evaluate()
-                    self.assertEqual((risk.price,risk.delta),(ordinary.value,ordinary.delta_raw))
-                    self.assertIn('variance_extension_'+extension,risk.warning_codes)
-                    self.assertNotIn('fixed_unreported_variance_rows',risk.warning_codes)
-                    self.evidence['panels'].append(dict(extension=extension,intervals=n,kind=kind,seed=7,risk=data(risk),audit=audit))
-                    print(f'Accepted {extension} {n} intervals {kind}',flush=True)
+        for extension,n,kind in iter_cases(self):
+            pr=self.providers[extension]
+            c,s=panel(n,kind)
+            risk=pr.evaluate(s,c);audit=pr.gamma_audit(s,c);market=audit['market_gamma'];a=market['gamma_audit']
+            self.assertEqual(a['status'],'path_gamma_chain_passed')
+            self.assertEqual(audit['validation']['calibration_extension'],extension)
+            self.assertFalse(audit['validation']['diagnostic_only'])
+            self.assertEqual(market['extension_audit']['extension'],extension)
+            self.assertEqual([r['variance_row'] for r in a['rows']],list(range(n)))
+            self.assertEqual(tuple(x['mean'] for x in market['estimate']),risk.buckets)
+            np.testing.assert_allclose(np.diag(market['market_mean_covariance']),np.square(risk.bucket_standard_errors),rtol=1e-12)
+            p=json.loads(s.pricing_requests['target']);p['risk'].pop('vega_kt');p['risk']['vega']=False
+            ordinary=rp.PricingPlan.compile(rp.PricingRequest.from_json(json.dumps(p)),worker_threads=4,reduction_block_size=256).evaluate()
+            self.assertEqual((risk.price,risk.delta),(ordinary.value,ordinary.delta_raw))
+            self.assertIn('variance_extension_'+extension,risk.warning_codes)
+            self.assertNotIn('fixed_unreported_variance_rows',risk.warning_codes)
+            self.evidence['panels'].append(dict(extension=extension,intervals=n,kind=kind,seed=7,risk=data(risk),audit=audit))
+            print(f'Accepted {extension} {n} intervals {kind}',flush=True)
 
     def check_replay(self,extension,c,h,history,intervals):
         pr=self.providers[extension];cfg=BacktestConfig(ridge=1e-4,market_shock_log_moneyness=(-.2,0.,.2))
-        results=compare_strategies(cfg,history,[c,h],[Position('target',-1.,5.)],pr)
+        with capture_provider_evidence(pr) as captured:
+            results=compare_strategies(cfg,history,[c,h],[Position('target',-1.,5.)],pr)
         book={}
         for s in history[:-1]:
             resolved=resolve(s,[c,h],book)
             for instrument in [c,h]:
-                r=pr.evaluate(resolved,instrument);a=pr.gamma_audit(resolved,instrument)
+                r,a=captured.get(resolved,instrument)
                 self.assertEqual(a['status'],'passed')
                 self.evidence['snapshots'].append(dict(extension=extension,intervals=intervals,
                     kind=c.product_type,at=s.at.isoformat(),contract=instrument.contract_id,risk=data(r),audit=a))
+        captured.assert_complete()
         for strategy,full in results.items():
             self.assertEqual(full.status,'completed');self.assertTrue(full.summary['fully_settled'])
             self.assertEqual(full.summary['risk_validation_status'],'numerically_validated_multi_step_extension_call')
@@ -141,16 +157,14 @@ class ExtensionProviderTests(unittest.TestCase):
         print(f'Settled and resumed {extension} {intervals} intervals {c.product_type}: four strategies',flush=True)
 
     def test_b_fixing_day_ledgers(self):
-        for extension in self.providers:
-            for kind in ['arithmetic_asian','fixed_lookback']:
-                with self.subTest(extension=extension,kind=kind):
-                    self.check_replay(extension,*fixture(kind,on_fixing_days=True),4)
+        for extension,kind in iter_cases(self):
+            with self.subTest(extension=extension,kind=kind):
+                self.check_replay(extension,*fixture(kind,on_fixing_days=True),4)
 
     def test_c_six_interval_ledgers(self):
-        for extension in self.providers:
-            for kind in ['arithmetic_asian','fixed_lookback']:
-                with self.subTest(extension=extension,kind=kind):
-                    self.check_replay(extension,*six_interval_history(kind),6)
+        for extension,kind in iter_cases(self):
+            with self.subTest(extension=extension,kind=kind):
+                self.check_replay(extension,*six_interval_history(kind),6)
 
     def test_d_policy_scope_and_failed_risks_are_not_cached(self):
         for scope,extension in [('multi_step_extension_gamma',None),('multi_step_extension_gamma','custom'),
@@ -170,15 +184,15 @@ class ExtensionProviderTests(unittest.TestCase):
         for code,snapshot,contract in cases:
             fresh=provider()
             with self.subTest(code=code),self.assertRaisesRegex(BacktestError,code):fresh.evaluate(snapshot,contract)
-            self.assertFalse(fresh._cache);self.assertFalse(fresh._shared);self.assertFalse(fresh._gamma_audits)
+            self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
         market=deepcopy(self.providers['all_rows'].gamma_audit(s,c)['market_gamma'])
         failed=deepcopy(market);failed.update(status='validation_failed',estimate=None,market_mean_covariance=None)
         fresh=provider()
         with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=failed):
             out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],[c],[Position('target',-1.,5.)],fresh,on_error='return')
         self.assertEqual(out.failure['code'],'multi_step_gamma_acceptance_failure')
-        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(out.ledger);self.assertFalse(fresh._cache)
-        self.assertFalse(fresh._shared);self.assertFalse(fresh._gamma_audits)
+        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(out.ledger);self.assertFalse(fresh._cache.results)
+        self.assertIsNone(fresh._cache.shared)
         with patch('rust_pricing_backtest.multi_step_extension.evaluate_extended_market_gamma',return_value=market):
             self.assertEqual(fresh.evaluate(s,c),self.providers['all_rows'].evaluate(s,c))
         detached=fresh.gamma_audit(s,c);detached['market_gamma']['estimate'][0]['mean']=1e30
@@ -191,7 +205,7 @@ class ExtensionProviderTests(unittest.TestCase):
         fresh=provider();out=run_backtest(BacktestConfig(end_policy='mark_to_market'),[s],[c],[Position('target',-1.,5.)],fresh,on_error='return')
         self.assertEqual(out.status,'failed');self.assertEqual(out.failure['code'],'native_pricing_failure')
         self.assertIn('budget',out.failure['message'])
-        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(fresh._cache);self.assertFalse(fresh._shared)
+        self.assertFalse(out.orders);self.assertFalse(out.fills);self.assertFalse(fresh._cache.results);self.assertIsNone(fresh._cache.shared)
         self.evidence['failures'].append(dict(kind='real_native_resource_limit',failure=out.failure,orders=len(out.orders)))
 
     def test_f_cli_selects_explicit_extension(self):

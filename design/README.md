@@ -26,8 +26,31 @@ documents the public API migration.
 
 ## Architecture decisions
 
+- [ADR 0040: Preserve typed multi-asset numerical causes](adr/0040-multi-asset-error-sources.md)
+
+- [ADR 0038: Immutable backtest provider configuration](adr/0038-immutable-provider-configuration.md)
+- [ADR 0039: Native provider API compatibility](adr/0039-native-provider-compatibility.md)
+
+- [ADR 0037: Connect backtests to common tasks and reports](adr/0037-backtest-task-report-bridge.md)
+
+- [ADR 0036: Bound backtest provider cache lifetime](adr/0036-backtest-provider-cache.md)
+
+- [ADR 0035: Calibration diagnostics in common reports](adr/0035-calibration-report-diagnostics.md)
+
+- [ADR 0034: Reuse compiled pricing tasks across operations](adr/0034-compiled-task-reuse.md)
+
+- [ADR 0033: Modular wheel gates and installed API signatures](adr/0033-wheel-api-contracts.md)
+
+- [ADR 0032: Typed Python source construction](adr/0032-typed-python-source-construction.md)
+
+- [0030: Complete tasks, capability queries and common reports](adr/0030-pricing-task-capability-report.md),
+- [ADR 0031: Typed risk coordinates and structured Python failures](adr/0031-typed-risk-parameters-python-errors.md)
+  with a [usage and extension guide](../docs/library/pricing-tasks.md).
+
 - [0028: Complete pricing source specifications](adr/0028-pricing-specification.md),
   with a [usage and extension guide](../docs/library/pricing-specification.md).
+- [0029: Generic product graph source](adr/0029-product-graph-source.md),
+  with a [usage and extension guide](../docs/library/product-graphs.md).
 
 - [0027: Andersen–Broadie bounds](adr/0027-american-dual.md), with
   [validation evidence](validation/american-dual.md).
@@ -58,6 +81,29 @@ documents the public API migration.
 | [0019](adr/0019-rough-stochastic-dividends.md) | Rough Bergomi with stochastic cash dividends, price-only |
 
 ## Implementation roadmaps and acceptance
+
+- [Product Graph / Pricing Task architecture review, 2026-10-22](validation/product-graph-task-review-2026-10-22.md)
+- [Typed API and task validation review, 2026-10-22](validation/typed-api-task-validation-review-2026-10-22.md)
+- [Model, calibration and HW quote-risk boundary review, 2026-10-22](validation/hw-market-iv-boundary-review-2026-10-22.md)
+- [Numerical execution and allocation-error review, 2026-10-22](validation/executor-resource-review-2026-10-22.md)
+- [Multi-asset error-boundary review, 2026-10-22](validation/multi-asset-error-review-2026-10-22.md)
+- [Valuation-report error-location review, 2026-10-22](validation/valuation-report-pointer-review-2026-10-22.md)
+- [Report input-version review and CI follow-up, 2026-10-25](validation/report-schema-version-review-2026-10-25.md)
+- [Provider wheel validation and native-failure follow-up, 2026-10-25](validation/provider-wheel-sharding-review-2026-10-25.md)
+- [Legacy wire input-version review, 2026-10-25](validation/legacy-wire-version-review-2026-10-25.md)
+- [Cross-platform wheel crash and CI follow-up, 2026-10-25](validation/portable-wheel-crash-review-2026-10-25.md)
+- [Time-grid resource review, 2026-10-25](validation/time-grid-resource-review-2026-10-25.md)
+- [Native wheel backtrace review, 2026-10-25](validation/native-wheel-backtrace-review-2026-10-25.md)
+- [Brownian-bridge numerical-domain review, 2026-10-25](validation/brownian-bridge-domain-review-2026-10-25.md)
+- [LLDB launch and native-crash follow-up, 2026-10-26](validation/lldb-launch-review-2026-10-26.md)
+- [Dynamic executor vector allocation review, 2026-10-26](validation/executor-vector-resource-review-2026-10-26.md)
+- [macOS debugger venv fixture follow-up, 2026-10-26](validation/macos-debugger-venv-review-2026-10-26.md)
+- [Windows CI failure propagation review, 2026-10-27](validation/windows-ci-failure-review-2026-10-27.md)
+- [Product Graph division AAD numerical review, 2026-10-27](validation/graph-division-review-2026-10-27.md)
+- [Provider ledger case sharding and timeout follow-up, 2026-10-27](validation/provider-ledger-case-sharding-2026-10-27.md)
+- [Compact smoothing numerical review, 2026-10-27](validation/compact-smoothing-review-2026-10-27.md)
+- [macOS native crash triage and structured frame capture, 2026-10-29](validation/native-crash-triage-2026-10-29.md)
+- [Test execution performance, 2026-10-29](validation/test-performance-2026-10-29.md)
 
 The [continuous stochastic-dividend price approximation](validation/stochastic-dividend-continuous-barrier-approximation.md)
 adds a separate price-only rough-LSV plan, physical log-Spot bridge with cash-jump

@@ -62,6 +62,7 @@ def main():
     paths=list((ROOT/'crates').rglob('*.rs'))+list((ROOT/'backtesting/rust_pricing_backtest').glob('*.py'))
     paths+=list((ROOT/'backtesting/rust_pricing_backtest/schemas').glob('*.json'))
     paths+=list((ROOT/'schemas').rglob('*.json'))
+    paths+=list((ROOT/'scripts/wheel_validation').rglob('*.py'))
     paths += [Path(__file__),Path(panel.__file__),Path(prior.__file__),ROOT/'rust_pricing.pyi',ROOT/'Cargo.lock',
         ROOT/'backtesting/tests/test_path_history.py',ROOT/'scripts/multi_step_cases.py',
         ROOT/'fixtures/local-vol/multi-step-gamma-v0.1.json',ROOT/'scripts/smoke_test_wheel.py']

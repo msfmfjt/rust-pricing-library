@@ -82,6 +82,7 @@ pub struct SimulationPlan {
     pub(in crate::engine) volatility: f64,
     pub(in crate::engine) total_variance: f64,
     pub(in crate::engine) payoff: CompiledPayoff,
+    pub(in crate::engine) cashflow_discount_adjoints: Box<[CashflowDiscountAdjoint]>,
     pub(in crate::engine) observation_dates: Box<[Option<Date>]>,
     pub(in crate::engine) observation_times: Box<[f64]>,
     pub(in crate::engine) observation_forwards: Box<[f64]>,
@@ -115,6 +116,14 @@ pub struct SimulationPlan {
     pub(in crate::engine) terminal_replication_vega_kt: Option<crate::VegaKtResult>,
     pub(in crate::engine) continuous_barrier: Option<ContinuousBarrierRuntime>,
     pub(in crate::engine) early_exercise: Option<EarlyExerciseRuntime>,
+}
+
+/// Market pullback of a cash flow's compile-time discount ratio. Values refer
+/// to the original amount node, including constant-folded and shared outputs.
+#[derive(Clone, Debug)]
+pub(in crate::engine) struct CashflowDiscountAdjoint {
+    pub value_slot: usize,
+    pub log_df_weights: Box<[f64]>,
 }
 
 #[derive(Clone, Debug)]

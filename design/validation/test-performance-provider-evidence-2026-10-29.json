@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-10-29T17:56:22.014690+00:00",
+  "case": "extension linear_time four-interval call, unchanged 4096 sampling units",
+  "scope": "Native risk/audit parity and avoided cold evidence export; not whole-ledger acceptance or speedup",
+  "source_head": "bd5aaf216feb08ddd6e7d838cb51cb0132f0fe3e",
+  "source_worktree_dirty": true,
+  "source_sha256": {
+    "scripts/benchmark_provider_evidence.py": "333c2756b04164143795d79a46b6249deb6fc756d11dbec621364a73a85ba42c",
+    "tests/python/provider_evidence.py": "b1b7f6e9b262d66c6a9b85318c9785d779ecf68d461930f932c09e55626a2a18",
+    "tests/python/test_vega_kt_extension_provider.py": "95fa1b2a10c3a01fafa93ec4ea763633f6c2f69805d5aedbed0227aee3a1be24"
+  },
+  "native_binary_sha256": "f2dea94712a54a1b0fe6c71fc4467408fe95f677176e243910b9cafaf9d64175",
+  "native_source_revision": null,
+  "native_source_verified": false,
+  "python_version": "3.12.11",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "observed_evaluation_seconds": 12.16149020800367,
+  "cold_evidence_export_seconds": 11.428137083072215,
+  "recorded_evidence_export_seconds": 0.002402291866019368,
+  "status": "passed",
+  "risk_sha256": "82adf0fdbac5094c238e5ccef85d28eb49770485d4971f248f2e712158055eaf",
+  "audit_sha256": "abc005b2a18af7876eaf6d37e1ae63ff3340d7aa5964276056125b9f0af1abcc"
+}

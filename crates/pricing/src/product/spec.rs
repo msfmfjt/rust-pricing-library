@@ -834,6 +834,7 @@ impl FixedLookbackSpec {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProductSpec {
+    Graph(super::GraphProduct),
     EuropeanVanilla(EuropeanVanillaSpec),
     AmericanVanilla(AmericanVanillaSpec),
     Digital(DigitalSpec),
@@ -846,6 +847,7 @@ impl ProductSpec {
     #[must_use]
     pub const fn underlying(&self) -> UnderlyingId {
         match self {
+            Self::Graph(spec) => spec.primary_underlying(),
             Self::EuropeanVanilla(spec) => spec.underlying(),
             Self::AmericanVanilla(spec) => spec.underlying(),
             Self::Digital(spec) => spec.underlying(),
@@ -858,6 +860,7 @@ impl ProductSpec {
     #[must_use]
     pub const fn currency(&self) -> CurrencyId {
         match self {
+            Self::Graph(spec) => spec.currency(),
             Self::EuropeanVanilla(spec) => spec.currency(),
             Self::AmericanVanilla(spec) => spec.currency(),
             Self::Digital(spec) => spec.currency(),
@@ -870,6 +873,7 @@ impl ProductSpec {
     #[must_use]
     pub fn expiry(&self) -> Date {
         match self {
+            Self::Graph(spec) => spec.expiry(),
             Self::EuropeanVanilla(spec) => spec.expiry(),
             Self::AmericanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.expiry(),
@@ -882,6 +886,7 @@ impl ProductSpec {
     #[must_use]
     pub const fn payment_date(&self) -> Date {
         match self {
+            Self::Graph(spec) => spec.last_payment_date(),
             Self::EuropeanVanilla(spec) => spec.expiry(),
             Self::AmericanVanilla(spec) => spec.expiry(),
             Self::Digital(spec) => spec.payment_date(),
@@ -893,19 +898,22 @@ impl ProductSpec {
 
     #[must_use]
     pub const fn supports_pathwise_risk(&self) -> bool {
-        matches!(
-            self,
-            Self::EuropeanVanilla(_) | Self::ArithmeticAsian(_) | Self::FixedLookback(_)
-        ) || matches!(
-            self,
-            Self::Barrier(spec)
-                if matches!(spec.monitoring(), BarrierMonitoring::Continuous)
-        )
+        matches!(self, Self::Graph(spec) if spec.supports_pathwise_risk())
+            || matches!(
+                self,
+                Self::EuropeanVanilla(_) | Self::ArithmeticAsian(_) | Self::FixedLookback(_)
+            )
+            || matches!(
+                self,
+                Self::Barrier(spec)
+                    if matches!(spec.monitoring(), BarrierMonitoring::Continuous)
+            )
     }
 
     #[must_use]
     pub fn payoff_determined_by(&self, valuation_date: Date) -> bool {
         match self {
+            Self::Graph(spec) => spec.observations().is_empty(),
             Self::ArithmeticAsian(spec) => spec
                 .observations()
                 .iter()

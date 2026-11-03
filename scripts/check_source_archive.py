@@ -14,6 +14,116 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".github/workflows/native-memory-diagnostic.yml",
+    "scripts/native_memory_diagnostic.py",
+    "scripts/test_native_memory_diagnostic.py",
+    "backtesting/rust_pricing_backtest/native_contract.py",
+    "backtesting/tests/test_native_contract.py",
+    "tests/python/test_backtest_native_contract.py",
+    "design/adr/0039-native-provider-compatibility.md",
+    "design/adr/0038-immutable-provider-configuration.md",
+    "backtesting/rust_pricing_backtest/task_adapter.py",
+    "backtesting/tests/test_task_adapter.py",
+    "design/adr/0037-backtest-task-report-bridge.md",
+    "backtesting/rust_pricing_backtest/provider_cache.py",
+    "backtesting/tests/test_provider_cache.py",
+    "design/adr/0036-backtest-provider-cache.md",
+    "crates/pricing/src/api/calibration_report.rs",
+    "crates/pricing/src/engine/risk/calibration_report.rs",
+    "crates/pricing/tests/calibration_report.rs",
+    "tests/python/test_calibration_report.py",
+    "schemas/report-v2/valuation_report.schema.json",
+    "fixtures/report-v2/multi_asset_joint.golden.json",
+    "docs/library/calibration-reports.md",
+    "design/adr/0035-calibration-report-diagnostics.md",
+    "crates/pricing/tests/pricing_task_reuse.rs",
+    "tests/python/test_pricing_task_reuse.py",
+    "design/adr/0034-compiled-task-reuse.md",
+    "scripts/wheel_validation/__init__.py",
+    "scripts/wheel_validation/archive.py",
+    "scripts/wheel_validation/ast_helpers.py",
+    "scripts/wheel_validation/contracts/__init__.py",
+    "scripts/wheel_validation/contracts/bass.py",
+    "scripts/wheel_validation/contracts/core.py",
+    "scripts/wheel_validation/contracts/dividends.py",
+    "scripts/wheel_validation/contracts/heston.py",
+    "scripts/wheel_validation/contracts/hull_white.py",
+    "scripts/wheel_validation/contracts/module.py",
+    "scripts/wheel_validation/contracts/multi_asset.py",
+    "scripts/wheel_validation/contracts/rough.py",
+    "scripts/wheel_validation/contracts/sources.py",
+    "scripts/wheel_validation/contracts/vega_kt.py",
+    "scripts/wheel_validation/contracts/volatility.py",
+    "scripts/wheel_validation/package.py",
+    "scripts/wheel_validation/provider_shards.py",
+    "scripts/test_provider_shards.py",
+    "scripts/test_remaining_shards.py",
+    "scripts/wheel_validation/remaining_shards.py",
+    "scripts/wheel_validation/remaining_timings.json",
+    "scripts/extended_acceptance_shards.py",
+    "scripts/extended_acceptance_timings.json",
+    "scripts/test_extended_acceptance_shards.py",
+    "scripts/wheel_validation/native_debugger.py",
+    "scripts/test_native_debugger.py",
+    "scripts/test_ci_failure_propagation.py",
+    "tests/python/test_provider_validation_inventory.py",
+    "scripts/wheel_validation/runtime.py",
+    "scripts/wheel_validation/signatures.py",
+    "scripts/wheel_validation/stub.py",
+    "scripts/test_wheel_validation.py",
+    "tests/python/test_wheel_runtime_contract.py",
+    "design/adr/0033-wheel-api-contracts.md",
+    "crates/pricing-python/src/source_config.rs",
+    "crates/pricing-python/src/pricing_source.rs",
+    "tests/python/test_typed_pricing_sources.py",
+    "examples/python/typed_pricing_sources.py",
+    "docs/library/typed-python-sources.md",
+    "design/adr/0032-typed-python-source-construction.md",
+    "crates/pricing/src/api/source.rs",
+    "crates/pricing/src/api/valuation_report.rs",
+    "crates/pricing/src/engine/risk/source.rs",
+    "crates/pricing/src/engine/risk/source_capabilities.rs",
+    "crates/pricing/src/engine/risk/source_report.rs",
+    "crates/pricing/src/wire/specification/task.rs",
+    "crates/pricing/src/wire/valuation_report.rs",
+    "crates/pricing-python/src/pricing_task.rs",
+    "crates/pricing-python/src/errors.rs",
+    "tests/python/test_structured_errors.py",
+    "tests/python/test_risk_parameter_metadata.py",
+    "docs/library/python-errors.md",
+    "design/adr/0031-typed-risk-parameters-python-errors.md",
+    "crates/pricing/tests/pricing_task.rs",
+    "tests/python/test_pricing_task.py",
+    "scripts/build_task_schemas.py",
+    "scripts/check_task_json_schema.py",
+    "schemas/task-v1/pricing_task.schema.json",
+    "schemas/report-v1/valuation_report.schema.json",
+    "examples/python/pricing_task.py",
+    "docs/library/pricing-tasks.md",
+    "design/adr/0030-pricing-task-capability-report.md",
+    "fixtures/task-v1/multi_asset_bs.golden.json",
+    "fixtures/task-v1/multi_asset_joint.golden.json",
+    "fixtures/task-v1/standard_risk.golden.json",
+    "fixtures/task-v1/stochastic_dividend_bs.golden.json",
+    "fixtures/task-v1/stochastic_dividend_hw.golden.json",
+    "fixtures/task-v1/stochastic_dividend_lsv.golden.json",
+    "fixtures/report-v1/multi_asset_joint.golden.json",
+
+    "crates/pricing/src/product/graph_product.rs",
+    "crates/pricing/src/wire/product_graph.rs",
+    "crates/pricing-python/src/product_graph.rs",
+    "crates/pricing/tests/product_graph.rs",
+    "tests/python/test_product_graph.py",
+    "scripts/build_product_graph_schema.py",
+    "scripts/check_product_graph_json_schema.py",
+    "schemas/product-graph-v1/product_graph.schema.json",
+    "schemas/specification-v2/pricing_specification.schema.json",
+    "fixtures/product-graph-v1/coupon_and_capped_call.golden.json",
+    "fixtures/specification-v2/product_graph.golden.json",
+    "examples/python/product_graph.py",
+    "docs/library/product-graphs.md",
+    "design/adr/0029-product-graph-source.md",
+
     "crates/pricing/src/api/specification.rs",
     "crates/pricing/src/engine/risk/specification.rs",
     "crates/pricing/src/wire/specification.rs",
@@ -234,6 +344,8 @@ REQUIRED_FILES = {
     'design/validation/local-vol-extension-put-v0.1.json',
     'scripts/test_extension_provider_comparison.py',
     'tests/python/test_vega_kt_extension_provider.py',
+    "tests/python/provider_evidence.py",
+    "tests/python/test_provider_evidence.py",
     'scripts/check_extension_provider.py',
     'design/validation/local-vol-extension-provider-v0.1.md',
     'design/validation/local-vol-extension-provider-v0.1.json',
@@ -828,7 +940,6 @@ REQUIRED_FILES = {
     "crates/pricing/tests/lifted_heston_factor_prices.rs",
     "scripts/check_lifted_heston_factors.py",
     "scripts/test_lifted_heston_factors.py",
-    "scripts/test_ci_failure_propagation.py",
     "fixtures/rough-volatility/lifted-factor-prices.json",
     "design/validation/lifted-heston-factor-prices.md",
     ".github/workflows/lifted-heston-factors.yml",
@@ -867,6 +978,7 @@ REQUIRED_FILES = {
     "pyproject.toml",
     ".github/dependabot.yml",
     ".github/workflows/ci.yml",
+    ".github/workflows/extended-acceptance.yml",
     ".github/workflows/model-heap-followup.yml",
     "scripts/profile_model_heap_followup.py",
     "scripts/test_profile_model_heap_followup.py",
@@ -1057,9 +1169,13 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_early_exercise_reference_fixture.py",
     "python scripts/check_schemas.py",
     "python scripts/check_specification_json_schema.py",
+    "python scripts/check_task_json_schema.py",
     "python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v",
-    "python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v",
     "python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v",
+    "python -m unittest discover -s scripts -p 'test_provider_shards.py' -v",
+    "python -m unittest discover -s scripts -p 'test_native_debugger.py' -v",
+    "python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v",
+    "python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
     "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
@@ -1068,14 +1184,9 @@ REQUIRED_CI_SNIPPETS = {
     "cargo test --locked -p pricing --test statistical_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test path_dependence_acceptance -- --ignored --nocapture",
     "cargo test --locked -p pricing --test early_exercise_acceptance -- --ignored --nocapture",
-    "cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1",
-    "cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1",
     "name: Gaussian escrow reference / ${{ matrix.os }}",
     "cargo test --locked --release -p pricing --test extended_model_acceptance single_asset::gaussian_hull_white_independent_price_reference -- --ignored --exact --nocapture",
-    "name: extended-model-risk-${{ matrix.os }}",
-    "path: extended-model-risk.log",
     "name: extended-model-accuracy-${{ matrix.os }}",
-    "path: extended-model-accuracy.log",
     "cargo doc --locked --workspace --all-features --no-deps",
     "python -m maturin build --locked --release --out dist",
     "git archive --format=tar.gz --output",
@@ -1111,15 +1222,20 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/profile_model_scaling.py ../baseline . ../model-scaling-results",
     "name: model-scaling-linux",
     "retention-days: 14",
+    "python scripts/extended_acceptance_shards.py --combine",
+    "python -m unittest discover -s scripts -p 'test_extended_acceptance_shards.py' -v",
+    "python -m unittest discover -s scripts -p 'test_remaining_shards.py' -v",
+    "uses: ./.github/workflows/extended-acceptance.yml",
+
 }
 
 REQUIRED_CI_SNIPPET_COUNTS = {
-    'python-version: "3.12"': 7,
+    'python-version: "3.12"': 9,
     "python -m maturin build --locked --release --out dist": 2,
     "python scripts/smoke_test_wheel.py": 3,
     "python scripts/smoke_test_wheel.py --phase package": 2,
     "actions/upload-artifact@v7": 13,
-    "actions/download-artifact@v8": 1,
+    "actions/download-artifact@v8": 2,
     "retention-days: 14": 11,
 }
 
@@ -1133,17 +1249,24 @@ REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
         "name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist/*.whl",
         "run: python scripts/run_benchmark_suite.py",
     ),
+    "wheel-validation-plan": (
+        "matrix: ${{ steps.plan.outputs.matrix }}",
+        "id: plan",
+        "run: python scripts/wheel_validation/provider_shards.py --github-matrix",
+    ),
     "wheel-validation": (
-        "needs: [python-wheel-linux, supported-wheels]",
+        "needs: [python-wheel-linux, supported-wheels, wheel-validation-plan]",
         "fail-fast: false",
-        "os: [ubuntu-24.04, macos-15, windows-2025]",
-        "group: [custom-basis, providers, remaining]",
-        "- os: ubuntu-24.04\n            target: x86_64-unknown-linux-gnu",
-        "- os: macos-15\n            target: aarch64-apple-darwin",
-        "- os: windows-2025\n            target: x86_64-pc-windows-msvc",
+        "timeout-minutes: 330",
+        "matrix: ${{ fromJSON(needs.wheel-validation-plan.outputs.matrix) }}",
         "uses: actions/download-artifact@v8\n        with:\n"
         "          name: rust-pricing-${{ matrix.target }}-cp312\n          path: dist",
-        "run: python scripts/smoke_test_wheel.py --phase validation --group ${{ matrix.group }}",
+        "run: python scripts/smoke_test_wheel.py --phase validation ${{ matrix.option }} ${{ matrix.selection }} --report-directory wheel-validation-reports",
+        "${{ runner.os == 'macOS' && '--native-debugger lldb' || '' }}",
+        "name: Verify native debugger on this macOS runner\n        if: runner.os == 'macOS'\n"
+        "        run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v",
+        "name: wheel-validation-${{ matrix.target }}-${{ matrix.selection }}\n          path: wheel-validation-reports/",
+        "if: always()",
     ),
     "rough-dividend-smoothing": (
         "timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}",
@@ -1185,86 +1308,112 @@ REQUIRED_README_SNIPPETS = {
 
 REQUIRED_CONTRIBUTING_SNIPPETS = REQUIRED_README_SNIPPETS
 
-REQUIRED_WHEEL_SMOKE_SNIPPETS = {
-    'subprocess.run([str(python), "examples/python/rough_dividend_hard_barrier.py"], check=True)',
-    'subprocess.run([str(python), "examples/python/rough_dividend_market_iv.py"], check=True)',
-    'subprocess.run([str(python), "examples/python/rough_dividend_continuous_barrier.py"], check=True)',
-    "('StochasticDividendPlan', 'evaluate_lsv_hard_barrier_spot_risk')",
-    "verify_runtime_symbols(python, stub_api, metadata[\"Version\"])",
-    "verify_wheel_text_members(member_bytes)",
-    "verify_wheel_archive_members(archive.infolist())",
-    "EXPECTED_METADATA_FIELDS = (",
-    "EXPECTED_WHEEL_FIELDS = (",
-    "EXPECTED_INIT_PY = (",
-    "verify_message_fields(metadata, EXPECTED_METADATA_FIELDS, \"METADATA\")",
-    "wheel {name} fields changed",
-    "must appear exactly once",
-    "wheel extension member must be executable",
-    "wheel data member must not be executable",
-    "wheel data member must not be world-writable",
-    "wheel text member must be valid UTF-8",
-    "wheel text member has a UTF-8 BOM",
-    "wheel __init__.py content changed",
-    "wheel py.typed marker must be empty",
-    "wheel metadata README payload does not match README.md",
-    "unexpected runtime symbols",
-    "unexpected runtime members on",
-    "runtime member must be staticmethod",
-    "runtime property member must not be callable",
-    "expected_class_members",
-    "decorator_names",
-    "decorated_members",
-    "wheel type stub staticmethod set changed",
-    "wheel type stub property set changed",
-    "class_base_names",
-    "wheel type stub {class_name} bases changed",
-    "ValidationError base",
-    "PricingError base",
-    "function_signature_shape",
-    "wheel type stub {class_name}.{method_name} signature changed",
-    "expected_top_level_signature_shapes",
-    "wheel type stub {function_name} signature changed",
-    "must be a staticmethod",
-    "must be a property",
-    "\"__repr__\"",
-    "missing runtime special member",
-    "is missing a return annotation",
-    "is missing an argument annotation",
-    "wheel type stub has unresolved names",
-    "wheel type stub has duplicate top-level definitions",
-    "wheel RECORD row {index} must use a sha256 digest",
-    "wheel RECORD must end with LF",
-    "wheel RECORD row order must match archive member order",
-    "wheel RECORD entry must be last",
-    "wheel CycloneDX SBOM must use CycloneDX 1.5",
-    "wheel CycloneDX SBOM version must be 1",
-    "wheel CycloneDX SBOM serialNumber must be a UUID URN",
-    "wheel CycloneDX SBOM root component purl mismatch",
-    "wheel CycloneDX SBOM root component must reference the VCS URL",
-    "wheel CycloneDX SBOM component bom-ref duplicated",
-    "wheel CycloneDX SBOM workspace component duplicated",
-    "verify_workspace_sbom_component(component, name, version)",
-    "wheel CycloneDX SBOM component {name} scope mismatch",
-    "wheel CycloneDX SBOM component {name} author mismatch",
-    "wheel CycloneDX SBOM component {name} purl mismatch",
-    "workspace_dependency_purl_matches(purl, name, version)",
-    "wheel CycloneDX SBOM root component has no bom-ref",
-    "wheel CycloneDX SBOM dependency ref duplicated",
-    "wheel CycloneDX SBOM dependency ref is unknown",
-    "wheel CycloneDX SBOM dependency dependsOn ref is unknown",
-    "has duplicate dependsOn refs",
-    "wheel CycloneDX SBOM dependencies missing refs",
-    "EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {",
-    "wheel CycloneDX SBOM workspace dependencies for {name} mismatch",
-    "locked_registry_packages()",
-    "registry components do not match Cargo.lock",
-    "verify_registry_sbom_component(",
-    "registry component {name} checksum mismatch",
-    "Cargo.lock must use lockfile format version 4",
-    "locked_dependency_graph()",
-    "workspace_dev_dependency_names(key[0])",
-    "wheel CycloneDX SBOM dependency graph mismatch for",
-}
+# Keep each gate tied to its owning source file after modularization.
+REQUIRED_WHEEL_SMOKE_SNIPPETS = {'scripts/smoke_test_wheel.py': ('from scripts.wheel_validation.package import prepare_wheel',
+                                 '"examples/python/rough_dividend_continuous_barrier.py"',
+                                 '"examples/python/rough_dividend_hard_barrier.py"',
+                                 '"examples/python/rough_dividend_market_iv.py"',
+                                 'for example in EXAMPLES:',
+                                 'failure = run_test_process(command, "example", "example-" + Path(example).stem,',
+                                 'raise RuntimeError("wheel example failed: " + failure)'),
+ 'scripts/wheel_validation/archive.py': ('Cargo.lock must use lockfile format version 4',
+                                         'EXPECTED_INIT_PY = (',
+                                         'EXPECTED_METADATA_FIELDS = (',
+                                         'EXPECTED_WHEEL_FIELDS = (',
+                                         'EXPECTED_WORKSPACE_SBOM_DEPENDENCIES = {',
+                                         'has duplicate dependsOn refs',
+                                         'locked_dependency_graph()',
+                                         'locked_registry_packages()',
+                                         'must appear exactly once',
+                                         'registry component {name} checksum mismatch',
+                                         'registry components do not match Cargo.lock',
+                                         'verify_message_fields(metadata, EXPECTED_METADATA_FIELDS, '
+                                         '"METADATA")',
+                                         'verify_registry_sbom_component(',
+                                         'verify_workspace_sbom_component(component, name, version)',
+                                         'wheel CycloneDX SBOM component bom-ref duplicated',
+                                         'wheel CycloneDX SBOM component {name} author mismatch',
+                                         'wheel CycloneDX SBOM component {name} purl mismatch',
+                                         'wheel CycloneDX SBOM component {name} scope mismatch',
+                                         'wheel CycloneDX SBOM dependencies missing refs',
+                                         'wheel CycloneDX SBOM dependency dependsOn ref is unknown',
+                                         'wheel CycloneDX SBOM dependency graph mismatch for',
+                                         'wheel CycloneDX SBOM dependency ref duplicated',
+                                         'wheel CycloneDX SBOM dependency ref is unknown',
+                                         'wheel CycloneDX SBOM must use CycloneDX 1.5',
+                                         'wheel CycloneDX SBOM root component has no bom-ref',
+                                         'wheel CycloneDX SBOM root component must reference the VCS URL',
+                                         'wheel CycloneDX SBOM root component purl mismatch',
+                                         'wheel CycloneDX SBOM serialNumber must be a UUID URN',
+                                         'wheel CycloneDX SBOM version must be 1',
+                                         'wheel CycloneDX SBOM workspace component duplicated',
+                                         'wheel CycloneDX SBOM workspace dependencies for {name} mismatch',
+                                         'wheel RECORD entry must be last',
+                                         'wheel RECORD must end with LF',
+                                         'wheel RECORD row order must match archive member order',
+                                         'wheel RECORD row {index} must use a sha256 digest',
+                                         'wheel __init__.py content changed',
+                                         'wheel data member must not be executable',
+                                         'wheel data member must not be world-writable',
+                                         'wheel extension member must be executable',
+                                         'wheel metadata README payload does not match README.md',
+                                         'wheel py.typed marker must be empty',
+                                         'wheel text member has a UTF-8 BOM',
+                                         'wheel text member must be valid UTF-8',
+                                         'wheel {name} fields changed',
+                                         'workspace_dependency_purl_matches(purl, name, version)',
+                                         'workspace_dev_dependency_names(key[0])'),
+ 'scripts/wheel_validation/ast_helpers.py': ('class_base_names',
+                                             'decorated_members',
+                                             'decorator_names',
+                                             'function_signature_shape'),
+ 'scripts/wheel_validation/contracts/__init__.py': ('CLASSES = merge_classes(',
+                                                    'duplicate frozen class contracts',
+                                                    'unknown frozen class contract field'),
+ 'scripts/wheel_validation/contracts/dividends.py': ("'evaluate_lsv_hard_barrier_spot_risk': {'kind': "
+                                                     "'method',",),
+ 'scripts/wheel_validation/package.py': ('from .runtime import verify_runtime_symbols',
+                                         'locked_dependency_graph()',
+                                         'locked_registry_packages()',
+                                         'stub_api = exported_stub_api(expected_stub)',
+                                         'verify_runtime_symbols(python, stub_api, metadata["Version"])',
+                                         'verify_wheel_archive_members(archive.infolist())',
+                                         'verify_wheel_text_members(member_bytes)'),
+ 'scripts/wheel_validation/runtime.py': ("('PricingError', RuntimeError)",
+                                         "('ValidationError', ValueError)",
+                                         "actual = runtime_parameters(target, receiver=kind == 'method')",
+                                         "for label, contract in api['callables'].items():",
+                                         "if actual != contract['parameters']:",
+                                         'missing runtime special member',
+                                         'runtime member must be staticmethod',
+                                         'runtime property member must not be callable',
+                                         'signature unavailable or invalid',
+                                         'unexpected runtime members on',
+                                         'unexpected runtime symbols',
+                                         "{'__eq__', '__ne__', '__repr__'}"),
+ 'scripts/wheel_validation/signatures.py': ('inspect.signature(callable_object)',
+                                            "return {'type': type(value).__name__, 'value': value}",
+                                            'unsupported or opaque default',
+                                            'variadic runtime parameter'),
+ 'scripts/wheel_validation/stub.py': ("'parameters': stub_parameters(method, receiver=kind != "
+                                      "'staticmethod')",
+                                      'class_base_names',
+                                      'decorated_members',
+                                      'decorator_names',
+                                      "expected_decorators = set() if contract['kind'] == 'method' else "
+                                      "{contract['kind']}",
+                                      "for name, expected in CONTRACT['functions'].items():",
+                                      'from .contracts import CLASSES, CONTRACT',
+                                      'function_signature_shape',
+                                      'if decorator_names(methods[member]) != expected_decorators:',
+                                      "if set(methods) != set(expected['members']):",
+                                      'is missing a return annotation',
+                                      'is missing an argument annotation',
+                                      'verify_stub_static_shape(tree)',
+                                      'wheel type stub has duplicate top-level definitions',
+                                      'wheel type stub has unresolved names',
+                                      'wheel type stub {label} signature changed',
+                                      'wheel type stub {name} bases changed')}
 
 REQUIRED_SCHEMA_CHECK_SNIPPETS = {
     "check_schema_version_fields(schema, path)",
@@ -1459,7 +1608,8 @@ REQUIRED_SOURCE_ARCHIVE_CHECK_SNIPPETS = {
 }
 
 REQUIRED_RELEASE_READINESS_SNIPPETS = {
-    "Status: code and private artifact gates ready; external publication decisions open",
+    # Archiving a candidate does not establish that its runtime gates passed.
+    "Readiness applies to the exact validated commit",
     "platform-specific CPython wheels for Apple Silicon macOS and Windows x86-64",
     "the retained Rust source archive for the exact commit",
     "benchmark and replay artifacts for the supported platforms",
@@ -1837,13 +1987,103 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
         if missing:
             raise SystemExit(f"{archive}: CI job {job_name} is missing gates: {missing}")
         if job_name == "wheel-validation":
-            forbidden = ("exclude:", "continue-on-error:", "actions/upload-artifact@")
+            forbidden = ("exclude:", "continue-on-error:", "maturin build", "path: dist/*.whl")
             found = [snippet for snippet in forbidden if snippet in job]
-            if found:
+            # Exactly one diagnostics upload is allowed; validation still reuses
+            # the producer wheel instead of building or publishing another one.
+            if found or job.count("actions/upload-artifact@") != 1:
                 raise SystemExit(
-                    f"{archive}: wheel validation must run all groups, propagate failures "
-                    f"and reuse producer artifacts; found: {found}"
+                    f"{archive}: wheel validation must run all selections, propagate failures "
+                    f"and reuse producer artifacts with one diagnostics upload; found: {found}"
                 )
+    check_extended_acceptance_workflow(package, archive, workflow)
+
+
+def check_extended_acceptance_workflow(package, archive, workflow):
+    reusable = read_text(package, ".github/workflows/extended-acceptance.yml")
+    call = ci_job_text(workflow, "extended-acceptance-run")
+    aggregate = ci_job_text(workflow, "extended-acceptance")
+    platforms = "os: [ubuntu-24.04, macos-15, windows-2025]"
+    main_jobs = {
+        "extended-acceptance-run": (call, (
+            platforms, "fail-fast: false",
+            "uses: ./.github/workflows/extended-acceptance.yml",
+            "      os: ${{ matrix.os }}",
+        )),
+        "extended-acceptance": (aggregate, (
+            platforms, "fail-fast: false",
+            "runs-on: ubuntu-24.04",
+            "name: Extended model acceptance / ${{ matrix.os }}",
+            "    if: always()",
+            "    needs: extended-acceptance-run",
+            "ACCEPTANCE_RESULT: ${{ needs.extended-acceptance-run.result }}",
+            'result = os.environ["ACCEPTANCE_RESULT"]',
+            'if result != "success":',
+            'raise SystemExit(f"incomplete acceptance jobs: {result}")',
+            "pattern: extended-model-accuracy-${{ matrix.os }}-*",
+            "python scripts/extended_acceptance_shards.py --combine",
+        )),
+    }
+    for name, (job, required) in main_jobs.items():
+        missing = [text for text in required if text not in job]
+        conditions = re.findall(r"^\s+if: (.+)$", job, re.MULTILINE)
+        forbidden = any(text in job for text in ("exclude:", "include:", "continue-on-error:"))
+        if missing or forbidden or any(condition != "always()" for condition in conditions):
+            raise SystemExit(f"{archive}: extended acceptance caller/gate is incomplete: {name}; {missing}")
+        matrix = re.search(r"^      matrix:\n((?:        [^\n]*\n)+)", job, re.MULTILINE)
+        if matrix is None or re.findall(r"^        ([a-zA-Z0-9_-]+):", matrix.group(1), re.MULTILINE) != ["os"]:
+            raise SystemExit(f"{archive}: extended acceptance caller/gate must use only the complete OS matrix")
+    # A needs edge on the caller recreates an all-platform producer barrier.
+    if re.search(r"^    (needs|if|runs-on|steps):", call, re.MULTILINE):
+        raise SystemExit(f"{archive}: each extended acceptance invocation must start independently")
+    if re.findall(r"^    needs: (.+)$", aggregate, re.MULTILINE) != ["extended-acceptance-run"]:
+        raise SystemExit(f"{archive}: acceptance gate must require every reusable invocation")
+    header = "  workflow_call:\n    inputs:\n      os:\n        required: true\n        type: string"
+    if header not in reusable or "${{ matrix.os }}" in reusable:
+        raise SystemExit(f"{archive}: extended acceptance must use one required OS input per invocation")
+    job_names = set(re.findall(r"^  ([a-zA-Z0-9_-]+):", reusable.split("jobs:\n", 1)[-1], re.MULTILINE))
+    if job_names != {"build", "risk", "accuracy"}:
+        raise SystemExit(f"{archive}: reusable acceptance must contain exactly build, risk and accuracy")
+    requirements = {
+        "build": (
+            "python scripts/extended_acceptance_shards.py --build",
+            "name: extended-acceptance-binaries-${{ inputs.os }}",
+            "path: target/extended-acceptance-binaries/",
+        ),
+        "risk": (
+            "python scripts/extended_acceptance_shards.py --run risk",
+            "name: extended-acceptance-binaries-${{ inputs.os }}",
+            "name: extended-model-risk-${{ inputs.os }}",
+            "path: extended-acceptance-reports/extended-model-risk.*",
+        ),
+        "accuracy": (
+            "fail-fast: false", "shard: [0, 1, 2, 3]",
+            "name: extended-acceptance-binaries-${{ inputs.os }}",
+            "python scripts/extended_acceptance_shards.py --run accuracy-${{ matrix.shard }}",
+            "name: extended-model-accuracy-${{ inputs.os }}-${{ matrix.shard }}",
+        ),
+    }
+    for name, required in requirements.items():
+        job = ci_job_text(reusable, name)
+        missing = [text for text in (*required, "runs-on: ${{ inputs.os }}", "if-no-files-found: error")
+                   if text not in job]
+        dependencies = re.findall(r"^    needs: (.+)$", job, re.MULTILINE)
+        if dependencies != ([] if name == "build" else ["build"]):
+            raise SystemExit(f"{archive}: acceptance {name} must depend only on its invocation's build")
+        if name != "accuracy" and "strategy:" in job:
+            raise SystemExit(f"{archive}: acceptance {name} must not create another platform matrix")
+        if name == "accuracy":
+            matrix = re.search(r"^      matrix:\n((?:        [^\n]*\n)+)", job, re.MULTILINE)
+            axes = [] if matrix is None else re.findall(r"^        ([a-zA-Z0-9_-]+):", matrix.group(1), re.MULTILINE)
+            if axes != ["shard"]:
+                raise SystemExit(f"{archive}: acceptance accuracy matrix must contain only all four shards")
+        command = next(text for text in required if text.startswith("python "))
+        if not re.search(rf"^        run: {re.escape(command)}$", job, re.MULTILINE):
+            raise SystemExit(f"{archive}: acceptance {name} must propagate the runner exit status")
+        conditions = re.findall(r"^\s+if: (.+)$", job, re.MULTILINE)
+        forbidden = any(text in job for text in ("exclude:", "include:", "continue-on-error:"))
+        if missing or forbidden or any(condition != "always()" for condition in conditions):
+            raise SystemExit(f"{archive}: reusable acceptance job is incomplete: {name}; {missing}")
 
 
 def check_rough_refinement_workflow(package: tarfile.TarFile, archive: str) -> None:
@@ -2043,10 +2283,17 @@ def check_lifted_factor_workflow(package: tarfile.TarFile, archive: str) -> None
 
 
 def check_wheel_smoke_gate(package: tarfile.TarFile, archive: str) -> None:
-    smoke = read_text(package, "scripts/smoke_test_wheel.py")
-    missing = sorted(
-        snippet for snippet in REQUIRED_WHEEL_SMOKE_SNIPPETS if snippet not in smoke
-    )
+    missing = []
+    for name, snippets in REQUIRED_WHEEL_SMOKE_SNIPPETS.items():
+        source = read_text(package, name)
+        missing.extend(f"{name}: {snippet}" for snippet in snippets if snippet not in source)
+    for name in package.getnames():
+        if name.startswith(".github/workflows/") and name.endswith(".yml"):
+            workflow = read_text(package, name)
+            if "      - 'scripts/smoke_test_wheel.py'" in workflow:
+                for dependency in ("scripts/wheel_validation/**", "scripts/test_wheel_validation.py"):
+                    if f"      - '{dependency}'" not in workflow:
+                        missing.append(f"{name}: missing wheel gate path filter {dependency}")
     if missing:
         raise SystemExit(
             f"{archive}: wheel smoke test is missing required gates: {missing}"

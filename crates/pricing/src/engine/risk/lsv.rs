@@ -130,6 +130,9 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
     pub fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
         self.core.evaluate()
     }
+    pub(crate) fn validate_source_local_variance(&self) -> Result<(), MonteCarloError> {
+        self.core.validate_source_local_variance()
+    }
     pub fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
         self.core.evaluate_local_variance_risk()
     }
@@ -171,6 +174,9 @@ impl RoughBergomiLsvPricingPlan {
     }
     pub fn evaluate(&self) -> Result<LsvPrice, MonteCarloError> {
         self.core.evaluate()
+    }
+    pub(crate) fn validate_source_local_variance(&self) -> Result<(), MonteCarloError> {
+        self.core.validate_source_local_variance()
     }
     pub fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError> {
         self.core.evaluate_local_variance_risk()
@@ -264,7 +270,7 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
         Ok(self.run::<PriceOnly>()?.0)
     }
 
-    fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError>
+    fn validate_source_local_variance(&self) -> Result<(), MonteCarloError>
     where
         C: CalibrationReverse<Adjoints = Vec<f64>, Error = LsvError>,
         C::Plan: LeveragePathModel,
@@ -275,6 +281,14 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
             });
         }
         self.calibration.validate_calibration_reverse()?;
+        Ok(())
+    }
+    fn evaluate_local_variance_risk(&self) -> Result<LsvLocalVarianceRisk, MonteCarloError>
+    where
+        C: CalibrationReverse<Adjoints = Vec<f64>, Error = LsvError>,
+        C::Plan: LeveragePathModel,
+    {
+        self.validate_source_local_variance()?;
         let (price, risk) = self.run::<Recalibrated>()?;
         let (values, standard_errors) = risk.expect("risk was requested");
         Ok(LsvLocalVarianceRisk {

@@ -69,6 +69,9 @@ impl StochasticVolatilityPricingPlan {
     pub fn evaluate(&self) -> Result<HullWhitePrice, MonteCarloError> {
         self.inner.evaluate()
     }
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
+        self.inner.validate_source_aad()
+    }
     pub fn evaluate_aad(&self) -> Result<HullWhiteAadRisk, MonteCarloError> {
         self.inner.evaluate_aad()
     }

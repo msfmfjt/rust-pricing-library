@@ -79,7 +79,16 @@ impl fmt::Display for LsvError {
         }
     }
 }
-impl Error for LsvError {}
+impl Error for LsvError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Core(e) => Some(e),
+            Self::Market(e) => Some(e),
+            Self::Bergomi(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 impl From<BergomiError> for LsvError {
     fn from(e: BergomiError) -> Self {
         match e {

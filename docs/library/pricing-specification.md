@@ -24,8 +24,9 @@ The selected backend's product, correlation, resource and numerical restrictions
 still apply. For example, rough SABR LSV requires beta one, and a correlation
 matrix must be positive semidefinite. These remain compiler checks. This API
 does not broaden any model's numerical acceptance or production support status.
-Existing specialized risk, stochastic-dividend, multi-asset and dual-bound APIs
-remain separate entry points.
+[Complete pricing tasks](pricing-tasks.md) add shared capability queries,
+supported native risk operations and full multi-asset/dividend source replay.
+Specialized risk and dual-bound APIs also remain directly available.
 
 The constructor rejects an unsupported composition, missing or unused step,
 inconsistent Hull–White LSV target, extension Greeks, extension LSM, and unused
@@ -99,19 +100,24 @@ The exact public signatures are in [rust_pricing.pyi](../../rust_pricing.pyi).
 `SpecificationOutput` retains the corresponding native values; its `Hybrid`
 variant also carries the existing pure-SV `HullWhitePrice`. LSV standard error
 is conditional on the realized calibration and excludes calibration noise.
-No universal result-wire format is introduced in this step.
+The separate [task report contract](pricing-tasks.md#risk-and-uncertainty-meaning)
+adds a common report-wire format alongside these native results.
 
 ## JSON identity and compatibility
 
-The document kind is `pricing_specification`, with its own schema version `1`.
-The [self-contained Draft 2020-12 schema](../../schemas/specification-v1/pricing_specification.schema.json)
+The document kind is `pricing_specification`. The current writer uses version
+`2`, adding [generic product graphs](product-graphs.md); the reader also accepts
+v1 built-in products and normalizes them to v2. The v1 schema and fixtures remain
+frozen. The [current Draft 2020-12 schema](../../schemas/specification-v2/pricing_specification.schema.json)
 is also exposed by `current_specification_schema()` and
 `specification_json_schema()`. Existing request/result v1/v2/v3 readers,
 writers, fixtures and fingerprint domains are unchanged. The old request
 reader deliberately rejects the new document kind.
 
 The source fingerprint hashes a canonical, domain-separated representation of
-the complete source, including explicit worker count and reduction-block size.
+the complete source, including explicit worker count and reduction-block size. The source fingerprint
+version is now 2, so importing a v1 source changes its source fingerprint;
+financial inputs and native plan fingerprints are preserved.
 It is distinct from the unchanged native plan fingerprint. JSON whitespace and
 key order have no effect. Changes to model parameters, calibration inputs,
 market data, seeds or numerical settings change the source identity.
