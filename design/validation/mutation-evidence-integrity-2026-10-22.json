@@ -1,0 +1,212 @@
+{
+  "base_commit": "3c59bc2207ddd9577002c037bbaa86410bb46eba",
+  "revalidated_reports": [
+    {
+      "raw_output_directory": "/tmp/pricing-numerics-before-confirmed",
+      "counts": {
+        "total_mutants": 952,
+        "caught": 741,
+        "missed": 201,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "accepted": true,
+      "raw_report_sha256": "ce428ec61ea97fcf790f9f794dfe40baec8513dbb713e03349d331b8b54cd1e3",
+      "inventory_sha256": "739ecd9da2baf02aeb70c377793cfb09f0d7aaa571a2e7d07786dfbfbd170066"
+    },
+    {
+      "raw_output_directory": "/tmp/pricing-numerics-after-final",
+      "counts": {
+        "total_mutants": 952,
+        "caught": 912,
+        "missed": 30,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "accepted": true,
+      "raw_report_sha256": "bb889af08249af3200160ad565d064dde7735f53f051cf0e8ccb404877b2ad41",
+      "inventory_sha256": "084403661fdefdf7020a64cd6797c21c4fcfc6c844c4ca4c56e83f8e6bb0edd0"
+    },
+    {
+      "raw_output_directory": "/tmp/pricing-numerics-triage-after",
+      "counts": {
+        "total_mutants": 952,
+        "caught": 931,
+        "missed": 11,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "accepted": true,
+      "raw_report_sha256": "a6b061ef96363a7ee2ef6b46c13a7659d7d89837559e9e9c23b2be760ea79d52",
+      "inventory_sha256": "7b12b76d7b131b1793d5f4386b19ad2de384eaebf8980e1c8b498ba5caea821b"
+    }
+  ],
+  "fault_injections": [
+    {
+      "case": "unselected_identity",
+      "before_accepted": true,
+      "after_accepted": false,
+      "after_error": "Mutation outcomes do not match the selected inventory"
+    },
+    {
+      "case": "successful_test_labeled_caught",
+      "before_accepted": true,
+      "after_accepted": false,
+      "after_error": "Mutation summary disagrees with build/test exit statuses"
+    },
+    {
+      "case": "failed_baseline_labeled_success",
+      "before_accepted": true,
+      "after_accepted": false,
+      "after_error": "Unmutated baseline did not pass"
+    },
+    {
+      "case": "missing_mutant_test_package",
+      "before_accepted": true,
+      "after_accepted": false,
+      "after_error": "Build/test command omitted required test packages"
+    },
+    {
+      "case": "build_only_labeled_caught",
+      "before_accepted": true,
+      "after_accepted": false,
+      "after_error": "Mutation summary disagrees with build/test exit statuses"
+    },
+    {
+      "case": "test_command_only_builds",
+      "before_accepted": true,
+      "after_accepted": false,
+      "after_error": "Build/test command has inconsistent --no-run mode"
+    }
+  ],
+  "date": "2026-10-22",
+  "scope": "Mutation-runner evidence integrity; no new full numerical survey",
+  "rust_version": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "python_version": "3.12.14",
+  "source_file_sha256": {
+    "scripts/run_mutation_tests.py": "6513a7bb64cec40aba44cc8006fc35ca17d5a2fdad643691d9c4a3092bfaf9d9",
+    "scripts/test_run_mutation_tests.py": "14dd3d17fa2e892ee9ac3e3ca3f44527eeeb54bf7ee4af89f736ce29728440bb",
+    "scripts/test_mutation_integration.py": "7f3dc41346a1c72173e4976dada6822aca229264afc4a503c66b107c4a6fffff"
+  },
+  "base_runner_sha256": "fd271131aa909404f9906d123d4a4d8f3497ba7950b0d3c0f51c725adb3874c7",
+  "production_and_mutation_config_unchanged": true,
+  "verification": {
+    "unit_tests": {
+      "command": "python -m unittest discover -s scripts -p 'test_run_mutation_tests.py' -v",
+      "tests": 19,
+      "exit_code": 0
+    },
+    "installed_tool": {
+      "command": "python -m unittest discover -s scripts -p 'test_mutation_integration.py' -v",
+      "tests": 1,
+      "exit_code": 0,
+      "cases": [
+        {
+          "case": "correct downstream test",
+          "mutants": 4,
+          "caught": 4,
+          "runner_exit_code": 0
+        },
+        {
+          "case": "weak downstream test",
+          "mutants": 4,
+          "missed": 4,
+          "runner_exit_code": 2
+        },
+        {
+          "case": "broken baseline downstream test",
+          "runner_exit_code": 4
+        },
+        {
+          "case": "empty shard 99/100 with valid nonempty unsharded selection",
+          "selected": 0,
+          "status": "empty_shard",
+          "runner_exit_code": 0
+        }
+      ]
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    }
+  },
+  "smoke": {
+    "scope": "smoke",
+    "status": "passed",
+    "tool_version": "27.1.0",
+    "head": "3c59bc2207ddd9577002c037bbaa86410bb46eba",
+    "worktree_status": " M scripts/run_mutation_tests.py\n M scripts/test_mutation_integration.py\n M scripts/test_run_mutation_tests.py\n",
+    "command": [
+      "cargo",
+      "mutants",
+      "--baseline=run",
+      "--no-shuffle",
+      "--build-timeout=600",
+      "--jobs=2",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/core/number.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=core::number::tests",
+      "--timeout=60",
+      "--output=/tmp/pricing-mutation-integrity-smoke/smoke-z38hd0j3"
+    ],
+    "selected": 15,
+    "cargo_mutants_exit_code": 0,
+    "counts": {
+      "total_mutants": 15,
+      "caught": 15,
+      "missed": 0,
+      "timeout": 0,
+      "unviable": 0,
+      "success": 0
+    },
+    "start_time": "2026-10-22T21:03:05.984770354Z",
+    "end_time": "2026-10-22T21:04:43.383258426Z",
+    "raw_report_sha256": "714d9d48adedb1c2154ae7a736119b7541a1389b7ecf74244ffeac45bc935113",
+    "selection_sha256": "d549f4d43d256a21471fd37bab30339912355256e4fce0d54cf33fc6d7b906c1",
+    "baseline_commands": [
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--no-run",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked"
+      ],
+      [
+        "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "test",
+        "--verbose",
+        "--package=pricing@0.1.0",
+        "--all-features",
+        "--lib",
+        "--locked",
+        "core::number::tests"
+      ]
+    ]
+  },
+  "fractional_guard_probe": {
+    "assessment": "Unresolved reachability; no exclusion and no full-domain equivalence claim",
+    "method": "Compile the actual fractional.rs production prefix and NeumaierSum with only the final condition changed from result.is_finite() && result.abs() <= 1.0 + 1e-11 to result.is_finite(). No other expression changes.",
+    "rust_flags": [
+      "--edition=2024",
+      "-O"
+    ],
+    "production_source_sha256": "2ba748f3a19dc82fac22b4beecd8a9dc150ef2f217896d75da53eb5d6d5a321b",
+    "probe_source_sha256": "15cb55917237641b44c0874beefb42f3a48b873cce6ec9ae9f9f99b9993eda23",
+    "main_source": "fn main() {\n    let hs = [f64::from_bits(1), 1e-300, 1e-100, 1e-20, 1e-15, 1e-12, 1e-9, 1e-6, 1e-4, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25, 0.4, 0.49, 0.499, 0.49999999999999994];\n    let mut lags=vec![f64::from_bits(1), f64::MIN_POSITIVE, 0.01, 0.1, 1.0, 10.0, 63.99999999999999, 64.0, 64.00000000000001, 80.0, 100000.0, f64::MAX];\n    lags.extend((-323..=308).step_by(9).map(|e|10_f64.powi(e)).filter(|x|x.is_finite() && *x>0.0));\n    let(mut tested,mut none,mut outside)=(0,0,0);\n    let(mut largest,mut max_h,mut max_lag)=(0.0,0.0,0.0);\n    for h in hs { for &lag in &lags {\n        tested+=1;\n        if let Some(value)=probe::fractional_ou_correlation(h,lag) {\n            if value.abs()>largest {largest=value.abs();max_h=h;max_lag=lag;}\n            if value.abs()>1.0+1e-11 {outside+=1;eprintln!(\"out of range: h={h:.17e} lag={lag:.17e} value={value:.17e}\");}\n        } else {none+=1;}\n    }}\n    println!(\"tested={tested} unavailable={none} out_of_range={outside} max_abs={largest:.17e} h={max_h:.17e} lag={max_lag:.17e}\");\n}\n",
+    "evaluations": 1701,
+    "unavailable": 0,
+    "finite_out_of_range": 0,
+    "largest_absolute_result": "1.00000000000002198",
+    "largest_result_hurst": "2.50000000000000014e-2",
+    "largest_result_lag": "4.94065645841246544e-324",
+    "limitations": "Finite exploratory grid, including overlapping explicit/logarithmic nodes; evaluation count is not a unique-input count. Not an acceptance test or proof of equivalence."
+  }
+}

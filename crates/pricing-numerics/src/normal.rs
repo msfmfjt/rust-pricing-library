@@ -83,6 +83,43 @@ mod tests {
     }
 
     #[test]
+    fn small_tail_probabilities_match_independent_erfc_references() {
+        // Phi(-x) = erfc(x / sqrt(2)) / 2, evaluated at 80 decimal digits.
+        // An absolute-only tolerance would accept zero for these small tails.
+        // The continued-fraction approximation has relative error below 1e-8
+        // at these points; retain the existing central-region absolute checks.
+        for (x, expected) in [
+            (7.0, 1.279_812_543_885_835e-12),
+            (7.1, 6.237_844_463_331_575e-13),
+            (8.0, 6.220_960_574_271_784e-16),
+            (10.0, 7.619_853_024_160_526e-24),
+            (20.0, 2.753_624_118_606_233_7e-89),
+            (37.0, 5.725_571_222_524_577e-300),
+        ] {
+            let actual = standard_normal_cdf(-x);
+            assert!(actual > 0.0, "tail at -{x} must not underflow");
+            assert!(
+                (actual / expected - 1.0).abs() < 1e-8,
+                "tail at -{x}: {actual}"
+            );
+        }
+    }
+
+    #[test]
+    fn pdf_values_away_from_zero_and_nan_propagation() {
+        for (x, expected) in [
+            (0.5, 0.352_065_326_764_299_5),
+            (2.5, 0.017_528_300_493_568_54),
+            (8.0, 5.052_271_083_536_893e-15),
+        ] {
+            assert!((standard_normal_pdf(x) / expected - 1.0).abs() < 5e-15);
+            assert!((standard_normal_pdf(-x) / expected - 1.0).abs() < 5e-15);
+        }
+        assert!(standard_normal_pdf(f64::NAN).is_nan());
+        assert!(standard_normal_cdf(f64::NAN).is_nan());
+    }
+
+    #[test]
     fn infinities_have_distribution_limits() {
         assert_eq!(standard_normal_cdf(f64::NEG_INFINITY), 0.0);
         assert_eq!(standard_normal_cdf(f64::INFINITY), 1.0);

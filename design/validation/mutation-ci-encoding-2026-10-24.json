@@ -1,0 +1,3452 @@
+{
+  "date": "2026-10-24",
+  "base": "fde18e50e7ceedb7672d0d4973e7129ebb5a48af",
+  "rust_source_tree": "ac8eb3f31a722848fe8eca8eb0301746b7bdbde2",
+  "rust_sources_unchanged": true,
+  "tools": {
+    "rust": "1.98.1",
+    "cargo_mutants": "27.1.0",
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    }
+  },
+  "sources": {
+    "scripts/check_dependency_direction.py": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py",
+      "sha256": "1399d7ad0771cd0cd7bf826301ff587765bbd975db5f023b9b833d3c4533bcbf",
+      "bytes": 11753
+    },
+    "scripts/test_check_dependency_direction.py": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py",
+      "sha256": "15af88d64d988a95c69546700944739d3f2fe2d839f4f55f5c31569f169918bc",
+      "bytes": 4222
+    },
+    "scripts/run_mutation_tests.py": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/run_mutation_tests.py",
+      "sha256": "9d95ddc3ee6790e7004c9d830ba76836be6aa490c70eb65a2918dc2437fdeccc",
+      "bytes": 17679
+    },
+    "scripts/test_run_mutation_tests.py": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_run_mutation_tests.py",
+      "sha256": "a80e8a82b140a97c50123e4afe1452b3b2f8b5cb776a784e567e3e506a06ca52",
+      "bytes": 23358
+    },
+    "scripts/test_mutation_integration.py": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_mutation_integration.py",
+      "sha256": "e2e0dfb86549c09811780298f458908a8e590f2b90789ef28b2b5e645f6b88ea",
+      "bytes": 5889
+    },
+    ".github/workflows/ci.yml": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/.github/workflows/ci.yml",
+      "sha256": "ccad6e5fcf0707b140fb406c5602fb2ac55f33846753f98ba5cbf7193af362e6",
+      "bytes": 24252
+    },
+    ".cargo/mutants.toml": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/.cargo/mutants.toml",
+      "sha256": "88fd37a1f667cc8bcd71c41a8931a156aa0f83d82080cc55db2f8bd832f0d48a",
+      "bytes": 889
+    },
+    "Cargo.lock": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/Cargo.lock",
+      "sha256": "2f612b95031028c7b60bcea45f9280251a73ce9ae16319cc6a0c7bcf29f1bf91",
+      "bytes": 8236
+    },
+    "rust-toolchain.toml": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/rust-toolchain.toml",
+      "sha256": "c910997cb152c6dc8ed13b1fdf9fa28a4ed30d6776123e27dd6170e5c66067a0",
+      "bytes": 86
+    },
+    "crates/pricing/src/core/date.rs": {
+      "path": "/workspace/scratch/ba4d1ef0d007/rust-pricing-library/crates/pricing/src/core/date.rs",
+      "sha256": "87bfd28b21de726318bdd13cea58a898a28cef3179e618e3838eeb4ec116e78f",
+      "bytes": 15357
+    }
+  },
+  "before_checker_sha256": "b668301bf44af00187bcba5484680a3735faaf83df844de7f61bb327780152ef",
+  "remote_failure": {
+    "workflow_run": 39976239331,
+    "job": 120492191245,
+    "head": "fde18e50e7ceedb7672d0d4973e7129ebb5a48af",
+    "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/39976239331/job/120492191245",
+    "excerpt": "2026-10-23T17:05:31.4166897Z Traceback (most recent call last):\n2026-10-23T17:05:31.4361166Z   File \"D:\\a\\rust-pricing-library\\rust-pricing-library\\scripts\\check_dependency_direction.py\", line 292, in <module>\n2026-10-23T17:05:31.4362005Z     raise SystemExit(main())\n2026-10-23T17:05:31.4362364Z                      ^^^^^^\n2026-10-23T17:05:31.4363144Z   File \"D:\\a\\rust-pricing-library\\rust-pricing-library\\scripts\\check_dependency_direction.py\", line 89, in main\n2026-10-23T17:05:31.4364219Z     check_internal_boundaries(workspace_root, errors)\n2026-10-23T17:05:31.4365285Z   File \"D:\\a\\rust-pricing-library\\rust-pricing-library\\scripts\\check_dependency_direction.py\", line 116, in check_internal_boundaries\n2026-10-23T17:05:31.4366193Z     code = re.sub(r\"//[^\\n]*\", \"\", path.read_text())\n2026-10-23T17:05:31.4366631Z                                    ^^^^^^^^^^^^^^^^\n2026-10-23T17:05:31.4367330Z   File \"C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\pathlib.py\", line 1028, in read_text\n2026-10-23T17:05:31.4367966Z     return f.read()\n2026-10-23T17:05:31.4368269Z            ^^^^^^^^\n2026-10-23T17:05:31.4368809Z   File \"C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n2026-10-23T17:05:31.4669782Z     return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n2026-10-23T17:05:31.4671174Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n2026-10-23T17:05:31.4671972Z UnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 8177: character maps to <undefined>\n2026-10-23T17:05:31.4865738Z ##[error]Process completed with exit code 1."
+  },
+  "source_decoding_reproduction": {
+    "path": "crates/pricing/src/core/date.rs",
+    "encoding": "cp1252",
+    "invalid_byte": "0x90",
+    "byte_offset": 8177
+  },
+  "regressions": {
+    "encoding_regression_before": {
+      "command": "python -m unittest discover -s scripts -p 'test_check_dependency_direction.py' -v",
+      "exit_code": 1,
+      "log": {
+        "path": "/tmp/pricing-dependency-red.log",
+        "sha256": "3370220784e7c7248da8e88022b6b31e14c5b66b88ba28931ba8012af1a97517",
+        "bytes": 14416,
+        "text": "test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) ... \n  test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='lib.rs') ... FAIL\n  test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='market/input.rs') ... FAIL\n  test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='engine/mc/execute.rs') ... FAIL\ntest_utf8_comments_do_not_create_boundary_violations (test_check_dependency_direction.SourceEncodingTests.test_utf8_comments_do_not_create_boundary_violations) ... ok\ntest_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) ... \n  test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='lib.rs') ... ERROR\n  test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='market/input.rs') ... ERROR\n  test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='engine/mc/execute.rs') ... ERROR\n  test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='lib.rs') ... ERROR\n  test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='market/input.rs') ... ERROR\n  test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='engine/mc/execute.rs') ... ERROR\ntest_utf8_source_still_rejects_each_forbidden_boundary (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_still_rejects_each_forbidden_boundary) ... ok\n\n======================================================================\nERROR: test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='lib.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 65, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 50, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 110, in check_internal_boundaries\n    if re.search(r\"(?m)^pub(?:\\([^)]*\\))?\\s+mod\\s+engine\", (source / \"lib.rs\").read_text()):\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 40: ordinal not in range(128)\n\n======================================================================\nERROR: test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='market/input.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 65, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 50, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 116, in check_internal_boundaries\n    code = re.sub(r\"//[^\\n]*\", \"\", path.read_text())\n                                   ^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 46: ordinal not in range(128)\n\n======================================================================\nERROR: test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='engine/mc/execute.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 65, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 50, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 121, in check_internal_boundaries\n    code = re.sub(r\"//[^\\n]*\", \"\", path.read_text())\n                                   ^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 48: ordinal not in range(128)\n\n======================================================================\nERROR: test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='lib.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 65, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 50, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 110, in check_internal_boundaries\n    if re.search(r\"(?m)^pub(?:\\([^)]*\\))?\\s+mod\\s+engine\", (source / \"lib.rs\").read_text()):\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 45: character maps to <undefined>\n\n======================================================================\nERROR: test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='market/input.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 65, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 50, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 116, in check_internal_boundaries\n    code = re.sub(r\"//[^\\n]*\", \"\", path.read_text())\n                                   ^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 51: character maps to <undefined>\n\n======================================================================\nERROR: test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='engine/mc/execute.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 65, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 50, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 121, in check_internal_boundaries\n    code = re.sub(r\"//[^\\n]*\", \"\", path.read_text())\n                                   ^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 53: character maps to <undefined>\n\n======================================================================\nFAIL: test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='lib.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 98, in test_invalid_utf8_is_not_silently_replaced_or_ignored\n    with default_text_encoding(\"cp1252\"), self.assertRaises(UnicodeDecodeError):\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: UnicodeDecodeError not raised\n\n======================================================================\nFAIL: test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='market/input.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 98, in test_invalid_utf8_is_not_silently_replaced_or_ignored\n    with default_text_encoding(\"cp1252\"), self.assertRaises(UnicodeDecodeError):\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: UnicodeDecodeError not raised\n\n======================================================================\nFAIL: test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='engine/mc/execute.rs')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 98, in test_invalid_utf8_is_not_silently_replaced_or_ignored\n    with default_text_encoding(\"cp1252\"), self.assertRaises(UnicodeDecodeError):\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: UnicodeDecodeError not raised\n\n----------------------------------------------------------------------\nRan 4 tests in 0.029s\n\nFAILED (failures=3, errors=6)\n"
+      }
+    },
+    "encoding_regression_after": {
+      "command": "python -m unittest discover -s scripts -p 'test_check_dependency_direction.py' -v",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/pricing-dependency-green.log",
+        "sha256": "62bb31d8c73b43ac3da6a41f3ae5b3c4df6aec7dca5e7329435646ca782169eb",
+        "bytes": 768,
+        "text": "test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) ... ok\ntest_utf8_comments_do_not_create_boundary_violations (test_check_dependency_direction.SourceEncodingTests.test_utf8_comments_do_not_create_boundary_violations) ... ok\ntest_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) ... ok\ntest_utf8_source_still_rejects_each_forbidden_boundary (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_still_rejects_each_forbidden_boundary) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.016s\n\nOK\n"
+      }
+    },
+    "encoding_regression_ascii": {
+      "command": "LC_ALL=C PYTHONUTF8=0 PYTHONCOERCECLOCALE=0 python -m unittest discover -s scripts -p 'test_check_dependency_direction.py' -v",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/pricing-dependency-ascii-tests24.log",
+        "sha256": "0e448ba71805a05fb0de089a57cdca40b398dc5bfe6d5265ab6496bc667b8add",
+        "bytes": 768,
+        "text": "test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) ... ok\ntest_utf8_comments_do_not_create_boundary_violations (test_check_dependency_direction.SourceEncodingTests.test_utf8_comments_do_not_create_boundary_violations) ... ok\ntest_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) ... ok\ntest_utf8_source_still_rejects_each_forbidden_boundary (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_still_rejects_each_forbidden_boundary) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.053s\n\nOK\n"
+      }
+    },
+    "repository_ascii_before": {
+      "command": "LC_ALL=C PYTHONUTF8=0 PYTHONCOERCECLOCALE=0 python scripts/check_dependency_direction.py < /tmp/pricing-metadata-24.json",
+      "exit_code": 1,
+      "log": {
+        "path": "/tmp/pricing-dependency-cli-red.log",
+        "sha256": "b1098b1247997bf1799c1d400e735901793c3bea7787f02707b0a798fb907e8d",
+        "bytes": 1125,
+        "text": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 292, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 89, in main\n    check_internal_boundaries(workspace_root, errors)\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/check_dependency_direction.py\", line 116, in check_internal_boundaries\n    code = re.sub(r\"//[^\\n]*\", \"\", path.read_text())\n                                   ^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 8151: ordinal not in range(128)\n"
+      }
+    },
+    "repository_ascii_after": {
+      "command": "LC_ALL=C PYTHONUTF8=0 PYTHONCOERCECLOCALE=0 python scripts/check_dependency_direction.py < /tmp/pricing-metadata-24.json",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/pricing-dependency-cli-green.log",
+        "sha256": "b81eff7cb191825aaaa2c2cda4d2c85852a8de42d3a3ac290efb428896ed7110",
+        "bytes": 40,
+        "text": "workspace dependency direction is valid\n"
+      }
+    },
+    "mutation_runner_unit": {
+      "command": "python -m unittest discover -s scripts -p 'test_run_mutation_tests.py' -v",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/pricing-mutation-runner-unit24.log",
+        "sha256": "bbf574b6b3050687e9440e7e9cb584542a27216daeac5d849dfad8f93e4fcc21",
+        "bytes": 3845,
+        "text": "test_empty_changed_diff_is_explicit_and_empty_smoke_is_error (test_run_mutation_tests.ExecutionTests.test_empty_changed_diff_is_explicit_and_empty_smoke_is_error) ... ok\ntest_empty_shard_requires_a_valid_nonempty_unsharded_inventory (test_run_mutation_tests.ExecutionTests.test_empty_shard_requires_a_valid_nonempty_unsharded_inventory) ... ok\ntest_handled_interruptions_and_errors_finish_with_a_failure_status (test_run_mutation_tests.ExecutionTests.test_handled_interruptions_and_errors_finish_with_a_failure_status) ... ok\ntest_hard_termination_keeps_a_nonpassing_checkpoint (test_run_mutation_tests.ExecutionTests.test_hard_termination_keeps_a_nonpassing_checkpoint) ... ok\ntest_interrupted_checkpoint_write_preserves_the_previous_valid_json (test_run_mutation_tests.ExecutionTests.test_interrupted_checkpoint_write_preserves_the_previous_valid_json) ... ok\ntest_inventory_is_validated_even_in_list_mode (test_run_mutation_tests.ExecutionTests.test_inventory_is_validated_even_in_list_mode) ... ok\ntest_outstanding_results_preserve_timeout_and_build_failure (test_run_mutation_tests.ExecutionTests.test_outstanding_results_preserve_timeout_and_build_failure) ... ok\ntest_substituted_results_fail_even_with_tool_exit_zero (test_run_mutation_tests.ExecutionTests.test_substituted_results_fail_even_with_tool_exit_zero) ... ok\ntest_success_and_read_only_inventory (test_run_mutation_tests.ExecutionTests.test_success_and_read_only_inventory) ... ok\ntest_summary_limits_visible_rows_without_dropping_retained_failures (test_run_mutation_tests.ExecutionTests.test_summary_limits_visible_rows_without_dropping_retained_failures) ... ok\ntest_tool_failures_and_false_success_cannot_pass (test_run_mutation_tests.ExecutionTests.test_tool_failures_and_false_success_cannot_pass) ... ok\ntest_aggregate_success_cannot_hide_missing_duplicate_or_wrong_records (test_run_mutation_tests.OutcomeTests.test_aggregate_success_cannot_hide_missing_duplicate_or_wrong_records) ... ok\ntest_build_timeouts_and_unviable_builds_are_not_caught (test_run_mutation_tests.OutcomeTests.test_build_timeouts_and_unviable_builds_are_not_caught) ... ok\ntest_completed_test_run (test_run_mutation_tests.OutcomeTests.test_completed_test_run) ... ok\ntest_each_build_and_test_must_include_the_required_packages (test_run_mutation_tests.OutcomeTests.test_each_build_and_test_must_include_the_required_packages) ... ok\ntest_incomplete_or_inconsistent_evidence_is_rejected (test_run_mutation_tests.OutcomeTests.test_incomplete_or_inconsistent_evidence_is_rejected) ... ok\ntest_malformed_or_duplicate_inventory_is_rejected (test_run_mutation_tests.OutcomeTests.test_malformed_or_duplicate_inventory_is_rejected) ... ok\ntest_missed_and_timeout_are_separate_from_caught (test_run_mutation_tests.OutcomeTests.test_missed_and_timeout_are_separate_from_caught) ... ok\ntest_phase_labels_do_not_substitute_for_a_test_command (test_run_mutation_tests.OutcomeTests.test_phase_labels_do_not_substitute_for_a_test_command) ... ok\ntest_same_count_cannot_substitute_an_unselected_mutant (test_run_mutation_tests.OutcomeTests.test_same_count_cannot_substitute_an_unselected_mutant) ... ok\ntest_summary_cannot_hide_missing_or_contradictory_execution (test_run_mutation_tests.OutcomeTests.test_summary_cannot_hide_missing_or_contradictory_execution) ... ok\ntest_changed_uses_stack_merge_base_and_actual_worktree (test_run_mutation_tests.SelectionTests.test_changed_uses_stack_merge_base_and_actual_worktree) ... ok\ntest_full_numerics_also_tests_pricing_consumers (test_run_mutation_tests.SelectionTests.test_full_numerics_also_tests_pricing_consumers) ... ok\ntest_invalid_or_ambiguous_scope_arguments_fail (test_run_mutation_tests.SelectionTests.test_invalid_or_ambiguous_scope_arguments_fail) ... ok\n\n----------------------------------------------------------------------\nRan 24 tests in 0.271s\n\nOK\n"
+      }
+    },
+    "installed_tool_fixture": {
+      "command": "CARGO_PROFILE_TEST_DEBUG=0 python -m unittest discover -s scripts -p 'test_mutation_integration.py' -v",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/pricing-mutation-integration24.log",
+        "sha256": "dbab9bb2fc9bfa56c41ccbebb2f1b6a66502d317194e2f8980734439bc92083d",
+        "bytes": 6960,
+        "text": "test_downstream_detection_survivors_and_failed_baseline (test_mutation_integration.InstalledToolTests.test_downstream_detection_survivors_and_failed_baseline) ... Found 4 mutants to test\nok       Unmutated baseline in 0s build + 0s test\n INFO Auto-set test timeout to 60s\n4 mutants tested in 0s: 4 caught\nFound 4 mutants to test\nok       Unmutated baseline in 0s build + 0s test\n INFO Auto-set test timeout to 60s\nMISSED   crates/pricing-numerics/src/lib.rs:1:31: replace twice -> u64 with 0 in 0s build + 0s test\nMISSED   crates/pricing-numerics/src/lib.rs:1:31: replace twice -> u64 with 1 in 0s build + 0s test\nMISSED   crates/pricing-numerics/src/lib.rs:1:33: replace * with + in twice in 0s build + 0s test\nMISSED   crates/pricing-numerics/src/lib.rs:1:33: replace * with / in twice in 0s build + 0s test\n4 mutants tested in 0s: 4 missed\nFound 4 mutants to test\nFAILED   Unmutated baseline in 0s build + 0s test\n\n*** baseline\n\n*** /root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=pricing-numerics@0.1.0 --all-features --package=pricing --package=pricing-numerics --locked\n   Compiling pricing-numerics v0.1.0 (/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/crates/pricing-numerics)\n     Running `/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name pricing_numerics --edition=2024 crates/pricing-numerics/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fa090dd493ed4e88 -C extra-filename=-84dd03cd1e163de7 --out-dir /tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/incremental -C strip=debuginfo -L dependency=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps`\n     Running `/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name pricing_numerics --edition=2024 crates/pricing-numerics/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=9ce2a2c131567414 -C extra-filename=-25bd5d0fda568c27 --out-dir /tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/incremental -C strip=debuginfo -L dependency=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps`\n   Compiling pricing v0.1.0 (/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/crates/pricing)\n     Running `/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name pricing --edition=2024 crates/pricing/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=3bc9ab2b465a95b2 -C extra-filename=-f87484ac7832a56e --out-dir /tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/incremental -C strip=debuginfo -L dependency=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps --extern pricing_numerics=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/libpricing_numerics-25bd5d0fda568c27.rmeta`\n     Running `/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name pricing --edition=2024 crates/pricing/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=4ce1c0730dd01e10 -C extra-filename=-b2edabbf84051eba --out-dir /tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/incremental -C strip=debuginfo -L dependency=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps --extern pricing_numerics=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/libpricing_numerics-25bd5d0fda568c27.rlib`\n     Running `/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name consumer --edition=2024 crates/pricing/tests/consumer.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f6362cc4f2ff1a32 -C extra-filename=-148586bb20561a5e --out-dir /tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/incremental -C strip=debuginfo -L dependency=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps --extern pricing=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/libpricing-f87484ac7832a56e.rlib --extern pricing_numerics=/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/libpricing_numerics-25bd5d0fda568c27.rlib`\n    Finished `test` profile [unoptimized] target(s) in 0.15s\n  Executable `/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/pricing-b2edabbf84051eba`\n  Executable `/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/consumer-148586bb20561a5e`\n  Executable `/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/pricing_numerics-84dd03cd1e163de7`\n\n*** result: Success\n\n*** /root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=pricing-numerics@0.1.0 --all-features --package=pricing --package=pricing-numerics --locked\n       Fresh pricing v0.1.0 (/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/crates/pricing)\n       Fresh pricing-numerics v0.1.0 (/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/crates/pricing-numerics)\n    Finished `test` profile [unoptimized] target(s) in 0.00s\n     Running `/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/pricing-b2edabbf84051eba`\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running `/tmp/cargo-mutants-tmp7i06k78k-wO8KqI.tmp/target/debug/deps/consumer-148586bb20561a5e`\n\nrunning 1 test\ntest consumer ... FAILED\n\nfailures:\n\n---- consumer stdout ----\n\nthread 'consumer' (1462) panicked at crates/pricing/tests/consumer.rs:2:17:\nassertion `left == right` failed\n  left: 6\n right: 7\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    consumer\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\nerror: test failed, to rerun pass `-p pricing --test consumer`\n\n*** result: Failure(101)\n\nERROR cargo test failed in an unmutated tree, so no mutants were tested\nok\n\n----------------------------------------------------------------------\nRan 1 test in 2.184s\n\nOK\n"
+      }
+    }
+  },
+  "encoding_fault_injections": [
+    {
+      "site": "lib.rs",
+      "change": "remove one explicit UTF-8 argument",
+      "source_sha256": "e91bbd627c5d5fcaff13a63973f4dad3e2fb74affea466c39d0c373e41f5d4a6",
+      "tests_run": 4,
+      "failures": 1,
+      "errors": 2,
+      "detected": true,
+      "failure_details": [
+        {
+          "test": "test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='lib.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 97, in test_invalid_utf8_is_not_silently_replaced_or_ignored\n    with default_text_encoding(\"cp1252\"), self.assertRaises(UnicodeDecodeError):\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: UnicodeDecodeError not raised\n"
+        },
+        {
+          "test": "test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='lib.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 64, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 49, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"<encoding-mutant-0>\", line 110, in check_internal_boundaries\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 40: ordinal not in range(128)\n"
+        },
+        {
+          "test": "test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='lib.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 64, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 49, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"<encoding-mutant-0>\", line 110, in check_internal_boundaries\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 45: character maps to <undefined>\n"
+        }
+      ]
+    },
+    {
+      "site": "domain source",
+      "change": "remove one explicit UTF-8 argument",
+      "source_sha256": "dc7046e15c5eedffa0eddad1a3147896b73a09874e9c7c9f17b239c6f337037d",
+      "tests_run": 4,
+      "failures": 1,
+      "errors": 2,
+      "detected": true,
+      "failure_details": [
+        {
+          "test": "test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='market/input.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 97, in test_invalid_utf8_is_not_silently_replaced_or_ignored\n    with default_text_encoding(\"cp1252\"), self.assertRaises(UnicodeDecodeError):\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: UnicodeDecodeError not raised\n"
+        },
+        {
+          "test": "test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='market/input.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 64, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 49, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"<encoding-mutant-1>\", line 116, in check_internal_boundaries\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 46: ordinal not in range(128)\n"
+        },
+        {
+          "test": "test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='market/input.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 64, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 49, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"<encoding-mutant-1>\", line 116, in check_internal_boundaries\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 51: character maps to <undefined>\n"
+        }
+      ]
+    },
+    {
+      "site": "execution source",
+      "change": "remove one explicit UTF-8 argument",
+      "source_sha256": "71d184d64a49a69fa18a1e345a5cc797538aa8524769296ed44708a19ffee2d4",
+      "tests_run": 4,
+      "failures": 1,
+      "errors": 2,
+      "detected": true,
+      "failure_details": [
+        {
+          "test": "test_invalid_utf8_is_not_silently_replaced_or_ignored (test_check_dependency_direction.SourceEncodingTests.test_invalid_utf8_is_not_silently_replaced_or_ignored) (path='engine/mc/execute.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 97, in test_invalid_utf8_is_not_silently_replaced_or_ignored\n    with default_text_encoding(\"cp1252\"), self.assertRaises(UnicodeDecodeError):\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: UnicodeDecodeError not raised\n"
+        },
+        {
+          "test": "test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='ascii', path='engine/mc/execute.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 64, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 49, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"<encoding-mutant-2>\", line 121, in check_internal_boundaries\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/ascii.py\", line 26, in decode\n    return codecs.ascii_decode(input, self.errors)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 48: ordinal not in range(128)\n"
+        },
+        {
+          "test": "test_utf8_source_ignores_platform_default_encoding (test_check_dependency_direction.SourceEncodingTests.test_utf8_source_ignores_platform_default_encoding) (encoding='cp1252', path='engine/mc/execute.rs')",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 64, in test_utf8_source_ignores_platform_default_encoding\n    self.assertEqual(self.check(), [])\n                     ^^^^^^^^^^^^\n  File \"/workspace/scratch/ba4d1ef0d007/rust-pricing-library/scripts/test_check_dependency_direction.py\", line 49, in check\n    checker.check_internal_boundaries(self.root, errors)\n  File \"<encoding-mutant-2>\", line 121, in check_internal_boundaries\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py\", line 1028, in read_text\n    return f.read()\n           ^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/encodings/cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 53: character maps to <undefined>\n"
+        }
+      ]
+    }
+  ],
+  "gates": {
+    "smoke": {
+      "runner_record": {
+        "scope": "smoke",
+        "status": "passed",
+        "tool_version": "27.1.0",
+        "started_at": "2026-10-24T22:55:04.840180+00:00",
+        "head": "fde18e50e7ceedb7672d0d4973e7129ebb5a48af",
+        "worktree_status": " M .github/workflows/ci.yml\n M CONTRIBUTING.md\n M scripts/check_dependency_direction.py\n M scripts/check_source_archive.py\n?? scripts/test_check_dependency_direction.py\n",
+        "command": [
+          "cargo",
+          "mutants",
+          "--baseline=run",
+          "--no-shuffle",
+          "--build-timeout=600",
+          "--jobs=2",
+          "--package=pricing",
+          "--test-package=pricing",
+          "--file=crates/pricing/src/core/number.rs",
+          "--cargo-arg=--lib",
+          "--cargo-test-arg=core::number::tests",
+          "--timeout=60",
+          "--output=/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp"
+        ],
+        "selected": 15,
+        "cargo_mutants_exit_code": 0,
+        "counts": {
+          "total_mutants": 15,
+          "caught": 15,
+          "missed": 0,
+          "timeout": 0,
+          "unviable": 0,
+          "success": 0
+        },
+        "outstanding": [],
+        "finished_at": "2026-10-24T22:57:06.516477+00:00",
+        "runner_exit_code": 0
+      },
+      "selected": [
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::get -> f64 with 0.0\n@@ -16,17 +16,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0\n+        0.0 /* ~ changed by cargo-mutants ~ */\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "FiniteF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 25
+              },
+              "start": {
+                "column": 5,
+                "line": 22
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 0.0",
+          "package": "pricing",
+          "replacement": "0.0",
+          "span": {
+            "end": {
+              "column": 15,
+              "line": 24
+            },
+            "start": {
+              "column": 9,
+              "line": 24
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::get -> f64 with 1.0\n@@ -16,17 +16,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0\n+        1.0 /* ~ changed by cargo-mutants ~ */\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "FiniteF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 25
+              },
+              "start": {
+                "column": 5,
+                "line": 22
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 1.0",
+          "package": "pricing",
+          "replacement": "1.0",
+          "span": {
+            "end": {
+              "column": 15,
+              "line": 24
+            },
+            "start": {
+              "column": 9,
+              "line": 24
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::get -> f64 with -1.0\n@@ -16,17 +16,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0\n+        -1.0 /* ~ changed by cargo-mutants ~ */\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "FiniteF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 25
+              },
+              "start": {
+                "column": 5,
+                "line": 22
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with -1.0",
+          "package": "pricing",
+          "replacement": "-1.0",
+          "span": {
+            "end": {
+              "column": 15,
+              "line": 24
+            },
+            "start": {
+              "column": 9,
+              "line": 24
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::to_bits -> u64 with 0\n@@ -21,17 +21,17 @@\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n         self.0\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n-        self.0.to_bits()\n+        0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n         self.to_bits() == other.to_bits()\n     }\n }\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "FiniteF64::to_bits",
+            "return_type": "-> u64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 30
+              },
+              "start": {
+                "column": 5,
+                "line": 27
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:29:9: replace FiniteF64::to_bits -> u64 with 0",
+          "package": "pricing",
+          "replacement": "0",
+          "span": {
+            "end": {
+              "column": 25,
+              "line": 29
+            },
+            "start": {
+              "column": 9,
+              "line": 29
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::to_bits -> u64 with 1\n@@ -21,17 +21,17 @@\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n         self.0\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n-        self.0.to_bits()\n+        1 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n         self.to_bits() == other.to_bits()\n     }\n }\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "FiniteF64::to_bits",
+            "return_type": "-> u64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 30
+              },
+              "start": {
+                "column": 5,
+                "line": 27
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:29:9: replace FiniteF64::to_bits -> u64 with 1",
+          "package": "pricing",
+          "replacement": "1",
+          "span": {
+            "end": {
+              "column": 25,
+              "line": 29
+            },
+            "start": {
+              "column": 9,
+              "line": 29
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace <impl PartialEq for FiniteF64>::eq -> bool with true\n@@ -27,17 +27,17 @@\n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n-        self.to_bits() == other.to_bits()\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n         self.0.fmt(formatter)\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "<impl PartialEq for FiniteF64>::eq",
+            "return_type": "-> bool",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 36
+              },
+              "start": {
+                "column": 5,
+                "line": 34
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with true",
+          "package": "pricing",
+          "replacement": "true",
+          "span": {
+            "end": {
+              "column": 42,
+              "line": 35
+            },
+            "start": {
+              "column": 9,
+              "line": 35
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace <impl PartialEq for FiniteF64>::eq -> bool with false\n@@ -27,17 +27,17 @@\n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n-        self.to_bits() == other.to_bits()\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n         self.0.fmt(formatter)\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "<impl PartialEq for FiniteF64>::eq",
+            "return_type": "-> bool",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 36
+              },
+              "start": {
+                "column": 5,
+                "line": 34
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with false",
+          "package": "pricing",
+          "replacement": "false",
+          "span": {
+            "end": {
+              "column": 42,
+              "line": 35
+            },
+            "start": {
+              "column": 9,
+              "line": 35
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace == with != in <impl PartialEq for FiniteF64>::eq\n@@ -27,17 +27,17 @@\n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n-        self.to_bits() == other.to_bits()\n+        self.to_bits() != /* ~ changed by cargo-mutants ~ */ other.to_bits()\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n         self.0.fmt(formatter)\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "<impl PartialEq for FiniteF64>::eq",
+            "return_type": "-> bool",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 36
+              },
+              "start": {
+                "column": 5,
+                "line": 34
+              }
+            }
+          },
+          "genre": "BinaryOperator",
+          "name": "crates/pricing/src/core/number.rs:35:24: replace == with != in <impl PartialEq for FiniteF64>::eq",
+          "package": "pricing",
+          "replacement": "!=",
+          "span": {
+            "end": {
+              "column": 26,
+              "line": 35
+            },
+            "start": {
+              "column": 24,
+              "line": 35
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace <impl fmt::Display for FiniteF64>::fmt -> fmt::Result with Ok(Default::default())\n@@ -35,17 +35,17 @@\n         self.to_bits() == other.to_bits()\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n-        self.0.fmt(formatter)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct PositiveF64(FiniteF64);\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "<impl fmt::Display for FiniteF64>::fmt",
+            "return_type": "-> fmt::Result",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 44
+              },
+              "start": {
+                "column": 5,
+                "line": 42
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:43:9: replace <impl fmt::Display for FiniteF64>::fmt -> fmt::Result with Ok(Default::default())",
+          "package": "pricing",
+          "replacement": "Ok(Default::default())",
+          "span": {
+            "end": {
+              "column": 30,
+              "line": 43
+            },
+            "start": {
+              "column": 9,
+              "line": 43
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace PositiveF64::get -> f64 with 0.0\n@@ -59,17 +59,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        0.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than or equal to zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct NonNegativeF64(FiniteF64);\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "PositiveF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 68
+              },
+              "start": {
+                "column": 5,
+                "line": 65
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 0.0",
+          "package": "pricing",
+          "replacement": "0.0",
+          "span": {
+            "end": {
+              "column": 21,
+              "line": 67
+            },
+            "start": {
+              "column": 9,
+              "line": 67
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace PositiveF64::get -> f64 with 1.0\n@@ -59,17 +59,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than or equal to zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct NonNegativeF64(FiniteF64);\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "PositiveF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 68
+              },
+              "start": {
+                "column": 5,
+                "line": 65
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 1.0",
+          "package": "pricing",
+          "replacement": "1.0",
+          "span": {
+            "end": {
+              "column": 21,
+              "line": 67
+            },
+            "start": {
+              "column": 9,
+              "line": 67
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace PositiveF64::get -> f64 with -1.0\n@@ -59,17 +59,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        -1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than or equal to zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct NonNegativeF64(FiniteF64);\n \n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "PositiveF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 68
+              },
+              "start": {
+                "column": 5,
+                "line": 65
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with -1.0",
+          "package": "pricing",
+          "replacement": "-1.0",
+          "span": {
+            "end": {
+              "column": 21,
+              "line": 67
+            },
+            "start": {
+              "column": 9,
+              "line": 67
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace NonNegativeF64::get -> f64 with 0.0\n@@ -83,17 +83,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        0.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "NonNegativeF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 92
+              },
+              "start": {
+                "column": 5,
+                "line": 89
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 0.0",
+          "package": "pricing",
+          "replacement": "0.0",
+          "span": {
+            "end": {
+              "column": 21,
+              "line": 91
+            },
+            "start": {
+              "column": 9,
+              "line": 91
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace NonNegativeF64::get -> f64 with 1.0\n@@ -83,17 +83,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "NonNegativeF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 92
+              },
+              "start": {
+                "column": 5,
+                "line": 89
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 1.0",
+          "package": "pricing",
+          "replacement": "1.0",
+          "span": {
+            "end": {
+              "column": 21,
+              "line": 91
+            },
+            "start": {
+              "column": 9,
+              "line": 91
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/number.rs\n+++ replace NonNegativeF64::get -> f64 with -1.0\n@@ -83,17 +83,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        -1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+          "file": "crates/pricing/src/core/number.rs",
+          "function": {
+            "function_name": "NonNegativeF64::get",
+            "return_type": "-> f64",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 92
+              },
+              "start": {
+                "column": 5,
+                "line": 89
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with -1.0",
+          "package": "pricing",
+          "replacement": "-1.0",
+          "span": {
+            "end": {
+              "column": 21,
+              "line": 91
+            },
+            "start": {
+              "column": 9,
+              "line": 91
+            }
+          }
+        }
+      ],
+      "report": {
+        "outcomes": [
+          {
+            "scenario": "Baseline",
+            "summary": "Success",
+            "log_path": "log/baseline.log",
+            "diff_path": null,
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 43.859963288,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.051251197,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 0.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "FiniteF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 22,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 25,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 24,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 24,
+                    "column": 15
+                  }
+                },
+                "replacement": "0.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_24_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_24_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 10.55408207,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.056056215,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with -1.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "FiniteF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 22,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 25,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 24,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 24,
+                    "column": 15
+                  }
+                },
+                "replacement": "-1.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_24_col_9_002.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_24_col_9_002.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 7.668580613,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.104755056,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:29:9: replace FiniteF64::to_bits -> u64 with 0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "FiniteF64::to_bits",
+                  "return_type": "-> u64",
+                  "span": {
+                    "start": {
+                      "line": 27,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 30,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 29,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 29,
+                    "column": 25
+                  }
+                },
+                "replacement": "0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_29_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_29_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 8.353380689,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.151791113,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:29:9: replace FiniteF64::to_bits -> u64 with 1",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "FiniteF64::to_bits",
+                  "return_type": "-> u64",
+                  "span": {
+                    "start": {
+                      "line": 27,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 30,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 29,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 29,
+                    "column": 25
+                  }
+                },
+                "replacement": "1",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_29_col_9_001.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_29_col_9_001.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 8.361926759,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.103285111,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with true",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "<impl PartialEq for FiniteF64>::eq",
+                  "return_type": "-> bool",
+                  "span": {
+                    "start": {
+                      "line": 34,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 36,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 35,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 35,
+                    "column": 42
+                  }
+                },
+                "replacement": "true",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_35_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_35_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 7.568455131,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.104819204,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 1.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "FiniteF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 22,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 25,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 24,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 24,
+                    "column": 15
+                  }
+                },
+                "replacement": "1.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_24_col_9_001.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_24_col_9_001.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 47.70292566,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.10853074,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with false",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "<impl PartialEq for FiniteF64>::eq",
+                  "return_type": "-> bool",
+                  "span": {
+                    "start": {
+                      "line": 34,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 36,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 35,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 35,
+                    "column": 42
+                  }
+                },
+                "replacement": "false",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_35_col_9_001.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_35_col_9_001.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 7.961511167,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.101737958,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:35:24: replace == with != in <impl PartialEq for FiniteF64>::eq",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "<impl PartialEq for FiniteF64>::eq",
+                  "return_type": "-> bool",
+                  "span": {
+                    "start": {
+                      "line": 34,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 36,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 35,
+                    "column": 24
+                  },
+                  "end": {
+                    "line": 35,
+                    "column": 26
+                  }
+                },
+                "replacement": "!=",
+                "genre": "BinaryOperator"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_35_col_24.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_35_col_24.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 6.180068612,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.051461224,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:43:9: replace <impl fmt::Display for FiniteF64>::fmt -> fmt::Result with Ok(Default::default())",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "<impl fmt::Display for FiniteF64>::fmt",
+                  "return_type": "-> fmt::Result",
+                  "span": {
+                    "start": {
+                      "line": 42,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 44,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 43,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 43,
+                    "column": 30
+                  }
+                },
+                "replacement": "Ok(Default::default())",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_43_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_43_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.872380345,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.050966173,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 0.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "PositiveF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 65,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 68,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 67,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 67,
+                    "column": 21
+                  }
+                },
+                "replacement": "0.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_67_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_67_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.571895645,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.051121607,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 1.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "PositiveF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 65,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 68,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 67,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 67,
+                    "column": 21
+                  }
+                },
+                "replacement": "1.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_67_col_9_001.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_67_col_9_001.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.416789101,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.050971351,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with -1.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "PositiveF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 65,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 68,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 67,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 67,
+                    "column": 21
+                  }
+                },
+                "replacement": "-1.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_67_col_9_002.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_67_col_9_002.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.216318082,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.051287642,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 0.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "NonNegativeF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 89,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 92,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 91,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 91,
+                    "column": 21
+                  }
+                },
+                "replacement": "0.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_91_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_91_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.5179447360000005,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.054055942,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 1.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "NonNegativeF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 89,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 92,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 91,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 91,
+                    "column": 21
+                  }
+                },
+                "replacement": "1.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_91_col_9_001.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_91_col_9_001.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.225056327,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.051193662,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with -1.0",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/number.rs",
+                "function": {
+                  "function_name": "NonNegativeF64::get",
+                  "return_type": "-> f64",
+                  "span": {
+                    "start": {
+                      "line": 89,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 92,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 91,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 91,
+                    "column": 21
+                  }
+                },
+                "replacement": "-1.0",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__number.rs_line_91_col_9_002.log",
+            "diff_path": "diff/crates__pricing__src__core__number.rs_line_91_col_9_002.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 5.117906373,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 0.051371569,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--lib",
+                  "--locked",
+                  "core::number::tests"
+                ]
+              }
+            ]
+          }
+        ],
+        "total_mutants": 15,
+        "missed": 0,
+        "caught": 15,
+        "timeout": 0,
+        "unviable": 0,
+        "success": 0,
+        "start_time": "2026-10-24T22:55:09.17105843Z",
+        "end_time": "2026-10-24T22:57:06.513420293Z",
+        "cargo_mutants_version": "27.1.0"
+      },
+      "baseline_scope": {
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 585,
+        "completed_targets": 1,
+        "binary_targets": [
+          "pricing"
+        ],
+        "unit_targets": [
+          "pricing"
+        ],
+        "integration_targets": [],
+        "doc_targets": [],
+        "result_lines": [
+          "ok 5 0 0 0 585"
+        ]
+      },
+      "artifacts": [
+        {
+          "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/run.json",
+          "sha256": "bb51859f9cd508a83a308765afd4ae59d8944e875aac2ef2ff0c0363c72b3d9e",
+          "bytes": 1046
+        },
+        {
+          "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/selected.json",
+          "sha256": "d549f4d43d256a21471fd37bab30339912355256e4fce0d54cf33fc6d7b906c1",
+          "bytes": 17716
+        },
+        {
+          "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/summary.md",
+          "sha256": "29931c0b1a1d1da2e5f0400fb535bb43be2e10765d61668a3a88cfec2cbd4f1a",
+          "bytes": 285
+        },
+        {
+          "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/outcomes.json",
+          "sha256": "5ed5527f4a0f43868e72ab59b0d6da368376d534cd824c361d01d460da3cb59a",
+          "bytes": 31491
+        }
+      ],
+      "logs_and_patches": [
+        {
+          "scenario": "Baseline",
+          "outcome": "Success",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/baseline.log",
+            "sha256": "ea09a08911a0aa8ce6390423c6d44e3d54c773bf1787718f887f0cafb34bce49",
+            "bytes": 45056
+          }
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 0.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "FiniteF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 22,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 25,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 24,
+                  "column": 9
+                },
+                "end": {
+                  "line": 24,
+                  "column": 15
+                }
+              },
+              "replacement": "0.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_24_col_9.log",
+            "sha256": "b8bb957893750ddba6f5fd8dfa5d6af745315c4bcadeb371b1861a403d2e2831",
+            "bytes": 6400
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_24_col_9.diff",
+            "sha256": "33a4fa77ebaac7981e47ccab44059776ca752b4528a6c1a5e330a82b006bdcfa",
+            "bytes": 424,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::get -> f64 with 0.0\n@@ -16,17 +16,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0\n+        0.0 /* ~ changed by cargo-mutants ~ */\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero",
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with -1.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "FiniteF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 22,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 25,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 24,
+                  "column": 9
+                },
+                "end": {
+                  "line": 24,
+                  "column": 15
+                }
+              },
+              "replacement": "-1.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_24_col_9_002.log",
+            "sha256": "da634b7c698ce3069c8f37a1207da3b264bbb71cf6077d77d8038f7287c27a36",
+            "bytes": 6440
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_24_col_9_002.diff",
+            "sha256": "5540dd68cb8e7a517ca317644d64883bf7e5b67521f08a7f174b4c761b75fb7d",
+            "bytes": 426,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::get -> f64 with -1.0\n@@ -16,17 +16,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0\n+        -1.0 /* ~ changed by cargo-mutants ~ */\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive",
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:29:9: replace FiniteF64::to_bits -> u64 with 0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "FiniteF64::to_bits",
+                "return_type": "-> u64",
+                "span": {
+                  "start": {
+                    "line": 27,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 30,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 29,
+                  "column": 9
+                },
+                "end": {
+                  "line": 29,
+                  "column": 25
+                }
+              },
+              "replacement": "0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_29_col_9.log",
+            "sha256": "38f6ee12051b8a07d3aabebfc40edfb54b6305fb9a38f83e78603d196bea1ce3",
+            "bytes": 6389
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_29_col_9.diff",
+            "sha256": "37d942bdba7755453d9c2d7cade0b6424696c964b15859b4d5ddea72448c07dc",
+            "bytes": 453,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::to_bits -> u64 with 0\n@@ -21,17 +21,17 @@\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n         self.0\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n-        self.0.to_bits()\n+        0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n         self.to_bits() == other.to_bits()\n     }\n }\n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive",
+            "core::number::tests::finite_value_preserves_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:29:9: replace FiniteF64::to_bits -> u64 with 1",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "FiniteF64::to_bits",
+                "return_type": "-> u64",
+                "span": {
+                  "start": {
+                    "line": 27,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 30,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 29,
+                  "column": 9
+                },
+                "end": {
+                  "line": 29,
+                  "column": 25
+                }
+              },
+              "replacement": "1",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_29_col_9_001.log",
+            "sha256": "6379fa8e3469f1e11bf58422ccc0905ae32ac26416521bf11dc3005a3be14815",
+            "bytes": 6389
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_29_col_9_001.diff",
+            "sha256": "560e0c3ea16ee99856e8e819d6b59ed36c5ac689652cc708f8cc00fc2e50bb0b",
+            "bytes": 453,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::to_bits -> u64 with 1\n@@ -21,17 +21,17 @@\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n         self.0\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n-        self.0.to_bits()\n+        1 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n         self.to_bits() == other.to_bits()\n     }\n }\n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive",
+            "core::number::tests::finite_value_preserves_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with true",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "<impl PartialEq for FiniteF64>::eq",
+                "return_type": "-> bool",
+                "span": {
+                  "start": {
+                    "line": 34,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 36,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 35,
+                  "column": 9
+                },
+                "end": {
+                  "line": 35,
+                  "column": 42
+                }
+              },
+              "replacement": "true",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_35_col_9.log",
+            "sha256": "4672dfcf89278957d219107b3195abdf6b6d04b9223f7dc8cfab8e5940b5c0a6",
+            "bytes": 7385
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_35_col_9.diff",
+            "sha256": "29a68d7d81f879e06f075b9f9680b10704b25b4261870f25bde62070fb6a4e67",
+            "bytes": 563,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace <impl PartialEq for FiniteF64>::eq -> bool with true\n@@ -27,17 +27,17 @@\n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n-        self.to_bits() == other.to_bits()\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n         self.0.fmt(formatter)\n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive",
+            "core::number::tests::finite_value_preserves_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 1.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "FiniteF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 22,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 25,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 24,
+                  "column": 9
+                },
+                "end": {
+                  "line": 24,
+                  "column": 15
+                }
+              },
+              "replacement": "1.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_24_col_9_001.log",
+            "sha256": "2340437a00dcfe39778c05ec8052ec84a06b72787be4f654b18adf012241cbef",
+            "bytes": 45619
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_24_col_9_001.diff",
+            "sha256": "39581578406ab2036f33dd41cb4a1c374b29e23858de0357d1f7a2f3c741cf87",
+            "bytes": 424,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace FiniteF64::get -> f64 with 1.0\n@@ -16,17 +16,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0\n+        1.0 /* ~ changed by cargo-mutants ~ */\n     }\n \n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero",
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with false",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "<impl PartialEq for FiniteF64>::eq",
+                "return_type": "-> bool",
+                "span": {
+                  "start": {
+                    "line": 34,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 36,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 35,
+                  "column": 9
+                },
+                "end": {
+                  "line": 35,
+                  "column": 42
+                }
+              },
+              "replacement": "false",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_35_col_9_001.log",
+            "sha256": "bbae8f1d835bb6fbfa6e3135b5383eaaf83a2ca88352564d8a12121795df1c9f",
+            "bytes": 7085
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_35_col_9_001.diff",
+            "sha256": "c0fd297925bfd00c4e01ce6141e07fe5c29b5341c1d756f488cafa6cdb35b678",
+            "bytes": 565,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace <impl PartialEq for FiniteF64>::eq -> bool with false\n@@ -27,17 +27,17 @@\n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n-        self.to_bits() == other.to_bits()\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n         self.0.fmt(formatter)\n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:35:24: replace == with != in <impl PartialEq for FiniteF64>::eq",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "<impl PartialEq for FiniteF64>::eq",
+                "return_type": "-> bool",
+                "span": {
+                  "start": {
+                    "line": 34,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 36,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 35,
+                  "column": 24
+                },
+                "end": {
+                  "line": 35,
+                  "column": 26
+                }
+              },
+              "replacement": "!=",
+              "genre": "BinaryOperator"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_35_col_24.log",
+            "sha256": "fd92c2a66c3d93f9338ea872fb5f35cf37bd1a1a6dfbad02b6a31639aa3e1617",
+            "bytes": 6589
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_35_col_24.diff",
+            "sha256": "04b87b7e3cd52cedd4b29a0372ed39e1239556a544fb9d5098b1af3363c3e7ad",
+            "bytes": 588,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace == with != in <impl PartialEq for FiniteF64>::eq\n@@ -27,17 +27,17 @@\n     #[must_use]\n     pub const fn to_bits(self) -> u64 {\n         self.0.to_bits()\n     }\n }\n \n impl PartialEq for FiniteF64 {\n     fn eq(&self, other: &Self) -> bool {\n-        self.to_bits() == other.to_bits()\n+        self.to_bits() != /* ~ changed by cargo-mutants ~ */ other.to_bits()\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n         self.0.fmt(formatter)\n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_value_preserves_signed_zero",
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:43:9: replace <impl fmt::Display for FiniteF64>::fmt -> fmt::Result with Ok(Default::default())",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "<impl fmt::Display for FiniteF64>::fmt",
+                "return_type": "-> fmt::Result",
+                "span": {
+                  "start": {
+                    "line": 42,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 44,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 43,
+                  "column": 9
+                },
+                "end": {
+                  "line": 43,
+                  "column": 30
+                }
+              },
+              "replacement": "Ok(Default::default())",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_43_col_9.log",
+            "sha256": "fed0f99248b217598e5c4105fe94bd2c8f9d2dada2a1d404d32f427d9879d917",
+            "bytes": 7170
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_43_col_9.diff",
+            "sha256": "043ca94db0c37affb27be0167a4c5e75adc6b22a7143aabd0d72daefa8923e6e",
+            "bytes": 597,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace <impl fmt::Display for FiniteF64>::fmt -> fmt::Result with Ok(Default::default())\n@@ -35,17 +35,17 @@\n         self.to_bits() == other.to_bits()\n     }\n }\n \n impl Eq for FiniteF64 {}\n \n impl fmt::Display for FiniteF64 {\n     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {\n-        self.0.fmt(formatter)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct PositiveF64(FiniteF64);\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::finite_values_round_trip_and_equality_is_reflexive"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 0.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "PositiveF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 65,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 67,
+                  "column": 9
+                },
+                "end": {
+                  "line": 67,
+                  "column": 21
+                }
+              },
+              "replacement": "0.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_67_col_9.log",
+            "sha256": "c62dcdf1467464675c890ad312192d8775c1c86e9a2efc06c8e8a27e28d56dad",
+            "bytes": 6090
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_67_col_9.diff",
+            "sha256": "42568e939cbdbd8a5f92f4acef9163f5ec7c1821bad8de0966a03055dbb11db9",
+            "bytes": 499,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace PositiveF64::get -> f64 with 0.0\n@@ -59,17 +59,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        0.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than or equal to zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct NonNegativeF64(FiniteF64);\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 1.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "PositiveF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 65,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 67,
+                  "column": 9
+                },
+                "end": {
+                  "line": 67,
+                  "column": 21
+                }
+              },
+              "replacement": "1.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_67_col_9_001.log",
+            "sha256": "0d4ef682a38a6078ca0589665fb2f932363ba16a4d29aa94c8059c105fa17ce9",
+            "bytes": 6108
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_67_col_9_001.diff",
+            "sha256": "ceb5d90452c3c1949421a565e8ba8d4a53bba4c32e79b3f842ce4db5c8ec0845",
+            "bytes": 499,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace PositiveF64::get -> f64 with 1.0\n@@ -59,17 +59,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than or equal to zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct NonNegativeF64(FiniteF64);\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with -1.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "PositiveF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 65,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 67,
+                  "column": 9
+                },
+                "end": {
+                  "line": 67,
+                  "column": 21
+                }
+              },
+              "replacement": "-1.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_67_col_9_002.log",
+            "sha256": "43383c5994f3ff5b0969efb8685565178551bb601266a0b118ad96a4d81020b4",
+            "bytes": 6112
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_67_col_9_002.diff",
+            "sha256": "07454d9f66264d4e2c77e9d324e7b33052bd07774d4b0f2203e785e44b903f78",
+            "bytes": 501,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace PositiveF64::get -> f64 with -1.0\n@@ -59,17 +59,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        -1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// A finite value greater than or equal to zero.\n #[derive(Clone, Copy, Debug, Eq, PartialEq)]\n #[repr(transparent)]\n pub struct NonNegativeF64(FiniteF64);\n \n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 0.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "NonNegativeF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 89,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 92,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 91,
+                  "column": 9
+                },
+                "end": {
+                  "line": 91,
+                  "column": 21
+                }
+              },
+              "replacement": "0.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_91_col_9.log",
+            "sha256": "cc601d5bac656b661d43994ae2b13e5e196c7506841d06363f0dfeab44ce82b5",
+            "bytes": 5997
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_91_col_9.diff",
+            "sha256": "fd457a95d37556acdb4cc583015ef5b1477f3f7703bc09faf65e829a22fc4776",
+            "bytes": 403,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace NonNegativeF64::get -> f64 with 0.0\n@@ -83,17 +83,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        0.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 1.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "NonNegativeF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 89,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 92,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 91,
+                  "column": 9
+                },
+                "end": {
+                  "line": 91,
+                  "column": 21
+                }
+              },
+              "replacement": "1.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_91_col_9_001.log",
+            "sha256": "c02bc174dbb8a47513fc13c1b6cb5c1477f5c583353a9c7ec80c58107c179371",
+            "bytes": 6015
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_91_col_9_001.diff",
+            "sha256": "fa1c78c8b5618c32e3b3724cfe0436023829ae4f3296f8ab2f883394453550d1",
+            "bytes": 403,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace NonNegativeF64::get -> f64 with 1.0\n@@ -83,17 +83,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with -1.0",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/number.rs",
+              "function": {
+                "function_name": "NonNegativeF64::get",
+                "return_type": "-> f64",
+                "span": {
+                  "start": {
+                    "line": 89,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 92,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 91,
+                  "column": 9
+                },
+                "end": {
+                  "line": 91,
+                  "column": 21
+                }
+              },
+              "replacement": "-1.0",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/log/crates__pricing__src__core__number.rs_line_91_col_9_002.log",
+            "sha256": "f50de0a26b87debf429a325f9c12ed9ad8062ee6d66d8a10d5afd1285af71048",
+            "bytes": 6019
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-smoke-24/smoke-noxbyxrp/mutants.out/diff/crates__pricing__src__core__number.rs_line_91_col_9_002.diff",
+            "sha256": "c3baeb91a7be17b014fb006668552034bf71ce215385db4e7e3aa3a46ed0c73c",
+            "bytes": 405,
+            "text": "--- crates/pricing/src/core/number.rs\n+++ replace NonNegativeF64::get -> f64 with -1.0\n@@ -83,17 +83,17 @@\n                 field,\n                 bits: value.to_bits(),\n             })\n         }\n     }\n \n     #[must_use]\n     pub const fn get(self) -> f64 {\n-        self.0.get()\n+        -1.0 /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n"
+          },
+          "failed_tests": [
+            "core::number::tests::constrained_values_preserve_valid_inputs_and_signed_zero"
+          ]
+        }
+      ]
+    },
+    "changed": {
+      "runner_record": {
+        "scope": "changed",
+        "status": "passed",
+        "tool_version": "27.1.0",
+        "started_at": "2026-10-24T22:55:04.840620+00:00",
+        "head": "fde18e50e7ceedb7672d0d4973e7129ebb5a48af",
+        "worktree_status": " M .github/workflows/ci.yml\n M CONTRIBUTING.md\n M scripts/check_dependency_direction.py\n M scripts/check_source_archive.py\n?? scripts/test_check_dependency_direction.py\n",
+        "command": [
+          "cargo",
+          "mutants",
+          "--baseline=run",
+          "--no-shuffle",
+          "--build-timeout=600",
+          "--jobs=2",
+          "--package=pricing",
+          "--package=pricing-numerics",
+          "--test-package=pricing",
+          "--test-package=pricing-numerics",
+          "--cargo-arg=--package=pricing",
+          "--cargo-arg=--package=pricing-numerics",
+          "--in-diff=/tmp/pricing-mutation-changed-24/changed-2gttc84u/changes.diff",
+          "--output=/tmp/pricing-mutation-changed-24/changed-2gttc84u"
+        ],
+        "selected": 2,
+        "cargo_mutants_exit_code": 0,
+        "counts": {
+          "total_mutants": 2,
+          "caught": 1,
+          "missed": 0,
+          "timeout": 0,
+          "unviable": 1,
+          "success": 0
+        },
+        "outstanding": [
+          {
+            "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+            "outcome": "Unviable",
+            "phase": "Build",
+            "log_path": "log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_55_col_9.diff"
+          }
+        ],
+        "finished_at": "2026-10-24T23:03:56.956243+00:00",
+        "runner_exit_code": 0
+      },
+      "selected": [
+        {
+          "diff": "--- crates/pricing/src/core/calendar.rs\n+++ replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())\n@@ -47,29 +47,17 @@\n     }\n \n     #[must_use]\n     pub fn is_business_day(&self, date: Date) -> bool {\n         !date.weekday().is_weekend() && !self.is_holiday(date)\n     }\n \n     pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {\n-        match convention {\n-            BusinessDayAdjustment::Unadjusted => Ok(date),\n-            BusinessDayAdjustment::Following => self.following(date),\n-            BusinessDayAdjustment::ModifiedFollowing => {\n-                let adjusted = self.following(date)?;\n-                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {\n-                    Ok(adjusted)\n-                } else {\n-                    self.preceding(date)\n-                }\n-            }\n-            BusinessDayAdjustment::Preceding => self.preceding(date),\n-        }\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn following(&self, mut date: Date) -> Result<Date, CoreError> {\n         while !self.is_business_day(date) {\n             date = date.next_day()?;\n         }\n         Ok(date)\n     }\n",
+          "file": "crates/pricing/src/core/calendar.rs",
+          "function": {
+            "function_name": "Calendar::adjust",
+            "return_type": "-> Result<Date, CoreError>",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 68
+              },
+              "start": {
+                "column": 5,
+                "line": 54
+              }
+            }
+          },
+          "genre": "FnValue",
+          "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+          "package": "pricing",
+          "replacement": "Ok(Default::default())",
+          "span": {
+            "end": {
+              "column": 10,
+              "line": 67
+            },
+            "start": {
+              "column": 9,
+              "line": 55
+            }
+          }
+        },
+        {
+          "diff": "--- crates/pricing/src/core/calendar.rs\n+++ replace == with != in Calendar::adjust\n@@ -52,17 +52,17 @@\n     }\n \n     pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {\n         match convention {\n             BusinessDayAdjustment::Unadjusted => Ok(date),\n             BusinessDayAdjustment::Following => self.following(date),\n             BusinessDayAdjustment::ModifiedFollowing => {\n                 let adjusted = self.following(date)?;\n-                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {\n+                if (adjusted.year(), adjusted.month()) != /* ~ changed by cargo-mutants ~ */ (date.year(), date.month()) {\n                     Ok(adjusted)\n                 } else {\n                     self.preceding(date)\n                 }\n             }\n             BusinessDayAdjustment::Preceding => self.preceding(date),\n         }\n     }\n",
+          "file": "crates/pricing/src/core/calendar.rs",
+          "function": {
+            "function_name": "Calendar::adjust",
+            "return_type": "-> Result<Date, CoreError>",
+            "span": {
+              "end": {
+                "column": 6,
+                "line": 68
+              },
+              "start": {
+                "column": 5,
+                "line": 54
+              }
+            }
+          },
+          "genre": "BinaryOperator",
+          "name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+          "package": "pricing",
+          "replacement": "!=",
+          "span": {
+            "end": {
+              "column": 58,
+              "line": 60
+            },
+            "start": {
+              "column": 56,
+              "line": 60
+            }
+          }
+        }
+      ],
+      "report": {
+        "outcomes": [
+          {
+            "scenario": "Baseline",
+            "summary": "Success",
+            "log_path": "log/baseline.log",
+            "diff_path": null,
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 59.200536161,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--package=pricing",
+                  "--package=pricing-numerics",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 356.875431449,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--all-features",
+                  "--package=pricing",
+                  "--package=pricing-numerics",
+                  "--locked"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/calendar.rs",
+                "function": {
+                  "function_name": "Calendar::adjust",
+                  "return_type": "-> Result<Date, CoreError>",
+                  "span": {
+                    "start": {
+                      "line": 54,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 68,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 55,
+                    "column": 9
+                  },
+                  "end": {
+                    "line": 67,
+                    "column": 10
+                  }
+                },
+                "replacement": "Ok(Default::default())",
+                "genre": "FnValue"
+              }
+            },
+            "summary": "Unviable",
+            "log_path": "log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+            "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_55_col_9.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 3.165751527,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--package=pricing-numerics@0.1.0",
+                  "--all-features",
+                  "--package=pricing",
+                  "--package=pricing-numerics",
+                  "--locked"
+                ]
+              }
+            ]
+          },
+          {
+            "scenario": {
+              "Mutant": {
+                "name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+                "package": "pricing",
+                "file": "crates/pricing/src/core/calendar.rs",
+                "function": {
+                  "function_name": "Calendar::adjust",
+                  "return_type": "-> Result<Date, CoreError>",
+                  "span": {
+                    "start": {
+                      "line": 54,
+                      "column": 5
+                    },
+                    "end": {
+                      "line": 68,
+                      "column": 6
+                    }
+                  }
+                },
+                "span": {
+                  "start": {
+                    "line": 60,
+                    "column": 56
+                  },
+                  "end": {
+                    "line": 60,
+                    "column": 58
+                  }
+                },
+                "replacement": "!=",
+                "genre": "BinaryOperator"
+              }
+            },
+            "summary": "CaughtMutant",
+            "log_path": "log/crates__pricing__src__core__calendar.rs_line_60_col_56.log",
+            "diff_path": "diff/crates__pricing__src__core__calendar.rs_line_60_col_56.diff",
+            "phase_results": [
+              {
+                "phase": "Build",
+                "duration": 44.268560132,
+                "process_status": "Success",
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--no-run",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--package=pricing-numerics@0.1.0",
+                  "--all-features",
+                  "--package=pricing",
+                  "--package=pricing-numerics",
+                  "--locked"
+                ]
+              },
+              {
+                "phase": "Test",
+                "duration": 66.605863559,
+                "process_status": {
+                  "Failure": 101
+                },
+                "argv": [
+                  "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+                  "test",
+                  "--verbose",
+                  "--package=pricing@0.1.0",
+                  "--package=pricing-numerics@0.1.0",
+                  "--all-features",
+                  "--package=pricing",
+                  "--package=pricing-numerics",
+                  "--locked"
+                ]
+              }
+            ]
+          }
+        ],
+        "total_mutants": 2,
+        "missed": 0,
+        "caught": 1,
+        "timeout": 0,
+        "unviable": 1,
+        "success": 0,
+        "start_time": "2026-10-24T22:55:09.403192364Z",
+        "end_time": "2026-10-24T23:03:56.949181898Z",
+        "cargo_mutants_version": "27.1.0"
+      },
+      "baseline_scope": {
+        "passed": 1145,
+        "failed": 0,
+        "ignored": 91,
+        "measured": 0,
+        "filtered_out": 0,
+        "completed_targets": 101,
+        "binary_targets": [
+          "pricing",
+          "affine_oracles",
+          "american_dual",
+          "analytical_acceptance",
+          "bass_request",
+          "bergomi_calibration_quality",
+          "bergomi_dividends",
+          "bergomi_hull_white",
+          "bergomi_two_factor",
+          "calibration_report",
+          "early_exercise_acceptance",
+          "extended_model_acceptance",
+          "extended_risk_acceptance",
+          "facade_compatibility",
+          "heston_calibration",
+          "heston_fourier",
+          "heston_fourier_greeks",
+          "heston_hurst_risk",
+          "heston_iv_calibration",
+          "heston_iv_holdout",
+          "heston_iv_refinement",
+          "heston_lsv_parameter_risk",
+          "heston_mc_hurst_risk",
+          "heston_mc_parameter_risk",
+          "heston_parameter_risk",
+          "hull_white",
+          "hull_white_aad",
+          "hull_white_dividends",
+          "hull_white_escrowed_default",
+          "lifted_heston_factor_prices",
+          "local_vol_atom_chain",
+          "local_vol_convolution_gamma",
+          "local_vol_density_mass",
+          "local_vol_direct_variance",
+          "local_vol_direction_conservation",
+          "local_vol_gamma_measure",
+          "local_vol_gamma_numerics",
+          "local_vol_gamma_recovery",
+          "local_vol_initial_gamma",
+          "local_vol_initial_smile_gamma",
+          "local_vol_initial_three_gamma",
+          "local_vol_joint_gamma",
+          "local_vol_middle_gamma",
+          "local_vol_multi_step_gamma",
+          "local_vol_nonflat_gamma",
+          "local_vol_step_adjoints",
+          "local_vol_step_recovery",
+          "local_vol_three_step_gamma",
+          "local_vol_vegakt_chain",
+          "local_vol_vegakt_paper",
+          "local_vol_vegakt_pricing",
+          "lsv",
+          "market_essvi_reference",
+          "market_market_iv",
+          "market_standard_ssvi_reference",
+          "mc_hull_white",
+          "mc_lsv",
+          "mc_rough_bergomi",
+          "mixed_bergomi_hurst_risk",
+          "mixed_bergomi_parameter_risk",
+          "mixed_bergomi_shape_risk",
+          "models_hull_white",
+          "models_rough_bergomi",
+          "multi_asset",
+          "path_dependence_acceptance",
+          "pricing_specification",
+          "pricing_task",
+          "pricing_task_reuse",
+          "product_graph",
+          "pure_bergomi",
+          "quadratic_heston_parameter_risk",
+          "rough_bergomi",
+          "rough_dividend_correlation_risk",
+          "rough_dividend_risk",
+          "rough_dividends",
+          "rough_family_aad_lsv",
+          "rough_family_gamma_bump",
+          "rough_family_lsv_spot_delta",
+          "rough_family_market_iv",
+          "rough_lsv",
+          "rough_lsv_calibration_reference",
+          "rough_volatility_families",
+          "rough_volatility_pricing_reference",
+          "rough_volatility_refinement",
+          "statistical_acceptance",
+          "stochastic_dividend_barrier_reference",
+          "stochastic_dividend_bergomi_risk",
+          "stochastic_dividend_correlation_risk",
+          "stochastic_dividend_gamma",
+          "stochastic_dividend_hull_white",
+          "stochastic_dividend_hull_white_correlation_risk",
+          "stochastic_dividend_hull_white_gamma",
+          "stochastic_dividend_hull_white_refinement",
+          "stochastic_dividend_hull_white_risk",
+          "stochastic_dividend_refinement",
+          "stochastic_dividend_risk",
+          "stochastic_dividend_rough_lsv",
+          "stochastic_dividends",
+          "pricing_numerics"
+        ],
+        "unit_targets": [
+          "pricing",
+          "pricing_numerics"
+        ],
+        "integration_targets": [
+          "affine_oracles",
+          "american_dual",
+          "analytical_acceptance",
+          "bass_request",
+          "bergomi_calibration_quality",
+          "bergomi_dividends",
+          "bergomi_hull_white",
+          "bergomi_two_factor",
+          "calibration_report",
+          "early_exercise_acceptance",
+          "extended_model_acceptance",
+          "extended_risk_acceptance",
+          "facade_compatibility",
+          "heston_calibration",
+          "heston_fourier",
+          "heston_fourier_greeks",
+          "heston_hurst_risk",
+          "heston_iv_calibration",
+          "heston_iv_holdout",
+          "heston_iv_refinement",
+          "heston_lsv_parameter_risk",
+          "heston_mc_hurst_risk",
+          "heston_mc_parameter_risk",
+          "heston_parameter_risk",
+          "hull_white",
+          "hull_white_aad",
+          "hull_white_dividends",
+          "hull_white_escrowed_default",
+          "lifted_heston_factor_prices",
+          "local_vol_atom_chain",
+          "local_vol_convolution_gamma",
+          "local_vol_density_mass",
+          "local_vol_direct_variance",
+          "local_vol_direction_conservation",
+          "local_vol_gamma_measure",
+          "local_vol_gamma_numerics",
+          "local_vol_gamma_recovery",
+          "local_vol_initial_gamma",
+          "local_vol_initial_smile_gamma",
+          "local_vol_initial_three_gamma",
+          "local_vol_joint_gamma",
+          "local_vol_middle_gamma",
+          "local_vol_multi_step_gamma",
+          "local_vol_nonflat_gamma",
+          "local_vol_step_adjoints",
+          "local_vol_step_recovery",
+          "local_vol_three_step_gamma",
+          "local_vol_vegakt_chain",
+          "local_vol_vegakt_paper",
+          "local_vol_vegakt_pricing",
+          "lsv",
+          "market_essvi_reference",
+          "market_market_iv",
+          "market_standard_ssvi_reference",
+          "mc_hull_white",
+          "mc_lsv",
+          "mc_rough_bergomi",
+          "mixed_bergomi_hurst_risk",
+          "mixed_bergomi_parameter_risk",
+          "mixed_bergomi_shape_risk",
+          "models_hull_white",
+          "models_rough_bergomi",
+          "multi_asset",
+          "path_dependence_acceptance",
+          "pricing_specification",
+          "pricing_task",
+          "pricing_task_reuse",
+          "product_graph",
+          "pure_bergomi",
+          "quadratic_heston_parameter_risk",
+          "rough_bergomi",
+          "rough_dividend_correlation_risk",
+          "rough_dividend_risk",
+          "rough_dividends",
+          "rough_family_aad_lsv",
+          "rough_family_gamma_bump",
+          "rough_family_lsv_spot_delta",
+          "rough_family_market_iv",
+          "rough_lsv",
+          "rough_lsv_calibration_reference",
+          "rough_volatility_families",
+          "rough_volatility_pricing_reference",
+          "rough_volatility_refinement",
+          "statistical_acceptance",
+          "stochastic_dividend_barrier_reference",
+          "stochastic_dividend_bergomi_risk",
+          "stochastic_dividend_correlation_risk",
+          "stochastic_dividend_gamma",
+          "stochastic_dividend_hull_white",
+          "stochastic_dividend_hull_white_correlation_risk",
+          "stochastic_dividend_hull_white_gamma",
+          "stochastic_dividend_hull_white_refinement",
+          "stochastic_dividend_hull_white_risk",
+          "stochastic_dividend_refinement",
+          "stochastic_dividend_risk",
+          "stochastic_dividend_rough_lsv",
+          "stochastic_dividends"
+        ],
+        "doc_targets": [
+          "pricing",
+          "pricing_numerics"
+        ],
+        "result_lines": [
+          "ok 585 0 5 0 0",
+          "ok 4 0 0 0 0",
+          "ok 5 0 1 0 0",
+          "ok 1 0 0 0 0",
+          "ok 7 0 0 0 0",
+          "ok 5 0 6 0 0",
+          "ok 5 0 0 0 0",
+          "ok 2 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 1 0 2 0 0",
+          "ok 9 0 27 0 0",
+          "ok 1 0 11 0 0",
+          "ok 1 0 0 0 0",
+          "ok 4 0 1 0 0",
+          "ok 5 0 2 0 0",
+          "ok 4 0 2 0 0",
+          "ok 4 0 2 0 0",
+          "ok 4 0 1 0 0",
+          "ok 5 0 1 0 0",
+          "ok 6 0 1 0 0",
+          "ok 4 0 1 0 0",
+          "ok 5 0 1 0 0",
+          "ok 5 0 1 0 0",
+          "ok 4 0 2 0 0",
+          "ok 6 0 0 0 0",
+          "ok 9 0 0 0 0",
+          "ok 6 0 0 0 0",
+          "ok 7 0 0 0 0",
+          "ok 4 0 1 0 0",
+          "ok 2 0 0 0 0",
+          "ok 11 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 6 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 6 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 7 0 0 0 0",
+          "ok 9 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 2 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 2 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 6 0 0 0 0",
+          "ok 8 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 7 0 0 0 0",
+          "ok 11 0 0 0 0",
+          "ok 10 0 0 0 0",
+          "ok 3 0 0 0 0",
+          "ok 1 0 0 0 0",
+          "ok 2 0 0 0 0",
+          "ok 1 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 8 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 4 0 1 0 0",
+          "ok 5 0 1 0 0",
+          "ok 4 0 2 0 0",
+          "ok 3 0 0 0 0",
+          "ok 2 0 0 0 0",
+          "ok 44 0 0 0 0",
+          "ok 1 0 2 0 0",
+          "ok 12 0 0 0 0",
+          "ok 9 0 0 0 0",
+          "ok 6 0 0 0 0",
+          "ok 9 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 5 0 1 0 0",
+          "ok 3 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 8 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 8 0 1 0 0",
+          "ok 4 0 1 0 0",
+          "ok 5 0 1 0 0",
+          "ok 4 0 1 0 0",
+          "ok 6 0 0 0 0",
+          "ok 2 0 1 0 0",
+          "ok 16 0 0 0 0",
+          "ok 1 0 1 0 0",
+          "ok 5 0 1 0 0",
+          "ok 0 0 1 0 0",
+          "ok 4 0 6 0 0",
+          "ok 4 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 5 0 0 0 0",
+          "ok 2 0 1 0 0",
+          "ok 6 0 0 0 0",
+          "ok 1 0 1 0 0",
+          "ok 4 0 0 0 0",
+          "ok 4 0 0 0 0",
+          "ok 7 0 0 0 0",
+          "ok 55 0 0 0 0",
+          "ok 0 0 0 0 0",
+          "ok 0 0 0 0 0"
+        ]
+      },
+      "artifacts": [
+        {
+          "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/run.json",
+          "sha256": "9720ee096a40180a45be76d329655959ea171558b09845e4b63951f117a871f5",
+          "bytes": 1523
+        },
+        {
+          "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/selected.json",
+          "sha256": "c83852475786f17adaa4e532d464ac5c70e6f3f5c5f3f2059392d4154e649d8c",
+          "bytes": 3669
+        },
+        {
+          "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/summary.md",
+          "sha256": "82c599929803ace19d1cbc045da5b2f2226131ad474c605a7d8534ec7acd180b",
+          "bytes": 577
+        },
+        {
+          "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/mutants.out/outcomes.json",
+          "sha256": "4182fe88e34632b150d9f49806e41325b94d744655132e3e1182f377c30c027b",
+          "bytes": 5298
+        }
+      ],
+      "logs_and_patches": [
+        {
+          "scenario": "Baseline",
+          "outcome": "Success",
+          "log": {
+            "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/mutants.out/log/baseline.log",
+            "sha256": "592de14c858ea71df2a41e8fcc28c0e1eeb562d71d66702795bf4f9df0670545",
+            "bytes": 385161
+          }
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/calendar.rs:55:9: replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/calendar.rs",
+              "function": {
+                "function_name": "Calendar::adjust",
+                "return_type": "-> Result<Date, CoreError>",
+                "span": {
+                  "start": {
+                    "line": 54,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 55,
+                  "column": 9
+                },
+                "end": {
+                  "line": 67,
+                  "column": 10
+                }
+              },
+              "replacement": "Ok(Default::default())",
+              "genre": "FnValue"
+            }
+          },
+          "outcome": "Unviable",
+          "log": {
+            "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/mutants.out/log/crates__pricing__src__core__calendar.rs_line_55_col_9.log",
+            "sha256": "9e047c82e68912ab70ec2659661362f5c2063851dd9789ecb29daebec2cfc981",
+            "bytes": 9882
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/mutants.out/diff/crates__pricing__src__core__calendar.rs_line_55_col_9.diff",
+            "sha256": "28190d2aecbdf7581e328b0837d734d6f107b186ae82ccad43597c46877ed2b7",
+            "bytes": 1247,
+            "text": "--- crates/pricing/src/core/calendar.rs\n+++ replace Calendar::adjust -> Result<Date, CoreError> with Ok(Default::default())\n@@ -47,29 +47,17 @@\n     }\n \n     #[must_use]\n     pub fn is_business_day(&self, date: Date) -> bool {\n         !date.weekday().is_weekend() && !self.is_holiday(date)\n     }\n \n     pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {\n-        match convention {\n-            BusinessDayAdjustment::Unadjusted => Ok(date),\n-            BusinessDayAdjustment::Following => self.following(date),\n-            BusinessDayAdjustment::ModifiedFollowing => {\n-                let adjusted = self.following(date)?;\n-                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {\n-                    Ok(adjusted)\n-                } else {\n-                    self.preceding(date)\n-                }\n-            }\n-            BusinessDayAdjustment::Preceding => self.preceding(date),\n-        }\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn following(&self, mut date: Date) -> Result<Date, CoreError> {\n         while !self.is_business_day(date) {\n             date = date.next_day()?;\n         }\n         Ok(date)\n     }\n"
+          },
+          "compiler_errors": [
+            "error[E0277]: the trait bound `date::Date: Default` is not satisfied",
+            "error: could not compile `pricing` (lib) due to 1 previous error",
+            "error: could not compile `pricing` (lib test) due to 1 previous error"
+          ]
+        },
+        {
+          "scenario": {
+            "Mutant": {
+              "name": "crates/pricing/src/core/calendar.rs:60:56: replace == with != in Calendar::adjust",
+              "package": "pricing",
+              "file": "crates/pricing/src/core/calendar.rs",
+              "function": {
+                "function_name": "Calendar::adjust",
+                "return_type": "-> Result<Date, CoreError>",
+                "span": {
+                  "start": {
+                    "line": 54,
+                    "column": 5
+                  },
+                  "end": {
+                    "line": 68,
+                    "column": 6
+                  }
+                }
+              },
+              "span": {
+                "start": {
+                  "line": 60,
+                  "column": 56
+                },
+                "end": {
+                  "line": 60,
+                  "column": 58
+                }
+              },
+              "replacement": "!=",
+              "genre": "BinaryOperator"
+            }
+          },
+          "outcome": "CaughtMutant",
+          "log": {
+            "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/mutants.out/log/crates__pricing__src__core__calendar.rs_line_60_col_56.log",
+            "sha256": "a9a3f1b73644edb8fce79b096b0dea7fe3c6f378349598ca788baa2ed7fe30a7",
+            "bytes": 307734
+          },
+          "patch": {
+            "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/mutants.out/diff/crates__pricing__src__core__calendar.rs_line_60_col_56.diff",
+            "sha256": "44e29b41158c41618248a8c88a4ab259234d1faffe1aecaed3030b9ec2ba363c",
+            "bytes": 925,
+            "text": "--- crates/pricing/src/core/calendar.rs\n+++ replace == with != in Calendar::adjust\n@@ -52,17 +52,17 @@\n     }\n \n     pub fn adjust(&self, date: Date, convention: BusinessDayAdjustment) -> Result<Date, CoreError> {\n         match convention {\n             BusinessDayAdjustment::Unadjusted => Ok(date),\n             BusinessDayAdjustment::Following => self.following(date),\n             BusinessDayAdjustment::ModifiedFollowing => {\n                 let adjusted = self.following(date)?;\n-                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {\n+                if (adjusted.year(), adjusted.month()) != /* ~ changed by cargo-mutants ~ */ (date.year(), date.month()) {\n                     Ok(adjusted)\n                 } else {\n                     self.preceding(date)\n                 }\n             }\n             BusinessDayAdjustment::Preceding => self.preceding(date),\n         }\n     }\n"
+          },
+          "failed_tests": [
+            "core::calendar::tests::adjustments_skip_holiday_runs_and_are_idempotent",
+            "core::calendar::tests::adjustments_follow_weekends_and_holidays",
+            "core::calendar::tests::modified_following_does_not_accept_the_same_month_in_another_year"
+          ]
+        }
+      ],
+      "merge_base": "376c92624f88083b46d86e1087d2b0f03e202b91",
+      "changes": {
+        "path": "/tmp/pricing-mutation-changed-24/changed-2gttc84u/changes.diff",
+        "sha256": "1c53ec7dc07198be97426fa7b01632baa0be41828333e876fd87307e36338cde",
+        "bytes": 109377
+      }
+    }
+  },
+  "limits": [
+    "No native Windows rerun is claimed by this local record.",
+    "Three Python fault injections are not a general mutation survey.",
+    "Narrow passing gates do not replace historical failing diagnostic surveys.",
+    "Ignored tests remain ignored; installed-wheel mutation coverage is not claimed."
+  ]
+}

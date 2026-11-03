@@ -333,4 +333,78 @@ mod tests {
         assert_eq!(merged.means(), (2.5, 5.0));
         assert_eq!(merged.sample_covariance(), Some(10.0 / 3.0));
     }
+
+    #[test]
+    fn neumaier_preserves_correction_when_larger_term_arrives_second() {
+        let mut sum = [2.5, 1.0e17].into_iter().collect::<NeumaierSum>();
+        assert_eq!(sum.sum(), 1.0e17);
+        assert_eq!(sum.correction(), 2.5);
+        sum.add(-1.0e17);
+        assert_eq!(sum.total(), 2.5);
+    }
+
+    #[test]
+    fn two_pass_and_unequal_partitions_match_independent_moments() {
+        // Mean = 25/5; sum of squared deviations = 16+9+4+4+49.
+        let values = [1.0, 2.0, 3.0, 7.0, 12.0];
+        let mut left = CenteredMoment::new();
+        let mut right = CenteredMoment::new();
+        for value in &values[..3] {
+            left.add(*value);
+        }
+        for value in &values[3..] {
+            right.add(*value);
+        }
+        for moments in [
+            CenteredMoment::from_ordered_values_two_pass(&values),
+            CenteredMoment::merged(left, right),
+            CenteredMoment::merged(right, left),
+        ] {
+            assert_eq!(moments.count(), 5);
+            assert_eq!(moments.mean(), 5.0);
+            assert_eq!(moments.second_moment(), 82.0);
+            assert_eq!(moments.sample_variance(), Some(20.5));
+        }
+        assert_eq!(
+            CenteredMoment::from_ordered_values_two_pass(&[]),
+            CenteredMoment::new()
+        );
+    }
+
+    #[test]
+    fn unequal_partitions_match_independent_covariance() {
+        // Means are both 5; sum of cross-deviations = 16+6+0+8+14.
+        let values = [(1.0, 1.0), (2.0, 3.0), (3.0, 5.0), (7.0, 9.0), (12.0, 7.0)];
+        let mut left = CenteredCovariance::new();
+        let mut right = CenteredCovariance::new();
+        for &(x, y) in &values[..3] {
+            left.add(x, y);
+        }
+        for &(x, y) in &values[3..] {
+            right.add(x, y);
+        }
+        for covariance in [
+            CenteredCovariance::merged(left, right),
+            CenteredCovariance::merged(right, left),
+        ] {
+            assert_eq!(covariance.count(), 5);
+            assert_eq!(covariance.means(), (5.0, 5.0));
+            assert_eq!(covariance.cross_moment(), 44.0);
+            assert_eq!(covariance.sample_covariance(), Some(11.0));
+        }
+    }
+
+    #[test]
+    fn sample_statistics_require_two_observations() {
+        let mut moments = CenteredMoment::new();
+        let mut covariance = CenteredCovariance::new();
+        assert_eq!(moments.sample_variance(), None);
+        assert_eq!(covariance.sample_covariance(), None);
+        moments.add(2.5);
+        covariance.add(2.5, -7.0);
+        assert_eq!(moments.sample_variance(), None);
+        assert_eq!(covariance.sample_covariance(), None);
+        assert_eq!(moments.second_moment(), 0.0);
+        assert_eq!(covariance.cross_moment(), 0.0);
+    }
 }

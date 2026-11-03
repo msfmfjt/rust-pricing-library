@@ -112,4 +112,74 @@ mod tests {
         assert!(NonNegativeF64::new(-0.0, "dividend").is_ok());
         assert!(NonNegativeF64::new(-1.0, "dividend").is_err());
     }
+
+    #[test]
+    fn finite_values_round_trip_and_equality_is_reflexive() {
+        let smallest = f64::from_bits(1);
+        for value in [
+            -f64::MAX,
+            -2.5,
+            -smallest,
+            -0.0,
+            0.0,
+            smallest,
+            2.5,
+            f64::MAX,
+        ] {
+            let wrapped = FiniteF64::new(value, "value").unwrap();
+            assert_eq!(wrapped.get().to_bits(), value.to_bits());
+            assert_eq!(wrapped.to_bits(), value.to_bits());
+            assert_eq!(wrapped, FiniteF64::new(value, "other_field").unwrap());
+        }
+        assert_ne!(
+            FiniteF64::new(2.5, "x").unwrap(),
+            FiniteF64::new(3.5, "x").unwrap()
+        );
+        assert_eq!(FiniteF64::new(-2.5, "x").unwrap().to_string(), "-2.5");
+    }
+
+    #[test]
+    fn constrained_values_preserve_valid_inputs_and_signed_zero() {
+        for value in [f64::from_bits(1), f64::MIN_POSITIVE, 2.5, f64::MAX] {
+            assert_eq!(
+                PositiveF64::new(value, "strike").unwrap().get().to_bits(),
+                value.to_bits()
+            );
+            assert_eq!(
+                NonNegativeF64::new(value, "cash").unwrap().get().to_bits(),
+                value.to_bits()
+            );
+        }
+        for zero in [0.0_f64, -0.0] {
+            assert!(PositiveF64::new(zero, "strike").is_err());
+            assert_eq!(
+                NonNegativeF64::new(zero, "cash").unwrap().get().to_bits(),
+                zero.to_bits()
+            );
+        }
+        for value in [-f64::from_bits(1), -2.5, -f64::MAX] {
+            assert!(PositiveF64::new(value, "strike").is_err());
+            assert!(NonNegativeF64::new(value, "cash").is_err());
+        }
+    }
+
+    #[test]
+    fn nonfinite_inputs_preserve_error_field_and_original_bits() {
+        for value in [
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            for error in [
+                FiniteF64::new(value, "input").unwrap_err(),
+                PositiveF64::new(value, "input").unwrap_err(),
+                NonNegativeF64::new(value, "input").unwrap_err(),
+            ] {
+                assert!(
+                    matches!(error, CoreError::NonFiniteNumber { field: "input", bits }
+                    if bits == value.to_bits())
+                );
+            }
+        }
+    }
 }
