@@ -96,6 +96,9 @@ impl MultiAssetPricingPlan {
                     e => E::numerical(e),
                 })?;
             }
+            if let Some(target) = asset.hw.as_ref().and_then(|h| h.target.as_ref()) {
+                target.validate_market_iv_reverse().map_err(E::numerical)?;
+            }
             if let Some(lsv) = &asset.lsv {
                 lsv.calibration
                     .validate_calibration_reverse()

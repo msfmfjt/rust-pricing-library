@@ -46,6 +46,16 @@ repair. These are sampled checks, not a guarantee of global absence of arbitrage
 between samples. This interpolator does not perform an SSVI/eSSVI constrained
 fit, quote weighting, bid/ask selection or an optimizer reverse.
 
+Quote risk additionally requires every effective target variance to lie strictly
+between its floor and cap. Exact equality is an active-set transition even when
+the constructor needed no repair. `reverse_market_iv` and AAD preflight reject
+it with `market_iv_local_variance_bound_kink`; no tolerance band is used.
+This check also applies to HW basket marginals and the Local Correlation basket
+target. A compiled `PricingTask` reports AAD as unsupported before pricing paths
+run. Price evaluation remains available, as does effective-node risk for targets
+without retained market-IV quotes. `supports_vega_kt` describes retained quote
+provenance; it does not replace the numerical preflight.
+
 ## Quote coordinates and cash dividends
 
 IV quotes refer to the same forward coordinate used by the target. With

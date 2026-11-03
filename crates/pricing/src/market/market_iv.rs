@@ -173,6 +173,14 @@ impl MarketIvSurface {
         {
             return Err(invalid("market_iv_original_target_mismatch", 0.0));
         }
+        Self::validate_local_variance_reverse_bounds(grid)
+    }
+
+    /// The paired HW target has already retained this exact source. Share the
+    /// differentiability check without rebuilding it on every risk preflight.
+    pub(crate) fn validate_local_variance_reverse_bounds(
+        grid: &LocalVarianceGrid,
+    ) -> Result<(), MarketError> {
         if grid
             .values()
             .iter()

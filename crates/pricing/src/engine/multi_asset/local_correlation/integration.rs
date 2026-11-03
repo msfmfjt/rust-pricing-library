@@ -183,6 +183,9 @@ impl LocalCorrelationCalibration {
                 "local correlation AAD is undefined at an exact projection active-set transition",
             ));
         }
+        if let Some(target) = self.joint.as_ref().and_then(|j| j.risk_target.as_ref()) {
+            target.validate_market_iv_reverse().map_err(E::numerical)?;
+        }
         Ok(())
     }
     pub(in crate::engine::multi_asset) fn fingerprint(&self, h: &mut blake3::Hasher) {

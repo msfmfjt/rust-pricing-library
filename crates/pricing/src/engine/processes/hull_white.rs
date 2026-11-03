@@ -898,8 +898,18 @@ impl HullWhiteLsvTarget {
     pub fn market_iv_surface(&self) -> Option<&MarketIvSurface> {
         self.market_iv.as_deref()
     }
+    /// Effective-node risk remains valid without a quote source. Quote risk
+    /// additionally requires strict interior Dupire nodes: no derivative is
+    /// defined at an exact floor/cap transition, even when no repair was needed.
+    pub(crate) fn validate_market_iv_reverse(&self) -> Result<(), HullWhiteMcError> {
+        if self.market_iv.is_some() {
+            MarketIvSurface::validate_local_variance_reverse_bounds(&self.grid)?;
+        }
+        Ok(())
+    }
     /// Exact transpose of both Dupire variance and K*p_F^T(K). No finite
     /// difference or particle recalibration is performed by this operation.
+    /// Exact variance floor/cap transitions are rejected as nondifferentiable.
     pub fn reverse_market_iv(
         &self,
         variance_seeds: &[f64],
@@ -909,6 +919,7 @@ impl HullWhiteLsvTarget {
             .market_iv
             .as_ref()
             .ok_or_else(|| invalid("market_iv_source_not_retained", 0))?;
+        self.validate_market_iv_reverse()?;
         let n = self.grid.values().len();
         if variance_seeds.len() != n
             || density_seeds.len() != n
