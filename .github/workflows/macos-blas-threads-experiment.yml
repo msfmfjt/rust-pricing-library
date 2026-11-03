@@ -1,0 +1,56 @@
+name: macOS BLAS threads experiment
+
+# Temporary diagnostic: the heap-corruption aborts were detected at libdispatch
+# workqueue-thread exit and in pricing-worker allocations. Does limiting the
+# NumPy/SciPy BLAS backends to one thread stop them? Uses #203's built wheel.
+on:
+  push:
+    branches: ["experiment/macos-blas-threads"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  shard:
+    name: ${{ matrix.selection }} / ${{ matrix.blas }} / ${{ matrix.repeat }}
+    runs-on: macos-15
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        blas: ["single-thread", "default"]
+        selection:
+          - custom-basis-row_hats-4-call-fixed_lookback
+          - custom-basis-row_hats-4-put-fixed_lookback
+        repeat: [1, 2, 3]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download #203's macOS wheel (run 41640275115)
+        uses: actions/download-artifact@v8
+        with:
+          name: rust-pricing-aarch64-apple-darwin-cp312
+          path: dist
+          run-id: 41640275115
+          github-token: ${{ github.token }}
+
+      - name: Run the selection
+        env:
+          RUST_BACKTRACE: full
+        run: |
+          if [ "${{ matrix.blas }}" = "single-thread" ]; then
+            export VECLIB_MAXIMUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+          fi
+          env | grep -E '^(VECLIB|OPENBLAS|OMP)_' || echo "BLAS threads: default"
+          python scripts/smoke_test_wheel.py --phase validation --shard "${{ matrix.selection }}" \
+            --report-directory wheel-validation-reports --native-debugger lldb
+
