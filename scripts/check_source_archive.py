@@ -828,6 +828,7 @@ REQUIRED_FILES = {
     "crates/pricing/tests/lifted_heston_factor_prices.rs",
     "scripts/check_lifted_heston_factors.py",
     "scripts/test_lifted_heston_factors.py",
+    "scripts/test_ci_failure_propagation.py",
     "fixtures/rough-volatility/lifted-factor-prices.json",
     "design/validation/lifted-heston-factor-prices.md",
     ".github/workflows/lifted-heston-factors.yml",
@@ -966,6 +967,8 @@ REQUIRED_FILES = {
     "rust_pricing.pyi",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
     "scripts/check_benchmark_reports.py",
     "scripts/check_dependency_direction.py",
     "scripts/check_early_exercise_reference_fixture.py",
@@ -1055,6 +1058,7 @@ REQUIRED_CI_SNIPPETS = {
     "python scripts/check_schemas.py",
     "python scripts/check_specification_json_schema.py",
     "python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v",
+    "python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v",
     "python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v",
     "python scripts/check_markdown_links.py",
     "cargo fmt --all --check",
@@ -1469,8 +1473,7 @@ REQUIRED_RELEASE_READINESS_SNIPPETS = {
     "Python extension build, wheel smoke test, Python smoke suite, benchmark run",
     "benchmark artifact validation",
     "private artifact repository location and access policy",
-    "internal licensing terms for private consumers",
-    "whether a public open-source license will ever be selected",
+    "licensed under `MIT OR Apache-2.0`",
 }
 
 REQUIRED_ARCHITECTURE_SNIPPETS = {
@@ -1760,11 +1763,10 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
         raise SystemExit(f"{archive}: pyproject project.requires-python mismatch")
     if project.get("authors") != [{"name": "Masafumi Fujita"}]:
         raise SystemExit(f"{archive}: pyproject project.authors mismatch")
-    for key in ["license", "license-files"]:
-        if key in project:
-            raise SystemExit(
-                f"{archive}: pyproject project.{key} must stay absent until licensing is decided"
-            )
+    if project.get("license") != "MIT OR Apache-2.0":
+        raise SystemExit(f"{archive}: pyproject project.license mismatch")
+    if project.get("license-files") != ["LICENSE-MIT", "LICENSE-APACHE", "THIRD_PARTY_NOTICES.md"]:
+        raise SystemExit(f"{archive}: pyproject project.license-files mismatch")
     if project.get("dynamic") != ["version"]:
         raise SystemExit(f"{archive}: pyproject must derive version dynamically")
 
@@ -1798,6 +1800,18 @@ def check_pyproject(package: tarfile.TarFile, archive: str) -> None:
         raise SystemExit(f"{archive}: pricing-python extension-module feature mismatch")
 
 
+def ci_job_text(workflow: str, job_name: str) -> str:
+    """Read a job from the retained workflow's two-space job layout."""
+    match = re.search(
+        rf"^  {re.escape(job_name)}:\n(.*?)(?=^  [\w-]+:\n|\Z)",
+        workflow,
+        re.MULTILINE | re.DOTALL,
+    )
+    if match is None:
+        raise SystemExit(f"CI workflow is missing job {job_name}")
+    return match.group(1)
+
+
 def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
     workflow = read_text(package, ".github/workflows/ci.yml")
     missing = sorted(snippet for snippet in REQUIRED_CI_SNIPPETS if snippet not in workflow)
@@ -1810,15 +1824,15 @@ def check_ci_workflow(package: tarfile.TarFile, archive: str) -> None:
                 f"{archive}: CI workflow must contain {snippet!r} "
                 f"{expected_count} times, found {actual_count}"
             )
+    for job_name in ("rust", "supported-wheels"):
+        job = ci_job_text(workflow, job_name)
+        if "    defaults:\n      run:\n        shell: bash\n" not in job:
+            raise SystemExit(f"{archive}: CI job {job_name} must use fail-fast bash")
+        overrides = re.findall(r"^        shell: (.+)$", job, re.MULTILINE)
+        if any(shell != "bash" for shell in overrides) or "continue-on-error:" in job:
+            raise SystemExit(f"{archive}: CI job {job_name} must propagate command failures")
     for job_name, snippets in REQUIRED_WHEEL_CI_JOB_SNIPPETS.items():
-        match = re.search(
-            rf"^  {re.escape(job_name)}:\n(.*?)(?=^  [\w-]+:\n|\Z)",
-            workflow,
-            re.MULTILINE | re.DOTALL,
-        )
-        if match is None:
-            raise SystemExit(f"{archive}: CI workflow is missing job {job_name}")
-        job = match.group(1)
+        job = ci_job_text(workflow, job_name)
         missing = [snippet for snippet in snippets if snippet not in job]
         if missing:
             raise SystemExit(f"{archive}: CI job {job_name} is missing gates: {missing}")

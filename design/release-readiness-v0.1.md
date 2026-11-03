@@ -29,8 +29,8 @@ by CI and documented in the repository README:
   and benchmark artifact validation.
 
 Passing these checks establishes that the commit is ready for private artifact
-retention on the supported CI platforms. It does not resolve publication,
-licensing, or access-control decisions.
+retention on the supported CI platforms. It does not resolve publication or
+access-control decisions.
 
 Path Dependence and Early Exercise have completed their P0-P8 and E0-E8 gates.
 Their supported Apple Silicon macOS and Windows x86-64 replay fixtures are
@@ -40,10 +40,7 @@ Rust, Python wheel, statistical acceptance, replay, and benchmark matrix.
 Before any public publication, the following non-code decisions must be resolved
 outside the repository:
 
-- private artifact repository location and access policy;
-- internal licensing terms for private consumers;
-- whether a public open-source license will ever be selected.
+- private artifact repository location and access policy.
 
-Until those decisions are recorded, the repository remains private-distribution
-only. The absence of a selected license means publication of the repository does
-not grant permission to use, modify, or redistribute the code.
+The repository is licensed under `MIT OR Apache-2.0`, as decided by the owner on
+2026-10-30. See [LICENSE-MIT](../LICENSE-MIT) and [LICENSE-APACHE](../LICENSE-APACHE).

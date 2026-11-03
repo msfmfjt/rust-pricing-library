@@ -63,6 +63,12 @@ and statistical American Call/Put acceptance, independent Bermudan-tree and
 in/out-of-sample evidence, same-platform replay on Apple Silicon macOS and
 Windows x86-64, and training/valuation/fixed-policy-risk benchmark workloads.
 
+## API stability
+
+The project is at version 0.1.0. Interfaces described as experimental can change
+without a migration path, and the "stable" facade wording refers to the module
+paths the library intends to keep, not to a released compatibility guarantee.
+
 ## Workspace
 
 Experimental multi-marginal Bass local volatility is available through Rust
@@ -198,7 +204,9 @@ subcrates are removed; direct users must follow the
 
 ## Development
 
-The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run:
+The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run the
+core checks below. [CONTRIBUTING.md](CONTRIBUTING.md) has the complete required list, and
+CI runs on Linux, macOS and Windows.
 
 ```shell
 python3 scripts/check_local_vol_reference_fixture.py
@@ -335,3 +343,13 @@ plus Hull–White composition are not available for these stochastic-dividend pl
 
 Experimental [Heston IV calibration and SSVI targets](docs/models/heston-iv-calibration.md)
 provide a separate Black-IV objective with analytic Jacobians.
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT), at your option. Third-party data is covered by
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.

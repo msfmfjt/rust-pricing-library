@@ -27,6 +27,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check first-order reverse
         run: cargo test --locked --release -p pricing --test stochastic_dividend_risk -- --nocapture 2>&1 | tee stochastic-dividend-risk.log
       - name: Check Hull-White dividend risk
@@ -80,6 +84,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check fixed-grid Barrier smoothing widths
         run: cargo test --locked --release -p pricing --lib lsv_barrier_smoothing_tests -- --include-ignored --nocapture 2>&1 | tee stochastic-dividend-rough-lsv-barrier-smoothing.log
       - name: Check exact-limit and multi-step hard Barrier references
@@ -257,10 +265,18 @@ jobs:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
+    # PowerShell otherwise exposes only the last native command's exit status.
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -273,6 +289,9 @@ jobs:
           rustc -vV
           cargo -V
           git hash-object Cargo.lock
+
+      - name: Check CI command failure propagation
+        run: python -m unittest discover -s scripts -p 'test_ci_failure_propagation.py' -v
 
       - name: Check Local Volatility equation fixture
         run: python scripts/check_local_vol_reference_fixture.py
@@ -369,6 +388,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run extended model risk acceptance
         shell: bash
@@ -447,6 +470,9 @@ jobs:
           - os: windows-2025
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out source
