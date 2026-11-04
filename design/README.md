@@ -17,6 +17,7 @@ contracts and calculation specifications.
 - [ADR template](adr/0000-template.md)
 - [Release readiness](release-readiness-v0.1.md)
 - [Contributor workflow and checks](../CONTRIBUTING.md)
+- [Codex repository handoff (2026-10-29)](CODEX_HANDOFF_2026-10-29.md)
 
 Requirements and ADRs retain their recorded scope and chronology. Older records
 may describe earlier crate names, defaults or extension boundaries. Follow the
