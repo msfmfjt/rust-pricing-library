@@ -917,4 +917,513 @@ mod tests {
             }) if event == EventId::new(1)
         ));
     }
+
+    fn mixed_schedule() -> AffineDividendTransform {
+        AffineDividendTransform::new(
+            UnderlyingId::new(7),
+            spot(100.0),
+            vec![
+                DividendEvent::new(EventId::new(11), 0.25, DividendQuote::FixedCash(3.0)).unwrap(),
+                DividendEvent::new(
+                    EventId::new(12),
+                    0.5,
+                    DividendQuote::FixedCashAndProportional {
+                        fixed_cash: 5.0,
+                        beta: 0.2,
+                    },
+                )
+                .unwrap(),
+                DividendEvent::new(EventId::new(13), 0.75, DividendQuote::Proportional(0.5))
+                    .unwrap(),
+            ],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn quote_and_event_accessors_preserve_the_supplied_contract() {
+        let id = EventId::new(17);
+        for (quote, expected_cash, expected_beta) in [
+            (DividendQuote::fixed_cash(6.25, id).unwrap(), 6.25, 0.0),
+            (DividendQuote::proportional(0.125, id).unwrap(), 0.0, 0.125),
+            (
+                DividendQuote::fixed_cash_and_proportional(6.25, 0.125, id).unwrap(),
+                6.25,
+                0.125,
+            ),
+        ] {
+            assert_eq!(quote.fixed_cash_amount(), expected_cash);
+            assert_eq!(quote.beta(), expected_beta);
+            let event = DividendEvent::new(id, 0.625, quote).unwrap();
+            assert_eq!(event.event(), id);
+            assert_eq!(event.ex_time(), 0.625);
+            assert_eq!(event.quote(), quote);
+            let transform =
+                AffineDividendTransform::new(UnderlyingId::new(7), spot(100.0), vec![event])
+                    .unwrap();
+            let compiled = transform.events()[0];
+            assert_eq!(compiled.event(), id);
+            assert_eq!(compiled.ex_time(), 0.625);
+            assert_eq!(compiled.fixed_cash(), expected_cash);
+            assert_eq!(compiled.alpha(), expected_cash / 100.0);
+            assert_eq!(compiled.beta(), expected_beta);
+        }
+    }
+
+    #[test]
+    fn quote_domains_include_zero_and_reject_nonfinite_values_with_context() {
+        let id = EventId::new(17);
+        for value in [0.0, -0.0] {
+            assert!(DividendQuote::fixed_cash(value, id).is_ok());
+            assert!(DividendQuote::proportional(value, id).is_ok());
+        }
+        assert!(DividendQuote::proportional(1.0_f64.next_down(), id).is_ok());
+        for value in [
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0x7ff8_0000_0000_0017),
+        ] {
+            let expected_cash = MarketError::InvalidDividendCash {
+                event: id,
+                bits: value.to_bits(),
+            };
+            assert_eq!(
+                DividendQuote::fixed_cash(value, id),
+                Err(expected_cash.clone())
+            );
+            assert_eq!(
+                DividendQuote::fixed_cash_and_proportional(value, 0.25, id),
+                Err(expected_cash)
+            );
+            let expected_beta = MarketError::InvalidDividendProportion {
+                event: id,
+                bits: value.to_bits(),
+            };
+            assert_eq!(
+                DividendQuote::proportional(value, id),
+                Err(expected_beta.clone())
+            );
+            assert_eq!(
+                DividendQuote::fixed_cash_and_proportional(1.0, value, id),
+                Err(expected_beta)
+            );
+        }
+        for value in [1.0_f64, 1.0_f64.next_up(), 2.0] {
+            assert_eq!(
+                DividendQuote::proportional(value, id),
+                Err(MarketError::InvalidDividendProportion {
+                    event: id,
+                    bits: value.to_bits(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn schedule_validation_reports_time_order_and_raw_quote_errors() {
+        let id = EventId::new(17);
+        for time in [
+            -f64::from_bits(1),
+            -1.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+        ] {
+            assert_eq!(
+                DividendEvent::new(id, time, DividendQuote::FixedCash(1.0)),
+                Err(MarketError::InvalidDividendTime {
+                    event: id,
+                    index: 0,
+                    bits: time.to_bits()
+                })
+            );
+        }
+        for time in [0.0, -0.0] {
+            let event = DividendEvent::new(id, time, DividendQuote::FixedCash(1.0)).unwrap();
+            let transform =
+                AffineDividendTransform::new(UnderlyingId::new(7), spot(100.0), vec![event])
+                    .unwrap();
+            assert_eq!(transform.coordinate_after_time(0.0).unwrap().a(), 0.0);
+            assert_eq!(transform.coordinate_after_time(0.0).unwrap().b(), 0.99);
+        }
+        for last in [0.25_f64, 0.5] {
+            let events = vec![
+                DividendEvent::new(EventId::new(11), 0.125, DividendQuote::FixedCash(1.0)).unwrap(),
+                DividendEvent::new(EventId::new(12), 0.5, DividendQuote::FixedCash(1.0)).unwrap(),
+                DividendEvent::new(id, last, DividendQuote::FixedCash(1.0)).unwrap(),
+            ];
+            assert_eq!(
+                AffineDividendTransform::new(UnderlyingId::new(7), spot(100.0), events),
+                Err(MarketError::UnsortedDividendEvents {
+                    left_index: 1,
+                    left_bits: 0.5_f64.to_bits(),
+                    right_bits: last.to_bits()
+                })
+            );
+        }
+        for (quote, error) in [
+            (
+                DividendQuote::FixedCash(-1.0),
+                MarketError::InvalidDividendCash {
+                    event: id,
+                    bits: (-1.0_f64).to_bits(),
+                },
+            ),
+            (
+                DividendQuote::Proportional(1.0),
+                MarketError::InvalidDividendProportion {
+                    event: id,
+                    bits: 1.0_f64.to_bits(),
+                },
+            ),
+        ] {
+            let event = DividendEvent::new(id, 0.5, quote).unwrap();
+            assert_eq!(
+                AffineDividendTransform::new(UnderlyingId::new(7), spot(100.0), vec![event]),
+                Err(error)
+            );
+        }
+    }
+
+    #[test]
+    fn empty_schedule_and_identity_coordinate_preserve_the_path() {
+        let transform =
+            AffineDividendTransform::new(UnderlyingId::new(7), spot(100.0), vec![]).unwrap();
+        let identity = AffineDividendCoordinate::identity();
+        assert_eq!(identity.a(), 0.0);
+        assert_eq!(identity.b(), 1.0);
+        assert_eq!(identity.spot_scale(), 1.0);
+        assert_eq!(identity.reconstruct_spot(spot(100.0), 37.0), 37.0);
+        assert_eq!(transform.initial_reserve(), 0.0);
+        assert_eq!(transform.initial_coordinate(), identity);
+        assert!(transform.events().is_empty());
+        assert!(transform.event_timeline().unwrap().is_empty());
+        for time in [0.0, 0.5, 10.0] {
+            assert_eq!(transform.coordinate_after_time(time), Ok(identity));
+            assert_eq!(transform.spot_contract_strike(time, 37.0), Ok(37.0));
+        }
+        let bumped = transform.with_spot(spot(125.0)).unwrap();
+        assert_eq!(bumped.initial_coordinate(), identity);
+        assert_eq!(bumped.spot(), spot(125.0));
+        assert_eq!(bumped.underlying(), UnderlyingId::new(7));
+    }
+
+    #[test]
+    fn cash_events_use_post_event_coordinates_at_the_exact_ex_date() {
+        let transform = mixed_schedule();
+        assert_eq!(transform.initial_reserve(), 9.25);
+        let timeline = transform.event_timeline().unwrap();
+        for (index, (time, expected_a, expected_b, scale)) in [
+            (0.25_f64, 0.0625, 0.9075, 1.0),
+            (0.5, 0.0, 0.726, 0.8),
+            (0.75, 0.0, 0.363, 0.4),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let before = transform.coordinate_after_time(time.next_down()).unwrap();
+            let exact = transform.coordinate_after_time(time).unwrap();
+            let after = transform.coordinate_after_time(time.next_up()).unwrap();
+            assert_eq!(before, transform.coordinate_before_event(index).unwrap());
+            assert_eq!(before, timeline[index].before());
+            assert_eq!(exact, timeline[index].after());
+            assert_eq!(exact, after);
+            assert!((exact.a() - expected_a).abs() < 1.0e-15);
+            assert!((exact.b() - expected_b).abs() < 1.0e-15);
+            assert_eq!(exact.spot_scale(), scale);
+        }
+        // The final cash event, rather than the final proportional event, clears A.
+        assert_eq!(timeline[1].after().a(), 0.0);
+        assert_eq!(timeline[2].before().a(), 0.0);
+    }
+
+    #[test]
+    fn spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates() {
+        let original = mixed_schedule();
+        let bumped = original.with_spot(spot(125.0)).unwrap();
+        assert_eq!(bumped.initial_reserve(), 9.25);
+        for time in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let coordinate = original.coordinate_after_time(time).unwrap();
+            assert_eq!(coordinate.at_spot(100.0, 100.0), coordinate);
+            let refitted = coordinate.at_spot(100.0, 125.0);
+            let rebuilt = bumped.coordinate_after_time(time).unwrap();
+            assert!((refitted.a() - rebuilt.a()).abs() < 1.0e-15);
+            assert!((refitted.b() - rebuilt.b()).abs() < 1.0e-15);
+            assert_eq!(refitted.spot_scale(), rebuilt.spot_scale());
+        }
+        for (time, a, b, scale) in [
+            (0.0, 0.074, 0.926, 1.0),
+            (0.25, 0.05, 0.926, 1.0),
+            (0.75, 0.0, 0.3704, 0.4),
+        ] {
+            let actual = bumped.coordinate_after_time(time).unwrap();
+            assert!((actual.a() - a).abs() < 1.0e-15);
+            assert!((actual.b() - b).abs() < 1.0e-15);
+            assert_eq!(actual.spot_scale(), scale);
+        }
+    }
+
+    #[test]
+    fn final_cash_clears_the_reserve_coordinate_exactly_despite_roundoff() {
+        let transform = AffineDividendTransform::new(
+            UnderlyingId::new(7),
+            spot(100.0),
+            vec![
+                DividendEvent::new(
+                    EventId::new(11),
+                    0.5,
+                    DividendQuote::FixedCashAndProportional {
+                        fixed_cash: 2.3,
+                        beta: 0.2,
+                    },
+                )
+                .unwrap(),
+                DividendEvent::new(EventId::new(12), 0.75, DividendQuote::Proportional(0.25))
+                    .unwrap(),
+            ],
+        )
+        .unwrap();
+        assert!(
+            transform
+                .coordinate_after_time(0.5_f64.next_down())
+                .unwrap()
+                .a()
+                > 0.0
+        );
+        for time in [0.5, 0.5_f64.next_up(), 0.75, 1.0] {
+            // This exact-zero contract is intentional; no cash remains to carry.
+            assert_eq!(transform.coordinate_after_time(time).unwrap().a(), 0.0);
+        }
+        assert_eq!(transform.coordinate_before_event(1).unwrap().a(), 0.0);
+        let timeline = transform.event_timeline().unwrap();
+        assert_eq!(timeline[0].after().a(), 0.0);
+        assert_eq!(timeline[1].before().a(), 0.0);
+        assert_eq!(timeline[1].after().a(), 0.0);
+    }
+
+    #[test]
+    fn funding_requires_strictly_positive_residual_and_finite_compilation() {
+        let underlying = UnderlyingId::new(7);
+        let id = EventId::new(17);
+        for cash in [100.0_f64, 100.0_f64.next_up()] {
+            let event = DividendEvent::new(id, 0.5, DividendQuote::FixedCash(cash)).unwrap();
+            assert_eq!(
+                AffineDividendTransform::new(underlying, spot(100.0), vec![event]),
+                Err(MarketError::NonPositiveEscrowedSpot {
+                    underlying,
+                    spot_bits: 100.0_f64.to_bits(),
+                    reserve_bits: cash.to_bits()
+                })
+            );
+        }
+        let event =
+            DividendEvent::new(id, 0.5, DividendQuote::FixedCash(100.0_f64.next_down())).unwrap();
+        let valid = AffineDividendTransform::new(underlying, spot(100.0), vec![event]).unwrap();
+        assert!(valid.initial_coordinate().b() > 0.0);
+        let event = DividendEvent::new(id, 0.5, DividendQuote::FixedCash(f64::MAX)).unwrap();
+        assert_eq!(
+            AffineDividendTransform::new(underlying, spot(0.5), vec![event]),
+            Err(MarketError::NonFiniteDividendTransform {
+                event: id,
+                field: "alpha",
+                bits: f64::INFINITY.to_bits()
+            })
+        );
+        let event = DividendEvent::new(
+            id,
+            0.5,
+            DividendQuote::FixedCashAndProportional {
+                fixed_cash: f64::MAX,
+                beta: 0.5,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            AffineDividendTransform::new(underlying, spot(f64::MAX), vec![event]),
+            Err(MarketError::NonPositiveEscrowedSpot {
+                underlying,
+                spot_bits: f64::MAX.to_bits(),
+                reserve_bits: f64::INFINITY.to_bits()
+            })
+        );
+    }
+
+    #[test]
+    fn dividend_state_validation_checks_the_reconstructed_post_event_spot() {
+        let transform = mixed_schedule();
+        let path = PathIndex::new(23);
+        for (index, pre_spot, expected) in
+            [(0, 118.15, 115.15), (1, 115.15, 87.12), (2, 87.12, 43.56)]
+        {
+            assert!(
+                (transform
+                    .apply_event_to_spot(index, path, pre_spot)
+                    .unwrap()
+                    - expected)
+                    .abs()
+                    < 1.0e-13
+            );
+            assert!(
+                (transform
+                    .validate_post_event_f_state(index, path, 120.0)
+                    .unwrap()
+                    - expected)
+                    .abs()
+                    < 1.0e-13
+            );
+        }
+        for value in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            for error in [
+                transform.apply_event_to_spot(2, path, value).unwrap_err(),
+                transform
+                    .validate_post_event_f_state(2, path, value)
+                    .unwrap_err(),
+            ] {
+                let MarketError::NonPositivePostDividendSpot {
+                    underlying,
+                    event,
+                    path: actual_path,
+                    alpha_bits,
+                    beta_bits,
+                    fixed_cash_bits,
+                    post_spot_bits,
+                    ..
+                } = error
+                else {
+                    panic!("unexpected error: {error:?}");
+                };
+                assert_eq!(underlying, UnderlyingId::new(7));
+                assert_eq!(event, EventId::new(13));
+                assert_eq!(actual_path, path);
+                assert_eq!(alpha_bits, 0.0_f64.to_bits());
+                assert_eq!(beta_bits, 0.5_f64.to_bits());
+                assert_eq!(fixed_cash_bits, 0.0_f64.to_bits());
+                let post_spot = f64::from_bits(post_spot_bits);
+                assert!(!post_spot.is_finite() || post_spot <= 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn query_time_and_strike_failures_keep_the_requested_value() {
+        let transform = mixed_schedule();
+        for value in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let expected = MarketError::InvalidDividendTime {
+                event: EventId::new(0),
+                index: 3,
+                bits: value.to_bits(),
+            };
+            assert_eq!(
+                transform.coordinate_after_time(value),
+                Err(expected.clone())
+            );
+            assert_eq!(transform.spot_contract_strike(value, 100.0), Err(expected));
+        }
+        for strike in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let error = transform.spot_contract_strike(1.0, strike).unwrap_err();
+            let MarketError::NonFiniteDividendTransform { event, field, bits } = error else {
+                panic!("unexpected error: {error:?}");
+            };
+            assert_eq!(event, EventId::new(0));
+            assert_eq!(field, "spot_contract_strike");
+            if strike.is_nan() {
+                assert!(f64::from_bits(bits).is_nan());
+            } else {
+                assert_eq!(f64::from_bits(bits), strike);
+            }
+        }
+    }
+
+    #[test]
+    fn matching_tolerances_use_inclusive_absolute_and_relative_boundaries() {
+        let id = EventId::new(17);
+        let transform = AffineDividendTransform::new(
+            UnderlyingId::new(7),
+            spot(100.0),
+            vec![DividendEvent::new(id, 0.5, DividendQuote::Proportional(0.25)).unwrap()],
+        )
+        .unwrap();
+        let event = transform.events()[0];
+        let absolute = DividendMatchingTolerance::new(2.0, 0.0).unwrap();
+        let relative = DividendMatchingTolerance::new(0.0, 0.25).unwrap();
+        for actual in [10.0, 12.0, 14.0] {
+            validate_dividend_call_price_matching(event, 16.0, actual, absolute).unwrap();
+        }
+        for actual in [9.0, 12.0, 16.0] {
+            validate_dividend_call_price_matching(event, 16.0, actual, relative).unwrap();
+        }
+        for (actual, tolerance) in [
+            (14.0_f64.next_up(), absolute),
+            (9.0_f64.next_down(), relative),
+            (16.0_f64.next_up(), relative),
+        ] {
+            let error =
+                validate_dividend_call_price_matching(event, 16.0, actual, tolerance).unwrap_err();
+            let MarketError::DividendMatchingConditionViolation {
+                event,
+                expected_bits,
+                actual_bits,
+                abs_error_bits,
+                abs_tol_bits,
+                rel_tol_bits,
+            } = error
+            else {
+                panic!("unexpected error: {error:?}");
+            };
+            assert_eq!(event, id);
+            assert_eq!(expected_bits, 12.0_f64.to_bits());
+            assert_eq!(actual_bits, actual.to_bits());
+            assert_eq!(f64::from_bits(abs_error_bits), (actual - 12.0).abs());
+            assert_eq!(abs_tol_bits, tolerance.abs_price_tol().to_bits());
+            assert_eq!(rel_tol_bits, tolerance.rel_price_tol().to_bits());
+        }
+        let exact = DividendMatchingTolerance::new(0.0, 0.0).unwrap();
+        validate_dividend_call_price_matching(event, 16.0, 12.0, exact).unwrap();
+        assert!(
+            validate_dividend_call_price_matching(event, 16.0, 12.0_f64.next_up(), exact).is_err()
+        );
+    }
+
+    #[test]
+    fn matching_tolerances_and_nonfinite_prices_retain_error_fields() {
+        let default = DividendMatchingTolerance::default_for_spot(spot(128.0));
+        assert_eq!(default.abs_price_tol(), 1.28e-10);
+        assert_eq!(default.rel_price_tol(), 1.0e-11);
+        let custom = DividendMatchingTolerance::new(0.125, 0.25).unwrap();
+        assert_eq!(custom.abs_price_tol(), 0.125);
+        assert_eq!(custom.rel_price_tol(), 0.25);
+        let event = mixed_schedule().events()[1];
+        for value in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            for (abs, rel, field) in [
+                (value, 0.0, "dividend_matching_abs_price_tol"),
+                (0.0, value, "dividend_matching_rel_price_tol"),
+            ] {
+                assert_eq!(
+                    DividendMatchingTolerance::new(abs, rel),
+                    Err(MarketError::NonFiniteDividendTransform {
+                        event: EventId::new(0),
+                        field,
+                        bits: value.to_bits(),
+                    })
+                );
+            }
+        }
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            for (before, after, field) in [
+                (value, 1.0, "before_shifted_call"),
+                (1.0, value, "after_call"),
+            ] {
+                assert_eq!(
+                    validate_dividend_call_price_matching(event, before, after, custom),
+                    Err(MarketError::NonFiniteDividendTransform {
+                        event: EventId::new(12),
+                        field,
+                        bits: value.to_bits(),
+                    })
+                );
+            }
+        }
+    }
 }
